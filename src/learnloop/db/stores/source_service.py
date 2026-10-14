@@ -390,6 +390,11 @@ def reference_status_for_item(connection: sqlite3.Connection, item: Any) -> str:
 #: ``judgment_ledger`` task recording that a replacement grade was read against
 #: content whose key is not verified (§7.3a, "Replacement grades").
 REFERENCE_BINDING_TASK = "attempt_reference_binding"
+#: ``bind_replacement_grade``'s ``graded_revision`` for a historical binding
+#: whose revision graded may be one that inherited a default rubric the
+#: vault no longer has (round 3, F13/F19 reopened): the default it was graded
+#: under cannot be recovered, so the binding is ambiguous and never verified.
+AMBIGUOUS_DEFAULT_REVISION = "ambiguous_default"
 
 
 def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
@@ -417,14 +422,21 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     any of them is not verified (fail closed). A dispute recorded later
     against the revision graded therefore lowers it, while a check of an
     unrelated revision (the current, edited one) does not.
+
+    ``graded_revision = ambiguous_default`` (:data:`AMBIGUOUS_DEFAULT_REVISION`,
+    round 3) is a historical binding whose revision graded may have inherited
+    a default rubric that cannot be recovered: no check can vouch for what it
+    graded, so the grade is lowered whatever the candidates' statuses (an
+    exercise import's; ``not_applicable`` content is never gated).
     """
 
     if not gated or not column_exists(connection, "practice_attempts", "reference_status"):
         return None
     contents = [reference_content_hash(item)] if graded_contents is None else list(dict.fromkeys(graded_contents))
     statuses = {content: key_status_for_content(connection, item, content) for content in contents}
+    unrecoverable = graded_contents is not None and graded_revision == AMBIGUOUS_DEFAULT_REVISION
     lowering = [content for content, status in statuses.items()
-                if status != "not_applicable" and status not in VERIFIED_STATUSES]
+                if status != "not_applicable" and (unrecoverable or status not in VERIFIED_STATUSES)]
     if not lowering:
         return None
     row = connection.execute("SELECT reference_status FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
@@ -1537,6 +1549,7 @@ __all__ = [
     "key_status_for_content",
     "reference_status_for_item",
     "REFERENCE_BINDING_TASK",
+    "AMBIGUOUS_DEFAULT_REVISION",
     "bind_replacement_grade",
     "update_import",
     "IMPRESSION_SURFACES",

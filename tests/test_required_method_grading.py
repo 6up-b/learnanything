@@ -66,11 +66,11 @@ KILL_SWITCH = "[required_method]\nenabled = false"
 
 
 def _require_method(paths, item_id: str = ITEM, criterion_ids=("setup",)) -> None:
-    """Make ``item_id`` a method item: the required method, stated in its prompt."""
+    """Make ``item_id`` a method item: the required method (round 3: its
+    instruction is rendered from the field, the statement is unchanged)."""
 
     path = paths.practice_item_path("linear-algebra", item_id)
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    data["prompt"] = data["prompt"] + f" Use {METHOD} in your answer."
     data["required_method"] = {"name": METHOD, "criterion_ids": list(criterion_ids),
                                "learning_object_id": data["learning_object_id"]}
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
@@ -570,6 +570,8 @@ def test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with(tm
     assert rule["method_route_criterion_ids"] == ["setup"] and rule["unlocated_criterion_ids"] == []
     [prompt] = grader.prompts
     assert presented in prompt and "row reduction" not in prompt
+    # Round 3: the grader is sent the frozen method's instruction after the statement.
+    assert json.dumps(f"{presented.rstrip()}\n\nUse {METHOD} in your answer.")[1:-1] in prompt
     assert "Edited after the answer." not in prompt and "setup is right." in prompt
     rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
     assert not unassessed_evidence_row(rows["setup"].attribution_json)

@@ -4,15 +4,14 @@ The redesign made the item's ``required_method`` field the one authority and
 had writers make the text agree with it. The verify found five ways the text,
 the ledger or the certification status could still drift from that field:
 
-* F14: a canonical sentence QUOTED inside generated text ("The previous
-  exercise said "Use X in your answer."") counted as the instruction, so no
-  instruction was rendered while the field was enforced. The instruction is
-  now a dedicated, writer-owned final paragraph; nothing inside arbitrary
-  generated text stands for it;
+* F14: a canonical sentence QUOTED inside generated text counted as the
+  instruction. Its tests are retired by round 3, which renders the
+  instruction from the field and stores none in the statement
+  (``tests/test_required_method_round3.py``);
 * F15: a generated update proposal could replace a source statement while
   the item kept the judgment made on the OLD statement. Such an edit is now
   refused (a judged statement is never rewritten through a proposal); a
-  generated item's new prompt keeps the writer's block;
+  generated item's new prompt is stored as generated;
 * F13: a frozen regrade of an edited item skipped verification binding, so a
   later dispute of the revision it graded never lowered the attempt. The
   regrade now binds the revision it graded;
@@ -37,120 +36,17 @@ import pytest
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import Rubric
-from learnloop.vault.required_method import (
-    has_method_instruction,
-    inherit_required_method,
-    normalize_required_method,
-    render_method_instruction,
-    required_method_problems,
-    strip_method_instruction,
-)
+from learnloop.vault.required_method import presented_prompt
 
 from tests.helpers import create_basic_vault
 from tests.test_required_method_authority import (
-    FROZEN,
-    METHOD,
     REQUIRES,
-    SENTENCE,
     SOURCE_REPRODUCTIONS,
     SVD,
     StatementDecider,
     _import,
-    _item,
     _ledger,
-    _targets,
 )
-
-# -- F14: the instruction is the writer's own final paragraph -----------------------------------
-
-#: The verify's reproduction, and the other places a quoted or descriptive
-#: occurrence of the sentence can sit inside generated text.
-QUOTED = {
-    "quoted_then_task": 'The previous exercise said "Use cofactor expansion in your answer." Compute det(B).',
-    "mid_paragraph": "Use cofactor expansion in your answer. That was last week's rule; compute det(B) now.",
-    "after_a_colon": "Compute det(B). Last week's exercise ended with: Use cofactor expansion in your answer.",
-    "earlier_paragraph": "Use cofactor expansion in your answer.\n\nThat was the previous exercise. Compute det(B).",
-    "closing_quote": 'Compute det(B). The previous exercise said "Use cofactor expansion in your answer."',
-}
-
-
-@pytest.mark.parametrize("case", list(QUOTED))
-def test_f14_a_sentence_inside_generated_text_never_stands_for_the_instruction(case):
-    prompt = QUOTED[case]
-    assert not has_method_instruction(prompt, METHOD)
-    payload = {"prompt": prompt, "grading_rubric": {"criteria": [{"id": "method"}, {"id": "result"}]},
-               "required_method": dict(FROZEN)}
-    assert normalize_required_method(payload, _targets()) == ["required_method:instruction_added"]
-    # The generated text is kept verbatim; the writer's block follows it.
-    assert payload["prompt"] == f"{prompt}\n\n{SENTENCE}"
-    assert has_method_instruction(payload["prompt"], METHOD)
-    # Validation reports the item until the block is there.
-    rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))
-    errors = [problem.code for problem in required_method_problems(_item(prompt, FROZEN), rubric)
-              if problem.severity == "error"]
-    assert errors == ["required_method:not_stated"]
-    assert [problem for problem in required_method_problems(_item(payload["prompt"], FROZEN), rubric)
-            if problem.severity == "error"] == []
-
-
-@pytest.mark.parametrize("case", list(QUOTED))
-def test_f14_a_pf_variant_stem_gets_the_block_whatever_it_quotes(case):
-    from types import SimpleNamespace
-
-    payload = {"prompt": QUOTED[case]}
-    parent = SimpleNamespace(required_method=_item("x", FROZEN).required_method)
-    assert "required_method:instruction_added" in inherit_required_method(payload, parent)
-    assert payload["prompt"] == f"{QUOTED[case]}\n\n{SENTENCE}"
-
-
-def test_f14_the_writer_never_takes_a_trailing_sentence_for_its_block():
-    """Re-review (F14 reopened): the guidance no longer asks the model for the
-    sentence, and the writer renders its block after whatever the generated
-    text ends with, its own last sentence included (it is generated text,
-    never the writer's block)."""
-
-    assert render_method_instruction(f"Compute det(A). {SENTENCE}", METHOD) == (
-        f"Compute det(A). {SENTENCE}\n\n{SENTENCE}")
-    assert render_method_instruction(f"Compute det(A)?\n{SENTENCE}", METHOD) == (
-        f"Compute det(A)?\n{SENTENCE}\n\n{SENTENCE}")
-    assert render_method_instruction("", METHOD) == SENTENCE
-    # A STORED prompt carries the block at column 0 (whitespace between its
-    # words aside); an indented final paragraph is not the writer's block.
-    assert has_method_instruction(f"Compute det(A).\n\nUse cofactor\nexpansion in   your answer.  \n", METHOD)
-    assert not has_method_instruction(f"Compute det(A).\n\n  Use cofactor\nexpansion in   your answer.", METHOD)
-    # Windows line endings are paragraph breaks too.
-    assert has_method_instruction(f"Compute det(A).\r\n\r\n{SENTENCE}", METHOD)
-
-
-def test_f14_clearing_removes_only_the_writers_block():
-    quoted = QUOTED["quoted_then_task"]
-    assert strip_method_instruction(f"{quoted}\n\n{SENTENCE}", METHOD) == quoted
-    # Text with no writer's block is never edited (the quote stays intact).
-    assert strip_method_instruction(quoted, METHOD) == quoted
-    assert strip_method_instruction(SENTENCE, METHOD) == ""
-
-
-def test_f14_the_override_on_a_generated_item_with_a_quoted_sentence_adds_and_removes_the_block(tmp_path):
-    from learnloop.content.proposals.proposals import accept_items
-    from learnloop.content.proposals.required_method_override import propose_required_method_override
-    from learnloop.vault.writer import upsert_practice_item
-
-    paths = create_basic_vault(tmp_path / "vault")
-    repository = Repository(paths.sqlite_path)
-    data = load_vault(paths.root).practice_items["pi_svd_define_001"].model_dump(mode="json")
-    quoted = f'Last week\'s card said "Use {SVD} in your answer." Define the SVD of A.'
-    data["prompt"] = quoted
-    upsert_practice_item(paths.root, data)
-    proposed = propose_required_method_override(load_vault(paths.root), repository, data["id"], name=SVD,
-                                                criterion_ids=["correctness"])
-    accept_items(paths.root, proposed["proposal_id"])
-    item = load_vault(paths.root).practice_items[data["id"]]
-    assert item.prompt == f"{quoted}\n\nUse {SVD} in your answer."
-    cleared = propose_required_method_override(load_vault(paths.root), repository, data["id"], clear=True)
-    accept_items(paths.root, cleared["proposal_id"])
-    assert load_vault(paths.root).practice_items[data["id"]].prompt == quoted
-
 
 # -- F15: a judged statement is never rewritten through a proposal ------------------------------
 
@@ -240,9 +136,11 @@ def test_f15_a_whitespace_only_restatement_keeps_the_verbatim_statement_and_appl
     assert after.required_method.judgment_id == item.required_method.judgment_id
 
 
-def test_f15_a_generated_items_new_prompt_keeps_the_writers_block(tmp_path):
-    """A generated (instruction) item: an update that rewrites the prompt
-    without the block gets it, so the text keeps agreeing with the field."""
+def test_f15_a_generated_items_new_prompt_is_stored_as_generated(tmp_path):
+    """A generated (instruction) item: an update that rewrites the prompt is
+    stored exactly as generated (round 3: the instruction is rendered from
+    the field, never written into the statement), and the item keeps its
+    field."""
 
     from learnloop.content.proposals.proposals import accept_items
     from learnloop.content.proposals.required_method_override import propose_required_method_override
@@ -252,16 +150,19 @@ def test_f15_a_generated_items_new_prompt_keeps_the_writers_block(tmp_path):
     proposed = propose_required_method_override(load_vault(paths.root), repository, "pi_svd_define_001",
                                                 name=SVD, criterion_ids=["correctness"])
     accept_items(paths.root, proposed["proposal_id"])
+    assert load_vault(paths.root).practice_items["pi_svd_define_001"].prompt == "Define SVD."
     patch_id, row = _update_proposal(tmp_path, repository, "pi_svd_define_001",
                                      {"prompt": "Define the SVD of a 2x2 matrix A."})
-    assert row["payload"]["prompt"] == f"Define the SVD of a 2x2 matrix A.\n\nUse {SVD} in your answer."
+    assert row["payload"]["prompt"] == "Define the SVD of a 2x2 matrix A."
     assert row["validation_status"] != "invalid", row["validation_errors"]
     accept_items(paths.root, patch_id)
     item = load_vault(paths.root).practice_items["pi_svd_define_001"]
-    assert has_method_instruction(item.prompt, item.required_method.name)
+    assert item.prompt == "Define the SVD of a 2x2 matrix A." and item.required_method.name == SVD
+    assert presented_prompt(item.prompt, item.required_method) == (
+        f"Define the SVD of a 2x2 matrix A.\n\nUse {SVD} in your answer.")
 
 
-def test_f15_a_generated_update_renaming_the_method_replaces_the_block(tmp_path):
+def test_f15_a_generated_update_renaming_the_method_changes_only_the_field(tmp_path):
     from learnloop.content.proposals.proposals import accept_items
     from learnloop.content.proposals.required_method_override import propose_required_method_override
 
@@ -275,10 +176,9 @@ def test_f15_a_generated_update_renaming_the_method_replaces_the_block(tmp_path)
     _patch_id, row = _update_proposal(tmp_path, repository, before.id, {
         "required_method": {"name": renamed, "criterion_ids": ["correctness"]}})
     assert row["payload"]["required_method"]["name"] == renamed
-    assert row["payload"]["prompt"].count("in your answer.") == 1
-    assert row["payload"]["prompt"].endswith(f"Use {renamed} in your answer.")
+    assert "prompt" not in row["payload"]
     # A method the item's targets do not name is dropped: the item keeps its
-    # field and its prompt (and block) untouched.
+    # field and its prompt untouched.
     _patch_id, row = _update_proposal(tmp_path, repository, before.id, {
         "required_method": {"name": "row reduction", "criterion_ids": ["correctness"]}})
     assert "required_method" not in row["payload"] and "prompt" not in row["payload"]

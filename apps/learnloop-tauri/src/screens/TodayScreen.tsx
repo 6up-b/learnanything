@@ -31,6 +31,7 @@ import { InboxStrip } from "../components/InboxStrip";
 import { masteryTone } from "../app/algoConfig";
 import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { ItemPresentation } from "../components/ItemPresentation";
 import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
 import { DailyPlanView } from "./today/DailyPlanView";
@@ -1467,7 +1468,18 @@ function QueueDetail({
 
       <SectionHeader>Prompt</SectionHeader>
       <div style={{ padding: "12px 14px", background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, fontSize: 13, lineHeight: 1.6, color: COLOR.text }}>
-        {detail ? <MarkdownMath value={detail.prompt} /> : <Faint>loading…</Faint>}
+        {/* The shared presentation: the statement and, for a method item, the
+            instruction rendered from its required method (never stored in the
+            statement), exactly as the practice screen shows them. */}
+        {detail ? (
+          detail.presentation ? (
+            <ItemPresentation presentation={detail.presentation} />
+          ) : (
+            <MarkdownMath value={detail.prompt} />
+          )
+        ) : (
+          <Faint>loading…</Faint>
+        )}
       </div>
 
       <div style={{ marginTop: 22, display: "flex", gap: 10, flexWrap: "wrap" }}>

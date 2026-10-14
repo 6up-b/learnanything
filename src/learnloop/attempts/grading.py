@@ -42,6 +42,7 @@ from learnloop.vault.models import (
     Rubric,
     learning_object_facet_union,
 )
+from learnloop.vault.required_method import presented_prompt
 
 
 # Closed vocabulary for how a quote anchor's offsets were resolved. The quote is
@@ -784,11 +785,23 @@ def build_grading_context(
     assessment_contract: dict[str, Any] | None = None,
 ) -> GradingContext:
     rubric = rubric or resolved_rubric(vault, item)
-    prompt = (
+    statement = (
         assessment_contract.get("prompt", item.prompt)
         if assessment_contract is not None
         else item.prompt
     )
+    # Method-explicit items (round 3): the grader is sent the question as the
+    # learner was shown it, the statement then the instruction rendered from
+    # the required method the contract froze (the item's own field when there
+    # is no contract: the item is presented as it is now). The statement is
+    # never searched for the instruction; without a method the prompt is the
+    # statement exactly.
+    method = (
+        assessment_contract.get("required_method")
+        if assessment_contract is not None
+        else getattr(item, "required_method", None)
+    )
+    prompt = presented_prompt(statement, method)
     expected_value = (
         assessment_contract.get("expected_answer", item.expected_answer)
         if assessment_contract is not None

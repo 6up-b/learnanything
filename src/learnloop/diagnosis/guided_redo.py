@@ -39,6 +39,7 @@ from typing import Any
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 
 
 class GuidedRedoUnavailable(ValueError):
@@ -342,7 +343,7 @@ def start_guided_redo(
     return {
         "attempt_id": str(attempt["id"]),
         "practice_item_id": item.id,
-        "prompt": item.prompt,
+        "prompt": presented_prompt(item.prompt, item.required_method),
         "learner_work_prefix": prefix,
         # What to redo, in the grader's own words: the repair op rationale plus
         # the checkpoint-precise targets when the item has a decomposition.

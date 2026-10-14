@@ -51,6 +51,7 @@ from learnloop.source_retrieval.find_sources import INTENTS as SOURCE_INTENTS
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.tutor.tutor_qa import answer_leaks_expected, span_leaks_expected
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 
 TOOL_REQUEST_TASK = "source_tool_request"
 #: Callers whose requests are recorded in ``source_tool_calls`` (§10.4).
@@ -263,7 +264,10 @@ def _practice_view(vault: LoadedVault, result: Mapping[str, Any], withhold: _Wit
         items.append({
             "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
             "facet_ids": list(entry.get("facet_ids") or ()), "practice_mode": item.practice_mode,
-            "prompt": _clip(item.prompt, PROMPT_CHARS), "difficulty": item.difficulty,
+            # The question as presented (round 3: a required method's
+            # instruction rendered after the statement).
+            "prompt": _clip(presented_prompt(item.prompt, item.required_method), PROMPT_CHARS),
+            "difficulty": item.difficulty,
             "expected_minutes": minutes, "source_label": canonical.label if canonical is not None else None,
             "rationale": entry.get("rationale"),
         })

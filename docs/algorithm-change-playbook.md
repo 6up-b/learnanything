@@ -56,8 +56,8 @@ See `docs/reviews/route-check-in-grader.md`.
 
 Recorded owner rule, 2026-10-13 (method-explicit items): rubric criteria name
 the fact a step establishes, not the method; an item whose target IS a method
-states it ("Use {method} in your answer.") and records it as
-`PracticeItem.required_method`. The grading side changes grading for new
+records it as `PracticeItem.required_method` and is presented with the
+instruction "Use {method} in your answer." rendered from that field. The grading side changes grading for new
 answers on required-method items (a criterion tied to the required method is
 graded on use of that method, `own-route-v2`), so it mints a successor, built
 as `mvp-0.22-placeholder` and relabelled at its merge, with the kill switch
@@ -72,12 +72,16 @@ regrade of a required-method item also reads the statement and rubric from
 that contract, and its rows cite it, so a content edit never changes how a
 past answer's method is enforced. The field is the ONE authority (redesign,
 2026-10-14): grading, regrading and replay never parse the prompt to decide
-whether a method applies. Writers make the text agree with the field (a
-generated prompt gets the canonical sentence; a textbook statement is judged
-once at import by the Decider, else the LLM judge, ledgered; a PF variant's
-stem is judged once before publication), and a statement reader survives
-only as an advisory doctor/report flag. A frozen regrade binds the key status
-of the content it graded, not the item's current content. See
+whether a method applies. The instruction is never stored in the statement
+(round 3): it is rendered from the field as a separate block wherever the
+item is shown, and into the grader's question from the frozen contract, so
+no writer appends it, no validation looks for it and nothing edits a
+statement to add or remove it. A textbook statement is judged once at import
+by the Decider, else the LLM judge, ledgered; a PF variant's stem is judged
+once before publication; a statement reader survives only as an advisory
+doctor/report flag. A frozen regrade binds the key status of the content it
+graded, not the item's current content, and a historical one whose inherited
+default rubric cannot be recovered binds unverified. See
 `docs/reviews/method-explicit-items.md` and
 `docs/reviews/method-explicit-items-codex-review.md` ("Redesign").
 

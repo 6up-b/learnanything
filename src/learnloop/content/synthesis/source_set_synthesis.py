@@ -1475,9 +1475,10 @@ def _normalize(
         if isinstance(required, dict) and str(required.get("name") or "").strip():
             # Method-explicit items (owner rule 2026-10-13): kept only on a
             # method target (this batch's concepts and facets plus the
-            # registry), linked to it, with the canonical sentence appended
-            # (redesign 2026-10-14: the prompt's phrasing is never read to
-            # decide; the advisory heuristic only flags it for review).
+            # registry), linked to it; the prompt is stored as generated and
+            # the instruction rendered from the field (round 3; the prompt's
+            # phrasing is never read to decide, the advisory heuristic only
+            # flags it for review).
             payload["required_method"] = dict(required)
             notes = normalize_required_method(
                 payload,

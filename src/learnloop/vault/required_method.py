@@ -18,24 +18,28 @@ answered, is the ONLY thing grading, regrading and replay read. No grader
 parses the prompt to decide whether a method applies: every round of a
 free-text statement reader found new phrasings ("In the worked example, using
 X gives 13", "without having to use X", LaTeX-wrapped instructions, "which"
-clauses). The text is made to agree with the field when the field is
-written, never the other way round.
+clauses).
+
+**The instruction is rendered, never stored (round 3, 2026-10-14).** The
+canonical sentence ("Use {name} in your answer.") is generated from the field
+and rendered as a separate block wherever the item is shown or sent: the
+presentation's ``required_method_instruction`` block on every answering
+surface, and the grader's question (:func:`presented_prompt`, from the frozen
+contract). The stored statement never contains it, no writer appends it, no
+validation looks for it, and nothing finds, keeps or removes it by matching
+text: every such matcher was defeated by the statement's own words (a
+quotation of the sentence taken for the instruction, review F14; a sentence
+inside a quotation deleted when the field was cleared, F18 and F21). A
+statement written under the earlier rule that still ends with the sentence is
+left as it is (the learner sees the sentence twice; grading is unaffected).
 
 This module is the rule's dependency-neutral vocabulary, shared by every
 writer (generation paths), the grader, doctor and the repair report:
 
-* :func:`required_method_instruction` / :func:`render_method_instruction` /
-  :func:`restate_method_instruction` / :func:`has_method_instruction` /
-  :func:`strip_method_instruction` - the ONE canonical sentence generated
-  from the field ("Use {name} in your answer."), rendered by the writer as
-  its own block: the prompt's final paragraph. The writer renders it onto
-  generated text and never takes anything the generated text says for it
-  (the generation guidance no longer asks the model for the sentence:
-  LearnLoop appends it). Validation of a STORED prompt checks for the block
-  exactly as the writer renders it (its own paragraph, at column 0); a
-  legacy instruction written inline under the earlier rule is removed when
-  the field is cleared or renamed, a quoted occurrence never (review F14,
-  F18);
+* :func:`required_method_instruction` / :func:`method_instruction` /
+  :func:`presented_prompt` - the ONE canonical sentence generated from the
+  field, and the question as presented (the statement verbatim, then that
+  sentence as its own block);
 * :func:`is_source_statement` and :class:`SourceStatementDecision` - a
   source-authored statement is never rewritten: whether it requires the
   method is decided ONCE when it is imported (a judgment, ledgered; see
@@ -55,9 +59,9 @@ writer (generation paths), the grader, doctor and the repair report:
   facet of kind ``procedure_contract``; never for an item whose capability is
   ``method_selection`` (choosing the method is then what is measured);
 * :func:`normalize_required_method` / :func:`inherit_required_method` - the
-  deterministic check every writer runs (a required method only on a method
-  target, its criteria in the rubric, the canonical sentence in a generated
-  prompt, the one-time judgment for a source statement);
+  deterministic check every writer runs on the FIELD (a required method only
+  on a method target, its criteria in the rubric, the one-time judgment for
+  a source statement); neither reads nor writes the statement;
 * :func:`required_method_problems` - the validation doctor reports;
 * :data:`CRITERIA_BY_FACT_GUIDANCE` - the generation prompts' shared text.
 """
@@ -74,7 +78,8 @@ from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 #: v2 (review F14 reopened): the model no longer writes the instruction;
 #: LearnLoop appends it.
 CRITERIA_BY_FACT_RULE_VERSION = "criteria-by-fact-v2"
-#: The instruction a method item's prompt carries (generation writes it).
+#: The instruction a method item is presented with, rendered from its field
+#: (never stored in its statement; round 3).
 METHOD_INSTRUCTION_TEMPLATE = "Use {name} in your answer."
 
 #: The shared generation guidance (each path cites it in its prompt).
@@ -119,171 +124,57 @@ def _squash(text: str) -> str:
     return " ".join(folded.split()).casefold()
 
 
-# -- the canonical sentence (the text agrees with the field) ----------------------------
+# -- the instruction, rendered from the field (round 3) ---------------------------------
 
 
-def _whitespace_normalized(text: Any) -> str:
-    return " ".join(str(text or "").split())
+def _method_name(method: Any) -> str | None:
+    """The name of a required method given as the item's field, a frozen
+    contract's ``required_method`` mapping, or None."""
+
+    if method is None:
+        return None
+    raw = method.get("name") if isinstance(method, Mapping) else getattr(method, "name", None)
+    name = " ".join(str(raw or "").split())
+    return name or None
 
 
-#: A paragraph break: one or more lines with nothing but whitespace (``\r\n`` included).
-_PARAGRAPH_BREAK = re.compile(r"\n(?:[^\S\n]*\n)+")
+def method_instruction(method: Any) -> str | None:
+    """The instruction a required method renders ("Use {name} in your
+    answer."), or None without one.
 
-
-def _last_paragraph_break(text: str) -> re.Match[str] | None:
-    """The last paragraph break in ``text`` (already right-stripped), if any."""
-
-    last = None
-    for last in _PARAGRAPH_BREAK.finditer(text):
-        pass
-    return last
-
-
-def render_method_instruction(text: Any, name: str) -> str:
-    """Generated ``text`` followed by the writer's block for ``name``.
-
-    The block is the canonical sentence (:func:`required_method_instruction`,
-    "Use {name} in your answer.", generated from the field) as the prompt's
-    own final paragraph, and the writer ALWAYS renders it: nothing the
-    generated text says stands for it, not the sentence quoted, indented,
-    introduced ("The previous exercise said:"), nor even written as a final
-    paragraph of its own (review F14, reopened). The generation guidance
-    therefore leaves the sentence to LearnLoop (:data:`CRITERIA_BY_FACT_GUIDANCE`).
-    The generated text is kept verbatim, trailing whitespace aside.
+    ``method`` is the item's ``required_method`` field or the mapping an
+    assessment contract froze (``contract["required_method"]``). The
+    instruction is generated from the field and never stored in, read from
+    or removed from the item's statement (round 3): every surface that shows
+    the item and the grader's view of the question render it as a separate
+    block after the statement, so nothing the statement says (a quotation of
+    the sentence, an inline copy written under an earlier rule) ever stands
+    for it, and changing the field never edits the statement.
     """
 
-    body = text.rstrip() if isinstance(text, str) else ""
-    instruction = required_method_instruction(name)
+    name = _method_name(method)
+    return required_method_instruction(name) if name else None
+
+
+def presented_prompt(prompt: Any, method: Any) -> str:
+    """The question as presented: the stored statement, verbatim, then the
+    instruction rendered from ``method`` as its own final paragraph.
+
+    The text form of the presentation's ``required_method_instruction``
+    block (``learnloop_sidecar.handlers.serializers.item_presentation``), for
+    the surfaces that send or show text: the grader's question (from the
+    frozen assessment contract the learner answered), the terminal practice
+    screen, a tutor's or diagnoser's view of the item. Without a required
+    method it is the statement exactly, so every other item's prompt (and
+    every hash over it) is unchanged.
+    """
+
+    text = prompt if isinstance(prompt, str) else str(prompt or "")
+    instruction = method_instruction(method)
+    if instruction is None:
+        return text
+    body = text.rstrip()
     return f"{body}\n\n{instruction}" if body else instruction
-
-
-def has_method_instruction(prompt: Any, name: str) -> bool:
-    """Does a STORED ``prompt`` end with the writer's block for ``name``, as
-    :func:`render_method_instruction` renders it?
-
-    Its final paragraph (after a blank line; ``\\r\\n`` counts) is the
-    canonical sentence starting at column 0, word for word (case and
-    punctuation count, whitespace between words aside). An indented final
-    paragraph (a Markdown code block or quotation), a blockquote, or the
-    sentence anywhere else never counts (review F14). This reads a prompt a
-    writer already wrote (doctor, the gold-set loader, a writer asking whether
-    an item's stored prompt still carries its block); whether GENERATED text
-    states the method is never asked: the writer renders the block onto it.
-    """
-
-    if not _whitespace_normalized(name):
-        return False
-    text = (prompt if isinstance(prompt, str) else str(prompt or "")).rstrip()
-    found = _last_paragraph_break(text)
-    last = text[found.end():] if found is not None else text
-    if last[:1].isspace():
-        return False
-    return _whitespace_normalized(last) == _whitespace_normalized(required_method_instruction(name))
-
-
-#: Sentence-ending punctuation before a standalone (legacy) instruction.
-_SENTENCE_END = (".", "!", "?")
-
-
-def _standalone_instructions(text: str, name: str) -> list[tuple[int, int]]:
-    """Spans of the canonical sentence standing as a sentence of the text's
-    own: at the start of the text or after a sentence's end (``.``, ``!``,
-    ``?``, on its line or an earlier one), on a line that is neither indented
-    nor a blockquote, and followed by whitespace or the end. A quoted
-    occurrence (in quotation marks or brackets, after a colon, indented, in a
-    blockquote) is never one."""
-
-    words = required_method_instruction(name).split()
-    if not words:
-        return []
-    spans: list[tuple[int, int]] = []
-    for match in re.finditer(r"\s+".join(re.escape(word) for word in words), text):
-        start, end = match.span()
-        if end < len(text) and not text[end].isspace():
-            continue  # a closing quote or bracket, or more of a sentence
-        line = text[text.rfind("\n", 0, start) + 1:]
-        if line[:1].isspace() or line.lstrip().startswith(">"):
-            continue  # an indented line (code or a quotation) or a blockquote
-        before = text[:start].rstrip()
-        if before and not before.endswith(_SENTENCE_END):
-            continue  # it continues a quotation, a colon or a clause
-        spans.append((start, end))
-    return spans
-
-
-def _without_legacy_instruction(text: str, name: str) -> str:
-    """``text`` without its standalone occurrences of the canonical sentence:
-    a LEGACY instruction, written inline while the sentence anywhere in the
-    prompt stated the field (review F18). Every quoted occurrence is kept; a
-    text with none is returned unchanged."""
-
-    spans = _standalone_instructions(text, name)
-    if not spans:
-        return text
-    out = text
-    for start, end in reversed(spans):
-        line_start = out.rfind("\n", 0, start) + 1
-        line_end = out.find("\n", end)
-        line_end = len(out) if line_end < 0 else line_end
-        if not out[line_start:start].strip() and not out[end:line_end].strip():
-            # The sentence is a line of its own: drop the line, keeping the
-            # larger of the breaks around it.
-            prefix, suffix = out[:line_start], out[line_end:]
-            head, tail = prefix.rstrip(), suffix.lstrip()
-            breaks = max(prefix[len(head):].count("\n"), suffix[:len(suffix) - len(tail)].count("\n"))
-            separator = "\n\n" if breaks >= 2 else "\n"
-            out = head + separator + tail if head and tail else head or tail
-        elif out[end:line_end].strip():
-            out = out[:start] + out[end:].lstrip(" \t")  # more text follows on its line
-        else:
-            out = out[:start].rstrip(" \t") + out[end:]  # the line's last sentence
-    return out.rstrip()
-
-
-def strip_method_instruction(prompt: Any, name: str) -> str:
-    """``prompt`` without the instruction for ``name``, the method its item's
-    field requires (an owner's accepted override, a generated update or a
-    repair that clears or renames the field on a generated item).
-
-    The writer's block is removed when the prompt ends with it, and so is
-    every standalone occurrence of the sentence left in the text: a LEGACY
-    instruction, written inline while the sentence anywhere stated the field
-    ("Compute det(A). Use X in your answer."; review F18), or one the text
-    repeats. A quoted occurrence (in quotation marks or brackets, after a
-    colon, indented, in a blockquote) is never edited, and a prompt with
-    neither is returned unchanged.
-    """
-
-    text = prompt if isinstance(prompt, str) else ""
-    if not _whitespace_normalized(name):
-        return text
-    if has_method_instruction(text, name):
-        stripped = text.rstrip()
-        found = _last_paragraph_break(stripped)
-        text = stripped[:found.start()].rstrip() if found is not None else ""
-    return _without_legacy_instruction(text, name)
-
-
-def restate_method_instruction(prompt: Any, name: str | None, *, previous: str | None = None) -> str:
-    """An item's prompt made to agree with its field changed from ``previous``
-    (the instruction method it had, or None) to ``name`` (None: cleared).
-
-    ``prompt`` is the item's stored prompt or a generated revision of it.
-    ``previous``'s instruction is taken out first
-    (:func:`strip_method_instruction`: the writer's block and any legacy
-    standalone one), and ``name``'s block is rendered
-    (:func:`render_method_instruction`). A prompt that already ends with the
-    block of an unchanged method is returned as it is. Without ``previous``
-    no writer rendered a block for the field, so nothing in the text is
-    taken out or taken for one: the block is rendered after it.
-    """
-
-    text = prompt if isinstance(prompt, str) else ""
-    unchanged = bool(previous and name) and _whitespace_normalized(previous) == _whitespace_normalized(name)
-    if unchanged and has_method_instruction(text, str(name)):
-        return text
-    body = strip_method_instruction(text, previous) if previous else text
-    return render_method_instruction(body, name) if name else body
 
 
 def is_source_statement(item: Any) -> bool:
@@ -302,6 +193,10 @@ def is_source_statement(item: Any) -> bool:
         return True
     provenance = getattr(item, "provenance", None)
     return getattr(provenance, "origin", None) == "canonical_extract"
+
+
+def _whitespace_normalized(text: Any) -> str:
+    return " ".join(str(text or "").split())
 
 
 def same_statement(left: Any, right: Any) -> bool:
@@ -698,9 +593,8 @@ def normalize_required_method(
     source_statement: bool = False,
     rubric_criterion_ids: Sequence[str] | None = None,
     judge_source: SourceJudge | None = None,
-    render_instruction: bool = True,
 ) -> list[str]:
-    """Hold a written item's ``required_method`` to the rule, in place.
+    """Hold a written item's ``required_method`` FIELD to the rule, in place.
 
     Returns notes (``required_method:<what happened>``) for the writer's
     validation record. A required method is kept only when
@@ -709,25 +603,19 @@ def normalize_required_method(
       and the proposed name names one of them (a shared content token or
       alias); it is then linked to that target;
     * its criteria are criteria of the item's rubric (unknown ids dropped);
-    * the text is made to agree with it, without reading the text
-      (redesign 2026-10-14):
+    * for a SOURCE statement (``source_statement``: a textbook exercise's
+      verbatim stem), the one-time judgment says the statement requires it:
+      ``judge_source`` (the Decider, else the LLM judge, ledgered;
+      :class:`SourceStatementDecision`) keeps it as ``statement = source``
+      with the judgment's id when its argmax is ``requires``, and it is
+      dropped otherwise, and when no judgment could be made (an answer is
+      never failed for a method nobody decided the statement requires).
 
-      - the writer renders its block, the canonical sentence
-        (:func:`required_method_instruction`) as the final paragraph, onto a
-        GENERATED prompt (:func:`render_method_instruction`): nothing the
-        generated text says stands for it (review F14). A caller that makes
-        a stored prompt agree itself (an update of an existing item, which
-        may already carry its block) passes ``render_instruction=False``;
-      - a SOURCE statement (``source_statement``: a textbook exercise's
-        verbatim stem) is never rewritten. Whether it requires the method is
-        decided once, here, by ``judge_source`` (the Decider, else the LLM
-        judge, ledgered; :class:`SourceStatementDecision`): kept as
-        ``statement = source`` with the judgment's id when its argmax is
-        ``requires``, dropped otherwise, and dropped when no judgment could
-        be made (an answer is never failed for a method nobody decided the
-        statement requires).
-
-    Anything else drops the field. A payload without one is left as it is.
+    The statement itself is never read to decide, and never written: the
+    instruction is rendered from the field wherever the item is shown or
+    sent (round 3; :func:`presented_prompt`), so a generated prompt is
+    stored exactly as generated. Anything else drops the field. A payload
+    without one is left as it is.
     """
 
     raw = payload.get("required_method")
@@ -771,23 +659,19 @@ def normalize_required_method(
             **field, "statement": "source", "decided_by": "judgment", "judgment_id": decision.judgment_id,
         }
         return [*notes, "required_method:source_statement_judged_requires"]
-    if render_instruction:
-        payload["prompt"] = render_method_instruction(prompt_text, name)
-        notes.append("required_method:instruction_added")
     payload["required_method"] = field
-    return notes
+    return [*notes, "required_method:kept"]
 
 
 def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
     """A variant that keeps its parent's rubric verbatim keeps its required method.
 
-    The parent's method (name, criteria and links) is copied and the writer
-    renders its block onto the variant's GENERATED stem
-    (:func:`render_method_instruction`; nothing in the stem stands for it,
-    review F14), whatever the parent's own statement was (a textbook
-    parent's ``source`` decision is about the book's wording, not the
-    variant's). Nothing here reads the stem: whether the stem prohibits
-    or contradicts the method is the one-time publication judgment
+    The parent's method (name, criteria and links) is copied, whatever the
+    parent's own statement was (a textbook parent's ``source`` decision is
+    about the book's wording, not the variant's), and the variant's stem is
+    stored as generated: its instruction is rendered from the copied field
+    wherever it is shown (round 3). Nothing here reads the stem: whether it
+    prohibits or contradicts the method is the one-time publication judgment
     (``ops.pf_publish``), which refuses such a variant before this runs
     (redesign 2026-10-14; review F10).
     """
@@ -802,10 +686,7 @@ def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
         "name": name, "criterion_ids": list(dumped.get("criterion_ids") or ()),
         **{key: dumped[key] for key in ("learning_object_id", "concept_id", "facet_id") if dumped.get(key)},
     }
-    prompt = payload.get("prompt")
-    prompt_text = prompt if isinstance(prompt, str) else ""
-    payload["prompt"] = render_method_instruction(prompt_text, name)
-    return ["required_method:inherited", "required_method:instruction_added"]
+    return ["required_method:inherited"]
 
 
 # -- validation (doctor) -----------------------------------------------------------
@@ -825,14 +706,11 @@ class RequiredMethodProblem:
 def required_method_problems(item: Any, rubric: Any) -> list[RequiredMethodProblem]:
     """What doctor reports for one item under the rule.
 
-    Structural checks of the field (redesign 2026-10-14):
+    Structural checks of the field (redesign 2026-10-14). The statement is
+    never checked for the instruction: it is rendered from the field
+    wherever the item is shown or sent (round 3), so an ``instruction``
+    item is stated by construction.
 
-    * ``required_method:not_stated`` (error): an ``instruction`` item whose
-      prompt does not end with the writer's block, the canonical sentence
-      generated from the field ("Use {name} in your answer.", word for word)
-      as its own final paragraph at column 0 (:func:`has_method_instruction`:
-      no other phrasing is read, and the sentence inside other text, indented
-      or in a blockquote does not count);
     * ``required_method:undecided`` (error): a ``source`` item with no
       recorded decision (``decided_by``; a judgment needs its
       ``judgment_id``);
@@ -865,13 +743,6 @@ def required_method_problems(item: Any, rubric: Any) -> list[RequiredMethodProbl
                     "(the import's judgment, or the owner's accepted override)",
                     method=method.name,
                 ))
-        elif not has_method_instruction(prompt, method.name):
-            problems.append(RequiredMethodProblem(
-                "error", "required_method:not_stated",
-                f"{item.id} requires {method.name!r} but its prompt does not end with the paragraph "
-                f"{required_method_instruction(method.name)!r}",
-                method=method.name,
-            ))
         flag = advisory_statement_flag(prompt, method.name)
         if flag is not None:
             problems.append(RequiredMethodProblem(
@@ -921,20 +792,18 @@ __all__ = [
     "SourceStatementDecision",
     "advisory_statement_flag",
     "best_target",
-    "has_method_instruction",
     "inherit_required_method",
     "is_source_statement",
     "learning_object_method_targets",
+    "method_instruction",
     "method_phrase",
     "method_targets",
     "name_tokens",
     "names_match",
     "normalize_required_method",
+    "presented_prompt",
     "required_method_instruction",
     "required_method_problems",
-    "render_method_instruction",
-    "restate_method_instruction",
     "rewrites_decided_statement",
     "same_statement",
-    "strip_method_instruction",
 ]

@@ -882,6 +882,9 @@ export interface ElicitationDecisionDto {
 // close. `kind` is for labelling and styling only.
 export type PresentationBlockKind =
   | "prompt"
+  // Method-explicit items: "Use {method} in your answer.", rendered from the
+  // item's required method after the statement (never stored in it).
+  | "required_method_instruction"
   | "error_hunt_worked_solution"
   | "laddered_stem_stimulus";
 

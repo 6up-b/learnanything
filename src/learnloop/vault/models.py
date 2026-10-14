@@ -664,8 +664,9 @@ class RequiredMethod(VaultModel):
     Rubric criteria name the FACT a step establishes, not the METHOD used to
     establish it. The one exception is an item whose point IS a method: its
     target learning object, facet or concept is that method or technique. Such
-    an item states the method in its prompt ("Use {name} in your answer.";
-    ``learnloop.vault.required_method``), and only the criteria listed in
+    an item is presented with the instruction "Use {name} in your answer."
+    (rendered from this field; ``learnloop.vault.required_method``), and only
+    the criteria listed in
     ``criterion_ids`` may grade use of it. From the method-explicit successor
     on, the grader grades those criteria on use of the method; every other
     criterion stays graded by the fact it establishes, on any valid route.
@@ -676,14 +677,15 @@ class RequiredMethod(VaultModel):
     **The one authority (redesign, 2026-10-14).** This field, frozen with the
     assessment contract the learner answered, is the only thing grading,
     regrading and replay read; no grader ever parses the prompt to decide
-    whether a method applies. The text is made to agree with the field when
-    the field is written, by ``statement``:
+    whether a method applies. The instruction is never stored in the prompt
+    (round 3): the one canonical sentence ("Use {name} in your answer.") is
+    rendered from this field as a separate block after the statement wherever
+    the item is shown or sent (the grader's question included, from the
+    frozen contract), and changing the field never edits the statement. By
+    ``statement``:
 
-    * ``instruction`` (the default, omitted): the prompt ends with the one
-      canonical sentence generated from the field ("Use {name} in your
-      answer.") as its own final paragraph, the block the writer that set the
-      field renders; validation checks that exact block (the sentence quoted
-      or mentioned inside other text never stands for it);
+    * ``instruction`` (the default, omitted): a generated statement; the
+      field was set by the writer that generated it, or by the owner;
     * ``source``: a source-authored statement whose wording is never
       rewritten (a textbook exercise). Whether it requires the method was
       decided ONCE, when it was imported (``decided_by = judgment``, the

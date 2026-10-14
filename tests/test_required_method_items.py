@@ -27,16 +27,14 @@ from learnloop.vault.models import PracticeItem, RequiredMethod, Rubric
 from learnloop.vault.required_method import (
     CRITERIA_BY_FACT_GUIDANCE,
     advisory_statement_flag,
-    has_method_instruction,
     inherit_required_method,
     method_phrase,
     method_targets,
     names_match,
     normalize_required_method,
-    render_method_instruction,
+    presented_prompt,
     required_method_instruction,
     required_method_problems,
-    restate_method_instruction,
 )
 from learnloop.vault.yaml_io import write_yaml
 
@@ -84,19 +82,13 @@ def test_an_item_without_a_required_method_serializes_and_hashes_as_before():
 
 def test_the_explicit_instruction():
     assert required_method_instruction("cofactor  expansion") == "Use cofactor expansion in your answer."
-    # Redesign 2026-10-14: only the canonical sentence states the field (whitespace aside),
-    # as the writer's own final paragraph (review F14: never inside other text).
-    assert has_method_instruction("Compute det(A).\n\nUse cofactor   expansion in your answer.", "cofactor expansion")
-    assert not has_method_instruction("Compute det(A). Use cofactor expansion in your answer.", "cofactor expansion")
-    assert not has_method_instruction("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
-    assert not has_method_instruction("Compute det(A).", "cofactor expansion")
-    assert render_method_instruction("Compute det(A).", "cofactor expansion") == (
-        "Compute det(A).\n\nUse cofactor expansion in your answer.")
-    assert render_method_instruction("Use cofactor expansion to compute det(A).", "cofactor expansion") == (
+    # Round 3: the instruction is rendered from the field after the statement,
+    # whatever the statement says; the statement is never read or edited.
+    method = {"name": "cofactor expansion", "criterion_ids": ["method"]}
+    assert presented_prompt("Compute det(A).", method) == "Compute det(A).\n\nUse cofactor expansion in your answer."
+    assert presented_prompt("Use cofactor expansion to compute det(A).", method) == (
         "Use cofactor expansion to compute det(A).\n\nUse cofactor expansion in your answer.")
-    # A stored prompt that already carries the block of an unchanged method is kept as it is.
-    stated = "Compute det(A).\n\nUse cofactor expansion in your answer."
-    assert restate_method_instruction(stated, "cofactor expansion", previous="cofactor expansion") == stated
+    assert presented_prompt("Compute det(A).", None) == "Compute det(A)."
 
 
 # Review F2's statements, now read only by the ADVISORY flag (redesign
@@ -137,11 +129,11 @@ def test_the_advisory_flag_reads_negations_and_options_only(prompt, expected):
     assert (advisory_statement_flag(prompt, "cofactor expansion") is not None) == (expected == "contradicted")
 
 
-def test_the_writers_append_the_canonical_sentence_without_reading_the_prompt(vault_paths):
-    """A generated prompt gets the canonical sentence unless it is there
-    verbatim, whatever it says (redesign 2026-10-14); a source statement is
-    never rewritten and keeps a requirement only by the one-time judgment
-    (none here: dropped, unjudged)."""
+def test_the_writers_keep_the_field_and_never_touch_the_prompt(vault_paths):
+    """A generated prompt is stored as generated, whatever it says (round 3:
+    the instruction is rendered from the field); a source statement keeps a
+    requirement only by the one-time judgment (none here: dropped,
+    unjudged)."""
 
     vault = load_vault(vault_paths.root)
     targets = method_targets(vault, learning_object_id="lo_cofactor")
@@ -155,22 +147,24 @@ def test_the_writers_append_the_canonical_sentence_without_reading_the_prompt(va
                    "Compute det(A) by cofactor expansion.",
                    "You may use cofactor expansion or any other method."):
         generated = payload(prompt)
-        assert normalize_required_method(generated, targets) == ["required_method:instruction_added"]
-        assert generated["prompt"] == prompt + "\n\nUse cofactor expansion in your answer."
+        assert normalize_required_method(generated, targets) == ["required_method:kept"]
+        assert generated["prompt"] == prompt
         assert generated["required_method"]["criterion_ids"] == ["method"]
     source = payload("Using cofactor expansion, compute det(A).")
     assert normalize_required_method(source, targets, source_statement=True) == [
         "required_method:dropped_source_statement_unjudged"]
     assert source["prompt"] == "Using cofactor expansion, compute det(A)." and "required_method" not in source
-    # A variant always gains the sentence; whether its stem contradicts the
-    # method is the publication judgment's question (ops.pf_publish).
-    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+    # A variant always inherits the field (its stem untouched); whether its
+    # stem contradicts the method is the publication judgment's question
+    # (ops.pf_publish).
+    parent = _item(prompt="Compute det(A).",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     variant = {"prompt": "Compute det(B) with any method, for example cofactor expansion."}
-    assert inherit_required_method(variant, parent) == ["required_method:inherited", "required_method:instruction_added"]
+    assert inherit_required_method(variant, parent) == ["required_method:inherited"]
+    assert variant["prompt"] == "Compute det(B) with any method, for example cofactor expansion."
 
 
-def test_validation_reports_the_missing_sentence_and_flags_a_contradiction():
+def test_validation_reads_no_sentence_and_flags_a_contradiction():
     rubric = Rubric.model_validate({"criteria": [
         {"id": "method", "points": 2, "description": "Uses cofactor expansion along the first row."},
         {"id": "result", "points": 2, "description": "Establishes det(A) = 13."},
@@ -178,15 +172,15 @@ def test_validation_reports_the_missing_sentence_and_flags_a_contradiction():
     method = {"name": "cofactor expansion", "criterion_ids": ["method"]}
     codes = lambda prompt: [p.code for p in required_method_problems(  # noqa: E731
         _item(prompt=prompt, required_method=method), rubric)]
+    # Round 3: the instruction is rendered from the field, so the statement is
+    # never checked for it; only the advisory flag reads the statement.
     assert codes("You may use cofactor expansion or any other method.") == [
-        "required_method:not_stated", "required_method:statement_may_disagree"]
-    assert codes("Compute det(A) without cofactor expansion.\n\nUse cofactor expansion in your answer.") == [
         "required_method:statement_may_disagree"]
-    assert codes("Explain why cofactor expansion works, then compute det(A).") == ["required_method:not_stated"]
-    assert codes("Compute det(A) by cofactor expansion.") == ["required_method:not_stated"]
-    assert codes("Compute det(A).\n\nUse cofactor expansion in your answer.") == []
-    # Review F14: the sentence inside the statement's own paragraph is not the writer's block.
-    assert codes("Compute det(A). Use cofactor expansion in your answer.") == ["required_method:not_stated"]
+    assert codes("Compute det(A) without cofactor expansion.") == ["required_method:statement_may_disagree"]
+    assert codes("Explain why cofactor expansion works, then compute det(A).") == []
+    assert codes("Compute det(A) by cofactor expansion.") == []
+    assert codes("Compute det(A).") == []
+    assert codes("Compute det(A). Use cofactor expansion in your answer.") == []
 
 
 @pytest.mark.parametrize("description, method", [
@@ -267,8 +261,8 @@ def test_the_writer_check_keeps_a_required_method_only_on_its_target(vault_paths
     notes = normalize_required_method(kept, targets)
     assert kept["required_method"] == {"name": "cofactor expansion", "criterion_ids": ["method"],
                                        "learning_object_id": "lo_cofactor", "concept_id": "cofactor_expansion"}
-    assert kept["prompt"] == "Compute det(A).\n\nUse cofactor expansion in your answer."
-    assert notes == ["required_method:dropped_unknown_criteria", "required_method:instruction_added"]
+    assert kept["prompt"] == "Compute det(A)."
+    assert notes == ["required_method:dropped_unknown_criteria", "required_method:kept"]
 
     not_a_method = {"prompt": "Compute det(A).", "grading_rubric": rubric,
                     "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
@@ -301,11 +295,11 @@ def test_the_writer_check_keeps_a_required_method_only_on_its_target(vault_paths
 
 
 def test_a_variant_inherits_its_parents_required_method():
-    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+    parent = _item(prompt="Compute det(A).",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     variant = {"prompt": "Compute det(B) for B = [[2, 1], [1, 2]]."}
-    assert inherit_required_method(variant, parent) == ["required_method:inherited", "required_method:instruction_added"]
-    assert variant["prompt"].endswith("Use cofactor expansion in your answer.")
+    assert inherit_required_method(variant, parent) == ["required_method:inherited"]
+    assert variant["prompt"] == "Compute det(B) for B = [[2, 1], [1, 2]]."
     assert variant["required_method"]["name"] == "cofactor expansion"
     plain = {"prompt": "Compute det(B)."}
     assert inherit_required_method(plain, _item()) == [] and plain == {"prompt": "Compute det(B)."}
@@ -321,11 +315,11 @@ def test_validation_names_each_problem():
     ]})
     codes = lambda item: [(p.code, p.criterion_id) for p in required_method_problems(item, rubric)]  # noqa: E731
     assert codes(_item()) == [("criterion:method_phrased", "method")]
-    stated = _item(prompt="Compute det(A).\n\nUse cofactor expansion in your answer.",
+    stated = _item(prompt="Compute det(A).",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     assert codes(stated) == []
-    unstated = _item(required_method={"name": "cofactor expansion", "criterion_ids": ["method", "ghost"]})
-    assert codes(unstated) == [("required_method:not_stated", None), ("required_method:unknown_criterion", "ghost")]
+    unknown = _item(required_method={"name": "cofactor expansion", "criterion_ids": ["method", "ghost"]})
+    assert codes(unknown) == [("required_method:unknown_criterion", "ghost")]
 
 
 def _write_item(paths, item_id: str, lo_id: str, prompt: str, criteria: list[dict], **extra) -> None:
@@ -341,12 +335,13 @@ def test_doctor_reports_method_phrased_criteria_and_malformed_required_methods(v
     det = [{"id": "method", "points": 2, "description": "Uses cofactor expansion along the first row."},
            {"id": "result", "points": 2, "description": "Establishes det(A) = 13."}]
     _write_item(vault_paths, "pi_phrased", "lo_determinant", "Compute det(A).", det)
-    _write_item(vault_paths, "pi_unstated", "lo_cofactor", "Compute det(A).", det,
-                required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    _write_item(vault_paths, "pi_wrong_target", "lo_determinant",
-                "Compute det(A).\n\nUse cofactor expansion in your answer.",
+    _write_item(vault_paths, "pi_unknown", "lo_cofactor", "Compute det(A).", det,
+                required_method={"name": "cofactor expansion", "criterion_ids": ["method", "ghost"]})
+    _write_item(vault_paths, "pi_wrong_target", "lo_determinant", "Compute det(A).",
                 det, required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    _write_item(vault_paths, "pi_good", "lo_cofactor", "Compute det(A).\n\nUse cofactor expansion in your answer.",
+    # Round 3: the statement is never checked for the instruction (it is
+    # rendered from the field), so a statement that says nothing is good.
+    _write_item(vault_paths, "pi_good", "lo_cofactor", "Compute det(A).",
                 det, required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     _write_item(vault_paths, "pi_retired", "lo_determinant", "Compute det(A).", det, status="retired")
     issues = [issue for issue in run_doctor(vault_paths.root).issues
@@ -354,7 +349,7 @@ def test_doctor_reports_method_phrased_criteria_and_malformed_required_methods(v
     found = {(issue.entity_id, issue.code, issue.severity) for issue in issues}
     assert found == {
         ("pi_phrased", "criterion:method_phrased", "warning"),
-        ("pi_unstated", "required_method:not_stated", "error"),
+        ("pi_unknown", "required_method:unknown_criterion", "error"),
         ("pi_wrong_target", "required_method:not_a_method_target", "warning"),
     }
     phrased = next(issue for issue in issues if issue.code == "criterion:method_phrased")
@@ -473,7 +468,8 @@ def test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target(v
     if kept:
         assert payload["required_method"] == {"name": "cofactor expansion", "criterion_ids": ["method"],
                                               "learning_object_id": "lo_cofactor", "concept_id": "cofactor_expansion"}
-        assert payload["prompt"] == "Compute det(A).\n\nUse cofactor expansion in your answer."
+        # Round 3: stored as generated; the instruction is rendered from the field.
+        assert payload["prompt"] == "Compute det(A)."
     else:
         assert "required_method" not in payload and payload["prompt"] == "Compute det(A)."
     accept_items(root, patch_id)
@@ -481,7 +477,8 @@ def test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target(v
     assert (item.required_method is not None) == kept
     if kept:
         assert item.required_method.concept_id == "cofactor_expansion"
-        assert has_method_instruction(item.prompt, item.required_method.name)
+        assert presented_prompt(item.prompt, item.required_method) == (
+            "Compute det(A).\n\nUse cofactor expansion in your answer.")
 
 
 # -- generation: the other writers ---------------------------------------------------------
@@ -490,7 +487,7 @@ def test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target(v
 def test_pf_publication_keeps_the_parents_required_method_and_states_it():
     from learnloop.ops.pf_publish import build_item_payload
 
-    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+    parent = _item(prompt="Compute det(A).",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     row = {"payload_json": json.dumps({"stem": "Compute det(B) for B = [[2, 1], [1, 2]].", "final_answer": "3",
                                        "solution": "2*2 - 1*1 = 3"}),
@@ -498,7 +495,10 @@ def test_pf_publication_keeps_the_parents_required_method_and_states_it():
            "generation_path": "ensemble", "id": "cand1", "family_id": "fam1"}
     payload = build_item_payload(None, parent, row, item_id="pi_pf_x", now_iso=STAMP, method_verdict="consistent")
     assert payload["required_method"]["criterion_ids"] == ["method"]
-    assert payload["prompt"].endswith("Use cofactor expansion in your answer.")
+    # The stem is stored as generated and presented with the field's instruction.
+    assert payload["prompt"] == "Compute det(B) for B = [[2, 1], [1, 2]]."
+    assert presented_prompt(payload["prompt"], payload["required_method"]).endswith(
+        "\n\nUse cofactor expansion in your answer.")
     plain = build_item_payload(None, _item(), row, item_id="pi_pf_y", now_iso=STAMP)
     assert "required_method" not in plain and plain["prompt"] == "Compute det(B) for B = [[2, 1], [1, 2]]."
 
@@ -597,12 +597,13 @@ def test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgm
     assert len(decider.calls) == (1 if judged is not None and name != "Gram-Schmidt" else 0)
 
 
-def test_synthesis_publishes_a_required_method_with_the_canonical_sentence(tmp_path):
+def test_synthesis_publishes_a_required_method_presented_with_the_canonical_sentence(tmp_path):
     """The study-map writer end to end (normalization, gates, apply): on a
     method target, every item that sets a required method is published with
-    the canonical sentence; the prompt's phrasing decides nothing (redesign
-    2026-10-14). One that may leave the method optional is only flagged for
-    review by the advisory heuristic."""
+    the field, its prompt stored as generated and presented with the
+    canonical sentence (round 3); the prompt's phrasing decides nothing
+    (redesign 2026-10-14). One that may leave the method optional is only
+    flagged for review by the advisory heuristic."""
 
     from learnloop.content.synthesis.ai_contracts import SynthRequiredMethod
     from learnloop.content.synthesis.source_set_synthesis import create_study_map
@@ -634,12 +635,12 @@ def test_synthesis_publishes_a_required_method_with_the_canonical_sentence(tmp_p
     published = vault.practice_items["pi_identify_symmetry"]
     assert published.required_method is not None
     assert published.required_method.criterion_ids == ["identifies_symmetry"]
-    assert published.prompt.endswith("\n\nUse orthogonal diagonalization in your answer.")
-    assert has_method_instruction(published.prompt, published.required_method.name)
+    assert published.prompt == "Explain how orthogonal diagonalization applies to A."
+    assert presented_prompt(published.prompt, published.required_method).endswith(
+        "\n\nUse orthogonal diagonalization in your answer.")
     flagged = vault.practice_items["pi_select_spectral"]
     assert flagged.required_method is not None
-    assert flagged.prompt == ("Diagonalize A; you may use orthogonal diagonalization or any other method."
-                              "\n\nUse orthogonal diagonalization in your answer.")
+    assert flagged.prompt == "Diagonalize A; you may use orthogonal diagonalization or any other method."
     assert any(d["gate"] == "required_method" and "statement_may_disagree" in d["message"]
                and "pi_select_spectral" in d["entity_refs"] for d in result.gate_diagnostics)
 

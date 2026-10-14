@@ -45,7 +45,6 @@ from learnloop.vault.required_method import (
     learning_object_method_targets,
     method_targets,
     normalize_required_method,
-    restate_method_instruction,
     rewrites_decided_statement,
     same_statement,
 )
@@ -1477,53 +1476,39 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     A ``required_method`` is kept only on an item whose target is that method
     (``learnloop.vault.required_method.method_targets``: the learning object's
     concept is a procedure, or one of its facets a procedure_contract), linked
-    to it, with its criteria in the rubric and the prompt ending with the
-    writer's block, the canonical sentence ("Use {name} in your answer.") as
-    its own final paragraph (redesign 2026-10-14: the prompt's phrasing is
-    never read). The writer renders the block onto generated text; nothing
-    the generated text says stands for it (review F14). An update revises an
-    existing item's prompt, which carries the block for the item's own
-    method: a revision is restated (``restate_method_instruction``: that
-    method's block or legacy inline instruction is taken out, review F18,
-    and the field's block rendered), so a renamed method's block replaces the
-    old one and a revision never carries two.
-    Anything else drops it. An update without a prompt of its own is checked
-    against the item's current prompt. A generated proposal never changes the
-    required method of a source-authored item (a textbook statement is never
-    rewritten; its requirement was decided once at import, and the owner
-    changes it with ``learnloop grading required-method``): the key is
-    dropped and the item keeps its field. Nor does it rewrite such an item's
-    statement (review F15): the decision binds the statement it judged, so a
-    prompt that differs only in whitespace is dropped (the verbatim statement
-    stays) and any other is reported by validation
+    to it, with its criteria in the rubric. Anything else drops it. The
+    prompt is never read to decide and never written: the instruction ("Use
+    {name} in your answer.") is rendered from the field wherever the item is
+    shown or sent (round 3), so a generated prompt (or an update's revised
+    prompt) is stored exactly as generated, whatever it quotes, and a field
+    that is renamed or kept never edits it.
+
+    A generated proposal never changes the required method of a
+    source-authored item (a textbook statement is never rewritten; its
+    requirement was decided once at import, and the owner changes it with
+    ``learnloop grading required-method``): the key is dropped and the item
+    keeps its field. Nor does it rewrite such an item's statement (review
+    F15): the decision binds the statement it judged, so a prompt that
+    differs only in whitespace is dropped (the verbatim statement stays) and
+    any other is reported by validation
     (``required_method:source_statement_edited``) and refused at apply.
     Deterministic; the persisted payload is what is checked.
     """
 
     existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
-    notes: list[str] = []
     previous = existing.required_method if existing is not None else None
-    # The generated item's own method: its block (or a legacy inline
-    # instruction) is what a revision of its prompt carries.
-    instruction = previous.name if previous is not None and previous.statement != "source" else None
-    if previous is not None and "prompt" in payload:
-        if previous.statement == "source":
-            if same_statement(payload["prompt"], existing.prompt):
-                payload.pop("prompt")
-        elif not payload.get("required_method"):
-            updated = restate_method_instruction(payload["prompt"], instruction, previous=instruction)
-            if updated != payload["prompt"]:
-                payload["prompt"] = updated
-                notes.append("required_method:instruction_added")
+    if previous is not None and previous.statement == "source" and "prompt" in payload \
+            and same_statement(payload["prompt"], existing.prompt):
+        payload.pop("prompt")
     if existing is not None and "required_method" in payload and (
         is_source_statement(existing)
         or getattr(previous, "statement", "instruction") == "source"
     ):
         payload.pop("required_method", None)
-        return [*notes, "required_method:source_statement_unchanged"]
+        return ["required_method:source_statement_unchanged"]
     if not payload.get("required_method"):
         payload.pop("required_method", None)
-        return notes
+        return []
     learning_object_id = payload.get("learning_object_id") or (existing.learning_object_id if existing else None)
     facets = payload.get("evidence_facets") or (list(existing.evidence_facets) if existing else [])
     capability = payload.get("capability") or (existing.capability if existing else None)
@@ -1533,24 +1518,12 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     if not isinstance(view.get("grading_rubric"), dict) and existing is not None:
         resolved = vault.rubric_for_item(existing)
         rubric_ids = [criterion.id for criterion in resolved.criteria] if resolved is not None else []
-    current = existing.prompt if existing is not None else None
-    text = payload["prompt"] if "prompt" in payload else (current or "")
-    # The field is decided first; the writer then makes the text agree with
-    # it (never the other way round).
-    notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids, render_instruction=False)
+    notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids)
     if "required_method" in view:
         payload["required_method"] = view["required_method"]
-        updated = restate_method_instruction(text, view["required_method"]["name"], previous=instruction)
-        if updated != text:
-            notes.append("required_method:instruction_added")
     else:
-        # The item keeps its field, and so its instruction: a revision of its
-        # prompt is restated for it; an unrevised prompt is left alone.
+        # A dropped field: the item (if any) keeps the one it has.
         payload.pop("required_method", None)
-        updated = (restate_method_instruction(text, instruction, previous=instruction)
-                   if instruction and "prompt" in payload else text)
-    if "prompt" in payload or updated != current:
-        payload["prompt"] = updated
     return notes
 
 

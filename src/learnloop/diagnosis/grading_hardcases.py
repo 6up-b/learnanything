@@ -264,9 +264,10 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             from learnloop.vault.required_method import required_method_problems
 
             # Doctor's structural validation of the field (redesign
-            # 2026-10-14): an ``instruction`` statement carries the canonical
-            # sentence verbatim, a hand-written ``source`` statement records
-            # who decided it requires the method. No phrasing is read.
+            # 2026-10-14): a hand-written ``source`` statement records who
+            # decided it requires the method. No phrasing is read, and the
+            # instruction is rendered from the field into the grader's
+            # question (round 3), never looked for in the statement.
             errors = [problem for problem in required_method_problems(item, rubric)
                       if problem.severity == "error" and problem.code != "required_method:unknown_criterion"]
             if errors:

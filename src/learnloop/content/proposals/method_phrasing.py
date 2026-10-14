@@ -46,8 +46,9 @@ rejects it; an update is never auto-applied), purpose
   learning object's concept is a ``procedure``, or one of its facets is a
   ``procedure_contract``, and the criterion's method names it) and its
   prompt is not a source statement: the proposal sets ``required_method``
-  (that method, this criterion) and appends the canonical sentence to the
-  prompt; or
+  (that method, this criterion), whose instruction ("Use {name} in your
+  answer.") is then rendered after the statement wherever the item is shown
+  or sent (the statement itself is never edited); or
 * **rephrase by fact**: the criterion's new description names the fact it
   establishes: the LLM judge's rewrite, else the LLM route's rewrite of the
   flagged criteria (when the Decider judged), else a deterministic DRAFT that
@@ -59,11 +60,12 @@ accepts the proposal. Each update carries the item's content hash
 (``expected_target_hash``): an item changed after the report (a criterion's
 weight, a dependency) is refused at acceptance, never overwritten with the
 stale rubric; run the report again (review F3). An accepted repair changes
-the item's rubric (and prompt, and required method) and so its assessment
+the item's rubric (and required method) and so its assessment
 contract: its next presentation snapshots a new one, and attempts already
 graded keep the contract (and required method) they were graded against.
-Nothing reads the prompt to decide a repair (redesign 2026-10-14): the
-canonical sentence is appended with a required method, an advisory flag
+Nothing reads the prompt to decide a repair (redesign 2026-10-14), and
+nothing writes it (round 3): the instruction is rendered from the field, an
+advisory flag
 labels a prompt that may negate it or leave it optional, and a source
 statement never gains a required method here (rephrased by fact instead).
 """
@@ -108,7 +110,6 @@ from learnloop.vault.required_method import (
     method_phrase,
     method_targets,
     names_match,
-    restate_method_instruction,
 )
 
 REPORT_VERSION = "method-phrasing-report-v1"
@@ -728,15 +729,16 @@ def _teach_back(item: PracticeItem) -> bool:
 
 
 def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[CriterionReading]) -> dict[str, Any] | None:
-    """One item's repair: the updated rubric (and prompt and required method).
+    """One item's repair: the updated rubric (and required method).
 
     Each method-phrased criterion becomes the item's required method's
     criterion when the item's target really is that method (by metadata, and
     the criterion's method names the target: ``names_match``), else is
     rephrased by fact. At most one required method per item; an item that
     already has one only gains criteria naming that method. The required
-    method takes the target's own name (or alias), and the prompt gains the
-    canonical sentence generated from it ("Use {name} in your answer.").
+    method takes the target's own name (or alias); the statement is never
+    edited (the canonical sentence, "Use {name} in your answer.", is
+    rendered from the field wherever the item is shown or sent, round 3).
     Nothing here reads the prompt to decide (redesign 2026-10-14): the
     advisory heuristic only labels an action whose prompt may negate the
     method or leave it optional (``statement_may_disagree``) for the owner's
@@ -828,14 +830,10 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
             # A source item's own decision stands; only its criteria grow.
             payload["required_method"] = {**existing.model_dump(mode="json"), "criterion_ids": method_criteria}
         else:
+            # The statement is left as it is: the instruction is rendered
+            # from the field wherever the item is shown or sent (round 3).
             payload["required_method"] = {"name": method_name, "criterion_ids": method_criteria,
                                           **method_target.link()}
-            # The writer renders the method's block (review F14); the item's
-            # own instruction, if it had one, is taken out first (F18).
-            prompt = restate_method_instruction(item.prompt, method_name,
-                                                previous=existing.name if existing is not None else None)
-            if prompt != item.prompt:
-                payload["prompt"] = prompt
     current = compute_target_hash(vault, "practice_item", item.id)
     if current is not None:
         payload["expected_target_hash"] = current

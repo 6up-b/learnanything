@@ -33,6 +33,7 @@ from learnloop.diagnosis.diagnosis_adjudication import (
     diagnosis_adjudication_scoreboard,
     diagnosis_snapshot,
 )
+from learnloop.vault.required_method import presented_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -174,7 +175,9 @@ def _case(vault, repository, entry) -> dict[str, Any]:
             learning_object.title if learning_object is not None else None
         ),
         "practice_item_id": entry.practice_item_id,
-        "prompt": item.prompt if item is not None else None,
+        # The question as the learner was shown it (round 3: a required
+        # method's instruction rendered after the statement).
+        "prompt": presented_prompt(item.prompt, item.required_method) if item is not None else None,
         # The learner's work IS the trace the anchor points into; the anchor's
         # offsets are computed against this text, so both travel together.
         "learner_answer_md": attempt.get("learner_answer_md"),

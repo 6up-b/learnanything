@@ -69,6 +69,7 @@ from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1272,7 +1273,9 @@ def _build_context(
         question_md=question_md,
         candidate_facets=candidates,
         thread=thread,
-        practice_item_prompt=item.prompt if item is not None else None,
+        # The question as the learner was shown it (round 3: a required
+        # method's instruction is rendered after the statement).
+        practice_item_prompt=presented_prompt(item.prompt, item.required_method) if item is not None else None,
         expected_answer=expected,
         rubric=rubric.model_dump() if rubric is not None else None,
         learner_answer_md=learner_answer,

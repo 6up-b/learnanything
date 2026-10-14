@@ -296,10 +296,10 @@ def grading_required_method(
     The item's required_method field is the one thing grading reads; a
     textbook statement's requirement was decided once when it was imported.
     This persists one pending update through the normal proposal/confirm
-    path; `learnloop accept <proposal id>` applies it. A generated statement
-    gains (or loses) the sentence "Use {method} in your answer." with the
-    field; a textbook statement is never rewritten and records the owner's
-    decision. Attempts already graded keep the method they were graded under.
+    path; `learnloop accept <proposal id>` applies it. The statement is never
+    edited: the sentence "Use {method} in your answer." is shown after it
+    while the field is set (a textbook statement records the owner's
+    decision). Attempts already graded keep the method they were graded under.
     """
 
     from learnloop.content.proposals.required_method_override import propose_required_method_override

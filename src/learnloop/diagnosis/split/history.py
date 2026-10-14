@@ -45,6 +45,7 @@ from learnloop.substrate.canonical_projection import (
     unverified_evidence_row,
 )
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 #: Attempt types that measure nothing and never appear as history.
 NON_MEASURING_ATTEMPT_TYPES = frozenset({"skip", "self_report", "guided_walkthrough"})
@@ -586,7 +587,7 @@ def history_attempt_from_blind_record(
         practice_item_id=practice_item_id,
         completed_at=completed_at,
         surface_group=surface_group_id(item) if item is not None else f"item:{practice_item_id}",
-        item_prompt=item.prompt if item is not None else "",
+        item_prompt=presented_prompt(item.prompt, item.required_method) if item is not None else "",
         learner_answer_md=learner_answer_md or "",
         attempt_type=attempt_type,
         score=float(record["rubric_score"]) if record.get("rubric_score") is not None else None,
@@ -1034,7 +1035,7 @@ class VaultHistoryStore:
             practice_item_id=str(row["practice_item_id"]),
             completed_at=str(row["created_at"]),
             surface_group=surface_group_id(item) if item is not None else f"item:{row['practice_item_id']}",
-            item_prompt=item.prompt if item is not None else "",
+            item_prompt=presented_prompt(item.prompt, item.required_method) if item is not None else "",
             learner_answer_md=str(row.get("learner_answer_md") or ""),
             attempt_type=attempt_type,
             score=float(row["rubric_score"]) if row.get("rubric_score") is not None else None,

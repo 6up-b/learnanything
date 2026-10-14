@@ -2,10 +2,10 @@
 
 Method-explicit items read ONE structured authority: the item's
 ``required_method`` field, frozen with the assessment contract. Grading never
-parses prompt text. Two kinds of statement cannot simply carry the canonical
-sentence ("Use {method} in your answer.") without a question being asked
-about their wording, and each is asked ONCE, when the item is written, never
-again at grading time:
+parses prompt text. Two kinds of statement cannot simply be shown with the
+canonical sentence ("Use {method} in your answer.", rendered from the field
+after the statement) without a question being asked about their wording, and
+each is asked ONCE, when the item is written, never again at grading time:
 
 * **a source statement** (a textbook exercise's verbatim stem, at import):
   does it require the learner to use the method its author proposed? Choices
@@ -14,7 +14,8 @@ again at grading time:
 * **a variant stem** (a PF variant of a parent that requires a method, at
   publication): does it prohibit or contradict that method? Choices
   ``consistent`` / ``contradicts``. ``contradicts`` refuses the publication;
-  ``consistent`` lets the writer append the canonical sentence.
+  ``consistent`` publishes the variant with the parent's field, whose
+  sentence is rendered after its stem.
 
 **The judge** is the Decider through its route (``ai.routing.
 rubric_phrasing_judge`` when it names a decider profile, else the code-default

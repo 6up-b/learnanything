@@ -31,6 +31,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
 from learnloop.substrate.canonical_projection import held_for_review_attempts
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
+from learnloop.vault.required_method import presented_prompt
 
 #: Diagnoses whose causes this pipeline reads (live, applied).
 _READABLE_DIAGNOSIS = ("completed",)
@@ -63,7 +64,7 @@ def tutor_question_text(vault: LoadedVault, repository: Repository, event_id: st
     if item is not None:
         anchors = [item.learning_object_id]
         subject = _item_subject(vault, item)
-        context["item_prompt"] = item.prompt
+        context["item_prompt"] = presented_prompt(item.prompt, item.required_method)
     elif event.get("context") == "library":
         note = vault.notes.get(str(event.get("note_id") or ""))
         if note is not None:
@@ -226,7 +227,7 @@ def diagnosis_text(vault: LoadedVault, repository: Repository, diagnosis_id: str
     ]
     context: dict[str, Any] = {"surface": "wrong_answer"}
     if item is not None:
-        context["item_prompt"] = item.prompt
+        context["item_prompt"] = presented_prompt(item.prompt, item.required_method)
     if anchor and anchor in vault.learning_objects:
         context["learning_objects"] = [vault.learning_objects[anchor].title]
     if divergences:
@@ -344,7 +345,7 @@ def stuck_answer_text(
     item = vault.practice_items.get(found.practice_item_id)
     context: dict[str, Any] = {"surface": "stuck_answer"}
     if item is not None:
-        context["item_prompt"] = item.prompt
+        context["item_prompt"] = presented_prompt(item.prompt, item.required_method)
     if found.learning_object_id in vault.learning_objects:
         context["learning_objects"] = [vault.learning_objects[found.learning_object_id].title]
     if found.confusion_quote:

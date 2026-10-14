@@ -1909,14 +1909,11 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
     Rubric criteria name the fact a step establishes; only an item whose
     target IS a method may require it (``required_method``). The field is the
     one authority (redesign 2026-10-14): doctor checks its structure and never
-    decides anything from the prompt's phrasing. Errors: a generated
-    statement that does not end with the canonical sentence generated from
-    the field as its own final paragraph (``required_method:not_stated``:
-    "Use {name} in your answer.", word for word at column 0; the sentence
-    inside other text, indented or in a blockquote does not count), a source
-    statement with no recorded decision
-    (``required_method:undecided``), and a required method naming a criterion
-    its rubric lacks (``required_method:unknown_criterion``). Warnings: a
+    decides anything from the prompt's phrasing, nor looks in the prompt for
+    the instruction, which is rendered from the field wherever the item is
+    shown or sent (round 3). Errors: a source statement with no recorded
+    decision (``required_method:undecided``), and a required method naming a
+    criterion its rubric lacks (``required_method:unknown_criterion``). Warnings: a
     required method on a target the metadata does not read as a method
     (``required_method:not_a_method_target``), and two ADVISORY flags of the
     conservative heuristic (``judge = heuristic``; no model call, no effect on

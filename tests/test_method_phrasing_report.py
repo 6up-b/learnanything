@@ -32,7 +32,7 @@ from learnloop.content.proposals.method_phrasing import (
     writer_names,
 )
 from learnloop.vault.loader import load_vault
-from learnloop.vault.required_method import has_method_instruction
+from learnloop.vault.required_method import presented_prompt
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -155,7 +155,8 @@ def test_the_heuristic_flags_explicit_method_phrasing_and_drafts_repairs(vault_p
     payload = repairs["pi_cofactor"]["payload"]
     assert payload["required_method"] == {"name": "Cofactor Expansion", "criterion_ids": ["method"],
                                           "learning_object_id": "lo_cofactor", "concept_id": "cofactor_expansion"}
-    assert payload["prompt"].endswith("Use Cofactor Expansion in your answer.")
+    # Round 3: the statement is never edited; the field's instruction is rendered.
+    assert "prompt" not in payload
     assert _ledger(vault_paths) == []  # the heuristic is deterministic: nothing to record
     assert "proposal_id" not in report
 
@@ -248,8 +249,11 @@ def test_repairs_are_pending_proposals_applied_only_on_accept(vault_paths):
     assert criteria["method"].correlation_group == "g1" and criteria["method"].recipe_ids == ["r1"]
     assert det.required_method is None
     assert cofactor.required_method is not None and cofactor.required_method.criterion_ids == ["method"]
-    # The canonical sentence generated from the field (the target's own name).
-    assert has_method_instruction(cofactor.prompt, cofactor.required_method.name)
+    # The statement is unchanged; it is presented with the canonical sentence
+    # generated from the field (the target's own name).
+    assert cofactor.prompt == vault.practice_items["pi_cofactor"].prompt
+    assert presented_prompt(cofactor.prompt, cofactor.required_method).endswith(
+        "\n\nUse Cofactor Expansion in your answer.")
     # After the repair, nothing is left to flag.
     again = run_method_phrasing(load_vault(root, load_environment=False), judge="llm", clients={"llm": LLMJudge()},
                                 price_per_million=1.0, clock=CLOCK)
@@ -310,10 +314,11 @@ def test_a_repair_never_rewrites_a_source_statement_or_gives_a_teach_back_a_meth
     assert resembling["actions"][0]["action"] == "rephrase_by_fact"
 
 
-def test_a_repair_adds_the_canonical_sentence_and_only_flags_a_statement_that_may_disagree(vault_paths):
+def test_a_repair_adds_the_field_and_only_flags_a_statement_that_may_disagree(vault_paths):
     """On a generated item whose target is the method, the repair adds the
-    required method with the canonical sentence; a prompt that may negate it
-    is labelled for the owner (advisory), never decided by its wording."""
+    required method (its sentence rendered from the field; the statement is
+    never edited); a prompt that may negate it is labelled for the owner
+    (advisory), never decided by its wording."""
 
     from learnloop.content.proposals.method_phrasing import CriterionReading, repair_plan
 
@@ -323,7 +328,7 @@ def test_a_repair_adds_the_canonical_sentence_and_only_flags_a_statement_that_ma
     plain = repair_plan(vault, item, [reading])
     [action] = plain["actions"]
     assert action["action"] == "add_required_method" and "statement_may_disagree" not in action
-    assert plain["payload"]["prompt"] == f"{item.prompt.rstrip()}\n\nUse Cofactor Expansion in your answer."
+    assert "prompt" not in plain["payload"] and plain["payload"]["required_method"]["name"] == "Cofactor Expansion"
     negating = item.model_copy(update={"prompt": "Compute det(A) without cofactor expansion."})
     flagged = repair_plan(vault, negating, [reading])
     [action] = flagged["actions"]

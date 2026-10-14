@@ -31,6 +31,7 @@ from learnloop.attempts.grading import (
     validate_codex_grading_proposal,
     vault_grading_calibration_identity,
 )
+from learnloop.vault.required_method import presented_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -451,7 +452,9 @@ def _item_review_fields(
         if dto is not None
     ]
     return {
-        "prompt": item.prompt if item is not None else None,
+        # The question as it was presented (round 3: a required method's
+        # instruction rendered after the statement).
+        "prompt": presented_prompt(item.prompt, item.required_method) if item is not None else None,
         "answer_md": (answer or {}).get("answer_md"),
         "rubric_score": (answer or {}).get("rubric_score"),
         "max_points": rubric.max_points if rubric is not None else None,

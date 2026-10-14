@@ -1,24 +1,18 @@
 """Method-explicit items, the second re-review (Codex job 20261014-094127-Volan7).
 
-The re-review reopened F14, F13 and F17 and raised three new defects:
+The re-review reopened F14, F13 and F17 and raised three new defects. Its F14
+and F18 tests (the writer's block, legacy inline instructions) are retired by
+round 3, which stores no instruction in the statement at all
+(``tests/test_required_method_round3.py``); the guidance test stays. What
+stays here:
 
-* F14 (reopened): the writer still took a final paragraph of GENERATED text
-  for its block ("The previous exercise said:" then the sentence, indented as
-  a quotation). The writer now renders the block itself onto generated text
-  and never takes anything the text says for it; the generation guidance no
-  longer asks the model for the sentence (LearnLoop appends it). Validation of
-  a stored prompt reads only the block as the writer renders it (its own
-  paragraph, at column 0);
-* F18: clearing or renaming a method whose instruction was written inline
-  under the earlier rule ("Compute det(A). Use X in your answer.") left the
-  instruction behind. The writer now removes such a legacy instruction (a
-  standalone sentence, never a quoted one) when it clears or renames;
 * F19 (F13 reopened): a frozen regrade rebuilt the graded revision from the
   first rubric representation whose contract matched, so an inherited
   default rubric later written inline bound the wrong revision. A
   method-explicit contract now records the revision's reference-content hash
   and the regrade binds exactly that; a historical contract keeps every
-  matching representation (fail closed among the checked ones);
+  matching representation (fail closed among the checked ones; round 3: an
+  inherited default that cannot be recovered binds unverified);
 * F20 (F17 reopened): a rerun after a partial PF judgment re-ran the whole
   pipeline, and the variants published meanwhile changed its freshness and
   selection requests, so checkpoints missed and paid work repeated. A job
@@ -38,71 +32,17 @@ import pytest
 import yaml
 
 from learnloop.db.connection import connect
-from learnloop.db.repositories import Repository
-from learnloop.vault.loader import load_vault
-from learnloop.vault.models import Rubric
-from learnloop.vault.required_method import (
-    has_method_instruction,
-    inherit_required_method,
-    normalize_required_method,
-    required_method_problems,
-    strip_method_instruction,
-)
 
-from tests.helpers import create_basic_vault
-from tests.test_required_method_authority import FROZEN, METHOD, SENTENCE, SVD, StatementDecider, _item, _targets
+from tests.test_required_method_authority import FROZEN, StatementDecider, _item
 
-# -- F14 (reopened): the writer renders its block; generated text never stands for it ----------
-
-#: The re-review's reproduction and its neighbours: generated text whose own
-#: final paragraph is (or quotes) the canonical sentence.
-GENERATED_FINAL = {
-    "indented_quotation": f"Compute det(B). The previous exercise said:\n\n    {SENTENCE}",
-    "blockquote": f"Compute det(B). The previous exercise said:\n\n> {SENTENCE}",
-    "after_a_colon": f"Compute det(B). The previous exercise said:\n\n{SENTENCE}",
-    "introduced_quotation": f"Compute det(B). The previous exercise ended as follows.\n\n{SENTENCE}",
-    "model_wrote_the_block": f"Compute det(B).\n\n{SENTENCE}",
-}
-
-
-@pytest.mark.parametrize("case", list(GENERATED_FINAL))
-def test_f14_the_writer_renders_its_block_whatever_the_generated_text_ends_with(case):
-    prompt = GENERATED_FINAL[case]
-    payload = {"prompt": prompt, "grading_rubric": {"criteria": [{"id": "method"}, {"id": "result"}]},
-               "required_method": dict(FROZEN)}
-    assert normalize_required_method(payload, _targets()) == ["required_method:instruction_added"]
-    assert payload["prompt"] == f"{prompt}\n\n{SENTENCE}"
-    # The PF variant writer, likewise.
-    variant = {"prompt": prompt}
-    inherit_required_method(variant, SimpleNamespace(required_method=_item("x", FROZEN).required_method))
-    assert variant["prompt"] == f"{prompt}\n\n{SENTENCE}"
-
-
-@pytest.mark.parametrize("prompt", [
-    GENERATED_FINAL["indented_quotation"],
-    GENERATED_FINAL["blockquote"],
-    f"Compute det(B).\n\n  {SENTENCE}",
-    f"Compute det(B).\n\n\t{SENTENCE}",
-], ids=["indented_quotation", "blockquote", "two_spaces", "tab"])
-def test_f14_validation_reads_only_the_block_as_the_writer_renders_it(prompt):
-    """An indented paragraph is a code block or a quotation, never the
-    writer's block: the stored prompt is ``not_stated``."""
-
-    assert not has_method_instruction(prompt, METHOD)
-    rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))
-    errors = [problem.code for problem in required_method_problems(_item(prompt, FROZEN), rubric)
-              if problem.severity == "error"]
-    assert errors == ["required_method:not_stated"]
-    # The block as the writer renders it (blank lines of any length, CRLF) is stated.
-    for stated in (f"Compute det(B).\n\n{SENTENCE}", f"Compute det(B).\n\n\n{SENTENCE}\n",
-                   f"Compute det(B).\r\n\r\n{SENTENCE}", SENTENCE):
-        assert has_method_instruction(stated, METHOD), stated
+# -- F14 (re-review): the generation guidance leaves the sentence to LearnLoop -------------------
 
 
 def test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer():
-    """The model is no longer asked to write the sentence: LearnLoop appends
-    it, so nothing the model writes is ever taken for it. Every prompt that
-    carries the guidance moved its version."""
+    """The model is never asked to write the sentence: LearnLoop shows it
+    after the statement (round 3: rendered from the field, never stored), so
+    nothing the model writes is ever taken for it. Every prompt that carries
+    the guidance moved its version."""
 
     from learnloop.content.authoring.ai_contracts import EXERCISE_AUTHORING_PROMPT_VERSION
     from learnloop.content.authoring.pf_contracts import (
@@ -138,138 +78,6 @@ def test_f14_the_generation_guidance_leaves_the_sentence_to_the_writer():
     assert (GENERATOR_PROGRAM_PROMPT, PROPOSER_PROMPT, SINGLE_SHOT_PROMPT, SOURCE_ANCHORED_PROMPT) == (
         "pf-generator-program-v8", "pf-ensemble-propose-v4", "pf-single-shot-v4", "pf-source-anchored-v4")
     assert JUDGE_PROMPT_VERSION == "rubric-phrasing-judge-v2"
-
-
-def test_f14_an_authored_item_quoting_the_sentence_gets_the_writers_block_end_to_end(tmp_path):
-    """The re-review's reproduction through the authoring proposal path: the
-    persisted payload, the accepted item and doctor all agree, and the text
-    ends with a block the writer rendered."""
-
-    from learnloop.clock import FrozenClock
-    from learnloop.content.proposals.proposals import accept_items, persist_authoring_proposal
-    from tests.helpers import NOW
-    from tests.test_required_method_items import _add_concept_and_lo, _proposal
-
-    paths = create_basic_vault(tmp_path / "vault")
-    _add_concept_and_lo(paths, "cofactor_expansion", "procedure", "lo_cofactor")
-    quoted = GENERATED_FINAL["indented_quotation"]
-    patch_id = persist_authoring_proposal(paths.root, _proposal("lo_cofactor", dict(FROZEN), prompt=quoted),
-                                          provider="import", clock=FrozenClock(NOW))
-    [row] = Repository(paths.sqlite_path).proposal_items(patch_id)
-    assert row["payload"]["prompt"] == f"{quoted}\n\n{SENTENCE}"
-    accept_items(paths.root, patch_id)
-    item = load_vault(paths.root).practice_items["pi_lo_cofactor_det"]
-    assert item.prompt == f"{quoted}\n\n{SENTENCE}"
-    rubric = load_vault(paths.root).rubric_for_item(item)
-    assert [problem for problem in required_method_problems(item, rubric) if problem.severity == "error"] == []
-
-
-def _generated_method_item(tmp_path, prompt: str | None = None):
-    """The basic vault's SVD item as a generated item that requires the SVD,
-    its prompt ``prompt`` (default: the writer's block appended by the owner's
-    override)."""
-
-    from learnloop.content.proposals.proposals import accept_items
-    from learnloop.content.proposals.required_method_override import propose_required_method_override
-    from learnloop.vault.writer import upsert_practice_item
-
-    paths = create_basic_vault(tmp_path / "vault")
-    repository = Repository(paths.sqlite_path)
-    if prompt is None:
-        proposed = propose_required_method_override(load_vault(paths.root), repository, "pi_svd_define_001",
-                                                    name=SVD, criterion_ids=["correctness"])
-        accept_items(paths.root, proposed["proposal_id"])
-    else:
-        data = load_vault(paths.root).practice_items["pi_svd_define_001"].model_dump(mode="json")
-        data["prompt"] = prompt
-        data["required_method"] = {"name": SVD, "criterion_ids": ["correctness"]}
-        upsert_practice_item(paths.root, data)
-    return paths, repository, load_vault(paths.root).practice_items["pi_svd_define_001"]
-
-
-def test_f14_a_generated_update_keeps_one_block_and_never_adopts_a_quotation(tmp_path):
-    """An update of a generated item revises a prompt that already carries
-    the writer's block: a revision that keeps that block keeps exactly one;
-    a revision that ends with a quotation of the sentence gets the block
-    rendered after it."""
-
-    from tests.test_required_method_reopened import _update_proposal
-
-    block = f"Use {SVD} in your answer."
-    paths, repository, item = _generated_method_item(tmp_path)
-    _patch, row = _update_proposal(tmp_path, repository, item.id,
-                                   {"prompt": f"Define the SVD of a 2x2 matrix A.\n\n{block}"})
-    assert row["payload"]["prompt"] == f"Define the SVD of a 2x2 matrix A.\n\n{block}"
-    quoted = f"Define the SVD of A. The previous card said:\n\n    {block}"
-    _patch, row = _update_proposal(tmp_path, repository, item.id, {"prompt": quoted})
-    assert row["payload"]["prompt"] == f"{quoted}\n\n{block}"
-
-
-# -- F18: clearing or renaming a legacy inline instruction -------------------------------------
-
-LEGACY = f"Compute det(A). {SENTENCE}"
-
-
-@pytest.mark.parametrize("prompt, cleared", [
-    (LEGACY, "Compute det(A)."),
-    (f"{SENTENCE} Compute det(A).", "Compute det(A)."),
-    (f"Compute det(A). {SENTENCE} Show each step.", "Compute det(A). Show each step."),
-    (f"Compute det(A).\n{SENTENCE}", "Compute det(A)."),
-    (f"Compute det(A).\n\n{SENTENCE}\n\nShow each step.", "Compute det(A).\n\nShow each step."),
-    (f"Compute det(A).\n\n{SENTENCE}", "Compute det(A)."),
-    (f"{SENTENCE} Compute det(A).\n\n{SENTENCE}", "Compute det(A)."),
-], ids=["trailing", "leading", "mid", "own_line", "own_paragraph", "block", "standalone_and_block"])
-def test_f18_clearing_removes_a_legacy_inline_instruction(prompt, cleared):
-    assert strip_method_instruction(prompt, METHOD) == cleared
-
-
-@pytest.mark.parametrize("prompt", [
-    f'The previous exercise said "{SENTENCE}" Compute det(B).',
-    f"Compute det(B). Last week's exercise ended with: {SENTENCE}",
-    f"Compute det(B). The previous exercise said:\n\n    {SENTENCE}",
-    f"Compute det(B). The previous exercise said:\n\n> {SENTENCE}",
-    f"Compute det(B). The previous exercise said:\n{SENTENCE}",
-    f"Compute det(B) ({SENTENCE})",
-], ids=["double_quotes", "after_a_colon", "indented", "blockquote", "colon_then_line", "parenthesis"])
-def test_f18_a_quoted_occurrence_survives_clearing(prompt):
-    assert strip_method_instruction(prompt, METHOD) == prompt
-
-
-def test_f18_the_owner_clears_or_renames_a_legacy_instruction_end_to_end(tmp_path):
-    """The re-review's scenario through ``override_payload``: a generated item
-    whose prompt carries the instruction inline (valid under the earlier
-    rule). Clearing removes it; renaming replaces it with the new block."""
-
-    from learnloop.content.proposals.proposals import accept_items
-    from learnloop.content.proposals.required_method_override import (
-        override_payload, propose_required_method_override,
-    )
-
-    legacy = f"Define the SVD of A. Use {SVD} in your answer."
-    paths, repository, item = _generated_method_item(tmp_path, prompt=legacy)
-    cleared = override_payload(load_vault(paths.root), item.id, clear=True)
-    assert cleared["payload"].get("prompt") == "Define the SVD of A."
-    renamed = override_payload(load_vault(paths.root), item.id, name="row reduction",
-                               criterion_ids=["correctness"])
-    assert renamed["payload"]["prompt"] == "Define the SVD of A.\n\nUse row reduction in your answer."
-    # Setting the same method again turns the legacy instruction into the block.
-    restated = override_payload(load_vault(paths.root), item.id, name=SVD, criterion_ids=["correctness"])
-    assert restated["payload"]["prompt"] == f"Define the SVD of A.\n\nUse {SVD} in your answer."
-    proposed = propose_required_method_override(load_vault(paths.root), repository, item.id, clear=True)
-    accept_items(paths.root, proposed["proposal_id"])
-    after = load_vault(paths.root).practice_items[item.id]
-    assert after.prompt == "Define the SVD of A." and after.required_method is None
-
-
-def test_f18_a_generated_update_renaming_a_legacy_method_replaces_its_instruction(tmp_path):
-    from tests.test_required_method_reopened import _update_proposal
-
-    legacy = f"Define the SVD of A. Use {SVD} in your answer."
-    paths, repository, item = _generated_method_item(tmp_path, prompt=legacy)
-    renamed = "the singular value decomposition"
-    _patch, row = _update_proposal(tmp_path, repository, item.id, {
-        "required_method": {"name": renamed, "criterion_ids": ["correctness"]}})
-    assert row["payload"]["prompt"] == f"Define the SVD of A.\n\nUse {renamed} in your answer."
 
 
 # -- F19: the frozen regrade binds the revision's own reference-content hash ------------------

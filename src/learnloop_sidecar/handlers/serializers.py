@@ -25,6 +25,7 @@ from learnloop.scheduling.scheduler import (
 )
 from learnloop.content.sources.source_refs import source_ref_display_dto
 from learnloop.reader.source_review import resolve_source_refs
+from learnloop.vault.required_method import method_instruction
 from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
 from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
 from learnloop_sidecar.context import mastery_dto
@@ -187,6 +188,7 @@ def latest_scheduler_explanation_dto(record: dict[str, Any]) -> dict[str, Any]:
 PRESENTATION_BLOCK_KINDS = (
     "laddered_stem_stimulus",
     "prompt",
+    "required_method_instruction",
     "error_hunt_worked_solution",
 )
 
@@ -256,6 +258,16 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
         )
 
     blocks.append({"kind": "prompt", "markdown": item.prompt, "label": None})
+
+    # Method-explicit items (round 3): the instruction is rendered from the
+    # item's required_method field as its own block after the statement,
+    # never stored in, read from or removed from the statement, so nothing
+    # the statement quotes stands for it. The assessment contract snapshotted
+    # for this serve freezes the same field, and the grader is sent the same
+    # sentence (``learnloop.vault.required_method.presented_prompt``).
+    instruction = method_instruction(getattr(item, "required_method", None))
+    if instruction is not None:
+        blocks.append({"kind": "required_method_instruction", "markdown": instruction, "label": None})
 
     hunt = getattr(item, "error_hunt", None)
     if hunt is not None:

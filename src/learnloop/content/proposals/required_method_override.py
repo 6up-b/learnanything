@@ -7,14 +7,12 @@ decision, or any item's field: ``learnloop grading required-method`` persists
 ONE pending ``update`` proposal (purpose ``required_method_override``, never
 auto-applied) that ``learnloop accept`` applies.
 
-The text agrees with the field without being read:
-
-* a GENERATED statement gains the writer's block, the canonical sentence
-  ("Use {name} in your answer.") as its final paragraph, with the field, and
-  loses it when the field is cleared or renamed (an instruction written
-  inline under the earlier rule too; a quoted occurrence never: review F18);
-* a SOURCE statement (a textbook stem) is never rewritten: the field records
-  ``statement = source, decided_by = owner``.
+The statement is never read and never edited (round 3): the instruction
+("Use {name} in your answer.") is rendered from the field wherever the item
+is shown or sent, so setting, renaming or clearing the field changes what is
+rendered and nothing else (no text surgery that could cut a quotation:
+review F18, F21). A SOURCE statement (a textbook stem) records ``statement =
+source, decided_by = owner``.
 
 The proposal carries the item's content hash: an item changed before
 acceptance is refused (run the command again). An accepted change moves the
@@ -47,7 +45,6 @@ from learnloop.vault.required_method import (
     is_source_statement,
     method_targets,
     names_match,
-    restate_method_instruction,
 )
 
 PROPOSAL_PURPOSE = "required_method_override"
@@ -92,9 +89,6 @@ def override_payload(
         if name is not None or criterion_ids:
             raise ValueError("--clear takes no method or criteria")
         new_field: dict[str, Any] | None = None
-        # Review F18: the writer's block, else a legacy inline instruction,
-        # goes with the field; a quoted occurrence stays.
-        prompt = item.prompt if source else restate_method_instruction(item.prompt, None, previous=existing.name)
     else:
         method = " ".join(str(name or "").split())
         if not method:
@@ -113,16 +107,8 @@ def override_payload(
         new_field = {"name": method, "criterion_ids": criteria, **(target.link() if target is not None else {})}
         if source:
             new_field.update(statement="source", decided_by="owner")
-            prompt = item.prompt
-        else:
-            # The writer renders the new method's block (review F14: nothing
-            # the text says stands for it) after taking out the instruction
-            # of the method the item had, block or legacy inline (F18).
-            prompt = restate_method_instruction(item.prompt, method,
-                                                previous=existing.name if existing is not None else None)
+    # The field alone changes; the statement is left exactly as it is.
     payload["required_method"] = new_field
-    if prompt != item.prompt:
-        payload["prompt"] = prompt
     current = compute_target_hash(vault, "practice_item", item.id)
     if current is not None:
         payload["expected_target_hash"] = current
@@ -131,7 +117,6 @@ def override_payload(
         "statement": "source" if source else "instruction",
         "from": existing.model_dump(mode="json") if existing is not None else None,
         "to": new_field,
-        "prompt_changed": "prompt" in payload,
         "payload": payload,
     }
 
@@ -163,7 +148,7 @@ def propose_required_method_override(
         "payload": change["payload"], "source_ref_ids": [],
         "audit": {"required_method_override": {
             "version": OVERRIDE_VERSION, "decided_by": "owner", "statement": change["statement"],
-            "from": change["from"], "to": change["to"], "prompt_changed": change["prompt_changed"],
+            "from": change["from"], "to": change["to"],
         }},
         "decision": "pending", "validation_status": "valid", "validation_errors": [],
         "created_at": now, "updated_at": now,
@@ -171,7 +156,7 @@ def propose_required_method_override(
     action = "clears" if change["to"] is None else "sets"
     summary = (
         f"The owner {action} the required method of {change['item_id']} "
-        f"({'source statement, never rewritten' if change['statement'] == 'source' else 'the canonical sentence follows the field'}). "
+        f"({'source statement, never rewritten' if change['statement'] == 'source' else 'its instruction is rendered from the field'}). "
         "Nothing is applied until it is accepted; an item changed before then is refused."
     )
     patch_id = repository.persist_proposal_batch({
@@ -179,7 +164,7 @@ def propose_required_method_override(
         "summary": summary, "created_at": now, "updated_at": now,
     }, [row])
     return {"status": "proposed", "proposal_id": patch_id, **{key: change[key] for key in
-                                                             ("item_id", "statement", "from", "to", "prompt_changed")}}
+                                                             ("item_id", "statement", "from", "to")}}
 
 
 def is_override_item(item: Mapping[str, Any]) -> bool:

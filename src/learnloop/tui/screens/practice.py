@@ -33,6 +33,7 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
+from learnloop.vault.required_method import presented_prompt
 from learnloop.tui.widgets import (
     KeyBar,
     TextStatic,
@@ -155,7 +156,10 @@ class PracticeScreen(Screen):
                     yield TextStatic(self._card_title_content(), id="card-title")
                     yield TextStatic(self._card_pills_content(), id="card-pills")
                 yield Rule()
-                yield TextStatic(self.practice_item.prompt, id="practice-prompt")
+                # The statement, then the instruction rendered from its
+                # required method (round 3), as every answering surface shows it.
+                yield TextStatic(presented_prompt(self.practice_item.prompt,
+                                                  self.practice_item.required_method), id="practice-prompt")
                 yield TextStatic(self._probe_content(), id="probe-panel")
                 yield TextStatic(self._stuck_content(), id="stuck-prompt")
                 with Horizontal(id="answer-row"):

@@ -1561,23 +1561,34 @@ class GradedContract:
         A historical contract (frozen before it recorded the hash) froze the
         statement and expected answer verbatim and the RESOLVED rubric only by
         hash, so the revision is rebuilt from the frozen statement and answer
-        with each rubric the item is known to have had (its current one, its
-        recorded snapshots', none: the inherited default). Every
-        representation whose contract matches the frozen one may be the
-        revision graded (an inherited default and the same rubric written
-        inline resolve alike but are different revisions):
+        with each rubric the item is known to have had (its current one and
+        its recorded snapshots'). An inline rubric resolves to itself, so
+        whether it matches the frozen contract is exact. An INHERITED rubric
+        (``None``, when the item is known to have had one) resolved to the
+        vault's default at the time, which is not recorded: today's default
+        recovers it exactly only when it reproduces the frozen rubric hash.
 
-        * one revision matches: ``([hash], "frozen")``;
+        * one revision matches (the inherited one recovered exactly, if it
+          was possible): ``([hash], "frozen")``;
         * several do: the ones a key check recorded (a verified attempt's
           revision had one), else all of them: ``(hashes, "ambiguous")``,
           bound fail closed (any unverified one lowers the grade);
+        * the item is known to have inherited a default that today's default
+          does not reproduce (round 3, F13/F19 reopened): the default the
+          answer was graded under cannot be recovered, so the revision graded
+          may be the inherited one under a default nobody can check, whatever
+          else matches. ``(hashes, "ambiguous_default")``, the inherited
+          revision first, bound UNVERIFIED (never frozen, never verified from
+          today's default);
         * none does (the rubric changed too and no snapshot recorded the old
           one): every revision a key check recorded may be it, the current
           one excepted when the frozen statement or answer differs from it:
           ``(hashes, "unresolved")``, bound fail closed.
         """
 
-        from learnloop.db.stores.source_service import checked_content_hashes, reference_content_hash
+        from learnloop.db.stores.source_service import (
+            AMBIGUOUS_DEFAULT_REVISION, checked_content_hashes, reference_content_hash,
+        )
 
         recorded = self.contract.get("reference_content_hash")
         if isinstance(recorded, str) and recorded:
@@ -1597,9 +1608,13 @@ class GradedContract:
                 rubrics.append(json.loads(item_json).get("grading_rubric"))
             except (TypeError, ValueError, AttributeError):
                 continue
+        # The item is known to have inherited a default rubric (now, or in a
+        # recorded snapshot): the inherited revision may be the one graded.
+        inherited_known = any(rubric is None for rubric in rubrics)
         rubrics.append(None)
         tried: list[str] = []
         matched: list[str] = []
+        unrecovered: str | None = None
         for rubric in rubrics:
             key = json.dumps(rubric, sort_keys=True, default=str)
             if key in tried:
@@ -1607,11 +1622,23 @@ class GradedContract:
             tried.append(key)
             try:
                 view = PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
-                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
-            except Exception:  # noqa: BLE001 - not a revision this item can have had (no rubric resolves)
+            except Exception:  # noqa: BLE001 - not a revision this item can have had
                 continue
-            if self._froze(compiled) and (content := reference_content_hash(view)) not in matched:
-                matched.append(content)
+            try:
+                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
+            except Exception:  # noqa: BLE001 - no rubric resolves (no default for the mode today)
+                compiled = None
+            content = reference_content_hash(view)
+            if compiled is not None and self._froze(compiled):
+                if content not in matched:
+                    matched.append(content)
+            elif rubric is None and inherited_known:
+                # Today's default does not reproduce the frozen rubric: the
+                # default the inherited revision was graded under is unknown.
+                unrecovered = content
+        if unrecovered is not None:
+            return [unrecovered, *[content for content in matched if content != unrecovered]], \
+                AMBIGUOUS_DEFAULT_REVISION
         if len(matched) == 1:
             return matched, "frozen"
         if matched:

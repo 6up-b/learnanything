@@ -59,6 +59,7 @@ from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, sear
 from learnloop.source_retrieval.verify import verification_route, verify_spans
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 SPAN_TEXT_CAP = 600
 PROVENANCE_SPANS_PER_LO = 8
@@ -316,7 +317,8 @@ class TutorSpanProvider:
             {"statement": getattr(m, "statement", ""), "correction": getattr(m, "correction_statement", "")}
             for m in misconceptions]}
         if item is not None:
-            context["practice_question"] = " ".join(item.prompt.split())[:700]
+            context["practice_question"] = " ".join(
+                presented_prompt(item.prompt, getattr(item, "required_method", None)).split())[:700]
         verify_started = time.monotonic()
         status, rows, picks, reason = _verify(
             vault, repository, intent="remediate", question=question_md, pool=pool,

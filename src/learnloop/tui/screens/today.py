@@ -12,6 +12,7 @@ from textual.screen import Screen
 from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
+from learnloop.vault.required_method import presented_prompt
 from learnloop.tui.widgets import (
     KeyBar,
     TextStatic,
@@ -320,7 +321,7 @@ class TodayScreen(Screen):
         title_row.append("  ")
         title_row.append(pill(mode, mode_pill_color(mode)))
 
-        prompt_preview = _clip(practice_item.prompt, 200)
+        prompt_preview = _clip(presented_prompt(practice_item.prompt, practice_item.required_method), 200)
         return Content.assemble(
             Content.assemble(*title_row),
             "\n",

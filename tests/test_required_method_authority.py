@@ -4,9 +4,10 @@ The item's ``required_method`` field, frozen in the assessment contract the
 learner answered, is the only thing grading, regrading and replay read. No
 grader parses the prompt to decide whether a method applies:
 
-* writers make the text agree with the field: a generated prompt gets the
-  ONE canonical sentence generated from it ("Use {method} in your answer."),
-  and validation checks for exactly that sentence (whitespace aside);
+* the ONE canonical sentence ("Use {method} in your answer.") is generated
+  from the field and rendered after the statement wherever the item is
+  shown or sent (round 3); no writer stores it and no validation reads the
+  statement for it;
 * a source statement that must not be rewritten is judged ONCE, at import,
   by the Decider (else the LLM judge), ledgered with its probabilities, the
   argmax deciding; the owner changes the field through a proposal;
@@ -150,54 +151,54 @@ def _targets():
 
 
 @pytest.mark.parametrize("case", REPRO_IDS)
-def test_a_generated_prompt_gets_the_canonical_sentence_whatever_it_says(case):
-    """The writer never reads the prompt: it renders the one sentence as its
-    own block after the generated text (review F14: never taking anything
-    the text says for it), and keeps the field."""
+def test_a_generated_prompt_is_stored_as_generated_and_presented_with_the_sentence(case):
+    """The writer never reads the prompt and never writes it (round 3): the
+    field is kept, the generated text is stored verbatim, and the one
+    sentence is rendered from the field after it wherever it is presented."""
 
-    from learnloop.vault.required_method import has_method_instruction
+    from learnloop.vault.required_method import presented_prompt
 
     prompt = REPRODUCTIONS[case]
     payload = {"prompt": prompt, "grading_rubric": {"criteria": [{"id": "method"}, {"id": "result"}]},
                "required_method": dict(FROZEN)}
     notes = normalize_required_method(payload, _targets())
-    assert notes == ["required_method:instruction_added"]
-    assert payload["prompt"] == f"{prompt}\n\n{SENTENCE}"
+    assert notes == ["required_method:kept"]
+    assert payload["prompt"] == prompt
     assert payload["required_method"]["name"] == METHOD
-    assert has_method_instruction(payload["prompt"], METHOD)
+    assert presented_prompt(payload["prompt"], payload["required_method"]) == f"{prompt}\n\n{SENTENCE}"
 
 
-def test_an_affirmative_phrasing_is_not_the_canonical_sentence():
-    """Only the exact sentence (whitespace aside) states the field: "Compute
-    det(A) by cofactor expansion." gets the sentence appended, and
-    validation reports it until then."""
+def test_the_sentence_is_rendered_from_the_field_never_read_from_the_statement():
+    """Only the field decides what is rendered: an affirmative phrasing, the
+    exact sentence or nothing at all in the statement are rendered alike,
+    and a statement is never validated for the sentence."""
 
-    from learnloop.vault.required_method import has_method_instruction, render_method_instruction
+    from learnloop.vault.required_method import method_instruction, presented_prompt
 
-    prompt = "Compute det(A) by cofactor expansion."
-    assert not has_method_instruction(prompt, METHOD)
-    assert has_method_instruction("Compute det(A).\n \nUse cofactor\nexpansion in   your answer.", METHOD)
-    assert not has_method_instruction("Compute det(A).\n \n  Use cofactor\nexpansion in   your answer.", METHOD)
-    assert not has_method_instruction("Compute det(A). use cofactor expansion in your answer.", METHOD)
-    assert render_method_instruction(prompt, METHOD) == f"{prompt}\n\n{SENTENCE}"
-    rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))
-    codes = [problem.code for problem in required_method_problems(_item(prompt, FROZEN), rubric)]
-    assert codes == ["required_method:not_stated"]
+    assert method_instruction(FROZEN) == SENTENCE
+    assert method_instruction(_item("x", FROZEN).required_method) == SENTENCE
+    assert method_instruction({"name": "  cofactor\n expansion "}) == SENTENCE
+    assert method_instruction(None) is None and method_instruction({"name": " "}) is None
+    for prompt in ("Compute det(A) by cofactor expansion.", f"Compute det(A). {SENTENCE}", ""):
+        expected = f"{prompt}\n\n{SENTENCE}" if prompt else SENTENCE
+        assert presented_prompt(prompt, FROZEN) == expected
+        rubric = Rubric.model_validate(_item(prompt or "x").grading_rubric.model_dump(mode="json"))
+        assert [problem.code for problem in required_method_problems(_item(prompt or "x", FROZEN), rubric)
+                if problem.severity == "error"] == []
+    # Without a method the statement is presented exactly as stored.
+    assert presented_prompt("Compute det(A).  \n", None) == "Compute det(A).  \n"
 
 
 @pytest.mark.parametrize("case", REPRO_IDS)
-def test_validation_checks_the_exact_sentence_and_only_flags_the_rest(case):
-    """Without the sentence every reproduction is ``not_stated``; with it none
-    is an error, and the advisory heuristic only warns (judge = heuristic)
-    where the statement may negate the method."""
+def test_validation_reads_no_statement_and_only_flags_the_rest(case):
+    """No reproduction is an error (the instruction is rendered from the
+    field, never looked for in the statement), and the advisory heuristic
+    only warns (judge = heuristic) where the statement may negate the
+    method."""
 
     prompt = REPRODUCTIONS[case]
     rubric = Rubric.model_validate(_item(prompt).grading_rubric.model_dump(mode="json"))
-    errors = [problem.code for problem in required_method_problems(_item(prompt, FROZEN), rubric)
-              if problem.severity == "error"]
-    assert errors == ["required_method:not_stated"]
-    stated = _item(f"{prompt}\n\n{SENTENCE}", FROZEN)
-    problems = required_method_problems(stated, rubric)
+    problems = required_method_problems(_item(prompt, FROZEN), rubric)
     assert [problem for problem in problems if problem.severity == "error"] == []
     advisory = [problem for problem in problems if problem.code == "required_method:statement_may_disagree"]
     assert all(problem.severity == "warning" and problem.judge == "heuristic" for problem in advisory)
@@ -526,7 +527,7 @@ def test_the_owner_overrides_a_source_decision_and_clears_it_through_proposals(t
     assert final.required_method is None and final.prompt == SOURCE_REPRODUCTIONS["which_clause"]
 
 
-def test_the_owner_override_on_a_generated_item_moves_the_canonical_sentence(tmp_path):
+def test_the_owner_override_on_a_generated_item_changes_only_the_field(tmp_path):
     from learnloop.content.proposals.proposals import accept_items
     from learnloop.content.proposals.required_method_override import propose_required_method_override
 
@@ -539,13 +540,13 @@ def test_the_owner_override_on_a_generated_item_moves_the_canonical_sentence(tmp
     assert proposed["statement"] == "instruction"
     accept_items(paths.root, proposed["proposal_id"])
     changed = load_vault(paths.root).practice_items[item.id]
-    assert changed.prompt == f"{original.rstrip()}\n\nUse {SVD} in your answer."
+    assert changed.prompt == original
     assert changed.required_method.criterion_ids == ["correctness"]
     assert changed.required_method.statement == "instruction"
     cleared = propose_required_method_override(load_vault(paths.root), repository, item.id, clear=True)
     accept_items(paths.root, cleared["proposal_id"])
     final = load_vault(paths.root).practice_items[item.id]
-    assert final.required_method is None and final.prompt == original.rstrip()
+    assert final.required_method is None and final.prompt == original
 
 
 def test_the_cli_proposes_the_override_and_accept_applies_it(tmp_path):
@@ -563,7 +564,7 @@ def test_the_cli_proposes_the_override_and_accept_applies_it(tmp_path):
     accepted = CliRunner().invoke(app, ["accept", payload["proposal_id"], "--all", "--vault", str(paths.root)])
     assert accepted.exit_code == 0, accepted.output
     item = load_vault(paths.root).practice_items["pi_svd_define_001"]
-    assert item.required_method.name == SVD and item.prompt.endswith(f"Use {SVD} in your answer.")
+    assert item.required_method.name == SVD and item.prompt == "Define SVD."
     refused = CliRunner().invoke(app, ["grading", "required-method", "pi_svd_define_001", "--method", SVD,
                                        "--criterion", "ghost", "--vault", str(paths.root)])
     assert refused.exit_code == 1 and json.loads(refused.output)["status"] == "invalid"
@@ -609,7 +610,7 @@ def test_a_generated_proposal_never_changes_a_source_items_field(tmp_path):
 
 
 def _pf_parent():
-    return _item(f"Compute det(A). {SENTENCE}", FROZEN)
+    return _item("Compute det(A).", FROZEN)
 
 
 def _pf_row(stem: str) -> dict:
@@ -634,7 +635,8 @@ def test_a_variant_payload_is_never_built_without_its_publication_judgment():
         build_item_payload(None, _pf_parent(), row, item_id="pi_pf_x", now_iso=STAMP, method_verdict="contradicts")
     consistent = build_item_payload(None, _pf_parent(), _pf_row("Compute det(B) for B = [[2, 1], [1, 2]]."),
                                     item_id="pi_pf_y", now_iso=STAMP, method_verdict="consistent")
-    assert consistent["prompt"] == f"Compute det(B) for B = [[2, 1], [1, 2]].\n\n{SENTENCE}"
+    # The stem is stored as generated; its instruction is rendered from the field.
+    assert consistent["prompt"] == "Compute det(B) for B = [[2, 1], [1, 2]]."
     assert consistent["required_method"] == FROZEN
 
 
@@ -644,7 +646,6 @@ def _pf_method_vault(tmp_path):
 
     _vault, repository, paths = seed_pf_vault(tmp_path / "vault")
     parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
-    parent["prompt"] = "Solve 2x + 4 = 10 for x. Use substitution in your answer."
     parent["required_method"] = {"name": "substitution", "criterion_ids": ["setup"]}
     upsert_practice_item(paths.root, parent)
     return repository, paths
@@ -684,7 +685,7 @@ def test_pf_judges_each_selected_variant_once_and_publication_reads_the_verdict(
     if published:
         [item_id] = outcome["published_item_ids"]
         item = load_vault(paths.root).practice_items[item_id]
-        assert item.prompt == f"{stem.rstrip()}\n\nUse substitution in your answer."
+        assert item.prompt == stem
         assert item.required_method.name == "substitution"
     else:
         assert outcome["published_item_ids"] == [] and outcome["refused_candidates"] == 1

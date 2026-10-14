@@ -54,8 +54,9 @@ answer.
   (owner decision 2026-10-13): one grading call.
 * **Required methods (method-explicit successor, ``own-route-v2``).** Owner
   rule 2026-10-13: criteria name facts, and an item whose target IS a method
-  states it ("Use {method} in your answer.") and records it as
-  ``PracticeItem.required_method``. The policy then carries the
+  records it as ``PracticeItem.required_method`` and is presented with the
+  instruction rendered from that field ("Use {method} in your answer.", after
+  the statement, on every surface and in the grader's question; round 3). The policy then carries the
   ``required_method`` (name and criterion ids) the answer's assessment
   contract froze when the item was presented (review F1: a method added or
   changed later never reaches that answer, at grading or at a regrade), only
@@ -311,9 +312,10 @@ def required_method_policy(
 
     The field is the ONE authority (redesign 2026-10-14): nothing here reads
     the prompt. Whether the statement requires the method was settled when
-    the field was written (the canonical sentence appended to a generated
-    prompt; a one-time, ledgered judgment on a source statement), and the
-    contract froze the result with the statement the learner answered.
+    the field was written (a one-time, ledgered judgment on a source
+    statement), and the contract froze the result with the statement the
+    learner answered; the instruction the learner and the grader were shown
+    is rendered from it (``learnloop.vault.required_method.presented_prompt``).
     """
 
     if required_method is ITEM_REQUIRED_METHOD:

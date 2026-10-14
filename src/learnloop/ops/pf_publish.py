@@ -191,12 +191,12 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
            if getattr(parent, "canonical_exercise", None) is not None else {}),
     }
     # Method-explicit items (owner rule 2026-10-13): the variant keeps the
-    # parent's rubric verbatim, so it keeps its required method too, and its
-    # stem ends with the writer's block, the canonical sentence ("Use {method}
-    # in your answer.") as its own final paragraph.
+    # parent's rubric verbatim, so it keeps its required method too; its
+    # stem is stored as generated and the instruction ("Use {method} in your
+    # answer.") is rendered from the field wherever it is shown (round 3).
     # Whether the stem prohibits or contradicts the method was judged once
     # at publication (redesign 2026-10-14; review F10): a contradicting or
-    # unjudged stem is refused before anything is appended.
+    # unjudged stem is refused before the variant is built.
     method = getattr(parent, "required_method", None)
     if method is not None:
         if method_verdict is None:
