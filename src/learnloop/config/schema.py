@@ -1216,11 +1216,14 @@ class AIRoutingConfig(BaseModel):
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
     # Method-explicit items (owner rule 2026-10-13): the judge of `learnloop
-    # rubrics method-phrasing`, which reads whether a rubric criterion is
+    # grading method-phrasing`, which reads whether a rubric criterion is
     # phrased by method. A decider profile (typed choice questions) or a chat
     # profile. Empty = the code-default openrouter_decider profile when it is
     # ready, else ai.active_provider; with neither ready the report falls back
-    # to the conservative heuristic and says so.
+    # to the conservative heuristic and says so. The same judge makes the
+    # one-time required-method statement judgments (redesign 2026-10-14: a
+    # textbook statement at import, a PF variant's stem at selection), with no
+    # heuristic fallback; grading never uses it.
     rubric_phrasing_judge: str | None = None
 
     @model_validator(mode="before")
@@ -1886,9 +1889,10 @@ class RequiredMethodConfig(BaseModel):
 
     ``enabled`` is the kill switch of the method-explicit successor
     (``mvp-0.22-placeholder``, relabelled at its merge): the own-route rules
-    grade a criterion tied to an item's ``required_method`` on use of that
-    method (``own-route-v2``), so another route fails it without a quoted
-    wrong step. Dormant below the successor and whenever the own-route rules
+    grade a criterion tied to an item's ``required_method`` (frozen with the
+    assessment contract: the one authority, never re-derived from the
+    prompt) on use of that method (``own-route-v2``), so another route fails
+    it without a quoted wrong step. Dormant below the successor and whenever the own-route rules
     themselves are off (``proof_check.enabled``). Off, new answers grade
     exactly as ``mvp-0.20``. Grades already recorded keep their meaning (the
     blind record carries the rules and the method criteria; replay never reads

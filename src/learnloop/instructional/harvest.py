@@ -175,9 +175,10 @@ def harvest(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_co
                                        "metered routes are skipped); subscription routes are estimated_only"}
         report["status"] = "dry_run"
         report["note"] = ("Dry run: no client constructed, nothing sent or written. Each target costs one "
-                          "rerank call, and each picked exercise one authoring call, one solution match and "
-                          "the verifier ladder (panel solves, one equivalence judge, a span-support check when "
-                          "the book's solution is found) plus the family judge's passes.")
+                          "rerank call, and each picked exercise one authoring call, one solution match, "
+                          "at most one required-method statement judgment and the verifier ladder (panel "
+                          "solves, one equivalence judge, a span-support check when the book's solution is "
+                          "found) plus the family judge's passes.")
         return report
     if max_cost_usd is None:
         raise ValueError("A live harvest needs --max-cost-usd (or --dry-run)")
@@ -264,11 +265,13 @@ def verify(vault: LoadedVault, repository: Repository, *, dry_run: bool, max_cos
         for target in targets:
             item = vault.practice_items[target["practice_item_id"]]
             plan = plan_import_cost(vault, statement_chars=len(item.prompt))
-            # A check has no authoring request.
-            authoring = next(row for row in plan["by_role"] if row["role"] == "exercise_authoring")
-            plan["by_role"] = [row for row in plan["by_role"] if row["role"] != "exercise_authoring"]
-            plan["calls"] -= authoring["calls"]
-            plan["tokens"] -= authoring["tokens"]
+            # A check has no authoring request (nor the statement judgment
+            # an authored required method may need).
+            skipped = [row for row in plan["by_role"]
+                       if row["role"] in ("exercise_authoring", "required_method_statement_judge")]
+            plan["by_role"] = [row for row in plan["by_role"] if row not in skipped]
+            plan["calls"] -= sum(row["calls"] for row in skipped)
+            plan["tokens"] -= sum(row["tokens"] for row in skipped)
             if plan["usd"] is not None:
                 plan["usd"] = round(plan["tokens"] * float(plan["price_per_million"]) / 1_000_000, 6)
             target["estimate"] = plan

@@ -104,7 +104,7 @@ from learnloop.content.synthesis.vault_epigraphs import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
-from learnloop.vault.required_method import method_targets, normalize_required_method
+from learnloop.vault.required_method import advisory_statement_flag, method_targets, normalize_required_method
 
 SYNTHESIS_AGENT_PURPOSE = "source_set_synthesis"
 BOOTSTRAP_PROPOSAL_PURPOSE = "sourceset_bootstrap"
@@ -1475,7 +1475,9 @@ def _normalize(
         if isinstance(required, dict) and str(required.get("name") or "").strip():
             # Method-explicit items (owner rule 2026-10-13): kept only on a
             # method target (this batch's concepts and facets plus the
-            # registry), linked to it, with the explicit instruction.
+            # registry), linked to it, with the canonical sentence appended
+            # (redesign 2026-10-14: the prompt's phrasing is never read to
+            # decide; the advisory heuristic only flags it for review).
             payload["required_method"] = dict(required)
             notes = normalize_required_method(
                 payload,
@@ -1483,6 +1485,21 @@ def _normalize(
                     _method_target_view(vault, rows), learning_object_id=lo_id, facet_ids=evidence_facets,
                 ),
             )
+            kept = payload.get("required_method")
+            flag = advisory_statement_flag(payload.get("prompt"), kept["name"]) if kept else None
+            if flag is not None:
+                dropped_diagnostics.append(
+                    {
+                        "gate": "required_method",
+                        "severity": "review",
+                        "entity_refs": [pid],
+                        "message": (f"item {pid}: required_method:statement_may_disagree ({flag}; advisory, "
+                                    "grading reads the field)"),
+                        "suggested_action": (
+                            "make the prompt agree with 'Use {method} in your answer.', or drop the requirement"
+                        ),
+                    }
+                )
             if any(note.startswith("required_method:dropped") for note in notes):
                 dropped_diagnostics.append(
                     {

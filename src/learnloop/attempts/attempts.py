@@ -98,6 +98,7 @@ from learnloop.attempts.stuck import (
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
+    compile_assessment_contract,
     contract_required_method,
     rubric_from_contract,
 )
@@ -1542,6 +1543,19 @@ class GradedContract:
     def rubric(self) -> Rubric:
         return rubric_from_contract(self.contract)
 
+    def matches_current_content(self, vault: LoadedVault, item: PracticeItem) -> bool:
+        """Is the content this contract froze (statement, expected answer and
+        rubric) the item's current content? (review F13)
+
+        A regrade that read the frozen contract graded THAT content; only when
+        it is also the current content does the current content's key status
+        describe what was graded.
+        """
+
+        current = compile_assessment_contract(vault, item, rubric=resolved_rubric(vault, item))
+        keys = ("item_content_hash", "rubric_content_hash")
+        return all(self.contract.get(key) is not None and self.contract.get(key) == current.get(key) for key in keys)
+
 
 def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedContract | None:
     """The assessment contract a recorded attempt's evidence rows cite.
@@ -1645,8 +1659,8 @@ def _blind_grading_plan(
         reference_policy=(
             reference_policy(
                 item, context.learner_answer_md, route_rules=rules or False, rubric_criterion_ids=rubric_ids,
-                # The prompt the learner answered (the assessment contract's).
-                presented_prompt=context.prompt,
+                # The field frozen with the answer's contract: the one
+                # authority (the prompt is never read to decide it).
                 required_method=(
                     ITEM_REQUIRED_METHOD if required_method is _CURRENT_ITEM_METHOD else required_method
                 ),

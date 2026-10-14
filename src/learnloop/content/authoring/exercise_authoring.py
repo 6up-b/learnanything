@@ -81,6 +81,19 @@ _DEFAULT_RUBRIC = {
 }
 
 
+#: Receipts of the one-time statement judgment on a Reader import.
+READER_IMPORT_OWNER_KIND = "reader_exercise_import"
+
+
+def _configured_method_judge(vault: LoadedVault) -> Any:
+    """The one-time statement judge from configuration, resolved on first use."""
+
+    from learnloop.content.proposals.method_statement_judge import LazyStatementJudge, resolve_statement_judge
+
+    price = vault.config.source_service.llm_price_per_million
+    return LazyStatementJudge(lambda: resolve_statement_judge(vault, price_per_million=price))
+
+
 class ExerciseAuthoringError(ValueError):
     """Domain error for the reader exercise-import producer."""
 
@@ -319,6 +332,8 @@ def author_exercises(
     clock: Clock | None = None,
     book_solution: Mapping[str, Any] | None = None,
     admit: Callable[[str, type[ExerciseAuthoring]], AbstractContextManager[Any]] | None = None,
+    method_judge: Any = None,
+    method_judge_owner: tuple[str, str] | None = None,
 ) -> AuthoredBatch:
     """Author the selected exercise(s) into validated drafts. Writes nothing.
 
@@ -328,6 +343,14 @@ def author_exercises(
     capability vocabulary and the task-feature schema. ``book_solution`` (the
     verifier ladder's first rung) is passed to the author so the key can be
     written from the source.
+
+    ``method_judge`` decides, once, whether a statement requires the method
+    its author proposed (redesign 2026-10-14): a resolved judge, a
+    ``LazyStatementJudge``, or None (the default) to resolve one from
+    configuration on first use (``ai.routing.rubric_phrasing_judge``: the
+    Decider, else the LLM judge; a metered LLM judge is priced at
+    ``source_service.llm_price_per_million``). Its receipts are owned by
+    ``method_judge_owner`` (default: the Reader import of ``extraction_id``).
     """
 
     translation = translate_selection(
@@ -401,6 +424,7 @@ def author_exercises(
             span_ids.append(span_id)
 
     vault = load_vault(root)
+    judge = method_judge if method_judge is not None else _configured_method_judge(vault)
     ensure_capability_alias_registry(repository)
     schema_version_id = ensure_builtin_task_feature_schema(repository)
     schema_row = repository.task_feature_schema_version(schema_version_id) or {}
@@ -609,15 +633,26 @@ def author_exercises(
         if capability is not None:
             payload["capability"] = capability
         if entry.required_method is not None:
-            # The book's statement is never rewritten: a required method it
-            # does not state, or on a target that is not that method, is dropped.
+            # The book's statement is never rewritten (redesign 2026-10-14): a
+            # required method on a target that is not that method is dropped,
+            # and whether the statement requires it is decided ONCE, here, by
+            # the ledgered judgment (the Decider, else the LLM judge); without
+            # one the requirement is dropped. Grading never re-reads the text.
+            from learnloop.content.proposals.method_statement_judge import source_judge
+
             payload["required_method"] = entry.required_method.model_dump(mode="json")
+            decide = source_judge(
+                judge, repository, subject_id=item_id,
+                owner=method_judge_owner or (READER_IMPORT_OWNER_KIND, extraction_id), clock=clock,
+                log=lambda reason, label=label: warnings.append(f"{label}: required method not judged: {reason}"),
+            )
             for note in normalize_required_method(
                 payload,
                 method_targets(vault, learning_object_id=lo_id, facet_ids=facets, capability=capability),
                 source_statement=True,
+                judge_source=decide,
             ):
-                if note != "required_method:instruction_added":
+                if note.startswith("required_method:dropped"):
                     warnings.append(f"{label}: {note}")
         if features is not None:
             payload["task_features"] = features
@@ -708,6 +743,7 @@ def import_exercises(
     revision_id: str | None = None,
     learning_object_hint: str | None = None,
     clock: Clock | None = None,
+    method_judge: Any = None,
 ) -> dict[str, Any]:
     """Author the learner's selected exercise(s) into schedulable PracticeItems.
 
@@ -723,6 +759,6 @@ def import_exercises(
     batch = author_exercises(
         root, repository, client, extraction_id=extraction_id, raw_selection=raw_selection,
         render_view_id=render_view_id, source_id=source_id, revision_id=revision_id,
-        learning_object_hint=learning_object_hint, clock=clock,
+        learning_object_hint=learning_object_hint, clock=clock, method_judge=method_judge,
     )
     return write_exercises(root, repository, batch, clock=clock)

@@ -189,8 +189,11 @@ class HardCase:
             "failing": list(self.failing), "category": self.category,
         }
         if self.item.required_method is not None:
-            # Only a case that has one names it, so every earlier case keeps its key.
-            payload["required_method"] = self.item.required_method.model_dump(mode="json")
+            # Only a case that has one names it, so every earlier case keeps its key;
+            # what the grader is shown only (who decided the statement requires it
+            # is not grading content, so the v3 keys are unchanged).
+            payload["required_method"] = self.item.required_method.model_dump(
+                mode="json", exclude={"statement", "decided_by", "judgment_id"})
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
         return f"{self.id}@{digest[:16]}"
 
@@ -211,9 +214,11 @@ def method_criteria(case: "HardCase") -> tuple[str, ...]:
 def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
     """The gold set, validated: labels name real criteria, valid cases none.
 
-    A ``required_method_bypassed`` case carries ``item.required_method``; its
-    prompt states the method, its labelled criteria are exactly the method's
-    criteria, and its answer's final answer matches the reference (another
+    A ``required_method_bypassed`` case carries ``item.required_method``,
+    which passes doctor's validation of the field (the canonical sentence, or
+    a recorded decision on a hand-written statement); its labelled criteria
+    are exactly the method's criteria, and its answer's final answer matches
+    the reference (another
     VALID method). Any other case may carry a required method only as a valid
     alternative that uses it.
     """
@@ -256,10 +261,16 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             raise ValueError(f"{case_id}: a valid alternative fails no criterion; every other case fails one")
         method = item.required_method
         if method is not None:
-            from learnloop.vault.required_method import prompt_requires_method
+            from learnloop.vault.required_method import required_method_problems
 
-            if not prompt_requires_method(item.prompt, method.name):
-                raise ValueError(f"{case_id}: its prompt does not state its required method {method.name!r}")
+            # Doctor's structural validation of the field (redesign
+            # 2026-10-14): an ``instruction`` statement carries the canonical
+            # sentence verbatim, a hand-written ``source`` statement records
+            # who decided it requires the method. No phrasing is read.
+            errors = [problem for problem in required_method_problems(item, rubric)
+                      if problem.severity == "error" and problem.code != "required_method:unknown_criterion"]
+            if errors:
+                raise ValueError(f"{case_id}: {errors[0].code}: {errors[0].message}")
             if set(method.criterion_ids) - criterion_ids:
                 raise ValueError(f"{case_id}: required method criteria not in its rubric")
         if category == "required_method_bypassed":

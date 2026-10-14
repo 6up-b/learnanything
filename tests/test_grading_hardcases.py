@@ -491,13 +491,22 @@ def test_every_fact_and_method_state_on_a_required_method_bypassed(method, steps
     assert (expected == "caught") == (states == {"method": "short", "steps": "full", "result": "full"})
 
 
+def _as_generated(case):
+    """The case's statement read as generated: it then needs the canonical sentence."""
+
+    method = case["item"]["required_method"]
+    method.pop("statement")
+    method.pop("decided_by")
+
+
 @pytest.mark.parametrize("mutation, message", [
-    (lambda case: case["item"].update(prompt=case["item"]["prompt"].replace("cofactor expansion", "a method")),
-     "does not state its required method"),
+    # Redesign 2026-10-14: doctor's validation of the field, no phrasing read.
+    (_as_generated, "required_method:not_stated"),
+    (lambda case: case["item"]["required_method"].pop("decided_by"), "required_method:undecided"),
     (lambda case: case["label"].update(failing_criteria=["result"]), "fails exactly its method criteria"),
     (lambda case: case["item"].pop("required_method"), "names its required method's criteria"),
     (lambda case: case.update(answer=case["answer"].replace("\n\ndet(A) = 13", "\n\n12")), "differs"),
-], ids=["not_stated", "wrong_label", "no_method", "wrong_answer"])
+], ids=["not_stated", "undecided", "wrong_label", "no_method", "wrong_answer"])
 def test_the_loader_refuses_a_malformed_required_method_case(tmp_path, mutation, message):
     payload = json.loads(DEFAULT_CASES.read_text(encoding="utf-8"))
     case = next(entry for entry in payload["cases"] if entry["id"] == "la-det-required-cofactor-by-row-reduction")

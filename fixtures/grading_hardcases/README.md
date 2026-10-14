@@ -34,10 +34,16 @@ by fact, a cell 1-2 valid alternative that any valid method passes:
 | `la-det-required-cofactor-by-row-reduction` (cofactor expansion required, row reduction used) | `la-det-no-required-method-row-reduction` (cell 1) |
 | `pr-at-least-one-six-required-inclusion-exclusion-by-complement` (inclusion-exclusion required, complement used) | `pr-at-least-one-six-no-required-method-complement` (cell 2) |
 
-The loader checks that a required method's prompt requires it (naming the
-method is not enough), that its
-criteria are in the rubric, and that a cell 5 case's labelled criteria are
-exactly the method's criteria.
+The loader applies doctor's validation of the field (redesign 2026-10-14; no
+phrasing is read): a required method on a generated statement needs the
+canonical sentence "Use {name} in your answer." verbatim, and one on a
+hand-written statement that is never rewritten (`statement: source`) needs a
+recorded decision. The two cell 5 statements are hand-written, so they say
+`statement: source, decided_by: owner` (the case author's decision, recorded
+in the field; the grader is shown only the method's name and criteria, so the
+case keys and the recorded grades are unchanged). It also checks that the
+method's criteria are in the rubric, and that a cell 5 case's labelled
+criteria are exactly the method's criteria.
 
 `cases_v2.json` is the 16-case set (cells 1-4) of the route-rules live run, and
 `cases_v1.json` the 14-case set the stage's first live run used (cells 2-4

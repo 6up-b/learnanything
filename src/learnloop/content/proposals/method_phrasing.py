@@ -44,9 +44,10 @@ rejects it; an update is never auto-applied), purpose
 
 * **add the required method**: the item's target really is that method (its
   learning object's concept is a ``procedure``, or one of its facets is a
-  ``procedure_contract``, and the criterion's method names it): the proposal
-  sets ``required_method`` (that method, this criterion) and appends the
-  explicit instruction to the prompt; or
+  ``procedure_contract``, and the criterion's method names it) and its
+  prompt is not a source statement: the proposal sets ``required_method``
+  (that method, this criterion) and appends the canonical sentence to the
+  prompt; or
 * **rephrase by fact**: the criterion's new description names the fact it
   establishes: the LLM judge's rewrite, else the LLM route's rewrite of the
   flagged criteria (when the Decider judged), else a deterministic DRAFT that
@@ -61,13 +62,14 @@ stale rubric; run the report again (review F3). An accepted repair changes
 the item's rubric (and prompt, and required method) and so its assessment
 contract: its next presentation snapshots a new one, and attempts already
 graded keep the contract (and required method) they were graded against.
-A required method is added only where the prompt does not negate the
-method or leave it optional (the instruction would contradict it).
+Nothing reads the prompt to decide a repair (redesign 2026-10-14): the
+canonical sentence is appended with a required method, an advisory flag
+labels a prompt that may negate it or leave it optional, and a source
+statement never gains a required method here (rephrased by fact instead).
 """
 
 from __future__ import annotations
 
-import dataclasses
 import hashlib
 import json
 import os
@@ -100,13 +102,13 @@ from learnloop.vault.paths import VaultPaths
 from learnloop.vault.required_method import (
     CRITERIA_BY_FACT_GUIDANCE,
     MethodTarget,
+    advisory_statement_flag,
     best_target,
     ensure_method_instruction,
+    is_source_statement,
     method_phrase,
-    method_statement,
     method_targets,
     names_match,
-    prompt_requires_method,
 )
 
 REPORT_VERSION = "method-phrasing-report-v1"
@@ -368,6 +370,26 @@ def _ready_writer(vault: LoadedVault, injected: Mapping[str, Any]) -> tuple[Any 
     if not can_write(client):
         return None, name
     return client, getattr(client, "provider_name", None) or name
+
+
+def decider_profile_name(vault: LoadedVault) -> str | None:
+    """The decider profile ``ai.routing.rubric_phrasing_judge`` names, or the
+    code default when the route is unset; None when it names a chat profile."""
+
+    return _route_names(vault)[0]
+
+
+def ready_profile_client(vault: LoadedVault, name: str | None) -> Any | None:
+    """A ready client for the profile ``name`` on the judge route, or None."""
+
+    return _ready(vault, name)
+
+
+def ready_writer(vault: LoadedVault, injected: Mapping[str, Any] | None = None) -> tuple[Any | None, str | None]:
+    """The LLM judge (and writer) on the judge route: (client, profile), or
+    (None, profile) when none can serve an isolated structured completion."""
+
+    return _ready_writer(vault, dict(injected or {}))
 
 
 def resolve_judge(vault: LoadedVault, requested: str = "auto", *, clients: Mapping[str, Any] | None = None) -> JudgeRoute:
@@ -693,9 +715,10 @@ def _llm_tokens(prompt: str) -> int:
 
 
 def _source_statement(item: PracticeItem) -> bool:
-    """A textbook exercise's verbatim stem: never rewritten."""
+    """A source-authored statement: never rewritten, and its required method
+    is decided once at import (or by the owner), never by a repair."""
 
-    return getattr(item, "canonical_exercise", None) is not None or item.provenance.origin == "canonical_extract"
+    return is_source_statement(item)
 
 
 def _teach_back(item: PracticeItem) -> bool:
@@ -707,14 +730,20 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
 
     Each method-phrased criterion becomes the item's required method's
     criterion when the item's target really is that method (by metadata, and
-    the criterion's method names the target: ``names_match``) and the prompt
-    does not negate that method or leave it optional (the instruction would
-    contradict it: review F2), else is rephrased by fact. At most one
-    required method per item; an item that already has one only gains
-    criteria naming that method. The required method takes the target's own
-    name (or alias). A teach-back item never gains one (it explains, it does
-    not execute), and a textbook exercise only when its verbatim statement
-    already requires the method (the statement is never rewritten).
+    the criterion's method names the target: ``names_match``), else is
+    rephrased by fact. At most one required method per item; an item that
+    already has one only gains criteria naming that method. The required
+    method takes the target's own name (or alias), and the prompt gains the
+    canonical sentence generated from it ("Use {name} in your answer.").
+    Nothing here reads the prompt to decide (redesign 2026-10-14): the
+    advisory heuristic only labels an action whose prompt may negate the
+    method or leave it optional (``statement_may_disagree``) for the owner's
+    review. A teach-back item never gains a required method (it explains,
+    it does not execute), and a source statement never gains one from a
+    repair (its wording is never rewritten; whether it requires a method was
+    decided once at import, and the owner changes that with ``learnloop
+    grading required-method``): its criterion is rephrased by fact, labelled
+    ``source_statement``.
 
     The payload carries the item's content hash (``expected_target_hash``,
     review F3): acceptance refuses it if the item changed after this report.
@@ -727,20 +756,15 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
     flagged = [reading for reading in readings if reading.phrased_by == "method"]
     if not flagged:
         return None
+    existing = item.required_method
+    # A source-authored statement (its own field says so, or the item is one
+    # and has no field yet) never gains a required method from a repair.
+    source = (getattr(existing, "statement", "instruction") == "source") if existing is not None \
+        else _source_statement(item)
     targets = [] if _teach_back(item) else method_targets(
         vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
         capability=item.capability,
     )
-    if _source_statement(item):
-        # Only names the verbatim statement already requires, so the repair
-        # never appends an instruction to the book's text.
-        stated_targets = []
-        for target in targets:
-            stated = [name for name in target.names() if prompt_requires_method(item.prompt, name)]
-            if stated:
-                stated_targets.append(dataclasses.replace(target, name=stated[0], aliases=tuple(stated[1:])))
-        targets = stated_targets
-    existing = item.required_method
     method_name: str | None = existing.name if existing is not None else None
     method_target: MethodTarget | None = best_target(method_name, targets) if method_name else None
     method_criteria: list[str] = list(existing.criterion_ids) if existing is not None else []
@@ -749,12 +773,12 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
     for reading in flagged:
         named = reading.method or ""
         target = best_target(named, targets) if named else None
-        contradicted = None
+        held_back = None
         if target is not None and (method_name is None or names_match(named, method_name)):
             # The target's own name (or alias), never a model's long paraphrase.
             candidate = method_name or target.matching_name(named) or target.name
-            if method_statement(item.prompt, candidate) == "contradicted":
-                contradicted = candidate
+            if source and existing is None:
+                held_back = candidate
             else:
                 if method_name is None:
                     method_name, method_target = candidate, target
@@ -762,6 +786,10 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
                     method_criteria.append(reading.criterion_id)
                 action = {"criterion_id": reading.criterion_id, "action": "add_required_method",
                           "method": method_name, "target": target.as_context()}
+                flag = advisory_statement_flag(item.prompt, method_name)
+                if flag is not None:
+                    # Advisory only (the field decides): the owner reads it.
+                    action["statement_may_disagree"] = flag
                 if reading.judgment_ids():
                     action["judgment_ids"] = reading.judgment_ids()
                 actions.append(action)
@@ -783,10 +811,10 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
             # The writer's call failed or was refused: the Decider's flag
             # stands with a deterministic draft.
             action["writer_error"] = reading.writer_error
-        if contradicted is not None:
-            # The target is this method, but the prompt negates it or leaves
-            # it optional: requiring it would contradict the statement.
-            action["prompt_contradicts_method"] = contradicted
+        if held_back is not None:
+            # The target is this method, but the statement is source-authored:
+            # its requirement is decided at import or by the owner, never here.
+            action["source_statement"] = held_back
         if reading.judgment_ids():
             action["judgment_ids"] = reading.judgment_ids()
         actions.append(action)
@@ -794,10 +822,15 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
     if method_name is not None and method_criteria and method_target is not None and (
         existing is None or method_criteria != list(existing.criterion_ids)
     ):
-        payload["required_method"] = {"name": method_name, "criterion_ids": method_criteria, **method_target.link()}
-        prompt = ensure_method_instruction(item.prompt, method_name)
-        if prompt != item.prompt:
-            payload["prompt"] = prompt
+        if existing is not None and getattr(existing, "statement", "instruction") == "source":
+            # A source item's own decision stands; only its criteria grow.
+            payload["required_method"] = {**existing.model_dump(mode="json"), "criterion_ids": method_criteria}
+        else:
+            payload["required_method"] = {"name": method_name, "criterion_ids": method_criteria,
+                                          **method_target.link()}
+            prompt = ensure_method_instruction(item.prompt, method_name)
+            if prompt != item.prompt:
+                payload["prompt"] = prompt
     current = compute_target_hash(vault, "practice_item", item.id)
     if current is not None:
         payload["expected_target_hash"] = current
@@ -1163,6 +1196,7 @@ __all__ = [
     "RubricPhrasingReading",
     "candidate_items",
     "decider_readings",
+    "decider_profile_name",
     "default_caps",
     "deterministic_fact_draft",
     "heuristic_readings",
@@ -1170,6 +1204,8 @@ __all__ = [
     "llm_readings",
     "persist_repairs",
     "plan_dry_run",
+    "ready_profile_client",
+    "ready_writer",
     "repair_plan",
     "resolve_judge",
     "run_method_phrasing",

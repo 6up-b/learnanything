@@ -70,9 +70,16 @@ method its assessment contract froze when the item was presented, never one
 the item gained later (grading and regrading alike); while the rules are on, a
 regrade of a required-method item also reads the statement and rubric from
 that contract, and its rows cite it, so a content edit never changes how a
-past answer's method is enforced. See
+past answer's method is enforced. The field is the ONE authority (redesign,
+2026-10-14): grading, regrading and replay never parse the prompt to decide
+whether a method applies. Writers make the text agree with the field (a
+generated prompt gets the canonical sentence; a textbook statement is judged
+once at import by the Decider, else the LLM judge, ledgered; a PF variant's
+stem is judged once before publication), and a statement reader survives
+only as an advisory doctor/report flag. A frozen regrade binds the key status
+of the content it graded, not the item's current content. See
 `docs/reviews/method-explicit-items.md` and
-`docs/reviews/method-explicit-items-codex-review.md`.
+`docs/reviews/method-explicit-items-codex-review.md` ("Redesign").
 
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never

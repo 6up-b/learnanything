@@ -86,7 +86,8 @@ AITask = Literal[
     "llm_probability_llm",
     # Method-explicit items (owner rule 2026-10-13): the judge that reads
     # whether a rubric criterion is phrased by method (a decider or chat
-    # profile; `learnloop rubrics method-phrasing`).
+    # profile; `learnloop grading method-phrasing`), and makes the one-time
+    # required-method statement judgments at import and PF selection.
     "rubric_phrasing_judge",
 ]
 
@@ -183,8 +184,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "llm_probability_prediction": "llm_probability_llm",
     # Facet identity at ingest and in `learnloop facets dedupe`.
     "facet_identity_judgment": "facet_identity_judge",
-    # Method-explicit items: one item's criteria read for method phrasing.
+    # Method-explicit items: one item's criteria read for method phrasing, and
+    # the one-time judgment of a statement that must not be rewritten.
     "rubric_phrasing_judgment": "rubric_phrasing_judge",
+    "required_method_statement": "rubric_phrasing_judge",
 }
 
 

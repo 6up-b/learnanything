@@ -32,7 +32,7 @@ from learnloop.content.proposals.method_phrasing import (
     writer_names,
 )
 from learnloop.vault.loader import load_vault
-from learnloop.vault.required_method import prompt_requires_method
+from learnloop.vault.required_method import has_method_instruction
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -248,7 +248,8 @@ def test_repairs_are_pending_proposals_applied_only_on_accept(vault_paths):
     assert criteria["method"].correlation_group == "g1" and criteria["method"].recipe_ids == ["r1"]
     assert det.required_method is None
     assert cofactor.required_method is not None and cofactor.required_method.criterion_ids == ["method"]
-    assert prompt_requires_method(cofactor.prompt, "cofactor expansion")
+    # The canonical sentence generated from the field (the target's own name).
+    assert has_method_instruction(cofactor.prompt, cofactor.required_method.name)
     # After the repair, nothing is left to flag.
     again = run_method_phrasing(load_vault(root, load_environment=False), judge="llm", clients={"llm": LLMJudge()},
                                 price_per_million=1.0, clock=CLOCK)
@@ -282,9 +283,11 @@ def test_the_cli_with_the_heuristic_proposes(vault_paths):
 
 
 def test_a_repair_never_rewrites_a_source_statement_or_gives_a_teach_back_a_method(vault_paths):
-    """A textbook exercise keeps its verbatim stem: it gains a required method
-    only when the stem already names it; a teach-back item never gains one;
-    and a method that merely resembles the target (a shared word) is no match."""
+    """A textbook exercise keeps its verbatim stem and never gains a required
+    method from a repair, whatever its wording (redesign 2026-10-14: its
+    requirement is the import's one-time judgment, or the owner's); a
+    teach-back item never gains one; and a method that merely resembles the
+    target (a shared word) is no match."""
 
     from learnloop.content.proposals.method_phrasing import CriterionReading, repair_plan
 
@@ -296,15 +299,35 @@ def test_a_repair_never_rewrites_a_source_statement_or_gives_a_teach_back_a_meth
                                 fact_phrasing="Establishes the value of det(A).", rewrite="llm")
 
     source = item.model_copy(update={"provenance": item.provenance.model_copy(update={"origin": "canonical_extract"})})
-    [action] = repair_plan(vault, source, [reading("cofactor expansion")])["actions"]
-    assert action["action"] == "rephrase_by_fact"
-    stated = source.model_copy(update={"prompt": "Compute det(A) by cofactor expansion."})
-    plan = repair_plan(vault, stated, [reading("cofactor expansion")])
-    assert plan["actions"][0]["action"] == "add_required_method" and "prompt" not in plan["payload"]
+    for prompt in (source.prompt, "Compute det(A) by cofactor expansion."):
+        plan = repair_plan(vault, source.model_copy(update={"prompt": prompt}), [reading("cofactor expansion")])
+        [action] = plan["actions"]
+        assert action["action"] == "rephrase_by_fact" and action["source_statement"]
+        assert "prompt" not in plan["payload"] and "required_method" not in plan["payload"]
     teach_back = item.model_copy(update={"practice_mode": "teach_back"})
     assert repair_plan(vault, teach_back, [reading("cofactor expansion")])["actions"][0]["action"] == "rephrase_by_fact"
     resembling = repair_plan(vault, item, [reading("expansion of the product along a row")])
     assert resembling["actions"][0]["action"] == "rephrase_by_fact"
+
+
+def test_a_repair_adds_the_canonical_sentence_and_only_flags_a_statement_that_may_disagree(vault_paths):
+    """On a generated item whose target is the method, the repair adds the
+    required method with the canonical sentence; a prompt that may negate it
+    is labelled for the owner (advisory), never decided by its wording."""
+
+    from learnloop.content.proposals.method_phrasing import CriterionReading, repair_plan
+
+    vault = load_vault(vault_paths.root, load_environment=False)
+    item = vault.practice_items["pi_cofactor"]
+    reading = CriterionReading("pi_cofactor", "method", COFACTOR, "method", "llm", method="cofactor expansion")
+    plain = repair_plan(vault, item, [reading])
+    [action] = plain["actions"]
+    assert action["action"] == "add_required_method" and "statement_may_disagree" not in action
+    assert plain["payload"]["prompt"] == f"{item.prompt.rstrip()}\n\nUse Cofactor Expansion in your answer."
+    negating = item.model_copy(update={"prompt": "Compute det(A) without cofactor expansion."})
+    flagged = repair_plan(vault, negating, [reading])
+    [action] = flagged["actions"]
+    assert action["action"] == "add_required_method" and action["statement_may_disagree"] == "negated"
 
 
 @pytest.mark.parametrize("description, draft", [

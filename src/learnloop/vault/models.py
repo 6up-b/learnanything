@@ -672,6 +672,23 @@ class RequiredMethod(VaultModel):
 
     ``learning_object_id``, ``concept_id`` and ``facet_id`` link the method to
     the target it serves when that is known.
+
+    **The one authority (redesign, 2026-10-14).** This field, frozen with the
+    assessment contract the learner answered, is the only thing grading,
+    regrading and replay read; no grader ever parses the prompt to decide
+    whether a method applies. The text is made to agree with the field when
+    the field is written, by ``statement``:
+
+    * ``instruction`` (the default, omitted): the prompt carries the one
+      canonical sentence generated from the field ("Use {name} in your
+      answer."), appended by the writer that set the field; validation checks
+      that exact sentence;
+    * ``source``: a source-authored statement whose wording is never
+      rewritten (a textbook exercise). Whether it requires the method was
+      decided ONCE, when it was imported (``decided_by = judgment``, the
+      judgment's ``judgment_ledger`` row in ``judgment_id``), or by the owner
+      through an accepted proposal (``decided_by = owner``), and is never
+      re-derived from the text.
     """
 
     name: str = Field(min_length=1)
@@ -679,6 +696,11 @@ class RequiredMethod(VaultModel):
     learning_object_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     concept_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     facet_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    statement: Literal["instruction", "source"] = Field(
+        default="instruction", exclude_if=lambda value: value == "instruction"
+    )
+    decided_by: Literal["judgment", "owner"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    judgment_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class CanonicalExercise(VaultModel):

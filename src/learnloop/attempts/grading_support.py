@@ -298,7 +298,6 @@ def required_method_policy(
     item: PracticeItem,
     rubric_criterion_ids: Sequence[str] | None = None,
     *,
-    presented_prompt: str | None = None,
     required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
 ) -> dict[str, Any] | None:
     """The required method as the grader's policy shows it, or None.
@@ -308,14 +307,14 @@ def required_method_policy(
     presented item required none, and an answer never acquires one from
     content changed later; review F1), or, by default, the item's current one.
     Only criteria of the rubric being graded are listed (an unknown id is
-    doctor's ``required_method:unknown_criterion``, never graded). A method is
-    graded on use only when the prompt the learner answered REQUIRES it
-    (``presented_prompt``; naming it is not enough, review F2): an answer to a
-    statement that did not require the method is never failed for not using
-    it.
-    """
+    doctor's ``required_method:unknown_criterion``, never graded).
 
-    from learnloop.vault.required_method import prompt_requires_method
+    The field is the ONE authority (redesign 2026-10-14): nothing here reads
+    the prompt. Whether the statement requires the method was settled when
+    the field was written (the canonical sentence appended to a generated
+    prompt; a one-time, ledgered judgment on a source statement), and the
+    contract froze the result with the statement the learner answered.
+    """
 
     if required_method is ITEM_REQUIRED_METHOD:
         current = getattr(item, "required_method", None)
@@ -327,8 +326,6 @@ def required_method_policy(
     if method is None or not str(method.get("name") or "").strip():
         return None
     name = str(method["name"])
-    if presented_prompt is not None and not prompt_requires_method(presented_prompt, name):
-        return None
     known = set(rubric_criterion_ids) if rubric_criterion_ids is not None else None
     criterion_ids = [str(cid) for cid in method.get("criterion_ids") or () if known is None or str(cid) in known]
     return {"name": name, "criterion_ids": criterion_ids}
@@ -410,7 +407,6 @@ def reference_policy(
     *,
     route_rules: bool | str = False,
     rubric_criterion_ids: Sequence[str] | None = None,
-    presented_prompt: str | None = None,
     required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
 ) -> dict[str, Any]:
     """The PF-c policy block for one answer (item-side + this answer only).
@@ -419,10 +415,10 @@ def reference_policy(
     then carries :data:`ROUTE_RULES` and the server applies
     :func:`apply_route_rule`. ``True`` is ``own-route-v1``; a version string
     names the rules (``own-route-v2``, the method-explicit successor, also
-    shows the ``required_method`` the answer is graded under, by default the
-    item's, when the ``presented_prompt`` requires it, its criteria limited
-    to ``rubric_criterion_ids``: :func:`required_method_policy`). Without it
-    the block is exactly mvp-2.1's.
+    shows the ``required_method`` the answer is graded under: the one its
+    contract froze, by default the item's, its criteria limited to
+    ``rubric_criterion_ids``; :func:`required_method_policy`, which never
+    reads the prompt). Without it the block is exactly mvp-2.1's.
     """
 
     expected = item.expected_answer
@@ -439,11 +435,7 @@ def reference_policy(
             raise ValueError(f"unknown own-route rules version {version!r}")
         policy["route_rules"] = version
         if version == METHOD_ROUTE_RULES_VERSION:
-            method = required_method_policy(
-                item, rubric_criterion_ids,
-                presented_prompt=presented_prompt if presented_prompt is not None else item.prompt,
-                required_method=required_method,
-            )
+            method = required_method_policy(item, rubric_criterion_ids, required_method=required_method)
             if method is not None:
                 policy["required_method"] = method
     return policy

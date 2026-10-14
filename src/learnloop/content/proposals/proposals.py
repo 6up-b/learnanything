@@ -41,6 +41,7 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.required_method import (
+    is_source_statement,
     learning_object_method_targets,
     method_targets,
     normalize_required_method,
@@ -1473,16 +1474,28 @@ def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringPropos
     A ``required_method`` is kept only on an item whose target is that method
     (``learnloop.vault.required_method.method_targets``: the learning object's
     concept is a procedure, or one of its facets a procedure_contract), linked
-    to it, with its criteria in the rubric and the explicit instruction in the
-    prompt (appended when the model left it out). Anything else drops it. An
-    update without a prompt of its own is checked against the item's current
-    prompt. Deterministic; the persisted payload is what is checked.
+    to it, with its criteria in the rubric and the canonical sentence ("Use
+    {name} in your answer.") in the prompt, appended when it is not there
+    verbatim (redesign 2026-10-14: the prompt's phrasing is never read).
+    Anything else drops it. An update without a prompt of its own is checked
+    against the item's current prompt. A generated proposal never changes the
+    required method of a source-authored item (a textbook statement is never
+    rewritten; its requirement was decided once at import, and the owner
+    changes it with ``learnloop grading required-method``): the key is
+    dropped and the item keeps its field. Deterministic; the persisted
+    payload is what is checked.
     """
 
+    existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
+    if existing is not None and "required_method" in payload and (
+        is_source_statement(existing)
+        or getattr(existing.required_method, "statement", "instruction") == "source"
+    ):
+        payload.pop("required_method", None)
+        return ["required_method:source_statement_unchanged"]
     if not payload.get("required_method"):
         payload.pop("required_method", None)
         return []
-    existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
     learning_object_id = payload.get("learning_object_id") or (existing.learning_object_id if existing else None)
     facets = payload.get("evidence_facets") or (list(existing.evidence_facets) if existing else [])
     capability = payload.get("capability") or (existing.capability if existing else None)

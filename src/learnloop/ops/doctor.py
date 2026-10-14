@@ -1907,20 +1907,24 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
     """Method-explicit items (owner rule 2026-10-13).
 
     Rubric criteria name the fact a step establishes; only an item whose
-    target IS a method may require it, by stating it in its prompt
-    (``required_method``). Errors: a required method its prompt does not
-    require (``required_method:not_stated``; naming the method is not
-    requiring it), one its prompt negates or leaves optional
-    (``required_method:contradicted``: "without X", "You may use X or any
-    other method"), or one that names a criterion its rubric lacks
-    (``required_method:unknown_criterion``). Warnings: a required
-    method on a target the metadata does not read as a method
-    (``required_method:not_a_method_target``), and a criterion phrased by
+    target IS a method may require it (``required_method``). The field is the
+    one authority (redesign 2026-10-14): doctor checks its structure and never
+    decides anything from the prompt's phrasing. Errors: a generated
+    statement without the canonical sentence generated from the field
+    (``required_method:not_stated``: "Use {name} in your answer.", exact up to
+    whitespace), a source statement with no recorded decision
+    (``required_method:undecided``), and a required method naming a criterion
+    its rubric lacks (``required_method:unknown_criterion``). Warnings: a
+    required method on a target the metadata does not read as a method
+    (``required_method:not_a_method_target``), and two ADVISORY flags of the
+    conservative heuristic (``judge = heuristic``; no model call, no effect on
+    grading): a prompt that may negate the method or leave it optional
+    (``required_method:statement_may_disagree``) and a criterion phrased by
     method that is not the item's required method's
-    (``criterion:method_phrased``). The last is read by the CONSERVATIVE
-    heuristic (``learnloop.vault.required_method.method_phrase``; doctor makes
-    no model call): ``learnloop grading method-phrasing`` reads every
-    criterion with the Decider or an LLM judge and drafts repair proposals.
+    (``criterion:method_phrased``). ``learnloop grading method-phrasing``
+    reads every criterion with the Decider or an LLM judge and drafts repair
+    proposals; ``learnloop grading required-method`` proposes the owner's
+    change to an item's field.
     """
 
     from learnloop.vault.required_method import method_phrase, method_targets, required_method_problems
@@ -1949,7 +1953,7 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
             issues.append(_issue(
                 problem.severity, problem.code, problem.message, entity_id=item.id,
                 details={
-                    **(judge if problem.code == "criterion:method_phrased" else {}),
+                    **({"judge": problem.judge} if problem.judge else {}),
                     "criterion_id": problem.criterion_id, "method": problem.method,
                 },
             ))

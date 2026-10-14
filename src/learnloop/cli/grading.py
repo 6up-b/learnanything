@@ -282,4 +282,40 @@ def grading_method_phrasing(
         raise typer.Exit(code=1)
 
 
+@grading_app.command("required-method")
+def grading_required_method(
+    item_id: Annotated[str, typer.Argument(help="The practice item.")],
+    method: Annotated[str | None, typer.Option("--method", help="The method its statement requires (its name, as the grader is shown it).")] = None,
+    criterion: Annotated[list[str] | None, typer.Option("--criterion", help="A criterion that grades use of the method; repeatable (default: the current method's, when renaming it).")] = None,
+    clear: Annotated[bool, typer.Option("--clear", help="The statement requires no method: clear the field.")] = False,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Propose the owner's change to an item's required method (never auto-applied).
+
+    The item's required_method field is the one thing grading reads; a
+    textbook statement's requirement was decided once when it was imported.
+    This persists one pending update through the normal proposal/confirm
+    path; `learnloop accept <proposal id>` applies it. A generated statement
+    gains (or loses) the sentence "Use {method} in your answer." with the
+    field; a textbook statement is never rewritten and records the owner's
+    decision. Attempts already graded keep the method they were graded under.
+    """
+
+    from learnloop.content.proposals.required_method_override import propose_required_method_override
+    from learnloop.vault.loader import load_vault
+
+    root = _root(vault)
+    try:
+        report = propose_required_method_override(
+            load_vault(root), _repository(root), item_id, name=method, criterion_ids=criterion or (), clear=clear,
+        )
+    except ValueError as exc:
+        typer.echo(_dump({"status": "invalid", "reason": str(exc)}))
+        raise typer.Exit(code=1) from exc
+    report["accept_with"] = f"learnloop accept {report['proposal_id']} --all"
+    typer.echo(_dump(report) if json_output else _dump({key: report[key] for key in (
+        "status", "proposal_id", "item_id", "statement", "from", "to", "accept_with")}))
+
+
 __all__ = [name for name in globals() if not name.startswith("__")]

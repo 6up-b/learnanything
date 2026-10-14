@@ -26,14 +26,14 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import PracticeItem, RequiredMethod, Rubric
 from learnloop.vault.required_method import (
     CRITERIA_BY_FACT_GUIDANCE,
+    advisory_statement_flag,
     ensure_method_instruction,
+    has_method_instruction,
     inherit_required_method,
     method_phrase,
-    method_statement,
     method_targets,
     names_match,
     normalize_required_method,
-    prompt_requires_method,
     required_method_instruction,
     required_method_problems,
 )
@@ -83,15 +83,21 @@ def test_an_item_without_a_required_method_serializes_and_hashes_as_before():
 
 def test_the_explicit_instruction():
     assert required_method_instruction("cofactor  expansion") == "Use cofactor expansion in your answer."
-    assert prompt_requires_method("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
-    assert not prompt_requires_method("Compute det(A).", "cofactor expansion")
+    # Redesign 2026-10-14: only the canonical sentence states the field (whitespace aside).
+    assert has_method_instruction("Compute det(A). Use cofactor   expansion in your answer.", "cofactor expansion")
+    assert not has_method_instruction("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
+    assert not has_method_instruction("Compute det(A).", "cofactor expansion")
     assert ensure_method_instruction("Compute det(A).", "cofactor expansion") == (
         "Compute det(A).\n\nUse cofactor expansion in your answer.")
     assert ensure_method_instruction("Use cofactor expansion to compute det(A).", "cofactor expansion") == (
-        "Use cofactor expansion to compute det(A).")
+        "Use cofactor expansion to compute det(A).\n\nUse cofactor expansion in your answer.")
+    stated = "Compute det(A).\n\nUse cofactor expansion in your answer."
+    assert ensure_method_instruction(stated, "cofactor expansion") == stated
 
 
-# Review F2: naming a method is not requiring it.
+# Review F2's statements, now read only by the ADVISORY flag (redesign
+# 2026-10-14): a statement the old reader read as contradicting the method is
+# flagged (negated or optional); none of these changes grading or a writer.
 METHOD_STATEMENTS = [
     ("Compute det(A). Use cofactor expansion in your answer.", "required"),
     ("Compute det(A) by cofactor expansion along the first row.", "required"),
@@ -123,16 +129,15 @@ METHOD_STATEMENTS = [
 
 @pytest.mark.parametrize("prompt, expected", METHOD_STATEMENTS, ids=[expected + ":" + prompt[:40]
                                                                      for prompt, expected in METHOD_STATEMENTS])
-def test_a_mention_is_not_a_requirement(prompt, expected):
-    assert method_statement(prompt, "cofactor expansion") == expected
-    assert prompt_requires_method(prompt, "cofactor expansion") == (expected == "required")
+def test_the_advisory_flag_reads_negations_and_options_only(prompt, expected):
+    assert (advisory_statement_flag(prompt, "cofactor expansion") is not None) == (expected == "contradicted")
 
 
-def test_the_writers_require_an_affirmative_statement(vault_paths):
-    """A generated prompt that only mentions the method gets the explicit
-    instruction; one that negates it or leaves it optional loses the
-    requirement (an instruction would contradict it); a source statement
-    that only mentions it is never rewritten, so the requirement is dropped."""
+def test_the_writers_append_the_canonical_sentence_without_reading_the_prompt(vault_paths):
+    """A generated prompt gets the canonical sentence unless it is there
+    verbatim, whatever it says (redesign 2026-10-14); a source statement is
+    never rewritten and keeps a requirement only by the one-time judgment
+    (none here: dropped, unjudged)."""
 
     vault = load_vault(vault_paths.root)
     targets = method_targets(vault, learning_object_id="lo_cofactor")
@@ -142,27 +147,26 @@ def test_the_writers_require_an_affirmative_statement(vault_paths):
         return {"prompt": prompt, "grading_rubric": rubric,
                 "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
 
-    mentioned = payload("Explain why cofactor expansion along any row gives det(A).")
-    assert normalize_required_method(mentioned, targets) == ["required_method:instruction_added"]
-    assert mentioned["prompt"].endswith("\n\nUse cofactor expansion in your answer.")
-    for prompt in ("You may use cofactor expansion or any other method.", "Compute det(A) without cofactor expansion."):
-        contradicted = payload(prompt)
-        assert normalize_required_method(contradicted, targets) == ["required_method:dropped_prompt_contradicts_it"]
-        assert contradicted["prompt"] == prompt and "required_method" not in contradicted
-    source = payload("Cofactor expansion computes det(A) for A = [[1, 2], [3, 4]].")
+    for prompt in ("Explain why cofactor expansion along any row gives det(A).",
+                   "Compute det(A) by cofactor expansion.",
+                   "You may use cofactor expansion or any other method."):
+        generated = payload(prompt)
+        assert normalize_required_method(generated, targets) == ["required_method:instruction_added"]
+        assert generated["prompt"] == prompt + "\n\nUse cofactor expansion in your answer."
+        assert generated["required_method"]["criterion_ids"] == ["method"]
+    source = payload("Using cofactor expansion, compute det(A).")
     assert normalize_required_method(source, targets, source_statement=True) == [
-        "required_method:dropped_source_statement_does_not_state_it"]
-    stated_source = payload("Using cofactor expansion, compute det(A).")
-    assert normalize_required_method(stated_source, targets, source_statement=True) == []
-    assert stated_source["required_method"]["name"] == "cofactor expansion"
-    # A variant whose stem leaves the method open is noted (doctor reports it).
+        "required_method:dropped_source_statement_unjudged"]
+    assert source["prompt"] == "Using cofactor expansion, compute det(A)." and "required_method" not in source
+    # A variant always gains the sentence; whether its stem contradicts the
+    # method is the publication judgment's question (ops.pf_publish).
     parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
                    required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
     variant = {"prompt": "Compute det(B) with any method, for example cofactor expansion."}
-    assert "required_method:prompt_contradicts_it" in inherit_required_method(variant, parent)
+    assert inherit_required_method(variant, parent) == ["required_method:inherited", "required_method:instruction_added"]
 
 
-def test_validation_reports_a_requirement_its_prompt_contradicts():
+def test_validation_reports_the_missing_sentence_and_flags_a_contradiction():
     rubric = Rubric.model_validate({"criteria": [
         {"id": "method", "points": 2, "description": "Uses cofactor expansion along the first row."},
         {"id": "result", "points": 2, "description": "Establishes det(A) = 13."},
@@ -170,9 +174,12 @@ def test_validation_reports_a_requirement_its_prompt_contradicts():
     method = {"name": "cofactor expansion", "criterion_ids": ["method"]}
     codes = lambda prompt: [p.code for p in required_method_problems(  # noqa: E731
         _item(prompt=prompt, required_method=method), rubric)]
-    assert codes("You may use cofactor expansion or any other method.") == ["required_method:contradicted"]
-    assert codes("Compute det(A) without cofactor expansion.") == ["required_method:contradicted"]
+    assert codes("You may use cofactor expansion or any other method.") == [
+        "required_method:not_stated", "required_method:statement_may_disagree"]
+    assert codes("Compute det(A) without cofactor expansion. Use cofactor expansion in your answer.") == [
+        "required_method:statement_may_disagree"]
     assert codes("Explain why cofactor expansion works, then compute det(A).") == ["required_method:not_stated"]
+    assert codes("Compute det(A) by cofactor expansion.") == ["required_method:not_stated"]
     assert codes("Compute det(A). Use cofactor expansion in your answer.") == []
 
 
@@ -267,16 +274,24 @@ def test_the_writer_check_keeps_a_required_method_only_on_its_target(vault_paths
     assert normalize_required_method(another, targets) == ["required_method:dropped_unmatched_target"]
     assert "required_method" not in another
 
-    # A source statement (a textbook stem) is never rewritten.
+    # A source statement (a textbook stem) is never rewritten; its requirement
+    # is the one-time judgment's (``tests/test_required_method_authority.py``).
     source = {"prompt": "Compute det(A).", "grading_rubric": rubric,
               "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
     assert normalize_required_method(source, targets, source_statement=True) == [
-        "required_method:dropped_source_statement_does_not_state_it"]
+        "required_method:dropped_source_statement_unjudged"]
     assert source["prompt"] == "Compute det(A)." and "required_method" not in source
+    from learnloop.vault.required_method import SourceStatementDecision
+
     stated = {"prompt": "Compute det(A) by cofactor expansion.", "grading_rubric": rubric,
               "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
-    assert normalize_required_method(stated, targets, source_statement=True) == []
-    assert stated["prompt"] == "Compute det(A) by cofactor expansion." and stated["required_method"]["criterion_ids"] == ["method"]
+    assert normalize_required_method(
+        stated, targets, source_statement=True,
+        judge_source=lambda statement, name: SourceStatementDecision("requires", "j1"),
+    ) == ["required_method:source_statement_judged_requires"]
+    assert stated["prompt"] == "Compute det(A) by cofactor expansion."
+    assert stated["required_method"]["criterion_ids"] == ["method"]
+    assert (stated["required_method"]["statement"], stated["required_method"]["judgment_id"]) == ("source", "j1")
 
 
 def test_a_variant_inherits_its_parents_required_method():
@@ -455,7 +470,7 @@ def test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target(v
     assert (item.required_method is not None) == kept
     if kept:
         assert item.required_method.concept_id == "cofactor_expansion"
-        assert prompt_requires_method(item.prompt, item.required_method.name)
+        assert has_method_instruction(item.prompt, item.required_method.name)
 
 
 # -- generation: the other writers ---------------------------------------------------------
@@ -470,7 +485,7 @@ def test_pf_publication_keeps_the_parents_required_method_and_states_it():
                                        "solution": "2*2 - 1*1 = 3"}),
            "final_relation": "isomorph", "declared_relation": "isomorph", "difficulty": None,
            "generation_path": "ensemble", "id": "cand1", "family_id": "fam1"}
-    payload = build_item_payload(None, parent, row, item_id="pi_pf_x", now_iso=STAMP)
+    payload = build_item_payload(None, parent, row, item_id="pi_pf_x", now_iso=STAMP, method_verdict="consistent")
     assert payload["required_method"]["criterion_ids"] == ["method"]
     assert payload["prompt"].endswith("Use cofactor expansion in your answer.")
     plain = build_item_payload(None, _item(), row, item_id="pi_pf_y", now_iso=STAMP)
@@ -524,58 +539,59 @@ def _setup_requiring_statement(tmp_path):
     return repository
 
 
-@pytest.mark.parametrize("name, requiring, kept, note", [
-    ("singular value decomposition", True, True, None),
-    ("singular value decomposition", False, False, "required_method:dropped_source_statement_does_not_state_it"),
-    ("SVD", False, False, "required_method:dropped_source_statement_does_not_state_it"),
-    ("Gram-Schmidt", False, False, "required_method:dropped_unmatched_target"),
-], ids=["required", "only_named", "not_stated", "not_the_target"])
-def test_an_imported_exercise_keeps_a_required_method_only_when_its_statement_states_it(
-        tmp_path, name, requiring, kept, note):
+@pytest.mark.parametrize("name, judged, kept, note", [
+    ("singular value decomposition", "requires", True, None),
+    ("singular value decomposition", "allows", False, "required_method:dropped_source_statement_judged_allows"),
+    ("singular value decomposition", None, False, "required_method:dropped_source_statement_unjudged"),
+    ("Gram-Schmidt", "requires", False, "required_method:dropped_unmatched_target"),
+], ids=["judged_requires", "judged_allows", "unjudged", "not_the_target"])
+def test_an_imported_exercise_keeps_a_required_method_only_by_its_one_time_judgment(
+        tmp_path, name, judged, kept, note):
     """Source exercise authoring/imports: the book's statement is never
-    rewritten, so a required method is kept only when the statement itself
-    requires it (naming it is not enough: review F2) and the mapped object is
-    that method."""
+    rewritten, so whether it requires the method is decided once at import by
+    the judgment (redesign 2026-10-14), never by its wording, and only on a
+    target that is that method (no judgment is asked otherwise)."""
 
     from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
     from learnloop.content.proposals.ai_contracts import RequiredMethodPayload
+    from learnloop.content.proposals.method_statement_judge import resolve_statement_judge
 
-    from tests.test_exercise_authoring import FakeClient, _item as exercise_item, _run, _write_facet_registry
-    from tests.test_reader_guidance import _setup
+    from tests.test_exercise_authoring import FakeClient, _item as exercise_item, _write_facet_registry
+    from tests.test_required_method_authority import ALLOWS, REQUIRES, StatementDecider
 
     method = RequiredMethodPayload(name=name, criterion_ids=["factorization"])
-    if requiring:
-        repository = _setup_requiring_statement(tmp_path)
-        _write_facet_registry(tmp_path)
-        statement = "Using singular value decomposition, write A"
-        entry = exercise_item(required_method=method, statement_md=statement)
-        result = EX.import_exercises(
-            tmp_path / "vault", repository, FakeClient(ExerciseAuthoring(items=[entry])), extraction_id="ext1",
-            raw_selection={"nodes": [{"spanId": "s1", "quote": statement}]}, source_id="src1",
-        )
-    else:
-        _vault, repository = _setup(tmp_path)
-        _write_facet_registry(tmp_path)
-        statement = "singular value decomposition writes A"
-        entry = exercise_item(required_method=method)
-        result = _run(tmp_path, repository, FakeClient(ExerciseAuthoring(items=[entry])))
+    repository = _setup_requiring_statement(tmp_path)
+    _write_facet_registry(tmp_path)
+    statement = "Using singular value decomposition, write A"
+    entry = exercise_item(required_method=method, statement_md=statement)
+    decider = StatementDecider(REQUIRES if judged == "requires" else ALLOWS)
+    judge = (resolve_statement_judge(load_vault(tmp_path / "vault"), clients=decider)
+             if judged is not None else None)
+    result = EX.import_exercises(
+        tmp_path / "vault", repository, FakeClient(ExerciseAuthoring(items=[entry])), extraction_id="ext1",
+        raw_selection={"nodes": [{"spanId": "s1", "quote": statement}]}, source_id="src1", method_judge=judge,
+    )
     [summary] = result["items"]
     item = load_vault(tmp_path / "vault").practice_items[summary["practice_item_id"]]
     assert item.prompt == statement  # never rewritten
     if kept:
         assert item.required_method is not None and item.required_method.criterion_ids == ["factorization"]
         assert item.required_method.concept_id == "singular_value_decomposition"
+        assert (item.required_method.statement, item.required_method.decided_by) == ("source", "judgment")
     else:
         assert item.required_method is None
         assert any(note in warning for warning in result.get("warnings", []) + summary.get("warnings", []))
+    # A judgment is asked only for a proposed method on a method target.
+    assert len(decider.calls) == (1 if judged is not None and name != "Gram-Schmidt" else 0)
 
 
-def test_synthesis_publishes_a_required_method_only_with_an_affirmative_instruction(tmp_path):
+def test_synthesis_publishes_a_required_method_with_the_canonical_sentence(tmp_path):
     """The study-map writer end to end (normalization, gates, apply): on a
-    method target, an item whose prompt only mentions the method is published
-    with the explicit instruction; one whose prompt leaves it optional loses
-    the requirement, with a review diagnostic (review F2)."""
+    method target, every item that sets a required method is published with
+    the canonical sentence; the prompt's phrasing decides nothing (redesign
+    2026-10-14). One that may leave the method optional is only flagged for
+    review by the advisory heuristic."""
 
     from learnloop.content.synthesis.ai_contracts import SynthRequiredMethod
     from learnloop.content.synthesis.source_set_synthesis import create_study_map
@@ -608,18 +624,22 @@ def test_synthesis_publishes_a_required_method_only_with_an_affirmative_instruct
     assert published.required_method is not None
     assert published.required_method.criterion_ids == ["identifies_symmetry"]
     assert published.prompt.endswith("\n\nUse orthogonal diagonalization in your answer.")
-    assert prompt_requires_method(published.prompt, published.required_method.name)
-    dropped = vault.practice_items["pi_select_spectral"]
-    assert dropped.required_method is None
-    assert dropped.prompt == "Diagonalize A; you may use orthogonal diagonalization or any other method."
-    assert any(d["gate"] == "required_method" and "dropped_prompt_contradicts_it" in d["message"]
-               for d in result.gate_diagnostics)
+    assert has_method_instruction(published.prompt, published.required_method.name)
+    flagged = vault.practice_items["pi_select_spectral"]
+    assert flagged.required_method is not None
+    assert flagged.prompt == ("Diagonalize A; you may use orthogonal diagonalization or any other method."
+                              "\n\nUse orthogonal diagonalization in your answer.")
+    assert any(d["gate"] == "required_method" and "statement_may_disagree" in d["message"]
+               and "pi_select_spectral" in d["entity_refs"] for d in result.gate_diagnostics)
 
 
-# -- re-review (Codex 2026-10-13) -----------------------------------------------------------
+# -- re-review (Codex 2026-10-13), now advisory only -----------------------------------------
 
-# F2 (reopened): a descriptive clause is not an instruction, and "not required to
-# use" negates; F9: inline formatting never hides an explicit instruction.
+# The re-review's statements (F2, F9). Redesign 2026-10-14: the statement
+# reader they pinned no longer decides anything; the advisory flag still
+# reads their negations and options (and nothing else), for doctor and the
+# repair report. Grading and the writers read the field
+# (``tests/test_required_method_authority.py``).
 RE_REVIEW_STATEMENTS = [
     ("You are not required to use cofactor expansion. Compute det(A).", "contradicted"),
     ("It is not necessary to use cofactor expansion.", "contradicted"),
@@ -657,15 +677,10 @@ RE_REVIEW_STATEMENTS = [
 
 @pytest.mark.parametrize("prompt, expected", RE_REVIEW_STATEMENTS, ids=[expected + ":" + prompt[:48]
                                                                         for prompt, expected in RE_REVIEW_STATEMENTS])
-def test_rereview_an_instruction_is_read_through_descriptions_negations_and_formatting(prompt, expected):
-    assert method_statement(prompt, "cofactor expansion") == expected
-    assert prompt_requires_method(prompt, "cofactor expansion") == (expected == "required")
+def test_rereview_statements_are_advisory_flags_only(prompt, expected):
+    assert (advisory_statement_flag(prompt, "cofactor expansion") is not None) == (expected == "contradicted")
 
 
-# F2/F9 (cont.): an instruction whose verb is not on the imperative list, or
-# that follows a fronted condition, still requires the method (dropping it from
-# a source statement would silently disable enforcement); a description with
-# math in it, a conditional use and "whether to use" never do.
 RE_REVIEW_NAMED_STATEMENTS = [
     ("Proceed by induction on n.", "induction", "required"),
     ("Prove the claim. Proceed by induction on n.", "induction", "required"),
@@ -693,97 +708,5 @@ RE_REVIEW_NAMED_STATEMENTS = [
 
 @pytest.mark.parametrize("prompt, name, expected", RE_REVIEW_NAMED_STATEMENTS,
                          ids=[expected + ":" + prompt[:48] for prompt, _name, expected in RE_REVIEW_NAMED_STATEMENTS])
-def test_rereview_instructions_beyond_the_imperative_list_and_descriptions_with_math(prompt, name, expected):
-    assert method_statement(prompt, name) == expected
-
-
-def test_rereview_source_normalization_and_grading_read_the_instruction_not_its_formatting(vault_paths):
-    """F9: a formatted explicit source instruction keeps its requirement through
-    the writer check and the grader's policy; F2: an explanatory mention in a
-    source statement is not one, so the requirement is dropped (the statement
-    is never rewritten)."""
-
-    from learnloop.attempts.grading_support import required_method_policy
-
-    vault = load_vault(vault_paths.root)
-    targets = method_targets(vault, learning_object_id="lo_cofactor")
-    rubric = {"criteria": [{"id": "method"}, {"id": "result"}]}
-
-    def payload(prompt):
-        return {"prompt": prompt, "grading_rubric": rubric,
-                "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
-
-    formatted = payload("Compute det(A) using **cofactor expansion**.")
-    assert normalize_required_method(formatted, targets, source_statement=True) == []
-    assert formatted["required_method"]["criterion_ids"] == ["method"]
-    assert formatted["prompt"] == "Compute det(A) using **cofactor expansion**."
-    item = _item(prompt=formatted["prompt"], required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    policy = required_method_policy(item, ["method", "result"], presented_prompt=item.prompt)
-    assert policy == {"name": "cofactor expansion", "criterion_ids": ["method"]}
-    assert required_method_problems(item, item.grading_rubric) == []
-    described = payload("The worked example uses cofactor expansion. Compute det(A).")
-    assert normalize_required_method(described, targets, source_statement=True) == [
-        "required_method:dropped_source_statement_does_not_state_it"]
-    assert "required_method" not in described
-    assert described["prompt"] == "The worked example uses cofactor expansion. Compute det(A)."
-    negated = payload("You are not required to use cofactor expansion. Compute det(A).")
-    assert normalize_required_method(negated, targets) == ["required_method:dropped_prompt_contradicts_it"]
-    assert "required_method" not in negated and negated["prompt"].startswith("You are not required")
-
-
-def test_rereview_a_contradicting_variant_gains_no_instruction_and_is_never_published():
-    """F10: a variant stem that negates the parent's method gets no appended
-    instruction (it would contradict the statement); publication refuses it."""
-
-    from learnloop.ops.pf_publish import PublishRefused, VariantContradictsRequiredMethod, build_item_payload
-
-    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
-                   required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
-    variant = {"prompt": "Compute det(B) without cofactor expansion."}
-    notes = inherit_required_method(variant, parent)
-    assert "required_method:prompt_contradicts_it" in notes
-    assert "required_method:instruction_added" not in notes
-    assert variant["prompt"] == "Compute det(B) without cofactor expansion."
-    row = {"payload_json": json.dumps({"stem": "Compute det(B) without cofactor expansion.", "final_answer": "3",
-                                       "solution": "2*2 - 1*1 = 3"}),
-           "final_relation": "isomorph", "declared_relation": "isomorph", "difficulty": None,
-           "generation_path": "ensemble", "id": "cand1", "family_id": "fam1"}
-    with pytest.raises(VariantContradictsRequiredMethod, match="cofactor expansion") as refused:
-        build_item_payload(None, parent, row, item_id="pi_pf_x", now_iso=STAMP)
-    assert isinstance(refused.value, PublishRefused)
-
-
-def test_rereview_publication_rejects_a_selected_variant_that_contradicts_the_parents_method(tmp_path):
-    """F10 end to end: a selected variant whose stem negates the parent's
-    required method is refused at publication (ledgered, the candidate
-    rejected so the next run regenerates), never published with a
-    contradictory appended instruction."""
-
-    from learnloop.content.authoring.pf_sandbox import sandbox_available
-    from learnloop.db.stores import pf as store
-    from learnloop.ops.pf_generation import publish_backlog
-    from learnloop.vault.writer import upsert_practice_item
-
-    from tests.pf_fakes import seed_pf_vault
-    from tests.test_pf_generation import NEXT_DAY, ledger, rows, run
-
-    if not sandbox_available():
-        pytest.skip("bubblewrap is not installed")
-    _vault, repository, paths = seed_pf_vault(tmp_path / "vault")
-    parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
-    parent["prompt"] = "Solve 2x + 4 = 10 for x. Use substitution in your answer."
-    parent["required_method"] = {"name": "substitution", "criterion_ids": ["setup"]}
-    upsert_practice_item(paths.root, parent)
-    run(paths, publish=False, select=1)
-    [selected] = rows(repository, "status='selected'")
-    payload = json.loads(selected["payload_json"])
-    payload["stem"] = "Solve 3x + 2 = 11 for x without substitution."
-    with repository.connection() as connection:
-        store.update_candidate(connection, selected["id"], payload_json=json.dumps(payload))
-    outcome = publish_backlog(load_vault(paths.root), clock=NEXT_DAY)
-    assert outcome["published_item_ids"] == [] and outcome["refused_candidates"] == 1
-    [row] = rows(repository, "id=?", (selected["id"],))
-    assert row["status"] == "rejected" and row["rejection_filter"] == "required_method_contradicted"
-    refusals = [entry for entry in ledger(repository, "pf_publish") if entry["verdict"] == "refuse_contradicts_required_method"]
-    assert len(refusals) == 1 and refusals[0]["left_id"] == selected["id"]
-    assert not any("pf_generated" in item.tags for item in load_vault(paths.root).practice_items.values())
+def test_rereview_instructions_and_descriptions_raise_no_advisory_flag(prompt, name, expected):
+    assert advisory_statement_flag(prompt, name) is None

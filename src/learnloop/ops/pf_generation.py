@@ -70,6 +70,11 @@ from learnloop.content.authoring.pf_sandbox import (
 from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
 )
+from learnloop.content.proposals.method_statement_judge import (
+    LazyStatementJudge,
+    planned_tokens,
+    resolve_statement_judge,
+)
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
@@ -79,7 +84,13 @@ from learnloop.ops.pf_calls import (
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
     resolve_role_clients,
 )
-from learnloop.ops.pf_publish import TRACE_RELATIONS, judged_inputs, publish_selected, remaining_publish_slots
+from learnloop.ops.pf_publish import (
+    TRACE_RELATIONS,
+    judge_variant_stem,
+    judged_inputs,
+    publish_selected,
+    remaining_publish_slots,
+)
 from learnloop.ops.pf_selection import DIVERSITY_BASIS, mmr_order, similarity, vendi_contributions, vendi_score
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.families import apply_family, family_operation_lock, sync_authored_families
@@ -284,6 +295,23 @@ class _Context:
         self.limits = SandboxLimits.from_config(vault.config.pf)
         self._roles: dict[str, list[RoleClient]] = {}
         self._inventory = None
+        self._method_judge: Any = None
+
+    def method_judge(self) -> Any:
+        """The one-time required-method publication judge (redesign 2026-10-14),
+        resolved on first use: ``clients["required_method_judge"]`` when
+        injected, else the Decider via its route, else the LLM judge (a metered
+        one at this run's owner price)."""
+
+        if self._method_judge is None:
+            injected = self.injected.get("required_method_judge")
+            caller = self.caller
+            # The run's owner price, as an upper bound when it is an input/output pair.
+            price = caller.price if caller.price is not None else (
+                max(caller.input_price, caller.output_price or 0.0) if caller.input_price is not None else None)
+            self._method_judge = LazyStatementJudge(lambda: resolve_statement_judge(
+                self.vault, clients=injected, price_per_million=price))
+        return self._method_judge
 
     def role(self, name: str) -> list[RoleClient]:
         if name not in self._roles:
@@ -516,6 +544,7 @@ class _FamilyRun:
                     self._persist(candidate)
             if self.path != "single_shot":
                 self._select()
+                self._judge_required_method()
                 if self.ctx.options.publish:
                     self._publish()
             self._summarize()
@@ -1368,6 +1397,29 @@ class _FamilyRun:
             candidate.status = "selected" if candidate.id in chosen else "not_selected"
             self._persist(candidate)
 
+    def _judge_required_method(self) -> None:
+        """The one-time publication judgment of each selected variant of a parent
+        with a required method (redesign 2026-10-14; review F10): does its stem
+        prohibit or contradict the method? Recorded once in ``judgment_ledger``
+        whether or not the candidate is published today, so publication (now
+        or from the backlog, which makes no model call) reads the verdict and
+        refuses a contradicting stem before anything is appended."""
+        order = getattr(self, "selected_order", [])
+        method = getattr(self.parent, "required_method", None)
+        if method is None or not order:
+            return
+        tally: Counter = Counter()
+        for candidate_id in order:
+            with self.ctx.repository.connection() as connection:
+                row = store.candidate(connection, candidate_id)
+            if row is None:
+                continue
+            verdict = judge_variant_stem(self.ctx.vault, self.ctx.repository, row, self.ctx.method_judge(),
+                                         owner=(self.ctx.caller.owner_kind, self.ctx.caller.run_id),
+                                         clock=self.ctx.clock)
+            tally[verdict or "unjudged"] += 1
+        self.report["required_method_judgments"] = dict(sorted(tally.items()))
+
     def _publish(self) -> None:
         order = getattr(self, "selected_order", [])
         if not order:
@@ -1377,7 +1429,7 @@ class _FamilyRun:
         self.ctx.caller.vault = vault
         self.report.update(published_item_ids=outcome["published_item_ids"],
                            capped=outcome["capped_candidates"], stale=outcome["stale_candidates"],
-                           refused=outcome["refused_candidates"])
+                           refused=outcome["refused_candidates"], unjudged=outcome["unjudged_candidates"])
         for candidate in self.candidates:
             if candidate.id in order:
                 with self.ctx.repository.connection() as connection:
@@ -1486,6 +1538,18 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
             "subscription": [entry.subscription for entry in entries],
             "per_call_tokens": tokens, "per_entry": per_entry,
         }
+    method = getattr(parent, "required_method", None)
+    if method is not None and path != "single_shot":
+        # The one-time publication judgment of each selected variant
+        # (redesign 2026-10-14): the Decider via ai.routing.rubric_phrasing_judge,
+        # else the LLM judge; an upper bound, counted as metered.
+        slots = options.select or pf.select_per_family
+        per_call = planned_tokens("variant", stem_proxy, method.name)
+        plan["required_method_judgment"] = {
+            "calls": slots, "tokens": per_call * slots, "per_call_tokens": per_call,
+            "judge": "the Decider via ai.routing.rubric_phrasing_judge, else the LLM judge on it",
+            "billing": "metered (upper bound)",
+        }
     return plan
 
 
@@ -1512,6 +1576,10 @@ def _plan_estimates(plans: list[dict[str, Any]], caller: PFCaller,
                 entry = entries[0]
                 totals[entry.subscription]["calls"] += info["calls"]
                 totals[entry.subscription]["tokens"] += info["tokens"]
+        judgment = plan.get("required_method_judgment")
+        if judgment:
+            totals[False]["calls"] += judgment["calls"]
+            totals[False]["tokens"] += judgment["tokens"]
     metered = caller.estimate(totals[False]["tokens"], subscription=False, calls=totals[False]["calls"])
     subscription = caller.estimate(totals[True]["tokens"], subscription=True, calls=totals[True]["calls"])
     metered = SpendEstimate(candidates=candidates, pairs=pairs, calls=metered.calls,
@@ -1720,7 +1788,11 @@ def _results_by_model(repository: Repository, run_id: str) -> dict[str, Any]:
 
 
 def publish_backlog(vault: LoadedVault, *, clock: Clock | None = None) -> dict[str, Any]:
-    """Publish selected-but-capped candidates under today's cap; no model calls."""
+    """Publish selected-but-capped candidates under today's cap; no model calls.
+
+    A variant of a parent with a required method is published only with the
+    one-time judgment its run recorded at selection (a contradicting stem is
+    refused; one with no verdict stays selected, ``unjudged_candidates``)."""
     if not vault.config.pf.generation_enabled:
         return {"status": "disabled", "reason": "pf.generation_enabled is off"}
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)

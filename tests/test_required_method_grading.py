@@ -226,23 +226,30 @@ def test_the_prompt_carries_the_required_method_and_names_v2(tmp_path):
     assert other.prompt_version.endswith(METHOD_ROUTE_RULES_SUFFIX)
 
 
-def test_an_answer_to_a_statement_that_did_not_require_the_method_is_never_failed_for_it(tmp_path):
-    """A required method added after the item was presented: the attempt's
-    assessment contract holds the prompt the learner answered, which does not
-    state the method, so the grader is not shown it (own-route-v2 still)."""
+def test_the_grader_reads_the_frozen_field_never_the_answered_statement(tmp_path):
+    """Redesign 2026-10-14: the plan shows exactly the method the answer's
+    contract froze, whatever the statement it answered says. A contract that
+    froze none shows none (even though the statement names the method and
+    the item has one now); one that froze it shows it (even though the
+    answered statement lacks the sentence)."""
 
     from learnloop.attempts.attempts import _blind_grading_plan
     from learnloop.attempts.grading import build_grading_context, resolved_rubric
 
     _paths, vault, _repository = _method_vault(tmp_path, seed=False)
     item = vault.practice_items[ITEM]
-    context = build_grading_context(
-        vault, item, attempt_id="planned", learner_answer_md=ALTERNATIVE, rubric=resolved_rubric(vault, item),
-        assessment_contract={"prompt": "Write the SVD of A.", "expected_answer": item.expected_answer},
-    )
-    plan = _blind_grading_plan(vault, item, context)
-    assert plan.context.reference_policy["route_rules"] == "own-route-v2"
-    assert "required_method" not in plan.context.reference_policy
+
+    def plan(prompt, required_method):
+        context = build_grading_context(
+            vault, item, attempt_id="planned", learner_answer_md=ALTERNATIVE, rubric=resolved_rubric(vault, item),
+            assessment_contract={"prompt": prompt, "expected_answer": item.expected_answer},
+        )
+        return _blind_grading_plan(vault, item, context, required_method=required_method).context.reference_policy
+
+    unfrozen = plan(f"Write the SVD of A. Use {METHOD} in your answer.", None)
+    assert unfrozen["route_rules"] == "own-route-v2" and "required_method" not in unfrozen
+    frozen = plan("Write the SVD of A.", {"name": METHOD, "criterion_ids": ["setup"]})
+    assert frozen["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
 
 
 @pytest.mark.parametrize("setup", ["kill_switch", "predecessor"])
@@ -542,9 +549,9 @@ def test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with(tm
     current statement require another method and edits the method criterion.
     The regrade reads the statement, the rubric and the method from the one
     assessment contract the answer was graded under: the frozen requirement
-    is still enforced (the policy guard reads the statement that required
-    it), the grader sees what the learner answered, and the regrade's rows
-    cite that contract, so replay reads the same criteria."""
+    is still enforced (the field is the one authority; no statement is read
+    to decide it), the grader sees what the learner answered, and the
+    regrade's rows cite that contract, so replay reads the same criteria."""
 
     paths, vault, repository = _method_vault(tmp_path)
     presented = vault.practice_items[ITEM].prompt

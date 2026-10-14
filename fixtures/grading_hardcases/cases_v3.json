@@ -503,7 +503,9 @@
      "name": "cofactor expansion",
      "criterion_ids": [
       "method"
-     ]
+     ],
+     "statement": "source",
+     "decided_by": "owner"
     },
     "criteria": [
      {
@@ -572,7 +574,9 @@
      "name": "inclusion-exclusion",
      "criterion_ids": [
       "method"
-     ]
+     ],
+     "statement": "source",
+     "decided_by": "owner"
     },
     "criteria": [
      {
