@@ -164,6 +164,18 @@ READER_RW1A_RPCS = (
 )
 
 
+# Reader workbench RW3a (margin cues from the Guide) adds three RPCs -- a tap
+# on a cue (open, check me, not relevant and its undo), the learner's cue
+# preferences and their change -- and extends reader.guide_plan (its cues).
+# Desktop only (spec D20).
+READER_RW3A_RPCS = (
+    "reader.cue_action",
+    "reader.cue_preferences",
+    "reader.set_cue_preferences",
+    "reader.guide_plan",
+)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -215,7 +227,7 @@ UX_PHASE1_EXTENDED_RPCS = ("initialize", "get_source_library", "reader.pdf_view"
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
-    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS
+    + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
     + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
