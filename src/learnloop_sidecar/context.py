@@ -688,11 +688,15 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     hints_used = 0
     submission_id = None
     declared_stuck = False
+    plan_presentation_id = None
     if isinstance(focus, dict):
         practice = focus.get("practice")
         if isinstance(practice, dict):
             hints_used = int(practice.get("hintsUsed") or practice.get("hints_used") or 0)
             declared_stuck = practice.get("declaredStuck") is True
+            stored = practice.get("planPresentationId")
+            if isinstance(stored, str) and stored.strip():
+                plan_presentation_id = stored.strip()
             candidate_submission_id = practice.get("submissionId") or practice.get("submission_id")
             if isinstance(candidate_submission_id, str) and candidate_submission_id.strip():
                 submission_id = candidate_submission_id.strip()
@@ -705,6 +709,9 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             "submission_id": submission_id,
             # mvp-0.13: the draft was being written after "I'm stuck".
             "declared_stuck": declared_stuck,
+            # Router R2a (review F5): the daily-plan presentation the draft
+            # answers, restored with it after a restart.
+            "plan_presentation_id": plan_presentation_id,
             "focus_block_state": focus,
             "pending_grading_proposal": row.get("pending_grading_proposal"),
             "readiness": row.get("readiness"),

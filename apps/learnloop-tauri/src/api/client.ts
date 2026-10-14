@@ -495,6 +495,8 @@ export const api = {
     schedulerCandidateId?: string | null;
     /** mvp-0.13: the draft is being written after "I'm stuck". */
     declaredStuck?: boolean;
+    /** Router R2a (review F5): kept with the draft so a resumed draft binds. */
+    planPresentationId?: string | null;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   recoverPracticeSubmission: (input: {
     sessionId: string;

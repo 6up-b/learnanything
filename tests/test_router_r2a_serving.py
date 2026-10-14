@@ -310,6 +310,48 @@ def test_a_wrong_or_used_presentation_never_fails_the_submit(tmp_path, monkeypat
                                        "submissionId": "s-draft", "planPresentationId": served["presentationId"]})
 
 
+def test_a_saved_drafts_presentation_survives_a_restart_and_binds_at_submit(tmp_path, monkeypatch):
+    """Codex review F5: the learner opens a planned item, types, the app
+    closes, and the draft is resumed. The draft persists its presentation
+    with its submission identity; the restored checkpoint names it, and a
+    submit of that draft binds exactly even when the resumed client sends no
+    presentation id."""
+
+    paths, ctx = _rpc_vault(tmp_path, monkeypatch)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    served = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
+    item, presentation = served["practiceItemId"], served["presentationId"]
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": item, "answerMd": "half an answer",
+                                       "submissionId": "s-draft", "planPresentationId": presentation})
+    # Restart: a new sidecar over the same vault.
+    restarted = SidecarContext()
+    restarted.load(paths.root)
+    restarted.grading_provider_override = "manual"
+    checkpoint = _call(restarted, "get_session", {"sessionId": session_id})["checkpoint"]
+    assert (checkpoint["currentPracticeItemId"], checkpoint["submissionId"]) == (item, "s-draft")
+    assert checkpoint["planPresentationId"] == presentation
+    result = _submit(restarted, session_id, item, None, submissionId="s-draft")
+    assert _bound(paths, result["attemptId"]) == presentation
+
+
+def test_a_drafts_presentation_never_binds_another_submission_or_item(tmp_path, monkeypatch):
+    """The stored id belongs to its draft: a submit with another retry key, or
+    a later draft without one, does not inherit it."""
+
+    paths, ctx = _rpc_vault(tmp_path, monkeypatch)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    served = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
+    item, presentation = served["practiceItemId"], served["presentationId"]
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": item, "answerMd": "x",
+                                       "submissionId": "s-draft", "planPresentationId": presentation})
+    other_key = _submit(ctx, session_id, item, None, submissionId="s-other")
+    assert _bound(paths, other_key["attemptId"]) is None
+    _call(ctx, "save_practice_draft", {"sessionId": session_id, "practiceItemId": item, "answerMd": "y",
+                                       "submissionId": "s-next"})
+    checkpoint = _call(ctx, "get_session", {"sessionId": session_id})["checkpoint"]
+    assert checkpoint.get("planPresentationId") is None
+
+
 # -- G6: replay ----------------------------------------------------------------------
 
 

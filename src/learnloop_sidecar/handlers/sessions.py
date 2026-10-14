@@ -138,7 +138,19 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     )
 
 
-def patch_checkpoint(repository, params: SessionCheckpointInput) -> None:
+#: ``patch_checkpoint``'s default for a field the caller does not touch.
+_KEEP: Any = object()
+
+
+def patch_checkpoint(repository, params: SessionCheckpointInput, *, plan_presentation_id: Any = _KEEP) -> None:
+    """Merge ``params`` into the session's checkpoint.
+
+    ``plan_presentation_id`` (router R2a, review F5): the daily-plan
+    presentation a practice draft answers, kept in the practice envelope with
+    the draft's retry key, so a draft resumed after a restart still submits
+    bound to it. Only the practice draft RPC passes it; every save replaces
+    it (None clears it), so a later draft never inherits an earlier one's."""
+
     _require_open_session(repository, params.session_id)
     fields = params.model_fields_set
     existing = repository.fetch_session_checkpoint(params.session_id) or {}
@@ -157,6 +169,9 @@ def patch_checkpoint(repository, params: SessionCheckpointInput) -> None:
 
     if "declared_stuck" in fields:
         focus = _with_declared_stuck(focus, bool(params.declared_stuck))
+
+    if plan_presentation_id is not _KEEP:
+        focus = _with_plan_presentation_id(focus, plan_presentation_id)
 
     repository.update_session_checkpoint(
         params.session_id,
@@ -215,6 +230,40 @@ def _with_declared_stuck(focus: dict[str, Any] | None, declared_stuck: bool) -> 
         practice.pop("declaredStuck", None)
     payload["practice"] = practice
     return payload
+
+
+def _with_plan_presentation_id(focus: dict[str, Any] | None, presentation_id: str | None) -> dict[str, Any]:
+    """Store the draft's daily-plan presentation in the practice envelope
+    (router R2a; no schema change). A blank or absent id clears it."""
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    value = presentation_id.strip() if isinstance(presentation_id, str) else ""
+    if value:
+        practice["planPresentationId"] = value
+    else:
+        practice.pop("planPresentationId", None)
+    payload["practice"] = practice
+    return payload
+
+
+def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str,
+                            submission_id: str | None) -> str | None:
+    """The presentation a saved draft named, when ``submission_id`` is that
+    draft's retry key on ``practice_item_id`` (router R2a, review F5), else None."""
+
+    if not checkpoint or not submission_id or checkpoint.get("current_practice_item_id") != practice_item_id:
+        return None
+    focus = checkpoint.get("focus_block_state")
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    if not isinstance(practice, dict):
+        return None
+    key = practice.get("submissionId") or practice.get("submission_id")
+    if not isinstance(key, str) or key.strip() != submission_id.strip():
+        return None
+    value = practice.get("planPresentationId")
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]:

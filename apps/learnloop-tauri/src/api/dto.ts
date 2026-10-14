@@ -710,6 +710,9 @@ export interface SessionCheckpoint {
   /** mvp-0.13: the draft was being written after "I'm stuck" (absent from an
    *  older sidecar, which never stored one). */
   declaredStuck?: boolean;
+  /** Router R2a (review F5): the daily-plan presentation the draft answers
+   *  (absent from an older sidecar). */
+  planPresentationId?: string | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;

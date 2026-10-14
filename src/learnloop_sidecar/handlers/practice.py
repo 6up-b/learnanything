@@ -56,7 +56,7 @@ from learnloop_sidecar.handlers.queue import (
     publish_offer,
 )
 from learnloop_sidecar.handlers.serializers import practice_item_detail
-from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
+from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, draft_plan_presentation, patch_checkpoint
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.serving import refuse_inactive_learning_object, refuse_unservable_item
@@ -71,9 +71,10 @@ class PracticeDraftCheckpoint(ParamsModel):
     # client that does not persist one gets no recovery.
     submission_id: str | None = None
     scheduler_candidate_id: str | None = None
-    #: Router R2a: the plan presentation the draft answers. Accepted with the
-    #: draft so a client can autosave the same parameters it submits with;
-    #: binding happens at submit (the attempt row), never here.
+    #: Router R2a: the plan presentation the draft answers. Kept with the
+    #: draft's retry key in the session checkpoint (review F5), so a draft
+    #: resumed after a restart submits bound to it; binding happens at submit
+    #: (the attempt row), never here.
     plan_presentation_id: str | None = None
     #: mvp-0.13 (review F2): the draft is being written after "I'm stuck".
     #: Kept with the draft so a navigation or restart before the grade
@@ -479,8 +480,28 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             submission_id=params.submission_id,
             declared_stuck=params.declared_stuck,
         ),
+        plan_presentation_id=params.plan_presentation_id,
     )
     return {"ok": True}
+
+
+def _plan_presentation(repository, params: Any) -> str | None:
+    """The plan presentation an answer binds to: the one it sends, else the one
+    its saved draft named under the same retry key (router R2a, review F5: a
+    draft resumed after a restart). Binding is validated at the attempt
+    insert, which drops a wrong or used id without failing the submit."""
+
+    if params.plan_presentation_id:
+        return params.plan_presentation_id
+    if not getattr(params, "submission_id", None):
+        return None
+    try:
+        checkpoint = repository.fetch_session_checkpoint(params.session_id)
+    except Exception:  # noqa: BLE001 - a receipt never fails a submit
+        return None
+    return draft_plan_presentation(
+        checkpoint, practice_item_id=params.practice_item_id, submission_id=params.submission_id,
+    )
 
 
 def _bind_offer(repository, params, submission_id):
@@ -614,7 +635,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         session_id=params.session_id,
         primed=params.primed,
         probe_presentation_id=params.probe_presentation_id,
-        plan_presentation_id=params.plan_presentation_id,
+        plan_presentation_id=_plan_presentation(repository, params),
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
@@ -738,7 +759,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
             latency_seconds=params.latency_seconds,
             session_id=params.session_id,
             probe_presentation_id=params.probe_presentation_id,
-            plan_presentation_id=params.plan_presentation_id,
+            plan_presentation_id=_plan_presentation(repository, params),
             answer_confidence=params.answer_confidence,
             assessment_contract_version_id=params.assessment_contract_version_id,
             submission_id=submission_id,
@@ -758,7 +779,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
         probe_presentation_id=params.probe_presentation_id,
-        plan_presentation_id=params.plan_presentation_id,
+        plan_presentation_id=_plan_presentation(repository, params),
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,

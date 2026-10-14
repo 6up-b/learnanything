@@ -9,6 +9,8 @@ export type PracticeDraftMirror = {
   submissionId: string;
   /** mvp-0.13: the draft was being written after "I'm stuck". */
   declaredStuck: boolean;
+  /** Router R2a (review F5): the daily-plan presentation the draft answers. */
+  planPresentationId?: string | null;
 };
 
 export type RestoredPracticeDraft = {
@@ -19,6 +21,9 @@ export type RestoredPracticeDraft = {
    *  submits as a stuck answer. */
   stuck: boolean;
   teachBack: TeachBackStateDto | null;
+  /** Router R2a (review F5): the daily-plan presentation the draft answers,
+   *  so a resumed draft still submits bound to it. */
+  planPresentationId: string | null;
 };
 
 /** What a practice screen for `practiceItemId` restores: the in-memory mirror
@@ -34,17 +39,19 @@ export function restoredPracticeDraft(
       hints: localDraft.hintsUsed,
       submissionId: localDraft.submissionId,
       stuck: localDraft.declaredStuck,
-      teachBack: null
+      teachBack: null,
+      planPresentationId: localDraft.planPresentationId ?? null
     };
   }
   if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
-    return { answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null };
+    return { answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null };
   }
   return {
     answer: checkpoint.currentAnswer ?? "",
     hints: checkpoint.hintsUsed,
     submissionId: checkpoint.submissionId ?? null,
     stuck: checkpoint.declaredStuck === true,
-    teachBack: checkpoint.teachBack ?? null
+    teachBack: checkpoint.teachBack ?? null,
+    planPresentationId: checkpoint.planPresentationId ?? null
   };
 }

@@ -1111,7 +1111,8 @@ export function App() {
               offer: practiceOffer,
               practiceItemId,
               primedRetry,
-              guidedRedo: redoContext !== null
+              guidedRedo: redoContext !== null,
+              restoredPresentationId: restored.planPresentationId
             })}
             primed={primedRetry}
             redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}

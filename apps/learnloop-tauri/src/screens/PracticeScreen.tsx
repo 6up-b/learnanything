@@ -158,6 +158,8 @@ export function PracticeScreen({
     hintsUsed: number;
     submissionId: string;
     declaredStuck: boolean;
+    /** Router R2a (review F5): restored with the draft. */
+    planPresentationId: string | null;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -231,7 +233,10 @@ export function PracticeScreen({
     hintsUsed,
     submissionId: submissionId.current,
     schedulerCandidateId,
-    declaredStuck: stuck
+    declaredStuck: stuck,
+    // Router R2a (review F5): saved with the draft so a draft resumed after a
+    // restart still submits bound to its plan presentation.
+    planPresentationId
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -325,10 +330,11 @@ export function PracticeScreen({
       hintsUsed,
       submissionId: submissionId.current,
       schedulerCandidateId,
-      declaredStuck: stuck
+      declaredStuck: stuck,
+      planPresentationId
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -499,8 +505,10 @@ export function PracticeScreen({
       // switch then fails, App restores this item from the mirror; if it
       // succeeds, App drops the mirror with the rest of the old vault's state.
       if (!draftSavingDisabled()) {
-        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck } = latestDraft.current;
-        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck });
+        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
+                planPresentationId: presentation } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
+                       planPresentationId: presentation });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
