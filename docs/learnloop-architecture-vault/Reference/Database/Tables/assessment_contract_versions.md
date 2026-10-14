@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9bd9038fdd270ed844dc957f07ad01630ce8e90d"
-source_commit_timestamp: "2026-10-14T02:05:17-04:00"
+source_commit: "82566269e06342b849e6538ae6c477bad94f025b"
+source_commit_timestamp: "2026-10-14T10:23:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_required_method_rereview.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`
