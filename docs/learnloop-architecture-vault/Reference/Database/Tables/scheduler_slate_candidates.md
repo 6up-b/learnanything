@@ -3,8 +3,8 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "275fd5f7ecf414e8eb7a6c5e70dbd2579c3fa2f0"
-source_commit_timestamp: "2026-10-14T09:53:28-04:00"
+source_commit: "8137d6d7c8359e24d760b1e5686ffa9e969185c7"
+source_commit_timestamp: "2026-10-14T11:07:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
@@ -156,6 +156,7 @@ Indexes and uniqueness:
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
+- `tests/test_plan_determinism.py`
 - `tests/test_probability_prep.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_router_offer_log.py`
@@ -167,7 +168,6 @@ Indexes and uniqueness:
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
-- `tests/test_evsi_router_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

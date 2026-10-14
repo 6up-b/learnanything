@@ -3,8 +3,8 @@ title: "Config - scheduler"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "275fd5f7ecf414e8eb7a6c5e70dbd2579c3fa2f0"
-source_commit_timestamp: "2026-10-14T09:53:28-04:00"
+source_commit: "8137d6d7c8359e24d760b1e5686ffa9e969185c7"
+source_commit_timestamp: "2026-10-14T11:07:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml scheduler"
@@ -36,10 +36,10 @@ source_paths:
   - "tests/test_irt_end_to_end.py"
   - "tests/test_misconception_routing.py"
   - "tests/test_mvp021_upgrade.py"
+  - "tests/test_plan_determinism.py"
   - "tests/test_predictive_eig.py"
   - "tests/test_recall_coverage_interventions.py"
   - "tests/test_registry_audit.py"
-  - "tests/test_router_offer_log.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/scheduler"
@@ -60,17 +60,17 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `scheduler.forgetting_risk_weight` | `1.0` | number | modeled default or validator seed | Scales the contribution of forgetting risk in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:79`; `src/learnloop/scheduling/scheduler.py:2405`; `src/learnloop_sidecar/context.py:492` |
-| `scheduler.goal_frontier_weight` | `0.25` | number | modeled default or validator seed | Scales the contribution of goal frontier in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:83`; `src/learnloop/scheduling/scheduler.py:2406`; `src/learnloop_sidecar/context.py:493` |
-| `scheduler.recent_error_weight` | `0.5` | number | modeled default or validator seed | Scales the contribution of recent error in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:84`; `src/learnloop/scheduling/scheduler.py:2407`; `src/learnloop_sidecar/context.py:494` |
-| `scheduler.probe_eig_weight` | `0.25` | number | modeled default or validator seed | Scales the contribution of probe expected-information-gain in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:85`; `src/learnloop/scheduling/scheduler.py:2408`; `src/learnloop_sidecar/context.py:495` |
-| `scheduler.goal_quota_floor_min` | `0.3` | number | modeled default or validator seed | Sets the minimum goal quota floor required by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:92`; `src/learnloop/scheduling/scheduler.py:2562` |
-| `scheduler.goal_quota_floor_max` | `0.7` | number | modeled default or validator seed | Caps goal quota floor allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:93`; `src/learnloop/scheduling/scheduler.py:2563` |
-| `scheduler.goal_quota_ramp_days` | `28` | integer | modeled default or validator seed | Sets the goal quota ramp duration in days for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:94`; `src/learnloop/scheduling/scheduler.py:2564` |
-| `scheduler.short_session_minutes` | `20` | integer | modeled default or validator seed | Sets the short session duration in minutes for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:95`; `src/learnloop/scheduling/scheduler.py:281`; `src/learnloop/tui/screens/start.py:310` |
-| `scheduler.candidate_log_retention_limit` | `200` | integer | modeled default or validator seed | Caps candidate log retention allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:96`; `src/learnloop/scheduling/scheduler.py:1064` |
-| `scheduler.selection_exploration_rate` | `0.1` | number | modeled default or validator seed | Sets the rate of selection exploration used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:100`; `src/learnloop/scheduling/scheduler.py:1140` |
-| `scheduler.selection_exploration_reward_window` | `0.15` | number | modeled default or validator seed | Sets the rolling selection exploration reward window used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:101`; `src/learnloop/scheduling/scheduler.py:1148` |
+| `scheduler.forgetting_risk_weight` | `1.0` | number | modeled default or validator seed | Scales the contribution of forgetting risk in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:79`; `src/learnloop/scheduling/scheduler.py:2413`; `src/learnloop_sidecar/context.py:492` |
+| `scheduler.goal_frontier_weight` | `0.25` | number | modeled default or validator seed | Scales the contribution of goal frontier in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:83`; `src/learnloop/scheduling/scheduler.py:2414`; `src/learnloop_sidecar/context.py:493` |
+| `scheduler.recent_error_weight` | `0.5` | number | modeled default or validator seed | Scales the contribution of recent error in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:84`; `src/learnloop/scheduling/scheduler.py:2415`; `src/learnloop_sidecar/context.py:494` |
+| `scheduler.probe_eig_weight` | `0.25` | number | modeled default or validator seed | Scales the contribution of probe expected-information-gain in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:85`; `src/learnloop/scheduling/scheduler.py:2416`; `src/learnloop_sidecar/context.py:495` |
+| `scheduler.goal_quota_floor_min` | `0.3` | number | modeled default or validator seed | Sets the minimum goal quota floor required by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:92`; `src/learnloop/scheduling/scheduler.py:2570` |
+| `scheduler.goal_quota_floor_max` | `0.7` | number | modeled default or validator seed | Caps goal quota floor allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:93`; `src/learnloop/scheduling/scheduler.py:2571` |
+| `scheduler.goal_quota_ramp_days` | `28` | integer | modeled default or validator seed | Sets the goal quota ramp duration in days for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:94`; `src/learnloop/scheduling/scheduler.py:2572` |
+| `scheduler.short_session_minutes` | `20` | integer | modeled default or validator seed | Sets the short session duration in minutes for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:95`; `src/learnloop/scheduling/scheduler.py:288`; `src/learnloop/tui/screens/start.py:310` |
+| `scheduler.candidate_log_retention_limit` | `200` | integer | modeled default or validator seed | Caps candidate log retention allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:96`; `src/learnloop/scheduling/scheduler.py:1071` |
+| `scheduler.selection_exploration_rate` | `0.1` | number | modeled default or validator seed | Sets the rate of selection exploration used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:100`; `src/learnloop/scheduling/scheduler.py:1148` |
+| `scheduler.selection_exploration_reward_window` | `0.15` | number | modeled default or validator seed | Sets the rolling selection exploration reward window used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:101`; `src/learnloop/scheduling/scheduler.py:1156` |
 | `scheduler.surprise.theta_pos` | `1.5` | number | modeled default or validator seed | Sets the decision cutoff for pos in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:22`; `src/learnloop/attempts/surprise.py:107` |
 | `scheduler.surprise.theta_neg` | `1.5` | number | modeled default or validator seed | Sets the decision cutoff for neg in queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:23`; `src/learnloop/attempts/surprise.py:109` |
 | `scheduler.surprise.alpha_interval` | `0.3` | number | modeled default or validator seed | Controls alpha interval in queue scoring, exploration, surprise, and follow-up selection, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:24`; `src/learnloop/attempts/surprise.py:90` |
@@ -115,10 +115,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_irt_end_to_end.py`
 - `tests/test_misconception_routing.py`
 - `tests/test_mvp021_upgrade.py`
+- `tests/test_plan_determinism.py`
 - `tests/test_predictive_eig.py`
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_registry_audit.py`
-- `tests/test_router_offer_log.py`
 
 ## Extension and modification guidance
 
