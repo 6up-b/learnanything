@@ -138,38 +138,45 @@ def test_f8_a_failed_start_reconciliation_is_retried_by_the_worker(tmp_path, mon
     assert _pending(restarted, source_id) is None
 
 
-def test_f8_the_start_rearms_a_request_whose_retries_ran_out(tmp_path, monkeypatch):
-    """A request whose worker retries ran out before the restart gets a fresh
-    set of retries when the start's reconciliation fails again."""
+def test_f8_the_start_acts_at_once_and_rearms_a_backed_off_request(tmp_path, monkeypatch):
+    """A request whose failures backed it off before the restart is acted on
+    by the start at once, and a failure there starts a fresh backoff.
 
-    root, ctx, source_id, extraction_id = _added_book(tmp_path)
-    jobs = ctx.ingest_jobs
-    _immediate_retries(monkeypatch, jobs)
-    calls = _failing_enqueue(monkeypatch, failures=None)
-    _report(ctx, extraction_id, 1)
-    for _ in range(10):
-        jobs.retry_reading_advances()
-    exhausted = len(calls)
-    assert exhausted == 1 + len(jobs.READING_RETRY_DELAYS)
-    jobs.shutdown()
-
-    restarted = _restart(root)
-    assert len(calls) == exhausted + 1  # the start asked once more
-    restarted.ingest_jobs.retry_reading_advances()
-    assert len(calls) == exhausted + 2  # and the worker retries again
-    assert _pending(restarted, source_id) == "u3"
-
-
-def test_f8_the_worker_stays_for_a_retry_that_falls_due_between_its_scan_and_its_exit(tmp_path, monkeypatch):
-    """Codex's follow-up F1 (finish review): the worker's idle round found no
-    request due, then the retry's deadline passed before its exit check, which
-    looked only for deadlines still to come. The worker stepped aside with a
-    due request and nothing to wake it. The real worker loop, on a scripted
-    clock: time passes between the round's due scan and its exit check."""
+    (Until reading-hardening part 1 the worker's retries ran out after three;
+    now a request is never given up: the sweep backs off to every 300 s, see
+    ``tests/test_reading_request_sweep.py``.)"""
 
     from datetime import UTC, datetime, timedelta
 
-    from learnloop.content.pipeline import jobs as jobs_module
+    root, ctx, source_id, extraction_id = _added_book(tmp_path)
+    jobs = ctx.ingest_jobs
+    calls = _failing_enqueue(monkeypatch, failures=None)
+    _report(ctx, extraction_id, 1)
+    moment = datetime.now(UTC) + timedelta(hours=1)
+    for _ in range(6):
+        jobs.retry_reading_advances(now=moment)
+        moment += timedelta(seconds=300)  # every retry time comes
+    failed = len(calls)
+    assert failed == 7
+    request = ctx.repository.pending_reading_request(source_id)
+    assert request["attempts"] == failed and request["retry_at"] >= jobs_iso(moment)  # minutes away
+    jobs.shutdown()
+
+    restarted = _restart(root)  # the retry is still minutes away: the start asks at once
+    assert len(calls) == failed + 1
+    request = restarted.repository.pending_reading_request(source_id)
+    assert request["attempts"] == 1  # a fresh backoff
+    assert _pending(restarted, source_id) == "u3"
+
+
+def test_f8_a_retry_falling_due_after_the_worker_stepped_aside_is_acted_on_by_the_sweep(tmp_path, monkeypatch):
+    """Codex's follow-up F1 (finish review) found the worker's idle exit could
+    strand a retry that fell due between its scan and its exit check. The
+    worker no longer decides that (reading-hardening, part 1): the real worker
+    loop steps aside with the retry still to come, and the reading sweep acts
+    on it once it is due."""
+
+    from datetime import UTC, datetime, timedelta
 
     _root, ctx, source_id, extraction_id = _added_book(tmp_path)
     jobs = ctx.ingest_jobs
@@ -177,33 +184,33 @@ def test_f8_the_worker_stays_for_a_retry_that_falls_due_between_its_scan_and_its
     jobs._poll_interval = 0.01
     planners = _planners(ctx)
 
-    start = datetime(2026, 10, 13, 12, 0, 1, tzinfo=UTC)
+    start = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1)
     deadline = start + timedelta(seconds=1)
     repo = ctx.repository
     revision = repo.record_reading_request(source_id, extraction_id, "u3")
-    assert repo.fail_reading_request(source_id, revision, attempts=1, retry_at=jobs_module._iso(deadline))
+    assert repo.fail_reading_request(source_id, revision, attempts=1, retry_at=jobs_iso(deadline))
 
-    clock = {"now": start}
-    real_iso = jobs_module._iso
-    monkeypatch.setattr(jobs_module, "_iso", lambda moment: real_iso(clock["now"] if moment is None else moment))
-    real_active = jobs._active_job_locked
-
-    def deadline_passes(runner):  # between the round's due scan and its exit check
-        clock["now"] = max(clock["now"], deadline)
-        return real_active(runner)
-
-    jobs._active_job_locked = deadline_passes  # type: ignore[method-assign]
     worker = threading.Thread(target=jobs._worker_loop, daemon=True)
     jobs._worker_thread = worker
     worker.start()
     worker.join(30)
-
     assert not worker.is_alive()
-    assert jobs._worker_thread is None  # it stepped aside once nothing was left
+    assert jobs._worker_thread is None  # it stepped aside: its queue is idle
+    assert _pending(ctx, source_id) == "u3"  # the worker left the request to the sweep
+
+    assert jobs.retry_reading_advances(now=start) == 0  # not due yet: left alone
+    assert _planners(ctx) == planners
+    assert jobs.retry_reading_advances(now=deadline) == 1
     # The retry ran: Ch. 3's build was planned and nothing is left due.
     assert _pending(ctx, source_id) is None
     assert _planners(ctx) == planners + 1
-    assert repo.due_reading_requests(real_iso(deadline + timedelta(days=1))) == []
+    assert repo.due_reading_requests(jobs_iso(deadline + timedelta(days=1))) == []
+
+
+def jobs_iso(moment):
+    from learnloop.content.pipeline import jobs as jobs_module
+
+    return jobs_module._iso(moment)
 
 
 # ---------------------------------------------------------------------------
@@ -414,19 +421,3 @@ def test_6_build_them_says_it_builds_as_you_read(tmp_path):
     assert card["statusLine"]["text"] == "No questions for this book yet"
     assert card["statusLine"]["action"] == {"kind": "retry", "label": "Build them as you read"}
 
-
-def test_6_a_book_never_sent_to_an_ai_says_so_plainly(tmp_path):
-    """"Keep this book on this computer" read as "isn't it already here?"."""
-
-    from learnloop.content.pipeline import add_source as core
-    from learnloop.content.pipeline import jobs as jobs_module
-    from learnloop.reader import reader_requests
-
-    sentences = [
-        core.KEPT_LOCAL_BUILD_MESSAGE,
-        reader_requests.KEPT_ON_THIS_COMPUTER_MESSAGE,
-        *jobs_module._KEPT_LOCAL_FLOW_MESSAGES.values(),
-    ]
-    for sentence in sentences:
-        assert "never sent to an AI" in sentence
-        assert "kept on this computer" not in sentence.lower()

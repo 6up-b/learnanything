@@ -740,6 +740,23 @@ class IngestQueueStoreMixin:
             decoded.append(job)
         return decoded
 
+    def ingest_batch_spend_rows(self, *, batch_prefix: str, started_since: str) -> list[dict[str, Any]]:
+        """Usage rows (as :meth:`model_call_spend_rows`) of the ingest jobs in
+        batches whose id starts with ``batch_prefix`` (automatic book
+        preparation: ``batch_auto_``), started at or after ``started_since``,
+        each with its job's ``batch_id``."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT r.provider, r.input_tokens, r.output_tokens, r.cost, r.usage_json, "
+                "r.output_budget_tokens, r.parent_call_id, r.status, r.started_at, r.owner_kind, r.owner_id, "
+                "j.batch_id FROM model_call_receipts AS r "
+                "JOIN ingest_jobs AS j ON r.owner_kind = 'ingest_job' AND r.owner_id = j.id "
+                "WHERE substr(j.batch_id, 1, length(?)) = ? AND r.started_at >= ?",
+                (batch_prefix, batch_prefix, started_since),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def ingest_batches_by_workflow(
         self, workflow_type: str, *, exclude_statuses: Sequence[str] = ()
     ) -> list[dict[str, Any]]:
@@ -768,6 +785,64 @@ class IngestQueueStoreMixin:
                 """
             ).fetchall()
         return [_decode_ingest_job(row) for row in rows]
+
+    def has_runnable_ingest_job(
+        self,
+        *,
+        job_types: Sequence[str] | None = None,
+        workflow_types: Sequence[str] = (),
+        batch_id_prefixes: Sequence[str] = (),
+    ) -> bool:
+        """Whether a queued job could be claimed now, as
+        :meth:`claim_next_ingest_job` picks one: its batch is not being
+        cancelled and every job it depends on completed. ``job_types``: only
+        jobs of these types. ``workflow_types`` / ``batch_id_prefixes``: only
+        jobs in a batch of one of these workflows or whose id starts with one
+        of these prefixes (no filter when both are empty). Read-only. A job
+        held back only by another worker's live lease still counts: it runs
+        once that lease ends.
+
+        Lets a host recover queued work no worker is running (after a restart,
+        or when starting a worker failed) without waking one for work it
+        could not claim (reading-hardening Codex review 2, F1)."""
+
+        clauses: list[str] = []
+        params: list[Any] = []
+        if job_types is not None:
+            types = tuple(dict.fromkeys(str(job_type) for job_type in job_types))
+            if not types:
+                return False
+            clauses.append(f"j.job_type IN ({','.join('?' for _ in types)})")
+            params.extend(types)
+        workflows = tuple(dict.fromkeys(str(workflow) for workflow in workflow_types))
+        prefixes = tuple(dict.fromkeys(str(prefix) for prefix in batch_id_prefixes if prefix))
+        if workflows or prefixes:
+            scope: list[str] = []
+            if workflows:
+                scope.append(f"b.workflow_type IN ({','.join('?' for _ in workflows)})")
+                params.extend(workflows)
+            for prefix in prefixes:
+                scope.append("substr(b.id, 1, length(?)) = ?")
+                params.extend((prefix, prefix))
+            clauses.append("(" + " OR ".join(scope) + ")")
+        extra = "".join(f" AND {clause}" for clause in clauses)
+        with self.connection() as connection:
+            row = connection.execute(
+                f"""
+                SELECT 1 FROM ingest_jobs j
+                 JOIN ingest_batches b ON b.id = j.batch_id
+                 WHERE j.status = 'queued'
+                   AND b.cancel_requested = 0{extra}
+                   AND NOT EXISTS (
+                     SELECT 1 FROM ingest_job_dependencies d
+                      JOIN ingest_jobs dep ON dep.id = d.depends_on_job_id
+                      WHERE d.job_id = j.id AND dep.status != 'completed'
+                   )
+                 LIMIT 1
+                """,
+                params,
+            ).fetchone()
+        return row is not None
 
     def expired_running_ingest_jobs(
         self, lease_cutoff_iso: str

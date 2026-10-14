@@ -118,6 +118,15 @@ class SidecarContext:
                 reconcile_reading_builds(self.ingest_jobs)
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not act on pending reading progress", exc_info=True)
+            # A book's preparation the previous process queued and never ran:
+            # a build it queued (settling the reading request it answered),
+            # then ended before its worker started (reading-hardening Codex
+            # review 2, F1). Independent of any reading request; the reading
+            # sweep checks again on every pass.
+            try:
+                self.ingest_jobs.resume_book_preparation()
+            except Exception:  # noqa: BLE001 - never block opening the library
+                _LOGGER.warning("could not resume a book's queued preparation", exc_info=True)
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:

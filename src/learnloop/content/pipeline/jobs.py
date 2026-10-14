@@ -24,13 +24,14 @@ import os
 import queue
 import re
 import threading
+import weakref
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Mapping, Sequence
 
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import INTERRUPT, interrupt_callback
 from learnloop.db.repositories import Repository
@@ -166,14 +167,6 @@ def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
         # extraction request hash and needlessly re-extract unchanged sources.
         if engine != "auto":
             config["engine"] = engine
-    if ctx.job.get("_keep_local"):
-        # A book kept on this computer is read by a local extractor only
-        # (UX Phase 1 review F1): never the native-PDF model, never hosted
-        # Marker. Identity and extraction both read this, so they agree.
-        if config.get("engine") == "native":
-            config["engine"] = "auto"
-        if _hosted_marker_selected(config):
-            config["engine"] = "pypdf"
     return config
 
 
@@ -193,28 +186,12 @@ _UPLOAD_FLOW_MESSAGES = {
     ),
     "pdf_upload": "Reading this PDF sends the whole file to your AI. Say OK once to allow that.",
 }
-_KEPT_LOCAL_FLOW_MESSAGES = {
-    "audio_transcription": (
-        "This recording is never sent to an AI, and recordings can only be transcribed online by one."
-    ),
-    "pdf_upload": "This PDF is never sent to an AI, and reading it here would send the whole file to one.",
-}
-
-
 def _guard_file_upload(ctx: JobContext, flow: str) -> None:
-    """Before a whole file leaves the computer (UX Phase 1 review F1).
+    """Before a whole file leaves the computer (UX Phase 1 review F1): an Add
+    (which asked the learner nothing per book) uploads only after the separate
+    OK for whole files (spec §6.6: the connection's OK covers passages and
+    answers only)."""
 
-    A book kept on this computer never uploads its file. An Add (which asked
-    the learner nothing per book) uploads only after the separate OK for whole
-    files (spec §6.6: the connection's OK covers passages and answers only)."""
-
-    # The book's persisted choice once it is registered (re-review F13); the
-    # Add's request before that.
-    kept_local = ctx.job["_keep_local"] if "_keep_local" in ctx.job else bool(ctx.payload.get("keep_local"))
-    if kept_local:
-        raise IngestRunnerError(
-            _KEPT_LOCAL_FLOW_MESSAGES[flow], code="kept_local", retryable=False, details={"flow": flow}
-        )
     if ctx.payload.get("require_upload_ok"):
         from learnloop.content.pipeline.add_source import file_upload_allowed
         from learnloop.vault.loader import load_vault
@@ -1276,40 +1253,6 @@ class _RunnerMailbox:
                 answer.set_exception(JobCancelled())
 
 
-def _sources_of_extractions(repo: Repository, extraction_ids: Sequence[str]) -> set[str]:
-    sources: set[str] = set()
-    for extraction_id in extraction_ids:
-        run = repo.get_extraction_run(str(extraction_id))
-        revision = repo.get_source_revision(run["revision_id"]) if run else None
-        if revision and revision.get("source_id"):
-            sources.add(str(revision["source_id"]))
-    return sources
-
-
-def _sources_of_source_set(ctx: JobContext, source_set_id: str) -> set[str]:
-    from learnloop.vault.loader import load_vault
-
-    try:
-        vault = load_vault(ctx.vault_root)
-    except FileNotFoundError:  # a bare runner host with no vault (tests)
-        return set()
-    source_set = next((item for item in vault.source_sets if item.id == source_set_id), None)
-    return {member.source_id for member in (source_set.members if source_set else [])}
-
-
-def _refuse_kept_local_sources(ctx: JobContext, source_ids: Iterable[str]) -> None:
-    """A question build never sends a book kept on this computer (UX Phase 1
-    review F1): every build path, retry and resume passes through here."""
-
-    from learnloop.content.pipeline.add_source import KEPT_LOCAL_BUILD_MESSAGE
-
-    for source_id in sorted(set(source_ids)):
-        if ctx.repo.source_kept_local(source_id):
-            raise IngestRunnerError(
-                KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False, details={"source_id": source_id}
-            )
-
-
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     """inventory: role-aware per-unit inventories for the selected units (§7).
 
@@ -1334,7 +1277,6 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
         raise IngestRunnerError("inventory job requires an 'extraction_id'.")
     if not units:
         raise IngestRunnerError("inventory job requires at least one unit.")
-    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
     from learnloop.content.pipeline.add_source import admit_auto_build_job
 
     admit_auto_build_job(ctx)
@@ -1682,9 +1624,8 @@ def handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]:
     from learnloop.content.pipeline.add_source import admit_auto_build_job, after_auto_build, auto_apply_allowed
 
     if not payload.get("reuse_candidate"):
-        # A model run: kept-local books never leave, automatic builds are
-        # admitted again (kill switch, Undo generation, money) on every attempt.
-        _refuse_kept_local_sources(ctx, _sources_of_source_set(ctx, source_set_id))
+        # A model run: automatic builds are admitted again (kill switch, Undo
+        # generation, money) on every attempt.
         admit_auto_build_job(ctx)
 
     # `auto` is a product journey, not an alias for bootstrap: once this subject
@@ -1805,7 +1746,6 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     source_set_id = str(payload.get("source_set_id") or payload.get("set_id") or "").strip()
     if not source_set_id:
         raise IngestRunnerError("append_synthesis job requires a 'source_set_id'.")
-    _refuse_kept_local_sources(ctx, _sources_of_source_set(ctx, source_set_id))
     # Idempotent when the bootstrap lane already admitted this attempt.
     admit_auto_build_job(ctx)
     ctx.report("inventoried", message="Preparing bounded source reconciliation")
@@ -1850,21 +1790,6 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
         ctx.report("proposed", message="Source reconciliation ready for review")
     after_auto_build(ctx)
     return result.as_dict()
-
-
-def _apply_requested_keep_local(ctx: JobContext, source_id: str) -> None:
-    """Persist a link Add's "Keep this book on this computer" when its book is
-    registered, once: the job's stored payload (read fresh, so a choice the
-    learner made since is honoured) is marked ``keep_local_applied``."""
-
-    if ctx.payload.get("source_id") or not ctx.payload.get("keep_local"):
-        return
-    stored = dict((ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {})
-    if not stored.get("keep_local") or stored.get("keep_local_applied"):
-        return
-    ctx.repo.set_source_keep_local(source_id, True, clock=ctx.clock)
-    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, "keep_local_applied": True})
-    ctx.job["payload"] = {**ctx.payload, "keep_local_applied": True}
 
 
 def handle_import(ctx: JobContext) -> dict[str, Any]:
@@ -1919,14 +1844,6 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         clock=ctx.clock,
     )
     ctx.job["_revision_id"] = registered.revision_id
-    # UX Phase 1 review F1: "Keep this book on this computer" belongs to the
-    # book, and binds this extraction too. Re-review F13: once the book
-    # exists its persisted choice decides. A file's Add persisted it before
-    # queuing this import; a link's book exists only now, so the import
-    # applies the Add's request once (recorded on the job), and a retry never
-    # brings back a choice the learner has since changed.
-    _apply_requested_keep_local(ctx, registered.source_id)
-    ctx.job["_keep_local"] = ctx.repo.source_kept_local(registered.source_id)
     # Label the extracted transcript unit by the real video title (not the
     # "<title> — <author>" display form) when the fetch captured one.
     if fetched.title and not ctx.payload.get("title"):
@@ -2358,7 +2275,6 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     )
     if existing is not None:
         return {"question_id": existing["id"], "deduplicated": True}
-    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
     ctx.report("authoring", message="Authoring a quick check for this section")
     client = ctx.services.quick_check_client(ctx)
     row = RQC.author_quick_check(
@@ -2475,10 +2391,6 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
     )
     if existing is not None:
         return {"question_id": existing["id"], "deduplicated": True}
-    # A book kept on this computer sends nothing to an AI (UX Phase 1 review
-    # F1), RW1a's passage check included: read when the job runs, so a book
-    # kept local after the check was queued is never sent.
-    _refuse_kept_local_sources(ctx, _sources_of_extractions(ctx.repo, [extraction_id]))
     ctx.report("authoring", message="Authoring a quick check for this passage")
     try:
         client = ctx.services.quick_check_client(ctx)
@@ -3088,6 +3000,60 @@ _PARALLEL_JOB_TYPES = ("reader_quick_check",)
 _QUICK_CHECK_WORKERS = 3
 
 
+@dataclass
+class ReadingSweep:
+    """What one pass of the reading sweep did (reading-hardening, part 1)."""
+
+    settled: int = 0
+    #: Due, but waiting behind the book's own work: acted on once it ends.
+    deferred: int = 0
+    #: Acting failed (recorded with its backoff by the act, when it could be).
+    failed: int = 0
+    #: The earliest retry time still to come, if any.
+    next_due_at: datetime | None = None
+
+
+def _run_reading_sweep(host: "weakref.ref[DurableIngestJobs]") -> None:
+    """The reading sweep thread. It holds its host only while it works, so a
+    host nobody uses any more (a library closed, a test's sidecar) lets the
+    thread end at its next wake instead of sweeping for the process's life."""
+
+    failures = 0
+    delay: float | None = None
+    while True:
+        jobs = host()
+        if jobs is None:
+            return
+        wake = jobs._reading_sweep_wake
+        if delay is None:
+            delay = float(jobs.READING_SWEEP_SECONDS)
+        del jobs
+        wake.wait(timeout=delay)
+        wake.clear()
+        jobs = host()
+        if jobs is None:
+            return
+        step = jobs._reading_sweep_pass(failures)
+        del jobs
+        if step is None:
+            return
+        failures, delay = step
+
+
+def _reading_due_at(retry_at: str | None) -> datetime | None:
+    """When a pending reading request is due: its retry time, or ``None``
+    (due now) when it has none or one that does not parse or convert to UTC
+    (``0001-01-01T00:00:00+01:00`` overflows, reading-hardening verify N2),
+    so no stored value can keep a request from ever being due."""
+
+    if not retry_at:
+        return None
+    try:
+        return parse_utc(str(retry_at))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
 class ActiveIngestJobError(RuntimeError):
     def __init__(self, job_id: str) -> None:
         self.job_id = job_id
@@ -3116,13 +3082,34 @@ class DurableIngestJobs:
         self._reader_client_checked = False
         # UX Phase 1 (finishing pass, F8/F9): acting on a book's durable
         # reading request ("keep one chapter ahead") is serialised: the
-        # Reader's RPC, the worker's retries and the start. The request itself
-        # lives in ``source_auto_build_state``, never in memory.
+        # Reader's RPC, the reading sweep, the start and a cancel. The request
+        # itself lives in ``source_auto_build_state``, never in memory.
         self._reading_lock = threading.RLock()
+        # The reading sweep (reading-hardening, part 1): while the sidecar runs
+        # it acts on every due request whose book's work is done, so no
+        # request waits on a wake-up. A wake only brings a pass forward.
+        self._reading_sweep_thread: threading.Thread | None = None
+        self._reading_sweep_wake = threading.Event()
+        # Set on the thread running a sweep pass: what fails inside a pass
+        # never wakes that same sweep (Codex review F2). The pass's outcome
+        # alone sets its next wait, so a failure's backoff cannot collapse.
+        self._in_sweep_pass = threading.local()
+        #: The clock the reading sweep and a failed request's backoff read
+        #: (``None``: the wall clock; tests script it).
+        self.reading_clock: Clock | None = None
 
-    #: Seconds before each worker retry of a failed keep-ahead request; after
-    #: the last one it waits for the Reader's next report or the next start.
-    READING_RETRY_DELAYS: tuple[float, ...] = (2.0, 10.0, 30.0)
+    #: Seconds between the reading sweep's passes while the sidecar runs (one
+    #: query over the books' requests when nothing is due).
+    READING_SWEEP_SECONDS: float = 30.0
+    #: Seconds before the sweep tries again after a pass that failed (its scan,
+    #: or acting on a request whose failure could not even be recorded),
+    #: doubling up to :attr:`READING_SWEEP_SECONDS`. A failed pass never
+    #: counts as "nothing due".
+    READING_SWEEP_RETRY_SECONDS: float = 1.0
+    #: Seconds before acting again on a request whose last attempt failed, by
+    #: failed attempt. The last delay repeats: a request is never given up
+    #: (the Reader's next report and the next start also ask at once).
+    READING_RETRY_DELAYS: tuple[float, ...] = (2.0, 10.0, 30.0, 120.0, 300.0)
 
     @property
     def reading_lock(self) -> threading.RLock:
@@ -3184,6 +3171,13 @@ class DurableIngestJobs:
             if not same_vault or background is not None:
                 self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
+        if self._background:
+            # The reading sweep runs for as long as this host does.
+            self._ensure_reading_sweep()
+        else:
+            # A foreground host (tests, the CLI) runs no sweep: one already
+            # running notices at once and steps aside.
+            self._reading_sweep_wake.set()
         # Recover anything a prior process left mid-flight before draining.
         if not same_vault:
             runner.recover_stale_leases()
@@ -3231,8 +3225,8 @@ class DurableIngestJobs:
         chosen = options or AddSourceOptions()
         runner = self._require_runner()
         # An Add asked the learner nothing per book: an upload of the whole
-        # file waits for its own OK, and a kept-local book never uploads
-        # (UX Phase 1 review F1; enforced where the bytes would leave).
+        # file waits for its own OK (UX Phase 1 review F1; enforced where the
+        # bytes would leave).
         import_payload: dict[str, Any] = {"source": source, "require_upload_ok": True}
         if source_id:
             import_payload["source_id"] = source_id
@@ -3240,8 +3234,6 @@ class DurableIngestJobs:
             import_payload["page_selection"] = list(chosen.page_selection)
         if chosen.problem_set:
             import_payload["reader_enabled"] = False
-        if chosen.keep_local:
-            import_payload["keep_local"] = True
         if chosen.text_recognition:
             # An extractor that really recognises text, named explicitly
             # (review F9): a configured pypdf engine would ignore force_ocr.
@@ -3252,7 +3244,6 @@ class DurableIngestJobs:
             auto_payload: dict[str, Any] = {
                 "source": source,
                 "problem_set": bool(chosen.problem_set),
-                "keep_local": bool(chosen.keep_local),
             }
             if source_id:
                 auto_payload["source_id"] = source_id
@@ -3268,8 +3259,16 @@ class DurableIngestJobs:
         approved: bool = False,
         chapter_ids: Sequence[str] | None = None,
         start_unit_id: str | None = None,
-    ) -> str:
-        """Plan another automatic build for an already-readable source."""
+        answers_revision: int | None = None,
+    ) -> str | None:
+        """Plan another automatic build for an already-readable source.
+
+        ``answers_revision``: the book's reading request this build answers
+        (keep one chapter ahead). The request is settled at exactly that
+        revision in the enqueue's own transaction, and if it is no longer
+        pending there (a cancel settled it first, or a newer request replaced
+        it) nothing is queued and ``None`` is returned (reading-hardening
+        verify, F1). The worker is started only after the commit."""
 
         from learnloop.content.pipeline.add_source import (
             AUTO_BUILD_WORKFLOW,
@@ -3285,13 +3284,27 @@ class DurableIngestJobs:
             payload["chapter_ids"] = list(chapter_ids)
         if start_unit_id:
             payload["start_unit_id"] = start_unit_id
-        batch_id = runner.enqueue_batch(
-            AUTO_BUILD_WORKFLOW, [JobSpec(AUTO_STUDY_MAP_JOB, payload)], priority=BUILD_PRIORITY
-        )
+        with runner.repo.atomic():
+            if answers_revision is not None and not runner.repo.settle_reading_request(source_id, answers_revision):
+                return None
+            batch_id = runner.enqueue_batch(
+                AUTO_BUILD_WORKFLOW, [JobSpec(AUTO_STUDY_MAP_JOB, payload)], priority=BUILD_PRIORITY
+            )
         self._ensure_worker()
         return batch_id
 
     # -- UX Phase 1: the book's reading request (finishing pass, F8/F9) -------
+    #
+    # Level-triggered (reading-hardening, part 1): whether a request is acted
+    # on never depends on a wake-up. Every pending request is due now or at its
+    # retry time; while this host runs, the reading sweep acts on each due one
+    # whose book's work is done. A wake (a failure, a finished job, a report)
+    # only brings the next pass forward.
+
+    def reading_now(self) -> datetime:
+        """The instant the reading sweep and a failed request's backoff use."""
+
+        return (self.reading_clock or SystemClock()).now()
 
     def reading_advance_pending(self, extraction_id: str) -> bool:
         """Whether the book's reading request failed and is not settled: the
@@ -3301,49 +3314,215 @@ class DurableIngestJobs:
         return self.repository.reading_request_unsettled(extraction_id)
 
     def wake_reading_retries(self) -> None:
-        """A reading request waits for the worker: make sure it is running.
-        (A foreground host calls :meth:`retry_reading_advances` itself.)"""
+        """Bring the reading sweep's next pass forward (a background host;
+        a foreground host calls :meth:`sweep_reading_requests` itself). Never
+        needed for correctness: the sweep's own pace reaches every request.
+
+        A no-op inside the sweep's own pass (Codex review F2): an act that
+        failed there, even one whose failure could not be recorded, must wait
+        the sweep's backoff, not cut it to nothing by waking the sweep it runs
+        on. A wake from anywhere else (the Reader's RPC, the start, the
+        worker) still brings the pass forward."""
+
+        if getattr(self._in_sweep_pass, "active", False):
+            return
+        if self._background and self._runner is not None:
+            self._ensure_reading_sweep()
+            self._reading_sweep_wake.set()
+
+    def wake_blocking_work(self) -> None:
+        """A request waits behind its book's queued or running work: make sure
+        the ingest worker runs it (after a restart nothing else may start it,
+        Codex finish-verify F1). A foreground host drains on its own."""
 
         if self._background and self._runner is not None:
             self._ensure_worker()
 
-    def retry_reading_advances(self, *, now: datetime | None = None) -> int:
-        """Act on the reading requests due at ``now`` (default: the wall
-        clock; worker side, and tests and foreground hosts call it directly):
-        failed ones whose retry time came, and ones that waited while their
-        book's work ran. Returns how many settled (a request still waiting on
-        running work does not count)."""
+    def resume_book_preparation(self) -> bool:
+        """Start the ingest worker when a book's automatic preparation (an
+        Add, a build planner, a planner's build) is queued, the worker could
+        run it, and no worker is running. The start calls this, and so does
+        every pass of the reading sweep (reading-hardening Codex review 2, F1).
 
-        return self._retry_reading_due(_iso(now))
+        This work never depends on a reading request to run. An act settles
+        the request in the transaction that queues its build, and starts the
+        worker only after the commit. If starting the worker fails, or the
+        process ends first, the queue itself is all that is left, so the queue
+        is what is checked. Work no worker could claim is left alone, so no
+        idle worker is started for it pass after pass: a job waiting on a
+        dependency the learner has to answer, or one in a batch being
+        cancelled. Other workflows keep their own resume paths. A foreground
+        host (the CLI, tests) drains on its own and starts nothing here.
+        Returns whether the worker was started."""
 
-    def _retry_reading_due(self, now: str) -> int:
-        """:meth:`retry_reading_advances` at ``now`` (ISO UTC): the worker
-        passes the instant its exit check also uses."""
+        from learnloop.content.pipeline.add_source import (
+            ADD_SOURCE_WORKFLOW,
+            AUTO_BUILD_BATCH_PREFIX,
+            AUTO_BUILD_WORKFLOW,
+        )
+
+        runner = self._runner
+        if runner is None or not self._background or self._stop.is_set():
+            return False
+        with self._lock:
+            worker = self._worker_thread
+            worker_running = worker is not None and worker.is_alive()
+            quick_running = any(thread.is_alive() for thread in self._quick_check_threads)
+        lanes: list[tuple[str, ...]] = []
+        if not worker_running:
+            lanes.append(tuple(job_type for job_type in runner.handlers if job_type not in _PARALLEL_JOB_TYPES))
+        if not quick_running:
+            lanes.append(_PARALLEL_JOB_TYPES)
+        if not any(
+            runner.repo.has_runnable_ingest_job(
+                job_types=lane,
+                workflow_types=(ADD_SOURCE_WORKFLOW, AUTO_BUILD_WORKFLOW),
+                batch_id_prefixes=(AUTO_BUILD_BATCH_PREFIX,),
+            )
+            for lane in lanes
+        ):
+            return False
+        self._ensure_worker()
+        return True
+
+    def sweep_reading_requests(self, *, now: datetime | None = None) -> "ReadingSweep":
+        """One pass of the reading sweep at ``now`` (default
+        :meth:`reading_now`): one query over the books' pending requests, and
+        an act on each one due (``retry_at`` passed, or none) whose book's work
+        is done (:func:`~learnloop.content.pipeline.add_source.act_on_reading_request`).
+
+        Raises when the scan fails, so a caller never takes a failed scan for
+        "nothing due". A failed act is counted (``failed``) and recorded by the
+        act itself with its backoff; if even that record failed, the request
+        is still due and the next pass acts on it. Each request's retry time
+        is read on its own: one that cannot be read is due now and never
+        stops the pass from reaching the requests after it (verify N2)."""
 
         from learnloop.content.pipeline import add_source
 
-        settled = 0
-        for request in self.repository.due_reading_requests(now):
+        moment = now or self.reading_now()
+        sweep = ReadingSweep()
+        for request in self.repository.pending_reading_requests():
             try:
-                outcome = add_source.act_on_reading_request(self, request["source_id"])
-            except Exception:  # noqa: BLE001 - a retry never kills the worker
-                import logging
-
-                logging.getLogger(__name__).warning("keeping questions a chapter ahead failed again", exc_info=True)
+                due_at = _reading_due_at(request["retry_at"])
+                later = due_at is not None and due_at > moment
+            except Exception:  # noqa: BLE001 - an unreadable stored time is due now
+                due_at, later = None, False
+            if later:
+                if sweep.next_due_at is None or due_at < sweep.next_due_at:
+                    sweep.next_due_at = due_at
                 continue
-            if not (outcome or {}).get("deferred"):
-                settled += 1
-        return settled
+            try:
+                outcome = add_source.act_on_reading_request(self, request["source_id"], now=moment)
+            except Exception:  # noqa: BLE001 - one book's failure is kept for its own retry
+                sweep.failed += 1
+                logging.getLogger(__name__).warning(
+                    "keeping questions a chapter ahead failed; retrying", exc_info=True
+                )
+                continue
+            if (outcome or {}).get("deferred"):
+                sweep.deferred += 1
+            else:
+                sweep.settled += 1
+        return sweep
 
-    def _reading_retry_waiting(self, now: str) -> bool:
-        """Whether a failed request's retry is still to come after ``now``,
-        the instant the round's due scan used: anything due by then was acted
-        on by that scan (Codex finish-review F1)."""
+    def retry_reading_advances(self, *, now: datetime | None = None) -> int:
+        """One sweep pass (tests and foreground hosts call it directly):
+        returns how many requests settled (one still waiting on its book's
+        work does not count). Raises when the scan fails."""
 
+        return self.sweep_reading_requests(now=now).settled
+
+    def _ensure_reading_sweep(self) -> None:
+        with self._lock:
+            if self._stop.is_set() or not self._background:
+                return
+            thread = self._reading_sweep_thread
+            if thread is None or not thread.is_alive():
+                self._reading_sweep_thread = threading.Thread(
+                    target=_run_reading_sweep, args=(weakref.ref(self),), name="learnloop-reading-sweep",
+                    daemon=True,
+                )
+                self._reading_sweep_thread.start()
+
+    def _reading_sweep_delay(self, sweep: "ReadingSweep") -> float:
+        """Until the next pass: the sweep's pace, sooner when a request's retry
+        time comes first."""
+
+        delay = float(self.READING_SWEEP_SECONDS)
+        if sweep.next_due_at is not None:
+            delay = min(delay, max((sweep.next_due_at - self.reading_now()).total_seconds(), 0.0))
+        return delay
+
+    def _reading_sweep_loop(self) -> None:
+        """The reading sweep, run on the calling thread (the sweep thread runs
+        :func:`_run_reading_sweep`): a pass every :attr:`READING_SWEEP_SECONDS`
+        (or at the next retry time, or when woken) for as long as this host
+        runs in the background. A failed pass is retried with backoff
+        (:attr:`READING_SWEEP_RETRY_SECONDS`, doubling up to the pace). Each
+        pass also starts the worker for a book's queued preparation that
+        nothing runs (:meth:`resume_book_preparation`). The first pass waits
+        one pace: the start reconciles every request and resumes that work
+        itself."""
+
+        _run_reading_sweep(weakref.ref(self))
+
+    def _reading_sweep_pass(self, failures: int) -> tuple[int, float] | None:
+        """One pass of the sweep thread: ``None`` when this host stopped (or
+        runs in the foreground now), else the failures in a row and the wait
+        until the next pass."""
+
+        with self._lock:
+            # Exits under the lock that starts a sweep, so a start racing
+            # this exit either sees the thread gone or keeps it running.
+            if self._stop.is_set() or not self._background:
+                if self._reading_sweep_thread is threading.current_thread():
+                    self._reading_sweep_thread = None
+                return None
+        delay = float(self.READING_SWEEP_SECONDS)
+        if self._runner is None:
+            return failures, delay
+        failed = False
         try:
-            return self.repository.reading_retry_waiting(now)
-        except Exception:  # noqa: BLE001 - never keeps a broken worker spinning
-            return False
+            self._in_sweep_pass.active = True
+            try:
+                sweep = self.sweep_reading_requests()
+            finally:
+                self._in_sweep_pass.active = False
+            delay = self._reading_sweep_delay(sweep)
+            failed = bool(sweep.failed)
+        except Exception:  # noqa: BLE001 - the sweep outlives any failed pass
+            failed = True
+            logging.getLogger(__name__).warning("the reading sweep's pass failed; retrying", exc_info=True)
+        try:
+            # A book's preparation queued with no worker running it (one that
+            # failed to start after its build was queued, Codex review 2 F1),
+            # checked every pass whether or not any request is pending.
+            self.resume_book_preparation()
+        except Exception:  # noqa: BLE001 - checked again on the next pass
+            failed = True
+            logging.getLogger(__name__).warning("could not check for a book's queued preparation; retrying",
+                                                exc_info=True)
+        if not failed:
+            return 0, delay
+        # A failed scan, an act whose failure may not even be recorded, or a
+        # failed check of the queue: try again soon, backing off up to the
+        # pace. Never "nothing due".
+        failures += 1
+        return failures, min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
+
+    def _settle_reading_with_cancel(self, runner: IngestRunner, batch_id: str) -> Callable[[], object]:
+        """A cancel answers the reading requests of the books whose work it
+        stops: each is settled at the revision it has now (reading-hardening,
+        part 1). It runs inside the cancel's transaction (``alongside``), so
+        the two commit together or not at all: a cancel whose settle fails
+        cancels nothing and says so, and no crash between them can leave the
+        cancelled work's request due for the sweep to re-plan (Codex review
+        F1)."""
+
+        from learnloop.content.pipeline import add_source
+
+        return lambda: add_source.settle_reading_for_cancelled_batch(runner.repo, batch_id)
 
     # -- sidecar-facing API ------------------------------------------------
 
@@ -3407,7 +3586,7 @@ class DurableIngestJobs:
         if job is None:
             return None
         if _compat_status(job["status"]) in {"queued", "running"}:
-            runner.cancel_batch(job["batch_id"])
+            self._cancel_batch(runner, job["batch_id"])
             job = runner.repo.get_ingest_job(job_id)
         return _compat(job) if job is not None else None
 
@@ -3428,11 +3607,15 @@ class DurableIngestJobs:
         # Wake idle workers so shutdown never waits for the poll timeout.
         self._work_available.set()
         self._quick_check_work_available.set()
+        self._reading_sweep_wake.set()
         thread = self._worker_thread
         if thread is not None:
             thread.join(timeout=2)
         for quick_thread in self._quick_check_threads:
             quick_thread.join(timeout=2)
+        sweep = self._reading_sweep_thread
+        if sweep is not None:
+            sweep.join(timeout=2)
 
     # -- durable batch API (Source library / Batch progress screens) -------
 
@@ -4052,8 +4235,18 @@ class DurableIngestJobs:
         runner = self._require_runner()
         if runner.repo.get_ingest_batch(batch_id) is None:
             return None
-        runner.cancel_batch(batch_id)
+        self._cancel_batch(runner, batch_id)
         return self.get_batch(batch_id)
+
+    def _cancel_batch(self, runner: IngestRunner, batch_id: str) -> None:
+        """Cancel, and settle the reading requests of the books whose work
+        this was, in one transaction (reading-hardening, part 1: a cancel
+        answers the request, so the sweep never re-plans the work the learner
+        just stopped; review F1: both commit or neither does). Under the
+        reading lock, so no act on the request in this process interleaves."""
+
+        with self._reading_lock:
+            runner.cancel_batch(batch_id, alongside=self._settle_reading_with_cancel(runner, batch_id))
 
     def interrupt_codex(self, job_id: str | None = None) -> dict[str, Any]:
         """Interrupt one live Codex call while keeping the sidecar process alive."""
@@ -4076,8 +4269,13 @@ class DurableIngestJobs:
                 if job.get("status") != "running":
                     raise ValueError(f"Ingest job '{job_id}' is {job.get('status')}, not running.")
                 raise ValueError(f"Ingest job '{job_id}' has no interruptible Codex call attached.")
-        if not runner.interrupt_job(selected["id"]):
-            raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
+        with self._reading_lock:
+            # Interrupting cancels the job's batch: as any cancel, it answers
+            # the book's reading request, in the cancel's transaction; the
+            # call is interrupted only once both committed.
+            settle = self._settle_reading_with_cancel(runner, str(selected["batch_id"]))
+            if not runner.interrupt_job(selected["id"], alongside=settle):
+                raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
         return {
             "job_id": selected["id"],
             "batch_id": selected["batch_id"],
@@ -4106,6 +4304,8 @@ class DurableIngestJobs:
             return
         with self._lock:
             self._stop.clear()
+            # A host stopped and started again gets its reading sweep back.
+            self._ensure_reading_sweep()
             # An existing worker may be waiting between drain attempts. Signal
             # before checking thread liveness so enqueue-to-claim has no polling
             # delay; newly started workers simply consume the harmless signal.
@@ -4150,22 +4350,19 @@ class DurableIngestJobs:
                 ran += self._drain_reader_requests(runner)
             except Exception:  # noqa: BLE001 — reader synthesis must never kill the ingest drain
                 pass
-            # One reading of the clock for the round's due scan and its exit
-            # check: a retry cannot fall due between them unseen by both
-            # (Codex finish-review F1).
-            now = _iso(None)
-            try:
-                ran += self._retry_reading_due(now)
-            except Exception:  # noqa: BLE001 — a keep-ahead retry must never kill the ingest drain
-                pass
+            if ran:
+                # Work finished: a book's reading request waiting on it may be
+                # due now. Only brings the sweep's next pass forward (the
+                # sweep reaches it on its own pace regardless).
+                self._reading_sweep_wake.set()
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
-            # A failed keep-ahead request keeps the worker polling until its
-            # retries settle it or run out (F8).
-            if idle_rounds >= 3 and self._active_job_locked(runner) is None and not self._reading_retry_waiting(now):
+            # Reading requests are the sweep's, not this loop's (reading-
+            # hardening, part 1): the worker exits when its queue is idle.
+            if idle_rounds >= 3 and self._active_job_locked(runner) is None:
                 with self._lock:
-                    # A wake during this round (an enqueue, a failed request's
-                    # retry) saw this thread alive: run another round for it.
-                    # Otherwise step aside, so the next wake starts a worker.
+                    # A wake during this round (an enqueue) saw this thread
+                    # alive: run another round for it. Otherwise step aside,
+                    # so the next wake starts a worker.
                     if not self._work_available.is_set():
                         if self._worker_thread is threading.current_thread():
                             self._worker_thread = None

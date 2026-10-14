@@ -523,5 +523,6 @@ Backup-API copies of `fixtures/linear_algebra` and `fixtures/probability` (`fixt
 - **Keep-local coverage.**
   - Gaps left as they were on the branch: the Reader's exercise import (`reader.import_exercise`) and library-wide retrieval (T6 tutor spans; the sources track's `find_sources`/`compare_sources`) can still send a kept-local book's text to a model.
   - Recommended default: extend the refusal to both.
+  - *Settled by the owner, 2026-10-13: the per-book opt-out is retired end to end, so there is no refusal to extend (`reading-hardening.md`, part 3).*
 - **Undo** leaves facet-identity merges and rewords a build applied; they keep their own undo.
-- **Spend reporting.** `learnloop sources report` covers the source service only, so automatic builds' daily spend has no per-day report.
+- **Spend reporting.** `learnloop sources report` covers the source service only, so automatic builds' daily spend has no per-day report. *(Added by `reading-hardening.md`, part 4: the report now shows automatic book preparation's spend per day under its own guard.)*

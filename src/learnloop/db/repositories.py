@@ -18481,24 +18481,21 @@ class Repository(
             )
             connection.commit()
 
-    def set_source_keep_local(
-        self, source_id: str, keep_local: bool, *, clock: Clock | None = None
-    ) -> None:
-        """The learner's "Keep this book on this computer" (migration 198)."""
+    def sources_with_retired_keep_local(self) -> list[str]:
+        """Books that still carry the retired "Keep this book on this
+        computer" (``source_artifacts.keep_local``, migration 198; retired by
+        the owner 2026-10-13): nothing consults the column now (generic
+        ``SELECT *`` reads still fetch it), ``learnloop doctor`` names them.
+        Empty on a database without the column."""
 
         with self.connection() as connection:
-            connection.execute(
-                "UPDATE source_artifacts SET keep_local = ?, updated_at = ? WHERE id = ?",
-                (int(keep_local), utc_now_iso(clock), source_id),
-            )
-            connection.commit()
-
-    def source_kept_local(self, source_id: str) -> bool:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT keep_local FROM source_artifacts WHERE id = ?", (source_id,)
-            ).fetchone()
-        return bool(row is not None and row["keep_local"])
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(source_artifacts)").fetchall()}
+            if "keep_local" not in columns:
+                return []
+            rows = connection.execute(
+                "SELECT id FROM source_artifacts WHERE keep_local != 0 ORDER BY id"
+            ).fetchall()
+        return [str(row["id"]) for row in rows]
 
     # -- UX Phase 1: a book's automatic-build state (migration 198) ----------
 
@@ -18646,9 +18643,9 @@ class Repository(
     def fail_reading_request(
         self, source_id: str, revision: int, *, attempts: int, retry_at: str | None, clock: Clock | None = None
     ) -> bool:
-        """Acting on the request at ``revision`` failed: count it and set the
-        worker's next retry (``None``: its retries ran out). A newer request is
-        left alone. Returns whether it was marked."""
+        """Acting on the request at ``revision`` failed: count it and set when
+        the reading sweep acts on it next (``None``: due at once). A newer
+        request is left alone. Returns whether it was marked."""
 
         with self.connection() as connection:
             cursor = connection.execute(
@@ -18662,33 +18659,50 @@ class Repository(
             connection.commit()
         return cursor.rowcount > 0
 
-    def due_reading_requests(self, now: str) -> list[dict[str, Any]]:
-        """Requests the ingest worker should act on at ``now`` (ISO UTC)."""
+    def defer_reading_request(self, source_id: str, revision: int, *, retry_at: str,
+                              clock: Clock | None = None) -> bool:
+        """The request at ``revision`` waits behind its book's own work: not a
+        failure, so its failed attempts are forgotten (the Reader stops asking
+        again) and it is due from ``retry_at``, for the reading sweep to act on
+        once that work ends. A newer request is left alone."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE source_auto_build_state
+                SET wanted_attempts = 0, wanted_retry_at = ?, updated_at = ?
+                WHERE source_id = ? AND wanted_revision = ? AND wanted_section_id IS NOT NULL
+                """,
+                (retry_at, utc_now_iso(clock), source_id, int(revision)),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
+    def pending_reading_requests(self) -> list[dict[str, Any]]:
+        """Every book's pending reading request, due first (reading-hardening,
+        part 1): the reading sweep's one query per pass. A request with no
+        retry time is due now (one whose worker retries ran out before the
+        sweep existed), so every pending request is due now or at its retry
+        time."""
 
         with self.connection() as connection:
             rows = connection.execute(
                 """
                 SELECT * FROM source_auto_build_state
-                WHERE wanted_section_id IS NOT NULL AND wanted_retry_at IS NOT NULL AND wanted_retry_at <= ?
-                ORDER BY wanted_retry_at, source_id
-                """,
-                (now,),
+                WHERE wanted_section_id IS NOT NULL
+                ORDER BY wanted_retry_at IS NOT NULL, wanted_retry_at, source_id
+                """
             ).fetchall()
         return [_reading_request(row) for row in rows]
 
-    def reading_retry_waiting(self, now: str) -> bool:
-        """Whether a failed request has a worker retry still to come after ``now``."""
+    def due_reading_requests(self, now: str) -> list[dict[str, Any]]:
+        """The pending requests due at ``now`` (ISO UTC): a retry time passed,
+        or none."""
 
-        with self.connection() as connection:
-            row = connection.execute(
-                """
-                SELECT 1 FROM source_auto_build_state
-                WHERE wanted_section_id IS NOT NULL AND wanted_retry_at IS NOT NULL AND wanted_retry_at > ?
-                LIMIT 1
-                """,
-                (now,),
-            ).fetchone()
-        return row is not None
+        return [
+            request for request in self.pending_reading_requests()
+            if request["retry_at"] is None or request["retry_at"] <= now
+        ]
 
     def reading_request_unsettled(self, extraction_id: str) -> bool:
         """Whether the book this extraction belongs to has a request whose
@@ -18707,14 +18721,6 @@ class Repository(
                 (extraction_id,),
             ).fetchone()
         return row is not None
-
-    def sources_with_wanted_reading(self) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM source_auto_build_state WHERE wanted_section_id IS NOT NULL "
-                "ORDER BY wanted_at, source_id"
-            ).fetchall()
-        return [dict(row) for row in rows]
 
     def get_source_artifact(self, source_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:

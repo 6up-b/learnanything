@@ -33,7 +33,9 @@ export interface ReconnectLineProps {
   onYes: () => void;
   /** Empty text opens a follow-up on the root in the Ask rail; text asks it. */
   onStillUnclear: (text: string) => void;
-  onQuickCheck: () => void;
+  /** The passage-scoped quick check, when the Reader's one check-offer rule
+   *  offers it (reading-hardening, part 2); absent, the line has no button. */
+  onQuickCheck?: () => void;
 }
 
 export function ReconnectLine({ question, placement, busy = false, onYes, onStillUnclear, onQuickCheck }: ReconnectLineProps) {
@@ -63,8 +65,12 @@ export function ReconnectLine({ question, placement, busy = false, onYes, onStil
         <button type="button" disabled={busy} onClick={() => setUnclearOpen((open) => !open)} aria-expanded={unclearOpen} style={linkStyle}>
           still unclear…
         </button>
-        <span aria-hidden="true">·</span>
-        <button type="button" disabled={busy} onClick={onQuickCheck} style={linkStyle}>quick check</button>
+        {onQuickCheck ? (
+          <>
+            <span aria-hidden="true">·</span>
+            <button type="button" disabled={busy} onClick={onQuickCheck} style={linkStyle}>quick check</button>
+          </>
+        ) : null}
       </span>
       {unclearOpen ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: placement === "inline" ? 15 : 0 }}>

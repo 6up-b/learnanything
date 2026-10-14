@@ -18,6 +18,7 @@ import re
 from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
+from learnloop.content.sources.exam_material import held_out_among, held_out_material
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
 
@@ -345,6 +346,7 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
         extraction_id=extraction_id,
         question_by_section=question_by_section,
         passages_by_section=passages_by_section,
+        withheld_sections=held_out_sections(vault, repository, extraction_id, section_rows),
     )
     sections = _assembled_sections(section_rows, passages_by_section, question_by_section)
     return {
@@ -572,18 +574,39 @@ def _reviewed_placement_questions(
     return question_by_section, goal_candidates
 
 
+def held_out_sections(
+    vault_or_sets: Any, repository: Repository, extraction_id: str, section_rows: Iterable[Mapping[str, Any]],
+) -> set[str]:
+    """The sections with any block in held-out material (exam protection's one
+    held-out partition, ``content.sources.exam_material``).
+
+    The section check job refuses such a section before any model call
+    (``jobs._refuse_held_out_reader_material`` over the same blocks), so no
+    check is authored for it. A check authored before the mark is withheld
+    here too: the guide plan never lists it, so the Reader's one check-offer
+    rule (``checkOffer.ts``) finds no check and never offers it
+    (reading-hardening landing).
+    """
+
+    material = held_out_material(vault_or_sets, repository)
+    return {str(row["id"]) for row in section_rows
+            if held_out_among(material, extraction_id, row.get("span_ids") or [])}
+
+
 def _add_auto_authored_questions(
     repository: Repository,
     *,
     extraction_id: str,
     question_by_section: dict[str, dict[str, Any]],
     passages_by_section: dict[str, dict[str, dict[str, Any]]],
+    withheld_sections: set[str] | frozenset[str] = frozenset(),
 ) -> None:
     """Fill sections that have no owner-reviewed question with their authored quick check.
 
     A section shows its NEWEST authored question, and only while it is still
     ``proposed``: an answered, dismissed or escalated newest row consumes the
-    section rather than resurfacing an older one.
+    section rather than resurfacing an older one. A section in held-out
+    material (``withheld_sections``) shows none (:func:`held_out_sections`).
     """
 
     decided_sections: set[str] = set()
@@ -592,7 +615,7 @@ def _add_auto_authored_questions(
         if section_id in question_by_section or section_id in decided_sections:
             continue
         decided_sections.add(section_id)
-        if row.get("status") != "proposed":
+        if row.get("status") != "proposed" or section_id in withheld_sections:
             continue
         try:
             span_ids = json.loads(row.get("span_ids_json") or "[]")

@@ -2,7 +2,7 @@
 
 The branch built Tier 1 as mvp-0.20 on e8d261405; main had since added UX
 Phase 1 (automatic builds, the one-time OK at AI connection, books kept on
-this computer, the per-request metered gate), the route rules in the grader
+this computer (since retired), the per-request metered gate), the route rules in the grader
 (main's own mvp-0.20, which deleted the separate proofs route check) and
 value-of-information stopping (mvp-0.21). These pin how they compose: fakes
 only, no network, no paid call.
@@ -137,29 +137,32 @@ def test_an_automatic_builds_apply_asks_the_span_check_before_the_vault_lock(tmp
         assert card["span_support"]["verdict"] == choice and card["span_support"]["judgment_id"] == check["id"]
 
 
-def test_a_kept_local_books_passage_never_reaches_the_decider(tmp_path, monkeypatch):
-    """UX Phase 1: every outbound boundary reads keep_local when its work runs.
-    The span check is a new one: a reword citing a kept book waits for the
-    owner's confirm, unasked."""
+def test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other(tmp_path, monkeypatch):
+    """The Decider landing guarded the span check with UX Phase 1's per-book
+    ``keep_local``. The opt-out is retired (owner, 2026-10-13; the
+    reading-hardening landing): the column is never consulted, so a reword
+    citing a book that still carries it is asked about and, on ``supports``,
+    applies like any other."""
 
     from learnloop.content.facet_identity import actions
     from learnloop.content.proposals.patches import apply_accepted_items
     from learnloop.vault.loader import load_vault
     from tests.test_facet_identity_actions import SHARED
-    from tests.test_facet_rewords import _entry
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
 
     client = SpanDecider("supports")
     paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
-    before = _entry(paths, SHARED)["claim"]
-    repo.set_source_keep_local("src_cited", True)
+    with repo.connection() as connection:
+        connection.execute("UPDATE source_artifacts SET keep_local = 1 WHERE id = ?", ("src_cited",))
+        connection.commit()
+    assert repo.sources_with_retired_keep_local() == ["src_cited"]
     apply_accepted_items(paths.root, _cited_reword_proposal(repo, citation))
-    assert client.calls == []
-    assert _entry(paths, SHARED)["claim"] == before
-    (card,) = actions.pending_reword_confirms(repo, load_vault(paths.root))
-    assert card["span_support"]["verdict"] is None
+    assert len(client.calls) == 1
+    assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
+    assert actions.pending_reword_confirms(repo, load_vault(paths.root)) == []
     (check,) = _rows(repo, "facet_span_support")
-    assert check["verdict"] == "unavailable"
-    assert json.loads(check["rationale"])["kept_on_this_computer"] == ["src_cited"]
+    assert check["verdict"] == "supports"
+    assert "kept_on_this_computer" not in json.loads(check["rationale"] or "{}")
 
 
 # -- 4. spend: UX's per-request metered gate admits and settles the Decider ----------------------

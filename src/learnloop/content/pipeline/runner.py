@@ -425,11 +425,20 @@ class JobContext:
         return self._held.enter_context(scope)
 
     def enqueue_batch(self, workflow_type: str, jobs: Sequence["JobSpec"], **kwargs: Any) -> str:
-        """Queue a follow-up batch through the runner that is running this job."""
+        """Queue a follow-up batch through the runner that is running this job.
+
+        A job whose batch was cancelled queues nothing: the check and the
+        enqueue are one transaction, so a cancel that committed first raises
+        :class:`JobCancelled` here instead of being followed by the work
+        (reading-hardening verify, F1). Inside a caller's ``atomic()`` it
+        joins that transaction."""
 
         if self._enqueue_batch is None:
             raise IngestRunnerError("this job context cannot enqueue follow-up work.")
-        return self._enqueue_batch(workflow_type, jobs, **kwargs)
+        with self.repo.atomic():
+            if self._cancel_requested():
+                raise JobCancelled()
+            return self._enqueue_batch(workflow_type, jobs, **kwargs)
 
     def _cancel_requested(self) -> bool:
         fresh = self.repo.get_ingest_job(self.job_id)
@@ -548,8 +557,12 @@ class IngestRunner:
                 jobs.append(job)
         return jobs
 
-    def interrupt_job(self, job_id: str) -> bool:
-        """Cancel a batch and interrupt the selected job's active provider call."""
+    def interrupt_job(self, job_id: str, *, alongside: Callable[[], object] | None = None) -> bool:
+        """Cancel a batch and interrupt the selected job's active provider call.
+
+        ``alongside`` commits with the cancel (see :meth:`cancel_batch`); the
+        call is interrupted only once both committed, so a cancel that fails
+        leaves the call running."""
 
         job = self.repo.get_ingest_job(job_id)
         if job is None or job.get("status") != "running":
@@ -560,7 +573,7 @@ class IngestRunner:
             return False
         # Cancel queued siblings too, matching the existing batch-cancel contract
         # and preventing dependants of the interrupted job from remaining queued.
-        self.cancel_batch(job["batch_id"])
+        self.cancel_batch(job["batch_id"], alongside=alongside)
         interrupt()
         return True
 
@@ -786,22 +799,32 @@ class IngestRunner:
 
     # -- batch lifecycle ---------------------------------------------------
 
-    def cancel_batch(self, batch_id: str) -> None:
+    def cancel_batch(self, batch_id: str, *, alongside: Callable[[], object] | None = None) -> None:
         """Request cancellation. Completed artifacts are preserved; not-yet-run
         jobs go straight to ``cancelled`` and a running job is flagged so its
-        handler stops at the next checkpoint (§6.2)."""
+        handler stops at the next checkpoint (§6.2).
 
-        self.repo.request_ingest_batch_cancel(batch_id)
-        for job in self.repo.ingest_jobs_for_batch(batch_id):
-            if job["status"] in {"queued", "blocked", "waiting_for_input"}:
-                self.repo.transition_unleased_ingest_job(
-                    job["id"],
-                    status="cancelled",
-                    phase="cancelled",
-                    message="Batch cancelled",
-                    error={"code": "cancelled", "message": "The batch was cancelled."},
-                    clock=self.clock,
-                )
+        The cancel is one transaction. ``alongside`` runs inside it: writes
+        that must commit with the cancel or not at all (a cancel settles the
+        book's reading request, reading-hardening review F1). If it raises,
+        or the process dies before the commit, nothing is cancelled."""
+
+        with self.repo.atomic():
+            self.repo.request_ingest_batch_cancel(batch_id)
+            for job in self.repo.ingest_jobs_for_batch(batch_id):
+                if job["status"] in {"queued", "blocked", "waiting_for_input"}:
+                    self.repo.transition_unleased_ingest_job(
+                        job["id"],
+                        status="cancelled",
+                        phase="cancelled",
+                        message="Batch cancelled",
+                        error={"code": "cancelled", "message": "The batch was cancelled."},
+                        clock=self.clock,
+                    )
+            if alongside is not None:
+                alongside()
+        # Outside the transaction: a finished batch's WAL checkpoint must not
+        # wait on the cancel's own write lock.
         self._refresh_batch(batch_id)
 
     def resume_batch(self, batch_id: str) -> None:

@@ -3281,8 +3281,6 @@ export interface SourceLibraryCard {
   subjectTitle?: string | null;
   /** The card's one learner-facing status line, or null when there is nothing to say. */
   statusLine?: SourceStatusLineDto | null;
-  /** "Keep this book on this computer": nothing of it is sent to an AI. */
-  keepLocal?: boolean;
   /** Whether text recognition can run for this book here: details offer
    *  "Read it again with text recognition" only then (usability round 2). */
   textRecognitionAvailable?: boolean;
@@ -3300,9 +3298,6 @@ export type SourceActionKind =
   | "text_recognition"
   /** The separate OK for sending a whole file out (a recording, a whole PDF). */
   | "allow_upload"
-  /** Book details: keep this book on this computer, or let it go again. */
-  | "keep_local"
-  | "share_with_ai"
   | "connect_ai"
   | "open_changes"
   | "open_settings";
@@ -3359,7 +3354,6 @@ export interface AddSourceInput {
   sources: string[];
   pages?: string | null;
   problemSet?: boolean;
-  keepLocal?: boolean;
   textRecognition?: boolean;
 }
 

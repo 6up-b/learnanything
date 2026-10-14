@@ -13,10 +13,11 @@ verdict and the spans on the card (``authority.check_meaning_write``).
 The question reads only the validated, in-scope spans that carry explanatory
 support (``ResolvedCitation.supports``): exam material and held-out units
 resolve to the ``exam`` role and never reach it (their exam-only refusal runs
-first and is unchanged). The owner's own Library edits never come here. A span
-of a book the learner keeps on this computer (UX Phase 1's ``keep_local``,
-which every outbound boundary reads when its work runs) is never sent: the
-check is not asked and the reword waits for the confirm (landing onto main).
+first and is unchanged). The owner's own Library edits never come here. The
+retired per-book AI opt-out (``source_artifacts.keep_local``, owner
+2026-10-13) is never consulted: a cited span of any book is asked about like
+any other (the reading-hardening landing removed the Decider landing's
+keep-local guard).
 
 The question goes out before the vault mutation lock is taken (review F1): a
 proposal's acceptance first stages its items without the lock, asking each
@@ -93,7 +94,6 @@ def check(vault: Any, repository: Any, resolver: Any, facet_id: str, after: Mapp
                       "text": resolver.excerpt(citation, limit=10**9)})
     state = {"spans": spans, "new_wording": authority_meaning(after)}
     readable = bool(spans) and all(span["text"] for span in spans)
-    kept_local = _kept_local_sources(repository, citations)
     digest = content_key({"state": state, "question": QUESTION.wire(), "task": TASK})
     if asked is not None:
         found = asked.get(digest)
@@ -103,25 +103,14 @@ def check(vault: Any, repository: Any, resolver: Any, facet_id: str, after: Mapp
     decision = decide(
         root=vault.root, config=vault.config, repository=repository, task=TASK, state=state,
         question=QUESTION, left_kind="facet", left_id=facet_id, input_hash=digest,
-        # A span whose text cannot be read, or one of a book kept on this
-        # computer, is never sent: the reword waits for the owner.
-        client_factory=None if readable and not kept_local else (lambda: None),
-        rationale={"kept_on_this_computer": kept_local} if kept_local else None,
+        # A span whose text cannot be read is never sent: the reword waits
+        # for the owner.
+        client_factory=None if readable else (lambda: None),
     )
     detail = decision.detail()
     if record is not None:
         record[digest] = detail
     return detail
-
-
-def _kept_local_sources(repository: Any, citations: Sequence[Any]) -> list[str]:
-    """The cited supporting spans' books the learner keeps on this computer (never sent out)."""
-
-    kept = getattr(repository, "source_kept_local", None)
-    if kept is None:
-        return []
-    return sorted({str(citation.source_id) for citation in citations
-                   if citation.supports and citation.source_id and kept(str(citation.source_id))})
 
 
 def label(connection: Any, record: Mapping[str, Any], *, action: str) -> str | None:

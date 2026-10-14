@@ -57,7 +57,8 @@ describe("AddSourceBox", () => {
     fireEvent.click(screen.getByRole("button", { name: "More options ▸" }));
     fireEvent.change(screen.getByLabelText("Only some pages"), { target: { value: "3-27" } });
     fireEvent.click(screen.getByLabelText("This is a past exam or problem set (no reading questions)"));
-    fireEvent.click(screen.getByLabelText("Never send this to an AI"));
+    // The per-book AI opt-out is retired (owner, 2026-10-13).
+    expect(screen.queryByLabelText(/never send|on this computer/i)).toBeNull();
     fireEvent.click(screen.getByLabelText("Read with text recognition"));
     const input = screen.getByLabelText("Paste a link");
     fireEvent.change(input, { target: { value: "/books/exam.pdf" } });
@@ -65,7 +66,6 @@ describe("AddSourceBox", () => {
     expect(onAdd).toHaveBeenCalledWith(["/books/exam.pdf"], {
       pages: "3-27",
       problemSet: true,
-      keepLocal: true,
       textRecognition: true
     });
   });

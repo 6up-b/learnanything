@@ -113,66 +113,16 @@ def _metered(root, price):
 
 
 # ---------------------------------------------------------------------------
-# F1 [High] "Keep this book on this computer" is the book's, everywhere
+# F1 [High] Whole files leave only with their own OK. (F1's other half, "Keep
+# this book on this computer" at every boundary, is retired: owner, 2026-10-13;
+# tests/test_keep_local_retired.py pins what replaced it.)
 # ---------------------------------------------------------------------------
-
-
-def test_f1_a_later_build_of_a_kept_local_book_writes_no_questions(tmp_path):
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    calls = Calls()
-    repo, jobs = _jobs(root, fake_services(calls=calls))
-    item = _add(root, jobs, write_book(tmp_path), keep_local=True)
-    source_id = item["source_id"]
-    assert repo.source_kept_local(source_id) is True
-
-    # "Build questions for the whole book" from book details, and a retry.
-    request_auto_build(jobs, source_id, chapter_ids=list(_labels(repo, source_id).values()))
-    request_auto_build(jobs, source_id, approved=True)
-    assert latest_auto_outcome(repo, source_id)["reason"] == "kept_local"
-    assert _build_batches(repo) == []
-    assert calls.inventory_calls == 0 and calls.synthesis_calls == 0
-
-
-def test_f1_no_question_build_sends_a_kept_local_book(tmp_path):
-    """Any build path (here a deliberate one, as Under the hood starts it)."""
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    calls = Calls()
-    repo, jobs = _jobs(root, fake_services(calls=calls))
-    item = _add(root, jobs, write_book(tmp_path), keep_local=True)
-    extraction_id = resolve_extraction_id(repo, item["source_id"])
-    unit_id = next(iter(_labels(repo, item["source_id"]).values()))
-    batch_id = jobs._require_runner().enqueue_batch(
-        "bootstrap_synthesis", [JobSpec("inventory", {"extraction_id": extraction_id,
-                                                      "units": [{"unit_id": unit_id, "role": "primary_textbook"}]})]
-    )
-    _drain(jobs)
-    job = repo.ingest_jobs_for_batch(batch_id)[0]
-    assert job["status"] == "failed" and job["error"]["code"] == "kept_local"
-    assert calls.inventory_calls == 0
 
 
 def _audio_file(tmp_path):
     path = tmp_path / "lecture_one.mp3"
     path.write_bytes(b"ID3\x03\x00\x00\x00\x00\x00\x00fake audio frames")
     return path
-
-
-def test_f1_a_kept_local_recording_is_never_sent_to_transcription(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as jobs_module
-
-    sent = []
-    monkeypatch.setattr(jobs_module, "_extract_audio", lambda fetched, ctx: sent.append(fetched) or None)
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    repo, jobs = _jobs(root, fake_services())
-    item = _add(root, jobs, _audio_file(tmp_path), keep_local=True)
-    assert sent == []
-    line = source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Never sent to an AI — this recording can't be read here"
-    assert line["action"] is None
 
 
 def test_f1_sending_a_whole_recording_out_waits_for_its_own_ok(tmp_path, monkeypatch):
@@ -201,59 +151,6 @@ def test_f1_sending_a_whole_recording_out_waits_for_its_own_ok(tmp_path, monkeyp
     record = load_vault(root).config.ai.consent["whole_files"]
     assert record.data_flow == "whole_files" and record.granted_at
     assert len(sent) == 1  # only now does the recording leave
-
-
-def test_f1_a_kept_local_book_never_uses_the_whole_pdf_model_or_hosted_marker(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-
-    from learnloop.content.pipeline.jobs import _pdf_payload_config
-
-    root = fresh_library(tmp_path)
-    set_config(root, {("ingest", "pdf", "engine"): "native"})
-    kept = SimpleNamespace(job={"_keep_local": True}, payload={}, vault_root=root)
-    assert _pdf_payload_config(kept).get("engine") != "native"
-    monkeypatch.setenv("LEARNLOOP_MARKER_PROVIDER", "datalab")
-    set_config(root, {("ingest", "pdf", "engine"): "auto"})
-    assert _pdf_payload_config(kept)["engine"] == "pypdf"
-    shared = SimpleNamespace(job={}, payload={}, vault_root=root)
-    assert _pdf_payload_config(shared).get("engine") != "pypdf"
-
-
-def test_f1_the_reader_sends_nothing_from_a_kept_local_book(tmp_path):
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
-    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))], "keepLocal": True})["items"][0]
-    extraction_id = resolve_extraction_id(ctx.repository, item["sourceId"])
-    section_id = next(iter(_labels(ctx.repository, item["sourceId"]).values()))
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.author_section_question", {"extractionId": extraction_id, "sectionId": section_id})
-    assert caught.value.code == "kept_on_this_computer"
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.ask", {"extractionId": extraction_id, "spanId": "s1", "question": "Why?"})
-    assert caught.value.code == "kept_on_this_computer"
-    with pytest.raises(SidecarError) as caught:
-        call(ctx, "reader.enqueue_request", {
-            "sourceId": item["sourceId"], "revisionId": item["revisionId"], "extractionId": extraction_id,
-            "spanId": "s1", "preset": "explain",
-        })
-    assert caught.value.code == "kept_on_this_computer"
-
-
-def test_f1_book_details_can_keep_a_book_local_and_let_it_go_again(tmp_path):
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
-    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))], "keepLocal": True})["items"][0]
-    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == item["sourceId"])
-    assert card["keepLocal"] is True
-    call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "share_with_ai"})
-    assert ctx.repository.source_kept_local(item["sourceId"]) is False
-    assert latest_auto_outcome(ctx.repository, item["sourceId"])["outcome"] == "building"
 
 
 # ---------------------------------------------------------------------------
@@ -761,87 +658,6 @@ def test_f12_undo_records_the_owners_verdict_once(tmp_path):
 # ===========================================================================
 
 
-def _first_span_id(repo, extraction_id):
-    ir = repo.load_document_ir(extraction_id)
-    return next(block.span_id for block in sorted(ir.blocks, key=lambda b: b.ordinal) if (block.text or "").strip())
-
-
-def _reader_ctx(root, client, services=None):
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=services or fake_services(),
-                         reader_synth_client_factory=lambda: client)
-    return ctx
-
-
-def _queue_reader_request(ctx, item):
-    from learnloop.reader import reader_requests as RR
-
-    extraction_id = resolve_extraction_id(ctx.repository, item["sourceId"])
-    return RR.enqueue_request(
-        ctx.repository, source_id=item["sourceId"], revision_id=item["revisionId"], extraction_id=extraction_id,
-        span_id=_first_span_id(ctx.repository, extraction_id), preset="worked_example",
-    )
-
-
-def test_f1_rereview_keeping_a_book_local_stops_the_reader_requests_it_queued(tmp_path):
-    from tests.test_reader_requests import _FakePresetClient
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    client = _FakePresetClient()
-    ctx = _reader_ctx(root, client)
-    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]
-    queued = _queue_reader_request(ctx, item)
-
-    call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "keep_local"})
-    ctx.ingest_jobs.kick_reader_drain()  # the production drain, as the worker runs it
-    assert client.calls == []
-    assert ctx.repository.get_reader_request(queued["request_id"])["status"] == "cancelled"
-
-
-def test_f1_rereview_the_drain_reads_the_books_privacy_when_it_runs(tmp_path):
-    """However the policy was persisted (another window, an Add of the same
-    book with the option), a queued request is checked when it is executed."""
-
-    from tests.test_reader_requests import _FakePresetClient
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    client = _FakePresetClient()
-    ctx = _reader_ctx(root, client)
-    item = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]
-    queued = _queue_reader_request(ctx, item)
-
-    ctx.repository.set_source_keep_local(item["sourceId"], True)
-    ctx.ingest_jobs.kick_reader_drain()
-    assert client.calls == []
-    row = ctx.repository.get_reader_request(queued["request_id"])
-    assert row["status"] == "cancelled"
-    assert json.loads(row["error_json"])["code"] == "kept_on_this_computer"
-
-
-def test_f1_rereview_keeping_a_book_local_stops_its_queued_build(tmp_path):
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    calls = Calls()
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services(calls=calls))
-    repo, jobs = ctx.repository, ctx.ingest_jobs
-    jobs._ensure_worker = lambda: None  # type: ignore[method-assign]
-    source_id = call(ctx, "add_source", {"sources": [str(write_book(tmp_path))]})["items"][0]["sourceId"]
-    _drain(jobs, max_jobs=2)  # the import and the planner: the build is queued
-    assert latest_auto_outcome(repo, source_id)["outcome"] == "building"
-
-    call(ctx, "source_action", {"sourceId": source_id, "action": "keep_local"})
-    _drain(jobs)
-    assert calls.inventory_calls == 0 and calls.synthesis_calls == 0
-    assert _build_batches(repo)[0]["status"] == "cancelled"
-    card = next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
-    assert card["statusLine"]["text"] == "Never sent to an AI — no questions are written for it"
-
-
 def _openrouter_client():
     from learnloop.ai.providers.openrouter import OpenRouterProviderClient
     from learnloop.config import AIProviderConfig
@@ -1021,124 +837,3 @@ def test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found(t
     assert core.latest_auto_outcome(repo, source_id)["build_batch_id"] == core.child_batch_id(planner["id"])
     assert source_status_line(repo, load_vault(root), source_id)["text"].startswith("Writing questions for")
 
-
-def test_f13_letting_a_kept_local_recording_go_resumes_it_through_the_whole_file_ok(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as jobs_module
-    from learnloop.content.pipeline.runner import IngestRunnerError
-
-    sent = []
-
-    def transcribe(fetched, ctx):
-        sent.append(fetched)
-        raise IngestRunnerError("transcription endpoint not reachable in tests", code="audio_failed")
-
-    monkeypatch.setattr(jobs_module, "_extract_audio", transcribe)
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    ctx = SidecarContext()
-    ctx.load(root)
-    ctx.ingest_jobs.bind(ctx.repository, root, background=False, clock=CLOCK, services=fake_services())
-    item = call(ctx, "add_source", {"sources": [str(_audio_file(tmp_path))], "keepLocal": True})["items"][0]
-    source_id = item["sourceId"]
-
-    def card():
-        return next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
-
-    assert card()["statusLine"]["text"] == "Never sent to an AI — this recording can't be read here"
-
-    call(ctx, "source_action", {"sourceId": source_id, "action": "share_with_ai"})
-    assert ctx.repository.source_kept_local(source_id) is False
-    assert sent == []  # sharing passages is not the OK to upload the whole recording
-    assert card()["statusLine"]["text"] == "Transcribing this recording sends it to an online service"
-    assert card()["statusLine"]["action"] == {"kind": "allow_upload", "label": "OK"}
-
-    # Trying the original import again never brings the old choice back.
-    call(ctx, "source_action", {"sourceId": source_id, "action": "retry"})
-    assert ctx.repository.source_kept_local(source_id) is False
-    assert sent == []
-
-    call(ctx, "source_action", {"sourceId": source_id, "action": "allow_upload"})
-    assert len(sent) == 1
-    assert ctx.repository.source_kept_local(source_id) is False
-
-
-def test_f13_a_links_keep_local_is_applied_once_when_its_book_is_registered(tmp_path):
-    """A link's book exists only once the import registers it, so the import
-    applies the Add's choice then, once. After that the book's persisted
-    choice decides: an import tried again never brings the old choice back."""
-
-    from learnloop.content.pipeline import jobs as jobs_module
-    from learnloop.content.pipeline.runner import FetchedBytes
-
-    url = "https://example.org/probability-notes"
-    crash = {"on": True}
-
-    def fetch(source, category, ctx):
-        return FetchedBytes(raw_bytes=_book_html().encode(), content_type="text/html", original_uri=source,
-                            retrieved_at=CLOCK.now().isoformat(), title="Probability notes")
-
-    def extract(fetched, category, ctx):
-        if crash["on"]:
-            raise _Crash()  # the process dies after the book was registered
-        return jobs_module.default_extract(fetched, category, ctx)
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    repo, jobs = _jobs(root, fake_services(fetch=fetch, extract=extract), hold=True)
-    item = _add(root, jobs, url, keep_local=True)
-    with pytest.raises(_Crash):
-        _drain(jobs, max_jobs=1)
-    import_job = next(job for job in repo.ingest_jobs_for_batch(item["batch_id"]) if job["job_type"] == "import")
-    source_id = repo.source_artifact_by_uri("web", url)["id"]
-    assert repo.source_kept_local(source_id) is True
-    assert repo.get_ingest_job(import_job["id"])["payload"]["keep_local_applied"] is True
-
-    repo.set_source_keep_local(source_id, False)  # the learner lets it go
-    crash["on"] = False
-    runner = jobs._require_runner()
-    runner.clock = FrozenClock(CLOCK.now() + timedelta(hours=1))
-    runner.recover_stale_leases()
-    jobs.resume_batch(item["batch_id"])
-    _drain(jobs)
-    assert repo.get_ingest_job(import_job["id"])["status"] == "completed"
-    assert repo.source_kept_local(source_id) is False
-
-
-def test_f1_rereview_a_running_build_sends_nothing_more_once_the_book_is_kept_local(tmp_path):
-    """Keeping a book local while its build is mid-call: the call under way is
-    not recalled, but the build starts no further request (on the
-    subscription route too: privacy is not about money)."""
-
-    from learnloop.ai.execution import model_call
-
-    class Subscription:
-        provider_name = "codex_medium"
-        provider_type = "codex_sdk"
-        model = "test"
-
-    sent: list[str] = []
-    state: dict = {}
-
-    def keep_local_between_requests(_context):
-        with model_call(Subscription(), purpose="sdk_turn", prompt="first", budget=100):
-            sent.append("first")
-        core.keep_on_this_computer(state["jobs"], state["source_id"])
-        with model_call(Subscription(), purpose="sdk_turn", prompt="second", budget=100):
-            sent.append("second")
-
-    root = fresh_library(tmp_path)
-    grant_consent(root)
-    hook = {"on": None}
-    repo, jobs = _jobs(root, fake_services(on_append=lambda c: hook["on"] and hook["on"](c)))
-    state["jobs"] = jobs
-    item = _add(root, jobs, write_book(tmp_path))
-    source_id = state["source_id"] = item["source_id"]
-    labels = _labels(repo, source_id)
-    hook["on"] = keep_local_between_requests
-    advance_reading_build(jobs, resolve_extraction_id(repo, source_id), labels["2 Conditional probability"])
-    assert sent == ["first"]
-    ch3 = _build_batches(repo)[0]
-    synthesis = next(job for job in repo.ingest_jobs_for_batch(ch3["id"]) if job["job_type"] == "bootstrap_synthesis")
-    assert synthesis["status"] == "cancelled"
-    line = source_status_line(repo, load_vault(root), source_id)
-    assert line["text"] == "Never sent to an AI — no questions are written for it"

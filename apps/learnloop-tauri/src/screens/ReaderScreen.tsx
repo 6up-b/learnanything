@@ -65,6 +65,7 @@ import { useReaderRequests } from "./reader/useReaderRequests";
 import { type InquiryCommitment, type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
 import { InquiryQuickCheck } from "./reader/InquiryQuickCheck";
+import { checkOffer, type CheckSurface } from "./reader/checkOffer";
 import { phaseForError, type ModelActionPhase } from "./reader/ModelActionState";
 import { ReconnectLine } from "./reader/ReconnectLine";
 import {
@@ -142,6 +143,18 @@ const BADGED_HEALTH = new Set(["suspect", "failed"]);
 // reading positions gather before they are saved.
 const SEEN_SETTLE_MS = 1500;
 const SEEN_REPORT_MS = 1500;
+// The playing cue is the one with the latest start at most this far ahead of
+// the player's time.
+const CUE_LOOKAHEAD_S = 0.15;
+// A seek the watch panel makes has landed when the player reports a time from
+// just before its cue (the lookahead) to a moment of playing on after it.
+// Until then the player's reports are from before the seek. A seek whose
+// landing is never reported (the learner moved the player with YouTube's own
+// controls) stops waiting after a while: the next report is where the player
+// is, a placement too (reading-hardening Codex review 2, F2).
+const SEEK_LANDING_EARLY_S = CUE_LOOKAHEAD_S;
+const SEEK_LANDING_LATE_S = 2.5;
+const SEEK_LANDING_WAIT_MS = 10_000;
 // Timed retries of a failed progress save (leaving the Reader always retries).
 const SEEN_RETRY_LIMIT = 3;
 // The reading marker sits 70% of the way down the reading area (as the
@@ -319,6 +332,9 @@ export function ReaderScreen({
   // asked about its Introduction before a word was read.
   const [readingMoved, setReadingMoved] = useState(false);
   const userScrollAtRef = useRef(0);
+  // A scroll of the learner's own, waiting for the frame that reads where it
+  // took them (``onReadingScroll``).
+  const movedPendingRef = useRef(false);
   // Reading history from before the Reader saved places (usability round 2):
   // where a book with no saved place reopens.
   const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
@@ -631,6 +647,7 @@ export function ReaderScreen({
     setFocusQuickCheck(null);
     setHiddenPdfOffers([]);
     setReadingMoved(false);
+    movedPendingRef.current = false;
     userScrollAtRef.current = 0;
     lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
@@ -1092,61 +1109,69 @@ export function ReaderScreen({
     for (const block of pdfView?.blocks ?? []) if (block.spanId && !pages.has(block.spanId)) pages.set(block.spanId, block.page);
     return pages;
   }, [pdfView]);
-  const atSectionBreak = useMemo(() => {
-    if (!currentGuideSection || !readingMoved) return false;
+  // The original PDF: whether the reading position's page reached the
+  // current section's last page (D22); null without page information.
+  const atLastPage = useMemo(() => {
+    if (!currentGuideSection) return null;
     const here = pageBySpan.get(readingSpan ?? activeSpan ?? "");
     const last = pageBySpan.get(currentGuideSection.endSpanId);
-    if (here === undefined || last === undefined) return currentSectionProgress >= 0.7;
+    if (here === undefined || last === undefined) return null;
     return here >= last;
-  }, [currentGuideSection, readingMoved, pageBySpan, readingSpan, activeSpan, currentSectionProgress]);
-  const currentQuestionDue = useMemo(() => {
-    const question = currentGuideSection?.question;
-    const phase = question?.readingPhase;
-    if (!phase || pdfSurfaceLoading) return false;
-    if (phase === "before_section") {
-      const firstSpan = 1 / Math.max(1, currentGuideSection?.spanIds.length ?? 1);
-      return currentSectionProgress <= Math.max(0.3, firstSpan);
-    }
-    if (phase === "during_section") return currentSectionProgress >= 0.45;
-    if (pdfSurfaceActive) return atSectionBreak;
-    return currentSectionProgress >= 0.7;
-  }, [currentGuideSection, currentSectionProgress, pdfSurfaceActive, pdfSurfaceLoading, atSectionBreak]);
+  }, [currentGuideSection, pageBySpan, readingSpan, activeSpan]);
+  // What a section is read on, for the check-offer rule: the original PDF,
+  // the original still on its way (the manifest is pending), a video, or the
+  // text view (also where a manifest that failed or is unavailable leaves it).
+  const checkSurface: CheckSurface = watch || watchLoading
+    ? "watch"
+    : pdfSurfaceActive ? "pdf" : pdfSurfaceLoading ? "loading" : "text";
 
-  // Pin a question the moment it becomes due; it stays pinned (and rendered)
-  // until answered or dismissed, however far playback or scrolling moves on.
-  useEffect(() => {
-    if (!boundaryChecksAvailable || !currentGuideSection?.question || !currentQuestionDue) return;
-    const sectionId = currentGuideSection.id;
-    if (dismissedSections.includes(sectionId) || completedSections.includes(sectionId)) return;
-    setStickyQuestionSections((ids) => (ids.includes(sectionId) ? ids : [...ids, sectionId]));
-  }, [boundaryChecksAvailable, currentGuideSection, currentQuestionDue, dismissedSections, completedSections]);
-
-  // A quick check is open once it has been *earned*, not only while the
-  // learner stands in its section: pinned when due (above), or already behind
-  // the reading position, or auto-authored — the producer only writes those
-  // after ~60% of the section, so their phase gate is spent by construction.
-  // Without the latter two, a video (one IR unit for the whole transcript, so
-  // one 200+ span section) counted a check in the rail badge that the Guide
-  // tab refused to render until 70% of playback; passed-over sections in a PDF
-  // failed the same way. The rail badge counts exactly what the tab renders.
-  const openQuestionSections = useMemo(() => {
+  // ONE rule decides whether a section's quick check is offered (reading-
+  // hardening, part 2; screens/reader/checkOffer.ts): the guide's cards and
+  // the rail badge, the original PDF's section-break offer and the text
+  // view's section-break buttons all read this set. A check left from an
+  // earlier visit that a resume or a jump placed the learner at waits for the
+  // learner's own reading in this visit; a section reached by reading follows
+  // the normal rules; nothing is offered while the original is on its way.
+  // Once offered a check is pinned (below) until answered or set aside, so
+  // playback or scrolling moving the "current" section never hides it.
+  const offeredCheckSections = useMemo(() => {
     const sections = guidePlan?.sections ?? [];
     const currentIndex = sections.findIndex((section) => section.id === currentGuideSection?.id);
-    return sections.filter(
-      (section, index) =>
-        section.question !== null
-        && !dismissedSections.includes(section.id)
-        && !completedSections.includes(section.id)
-        && (
-          // In the original PDF the section being read waits for its break
-          // (it is pinned from then on, below); elsewhere a written check is
-          // open at once, as before.
-          (section.question.placement === "auto_authored" && ((!pdfSurfaceActive && !pdfSurfaceLoading) || index !== currentIndex))
-          || stickyQuestionSections.includes(section.id)
-          || (currentIndex >= 0 && index < currentIndex)
-        ),
-    );
-  }, [stickyQuestionSections, guidePlan, currentGuideSection, dismissedSections, completedSections, pdfSurfaceActive, pdfSurfaceLoading]);
+    const offered = new Set<string>();
+    sections.forEach((section, index) => {
+      const decision = checkOffer({
+        kind: "section",
+        readingPhase: section.question?.readingPhase ?? null,
+        available: boundaryChecksAvailable,
+        settled: dismissedSections.includes(section.id) || completedSections.includes(section.id),
+        pinned: stickyQuestionSections.includes(section.id),
+        position: index === currentIndex ? "current" : currentIndex >= 0 && index < currentIndex ? "behind" : "ahead",
+        readingMoved,
+        surface: checkSurface,
+        progress: index === currentIndex ? currentSectionProgress : 0,
+        atLastPage: index === currentIndex ? atLastPage : null,
+        firstPassageShare: 1 / Math.max(1, section.spanIds.length),
+      });
+      if (decision.offer) offered.add(section.id);
+    });
+    return offered;
+  }, [guidePlan, currentGuideSection, boundaryChecksAvailable, dismissedSections, completedSections,
+    stickyQuestionSections, readingMoved, checkSurface, currentSectionProgress, atLastPage]);
+
+  // Pin a check the moment it is offered; it stays offered until answered or
+  // dismissed, however far playback or scrolling (or a jump) moves on.
+  useEffect(() => {
+    const unpinned = [...offeredCheckSections].filter((id) => !stickyQuestionSections.includes(id));
+    if (unpinned.length === 0) return;
+    setStickyQuestionSections((ids) => [...new Set([...ids, ...unpinned])]);
+  }, [offeredCheckSections, stickyQuestionSections]);
+
+  // The open checks, in the guide's order: the rail's cards and badge count
+  // exactly what is offered.
+  const openQuestionSections = useMemo(
+    () => (guidePlan?.sections ?? []).filter((section) => section.question !== null && offeredCheckSections.has(section.id)),
+    [guidePlan, offeredCheckSections],
+  );
   // A check the learner answered is not waiting any more, though its card
   // stays open to compare (usability round 2).
   const pendingQuickCheckCount = boundaryChecksAvailable
@@ -1169,12 +1194,13 @@ export function ReaderScreen({
     if (!inquiry || muted || !currentGuideSection || currentSectionProgress < 0.7) return;
     const section = currentGuideSection;
     if (dismissedSections.includes(section.id) || completedSections.includes(section.id)) return;
-    const offered = (boundaryChecksAvailable && section.question?.readingPhase === "after_section") || section.suggestedPassages.length > 0;
+    const offered = (offeredCheckSections.has(section.id) && section.question?.readingPhase === "after_section")
+      || section.suggestedPassages.length > 0;
     const key = `section_offer:${section.id}`;
     if (!offered || proactiveSeenRef.current.has(key)) return;
     proactiveSeenRef.current.add(key);
     logReaderAction("proactive_shown", { ...visitPayload(), element: "section_offer" });
-  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, boundaryChecksAvailable, visitPayload]);
+  }, [inquiry, muted, currentGuideSection, currentSectionProgress, dismissedSections, completedSections, offeredCheckSections, visitPayload]);
   const currentQuestionOpen = useMemo(
     () => openQuestionSections.some((section) => section.id === currentGuideSection?.id),
     [openQuestionSections, currentGuideSection],
@@ -1443,11 +1469,19 @@ export function ReaderScreen({
 
   const onReadingScroll = useCallback(() => {
     const now = Date.now();
-    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) setReadingMoved(true);
+    if (now >= settleUntilRef.current && now - userScrollAtRef.current < USER_SCROLL_MS) movedPendingRef.current = true;
     if (readingRafRef.current !== null) return;
     readingRafRef.current = window.requestAnimationFrame(() => {
       readingRafRef.current = null;
       updateReadingPosition();
+      // The learner's movement counts together with where it took them, in
+      // one render: never as reading at the place a resume or jump left the
+      // page (reading-hardening, part 2: a first scroll away from a resumed
+      // section's last page offered that section's check).
+      if (movedPendingRef.current) {
+        movedPendingRef.current = false;
+        setReadingMoved(true);
+      }
     });
   }, [updateReadingPosition]);
 
@@ -2030,6 +2064,7 @@ export function ReaderScreen({
       // reads on.
       settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
       setReadingMoved(false);
+      movedPendingRef.current = false;
       setActiveSpan(spanId);
       setReadingSpan(spanId);
       // Watch mode: a jump means "take the video there" — seek the player (the
@@ -2086,6 +2121,19 @@ export function ReaderScreen({
     lastPlaybackSpanRef.current = spanId;
     if (advancing && spanId && last && spanId !== last && Date.now() >= settleUntilRef.current) setReadingMoved(true);
     setReadingSpan(spanId);
+  }, []);
+  // Every seek the watch panel makes is a placement, like a jump on a page
+  // (reading-hardening verify, N1: a click on a transcript cue past 70 % of an
+  // unread section carried the watching done before it there, and offered and
+  // pinned that section's check unwatched). The movement is reset in the
+  // same render that moves the position, so no render judges the new place
+  // by the old watching. Checks already offered stay pinned.
+  const onPlaybackSeek = useCallback((spanId: string | null) => {
+    settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+    setReadingMoved(false);
+    movedPendingRef.current = false;
+    lastPlaybackSpanRef.current = spanId;
+    if (spanId) setReadingSpan(spanId);
   }, []);
   useEffect(() => {
     if (!render) return;
@@ -3097,6 +3145,22 @@ export function ReaderScreen({
     }
   }, [inquiryChecks, onError]);
 
+  // RW1a's passage-scoped quick check is offered by the same one rule as a
+  // section's (screens/reader/checkOffer.ts): only on the reconnect line of an
+  // open inquiry the learner raised in this visit (a return to it, a branch
+  // marked done), never while skimming. The reconnect line is visit state, so
+  // a resume never brings one back.
+  const passageCheckOffered = useMemo(() => {
+    if (!reconnect) return false;
+    const root = history.find((exchange) => exchange.id === reconnect.rootId);
+    return checkOffer({
+      kind: "passage",
+      raisedThisVisit: true,
+      inquiryOpen: (root?.resolution ?? "open") === "open",
+      muted: Boolean(muted),
+    }).offer;
+  }, [reconnect, history, muted]);
+
   /** What sits at the top of an inquiry in the rail: the reconnect line and
    *  the quick check (each only when there is one). */
   const renderInquiryTop = useCallback((root: ReaderExchange) => {
@@ -3109,7 +3173,7 @@ export function ReaderScreen({
         busy={busy}
         onYes={() => void answerReconnect("yes")}
         onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-        onQuickCheck={() => void answerReconnect("quick_check")}
+        onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
       />
     ) : null;
     const check = inquiryChecks[root.id];
@@ -3140,7 +3204,7 @@ export function ReaderScreen({
         ) : null}
       </div>
     ) : null;
-  }, [reconnect, muted, busy, answerReconnect, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
+  }, [reconnect, muted, busy, answerReconnect, passageCheckOffered, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, peekPassage]);
 
   /** The reconnect line drawn under the root passage (a return the learner started). */
   const inlineReconnect = reconnect && reconnect.inline && !muted ? (
@@ -3150,7 +3214,7 @@ export function ReaderScreen({
       busy={busy}
       onYes={() => void answerReconnect("yes")}
       onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-      onQuickCheck={() => void answerReconnect("quick_check")}
+      onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
     />
   ) : null;
 
@@ -3504,6 +3568,7 @@ export function ReaderScreen({
               resumeSpan={readingSpan}
               findShortcutEnabled={railTab !== "ask"}
               onPlaybackSpan={onPlaybackSpan}
+              onSeek={onPlaybackSeek}
               onAskSpan={(spanId) => {
                 if (spanId) setActiveSpan(spanId);
               }}
@@ -3558,8 +3623,10 @@ export function ReaderScreen({
             const active = activeSpan === block.spanId;
             const guidePassage = block.spanId ? revealedPassages.get(block.spanId) : undefined;
             const endSection = block.spanId ? guideSectionByEnd.get(block.spanId) : undefined;
-            const endQuestionAvailable = boundaryChecksAvailable
-              && endSection?.question?.readingPhase === "after_section";
+            // The section-break button asks the one check-offer rule too.
+            const endQuestionAvailable = Boolean(endSection
+              && endSection.question?.readingPhase === "after_section"
+              && offeredCheckSections.has(endSection.id));
             const offerSection = endSection
               && !muted
               && !dismissedSections.includes(endSection.id)
@@ -3954,6 +4021,19 @@ interface TranscriptCue {
   end: number;
 }
 
+// The cue playing at ``time``. Auto-generated captions commonly overlap:
+// stopping at the first cue whose end still covered the time left an older
+// phrase highlighted while a newer one was being spoken, so it is the cue
+// with the latest start at/before playback.
+function cueAt(cues: TranscriptCue[], time: number): TranscriptCue | null {
+  let active: TranscriptCue | null = null;
+  for (const cue of cues) {
+    if (cue.start > time + CUE_LOOKAHEAD_S) break;
+    active = cue;
+  }
+  return active;
+}
+
 interface TranscriptSection {
   cues: TranscriptCue[];
   start: number;
@@ -4008,8 +4088,12 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   resumeSpan: string | null;
   findShortcutEnabled: boolean;
   /** The cue playback is at; ``advancing`` is false for a seek's landing
-   *  and while the player is paused (only playing on is watching). */
+   *  and while the player is paused (only playing on is watching). Nothing
+   *  is reported while a seek is on its way (its landing not yet reported). */
   onPlaybackSpan: (spanId: string | null, advancing: boolean) => void;
+  /** Every seek this panel makes (a resume, a transcript cue, a jump), told
+   *  before the player moves: a seek is a placement, not watching. */
+  onSeek: (spanId: string | null) => void;
   onAskSpan: (spanId: string | null) => void;
   onTagMenu: (request: TagMenuRequest) => void;
   /** RW1a: the reconnect line under the transcript passage holding this cue. */
@@ -4022,6 +4106,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   resumeSpan,
   findShortcutEnabled,
   onPlaybackSpan,
+  onSeek,
   onAskSpan,
   onTagMenu,
   inlineNote = null,
@@ -4037,8 +4122,42 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   // playback.
   const playingRef = useRef<boolean | null>(null);
   const seekUntilRef = useRef(0);
-  const noteSeek = useCallback(() => {
-    seekUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+  // The seek this panel made last (reading-hardening Codex review 2, F2):
+  // where it goes, when, and the time the player reported on landing. Until it
+  // lands, a report is from before it (a message sent before the seek can
+  // arrive after it) and reaches neither the transcript nor the Reader.
+  const seekRef = useRef<{ target: number; at: number; landing: number | null } | null>(null);
+  // The cue a seek landed on, until the Reader is told: a placement, never
+  // watching, however late the landing came.
+  const placementRef = useRef<string | null | undefined>(undefined);
+  const cuesRef = useRef<TranscriptCue[]>([]);
+  const noteSeek = useCallback((spanId: string | null, target: number) => {
+    const now = Date.now();
+    seekUntilRef.current = now + SEEN_SETTLE_MS;
+    seekRef.current = { target, at: now, landing: null };
+    placementRef.current = undefined;
+    onSeek(spanId);
+  }, [onSeek]);
+  // Whether a time the player reported is where it is now, as opposed to a
+  // report sent before the panel's last seek.
+  const acceptPlayerTime = useCallback((time: number): boolean => {
+    const seek = seekRef.current;
+    if (!seek) return true;
+    const now = Date.now();
+    if (seek.landing === null) {
+      const landed = time >= seek.target - SEEK_LANDING_EARLY_S && time <= seek.target + SEEK_LANDING_LATE_S;
+      if (!landed && now - seek.at < SEEK_LANDING_WAIT_MS) return false;
+      seek.landing = time;
+      placementRef.current = cueAt(cuesRef.current, time)?.block.spanId ?? null;
+      return true;
+    }
+    if (now >= seek.at + SEEN_SETTLE_MS) {
+      seekRef.current = null;
+      return true;
+    }
+    // Just after the landing, only playing on from it is the player now; a
+    // report from before the seek can still arrive.
+    return time >= seek.landing - SEEK_LANDING_EARLY_S && time <= seek.landing + SEEK_LANDING_LATE_S + (now - seek.at) / 1000;
   }, []);
   // ctrl/cmd+F transcript find (mirrors the PDF pane's find conventions).
   const [findOpen, setFindOpen] = useState(false);
@@ -4055,21 +4174,11 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     }
     return cues.sort((a, b) => a.start - b.start || a.end - b.end);
   }, [blocks]);
+  cuesRef.current = transcriptCues;
 
   const transcriptSections = useMemo(() => groupTranscriptCues(transcriptCues), [transcriptCues]);
 
-  const activeCue = useMemo(() => {
-    let active: TranscriptCue | null = null;
-    // Auto-generated captions commonly overlap. The previous implementation
-    // stopped at the first cue whose end still covered the playback time, which
-    // left an older phrase highlighted while a newer one was being spoken.
-    // The cue with the latest start at/before playback is the visible phrase.
-    for (const cue of transcriptCues) {
-      if (cue.start > currentTime + 0.15) break;
-      active = cue;
-    }
-    return active;
-  }, [transcriptCues, currentTime]);
+  const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
 
   const post = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT_ORIGIN);
@@ -4081,7 +4190,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: "llwatch", channel: "widget" }), YT_ORIGIN);
     const resumeCue = transcriptCues.find((cue) => cue.block.spanId === resumeSpanRef.current);
     if (resumeCue && resumeCue.start > 0) {
-      noteSeek();
+      noteSeek(resumeCue.block.spanId ?? null, resumeCue.start);
       post("seekTo", [resumeCue.start, true]);
       setCurrentTime(resumeCue.start);
     }
@@ -4104,12 +4213,14 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
       }
       if (data?.event === "infoDelivery" && typeof data.info === "object" && data.info !== null) {
         if (typeof data.info.playerState === "number") playingRef.current = data.info.playerState === 1;
-        if (typeof data.info.currentTime === "number") setCurrentTime(data.info.currentTime);
+        if (typeof data.info.currentTime === "number" && acceptPlayerTime(data.info.currentTime)) {
+          setCurrentTime(data.info.currentTime);
+        }
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [acceptPlayerTime]);
 
   // Keep playback anchored in a dedicated transcript scroller, rather than
   // scrolling the whole Reader and pushing the video out of view. A learner who
@@ -4118,7 +4229,16 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   useEffect(() => {
     if (!playerReady) return;
     const spanId = activeCue?.block.spanId ?? null;
-    onPlaybackSpan(spanId, playingRef.current !== false && Date.now() >= seekUntilRef.current);
+    const seek = seekRef.current;
+    // A seek still on its way tells the Reader nothing: it already knows the
+    // place (onSeek). The cue it lands on is a placement, never watching;
+    // only playing on from there is (reading-hardening Codex review 2, F2).
+    if (!seek || seek.landing !== null) {
+      const placement = placementRef.current;
+      placementRef.current = undefined;
+      const placing = placement !== undefined && placement === spanId;
+      onPlaybackSpan(spanId, !placing && playingRef.current !== false && Date.now() >= seekUntilRef.current);
+    }
     if (!spanId || !followTranscript) return;
     const scroller = transcriptRef.current;
     const cue = scroller?.querySelector(`[data-transcript-span="${spanId}"]`);
@@ -4151,7 +4271,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const seekToCue = useCallback((cue: TranscriptCue) => {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
-    noteSeek();
+    noteSeek(cue.block.spanId ?? null, cue.start);
     post("seekTo", [cue.start, true]);
     post("playVideo");
     setFollowTranscript(true);
@@ -4225,7 +4345,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     seekToSpan: (spanId: string) => {
       const cue = transcriptCues.find((c) => c.block.spanId === spanId);
       if (!cue) return false;
-      noteSeek();
+      noteSeek(spanId, cue.start);
       post("seekTo", [cue.start, true]);
       setCurrentTime(cue.start);
       setFollowTranscript(true);

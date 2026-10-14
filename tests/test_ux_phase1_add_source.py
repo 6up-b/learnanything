@@ -151,7 +151,7 @@ def test_add_source_with_more_options(tmp_path, monkeypatch):
     item = call(
         ctx,
         "add_source",
-        {"sources": [str(pdf)], "pages": "1-2", "problemSet": True, "keepLocal": True, "textRecognition": True},
+        {"sources": [str(pdf)], "pages": "1-2", "problemSet": True, "textRecognition": True},
     )["items"][0]
     jobs = ctx.repository.ingest_jobs_for_batch(item["batchId"])
     import_job = next(job for job in jobs if job["job_type"] == "import")
@@ -159,12 +159,10 @@ def test_add_source_with_more_options(tmp_path, monkeypatch):
     assert import_job["payload"]["reader_enabled"] is False
     # An extractor that recognises text, named explicitly (review F9).
     assert import_job["payload"]["pdf_config"] == {"engine": "marker", "force_ocr": True}
-    assert import_job["payload"]["keep_local"] is True
     auto_job = next(job for job in jobs if job["job_type"] == AUTO_STUDY_MAP_JOB)
     assert auto_job["payload"]["problem_set"] is True
-    assert auto_job["payload"]["keep_local"] is True
-    # The privacy choice belongs to the book, persisted before anything runs (F1).
-    assert ctx.repository.source_kept_local(item["sourceId"]) is True
+    # The per-book "keep on this computer" option is retired (owner, 2026-10-13).
+    assert "keep_local" not in import_job["payload"] and "keep_local" not in auto_job["payload"]
 
 
 def test_add_source_rejects_a_bad_page_range_plainly(tmp_path):

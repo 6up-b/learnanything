@@ -16,6 +16,10 @@ Everything else happens in the durable queue, without a question on the way:
    gate passes (Q3, kill switch ``[ingest] auto_apply_passing_builds``).
 3. **Keep one chapter ahead** (:func:`advance_reading_build`), called when the
    Reader marks a section reached: the chapter being read and the next one.
+   The position is the book's durable reading request; the Reader's RPC acts
+   on it at once, and while the sidecar runs a periodic reading sweep
+   (``DurableIngestJobs.sweep_reading_requests``) acts on every due request
+   whose book's work is done, so none waits on a wake-up (reading-hardening).
 4. **Say it in one line** (:func:`source_status_line`): the book card's only
    status line, in the learner's words (§6.3, §6.7, glossary §9).
 5. **Undo** (:func:`undo_source_questions`): revert the book's applied maps.
@@ -26,9 +30,11 @@ job whose result says what happened (``building``, ``waiting``, ``paused``,
 from durable rows. The build a planner queues has an id derived from the
 planner (:func:`child_batch_id`) and carries the plan on its jobs, so it is
 found even when the planner died before saving its result. Per book, migration
-186 keeps the learner's "Keep this book on this computer" (read at every
-outbound boundary) and the automatic-build state: the generation an Undo
-advances and the reading position a running build could not act on yet.
+198 keeps the automatic-build state: the generation an Undo advances and the
+book's reading request. (Its ``source_artifacts.keep_local``, the per-book
+"Keep this book on this computer", is retired (owner, 2026-10-13): nothing
+consults it (generic ``SELECT *`` reads still fetch it); ``learnloop doctor``
+notes a book that still has it set.)
 
 Kill switches ``[ingest] auto_build`` (off: Add only makes the source readable,
 and queued automatic work is cancelled before its next paid stage) and
@@ -70,7 +76,6 @@ DATA_FLOW = "passages_and_answers"
 # service, a whole PDF to a model that reads PDFs (spec §6.6, review F1).
 FILE_UPLOAD_CONSENT = "whole_files"
 FILE_UPLOAD_DATA_FLOW = "whole_files"
-KEPT_LOCAL_BUILD_MESSAGE = "This book is never sent to an AI, so no questions are written for it."
 # Automatic builds' batch ids: ``batch_auto_<planner job id>`` (review F3).
 AUTO_BUILD_BATCH_PREFIX = "batch_auto_"
 # The learner's Undo as an owner verdict in judgment_ledger (review F12).
@@ -125,7 +130,6 @@ class AddSourceOptions:
 
     page_selection: tuple[int, ...] | None = None
     problem_set: bool = False
-    keep_local: bool = False
     text_recognition: bool = False
 
 
@@ -214,10 +218,6 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     artifact = repo.source_artifact_by_uri(category, resolved.source)
     if artifact is not None and _has_text_or_add_in_flight(repo, artifact["id"]):
         revision_id = artifact.get("current_revision_id")
-        if options.keep_local and not artifact.get("keep_local"):
-            # Asking for more privacy on a book already here always applies,
-            # to the work already queued for it too.
-            keep_on_this_computer(ingest_jobs, artifact["id"], clock=clock)
         item.update(
             status="existing",
             source_id=artifact["id"],
@@ -248,10 +248,6 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
             clock=clock,
         )
         source_id, revision_id = registered.source_id, registered.revision_id
-        if options.keep_local:
-            # Persisted with the book before anything is queued (review F1):
-            # every later build, retry and Reader request reads it.
-            repo.set_source_keep_local(source_id, True, clock=clock)
         item.update(status="added", source_id=source_id, revision_id=revision_id, title=title, preparing=True)
     elif category in {"pdf", "textfile", "audio"} and not resolved.source.lower().startswith(("http://", "https://")):
         item.update(status="unsupported", message=MISSING_FILE_MESSAGE)
@@ -259,7 +255,7 @@ def add_source(vault, ingest_jobs, source: str, options: AddSourceOptions | None
     else:
         item.update(status="queued", preparing=True)
 
-    if options.text_recognition and not text_recognition_available(keep_local=options.keep_local):
+    if options.text_recognition and not text_recognition_available():
         # Text recognition was asked for but nothing installed can do it
         # (review F9): add the book without it and say so, never pretend.
         options = replace(options, text_recognition=False)
@@ -690,6 +686,140 @@ def spent_today_usd(repo, config, now: datetime) -> float:
     return spent + reserved
 
 
+def _receipt_tokens(row: Mapping[str, Any]) -> int:
+    return int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0)
+
+
+def auto_build_spend_report(vault, repo, *, days: int = 7, top: int = 5,
+                            now: datetime | None = None) -> dict[str, Any]:
+    """Automatic book preparation's actual spend, for setting caps from real
+    use (owner, 2026-10-13: spend is observed before caps are set). Reads only.
+
+    * ``daily_guard``: today, as admission counts it against
+      ``ingest.cost_pause.daily_cap_usd`` (every metered receipt today, of
+      which automatic builds'), what builds still running hold back
+      (``reserved_usd``: their estimate less what they spent) and what is left;
+    * ``days``: per UTC day (``days`` of them, today included), automatic
+      builds' metered receipts and dollars (``settled_usd``), the estimates
+      of the metered builds planned that day (``reserved_usd``), subscription
+      receipts (``estimated_only``, never counted against a cap) and every
+      metered receipt that day;
+    * ``largest_builds``: the costliest builds with receipts in the span,
+      reserved (their estimate) vs settled (their receipts)."""
+
+    from datetime import timedelta
+
+    config = vault.config
+    pause = config.ingest.cost_pause
+    moment = (now or datetime.now(UTC)).astimezone(UTC)
+    today = moment.date()
+    span = [(today - timedelta(days=offset)).isoformat() for offset in reversed(range(max(1, int(days))))]
+    since = span[0] + "T00:00:00"
+
+    def day_of(row: Mapping[str, Any]) -> str:
+        return str(row.get("started_at") or "")[:10]
+
+    daily: dict[str, dict[str, Any]] = {
+        day: {"day": day, "auto_builds": {"receipts": 0, "metered_receipts": 0, "settled_usd": 0.0,
+                                          "estimated_only": {"receipts": 0, "tokens": 0}},
+              "reserved_usd": 0.0, "all_metered_usd": 0.0}
+        for day in span
+    }
+    for row in repo.model_call_spend_rows(started_since=since):
+        entry = daily.get(day_of(row))
+        if entry is not None:
+            entry["all_metered_usd"] += _receipt_usd(config, row)
+    builds: dict[str, dict[str, Any]] = {}
+    for row in repo.ingest_batch_spend_rows(batch_prefix=AUTO_BUILD_BATCH_PREFIX, started_since=since):
+        entry = daily.get(day_of(row))
+        if entry is None:
+            continue
+        usd = _receipt_usd(config, row)
+        auto = entry["auto_builds"]
+        auto["receipts"] += 1
+        build = builds.setdefault(str(row["batch_id"]), {"receipts": 0, "settled_usd": 0.0, "estimated_only_tokens": 0})
+        build["receipts"] += 1
+        if usd > 0 or not (is_subscription_route(config, row.get("provider"))
+                           or "estimated_only" in str(row.get("usage_json") or "")):
+            auto["metered_receipts"] += 1
+            auto["settled_usd"] += usd
+            build["settled_usd"] += usd
+        else:
+            auto["estimated_only"]["receipts"] += 1
+            auto["estimated_only"]["tokens"] += _receipt_tokens(row)
+            build["estimated_only_tokens"] += _receipt_tokens(row)
+
+    planned: dict[str, dict[str, Any]] = {}
+    for batch in repo.ingest_batches_by_workflow("bootstrap_synthesis"):
+        batch_id = str(batch["id"])
+        if not batch_id.startswith(AUTO_BUILD_BATCH_PREFIX):
+            continue
+        created = str(batch.get("created_at") or "")[:10]
+        if batch_id not in builds and created not in daily:
+            continue
+        info = _child_auto_info(repo, batch_id) or {}
+        planned[batch_id] = {"batch": batch, "info": info}
+        if created in daily and not info.get("subscription") and info.get("estimate_usd") is not None:
+            daily[created]["reserved_usd"] += float(info["estimate_usd"])
+
+    titles: dict[str, str] = {}
+
+    def title_of(source_id: str) -> str:
+        if source_id not in titles:
+            artifact = repo.get_source_artifact(source_id) or {}
+            revision_id = artifact.get("current_revision_id")
+            revision = repo.get_source_revision(revision_id) if revision_id else None
+            titles[source_id] = learner_title(artifact, revision) if artifact else source_id
+        return titles[source_id]
+
+    largest = []
+    for batch_id, spent in builds.items():
+        entry = planned.get(batch_id) or {"batch": repo.get_ingest_batch(batch_id) or {}, "info": _child_auto_info(repo, batch_id) or {}}
+        info, batch = entry["info"], entry["batch"]
+        source_id = str(info.get("source_id") or "")
+        largest.append({
+            "batch_id": batch_id,
+            "source_id": source_id or None,
+            "title": title_of(source_id) if source_id else None,
+            "chapters": list(info.get("chapters") or []),
+            "status": batch.get("status"),
+            "created_at": batch.get("created_at"),
+            "subscription": bool(info.get("subscription")),
+            "reserved_usd": None if info.get("estimate_usd") is None or info.get("subscription")
+            else round(float(info["estimate_usd"]), 4),
+            "settled_usd": round(spent["settled_usd"], 4),
+            "receipts": spent["receipts"],
+            "estimated_only_tokens": spent["estimated_only_tokens"],
+        })
+    largest.sort(key=lambda build: (-build["settled_usd"], -(build["reserved_usd"] or 0.0), build["batch_id"]))
+
+    for entry in daily.values():
+        entry["all_metered_usd"] = round(entry["all_metered_usd"], 4)
+        entry["reserved_usd"] = round(entry["reserved_usd"], 4)
+        entry["auto_builds"]["settled_usd"] = round(entry["auto_builds"]["settled_usd"], 4)
+
+    counted = metered_spend_usd(config, repo.model_call_spend_rows(started_since=_day_start_iso(moment)))
+    planned_today = spent_today_usd(repo, config, moment)
+    cap = pause.daily_cap_usd
+    return {
+        "daily_guard": {
+            "day": today.isoformat(),
+            "cap_usd": None if cap is None else float(cap),
+            "counted_usd": round(counted, 4),
+            "auto_build_usd": daily[today.isoformat()]["auto_builds"]["settled_usd"],
+            "reserved_usd": round(max(planned_today - counted, 0.0), 4),
+            "remaining_usd": None if cap is None else round(max(float(cap) - planned_today, 0.0), 4),
+            "threshold_usd": float(pause.threshold_usd),
+        },
+        "days": [daily[day] for day in span],
+        "largest_builds": largest[:max(0, int(top))],
+        "basis": ("metered dollars from the receipts of automatic builds' jobs (reported cost, else tokens at "
+                  "ingest.cost_pause prices); the daily guard counts every metered receipt today plus what builds "
+                  "still running hold back (their estimate less what they spent); subscription requests are "
+                  "estimated_only and never counted against a cap"),
+    }
+
+
 @dataclass(frozen=True)
 class CostDecision:
     """What an automatic build may spend, and whether it must ask first."""
@@ -761,7 +891,6 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     * the kill switch ``[ingest] auto_build`` and the book's Undo generation
       are read now, not when the build was planned: work they no longer allow
       is cancelled before any model call;
-    * a book kept on this computer sends nothing;
     * money: the job's ceiling-priced estimate must fit what is left of the
       build's authorization and of today's cap (priced at the route resolved
       now), and then, for the rest of the attempt, EVERY physical request
@@ -770,8 +899,8 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
       :class:`~learnloop.ai.spend.MeteredRequestGate` over the same limit,
       settled with what each request reported. A refused request stops the
       job as ``spend_paused`` before it is sent;
-    * once the build is cancelled (Undo, keeping the book on this computer)
-      it starts no further request, on any route.
+    * once the build is cancelled (Undo, the kill switch) it starts no
+      further request, on any route.
     No-op for jobs that are not part of an automatic build."""
 
     from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
@@ -791,8 +920,6 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
     if int(repo.source_auto_build_state(source_id)["generation"]) != int(auto.get("generation") or 0):
         _cancel_rest_of_batch(ctx)
         raise JobCancelled("This book's questions were taken back out.")
-    if repo.source_kept_local(source_id):
-        raise IngestRunnerError(KEPT_LOCAL_BUILD_MESSAGE, code="kept_local", retryable=False)
     route = ctx.services.authoring_route(ctx)
     tokens = int(planned_tokens if planned_tokens is not None else auto.get("job_tokens") or 0)
     spent_build = build_spend_usd(repo, config, batch_id)
@@ -911,8 +1038,8 @@ def _cancel_rest_of_batch(ctx) -> None:
 
 def auto_apply_allowed(ctx) -> bool:
     """Read immediately before an automatic build applies (F4, F5): the kill
-    switches, the Undo generation and the book's privacy, as they are now. A
-    ``False`` keeps the build's result as an unapplied record."""
+    switches and the Undo generation, as they are now. A ``False`` keeps the
+    build's result as an unapplied record."""
 
     from learnloop.vault.loader import load_vault
 
@@ -925,7 +1052,6 @@ def auto_apply_allowed(ctx) -> bool:
         bool(config.ingest.auto_build)
         and bool(config.ingest.auto_apply_passing_builds)
         and int(ctx.repo.source_auto_build_state(source_id)["generation"]) == int(auto.get("generation") or 0)
-        and not ctx.repo.source_kept_local(source_id)
     )
 
 
@@ -1147,15 +1273,27 @@ def _active(job_or_batch: Mapping[str, Any] | None) -> bool:
 
 
 def _source_work_active(repo, source_id: str, *, ignore_batch_id: str | None = None) -> bool:
+    return _source_work_waiting_on(repo, source_id, ignore_batch_id=ignore_batch_id) is not None
+
+
+def _source_work_waiting_on(repo, source_id: str, *, ignore_batch_id: str | None = None) -> str | None:
+    """Whether the book's automatic-build work is unfinished, and on whom:
+    ``"worker"`` (some of it is queued or running), ``"learner"`` (all of it
+    waits for the learner's input), or ``None`` (none is unfinished)."""
+
+    statuses: list[str] = []
     for job in auto_jobs(repo, source_id):
         if job["batch_id"] != ignore_batch_id and _active(job):
-            return True
+            statuses.append(str(job["status"]))
         outcome = planner_outcome(repo, job)
         if outcome and outcome.get("outcome") == "building":
             batch_id = outcome.get("build_batch_id")
-            if batch_id and batch_id != ignore_batch_id and _active(repo.get_ingest_batch(batch_id)):
-                return True
-    return False
+            batch = repo.get_ingest_batch(batch_id) if batch_id and batch_id != ignore_batch_id else None
+            if _active(batch):
+                statuses.append(str(batch["status"]))
+    if not statuses:
+        return None
+    return "learner" if all(status == "waiting_for_input" for status in statuses) else "worker"
 
 
 # ---------------------------------------------------------------------------
@@ -1303,8 +1441,6 @@ def preview_auto_build(vault_root: Path, repo, source_id: str, *, whole_book: bo
     artifact = repo.get_source_artifact(source_id)
     if artifact is None:
         return {**report, "status": "unknown_source"}
-    if repo.source_kept_local(source_id):
-        return {**report, "status": "kept_local"}
     if not config.ingest.auto_build:
         return {**report, "status": "auto_build_off"}
     resolved = _completed_extraction(repo, source_id)
@@ -1374,12 +1510,6 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         raise IngestRunnerError(f"Source {source_id!r} is not in the library.", code="source_missing")
     if payload.get("problem_set") or not artifact.get("reader_enabled", 1):
         return {"outcome": "skipped", "reason": "problem_set", **base}
-    # The book's own privacy choice, persisted (review F1): every later build
-    # reads it, not only the Add that set it. The Add's own request was
-    # persisted before this planner could run (by Add for a file, by the
-    # import for a link), so the book's current choice decides (re-review F13).
-    if artifact.get("keep_local"):
-        return {"outcome": "waiting", "reason": "kept_local", **base}
     resolved = _completed_extraction(ctx.repo, source_id)
     if resolved is None:
         raise IngestRunnerError("This source has no text yet.", code="not_extracted", retryable=True)
@@ -1490,27 +1620,39 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
 
 def after_auto_build(ctx) -> None:
     """An automatic build's synthesis finished: act on reading progress that
-    arrived while it ran (review F7). Best effort."""
+    arrived while it ran (review F7). Best effort.
+
+    It holds no reading lock (it runs on the worker, or in a CLI drain), so
+    the follow-on and the settle are one transaction, and the settle is
+    exactly the revision read (reading-hardening verify, F1): a cancel that
+    settled the request first, or a newer request, leaves nothing to queue,
+    and a cancel of this build that committed first queues nothing either. A
+    request left pending that way is due for the reading sweep."""
 
     auto = ctx.payload.get("auto_build")
     if not isinstance(auto, Mapping) or not auto.get("source_id"):
         return
-    try:
-        from learnloop.content.pipeline.runner import JobSpec
+    from learnloop.content.pipeline.runner import JobCancelled, JobSpec
 
+    try:
         source_id = str(auto["source_id"])
         request = ctx.repo.pending_reading_request(source_id)
         if request is None:
             return
         wanted = _wanted_chapters(ctx.repo, ctx.vault_root, source_id, request)
-        if wanted:
-            ctx.enqueue_batch(
-                AUTO_BUILD_WORKFLOW,
-                [JobSpec(AUTO_STUDY_MAP_JOB, {"source_id": source_id, "chapter_ids": wanted})],
-                priority=BUILD_PRIORITY,
-            )
-        # Exactly the request acted on (F9): a newer one recorded meanwhile stays.
-        ctx.repo.settle_reading_request(source_id, request["revision"])
+        with ctx.repo.atomic():
+            # Exactly the request acted on (F9): a newer one recorded meanwhile
+            # stays, and one already settled (by a cancel) queues nothing.
+            if not ctx.repo.settle_reading_request(source_id, request["revision"]):
+                return
+            if wanted:
+                ctx.enqueue_batch(
+                    AUTO_BUILD_WORKFLOW,
+                    [JobSpec(AUTO_STUDY_MAP_JOB, {"source_id": source_id, "chapter_ids": wanted})],
+                    priority=BUILD_PRIORITY,
+                )
+    except JobCancelled:
+        return  # this build was cancelled meanwhile: nothing queued, nothing settled
     except Exception:  # noqa: BLE001 - a follow-up must never fail the build that applied
         import logging
 
@@ -1523,11 +1665,15 @@ def after_auto_build(ctx) -> None:
 
 
 def request_auto_build(ingest_jobs, source_id: str, *, approved: bool = False,
-                       chapter_ids: Sequence[str] | None = None, start_unit_id: str | None = None) -> str:
+                       chapter_ids: Sequence[str] | None = None, start_unit_id: str | None = None,
+                       answers_revision: int | None = None) -> str | None:
     """Plan another automatic build for ``source_id`` (connect, build now,
     keep ahead). ``approved`` is the learner's explicit "Build them": it passes
     the confirmation threshold once, for the chapters the pause named (never
-    the daily cap)."""
+    the daily cap). ``answers_revision``: the book's reading request this
+    build answers, settled in the same transaction; ``None`` is returned and
+    nothing queued when that request is no longer pending (see
+    :meth:`~learnloop.content.pipeline.jobs.DurableIngestJobs.enqueue_auto_build`)."""
 
     if approved and chapter_ids is None:
         repo = ingest_jobs.repository
@@ -1540,6 +1686,7 @@ def request_auto_build(ingest_jobs, source_id: str, *, approved: bool = False,
                 chapter_ids = outcome.get("chapter_ids")
     return ingest_jobs.enqueue_auto_build(
         source_id, approved=approved, chapter_ids=chapter_ids, start_unit_id=start_unit_id,
+        answers_revision=answers_revision,
     )
 
 
@@ -1568,8 +1715,6 @@ def _keep_ahead_ready(repo, vault_root: Path, source_id: str) -> bool:
 
     from learnloop.config.loader import load_config
 
-    if repo.source_kept_local(source_id):
-        return False
     # The config alone (review F1): this runs on the Reader's progress path,
     # and parsing the whole vault there stalled the serial sidecar.
     if not load_config(Path(vault_root) / "learnloop.toml").ingest.auto_build:
@@ -1599,24 +1744,34 @@ def _wanted_chapters(repo, vault_root: Path, source_id: str, state: Mapping[str,
 
 def reconcile_reading_builds(ingest_jobs, *, skip: Iterable[str] = ()) -> list[str]:
     """Act on every book's pending reading request: at startup, on reconnection
-    (review F7). A request that fails here is not only logged (finishing pass,
-    F8): it is marked failed with a fresh set of worker retries, so the worker
-    retries it and the Reader's next report asks again. Returns the books whose
-    build was queued."""
+    (review F7). A failure here is never only logged (finishing pass, F8;
+    reading-hardening): a failed act is recorded with a fresh backoff, and a
+    request whose act could not even start (its read failed) stays pending,
+    which is due for the reading sweep. Returns the books whose build was
+    queued."""
 
     repo = ingest_jobs.repository
     skipped = set(skip)
     started: list[str] = []
-    for state in repo.sources_with_wanted_reading():
+    try:
+        pending = repo.pending_reading_requests()
+    except Exception:  # noqa: BLE001 - the requests stay due for the sweep
+        import logging
+
+        logging.getLogger(__name__).warning("could not read the pending reading positions", exc_info=True)
+        ingest_jobs.wake_reading_retries()
+        return started
+    for state in pending:
         source_id = str(state["source_id"])
         if source_id in skipped:
-            continue  # a build was just asked for; the worker acts after it
+            continue  # a build was just asked for; the sweep acts after it
         try:
             outcome = act_on_reading_request(ingest_jobs, source_id, rearm=True)
-        except Exception:  # noqa: BLE001 - one book's failure is kept for its retries
+        except Exception:  # noqa: BLE001 - one book's failure is kept for the sweep
             import logging
 
             logging.getLogger(__name__).warning("could not act on a book's pending reading position", exc_info=True)
+            ingest_jobs.wake_reading_retries()
             continue
         if outcome and outcome.get("batch_id"):
             started.append(source_id)
@@ -1628,8 +1783,10 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
 
     ``None``: nothing to do (not a book whose questions grow with reading, or
     the next chapter is already covered). ``{"deferred": True}``: the book's
-    work is running; the request waits for it. Otherwise the build is queued.
-    It keeps no state of its own: the caller settles the request it acted on.
+    work is running; the request waits for it. Otherwise the chapters to
+    build (``chapter_ids``, ``chapters``). It only reads: the caller queues
+    the build and settles the request it acted on, in one transaction
+    (:func:`act_on_reading_request`; reading-hardening verify, F1).
 
     It runs on the Reader's progress RPC, so it stays cheap (round-2 review
     F1): the chapter list comes from the unit tree, never the full outline
@@ -1640,8 +1797,9 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
     repo = ingest_jobs.repository
     if not _keep_ahead_ready(repo, ingest_jobs.vault_root, source_id):
         return None
-    if _source_work_active(repo, source_id):
-        return {"deferred": True, "source_id": source_id, "section_id": section_id}
+    waiting_on = _source_work_waiting_on(repo, source_id)
+    if waiting_on is not None:
+        return {"deferred": True, "source_id": source_id, "section_id": section_id, "waiting_on": waiting_on}
     if repo.get_extraction_run(extraction_id) is None:
         return None
     chapters = outline_chapters(_unit_tree(repo, extraction_id))
@@ -1649,25 +1807,35 @@ def plan_reading_advance(ingest_jobs, source_id: str, extraction_id: str, sectio
     wanted = chapters_to_keep_ahead(chapters, section_id, cover.covered | cover.failed)
     if not wanted:
         return None
-    batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=[chapter.unit_id for chapter in wanted])
-    return {"batch_id": batch_id, "source_id": source_id, "chapters": [chapter.label for chapter in wanted]}
+    return {"source_id": source_id, "chapter_ids": [chapter.unit_id for chapter in wanted],
+            "chapters": [chapter.label for chapter in wanted]}
 
 
-def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False) -> dict[str, Any] | None:
+def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False,
+                           now: datetime | None = None) -> dict[str, Any] | None:
     """Act on the book's pending reading request, exactly its current revision
     (finishing pass, F8 and F9). Raises when acting fails, after recording it.
 
-    One lock serialises the acting (the Reader's RPC, the worker's retries and
-    the start), so a request is never acted on twice at once. Recording a newer
-    request does not wait for the lock: it advances the revision, so settling
-    the older one cannot erase it, and the newer one is acted on next.
+    One lock serialises the acting (the Reader's RPC, the reading sweep, the
+    start and a cancel), so a request is never acted on twice at once.
+    Recording a newer request does not wait for the lock: it advances the
+    revision, so settling the older one cannot erase it, and the newer one is
+    acted on next.
 
-    * queued, or nothing to do: the request is settled;
-    * deferred (the book's work is running): it stays, due, for the worker to
-      act on once that work ends;
-    * failed: its attempts are counted and the worker's next retry is set
-      (``rearm`` starts a fresh set, as the start does); the Reader's next
-      report asks again meanwhile."""
+    * queued, or nothing to do: the request is settled. A build is queued in
+      the settle's own transaction, and only while the request is still
+      pending at the revision read (reading-hardening verify, F1): a cancel
+      that settled it first (in this process the lock rules that out; the
+      CLI's cancel does not hold it) or a newer request leaves nothing queued
+      and the outcome says ``superseded``. A newer request is acted on next;
+    * deferred (the book's work is unfinished): it stays due, and the reading
+      sweep acts on it once that work ends. A deferral is not a failure: a
+      failed attempt it follows is forgotten. Work that waits on the worker
+      makes sure the worker runs (after a restart nothing else may start it);
+    * failed: its attempts are counted and its retry time is set, backed off
+      from ``now`` (default: the host's reading clock); ``rearm`` starts a
+      fresh backoff, as the start does. The Reader's next report asks again
+      meanwhile. A request is never given up."""
 
     repo = ingest_jobs.repository
     with ingest_jobs.reading_lock:
@@ -1676,27 +1844,45 @@ def act_on_reading_request(ingest_jobs, source_id: str, *, rearm: bool = False) 
             return None
         try:
             outcome = plan_reading_advance(ingest_jobs, source_id, request["extraction_id"], request["section_id"])
+            if outcome and not outcome.get("deferred") and outcome.get("chapter_ids"):
+                batch_id = request_auto_build(ingest_jobs, source_id, chapter_ids=list(outcome["chapter_ids"]),
+                                              answers_revision=request["revision"])
+                outcome = ({"batch_id": batch_id, "source_id": source_id, "chapters": outcome.get("chapters")}
+                           if batch_id else {"superseded": True, "source_id": source_id})
+                return outcome  # queued and settled together, or a cancel or a newer request came first
         except Exception:
             attempts = 1 if rearm else request["attempts"] + 1
-            _note_reading_failure(ingest_jobs, source_id, request["revision"], attempts)
+            _note_reading_failure(ingest_jobs, source_id, request["revision"], attempts, now=now)
             raise
         if not (outcome or {}).get("deferred"):
             repo.settle_reading_request(source_id, request["revision"])
-        return outcome
+            return outcome
+        if request["attempts"] or request["retry_at"] is None:
+            repo.defer_reading_request(source_id, request["revision"],
+                                       retry_at=utc_now_iso(FrozenClock(now or ingest_jobs.reading_now())))
+    if outcome.get("waiting_on") == "worker":
+        ingest_jobs.wake_blocking_work()
+    return outcome
 
 
-def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: int) -> None:
-    """Best effort: count a failed attempt and wake the worker for its retry
-    (timed from now, by the wall clock). If even that write fails, the request
-    stays due and the worker acts on it."""
+def _reading_retry_delay(ingest_jobs, attempts: int) -> float:
+    """Seconds before the ``attempts``-th failed attempt is tried again: the
+    host's delays in turn, the last one repeating (never given up)."""
+
+    delays = tuple(ingest_jobs.READING_RETRY_DELAYS) or (0.0,)
+    return float(delays[min(max(attempts, 1), len(delays)) - 1])
+
+
+def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: int, *,
+                          now: datetime | None = None) -> None:
+    """Best effort: count a failed attempt, set its retry time and bring the
+    sweep's next pass forward. If even that write fails, the request stays
+    due and the sweep's next pass acts on it."""
 
     from datetime import timedelta
 
-    delays = ingest_jobs.READING_RETRY_DELAYS
-    retry_at = None
-    if attempts <= len(delays):
-        moment = datetime.now(UTC)
-        retry_at = utc_now_iso(FrozenClock(moment + timedelta(seconds=delays[attempts - 1])))
+    moment = now or ingest_jobs.reading_now()
+    retry_at = utc_now_iso(FrozenClock(moment + timedelta(seconds=_reading_retry_delay(ingest_jobs, attempts))))
     try:
         ingest_jobs.repository.fail_reading_request(source_id, revision, attempts=attempts, retry_at=retry_at)
     except Exception:  # noqa: BLE001 - the request itself is durable already
@@ -1704,6 +1890,52 @@ def _note_reading_failure(ingest_jobs, source_id: str, revision: int, attempts: 
 
         logging.getLogger(__name__).warning("could not record a failed reading request", exc_info=True)
     ingest_jobs.wake_reading_retries()
+
+
+def books_of_batch(repo, batch_id: str) -> set[str]:
+    """The books whose automatic-build work a batch holds: an Add's or a
+    build's planner, or a planner's build batch."""
+
+    books: set[str] = set()
+    jobs = repo.ingest_jobs_for_batch(batch_id)
+    imported = {
+        str(source_id)
+        for job in jobs if job["job_type"] == "import"
+        for source_id in [(job.get("result") or {}).get("source_id") or (job.get("payload") or {}).get("source_id")]
+        if source_id
+    }
+    for job in jobs:
+        if job["job_type"] == AUTO_STUDY_MAP_JOB:
+            source_id = _job_source_id(job)
+            if source_id:
+                books.add(str(source_id))
+            else:
+                books.update(imported)  # an Add's planner, before it knew its book
+        auto = (job.get("payload") or {}).get("auto_build")
+        if isinstance(auto, Mapping) and auto.get("source_id"):
+            books.add(str(auto["source_id"]))
+    if batch_id.startswith(AUTO_BUILD_BATCH_PREFIX):
+        planner = repo.get_ingest_job(batch_id[len(AUTO_BUILD_BATCH_PREFIX):])
+        source_id = _job_source_id(planner) if planner else None
+        if source_id:
+            books.add(str(source_id))
+    return books
+
+
+def settle_reading_for_cancelled_batch(repo, batch_id: str) -> list[str]:
+    """A cancel answers the reading request of every book whose work the
+    batch held (reading-hardening, part 1): each is settled at the revision
+    it has now, so nothing re-plans the cancelled work behind the learner's
+    back. A request recorded after this (the learner reads on into a new
+    section) is a new revision and is acted on as usual. Returns the books
+    settled."""
+
+    settled: list[str] = []
+    for source_id in sorted(books_of_batch(repo, batch_id)):
+        request = repo.pending_reading_request(source_id)
+        if request is not None and repo.settle_reading_request(source_id, request["revision"]):
+            settled.append(source_id)
+    return settled
 
 
 def _extraction_source(repo, extraction_id: str) -> str | None:
@@ -1736,9 +1968,10 @@ def keep_ahead_for_reader(ingest_jobs, extraction_id: str, section_id: str) -> d
     ``reader.mark_section_progress`` recorded ``section_id`` as the book's
     reading request in the same transaction as the progress itself, so a
     saved report never loses its ask. This acts on that request now. A failure
-    is kept (finishing pass, F8): the request is marked failed, the ingest
-    worker retries it off the RPC path, the next start asks again, and until it
-    settles the Reader's next report asks again instead of being coalesced."""
+    is kept (finishing pass, F8): the request is marked failed, the reading
+    sweep retries it off the RPC path (reading-hardening), the next start asks
+    again, and until it settles the Reader's next report asks again instead of
+    being coalesced."""
 
     try:
         source_id = _extraction_source(ingest_jobs.repository, extraction_id)
@@ -1841,60 +2074,6 @@ def undo_source_questions(ingest_jobs, source_id: str, *, clock: Clock | None = 
     return reverted
 
 
-def keep_on_this_computer(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> None:
-    """Keep a book on this computer from now on (book details, or an Add of a
-    book already here with the option).
-
-    The choice is persisted first, and every outbound boundary reads it when
-    its work runs (re-review F1). Work already queued to send the book out is
-    stopped now too: its queued Reader requests are cancelled (a running one
-    is flagged), and its automatic builds are cancelled (the card then says
-    the book is kept on this computer). A planner still to run costs nothing
-    and records "kept on this computer" itself. A request or model call
-    already under way is not recalled; nothing new starts."""
-
-    repo = ingest_jobs.repository
-    repo.set_source_keep_local(source_id, True, clock=clock)
-    for request in repo.reader_requests_for_source(source_id):
-        if request["status"] in {"queued", "running"}:
-            repo.cancel_reader_request(request["id"], clock=clock)
-    for job in auto_jobs(repo, source_id):
-        batch_id = (planner_outcome(repo, job) or {}).get("build_batch_id")
-        if batch_id and _active(repo.get_ingest_batch(batch_id)):
-            ingest_jobs.cancel_batch(batch_id)
-
-
-def share_with_ai(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> str | None:
-    """"Let LearnLoop write questions for it" (book details): the book is no
-    longer kept on this computer, and the persisted choice decides from now on.
-
-    A readable book plans a build. A book that never became readable (a
-    recording kept local stops before transcription, re-review F13) has its
-    Add brought up to date: the stale ``keep_local`` is removed from the
-    Add's jobs, the import asks for the separate whole-file OK before any
-    upload (§6.6), and the Add is resumed. Returns the batch started or
-    resumed, if any."""
-
-    repo = ingest_jobs.repository
-    repo.set_source_keep_local(source_id, False, clock=clock)
-    if _completed_extraction(repo, source_id) is not None:
-        return request_auto_build(ingest_jobs, source_id)
-    batch_id = latest_add_batch(repo, source_id)
-    if batch_id is None:
-        return None
-    for job in repo.ingest_jobs_for_batch(batch_id):
-        payload = dict(job.get("payload") or {})
-        if not (payload.get("keep_local") or payload.get("keep_local_applied")):
-            continue
-        payload.pop("keep_local", None)
-        payload.pop("keep_local_applied", None)
-        if job["job_type"] == "import":
-            payload["require_upload_ok"] = True
-        repo.update_ingest_job_payload(job["id"], payload)
-    ingest_jobs.resume_batch(batch_id)
-    return batch_id
-
-
 # ---------------------------------------------------------------------------
 # The book card's one status line (§6.3, §6.7)
 # ---------------------------------------------------------------------------
@@ -1923,7 +2102,7 @@ def _is_scan_failure(lowered: str) -> bool:
     return "no extractable text" in lowered or "likely scanned" in lowered
 
 
-def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_local: bool = False) -> dict[str, Any]:
+def _import_failure_line(job: Mapping[str, Any], category: str | None) -> dict[str, Any]:
     error = job.get("error") or {}
     message = str(error.get("message") or "")
     code = str(error.get("code") or "")
@@ -1937,8 +2116,9 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
         return _line("Reading this PDF sends the whole file to your AI", "quiet",
                      ("allow_upload", "OK"), message or None)
     if code == "kept_local":
-        return _line(f"Never sent to an AI — this {kind_noun(category)} can't be read here", "quiet",
-                     None, message or None)
+        # Refused under the retired "Keep this book on this computer" (owner,
+        # 2026-10-13): nothing refuses it now, so trying again reads it.
+        return _line(f"This {kind_noun(category)} isn't ready yet", "quiet", ("retry", "Get it ready"))
     if code == "pdf_extractor_unavailable":
         return _line("Text recognition isn't set up", "problem", ("open_settings", "Set it up"), message or None)
     if category == "youtube" and ("caption" in lowered or "transcript" in lowered):
@@ -1946,7 +2126,7 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
     if _is_scan_failure(lowered):
         # A scan reads the same way on every try (usability round 1, U7): the
         # one action that can help, or one plain line when nothing can.
-        if text_recognition_available(keep_local=keep_local):
+        if text_recognition_available():
             return _line("This PDF is a scan", "quiet", ("text_recognition", "Read it with text recognition"),
                          message or None)
         # The extractor's own words ("install marker-pdf for OCR support") are
@@ -1962,10 +2142,9 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
 
 
-def text_recognition_available(*, keep_local: bool = False) -> bool:
+def text_recognition_available() -> bool:
     """Whether an extractor that really recognises text is installed (review
-    F9): local Marker, or (not for a book kept on this computer) the hosted
-    Marker runtime the owner configured."""
+    F9): local Marker, or the hosted Marker runtime the owner configured."""
 
     import os
 
@@ -1973,8 +2152,6 @@ def text_recognition_available(*, keep_local: bool = False) -> bool:
 
     if marker_available():
         return True
-    if keep_local:
-        return False
     return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "").strip().lower() == "datalab" and bool(datalab_api_key())
 
 
@@ -1989,7 +2166,7 @@ def _health_line(repo, source_id: str) -> dict[str, Any] | None:
         "image_only_page" in (page.get("flags") or []) for page in health.get("pages") or [] if isinstance(page, Mapping)
     )
     if scanned:
-        if text_recognition_available(keep_local=repo.source_kept_local(source_id)):
+        if text_recognition_available():
             return _line("Some pages look scanned", "quiet", ("text_recognition", "Read them with text recognition"))
         # Settings can't install it (usability round 1, U7): say so, no dead end.
         return _line("Some pages look scanned — their words can't be read here yet", "quiet", None, _SCAN_DETAILS)
@@ -2079,7 +2256,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         if latest_import is None:
             return None
         if latest_import["status"] in {"failed", "blocked", "cancelled"}:
-            return _import_failure_line(latest_import, category, keep_local=bool(artifact.get("keep_local")))
+            return _import_failure_line(latest_import, category)
         return _line(f"Getting this {noun} ready", "working")
 
     latest, outcome = latest_planner(repo, source_id)
@@ -2091,7 +2268,7 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         # never applied: one line and the one action, never silence
         # (usability round 2: its card had no line at all). Filing it in a
         # collection builds nothing (round-2 review F6).
-        if not artifact.get("reader_enabled", 1) or artifact.get("keep_local"):
+        if not artifact.get("reader_enabled", 1):
             return None
         built = _study_map_questions(repo, source_id)
         if built == "applied":
@@ -2124,7 +2301,9 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line("Questions wait for your OK", "quiet", ("connect_ai", "Review"),
                          consent_label(str(outcome.get("consent_key") or "")))
         if reason == "kept_local":
-            return _line("Never sent to an AI — no questions are written for it", "quiet")
+            # A plan that waited under the retired "Keep this book on this
+            # computer" (owner, 2026-10-13): the learner's one tap plans again.
+            return _line(f"No questions for this {noun} yet", "quiet", ("retry", "Build them as you read"))
         return None
     if kind == "paused":
         if outcome.get("cost_reason") == "budget_used":
@@ -2143,8 +2322,6 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _line(f"Writing questions for {phrase}", "working")
         return _line(f"Questions for {phrase} {estimate}", "working")
     if state["batch"] is None or state["status"] in {"failed", "blocked", "cancelled"}:
-        if artifact.get("keep_local"):
-            return _line("Never sent to an AI — no questions are written for it", "quiet")
         if state["error_code"] == "spend_paused":
             if state["error_details"].get("reason") == "daily_cap":
                 return _budget_used_line(state["error"])
@@ -2361,11 +2538,13 @@ __all__ = [
     "Coverage",
     "act_on_reading_request",
     "add_source",
+    "books_of_batch",
     "admit_auto_build_job",
     "advance_reading_build",
     "after_auto_build",
     "authoring_route_for",
     "auto_apply_allowed",
+    "auto_build_spend_report",
     "built_unit_ids",
     "chapter_phrase",
     "child_batch_id",
@@ -2379,7 +2558,6 @@ __all__ = [
     "estimate_usd",
     "file_upload_allowed",
     "keep_ahead_for_reader",
-    "keep_on_this_computer",
     "kind_noun",
     "source_kind_noun",
     "build_minutes_phrase",
@@ -2400,7 +2578,7 @@ __all__ = [
     "request_auto_build",
     "retry_build",
     "run_auto_study_map",
-    "share_with_ai",
+    "settle_reading_for_cancelled_batch",
     "source_status_line",
     "spent_today_usd",
     "text_recognition_available",

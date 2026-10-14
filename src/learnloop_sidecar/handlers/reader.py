@@ -26,6 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_guidance as RG
 from learnloop.source_retrieval.suggest import suggested_learning_objects
@@ -71,17 +72,6 @@ def _require_source_reader(repository, source_id: str) -> dict[str, Any]:
     return artifact
 
 
-def _refuse_kept_local(repository, source_id: str | None) -> None:
-    """A book kept on this computer sends nothing to an AI, from the Reader
-    either (UX Phase 1 review F1): Ask, background requests and section checks."""
-
-    if source_id is not None and repository.source_kept_local(source_id):
-        raise SidecarError(
-            "kept_on_this_computer",
-            "This book is never sent to an AI, so LearnLoop can't ask one about it.",
-        )
-
-
 def _source_id_for_extraction(repository, extraction_id: str) -> str | None:
     run = repository.get_extraction_run(extraction_id)
     if run is None:
@@ -119,7 +109,6 @@ class ReaderAskInput(ParamsModel):
 def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     vault, repository = _require_reader(ctx)
     ask_source_id = _source_id_for_extraction(repository, params.extraction_id)
-    _refuse_kept_local(repository, ask_source_id)
     if ask_source_id is not None:
         _require_source_reader(repository, ask_source_id)
     provider_name, runtime, client = ready_tutor_qa_provider(vault)
@@ -896,7 +885,6 @@ class ReaderEnqueueRequestInput(ParamsModel):
 @method("reader.enqueue_request", ReaderEnqueueRequestInput)
 def reader_enqueue_request(ctx: SidecarContext, params: ReaderEnqueueRequestInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
-    _refuse_kept_local(repository, params.source_id)
     try:
         result = RR.enqueue_request(
             repository, source_id=params.source_id, revision_id=params.revision_id,
@@ -929,8 +917,6 @@ def reader_cancel_request(ctx: SidecarContext, params: ReaderRequestStatusInput)
 @method("reader.retry_request", ReaderRequestStatusInput)
 def reader_retry_request(ctx: SidecarContext, params: ReaderRequestStatusInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
-    existing = RR.request_status(repository, request_id=params.request_id) or {}
-    _refuse_kept_local(repository, existing.get("source_id"))
     result = RR.retry_request(repository, request_id=params.request_id)
     ctx.ingest_jobs.kick_reader_drain()
     return versioned({"request": result})
@@ -1437,7 +1423,16 @@ def reader_author_section_question(
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
-    _refuse_kept_local(repository, source_id)
+    # Exam protection composed with the one check-offer rule (reading-hardening
+    # landing): a section in held-out material gets no check, neither a new one
+    # (the job would refuse it before any model call) nor one authored before
+    # the mark (the guide plan withholds it too, RG.held_out_sections).
+    ir = repository.load_document_ir(resolved)
+    section_rows = [row for row in (RG.extraction_sections(ir)[0] if ir is not None else [])
+                    if row["id"] == params.section_id]
+    if RG.held_out_sections(vault, repository, resolved, section_rows):
+        raise SidecarError("exam_material", HELD_OUT_REFUSAL,
+                           details={"extraction_id": resolved, "section_id": params.section_id})
 
     existing = repository.latest_reader_authored_question(
         extraction_id=resolved, section_id=params.section_id
@@ -1525,7 +1520,7 @@ def reader_mark_section_progress(
     # inside a section it already reached plans nothing new, so only the first
     # report for a section asks (round-2 review F1), unless the book's reading
     # request failed and has not settled: then every report asks again with the
-    # newest position (F8), while the ingest worker retries it off this RPC.
+    # newest position (F8), while the reading sweep retries it off this RPC.
     # Both are read from the book's durable request, so they hold across a
     # restart (finishing pass, F8).
     first_reach = int((before or {}).get("spans_seen") or 0) <= 0 and (params.spans_seen or 0) > 0
@@ -1932,12 +1927,6 @@ def reader_reconnect_answer(ctx: SidecarContext, params: ReaderReconnectAnswerIn
     passage-scoped question (never on the request path: a durable job writes it)."""
 
     vault, repository = _require_inquiry(ctx)
-    if params.answer == "quick_check":
-        # The passage check sends the passage to an AI: never for a book kept
-        # on this computer (UX Phase 1 review F1, extended to RW1a's check at
-        # the landing on main), refused before anything is recorded.
-        resolved = resolve_extraction_id(repository, params.extraction_id)
-        _refuse_kept_local(repository, _source_id_for_extraction(repository, resolved) if resolved else None)
     try:
         result = RI.answer_reconnect(
             repository,
