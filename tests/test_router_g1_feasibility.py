@@ -178,3 +178,85 @@ def test_the_staged_frame_keeps_refusals_through_the_projection(tmp_path):
     context, _built = _live_context(env, record)
     decision = decide(record, context, env.policy.projection())
     assert all(PROBE not in candidate.item_ids for candidate in decision.candidates)
+
+
+# -- review F2: a failure never erases a hard constraint --------------------------
+
+
+def _reserved_world(tmp_path):
+    """The router world with ``pi_m1b`` on a live assessment reservation and the
+    seen probe in the pool: two items the frame must refuse."""
+
+    from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+    from learnloop.daily_plan.policy import policy_for
+    from learnloop.substrate.activities import reserve_surface
+
+    env = _world(tmp_path, version=ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    vault = load_vault(env.vault.root)
+    resolved = resolve_legacy_item(vault, env.repository, vault.practice_items["pi_m1b"], purpose="assessment")
+    reserve_surface(env.repository, surface_id=resolved.surface_id, purpose="assessment")
+    env.policy = policy_for(env.vault, env.repository, session_id=env.session_id, clock=env.clock)
+    return env
+
+
+def _boom(*_args, **_kwargs):
+    raise RuntimeError("read failed")
+
+
+def test_an_annotation_failure_keeps_every_refusal(tmp_path, monkeypatch):
+    """Codex review F2: the cold-check and ladder reads are annotations. When
+    one raises after the constraints were evaluated, the refusals stand (the
+    reserved item and the seen probe stay out), and the failure is named."""
+
+    from learnloop.daily_plan import staged_frame as SF
+
+    env = _reserved_world(tmp_path)
+    monkeypatch.setattr(SF.StagedFrame, "_cold_items", _boom)
+    monkeypatch.setattr(SF.StagedFrame, "_ladder", _boom)
+    record = build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
+    assert "pi_m1b" not in _planned(record) and PROBE not in _planned(record)
+    assert "pi_m1a" in _planned(record)
+    [row] = _plan_block_rows(env)
+    assert row["exclusions_json"]["named"]["assessment_reservation"] == ["pi_m1b"]
+    assert row["exclusions_json"]["named"]["hard_exposure_collision"] == [PROBE]
+    frame = json.loads(row["detail_json"])["staged_frame"]
+    assert "cold_checks" in frame["error"] and "ladder" in frame["error"]
+    # A cold-check read that failed leaves reversibility unknown: an item
+    # block is never in a draw's support (G2).
+    item_blocks = {c["ref"] for c in row["candidates_json"] if c.get("item_ids")}
+    assert item_blocks
+    assert not item_blocks & set(json.loads(row["detail_json"])["router"].get("draw_support", []))
+
+
+def test_a_snapshot_failure_fails_closed_only_where_a_constraint_cannot_be_established(tmp_path, monkeypatch):
+    """Without the controller snapshot (the exposure ledger) a quick check's
+    freshness cannot be established: it is refused, as P4 refuses unknown
+    freshness. The reservation is its own read, so the reserved item is still
+    refused, and ordinary practice is still planned."""
+
+    from learnloop.scheduling import controller_snapshot as cs
+
+    env = _reserved_world(tmp_path)
+    monkeypatch.setattr(cs, "build_snapshot", _boom)
+    record = build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
+    assert "pi_m1b" not in _planned(record) and PROBE not in _planned(record)
+    assert "pi_m1a" in _planned(record)
+    [row] = _plan_block_rows(env)
+    assert row["exclusions_json"]["named"]["assessment_reservation"] == ["pi_m1b"]
+    frame = json.loads(row["detail_json"])["staged_frame"]
+    [refusal] = frame["refused"][PROBE]
+    assert (refusal["constraint_key"], refusal["reason"]) == ("hard_exposure_collision", "freshness_unknown")
+    assert "snapshot" in frame["error"]
+
+
+def test_without_the_constraints_inputs_every_item_is_refused(tmp_path, monkeypatch):
+    """When the reservations themselves cannot be read, no item's hard
+    constraints can be established: each is refused with a named reason
+    (fail closed), never served unchecked."""
+
+    env = _reserved_world(tmp_path)
+    monkeypatch.setattr(type(env.repository), "reserved_assessment_surfaces", _boom)
+    record = build_plan(env, kind="normal", budget=15.0, remembered=15, minutes_source="chip")
+    assert not {"pi_m1a", "pi_m1b", PROBE} & set(_planned(record))
+    [row] = _plan_block_rows(env)
+    assert row["exclusions_json"]["named"]["constraints_unavailable"] == sorted(["pi_m1a", "pi_m1b", PROBE])
