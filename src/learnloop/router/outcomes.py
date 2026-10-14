@@ -25,7 +25,12 @@ most exact receipt that exists (router R2a, ``router_outcomes_v2``; plan §5.4):
    decision's block -> its ``plan_presentations`` in serving order -> the first
    one an attempt answered (``practice_attempts.plan_presentation_id``). The
    action is the item the learner was actually served and answered, not the
-   block's first planned item;
+   block's first planned item. A presentation another decision placed (a
+   follow-up a ``plan_interrupt`` decision inserted: its ``router_decision_id``
+   names that decision) is that decision's action, not the block's. A
+   ``plan_interrupt`` decision (router R2c) that inserted its follow-up is
+   bound through the follow-up's own presentation: its block and item name
+   exactly one (Codex review F1);
 2. **candidate** (``candidate``): a Today offer's head is taken when an attempt
    is bound to its scheduler candidate; a learner pick's when an attempt is
    bound to the picked candidate (R1);
@@ -397,13 +402,35 @@ class _Ledger:
         return latest
 
 
+#: A follow-up's restraint decision (router R2c): ``plan_interrupt:<block>:<item>``.
+_INTERRUPT_KIND = "plan_interrupt"
+
+
 def _decision_block(decision: Mapping[str, Any]) -> str | None:
-    """A ``plan_block`` decision's block (its receipt key names it)."""
+    """The block of a ``plan_block`` or ``plan_interrupt`` decision (its receipt key names it)."""
 
     key = str(decision.get("receipt_key") or "")
-    if decision.get("decision_kind") == "plan_block" and key.startswith("plan_block:"):
+    kind = decision.get("decision_kind")
+    if kind == "plan_block" and key.startswith("plan_block:"):
         return key.split(":", 1)[1] or None
+    if kind == _INTERRUPT_KIND and key.startswith(f"{_INTERRUPT_KIND}:"):
+        parts = key.split(":")
+        return (parts[1] or None) if len(parts) >= 3 else None
     return None
+
+
+def _presentation_is_the_decisions(decision: Mapping[str, Any], presentation: Mapping[str, Any]) -> bool:
+    """Whether ``presentation`` (of the decision's block) served this decision's action.
+
+    A ``plan_interrupt`` decision's action is its own follow-up: the one
+    presentation of its block and its chosen item. A ``plan_block``
+    decision's is any presentation of its block except one another decision
+    placed (an inserted follow-up names its ``plan_interrupt`` decision)."""
+
+    if decision.get("decision_kind") == _INTERRUPT_KIND:
+        return str(presentation.get("practice_item_id")) == str(decision.get("chosen_practice_item_id"))
+    owner = presentation.get("router_decision_id")
+    return not owner or str(owner) == str(decision.get("id"))
 
 
 def _action_attempt(
@@ -415,6 +442,8 @@ def _action_attempt(
 
     block_id = _decision_block(decision)
     for presentation in (presentations or {}).get(block_id or "", ()):
+        if not _presentation_is_the_decisions(decision, presentation):
+            continue
         row = ledger.by_presentation.get(str(presentation["id"]))
         if row is not None and row["created_at"] >= decision["created_at"]:
             return row, BINDING_PRESENTATION

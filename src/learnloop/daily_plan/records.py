@@ -56,6 +56,10 @@ class PlannedItem:
     #: lanes released to it when its own lane had too few left, recorded on its
     #: ``item_planned`` event. Applies while the follow-up is not displaced.
     lane_release: dict[str, Any] | None = None
+    #: Router R2c: the ``plan_interrupt`` decision that inserted this follow-up
+    #: (its ``item_planned`` event's ``decision_ref``); its presentation names it
+    #: (Codex review F1). None for an item its block's own decision planned.
+    decision_ref: str | None = None
 
     @property
     def displaced(self) -> bool:
@@ -367,6 +371,7 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
             check_kind=detail.get("check_kind"),
             scheduler_candidate_id=detail.get("scheduler_candidate_id"),
             lane_release=detail.get("lane_release"),
+            decision_ref=detail.get("decision_ref"),
         )
         block.items.append(item)
         by_item[str(item_id)] = item

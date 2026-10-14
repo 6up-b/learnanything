@@ -2432,9 +2432,11 @@ def _present(
     """Router R2a: the served item's ``plan_presentations`` row, in the serve's
     own transaction (one per block and item: a reopen returns the first).
 
-    The block's router decision and the staged controller decision it named
-    are copied from the ledger, so a decision id the ledger does not hold (a
-    chooser's own reference) is never written. Logging: a refused row rolls
+    The router decision that placed the item (its block's, or the
+    ``plan_interrupt`` decision that inserted a follow-up: Codex review F1)
+    and the staged controller decision it named are copied from the ledger,
+    so a decision id the ledger does not hold (a chooser's own reference) is
+    never written. Logging: a refused row rolls
     back alone with a warning and the item is still served."""
 
     from learnloop.db.stores import plan_presentations as presentations
@@ -2502,7 +2504,9 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             env,
             connection,
             block_id=block.id,
-            decision_ref=block.decision_ref,
+            # An inserted follow-up's presentation names the plan_interrupt
+            # decision that placed it, not its block's (Codex review F1).
+            decision_ref=item.decision_ref or block.decision_ref,
             practice_item_id=item.practice_item_id,
             position=item.position,
             origin=item.origin,

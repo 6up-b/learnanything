@@ -13,7 +13,7 @@ import pytest
 from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import advance, build_plan
 
-from tests.daily_plan_fakes import record_attempt, scheduled
+from tests.daily_plan_fakes import iso, record_attempt, scheduled
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import FakeDecider, fake_runtime, first_option, seed_with_first_uniform
 from tests.test_daily_plan_build import _wide_items
@@ -220,3 +220,57 @@ def test_with_no_model_set_up_a_placeable_follow_up_joins_deterministically(tmp_
     assert step["practice_item_id"] == "pi_diag_mid"
     (row,) = rows(env, "plan_interrupt")
     assert (row["chosen_ref"], row["propensity_kind"], row["policy"]) == ("insert_now", "deterministic", "staged_v1")
+
+
+# -- Codex review F1 -------------------------------------------------------------------
+
+
+def _bound_answer(env, step, *, correctness: float = 1.0) -> str:
+    """The learner's answer to a served step, bound to the presentation serving returned."""
+
+    at = env.clock.now()
+    attempt_id = f"att_{step['practice_item_id']}_{int(at.timestamp())}"
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "correctness, hints_used, primed, latency_seconds, created_at, session_id, evidence_origin, "
+            "plan_presentation_id) VALUES (?, ?, ?, 'short_answer', 'independent_attempt', ?, 0, 0, 60, ?, ?, "
+            "'human', ?)",
+            (attempt_id, step["practice_item_id"], step["learning_object_id"], correctness, iso(at),
+             env.session_id, step["presentation_id"]),
+        )
+        connection.commit()
+    return attempt_id
+
+
+def test_an_inserted_follow_up_is_bound_to_its_own_decision_by_its_presentation(tmp_path):
+    # Codex review F1: the follow-up a plan_interrupt decision inserted is
+    # answered through Today with the presentation id serving returned; the
+    # outcome replayer binds that answer to the interrupt decision exactly.
+    from learnloop.db.connection import connect
+    from learnloop.router.outcomes import derive_router_outcomes
+
+    runtime = fake_runtime(decider=FakeDecider(choice=first_option, p_yes=1.0),
+                           seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
+    env = _followup_env(tmp_path, runtime, toml=DECIDER_ONLY)
+    record, step = advance(env, serve=True)
+    assert step["practice_item_id"] == "pi_diag_mid" and step["presentation_id"]
+    (interrupt,) = rows(env, "plan_interrupt")
+    assert interrupt["chosen_ref"] == "insert_now" and interrupt["propensity_kind"] == "exact"
+    env.clock.advance(2)
+    answered = _bound_answer(env, step)
+    with connect(env.repository.sqlite_path, read_only=True) as connection:
+        owner = connection.execute(
+            "SELECT router_decision_id FROM plan_presentations WHERE id = ?", (step["presentation_id"],)
+        ).fetchone()[0]
+        outcomes = {row["decision_id"]: row for row in derive_router_outcomes(connection)}
+    outcome = outcomes[interrupt["id"]]
+    assert (outcome["action_status"], outcome["action_attempt_id"], outcome["action_binding"]) == (
+        "taken", answered, "presentation",
+    )
+    assert outcome["target_practice_item_id"] == "pi_diag_mid"
+    # The presentation names the decision that placed the follow-up.
+    assert owner == interrupt["id"]
+    # The block's own decision never takes the follow-up's answer as its action.
+    block_decision = next(row for row in rows(env) if row["receipt_key"] == f"plan_block:{step['block_id']}")
+    assert outcomes[block_decision["id"]]["action_attempt_id"] != answered
