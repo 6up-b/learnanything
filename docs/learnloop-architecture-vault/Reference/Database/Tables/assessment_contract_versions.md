@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "64297af461b89fbcd4dbee68204f1bb7e65c3ef6"
-source_commit_timestamp: "2026-10-13T20:01:41-04:00"
+source_commit: "6a2ea31fbd04a12dfb0b0a61f5fcb8d0e2c69bcc"
+source_commit_timestamp: "2026-10-13T21:12:32-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -28,8 +28,8 @@ source_paths:
   - "src/learnloop/placement/state.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
+  - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/learner/assessment_contracts.py"
-  - "src/learnloop/learner/facet_evidence_timeline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/measurement_corrections.py`
+- `src/learnloop/attempts/regrade.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/assessment_contracts.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
