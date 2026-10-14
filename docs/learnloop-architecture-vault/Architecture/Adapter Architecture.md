@@ -27,6 +27,7 @@ LearnLoop has three Python adapters over the same public application/domain APIs
 | `learnloop.cli` | Typer commands and JSON output | shell parsing, rendering, exit codes, help surface |
 | `learnloop.tui` | Textual application | terminal UI state/screens/interactions |
 | `learnloop_sidecar` | JSON-RPC-style desktop bridge | DTO serialization, handlers, transport/server lifecycle |
+| `learnloop_mcp` | MCP server for ChatGPT/Claude chat (stdio, loopback streamable HTTP) | tool schemas, the endpoint gate, host labels; calls only `learnloop.remote` and `learnloop.learner_context` (spec_mcp_frontend_c1) |
 | `apps/learnloop-tauri` | React UI + Tauri native shell | desktop presentation, native capabilities, typed RPC client/process bridge |
 
 Adapters do not own learning, provider, or persistence policy and never import one another. The CLI `today` command reaches the TUI through neutral `learnloop.app_launch`, so the dependency remains truthful.

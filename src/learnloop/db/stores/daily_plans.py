@@ -216,15 +216,71 @@ def daily_plan_tables_present(connection: sqlite3.Connection) -> bool:
 OPEN_HYPOTHESIS_STATUSES = ("candidate", "validated")
 
 
+def open_learner_state_hypotheses(
+    connection: sqlite3.Connection, learning_object_ids: Iterable[str] | None = None
+) -> list[dict[str, Any]]:
+    """The unresolved causal hypotheses: THE resolution predicate (owner decision 2026-10-12).
+
+    The latest version of each ``learner_state`` episode whose status is still
+    ``candidate`` or ``validated``, unless it is a validated cause whose
+    promoted misconception has since been resolved. Newest first; each row
+    carries its id, LO, status, statement, ``created_at``, the evidence it
+    rests on (``attempt_id``, ``error_event_id``) and any
+    ``promoted_misconception_id``. ``learning_object_ids`` limits the LOs
+    (router R2a's card, review F8, reads the same predicate). Read-only.
+    """
+
+    wanted = None if learning_object_ids is None else sorted({str(lo) for lo in learning_object_ids})
+    if wanted is not None and not wanted:
+        return []
+    scope = "" if wanted is None else f" AND h.learning_object_id IN ({','.join('?' for _ in wanted)})"
+    rows = connection.execute(
+        f"""
+        SELECT h.id, h.learning_object_id, h.status, h.statement, h.created_at, h.attempt_id,
+               h.error_event_id, h.evidence_json
+          FROM causal_hypotheses h
+         WHERE h.cause_scope = 'learner_state'
+           AND h.status IN ('candidate', 'validated'){scope}
+           AND h.version = (
+             SELECT MAX(head.version) FROM causal_hypotheses head
+              WHERE head.episode_key = h.episode_key
+           )
+         ORDER BY h.created_at DESC, h.id DESC
+        """,
+        wanted or (),
+    ).fetchall()
+    resolved_misconceptions: set[str] | None = None
+    open_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if not row[1]:
+            continue
+        evidence = _loads(row[7])
+        promoted = evidence.get("promoted_misconception_id") if isinstance(evidence, dict) else None
+        if row[2] == "validated" and promoted:
+            if resolved_misconceptions is None:
+                resolved_misconceptions = {
+                    str(value[0])
+                    for value in connection.execute("SELECT id FROM misconceptions WHERE status = 'resolved'")
+                }
+            if str(promoted) in resolved_misconceptions:
+                continue
+        open_rows.append({
+            "id": str(row[0]), "learning_object_id": str(row[1]), "status": str(row[2]), "statement": row[3],
+            "created_at": row[4], "attempt_id": row[5], "error_event_id": row[6],
+            "promoted_misconception_id": str(promoted) if promoted else None,
+        })
+    return open_rows
+
+
 def open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -> frozenset[str]:
     """LOs with an open diagnosed problem: what "repair" means (owner decision 2026-10-12).
 
     An open diagnosed problem is either
 
-    * an unresolved causal hypothesis: the latest version of a
-      ``learner_state`` episode whose status is still ``candidate`` or
-      ``validated``, unless it is a validated cause whose promoted
-      misconception has since been resolved; or
+    * an unresolved causal hypothesis (:func:`open_learner_state_hypotheses`):
+      the latest version of a ``learner_state`` episode whose status is still
+      ``candidate`` or ``validated``, unless it is a validated cause whose
+      promoted misconception has since been resolved; or
     * an ``open`` unresolved-cause factor (on the LO of its attempt).
 
     Slice 1 M2's diagnoses and Slice 2 T1's recurrence groups write both
@@ -234,36 +290,7 @@ def open_diagnosed_problem_learning_object_ids(connection: sqlite3.Connection) -
     cause is not the learner's problem to repair. Read-only.
     """
 
-    open_los: set[str] = set()
-    resolved_misconceptions: set[str] | None = None
-    rows = connection.execute(
-        """
-        SELECT h.learning_object_id, h.status, h.evidence_json
-          FROM causal_hypotheses h
-         WHERE h.cause_scope = 'learner_state'
-           AND h.status IN ('candidate', 'validated')
-           AND h.version = (
-             SELECT MAX(head.version) FROM causal_hypotheses head
-              WHERE head.episode_key = h.episode_key
-           )
-        """
-    ).fetchall()
-    for row in rows:
-        learning_object_id, status, evidence_json = row[0], row[1], row[2]
-        if not learning_object_id:
-            continue
-        if status == "validated":
-            evidence = _loads(evidence_json)
-            promoted = evidence.get("promoted_misconception_id") if isinstance(evidence, dict) else None
-            if promoted:
-                if resolved_misconceptions is None:
-                    resolved_misconceptions = {
-                        str(value[0])
-                        for value in connection.execute("SELECT id FROM misconceptions WHERE status = 'resolved'")
-                    }
-                if str(promoted) in resolved_misconceptions:
-                    continue
-        open_los.add(str(learning_object_id))
+    open_los = {row["learning_object_id"] for row in open_learner_state_hypotheses(connection)}
     for row in connection.execute(
         "SELECT DISTINCT a.learning_object_id FROM unresolved_cause_factors f "
         "JOIN practice_attempts a ON a.id = f.attempt_id WHERE f.status = 'open'"
@@ -315,6 +342,7 @@ __all__ = [
     "block_events_for",
     "daily_plan_tables_present",
     "OPEN_HYPOTHESIS_STATUSES",
+    "open_learner_state_hypotheses",
     "insert_plan",
     "insert_plan_block",
     "latest_plan",

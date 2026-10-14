@@ -37,6 +37,9 @@ mobile = [
 dev = [
   "pytest>=8.0",
   "pytest-xdist>=3.6",
+  # The MCP adapter's tests run in every gate (no silent skips, unlike the
+  # mobile extra): dev carries the same pinned SDK as the mcp extra.
+  "mcp==2.3.0",
 ]
 # High-fidelity PDF extraction (headings, tables, LaTeX math, OCR) for
 # canonical source ingestion; heavy (pulls in torch). Without it, PDF
@@ -44,13 +47,19 @@ dev = [
 pdf = [
   "marker-pdf>=1.10",
 ]
+# The chat frontend over MCP (spec_mcp_frontend_c1): the official MCP Python
+# SDK at the version the M0 probe verified with ChatGPT and Claude. Only
+# learnloop_mcp imports it; `learnloop mcp serve` asks for it when missing.
+mcp = [
+  "mcp==2.3.0",
+]
 
 [project.scripts]
 learnloop = "learnloop.cli:app"
 learnloop-mobile = "learnloop_mobile.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/learnloop", "src/learnloop_sidecar", "src/learnloop_mobile"]
+packages = ["src/learnloop", "src/learnloop_sidecar", "src/learnloop_mobile", "src/learnloop_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -66,7 +75,7 @@ dev = [
 ]
 
 [tool.importlinter]
-root_packages = ["learnloop", "learnloop_sidecar", "learnloop_mobile"]
+root_packages = ["learnloop", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
@@ -272,7 +281,7 @@ id = "entry-points-are-independent"
 name = "CLI, TUI, and sidecar do not depend on one another"
 type = "forbidden"
 source_modules = ["learnloop.cli"]
-forbidden_modules = ["learnloop.tui", "learnloop_sidecar", "learnloop_mobile"]
+forbidden_modules = ["learnloop.tui", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -280,7 +289,7 @@ id = "tui-is-independent"
 name = "TUI does not depend on other adapters"
 type = "forbidden"
 source_modules = ["learnloop.tui"]
-forbidden_modules = ["learnloop.cli", "learnloop_sidecar", "learnloop_mobile"]
+forbidden_modules = ["learnloop.cli", "learnloop_sidecar", "learnloop_mobile", "learnloop_mcp"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -288,7 +297,7 @@ id = "sidecar-is-independent"
 name = "Sidecar does not depend on other adapters"
 type = "forbidden"
 source_modules = ["learnloop_sidecar"]
-forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_mobile"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_mobile", "learnloop_mcp"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -296,8 +305,85 @@ id = "mobile-is-independent"
 name = "Mobile is a secondary capture adapter, not a desktop runtime"
 type = "forbidden"
 source_modules = ["learnloop_mobile"]
-forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_sidecar"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_sidecar", "learnloop_mcp"]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "mcp-adapter-is-independent"
+name = "The MCP chat adapter is an independent entry point (spec_mcp_frontend_c1)"
+type = "forbidden"
+source_modules = ["learnloop_mcp"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_sidecar", "learnloop_mobile"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "mcp-adapter-calls-application-services"
+name = "The MCP adapter calls only the remote application services and the shared read model, never domain code"
+type = "forbidden"
+source_modules = ["learnloop_mcp"]
+# Allowed: learnloop.remote (attach, views, sources, telemetry, token),
+# learnloop.learner_context (the shared latent-state read model) and the
+# primitives clock and ids. Everything below them is reached only through them.
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.content",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+    "learnloop.projects",
+    "learnloop.router",
+    "learnloop.daily_plan",
+    "learnloop.instructional",
+    "learnloop.source_retrieval",
+    "learnloop.practice_index",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.capture",
+    "learnloop.db",
+    "learnloop.vault",
+    "learnloop.ai",
+    "learnloop.config",
+    "learnloop.ingest",
+    "learnloop.held_grades",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "domain-does-not-import-mcp"
+name = "Nothing in learnloop imports the MCP adapter except the neutral launcher"
+type = "forbidden"
+source_modules = ["learnloop"]
+forbidden_modules = ["learnloop_mcp"]
+# `learnloop mcp serve` reaches the adapter through learnloop.app_launch (the
+# TUI's pattern), loading it and the optional SDK only when a server starts.
+ignore_imports = ["learnloop.app_launch -> learnloop_mcp.cli"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "evidence-never-reads-remote-views"
+name = "Replay, evidence and serving internals never read the remote frontend's services or read model"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+]
+forbidden_modules = ["learnloop.remote", "learnloop.learner_context"]
+allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
 id = "domain-does-not-import-mobile"

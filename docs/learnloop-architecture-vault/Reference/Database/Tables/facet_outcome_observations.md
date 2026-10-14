@@ -3,13 +3,13 @@ title: "facet_outcome_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_outcome_observations"
   - "table facet_outcome_observations"
-schema_head: 201
+schema_head: 210
 table_name: "facet_outcome_observations"
 table_role: "derived"
 functionality_status: "active"

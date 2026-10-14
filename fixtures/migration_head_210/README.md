@@ -1,7 +1,8 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-201. Migration 167 adds the learner-field F1 read model
+210 (a placeholder number: the chat frontend's C1a migration, renumbered at
+its merge). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -111,13 +112,18 @@ the nullable `completion_detail_json` (the stop decision with its forecast);
 per follow-up value decision, with its own id, per-attempt ordinal and
 source-attempt link) and backfills it from legacy `decision_features`
 follow-up rows that carry a `voi_stopping` body (none here).
-Built as a backup-API copy of `migration_head_199` (itself a backup-API copy
-of `migration_head_197` with only 198-199 applied, that of
+Migration 210 (placeholder; chat frontend C1a, `mcp/c1-read-context`)
+rebuilds `interaction_events` (same columns, rows and indexes) so its `kind`
+CHECK also accepts `chat_tool_call` (one row per MCP tool call a chat host
+made) and its `origin` CHECK also accepts `chat_host`.
+Built as a backup-API copy of `migration_head_201` (itself a backup-API copy
+of `migration_head_199` with only 200-201 applied, that of
+`migration_head_197` with only 198-199 applied, that of
 `migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 200-201 applied through
+`migration_head_186` with 187-195 applied) with only 210 applied through
 `learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_199` was renamed to this
+`foreign_key_check` clean); `migration_head_201` was renamed to this
 directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.

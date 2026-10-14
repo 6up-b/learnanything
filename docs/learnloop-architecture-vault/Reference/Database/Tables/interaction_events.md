@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 201
+schema_head: 210
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -57,7 +57,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/065_activity_lineage_substrate.sql`.
-- **Schema touched by:** `065_activity_lineage_substrate.sql`, `086_reader_dialogue.sql`, `091_interaction_events_reader_envelope.sql`, `103_learner_item_authoring_kinds.sql`, `115_causal_attribution_p0.sql`.
+- **Schema touched by:** `065_activity_lineage_substrate.sql`, `086_reader_dialogue.sql`, `091_interaction_events_reader_envelope.sql`, `103_learner_item_authoring_kinds.sql`, `115_causal_attribution_p0.sql`, `210_chat_mcp_interaction_events.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/remote/telemetry.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 
@@ -216,7 +217,10 @@ CREATE TABLE "interaction_events" (
      'reader_automatic_depth_paused', 'reader_question_control',
      -- Learner-owned item authoring lifecycle (migration 103):
      'learner_item_authored', 'learner_item_edited',
-     'learner_item_retired', 'learner_item_split')),
+     'learner_item_retired', 'learner_item_split',
+     -- Chat frontend C1a (migration 210): one row per MCP tool call a chat
+     -- host made (ChatGPT, Claude, or a local stdio client).
+     'chat_tool_call')),
   subject_type TEXT,
   subject_id TEXT,
   administration_id TEXT,
@@ -230,7 +234,7 @@ CREATE TABLE "interaction_events" (
     CHECK (attempt_duration_ms IS NULL OR attempt_duration_ms >= 0),
   payload_json TEXT,
   origin TEXT NOT NULL
-    CHECK (origin IN ('learner', 'system', 'owner_tooling')),
+    CHECK (origin IN ('learner', 'system', 'owner_tooling', 'chat_host')),
   created_at TEXT NOT NULL,
   occurred_at TEXT,
   received_at TEXT,

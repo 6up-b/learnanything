@@ -3,13 +3,13 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
   - "table activity_surface_reservations"
-schema_head: 201
+schema_head: 210
 table_name: "activity_surface_reservations"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/goals/goal_contracts.py"
+  - "src/learnloop/learner_context.py"
   - "src/learnloop/reader/reader_dialogue.py"
   - "src/learnloop/scheduling/controller_snapshot.py"
-  - "src/learnloop/substrate/activities.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/goals/goal_contracts.py`
+- `src/learnloop/learner_context.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/substrate/activities.py`

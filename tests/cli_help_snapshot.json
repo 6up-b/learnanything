@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24352,
-    "sha256": "ceb0e1a160021e6f05d9d009d8e41778285cc337b49dcf6ae15f623047ef9bf9"
+    "bytes": 24607,
+    "sha256": "ef3ac5ece44e0f4688b02ff3abbf7ba05e453c70a27433de49543bd183b106b6"
   },
   "accept": {
     "bytes": 1593,
@@ -638,6 +638,30 @@
   "maintenance-feed": {
     "bytes": 1296,
     "sha256": "e563f5d541fc9102910adb6d968cdc334619dd9acda26733933625b17f5caad4"
+  },
+  "mcp": {
+    "bytes": 1923,
+    "sha256": "e06e92d3925015b35e875a884e8149b90ae3a3068801d5ba6d591b176e808b7d"
+  },
+  "mcp activity": {
+    "bytes": 1631,
+    "sha256": "de72e92b965e5f0b3868bcec3db8aa31584ef7831d85fd2d245182a94cb703e4"
+  },
+  "mcp serve": {
+    "bytes": 2724,
+    "sha256": "e098f0517f7c01dbd7bb8f3db20bea062b43baf197efb623a290ae4a76d8500f"
+  },
+  "mcp token": {
+    "bytes": 1672,
+    "sha256": "83b3cee45508e3d97683e4c9c5f91846272d4ed2efb4a9d72449a6c5bb029edc"
+  },
+  "mcp token rotate": {
+    "bytes": 1465,
+    "sha256": "550c654e363c9b97dc36f6c37e4d2dac96800d36dbd4ed1ae3d468944a3947d3"
+  },
+  "mcp token show": {
+    "bytes": 1465,
+    "sha256": "a352b4bfd055d84f5711290a6464b62d2f88125908c6bbf54695c3bcab9acaf2"
   },
   "merge-concepts": {
     "bytes": 2188,

@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
+source_commit_timestamp: "2026-10-13T22:48:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 201
+schema_head: 210
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -204,6 +204,7 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
 - `src/learnloop/instructional/valuation.py`
+- `src/learnloop/learner_context.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -211,6 +212,7 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/practice_index/retrieval.py`
+- `src/learnloop/remote/views.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/data_quality.py`
