@@ -4,7 +4,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 
 const SOURCE_EXTENSIONS = [
-  ".pdf", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt",
+  ".pdf", ".png", ".jpg", ".jpeg", ".md", ".markdown", ".txt", ".html", ".htm", ".vtt", ".srt",
   ".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac"
 ];
 

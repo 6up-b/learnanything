@@ -16,7 +16,7 @@ export type AddOptions = {
   textRecognition?: boolean;
 };
 
-export const KINDS_LINE = "PDF · web page · arXiv · YouTube · Markdown · text · subtitles";
+export const KINDS_LINE = "PDF · image · web page · arXiv · YouTube · Markdown · text · subtitles";
 
 const buttonStyle: CSSProperties = {
   background: "transparent",

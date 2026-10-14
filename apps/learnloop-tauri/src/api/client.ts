@@ -74,6 +74,7 @@ import type {
   RequestConceptAnimationResult,
   SettingsDto,
   ChatGPTPlanDto,
+  TextRecognitionKeyResult,
   TranscriptionKeyResult,
   UpdateAiSettingsInput,
   UpdateIngestSettingsInput,
@@ -898,6 +899,8 @@ export const api = {
     afterSettingsMutation(call<SettingsDto>("update_provider_modalities", { input })),
   setTranscriptionApiKey: (apiKey: string) =>
     mutating([TAG.settings], call<TranscriptionKeyResult>("set_transcription_api_key", { apiKey })),
+  setTextRecognitionApiKey: (apiKey: string) =>
+    mutating([TAG.settings], call<TextRecognitionKeyResult>("set_text_recognition_api_key", { apiKey })),
   updateAnimationSettings: (input: UpdateAnimationSettingsInput) =>
     afterSettingsMutation(call<SettingsDto>("update_animation_settings", { input })),
   getAnimationRuntime: () => call<AnimationRuntimeDto>("get_animation_runtime"),

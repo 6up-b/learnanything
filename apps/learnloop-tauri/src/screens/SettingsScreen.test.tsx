@@ -51,6 +51,7 @@ function settings(enabled: boolean): SettingsDto {
       },
       transcriptionProvider: "openai_compatible", transcriptionModel: "whisper-1",
       transcriptionBaseUrl: "", transcriptionKey: key,
+      textRecognition: { ...key, envName: "ZAI_API_KEY", backend: "auto", selectedBackend: null },
       budgets: {
         inventoryInputTokens: 1000, inventoryOutputTokens: 1000, synthesisShardInputTokens: 1000,
         synthesisShardOutputTokens: 1000, synthesisTotalInputCeiling: 1000

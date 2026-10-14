@@ -151,6 +151,8 @@ export interface SettingsIngestDto {
   transcriptionModel: string;
   transcriptionBaseUrl: string;
   transcriptionKey: KeyStateDto;
+  /** GLM-OCR text recognition: the z.ai key and the backend that would run now. */
+  textRecognition: TextRecognitionStateDto;
   budgets: IngestBudgetsDto;
   budgetBounds: IngestBudgetBoundsDto;
   providerLimits: IngestProviderLimitsDto;
@@ -321,6 +323,18 @@ export interface ProviderCapabilitiesDto {
 export interface UpdateProviderModalitiesInput {
   provider: string;
   inputModalities: string[];
+}
+
+export interface TextRecognitionStateDto {
+  keyPresent: boolean;
+  keyHint: string | null;
+  envName: string;
+  backend: "auto" | "api" | "local";
+  selectedBackend: "api" | "local" | null;
+}
+
+export interface TextRecognitionKeyResult extends TextRecognitionStateDto {
+  settingsEnvPath: string;
 }
 
 export interface TranscriptionKeyResult {
@@ -2994,7 +3008,7 @@ export interface IngestJobsSnapshot {
   jobs: IngestJobDto[];
 }
 
-export type PdfEngine = "auto" | "marker" | "pypdf" | "native";
+export type PdfEngine = "auto" | "glm_ocr" | "marker" | "pypdf" | "native";
 
 export interface StartIngestInput {
   source: string;
@@ -3925,6 +3939,15 @@ export interface AcquisitionPreviewItem {
   existingRevisionCount: number;
   configuredExtractor: string | null;
   potentialExternal: Record<string, unknown>[];
+  /** GLM-OCR text recognition: pages x a per-page token estimate at the configured price. */
+  extractionEstimate?: {
+    pages: number | null;
+    totalTokens: number | null;
+    tokensPerPage: number;
+    estimatedUsd: number | null;
+    backend: "api" | "local";
+    basis: string;
+  } | null;
 }
 
 export interface AcquisitionPreview {
