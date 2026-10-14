@@ -178,13 +178,132 @@ Not used as the pedagogical inventory (beta, LLM-required). MAY be used experime
 
 `DocumentExtractor` is a versioned provider interface returning the LearnLoop IR; downstream services never import marker classes. Required implementations:
 
-- `MarkerDocumentExtractor` — high-fidelity local OCR/layout/math/table/figure extraction;
+- `GlmOcrDocumentExtractor` — primary PDF/PNG/JPG layout and text recognition (hosted z.ai or self-hosted glmocr server);
+- `MarkerDocumentExtractor` — optional local OCR/layout/math/table/figure fallback;
 - `PyPdfDocumentExtractor` — lightweight native-text fallback;
 - the existing HTML, YouTube, and text normalizers adapted to the same IR.
 
-User-facing choices describe outcomes, not engines: **Fast text**, **High-fidelity local**, and **Improve difficult pages**. `auto` selects the least expensive mode expected to meet the source's needs; advanced settings reveal the provider/version/config.
+User-facing choices describe outcomes, not engines: **Fast text**, **High-fidelity local**, and **Improve difficult pages**. `auto` prefers GLM-OCR (API when a key is available, otherwise a configured reachable local service), then Marker, then pypdf; advanced settings reveal the provider/version/config. Availability and runtime fallback reasons are persisted in extraction health. Explicit engines fail rather than silently switching.
 
 Marker remains an optional provider until distribution and model-license compatibility have been reviewed for LearnLoop's deployment model. The repository is GPL-3.0 and its model weights have separate modified terms; an adapter or subprocess boundary provides operational replaceability but is NOT assumed to resolve licensing obligations. The application MUST show required downloads, local hardware expectations, data egress, configured external provider, and estimated affected pages before the user approves assisted repair.
+
+#### GLM-OCR primary extraction (owner update, 2026-10-13)
+
+GLM-OCR is the main reader for PDFs and page images (PNG/JPG), using its
+**complete** pipeline: PP-DocLayout-V3 finds the regions, then the 0.9B
+GLM-OCR model recognises them in parallel. Never the bare recognition model.
+Two backends, both plain HTTP (`learnloop.ingest.extractors.glm_ocr`; no SDK is
+imported):
+
+- **api** — z.ai's `POST /api/paas/v4/layout_parsing` (Zhipu's
+  `open.bigmodel.cn` serves the same API). `Authorization: Bearer <key>`, the
+  file as a data URI (or raw base64, `base64_style`), `return_crop_images` and
+  `need_layout_visualization` off, a `request_id`, and one-based
+  `start_page_id`/`end_page_id`.
+- **local** — the open-source `glmocr` SDK's server (`python -m
+  glmocr.server`, `POST /glmocr/parse`, MaaS mode off in its `config.yaml`) in
+  front of a vLLM / SGLang / Ollama recognition server. That server reads PDFs
+  only from its own disk, so LearnLoop renders the selected pages to PNG data
+  URIs (pypdfium2, the `glm-ocr` extra) and sends `{"images": [...]}`.
+
+`[ingest.pdf.glm_ocr]` configures `backend` (auto/api/local), `api_url`,
+`api_key_env` (default `ZAI_API_KEY`; `ZHIPU_API_KEY`/`ZHIPUAI_API_KEY` are read
+when it is unset), `local_url`, `request_timeout_seconds` (300, the glmocr
+SDK's own), `max_pages_per_request` (1–30), `price_per_million_tokens` (0.03) and
+`base64_style`. Settings → Ingestion saves the z.ai key to the machine's
+`settings.env` (`set_text_recognition_api_key`, desktop only). No credential
+reaches a receipt, an extraction or a cache key.
+
+**Selection.** `engine = "auto"` reads with GLM-OCR when it can run — `api`
+when a key is set (backend auto or api), `local` when backend is `local` and
+the server accepts a connection (a TCP probe, no upload) — else local Marker,
+else pypdf; the chosen extractor's reason is kept in extraction health
+(`glm_ocr_api_selected`, `glm_ocr_unavailable_marker_selected`, ...). Explicit
+engines fail rather than switch. Only GLM-OCR reads an image: a PDF-only engine
+choice (native, Marker, pypdf) reads an image the automatic way, and with no
+GLM-OCR an image import fails as "text recognition isn't set up".
+
+**Privacy and consent.** A hosted run sends the whole file to z.ai, so it
+needs the learner's one-time OK **naming z.ai** ("Reading this document sends
+the whole file to z.ai (GLM-OCR)"), recorded as its own consent
+(`ai.consent.whole_files_zai`): an earlier whole-file OK for a recording or
+for "your AI" (`whole_files`) never covers z.ai, nor does z.ai's cover them.
+An Add (and "Read it with text recognition") waits for it on the book card.
+An import that asks nothing where it starts (`learnloop import`, the Ingest
+screen) reads a PDF locally under `auto` until the OK is given, flagged
+`glm_ocr_needs_upload_ok`, and the book card then offers "Read it with text
+recognition", which asks. A scan that local reading finds no text in, an
+image, and any PDF under an explicit `glm_ocr` engine instead fail with
+`needs_upload_ok` (flow `glm_ocr_upload`), saying to give the OK on the
+book's card; the import names its book as soon as the book is registered, so
+the card finds the import that waits and asks for the OK there. A repair
+under `auto` without the OK reads locally (a scan fails as that reading
+does: no card asks a repair's OK). A repair whose consent is local
+("re-running local extraction", no external VLM) never leaves this computer,
+whatever the engine: `auto` passes over z.ai and over a self-hosted server
+that is not on a loopback `local_url`, an explicit `glm_ocr` is read by
+local Marker, else pypdf, for it, and an image, which only text recognition
+reads, is refused with `local_repair`, pointing to "external VLM", unless a
+server on this computer reads it. There is no per-book opt-out: the
+per-book "keep this book on this computer" is retired (owner, 2026-10-13;
+`docs/reviews/reading-hardening.md`, part 3), and nothing in GLM-OCR reads
+`source_artifacts.keep_local`. Remote documents download as raw bytes, so nothing is recognised
+before the OK; the extractor itself refuses a hosted run without the OK. The
+legacy one-shot PDF→Markdown path uses hosted GLM-OCR only when the vault has
+the OK naming z.ai (`auto` reads locally otherwise; an explicit `glm_ocr`
+fails asking for it).
+
+**Requests.** A document that fits one window (≤ 30 pages, ≤ 50 MB) goes as
+it is with its page range; otherwise each window of at most 30 contiguous
+selected pages goes as its own PDF (pypdf), halved further while over 50 MB;
+one page over 50 MB fails clearly. Images go whole (≤ 10 MB hosted). 429/5xx
+retry twice (Retry-After, else 1 s then 2 s) and a timeout once; each
+window's answer is checked before the next window is sent, and each hosted
+window's answer is checkpointed (`model_work_checkpoints`, keyed by the
+file's hash, the pages, the backend and its models), so a failure part-way or
+reading the book again pays only for the windows not yet answered. A stored
+answer that the current mapping can't read is discarded and asked for once
+more, and the new answer replaces it. A
+cancelled import stops before its next request. Every physical request has
+its own spend admission (`SpendBudget`, no per-file money cap; a shared
+envelope or metered request gate in force around the call would also apply,
+but the import jobs that run GLM-OCR install neither) and its own
+`model_call` receipt: provider `zai-glm-ocr` or `glm-ocr-local`, reported
+input/output/cached tokens and cost at the configured price (an estimate
+labelled `estimated_usage_missing` when usage is absent; local runs cost 0).
+Provider errors keep the provider's code and message, never the key or the
+file. Redirects are refused. Import previews estimate **6,000 input+output
+tokens per page** (`ESTIMATED_TOKENS_PER_PAGE`); a link's page count is
+unknown until it is downloaded.
+
+**Mapping.** Hosted regions (`label`, `native_label` when present, `content`,
+`bbox_2d` in pixels of z.ai's own page render, scaled by `data_info.pages` as
+the SDK does; a region's own `width`/`height` only when that is missing), the
+self-hosted server's (`bbox_2d` normalised to 0–1000;
+one `[[regions]]` per image) and the older flat/page-object shapes all map to
+the same IR. Boxes become **PDF points, top-left origin**, in the page's crop
+box after rotation — the space the Reader's PDF view draws in; images keep
+pixels. **IR pages stay zero-based** like Marker, pypdf, outlines and the
+Reader; API page ids are one-based. Titles (`doc_title`/`paragraph_title`, or
+a one-line `#` heading) become SectionHeader blocks and the section path;
+formulas keep or gain `$$` delimiters (`\tag{}` kept); HTML tables become GFM
+tables (spans repeated, pipes escaped) because the Reader renders no raw HTML;
+image regions are Figure blocks with no text (crop URLs are never fetched),
+`figure_title` a Caption block; algorithm regions are Code. Units come from the
+PDF's embedded outline when it has at least two entries (as for Marker), else
+from detected headings, split by block. An incomplete or unreadable layout
+fails rather than reading as empty. `version()` names backend, recognition
+model, layout model and mapping version, so caches re-extract when any moves;
+the endpoint, timeout, price and window settings are not part of the
+extraction request hash (they never change what is read). Under `auto`, a
+GLM-OCR failure (transport, a cut-off answer, an unrenderable page, an
+unreadable layout) falls back to local Marker, else pypdf, flagged
+`glm_ocr_failed_<engine>_fallback` (the book card then offers "Read it
+again", with plain details, never the flag); the stored run records the
+model versions of the extractor that read it in the end, through a second
+fallback too (GLM-OCR → Marker → pypdf), with `fallback_from`. Refusals
+(no OK, spend, cancellation) never fall back. The IR schema and
+Marker's chunk map are unchanged.
 
 ## 3. Token-budgeted views
 

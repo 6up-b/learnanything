@@ -22,7 +22,15 @@ import { errorMessage } from "../errors";
 // exists. Left column is the source library; batch progress renders inline as
 // Activity cards — there are no sub-tabs.
 
-type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio";
+type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio" | "image";
+
+// What reading a document with text recognition (GLM-OCR) may cost, plainly.
+function recognitionCostLabel(estimate: NonNullable<AcquisitionPreviewItem["extractionEstimate"]>): string {
+  if (estimate.backend === "local") return "Text recognition on your own server";
+  if (estimate.estimatedUsd == null) return "Text recognition: cost depends on page count";
+  const usd = estimate.estimatedUsd;
+  return `Text recognition ≈ $${usd < 0.01 ? usd.toFixed(4) : usd.toFixed(2)}`;
+}
 
 // ── Source-kind detection (mirrors src/learnloop/services/source_ingestion.py) ──
 function detectKind(source: string): Kind | null {
@@ -32,6 +40,7 @@ function detectKind(source: string): Kind | null {
   if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(s)) return "arxiv"; // bare id
   // Mirror resolution._YOUTUBE_HOSTS: youtube.com, www./m. subdomains, youtu.be.
   if (/^https?:\/\/([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(s)) return "youtube";
+  if (/\.(png|jpe?g)(\?|$)/i.test(s)) return "image";
   if (/\.pdf(\?|$)/i.test(s)) return "pdf";
   if (/^https?:\/\//i.test(s)) return "web";
   if (/\.(mp3|wav|m4a|flac|ogg|oga|opus|aac)$/i.test(s)) return "audio";
@@ -45,6 +54,7 @@ const KIND_META: Record<Kind, KindMeta> = {
   web: { color: "cyan", label: "web page", icon: "🌐" },
   arxiv: { color: "green", label: "arXiv paper", icon: "📄" },
   pdf: { color: "amber", label: "PDF", icon: "📕" },
+  image: { color: "amber", label: "image", icon: "🖼" },
   youtube: { color: "red", label: "YouTube transcript", icon: "▶" },
   local: { color: "purple", label: "local file", icon: "📁" },
   audio: { color: "pink", label: "audio file", icon: "🎙" }
@@ -938,7 +948,7 @@ function IngestHome({
       const selected = await openDialog({
         multiple: false,
         directory: false,
-        filters: [{ name: "Ingest sources", extensions: ["pdf", "md", "markdown", "txt", "html", "htm", "vtt", "srt", "mp3", "wav", "m4a", "flac", "ogg", "oga", "opus", "aac"] }]
+        filters: [{ name: "Ingest sources", extensions: ["pdf", "png", "jpg", "jpeg", "md", "markdown", "txt", "html", "htm", "vtt", "srt", "mp3", "wav", "m4a", "flac", "ogg", "oga", "opus", "aac"] }]
       });
       if (typeof selected !== "string") return;
       clearFinishedJob();
@@ -1184,6 +1194,7 @@ function IngestHome({
                   value={pdfEngine}
                   options={[
                     { value: "auto", label: `auto (vault default: ${vaultPdfEngine})` },
+                    { value: "glm_ocr", label: "GLM-OCR — layout + text recognition" },
                     { value: "marker", label: "marker — structured, math, OCR" },
                     { value: "pypdf", label: "pypdf — fast native text" },
                     { value: "native", label: "native — send PDF to the ingest model" }
@@ -1331,6 +1342,11 @@ function IngestHome({
                       >
                         {src}
                       </span>
+                      {preview?.extractionEstimate && (
+                        <Faint style={{ flexShrink: 0, fontSize: 11 }}>
+                          {recognitionCostLabel(preview.extractionEstimate)}
+                        </Faint>
+                      )}
                       {preview?.duplicateOfInput && (
                         <Pill color="amber" style={{ flexShrink: 0 }}>duplicate</Pill>
                       )}

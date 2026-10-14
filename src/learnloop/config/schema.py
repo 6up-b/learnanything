@@ -666,12 +666,38 @@ class TeachBackConfig(BaseModel):
     session_cap: int = Field(default=1, ge=0)
 
 
+class GlmOcrConfig(BaseModel):
+    """[ingest.pdf.glm_ocr]: GLM-OCR's complete layout + recognition pipeline
+    (learnloop.ingest.extractors.glm_ocr). Spend is observed and recorded per
+    request, never capped per file (owner policy)."""
+
+    # "auto"/"api": z.ai when a key is set. "local": the self-hosted glmocr
+    # server at local_url, when it answers.
+    backend: Literal["auto", "api", "local"] = "auto"
+    # z.ai's layout_parsing endpoint (Zhipu: open.bigmodel.cn/api/paas/v4).
+    api_url: str = "https://api.z.ai/api/paas/v4/layout_parsing"
+    # The environment variable holding the key (ZHIPU_API_KEY and
+    # ZHIPUAI_API_KEY are read when it is unset); never the key itself.
+    api_key_env: str = "ZAI_API_KEY"
+    # `python -m glmocr.server` (MaaS mode off in its config.yaml).
+    local_url: str = "http://127.0.0.1:5002/glmocr/parse"
+    # Per request (a window of up to 30 pages); the glmocr SDK's own default.
+    request_timeout_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)
+    # The hosted service reads at most 30 pages per request.
+    max_pages_per_request: int = Field(default=30, ge=1, le=30)
+    # USD per million tokens, input and output alike (z.ai's list price).
+    price_per_million_tokens: float = Field(default=0.03, ge=0, allow_inf_nan=False)
+    # How the file is sent: a data URI (documented) or bare base64.
+    base64_style: Literal["data_uri", "raw"] = "data_uri"
+
+
 class PdfIngestConfig(BaseModel):
     # "native" sends the WHOLE PDF to the routed canonical_ingest chat provider
     # as a file content part instead of extracting locally; page ranges are
     # not applied. The provider must declare "pdf" in input_modalities (see
     # learnloop.ai.native_media); limits live under [ingest.native].
-    engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
+    engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] = "auto"
+    glm_ocr: GlmOcrConfig = Field(default_factory=GlmOcrConfig)
     # Device for marker model inference: "" lets marker/surya auto-detect
     # (cuda when available), or pin e.g. "cuda", "cuda:1", "cpu", "mps".
     torch_device: str = ""

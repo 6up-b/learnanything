@@ -17,7 +17,8 @@ import type {
 import { COLOR, TermCheckbox, TermSelect } from "./term";
 
 const PDF_ENGINE_OPTIONS: Array<{ value: PdfEngine; label: string }> = [
-  { value: "auto", label: "local — auto (marker if installed, else pypdf)" },
+  { value: "auto", label: "auto — GLM-OCR when set up, else marker, else pypdf" },
+  { value: "glm_ocr", label: "GLM-OCR — layout + text recognition (z.ai or your server)" },
   { value: "marker", label: "local — marker (structured, math, OCR)" },
   { value: "pypdf", label: "local — pypdf (fast, no OCR)" },
   { value: "native", label: "send to the ingest model natively" }

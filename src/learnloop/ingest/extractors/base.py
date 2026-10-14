@@ -7,6 +7,7 @@ a ``DocumentExtractor`` and consume :class:`~learnloop.ingest.ir.DocumentIR`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -24,6 +25,14 @@ class ExtractionContext:
     page_selection: tuple[int, ...] | None = None
     cache_dir: Path | None = None
     parent_extraction_id: str | None = None
+    # Runtime hooks, never part of any hash. ``interrupt`` is called before
+    # each request a provider sends (every window, every retry) and raises to
+    # stop the run (a cancelled import).
+    interrupt: Callable[[], None] | None = None
+    # Paid answers kept across attempts: ``load(key) -> dict | None``,
+    # ``save(key, result)`` and ``discard(key)`` for one that no longer reads
+    # (the import's model_work_checkpoints).
+    checkpoints: Any = None
 
 
 @runtime_checkable

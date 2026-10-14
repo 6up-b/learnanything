@@ -70,8 +70,9 @@ animation = "codex_medium"
 transcription = ""
 
 [ingest]
+# auto reads with GLM-OCR (a z.ai key in Settings, or glm_ocr.backend = "local"), else Marker, else pypdf
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
+engine = "auto" # auto | glm_ocr | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
 enabled = true
@@ -95,7 +96,7 @@ This is copied from `DEFAULT_CONFIG_TEXT`; the template is constrained to remain
 | `ai.providers.codex.*` | SDK, GPT-5.6, low | Seed profile; see [[AI Architecture]] |
 | `ai.providers.openrouter.*` | OpenRouter profile | Optional configured profile; secret is indirect |
 | `ai.routing.*` | low/medium profiles | Per-workflow provider selection |
-| `ingest.pdf.engine` | `auto` | PDF extraction choice; `native` sends the whole PDF to the ingest model (external data flow) |
+| `ingest.pdf.engine` | `auto` | PDF/image reading choice: `auto` prefers GLM-OCR (hosted z.ai with a key and the whole-file OK, or a local `glm_ocr.backend = "local"` server), then Marker, then pypdf; hosted GLM-OCR and `native` send the whole file out (external data flow); `[ingest.pdf.glm_ocr]` holds modelled defaults |
 | `ingest.audio.mode` | `transcription` | Audio path; `native` sends mp3/wav to the ingest model (external data flow) |
 | `animation.enabled` | `true` | Makes animation available; each render still requires consent |
 

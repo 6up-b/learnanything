@@ -790,8 +790,9 @@ legacy_fallback = "exclude"
 question_classification_enabled = false
 llm_probability_enabled = false
 
+# auto reads with GLM-OCR (a z.ai key in Settings, or glm_ocr.backend = "local"), else Marker, else pypdf
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
+engine = "auto" # auto | glm_ocr | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
 renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
@@ -1132,7 +1133,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # fourteen were recomputed (defaults_fingerprint_for_version) on its
     # branch, and all fifteen again from the composed defaults when it landed
     # after router R2a and RW3a.
-    "mvp-0.9": "72ec9b8bf05e645569c6a34c1a8938ae3fe12bc1c4a809507192659a0bf5e98d",
+    # GLM-OCR primary document reading (owner request 2026-10-13; docs/reviews/
+    # glm-ocr-ingest.md) adds [ingest.pdf.glm_ocr] (backend, endpoints, key
+    # variable name, timeout, window size, price, base64 style; modelled
+    # defaults, left out of the decision-only template) and the glm_ocr
+    # engine. Document extraction only: no scoring, scheduling, projection or
+    # serving change, so no successor. Every snapshot moves only because the
+    # effective config gains the section; all fourteen were recomputed
+    # (defaults_fingerprint_for_version) on its branch (again when its second
+    # review raised glm_ocr.request_timeout_seconds to 300, the glmocr SDK's
+    # own), and all fifteen again from the composed defaults when it landed
+    # after router R2a, RW3a and the tutor delivery fixes.
+    "mvp-0.9": "defcba95ab1b9e62eb3d0dc456707d6207b98621b1581e99fec49d189344d780",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1164,7 +1176,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.10": "b15b4d63a9646b8ee2aa802faec809dd03e8d8858773e85f7ab87fea1b5fb217",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.10": "6db7e93a159b40f7972e847fbe5aa341c62a7c53f9318984046fcfe66b63aace",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1204,7 +1217,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.11": "9ce34e78cf67a0273dbc156e07b7863f563659d5d881bfa328c4fc8406c7f4f6",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.11": "695dcf0f59c12e53b8bb05d09d8eb751514fcbe062ca2afe12780cd3644766b8",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1238,7 +1252,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.12": "171d640d52956b029c70239c1faa23af1bf0d71ca7b57deda6fd695dc99d6c4c",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.12": "a307aa8f4aa3f8097b1769da63936c93a9130ed9fb5cf0f3dc3d847820b3e773",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1267,7 +1282,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.13": "4606c711599a2750aa510a8e443d93efb54f9035bf061c575e9d7e2c0af3596f",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.13": "ddeb9cd64837a25046eb04e6dcf8ddd0471a855da9d2fea4061f79a5dfaa1443",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1295,7 +1311,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.14": "5071a7dce6c4e80eb955c7f0920aef323c8f74dc5b18311528ee5bec48438f7e",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.14": "d701e93c572b69c34281eca4a68dde6d25fe0dce1a47118605fd51f243eaf9b0",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1321,7 +1338,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.15": "6502062148dc9a8a04b5c8a2c6a1c0d3494add90192da04ef62ea7760954141a",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.15": "88c70263a5b93ba72679d8ef535e9b98fc2b60522fb1e540c116ee119fae588e",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1354,7 +1372,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.16": "ae3a714932dacc04ae3d369dcef2fdab05285705c248103e87532d14364b62ce",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.16": "d35c0c6cdb42afab60995e7a004251e1304042cc7ab0f8b05e0ed595780993f8",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1383,7 +1402,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.17": "1face10eb3fed6ebfd169f9714ab84ee212d306c7a6bff494dd1ba771b27a5a9",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.17": "6c453d7860b73dc9f654cdca7a6aaa59c271c611c6dd4cc548f612c0f70863a7",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1405,7 +1425,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.18": "5c7a789c4bca4dc11fd7cb52e5c3124935aa25f2e55f7cd0c5dc634f892682dc",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.18": "bb08b46aa8ca853f8d609b7bb77ee38116f6add8b3371a2137bbeb75cc396895",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1427,7 +1448,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.19": "05209899fe3ffce0526a2f5c50c82425144be117660377485726f7e2367803ec",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.19": "86237f7691e22bcecec218f5680fe0621b1ea0bd4551d5cd1d73b7aa6d96c0cb",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1445,7 +1467,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.20": "960d82e6f510d2ddf6a7b07e151c9ff7fde37b01b31ad6ce73bfa1f0ea6a600b",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.20": "45d6f61c00921abb0027c8328853da3a652462137efb2da338a7d3b7e1a4b164",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1472,7 +1495,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.21": "a295846441f95459901b0bb6b7b9dbf131d9d8ac244b95ca2d5924ed1c953096",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.21": "20d999d9c875842a02e23b1a5f0630e65c0d4e5ef8a11da54356d3e8646f142e",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1491,7 +1515,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
     # Router R2a's [router] keys and RW3a's [cues] move it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.22": "0bcf247dd92d0b0c77159a60bff82fd36df2f0bd5a0c3bb4b3bf409ac246a432",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.22": "00cbca8573a08814f0e6a726d2fb0cc462708ff7e20f62bdb23e58a71b68c9e9",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1505,7 +1530,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # decision 2026-10-12).
     # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
-    "mvp-0.23": "9148ded0776f224ef762e8f1ffae31d74d443a9b35e125b245b472833ee750be",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.23": "43b86c5be972bc320c7d49b57a05395f4651df230253f1918bddf0f72a9d9ba1",
 }
 
 

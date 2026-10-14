@@ -338,6 +338,10 @@ def render_ir_markdown(
     emitted: list[str] = []
     for block in blocks:
         emitted = _emit_headings(lines, emitted, block.section_path)
+        # GLM keeps heading regions for geometry; their text was just emitted
+        # from the section trail. Other providers retain their existing rendering.
+        if ir.extractor == "glm_ocr" and block.block_type == "SectionHeader" and block.section_path and block.section_path[-1] == block.text:
+            continue
         rendered = _render_block(block, assets)
         if rendered:
             lines.append(rendered)

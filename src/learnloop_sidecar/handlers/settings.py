@@ -100,6 +100,24 @@ def _key_state(env_name: str) -> dict[str, Any]:
     }
 
 
+def _text_recognition_state(config) -> dict[str, Any]:
+    """GLM-OCR (Settings → Ingestion): the z.ai key's state and which
+    backend would read a document now. No network beyond a local probe."""
+
+    from learnloop.ingest.extractors.glm_ocr import glm_api_key, selected_backend
+
+    glm = config.ingest.pdf.glm_ocr
+    settings = glm.model_dump()
+    key = glm_api_key(settings)
+    return {
+        "key_present": bool(key),
+        "key_hint": key[-4:] if len(key) >= 8 else ("set" if key else None),
+        "env_name": glm.api_key_env,
+        "backend": glm.backend,
+        "selected_backend": selected_backend(settings),
+    }
+
+
 def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     config = vault.config
@@ -163,6 +181,7 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "transcription_model": config.ingest.audio.transcription_model,
             "transcription_base_url": config.ingest.audio.transcription_base_url,
             "transcription_key": _key_state(config.ingest.audio.transcription_api_key_env),
+            "text_recognition": _text_recognition_state(config),
             "budgets": {
                 field: getattr(config.ingest.budgets, field) for field in PLAN_BUDGET_FIELDS
             },
@@ -412,7 +431,7 @@ NATIVE_LIMIT_BOUNDS_MB = (1, 500)
 
 class UpdateIngestSettingsParams(ParamsModel):
     # Per-modality authorities ([ingest.pdf] engine / [ingest.audio] mode).
-    pdf_engine: Literal["auto", "marker", "pypdf", "native"] | None = None
+    pdf_engine: Literal["auto", "glm_ocr", "marker", "pypdf", "native"] | None = None
     audio_mode: Literal["transcription", "native"] | None = None
     # [ingest.native] shared limits and the configuration-fallback opt-in.
     native_fallback_when_unavailable: bool | None = None
@@ -676,6 +695,40 @@ def set_transcription_api_key(ctx: SidecarContext, params: SetTranscriptionApiKe
         {
             **_key_state(env_name),
             "env_name": env_name,
+            "settings_env_path": str(path),
+        }
+    )
+
+
+class SetTextRecognitionApiKeyParams(ParamsModel):
+    api_key: str
+
+
+@method("set_text_recognition_api_key", SetTextRecognitionApiKeyParams)
+def set_text_recognition_api_key(
+    ctx: SidecarContext, params: SetTextRecognitionApiKeyParams
+) -> dict[str, Any]:
+    """Save the z.ai key GLM-OCR text recognition uses ([ingest.pdf.glm_ocr]
+    api_key_env) — same machinery and rules as the OpenRouter key (global
+    settings.env + direct os.environ write). An empty key clears it."""
+
+    vault, _repository = ctx.require_vault()
+    env_name = vault.config.ingest.pdf.glm_ocr.api_key_env
+    value = params.api_key.strip()
+    if len(value) > 512 or any(ord(ch) < 32 for ch in value):
+        raise SidecarError("invalid_api_key", "API key contains control characters or is too long.")
+    path = global_settings_path()
+    try:
+        upsert_env_var(path, env_name, value or None)
+    except SettingsStoreError as exc:
+        raise SidecarError(exc.code, str(exc))
+    if value:
+        os.environ[env_name] = value
+    else:
+        os.environ.pop(env_name, None)
+    return versioned(
+        {
+            **_text_recognition_state(vault.config),
             "settings_env_path": str(path),
         }
     )

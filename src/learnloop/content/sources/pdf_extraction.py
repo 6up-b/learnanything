@@ -10,7 +10,12 @@ Engines:
   ``deepseek-ai/DeepSeek-OCR``, or any hosted vision model.
 - ``pypdf``: plain per-page text extraction. No OCR, layout, tables, or math;
   raises on scanned/image-only PDFs.
-- ``auto``: marker when importable, otherwise pypdf.
+- ``glm_ocr``: GLM-OCR's complete pipeline (PP-DocLayout-V3 layout, then
+  GLM-OCR recognition of each region) on z.ai or a self-hosted glmocr server
+  (``learnloop.ingest.extractors.glm_ocr``). Hosted runs send the whole file
+  and need the learner's whole-file OK.
+- ``auto``: GLM-OCR when it can run (hosted only with the OK), then marker,
+  then pypdf; a GLM-OCR failure falls back the same way.
 
 Marker conversion is model inference and slow (seconds to minutes per
 chapter), so results are cached in ``cache_dir`` keyed by the PDF bytes and
@@ -26,11 +31,12 @@ import io
 import json
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from learnloop.config import PdfIngestConfig
+from learnloop.ingest.extractors.glm_ocr import GlmOcrConsentRequired, GlmOcrExtractionError
 
 
 class PdfExtractionError(ValueError):
@@ -40,9 +46,11 @@ class PdfExtractionError(ValueError):
 @dataclass(frozen=True)
 class PdfExtraction:
     markdown: str
-    engine: str  # "marker" | "pypdf"
+    engine: str  # "glm_ocr" | "marker" | "pypdf"
     used_llm: bool = False
     from_cache: bool = False
+    #: Why ``auto`` passed over GLM-OCR, or that GLM-OCR fell back; None otherwise.
+    selection_reason: str | None = None
 
 
 # One converter per marker config; marker model weights load once per process.
@@ -54,22 +62,68 @@ def extract_pdf_markdown(
     *,
     config: PdfIngestConfig | None = None,
     cache_dir: Path | None = None,
+    whole_file_upload_allowed: bool = False,
 ) -> PdfExtraction:
+    """``whole_file_upload_allowed``: the learner's one-time whole-file OK.
+    Hosted GLM-OCR runs only with it; without it ``auto`` reads locally and
+    an explicit ``glm_ocr`` engine fails asking for it."""
+
     config = config or PdfIngestConfig()
-    engine = _resolve_engine(config)
+    engine, reason = _resolve_engine(config, whole_file_upload_allowed=whole_file_upload_allowed)
+    if engine == "glm_ocr":
+        try:
+            return _extract_with_glm_ocr(raw_bytes, config, cache_dir)
+        except PdfExtractionError as exc:
+            if config.engine != "auto" or isinstance(exc.__cause__, GlmOcrConsentRequired):
+                raise
+            engine = _local_engine(config)
+            reason = f"glm_ocr_failed_{engine}_fallback"
     if engine == "pypdf":
-        return _extract_with_pypdf(raw_bytes)
+        return replace(_extract_with_pypdf(raw_bytes), selection_reason=reason)
     options = _marker_options(config)
     cache_key = _cache_key(raw_bytes, options, _marker_cache_fingerprint())
     cached = _read_cache(cache_dir, cache_key)
     if cached is not None:
-        return cached
+        return replace(cached, selection_reason=reason)
     extraction = _extract_with_marker(raw_bytes, config, options)
     _write_cache(cache_dir, cache_key, extraction)
+    return replace(extraction, selection_reason=reason)
+
+
+def _extract_with_glm_ocr(raw_bytes: bytes, config: PdfIngestConfig, cache_dir: Path | None) -> PdfExtraction:
+    """GLM-OCR's IR rendered as Markdown, cached by file bytes and extractor
+    version (backend, models, mapping); endpoint, timeout and price settings
+    never change what is read."""
+
+    from learnloop.ingest.extractors import ExtractionContext, pdf_extractor_for
+    from learnloop.ingest.ir import render_ir_markdown
+
+    extractor = pdf_extractor_for({"engine": "glm_ocr", "glm_ocr": config.glm_ocr.model_dump()})
+    key = _cache_key(raw_bytes, {"engine": "glm_ocr"}, extractor.version())
+    cached = _read_cache(cache_dir, key)
+    if cached is not None:
+        return cached
+    try:
+        ir = extractor.extract(
+            raw_bytes, ExtractionContext(revision_id="legacy", config={"whole_file_upload_allowed": True})
+        )
+    except GlmOcrExtractionError as exc:
+        raise PdfExtractionError(str(exc)) from exc
+    markdown = render_ir_markdown(ir)
+    if not markdown.strip():
+        raise PdfExtractionError("GLM-OCR found no text in this document")
+    extraction = PdfExtraction(markdown=markdown, engine="glm_ocr", selection_reason=extractor.selection_reason)
+    _write_cache(cache_dir, key, extraction)
     return extraction
 
 
-def _resolve_engine(config: PdfIngestConfig) -> str:
+def _local_engine(config: PdfIngestConfig) -> str:
+    return "marker" if importlib.util.find_spec("marker") is not None else "pypdf"
+
+
+def _resolve_engine(config: PdfIngestConfig, *, whole_file_upload_allowed: bool = False) -> tuple[str, str | None]:
+    """(engine, why it was chosen when ``auto`` passed over GLM-OCR)."""
+
     if config.engine == "native":
         # The chat-provider path lives in the durable import pipeline only;
         # this one-shot extractor has no model client, so degrading to a
@@ -77,17 +131,27 @@ def _resolve_engine(config: PdfIngestConfig) -> str:
         raise PdfExtractionError(
             'ingest.pdf.engine = "native" sends the PDF to the routed chat model and is only '
             "supported by the durable import pipeline (learnloop import / the desktop app); "
-            'use "auto", "marker", or "pypdf" for this command'
+            'use "auto", "glm_ocr", "marker", or "pypdf" for this command'
         )
     if config.engine == "pypdf":
-        return "pypdf"
+        return "pypdf", None
+    reason = None
+    if config.engine in {"auto", "glm_ocr"}:
+        from learnloop.ingest.extractors.glm_ocr import CONSENT_MESSAGE, UNAVAILABLE_MESSAGE, selected_backend
+
+        backend = selected_backend(config.glm_ocr.model_dump())
+        if backend == "local" or (backend == "api" and whole_file_upload_allowed):
+            return "glm_ocr", None
+        if config.engine == "glm_ocr":
+            raise PdfExtractionError(CONSENT_MESSAGE if backend == "api" else UNAVAILABLE_MESSAGE)
+        reason = "glm_ocr_needs_upload_ok" if backend == "api" else "glm_ocr_unavailable"
     marker_available = importlib.util.find_spec("marker") is not None
     if config.engine == "marker" and not marker_available:
         raise PdfExtractionError(
             "marker-pdf is required when ingest.pdf.engine = \"marker\"; install it "
             "with 'pip install learnloop[pdf]' or set the engine to \"auto\"/\"pypdf\""
         )
-    return "marker" if marker_available else "pypdf"
+    return ("marker" if marker_available else "pypdf"), reason
 
 
 def _marker_options(config: PdfIngestConfig) -> dict[str, Any]:

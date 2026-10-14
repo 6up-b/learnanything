@@ -395,6 +395,7 @@ fn main() {
             detect_provider_capabilities,
             update_provider_modalities,
             set_transcription_api_key,
+            set_text_recognition_api_key,
             update_animation_settings,
             get_animation_runtime,
             request_concept_animation,

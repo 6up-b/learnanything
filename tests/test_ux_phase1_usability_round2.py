@@ -73,8 +73,8 @@ def test_r4_asking_for_text_recognition_that_is_not_installed_says_how_to_get_it
 
     assert caught.value.code == "text_recognition_unavailable"
     message = str(caught.value)
-    assert "isn't installed" in message
-    assert "uv sync --extra pdf" in message  # how to get it, plainly
+    assert "isn't set up" in message
+    assert "paste a z.ai API key in Settings" in message  # how to get it, plainly
     _plain(message)
 
 
@@ -95,8 +95,8 @@ def test_scan_details_say_how_to_get_text_recognition_plainly(tmp_path, monkeypa
     line = _card(ctx, source_id)["statusLine"]
 
     assert line["text"] == "This PDF is a scan — LearnLoop can show its pages but can't read them yet"
-    assert "uv sync --extra pdf" in line["details"]
-    assert "restart LearnLoop" in line["details"]
+    assert "z.ai API key" in line["details"]
+    assert "Settings" in line["details"]  # where to put it
     _plain(line["details"])
 
 
@@ -109,7 +109,7 @@ def test_adding_with_text_recognition_that_is_not_installed_says_how_to_get_it(t
 
     item = call(ctx, "add_source", {"sources": [str(write_pdf(tmp_path))], "textRecognition": True})["items"][0]
 
-    assert "uv sync --extra pdf" in item["message"]
+    assert "z.ai API key" in item["message"]
     _plain(item["message"])
 
 

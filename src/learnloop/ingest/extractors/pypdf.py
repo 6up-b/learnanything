@@ -8,6 +8,7 @@ tests. Raises on scanned/image-only PDFs, where marker is required.
 from __future__ import annotations
 
 import io
+import re
 from typing import Any
 
 from learnloop.ingest.block_roles import classify_block_role
@@ -67,6 +68,18 @@ class PyPdfExtractionError(ValueError):
     pass
 
 
+def _valid_text(text: str) -> str:
+    """pypdf can return lone UTF-16 surrogates for unmapped maths-font glyphs
+    (seen on an arXiv paper's equations); they cannot be encoded, hashed or
+    stored, so each becomes U+FFFD. Text without them is unchanged; a page
+    that had them used to fail the whole extraction."""
+
+    return _SURROGATES.sub("\ufffd", text).strip()
+
+
+_SURROGATES = re.compile("[\ud800-\udfff]")
+
+
 class PyPdfDocumentExtractor:
     name = EXTRACTOR_NAME
 
@@ -114,7 +127,7 @@ class PyPdfDocumentExtractor:
                 raise PyPdfExtractionError(
                     f"requested PDF page range exceeds the document's {len(reader.pages)} pages"
                 )
-            page_texts = [(page_index, (reader.pages[page_index].extract_text() or "").strip()) for page_index in selected]
+            page_texts = [(page_index, _valid_text(reader.pages[page_index].extract_text() or "")) for page_index in selected]
         except PyPdfExtractionError:
             raise
         except Exception as exc:

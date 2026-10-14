@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlparse
 
 
 _SPAN_LOCATOR = re.compile(r"^span:([^/]+)/")
-_FILE_KINDS = {"audio", "pdf", "textfile"}
+_FILE_KINDS = {"audio", "image", "pdf", "textfile"}
 _KIND_ALIASES = {
     "arxiv": "arxiv_html",
     "web": "website_page",

@@ -156,6 +156,7 @@ export function SettingsScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState("");
   const [transcriptionKeyDraft, setTranscriptionKeyDraft] = useState("");
+  const [recognitionKeyDraft, setRecognitionKeyDraft] = useState("");
   const [transcriptionProviderDraft, setTranscriptionProviderDraft] = useState<string | null>(null);
   const [transcriptionModelDraft, setTranscriptionModelDraft] = useState<string | null>(null);
   const [transcriptionUrlDraft, setTranscriptionUrlDraft] = useState<string | null>(null);
@@ -550,6 +551,51 @@ export function SettingsScreen({
         onError={onError}
         styles={{ row: rowStyle, label: labelStyle, hint: hintStyle, button: buttonStyle }}
       />
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          text recognition key
+          <div style={hintStyle}>
+            {settings.ingest.textRecognition.selectedBackend === "local"
+              ? "reading scans and page images with your own GLM-OCR server"
+              : "z.ai · reads scans, page images and maths (GLM-OCR); asks once before a whole file is sent"}
+          </div>
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            color: settings.ingest.textRecognition.keyPresent ? COLOR.green : COLOR.textDim
+          }}
+        >
+          {settings.ingest.textRecognition.keyPresent
+            ? `saved${settings.ingest.textRecognition.keyHint ? ` · ends in ····${settings.ingest.textRecognition.keyHint}` : ""}`
+            : "not set"}
+        </span>
+        <input
+          type="password"
+          style={{ ...inputStyle, flex: 1 }}
+          placeholder="z.ai API key"
+          value={recognitionKeyDraft}
+          onChange={(event) => setRecognitionKeyDraft(event.target.value)}
+        />
+        <button
+          type="button"
+          style={buttonStyle(recognitionKeyDraft.trim().length > 0 && busy === null)}
+          disabled={recognitionKeyDraft.trim().length === 0 || busy !== null}
+          onClick={() => {
+            setBusy("recognition-key");
+            api
+              .setTextRecognitionApiKey(recognitionKeyDraft.trim())
+              .then(() => {
+                setRecognitionKeyDraft("");
+                onToast("text recognition key saved");
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === "recognition-key" ? "…" : "save"}
+        </button>
+      </div>
       <div style={rowStyle}>
         <span style={labelStyle}>
           transcription

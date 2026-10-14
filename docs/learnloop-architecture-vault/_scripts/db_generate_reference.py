@@ -1056,6 +1056,33 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "configuration reason, runs the non-native path (PDF: marker/pypdf; audio: the transcription "
         "route or endpoint) with a health flag instead of failing closed."
     ),
+    "ingest.pdf.engine": (
+        "Selects the PDF/image reader: `auto` (GLM-OCR when it can run, then local Marker, then pypdf, "
+        "the reason kept in extraction health), `glm_ocr`, `marker`, `pypdf`, or `native` (the whole PDF "
+        "to the canonical_ingest chat provider). Explicit engines fail rather than switch; only GLM-OCR "
+        "reads PNG/JPG."
+    ),
+    "ingest.pdf.glm_ocr.backend": (
+        "GLM-OCR backend: `auto`/`api` use z.ai's hosted layout_parsing when a key is set (whole file "
+        "sent after the one-time whole-file OK naming z.ai; never for a repair OK'd as local); `local` uses the "
+        "self-hosted glmocr server at local_url when it accepts a connection."
+    ),
+    "ingest.pdf.glm_ocr.api_url": "z.ai's (or Zhipu's open.bigmodel.cn) GLM-OCR layout_parsing endpoint; https only, redirects refused.",
+    "ingest.pdf.glm_ocr.api_key_env": (
+        "Name of the environment variable holding the z.ai key (never the key); ZHIPU_API_KEY and "
+        "ZHIPUAI_API_KEY are read when it is unset. Settings saves the key to the machine's settings.env."
+    ),
+    "ingest.pdf.glm_ocr.local_url": (
+        "The self-hosted `python -m glmocr.server` parse endpoint; selected PDF pages are sent as PNG "
+        "images. A repair OK'd as local uses it only when it is a loopback address."
+    ),
+    "ingest.pdf.glm_ocr.request_timeout_seconds": "Per-request timeout for GLM-OCR calls (each page window is one request).",
+    "ingest.pdf.glm_ocr.max_pages_per_request": "Largest page window per GLM-OCR request (1-30; the hosted service reads at most 30 pages).",
+    "ingest.pdf.glm_ocr.price_per_million_tokens": (
+        "USD per million GLM-OCR tokens, input and output alike, for receipts, the automatic-build "
+        "daily guard and import previews (6,000 tokens a page estimated); no per-file money cap."
+    ),
+    "ingest.pdf.glm_ocr.base64_style": "How the file is sent to the hosted API: a data URI (documented) or bare base64.",
     "ai.routing.embedding": (
         "Names the openai_embedding profile that embeds text; empty means the code-default "
         "openrouter_embedding profile. It has no fallback: LEARNLOOP_AI_PROVIDER, the active provider "

@@ -46,6 +46,7 @@ class AcquisitionItem:
     existing_revision_count: int = 0
     configured_extractor: str | None = None
     potential_external: list[dict] = field(default_factory=list)
+    extraction_estimate: dict | None = None
 
 
 @dataclass
@@ -85,6 +86,7 @@ class AcquisitionPreview:
                     "existing_revision_count": item.existing_revision_count,
                     "configured_extractor": item.configured_extractor,
                     "potential_external": item.potential_external,
+                    "extraction_estimate": item.extraction_estimate,
                 }
                 for item in self.items
             ],
@@ -127,6 +129,8 @@ def build_acquisition_preview(
             potential_external=_potential_external(resolved.category, config),
         )
         _annotate_local(item, resolved.source)
+        if item.configured_extractor == "glm_ocr":
+            item.extraction_estimate = _glm_estimate(resolved.category, resolved.source, item.is_local, config)
         _annotate_existing(item, repo, resolved.category, resolved.source)
 
         if resolved.source in seen_uris:
@@ -138,26 +142,62 @@ def build_acquisition_preview(
 
 
 def _configured_extractor(category: str, config: LearnLoopConfig) -> str:
-    if category in {"pdf", "arxiv"}:
-        # arXiv abstract pages resolve to HTML, but a linked PDF uses the PDF path.
-        if category == "pdf":
-            from learnloop.ingest.extractors import marker_available
+    # arXiv abstract pages resolve to HTML; a linked PDF uses the PDF path.
+    if category in {"pdf", "image"}:
+        from learnloop.content.pipeline.add_source import file_upload_allowed
+        from learnloop.ingest.extractors import marker_available
+        from learnloop.ingest.extractors.glm_ocr import selected_backend
 
-            engine = config.ingest.pdf.engine
-            if engine == "pypdf":
-                return "pypdf"
-            if engine == "marker":
-                return "marker"
-            if engine == "native":
-                return "pdf_native"
-            return "marker" if marker_available() else "pypdf"
+        engine = config.ingest.pdf.engine
+        if engine == "native" and category == "pdf":
+            return "pdf_native"
+        if engine in {"pypdf", "marker"} and category == "pdf":
+            return engine
+        backend = selected_backend(config.ingest.pdf.glm_ocr.model_dump())
+        if backend and not (backend == "api" and engine == "auto" and category == "pdf"
+                            and not file_upload_allowed(config, "glm_ocr_upload")):
+            return "glm_ocr"
+        # This preview is the Ingest screen's, whose imports can't ask for the
+        # OK naming z.ai: under "auto" they read a PDF locally until it is
+        # given (as jobs._document_extractor does).
+        if category == "image" or engine == "glm_ocr":
+            # Only GLM-OCR reads an image; an explicit engine fails as itself.
+            return "text_recognition_unavailable"
+        return "marker" if marker_available() else "pypdf"
     return _NORMALIZER_BY_CATEGORY.get(category, "text_normalizer")
+
+
+def _glm_estimate(category: str, source: str, is_local: bool, config: LearnLoopConfig) -> dict:
+    """What reading it with GLM-OCR may cost: pages x a per-page token
+    estimate (glm_ocr.ESTIMATED_TOKENS_PER_PAGE) at the configured price; a
+    link's page count is unknown until it is downloaded."""
+
+    from learnloop.ingest.extractors.glm_ocr import estimate, selected_backend
+
+    settings = config.ingest.pdf.glm_ocr.model_dump()
+    pages: int | None = None
+    if category == "image":
+        pages = 1
+    elif is_local:
+        from pypdf import PdfReader
+
+        try:
+            pages = len(PdfReader(source).pages)
+        except Exception:  # noqa: BLE001 - a preview never fails on an unreadable file
+            pages = None
+    return estimate(pages, settings, backend=selected_backend(settings) or "api")
 
 
 def _potential_external(category: str, config: LearnLoopConfig) -> list[dict]:
     from learnloop.ai.native_media import native_modality_readiness
 
     external: list[dict] = []
+    if category in {"pdf", "image"} and _configured_extractor(category, config) == "glm_ocr":
+        from learnloop.ingest.extractors.glm_ocr import CONSENT_MESSAGE, selected_backend
+
+        if selected_backend(config.ingest.pdf.glm_ocr.model_dump()) == "api":
+            external.append({"kind": "glm_ocr_upload", "provider": "z.ai (GLM-OCR)", "model": "glm-ocr",
+                             "base_url": config.ingest.pdf.glm_ocr.api_url, "reason": CONSENT_MESSAGE})
     if category == "pdf" and config.ingest.pdf.use_llm:
         external.append(
             {

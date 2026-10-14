@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from learnloop.ingest.models import UnsupportedSourceError
 
-SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile", "audio"]
+SourceCategory = Literal["web", "arxiv", "pdf", "youtube", "textfile", "audio", "image"]
 
 _ARXIV_NEW = re.compile(r"^(arxiv:)?\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
 _ARXIV_OLD = re.compile(r"^(arxiv:)?[a-z\-]+(\.[a-z]{2})?/\d{7}(v\d+)?$", re.IGNORECASE)
@@ -42,6 +42,8 @@ def resolve_source(source: str) -> ResolvedSource:
             return ResolvedSource("youtube", candidate)
         if host == "arxiv.org" or host.endswith(".arxiv.org"):
             return ResolvedSource("arxiv", candidate)
+        if path.endswith((".png", ".jpg", ".jpeg")):
+            return ResolvedSource("image", candidate)
         if path.endswith(".pdf"):
             return ResolvedSource("pdf", candidate)
         return ResolvedSource("web", candidate)
@@ -52,6 +54,8 @@ def resolve_source(source: str) -> ResolvedSource:
 
     path = Path(candidate).expanduser()
     suffix = path.suffix.lower()
+    if suffix in {".png", ".jpg", ".jpeg"}:
+        return ResolvedSource("image", str(path))
     if suffix == ".pdf":
         return ResolvedSource("pdf", str(path))
     if suffix in {".html", ".htm"}:

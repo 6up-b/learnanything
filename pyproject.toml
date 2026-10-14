@@ -44,6 +44,13 @@ dev = [
 pdf = [
   "marker-pdf>=1.10",
 ]
+# What LearnLoop needs to drive a self-hosted GLM-OCR service: pypdfium2
+# renders PDF pages into the images `python -m glmocr.server` reads. Hosted
+# GLM-OCR (z.ai) needs no install, only a key. The glmocr SDK itself runs in
+# its own environment (docs/reviews/glm-ocr-ingest.md): glmocr requires
+# Pillow>=12 and transformers>=5 while marker-pdf pins Pillow<11, and the
+# model is served by vLLM, SGLang or Ollama in any case.
+glm-ocr = ["pypdfium2>=4"]
 
 [project.scripts]
 learnloop = "learnloop.cli:app"
@@ -422,6 +429,15 @@ ignore_imports = [
     "learnloop.goals.exam_session -> learnloop.scheduling.selection_rewards",
     "learnloop.goals.goal_projection -> learnloop.scheduling.fsrs",
     "learnloop.goals.goal_projection -> learnloop.scheduling.selection_rewards",
+    # GLM-OCR (docs/reviews/glm-ocr-ingest.md): the hosted document extractor
+    # admits and records each paid request itself (SpendBudget + model_call),
+    # and the extractor registry lets spend refusals through its fallback.
+    # ai.execution and ai.spend import only the standard library and
+    # ai.errors, and the ai package resolves its exports lazily, so these edges
+    # cannot reach db (whose repositories import ingest.ir/locators).
+    "learnloop.ingest.extractors -> learnloop.ai.spend",
+    "learnloop.ingest.extractors.glm_ocr -> learnloop.ai.execution",
+    "learnloop.ingest.extractors.glm_ocr -> learnloop.ai.spend",
     "learnloop.learner.assessment_contracts -> learnloop.attempts.grading",
     "learnloop.learner.capability_grid -> learnloop.goals.certification",
     "learnloop.learner.capability_grid -> learnloop.goals.goal_certification",
