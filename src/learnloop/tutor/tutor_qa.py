@@ -53,7 +53,13 @@ from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+from learnloop.content.sources.exam_material import (
+    HELD_OUT_REFUSAL,
+    exam_material,
+    held_out_among,
+    held_out_material,
+    item_source_keys,
+)
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     TUTOR_QA_PROMPT_VERSION,
@@ -1395,8 +1401,6 @@ def _linked_reference_filter(
     practised (practice, feedback) never the item's own source, an exercise or
     a solution, or a passage that reproduces its expected answer (the
     retrieval scope's item-bound rules, ``source_retrieval.corpus``)."""
-
-    from learnloop.content.sources.exam_material import exam_material, item_source_keys
 
     item_bound = context in {"practice", "feedback"} and item is not None
     own_keys, own_whole = item_source_keys(item) if item_bound else (set(), set())

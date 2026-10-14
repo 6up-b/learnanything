@@ -28,6 +28,8 @@ def test_doctor_json_contract(tmp_path):
         "ai_runtime",
         "codex_runtime",
         "contract_reachability",
+        # Tutor delivery fixes: the dense-retrieval status note (per source coverage).
+        "dense_retrieval",
         "deprecated_table_row_counts",
         "error_count",
         "issues",
