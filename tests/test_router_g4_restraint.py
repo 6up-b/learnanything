@@ -155,6 +155,65 @@ def test_a_follow_up_a_hard_constraint_refuses_is_declined_by_name(tmp_path):
     assert row["model_distributions_json"] is None
 
 
+def _finish_first_block_then_follow_up(tmp_path, *, reserve: bool):
+    """Answer every item of the first block; the last answer produces a follow-up
+    (so no block is current when it appears); optionally reserve its surface."""
+
+    from learnloop.substrate.activities import reserve_surface, resolve_legacy_item
+    from learnloop.vault.loader import load_vault
+
+    live = list(_wide_items())
+    env = mixture_env(tmp_path, fake_runtime(), items=lambda: live)
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    first = None
+    for _ in range(20):
+        record, step = advance(env, serve=True)
+        block = record.current_block()
+        first = first or block.id
+        assert block.id == first and step["kind"] == "item"
+        env.clock.advance(1)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                       session_id=env.session_id)
+        if not [item for item in block.items if not item.resolved and not item.displaced
+                and item.practice_item_id != step["practice_item_id"]]:
+            break
+    live.insert(0, scheduled("pi_diag_mid", "lo_diag", followup_kind="negative_surprise_followup"))
+    if reserve:
+        vault = load_vault(env.vault.root)
+        resolved = resolve_legacy_item(vault, env.repository, vault.practice_items["pi_diag_mid"], purpose="assessment")
+        reserve_surface(env.repository, surface_id=resolved.surface_id, purpose="assessment")
+    env.clock.advance(1)
+    record, step = advance(env, serve=True)
+    assert record.current_block().id != first
+    return env, record, step
+
+
+def test_a_follow_up_after_a_blocks_last_answer_is_forced_into_the_next_block(tmp_path):
+    env, record, step = _finish_first_block_then_follow_up(tmp_path, reserve=False)
+    assert step["practice_item_id"] == "pi_diag_mid"
+    assert next(item for item in record.current_block().items if item.practice_item_id == "pi_diag_mid").origin == "followup"
+
+
+def test_a_refused_follow_up_is_never_forced_into_the_next_block(tmp_path):
+    # R2a open question 2, the end-of-block path: with the restraint on, the
+    # constraint engine runs on a follow-up before it is forced into the next
+    # block; a refused one is declined by name, once, on the block whose answer
+    # produced it, and never placed or rechecked in this plan.
+    env, record, step = _finish_first_block_then_follow_up(tmp_path, reserve=True)
+    assert step["practice_item_id"] != "pi_diag_mid"
+    assert "pi_diag_mid" not in {item.practice_item_id for item in record.items()}
+    assert "pi_diag_mid" in record.refused_followups()
+    (row,) = rows(env, "plan_interrupt")
+    first_block = record.blocks[0]
+    assert (row["chosen_ref"], row["propensity_kind"], row["policy"]) == ("decline", "deterministic", "staged_v1")
+    assert row["receipt_key"] == f"plan_interrupt:{first_block.id}:pi_diag_mid"
+    assert row["exclusions_json"]["named"]["assessment_reservation"] == ["pi_diag_mid"]
+    assert row["model_distributions_json"] is None
+    env.clock.advance(1)
+    advance(env, serve=False)
+    assert len(rows(env, "plan_interrupt")) == 1
+
+
 def test_with_no_model_set_up_a_placeable_follow_up_joins_deterministically(tmp_path):
     env = _followup_env(tmp_path, fake_runtime())
     record, step = advance(env, serve=True)

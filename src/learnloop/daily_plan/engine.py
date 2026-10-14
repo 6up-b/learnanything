@@ -2095,14 +2095,34 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
     current = record.current_block()
     if current is None or current.is_reading:
         fitted: list[PoolItem] = []
+        refused_now: list[tuple[PoolItem, Any]] = []
         free = record.minutes_left()
         slots = None if cap is None else max(int(cap) - record.item_count(), 0)
         for item in followups:
             if slots is not None and len(fitted) >= slots:
                 break
+            if gate is not None:
+                reasons = gate.refusals(item)
+                if reasons:
+                    # Router R2c: a follow-up a hard constraint refuses is
+                    # never forced into the next block (G1 on follow-ups).
+                    refused_now.append((item, gate.declined(reasons)))
+                    continue
             if item.est_minutes <= free + _EPS:
                 fitted.append(item)
                 free -= item.est_minutes
+        # The refusal is logged once, on the block whose answer produced the
+        # follow-up (or the current reading block), and never rechecked.
+        anchor = current or (record.blocks[-1] if record.blocks else None)
+        if refused_now and anchor is not None:
+            now = env.now_iso()
+            with env.repository.atomic(), env.repository.connection() as connection:
+                for item, outcome in refused_now:
+                    decision_ref = _log_interrupt(env, connection, record, anchor, item, outcome)
+                    _event(connection, anchor.id, "followup_refused",
+                           {"practice_item_id": item.practice_item_id, "decision_ref": decision_ref,
+                            "propensity": outcome.propensity}, now)
+            record = _reload(env, record.id)
         return record, fitted
     outcomes: dict[str, Any] = {}
     if gate is not None:

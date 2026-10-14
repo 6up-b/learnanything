@@ -571,6 +571,22 @@ class RestraintGate:
     def scope(self) -> str:
         return str(self.repository.sqlite_path)
 
+    def refusals(self, item: Any) -> tuple[dict[str, Any], ...]:
+        """The P4 constraint engine's named refusals of one follow-up (none: placeable)."""
+
+        return self._refusals(item)
+
+    @staticmethod
+    def declined(refusals: Sequence[Mapping[str, Any]]) -> RestraintOutcome:
+        """A refused follow-up's deterministic ``decline`` (no model is asked)."""
+
+        from learnloop.router import plan_log
+
+        base = {"mode": MODE, "why_version": router_why.MIXTURE_WHY_VERSION, "policy": mx.STAGED_POLICY,
+                "decided_by": "refused"}
+        return RestraintOutcome(plan_log.DECLINE_REF, 1.0, base, refused={"reasons": [dict(r) for r in refusals]},
+                                why="A follow-up was left out: it can't be served now.")
+
     def _refusals(self, item: Any) -> tuple[dict[str, Any], ...]:
         if self.frame is None:
             return ()
@@ -585,14 +601,10 @@ class RestraintGate:
         """The decision for one follow-up the rules would place now (raises
         :class:`DecisionPending` on a read whose models are still out)."""
 
-        from learnloop.router import plan_log
-
         base: dict[str, Any] = {"mode": MODE, "why_version": router_why.MIXTURE_WHY_VERSION}
         refusals = self._refusals(item)
         if refusals:
-            base.update(policy=mx.STAGED_POLICY, decided_by="refused")
-            return RestraintOutcome(plan_log.DECLINE_REF, 1.0, base, refused={"reasons": [dict(r) for r in refusals]},
-                                    why="A follow-up was left out: it can't be served now.")
+            return self.declined(refusals)
         config = self.vault.config
         settings = router_settings(config)
         state, candidates = self._state(record, current, item)
