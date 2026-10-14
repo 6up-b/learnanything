@@ -3276,6 +3276,53 @@ class DurableIngestJobs:
         if self._background and self._runner is not None:
             self._ensure_worker()
 
+    def resume_book_preparation(self) -> bool:
+        """Start the ingest worker when a book's automatic preparation (an
+        Add, a build planner, a planner's build) is queued, the worker could
+        run it, and no worker is running. The start calls this, and so does
+        every pass of the reading sweep (reading-hardening Codex review 2, F1).
+
+        This work never depends on a reading request to run. An act settles
+        the request in the transaction that queues its build, and starts the
+        worker only after the commit. If starting the worker fails, or the
+        process ends first, the queue itself is all that is left, so the queue
+        is what is checked. Work no worker could claim is left alone, so no
+        idle worker is started for it pass after pass: a job waiting on a
+        dependency the learner has to answer, or one in a batch being
+        cancelled. Other workflows keep their own resume paths. A foreground
+        host (the CLI, tests) drains on its own and starts nothing here.
+        Returns whether the worker was started."""
+
+        from learnloop.content.pipeline.add_source import (
+            ADD_SOURCE_WORKFLOW,
+            AUTO_BUILD_BATCH_PREFIX,
+            AUTO_BUILD_WORKFLOW,
+        )
+
+        runner = self._runner
+        if runner is None or not self._background or self._stop.is_set():
+            return False
+        with self._lock:
+            worker = self._worker_thread
+            worker_running = worker is not None and worker.is_alive()
+            quick_running = any(thread.is_alive() for thread in self._quick_check_threads)
+        lanes: list[tuple[str, ...]] = []
+        if not worker_running:
+            lanes.append(tuple(job_type for job_type in runner.handlers if job_type not in _PARALLEL_JOB_TYPES))
+        if not quick_running:
+            lanes.append(_PARALLEL_JOB_TYPES)
+        if not any(
+            runner.repo.has_runnable_ingest_job(
+                job_types=lane,
+                workflow_types=(ADD_SOURCE_WORKFLOW, AUTO_BUILD_WORKFLOW),
+                batch_id_prefixes=(AUTO_BUILD_BATCH_PREFIX,),
+            )
+            for lane in lanes
+        ):
+            return False
+        self._ensure_worker()
+        return True
+
     def sweep_reading_requests(self, *, now: datetime | None = None) -> "ReadingSweep":
         """One pass of the reading sweep at ``now`` (default
         :meth:`reading_now`): one query over the books' pending requests, and
@@ -3350,8 +3397,11 @@ class DurableIngestJobs:
         :func:`_run_reading_sweep`): a pass every :attr:`READING_SWEEP_SECONDS`
         (or at the next retry time, or when woken) for as long as this host
         runs in the background. A failed pass is retried with backoff
-        (:attr:`READING_SWEEP_RETRY_SECONDS`, doubling up to the pace). The
-        first pass waits one pace: the start reconciles every request itself."""
+        (:attr:`READING_SWEEP_RETRY_SECONDS`, doubling up to the pace). Each
+        pass also starts the worker for a book's queued preparation that
+        nothing runs (:meth:`resume_book_preparation`). The first pass waits
+        one pace: the start reconciles every request and resumes that work
+        itself."""
 
         _run_reading_sweep(weakref.ref(self))
 
@@ -3370,19 +3420,32 @@ class DurableIngestJobs:
         delay = float(self.READING_SWEEP_SECONDS)
         if self._runner is None:
             return failures, delay
+        failed = False
         try:
             self._in_sweep_pass.active = True
             try:
                 sweep = self.sweep_reading_requests()
             finally:
                 self._in_sweep_pass.active = False
-            if not sweep.failed:
-                return 0, self._reading_sweep_delay(sweep)
             delay = self._reading_sweep_delay(sweep)
+            failed = bool(sweep.failed)
         except Exception:  # noqa: BLE001 - the sweep outlives any failed pass
+            failed = True
             logging.getLogger(__name__).warning("the reading sweep's pass failed; retrying", exc_info=True)
-        # A failed scan, or an act whose failure may not even be recorded:
-        # try again soon, backing off up to the pace. Never "nothing due".
+        try:
+            # A book's preparation queued with no worker running it (one that
+            # failed to start after its build was queued, Codex review 2 F1),
+            # checked every pass whether or not any request is pending.
+            self.resume_book_preparation()
+        except Exception:  # noqa: BLE001 - checked again on the next pass
+            failed = True
+            logging.getLogger(__name__).warning("could not check for a book's queued preparation; retrying",
+                                                exc_info=True)
+        if not failed:
+            return 0, delay
+        # A failed scan, an act whose failure may not even be recorded, or a
+        # failed check of the queue: try again soon, backing off up to the
+        # pace. Never "nothing due".
         failures += 1
         return failures, min(delay, float(self.READING_SWEEP_RETRY_SECONDS) * 2 ** min(failures - 1, 16))
 
