@@ -1909,14 +1909,17 @@ def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> No
     Rubric criteria name the fact a step establishes; only an item whose
     target IS a method may require it, by stating it in its prompt
     (``required_method``). Errors: a required method its prompt does not
-    state (``required_method:not_stated``) or that names a criterion its
-    rubric lacks (``required_method:unknown_criterion``). Warnings: a required
+    require (``required_method:not_stated``; naming the method is not
+    requiring it), one its prompt negates or leaves optional
+    (``required_method:contradicted``: "without X", "You may use X or any
+    other method"), or one that names a criterion its rubric lacks
+    (``required_method:unknown_criterion``). Warnings: a required
     method on a target the metadata does not read as a method
     (``required_method:not_a_method_target``), and a criterion phrased by
     method that is not the item's required method's
     (``criterion:method_phrased``). The last is read by the CONSERVATIVE
     heuristic (``learnloop.vault.required_method.method_phrase``; doctor makes
-    no model call): ``learnloop rubrics method-phrasing`` reads every
+    no model call): ``learnloop grading method-phrasing`` reads every
     criterion with the Decider or an LLM judge and drafts repair proposals.
     """
 

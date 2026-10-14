@@ -22,7 +22,7 @@ check, not from a label:
 | 2 `valid_alternative_proof`: a valid proof by a route other than the reference's, no verifiable final answer | 7 | the same |
 | 3 `correct_flawed`: the right final answer from invalid reasoning | 4 | marks down the labelled criteria; full credit there is a **wrong acceptance** |
 | 4 `wrong_looks_right`: a fluent proof that is wrong | 4 | the same |
-| 5 `required_method_bypassed`: the statement requires a method (`item.required_method`), the answer reaches the result correctly by another valid method | 2 | fails exactly the method criteria (labelled) and credits every other criterion on the facts: full credit on a method criterion is a requirement **not enforced**, a mark-down elsewhere a **fact rejected** |
+| 5 `required_method_bypassed`: the statement requires a method (`item.required_method`), the answer reaches the result correctly by another valid method | 2 | fails exactly the method criteria (labelled) and credits every other criterion on the facts: full credit on a method criterion is a requirement **not enforced**, a mark-down elsewhere a **fact rejected**; the requirement counts as **enforced** only when the method criteria failed and every other criterion has full credit (a criterion left unassessed makes the case unassessed) |
 
 Cell 5 (method-explicit items, owner rule 2026-10-13) is reported apart from
 P2's rates (`required_method` in each summary). Each of its cases is paired
@@ -34,7 +34,8 @@ by fact, a cell 1-2 valid alternative that any valid method passes:
 | `la-det-required-cofactor-by-row-reduction` (cofactor expansion required, row reduction used) | `la-det-no-required-method-row-reduction` (cell 1) |
 | `pr-at-least-one-six-required-inclusion-exclusion-by-complement` (inclusion-exclusion required, complement used) | `pr-at-least-one-six-no-required-method-complement` (cell 2) |
 
-The loader checks that a required method's prompt states it, that its
+The loader checks that a required method's prompt requires it (naming the
+method is not enough), that its
 criteria are in the rubric, and that a cell 5 case's labelled criteria are
 exactly the method's criteria.
 

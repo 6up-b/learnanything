@@ -65,7 +65,11 @@ as `mvp-0.22-placeholder` and relabelled at its merge, with the kill switch
 (criteria phrased by fact on every writer, the required method written only on
 a method target) is a content change, and existing method-phrased criteria are
 flagged (`criterion:method_phrased`) and repaired only through proposals the
-owner confirms, never rewritten. See `docs/reviews/method-explicit-items.md`.
+owner confirms, never rewritten. An answer is graded under the required
+method its assessment contract froze when the item was presented, never one
+the item gained later (grading and regrading alike). See
+`docs/reviews/method-explicit-items.md` and
+`docs/reviews/method-explicit-items-codex-review.md`.
 
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never

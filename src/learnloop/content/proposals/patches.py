@@ -892,7 +892,9 @@ def _compile_practice_item(vault: LoadedVault, item: dict[str, Any], payload: di
     if item["operation"] == "update" and existing is None:
         raise PatchApplicationError(f"Cannot update missing Practice Item {entity_id}")
     data = existing.model_dump(mode="json", exclude_none=False) if existing is not None else {}
-    data.update(payload)
+    # The §8.2 staleness hash (``expected_target_hash``) is checked at accept
+    # time and is no field of the item: never written into its YAML.
+    data.update({key: value for key, value in payload.items() if key not in authority.PROPOSAL_ONLY_KEYS})
     data["id"] = entity_id
     learning_object_id = data.get("learning_object_id") or (existing.learning_object_id if existing else None)
     if learning_object_id not in vault.learning_objects:

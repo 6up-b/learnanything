@@ -404,3 +404,102 @@ def test_grades_recorded_at_mvp020_replay_unchanged_after_the_upgrade(tmp_path):
             assert connection.execute(f"SELECT * FROM {table} ORDER BY rowid").fetchall() == rows, table
     rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
     assert unassessed_evidence_row(rows["setup"].attribution_json)
+
+
+# -- review F1: the required method is frozen with the assessment contract -------------------
+
+
+def _set_required_method(paths, criterion_ids, item_id: str = ITEM, prompt: str | None = None) -> None:
+    """An accepted repair: only the item's ``required_method`` (and, given, its prompt) change."""
+
+    path = paths.practice_item_path("linear-algebra", item_id)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["required_method"] = {"name": METHOD, "criterion_ids": list(criterion_ids),
+                               "learning_object_id": data["learning_object_id"]}
+    if prompt is not None:
+        data["prompt"] = prompt
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+def _present(vault, repository, item_id: str = ITEM) -> str:
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    return snapshot_for_presentation(repository, vault, vault.practice_items[item_id], clock=CLOCK)
+
+
+def _submit_presented(vault, repository, client, version_id: str, answer: str = ALTERNATIVE):
+    from learnloop.attempts.attempts import AttemptDraft, complete_attempt_with_ai_required
+
+    draft = AttemptDraft(practice_item_id=ITEM, learner_answer_md=answer, attempt_type="independent_attempt",
+                         assessment_contract_version_id=version_id)
+    return complete_attempt_with_ai_required(vault, repository, draft, runtime=ReadyRuntime(), ai_client=client)
+
+
+def test_the_contract_snapshots_the_required_method_and_its_hash_moves_with_it(tmp_path):
+    from learnloop.learner.assessment_contracts import compile_assessment_contract, contract_hash
+
+    _paths, vault, _repository = _method_vault(tmp_path, seed=False)
+    item = vault.practice_items[ITEM]
+    contract = compile_assessment_contract(vault, item)
+    assert contract["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
+    widened = item.model_copy(update={
+        "required_method": item.required_method.model_copy(update={"criterion_ids": ["setup", "result"]})})
+    # Changing only the required method is a new contract.
+    assert contract_hash(compile_assessment_contract(vault, widened)) != contract_hash(contract)
+    # An item without one snapshots exactly as before: no key at all.
+    assert "required_method" not in compile_assessment_contract(vault, vault.practice_items["pi_svd_compute_002"])
+
+
+def test_a_submission_is_graded_under_the_presented_contracts_required_method(tmp_path):
+    """Presented with the method on ``setup``; an accepted repair then widens it
+    to ``result`` too, prompt unchanged. The answer is graded under the
+    snapshot it was presented with."""
+
+    paths, vault, repository = _method_vault(tmp_path)
+    version_id = _present(vault, repository)
+    _set_required_method(paths, ("setup", "result"))
+    vault = load_vault(paths.root)
+    result = _submit_presented(vault, repository, DivergentGrader(), version_id)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert rule["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
+
+
+def test_a_snapshot_without_a_required_method_never_acquires_one(tmp_path):
+    """The prompt the learner answered already reads like a requirement, but
+    the item had no required method when it was presented; one added later
+    (prompt unchanged) never reaches that answer's grade."""
+
+    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    prompt = f"Write the SVD of A using {METHOD}."
+    path = paths.practice_item_path("linear-algebra", ITEM)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["prompt"] = prompt
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    vault = load_vault(paths.root)
+    version_id = _present(vault, repository)
+    _set_required_method(paths, ("setup",), prompt=prompt)
+    vault = load_vault(paths.root)
+    assert vault.practice_items[ITEM].required_method is not None
+    result = _submit_presented(vault, repository, DivergentGrader(), version_id)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert "required_method" not in rule and rule["unlocated_criterion_ids"] == ["setup"]
+
+
+def test_a_regrade_never_acquires_a_required_method_added_after_the_answer(tmp_path):
+    """An unrestricted item is answered by another route (the unquoted
+    mark-down unassessed); a repair then makes it a method item (prompt and
+    field). A regrade grades the answer against the contract it was graded
+    under, so it is not failed for bypassing the new method."""
+
+    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    assert "required_method" not in _support(repository, result.attempt_id)["proof_route_check"]
+    _require_method(paths)
+    vault = load_vault(paths.root)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=DivergentGrader(), grading_source="ai", clock=CLOCK)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert "required_method" not in rule
+    assert rule["unlocated_criterion_ids"] == ["setup"] and rule.get("method_route_criterion_ids") is None
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert unassessed_evidence_row(rows["setup"].attribution_json)

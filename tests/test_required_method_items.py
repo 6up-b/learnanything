@@ -29,10 +29,11 @@ from learnloop.vault.required_method import (
     ensure_method_instruction,
     inherit_required_method,
     method_phrase,
+    method_statement,
     method_targets,
     names_match,
     normalize_required_method,
-    prompt_states_method,
+    prompt_requires_method,
     required_method_instruction,
     required_method_problems,
 )
@@ -82,12 +83,97 @@ def test_an_item_without_a_required_method_serializes_and_hashes_as_before():
 
 def test_the_explicit_instruction():
     assert required_method_instruction("cofactor  expansion") == "Use cofactor expansion in your answer."
-    assert prompt_states_method("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
-    assert not prompt_states_method("Compute det(A).", "cofactor expansion")
+    assert prompt_requires_method("Compute det(A) by Cofactor   Expansion.", "cofactor expansion")
+    assert not prompt_requires_method("Compute det(A).", "cofactor expansion")
     assert ensure_method_instruction("Compute det(A).", "cofactor expansion") == (
         "Compute det(A).\n\nUse cofactor expansion in your answer.")
     assert ensure_method_instruction("Use cofactor expansion to compute det(A).", "cofactor expansion") == (
         "Use cofactor expansion to compute det(A).")
+
+
+# Review F2: naming a method is not requiring it.
+METHOD_STATEMENTS = [
+    ("Compute det(A). Use cofactor expansion in your answer.", "required"),
+    ("Compute det(A) by cofactor expansion along the first row.", "required"),
+    ("Using cofactor expansion, compute det(A).", "required"),
+    ("Apply cofactor-expansion to the first row.", "required"),
+    ("Use cofactor expansion, not row reduction.", "required"),
+    ("Compute det(A), which is not zero, using cofactor expansion.", "required"),
+    ("You may use cofactor expansion or any other method.", "contradicted"),
+    ("Compute det(A) without cofactor expansion.", "contradicted"),
+    ("Do not use cofactor expansion.", "contradicted"),
+    ("Use row reduction instead of cofactor expansion.", "contradicted"),
+    ("Compute det(A), e.g. by cofactor expansion.", "contradicted"),
+    ("Use cofactor expansion or row reduction.", "contradicted"),
+    ("Use row reduction or cofactor expansion.", "contradicted"),
+    ("Cofactor expansion is not allowed here.", "contradicted"),
+    ("Use cofactor expansion if you like.", "contradicted"),
+    ("Compute det(A). Use cofactor expansion in your answer. You can also skip cofactor expansion.", "contradicted"),
+    ("Compute det(A) by cofactor expansion along the first row, or by any other method you like.", "contradicted"),
+    ("Use cofactor expansion (or any equivalent method).", "contradicted"),
+    ("Use any method, for example cofactor expansion.", "contradicted"),
+    ("Compute det(A) using cofactor expansion or another valid approach.", "contradicted"),
+    ("Use cofactor expansion to decide whether det(A) is zero or some other value.", "required"),
+    ("Use cofactor expansion along the first row or any other row.", "required"),
+    ("Explain why cofactor expansion along any row gives the same value.", "mentioned"),
+    ("Cofactor expansion is one way to compute a determinant. Compute det(A).", "mentioned"),
+    ("Compute det(A).", "absent"),
+]
+
+
+@pytest.mark.parametrize("prompt, expected", METHOD_STATEMENTS, ids=[expected + ":" + prompt[:40]
+                                                                     for prompt, expected in METHOD_STATEMENTS])
+def test_a_mention_is_not_a_requirement(prompt, expected):
+    assert method_statement(prompt, "cofactor expansion") == expected
+    assert prompt_requires_method(prompt, "cofactor expansion") == (expected == "required")
+
+
+def test_the_writers_require_an_affirmative_statement(vault_paths):
+    """A generated prompt that only mentions the method gets the explicit
+    instruction; one that negates it or leaves it optional loses the
+    requirement (an instruction would contradict it); a source statement
+    that only mentions it is never rewritten, so the requirement is dropped."""
+
+    vault = load_vault(vault_paths.root)
+    targets = method_targets(vault, learning_object_id="lo_cofactor")
+    rubric = {"criteria": [{"id": "method"}, {"id": "result"}]}
+
+    def payload(prompt):
+        return {"prompt": prompt, "grading_rubric": rubric,
+                "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
+
+    mentioned = payload("Explain why cofactor expansion along any row gives det(A).")
+    assert normalize_required_method(mentioned, targets) == ["required_method:instruction_added"]
+    assert mentioned["prompt"].endswith("\n\nUse cofactor expansion in your answer.")
+    for prompt in ("You may use cofactor expansion or any other method.", "Compute det(A) without cofactor expansion."):
+        contradicted = payload(prompt)
+        assert normalize_required_method(contradicted, targets) == ["required_method:dropped_prompt_contradicts_it"]
+        assert contradicted["prompt"] == prompt and "required_method" not in contradicted
+    source = payload("Cofactor expansion computes det(A) for A = [[1, 2], [3, 4]].")
+    assert normalize_required_method(source, targets, source_statement=True) == [
+        "required_method:dropped_source_statement_does_not_state_it"]
+    stated_source = payload("Using cofactor expansion, compute det(A).")
+    assert normalize_required_method(stated_source, targets, source_statement=True) == []
+    assert stated_source["required_method"]["name"] == "cofactor expansion"
+    # A variant whose stem leaves the method open is noted (doctor reports it).
+    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+                   required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
+    variant = {"prompt": "Compute det(B) with any method, for example cofactor expansion."}
+    assert "required_method:prompt_contradicts_it" in inherit_required_method(variant, parent)
+
+
+def test_validation_reports_a_requirement_its_prompt_contradicts():
+    rubric = Rubric.model_validate({"criteria": [
+        {"id": "method", "points": 2, "description": "Uses cofactor expansion along the first row."},
+        {"id": "result", "points": 2, "description": "Establishes det(A) = 13."},
+    ]})
+    method = {"name": "cofactor expansion", "criterion_ids": ["method"]}
+    codes = lambda prompt: [p.code for p in required_method_problems(  # noqa: E731
+        _item(prompt=prompt, required_method=method), rubric)]
+    assert codes("You may use cofactor expansion or any other method.") == ["required_method:contradicted"]
+    assert codes("Compute det(A) without cofactor expansion.") == ["required_method:contradicted"]
+    assert codes("Explain why cofactor expansion works, then compute det(A).") == ["required_method:not_stated"]
+    assert codes("Compute det(A). Use cofactor expansion in your answer.") == []
 
 
 @pytest.mark.parametrize("description, method", [
@@ -369,7 +455,7 @@ def test_an_authoring_proposal_keeps_a_required_method_only_on_a_method_target(v
     assert (item.required_method is not None) == kept
     if kept:
         assert item.required_method.concept_id == "cofactor_expansion"
-        assert prompt_states_method(item.prompt, item.required_method.name)
+        assert prompt_requires_method(item.prompt, item.required_method.name)
 
 
 # -- generation: the other writers ---------------------------------------------------------
@@ -412,29 +498,71 @@ def test_synthesis_keeps_a_required_method_only_on_a_procedure_target(vault_path
     assert method_targets(view, learning_object_id="lo_cofactor")[0].concept_id == "cofactor_expansion"
 
 
-@pytest.mark.parametrize("name, kept, note", [
-    ("singular value decomposition", True, None),
-    ("SVD", False, "required_method:dropped_source_statement_does_not_state_it"),
-    ("Gram-Schmidt", False, "required_method:dropped_unmatched_target"),
-], ids=["stated", "not_stated", "not_the_target"])
-def test_an_imported_exercise_keeps_a_required_method_only_when_its_statement_states_it(tmp_path, name, kept, note):
+REQUIRING_STATEMENT = "Using singular value decomposition, write A as U Sigma V transpose."
+
+
+def _setup_requiring_statement(tmp_path):
+    """``tests.test_reader_guidance._setup`` with a source statement that
+    REQUIRES the method (review F2: a statement that only names it does not)."""
+
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+
+    from tests.test_source_inventory import _persist, _register_revision
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    _register_revision(repository, source_id="src1", revision_id="rev1")
+    blocks = [DocumentBlock.build(span_id="s1", block_type="Text", text=REQUIRING_STATEMENT, ordinal=0, page=1,
+                                  section_path=["SVD"])]
+    ir = DocumentIR(
+        extractor="marker", extractor_version="1",
+        units=[DocumentUnit(unit_id="u1", label="SVD", ordinal=0, semantic_hash="sha256:svd", page_start=1,
+                            page_end=1, span_ids=["s1"])],
+        blocks=blocks, assets=[], health=ExtractionHealth(),
+    )
+    _persist(repository, ir, revision_id="rev1", extraction_id="ext1")
+    return repository
+
+
+@pytest.mark.parametrize("name, requiring, kept, note", [
+    ("singular value decomposition", True, True, None),
+    ("singular value decomposition", False, False, "required_method:dropped_source_statement_does_not_state_it"),
+    ("SVD", False, False, "required_method:dropped_source_statement_does_not_state_it"),
+    ("Gram-Schmidt", False, False, "required_method:dropped_unmatched_target"),
+], ids=["required", "only_named", "not_stated", "not_the_target"])
+def test_an_imported_exercise_keeps_a_required_method_only_when_its_statement_states_it(
+        tmp_path, name, requiring, kept, note):
     """Source exercise authoring/imports: the book's statement is never
     rewritten, so a required method is kept only when the statement itself
-    names it and the mapped object is that method."""
+    requires it (naming it is not enough: review F2) and the mapped object is
+    that method."""
 
+    from learnloop.content.authoring import exercise_authoring as EX
     from learnloop.content.authoring.ai_contracts import ExerciseAuthoring
     from learnloop.content.proposals.ai_contracts import RequiredMethodPayload
 
     from tests.test_exercise_authoring import FakeClient, _item as exercise_item, _run, _write_facet_registry
     from tests.test_reader_guidance import _setup
 
-    _vault, repository = _setup(tmp_path)
-    _write_facet_registry(tmp_path)
-    entry = exercise_item(required_method=RequiredMethodPayload(name=name, criterion_ids=["factorization"]))
-    result = _run(tmp_path, repository, FakeClient(ExerciseAuthoring(items=[entry])))
+    method = RequiredMethodPayload(name=name, criterion_ids=["factorization"])
+    if requiring:
+        repository = _setup_requiring_statement(tmp_path)
+        _write_facet_registry(tmp_path)
+        statement = "Using singular value decomposition, write A"
+        entry = exercise_item(required_method=method, statement_md=statement)
+        result = EX.import_exercises(
+            tmp_path / "vault", repository, FakeClient(ExerciseAuthoring(items=[entry])), extraction_id="ext1",
+            raw_selection={"nodes": [{"spanId": "s1", "quote": statement}]}, source_id="src1",
+        )
+    else:
+        _vault, repository = _setup(tmp_path)
+        _write_facet_registry(tmp_path)
+        statement = "singular value decomposition writes A"
+        entry = exercise_item(required_method=method)
+        result = _run(tmp_path, repository, FakeClient(ExerciseAuthoring(items=[entry])))
     [summary] = result["items"]
     item = load_vault(tmp_path / "vault").practice_items[summary["practice_item_id"]]
-    assert item.prompt == "singular value decomposition writes A"  # never rewritten
+    assert item.prompt == statement  # never rewritten
     if kept:
         assert item.required_method is not None and item.required_method.criterion_ids == ["factorization"]
         assert item.required_method.concept_id == "singular_value_decomposition"

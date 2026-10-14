@@ -12,17 +12,30 @@ items' criteria against the rule and drafts repairs; it rewrites nothing.
    (fact / method), on ``ai.routing.rubric_phrasing_judge`` when it names a
    decider profile, or the code-default ``openrouter_decider`` profile when
    the route is unset and that profile is ready;
-2. else **the LLM judge** (``llm``): one structured call per item on the same
-   route (a chat profile, or ``ai.active_provider`` when unset) that also
-   writes each method-phrased criterion's fact phrasing;
+2. else **the LLM judge** (``llm``): one structured call per item on the
+   chat route (the route's chat profile; when the route is unset or names a
+   decider, the serving chat provider: ``LEARNLOOP_AI_PROVIDER``, else
+   ``ai.active_provider``) that also writes each method-phrased criterion's
+   fact phrasing;
 3. else **the conservative heuristic** (``heuristic``,
    :func:`learnloop.vault.required_method.method_phrase`): an explicit method
    verb with a method noun. It misses criteria that presuppose a method
    without naming it ("computes each 2x2 minor").
 
-``--judge`` forces one. Every Decider and LLM verdict is appended to
-``judgment_ledger`` (task ``rubric_method_phrasing``); every paid request is
-admitted against the caps before it is sent and leaves a receipt.
+``--judge`` forces one. After the Decider, the same chat route (the
+**writer**, resolved apart from the judge and required to serve isolated
+structured completions, so a Decider is never the writer; review F4) reads the
+flagged items again and writes the fact phrasings. A reading must cover
+exactly the item's criteria, once each; anything else is an incomplete
+judgment, never a fact verdict (review F5). Every Decider and LLM verdict,
+the writer's included (its own model, prompt version and input hash; review
+F6), is appended to ``judgment_ledger`` (task ``rubric_method_phrasing``); a
+required method's own criteria are fact by design and are not judged. Every
+paid request is admitted against the caps before it is sent and leaves a
+receipt; a writer that fails or is refused leaves the Decider's paid flags
+with labelled deterministic drafts. ``--dry-run`` plans the classification
+and every possible rewrite from configuration alone, with their estimated
+cost (review F7).
 
 **The repairs** (``--propose``) go through the normal proposal/confirm path:
 one ``update`` proposal per item (``learnloop proposals ...`` lists, accepts or
@@ -41,9 +54,15 @@ rejects it; an update is never auto-applied), purpose
   accepting).
 
 No practised item is rewritten silently: nothing is applied until the owner
-accepts the proposal. An accepted repair changes the item's rubric (and
-prompt) hash, so its next presentation snapshots a new assessment contract;
-attempts already graded keep the contract they were graded against.
+accepts the proposal. Each update carries the item's content hash
+(``expected_target_hash``): an item changed after the report (a criterion's
+weight, a dependency) is refused at acceptance, never overwritten with the
+stale rubric; run the report again (review F3). An accepted repair changes
+the item's rubric (and prompt, and required method) and so its assessment
+contract: its next presentation snapshots a new one, and attempts already
+graded keep the contract (and required method) they were graded against.
+A required method is added only where the prompt does not negate the
+method or leave it optional (the instruction would contradict it).
 """
 
 from __future__ import annotations
@@ -51,6 +70,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import os
 import re
 from collections import Counter
 from contextlib import closing
@@ -61,10 +81,15 @@ from typing import Any, Callable, Literal, Mapping, Sequence
 from pydantic import Field
 
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendCaps
-from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
+from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded, is_subscription_transport
+from learnloop.ai.transport import (
+    ISOLATED_TURN,
+    STRUCTURED_COMPLETION,
+    execute_structured_operation,
+    render_structured_prompt,
+)
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.config.schema import DEFAULT_DECIDER_PROVIDER
+from learnloop.config.schema import DECIDER_PROFILE_TYPE, DEFAULT_DECIDER_PROVIDER
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
@@ -78,9 +103,10 @@ from learnloop.vault.required_method import (
     best_target,
     ensure_method_instruction,
     method_phrase,
+    method_statement,
     method_targets,
     names_match,
-    prompt_states_method,
+    prompt_requires_method,
 )
 
 REPORT_VERSION = "method-phrasing-report-v1"
@@ -204,12 +230,18 @@ class JudgeRoute:
     reason: str = ""
     #: The LLM client that writes fact phrasings for a Decider's flags, if any.
     writer: Any | None = None
+    #: The profile the writer was resolved from.
+    writer_provider: str | None = None
     tried: list[dict[str, Any]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
-        return {"kind": self.kind, "provider": self.provider, "model": self.model, "reason": self.reason,
-                "rewrites": "llm" if (self.kind == "llm" or self.writer is not None) else "deterministic_draft",
-                "tried": list(self.tried)}
+        out = {"kind": self.kind, "provider": self.provider, "model": self.model, "reason": self.reason,
+               "rewrites": "llm" if (self.kind == "llm" or self.writer is not None) else "deterministic_draft",
+               "tried": list(self.tried)}
+        if self.kind == "decider":
+            out["writer"] = self.writer_provider if self.writer is not None else None
+            out["writer_model"] = getattr(self.writer, "model", None) if self.writer is not None else None
+        return out
 
 
 def _route_names(vault: LoadedVault) -> tuple[str | None, str | None]:
@@ -225,11 +257,78 @@ def _route_names(vault: LoadedVault) -> tuple[str | None, str | None]:
     return None, configured
 
 
+def writer_name(vault: LoadedVault) -> str | None:
+    """The chat profile that judges as the LLM judge and writes fact phrasings.
+
+    The route's own chat profile when it names one; when it is unset or names
+    a decider, the serving chat provider (``LEARNLOOP_AI_PROVIDER``, else
+    ``ai.active_provider``), resolved apart from the judge so a Decider on the
+    route is never the writer (review F4). A decider or embedding profile is
+    never a writer (None).
+    """
+
+    from learnloop.ai.routing import is_generation_profile
+
+    _decider, chat = _route_names(vault)
+    name = chat or (os.environ.get("LEARNLOOP_AI_PROVIDER") or "").strip() or (
+        vault.config.ai.active_provider or "").strip()
+    if not name or not is_generation_profile(vault.config, name):
+        return None
+    return name
+
+
+def can_write(client: Any) -> bool:
+    """Can ``client`` serve the writer's call (an isolated structured completion)?"""
+
+    supports = getattr(client, "supports", None)
+    return (
+        client is not None
+        and getattr(client, "provider_type", None) != DECIDER_PROFILE_TYPE
+        and callable(supports)
+        and bool(supports(STRUCTURED_COMPLETION))
+        and bool(supports(ISOLATED_TURN))
+    )
+
+
 def _ready(vault: LoadedVault, name: str | None) -> Any | None:
     from learnloop.ai.routing import ready_client_for_task
 
+    if name is None:
+        return None
     resolved = ready_client_for_task(vault.root, vault.config, ROUTE, explicit=name)
     return resolved.client if resolved.ready else None
+
+
+def _ready_writer(vault: LoadedVault, injected: Mapping[str, Any]) -> tuple[Any | None, str | None]:
+    """(the writer client, its profile), or (None, profile) when none can write.
+
+    An unset route resolves as the task route always did (the serving chat
+    provider, with ``ai.fallback_provider``); a route naming a chat profile
+    uses that profile; a route naming a decider uses the serving chat
+    provider explicitly, then the fallback provider when that is not ready.
+    """
+
+    from learnloop.ai.routing import is_generation_profile, ready_client_for_task
+
+    name = writer_name(vault)
+    if "llm" in injected:
+        client = injected.get("llm")
+    else:
+        configured = (getattr(vault.config.ai.routing, ROUTE, None) or "").strip()
+        _decider, chat = _route_names(vault)
+        if not configured:
+            resolved = ready_client_for_task(vault.root, vault.config, ROUTE)
+            client = resolved.client if resolved.ready else None
+        elif chat is not None:
+            client = _ready(vault, chat)
+        else:
+            client = _ready(vault, name)
+            fallback = (vault.config.ai.fallback_provider or "").strip()
+            if client is None and fallback and fallback != name and is_generation_profile(vault.config, fallback):
+                client, name = _ready(vault, fallback), fallback
+    if not can_write(client):
+        return None, name
+    return client, getattr(client, "provider_name", None) or name
 
 
 def resolve_judge(vault: LoadedVault, requested: str = "auto", *, clients: Mapping[str, Any] | None = None) -> JudgeRoute:
@@ -241,29 +340,27 @@ def resolve_judge(vault: LoadedVault, requested: str = "auto", *, clients: Mappi
     tried: list[dict[str, Any]] = []
     if requested == "heuristic":
         return JudgeRoute("heuristic", reason="requested", tried=tried)
-    decider_name, chat_name = _route_names(vault)
+    decider_name, _chat_name = _route_names(vault)
     if requested in ("auto", "decider"):
         client = injected.get("decider")
         if client is None and decider_name is not None and "decider" not in injected:
             client = _ready(vault, decider_name)
         tried.append({"judge": "decider", "provider": decider_name, "ready": client is not None})
         if client is not None:
-            writer = injected.get("llm")
-            if writer is None and "llm" not in injected:
-                writer = _ready(vault, chat_name)
+            # The writer is resolved apart from the judge (review F4): the
+            # route's chat profile, else the serving chat provider; never the
+            # Decider the route names.
+            writer, writer_provider = _ready_writer(vault, injected)
             return JudgeRoute("decider", provider=getattr(client, "provider_name", None) or decider_name,
                               model=getattr(client, "model", None), client=client,
                               reason="requested" if requested == "decider" else "the Decider is ready",
-                              writer=writer, tried=tried)
+                              writer=writer, writer_provider=writer_provider, tried=tried)
         if requested == "decider":
             raise RuntimeError(f"the Decider ({decider_name or 'no decider profile on ai.routing.rubric_phrasing_judge'}) is not ready")
-    client = injected.get("llm")
-    if client is None and "llm" not in injected:
-        client = _ready(vault, chat_name)
-    tried.append({"judge": "llm", "provider": chat_name or "ai.active_provider", "ready": client is not None})
+    client, provider = _ready_writer(vault, injected)
+    tried.append({"judge": "llm", "provider": provider or "ai.active_provider", "ready": client is not None})
     if client is not None:
-        return JudgeRoute("llm", provider=getattr(client, "provider_name", None) or chat_name,
-                          model=getattr(client, "model", None), client=client,
+        return JudgeRoute("llm", provider=provider, model=getattr(client, "model", None), client=client,
                           reason="requested" if requested == "llm" else "no Decider is ready; the LLM judge is",
                           tried=tried)
     if requested == "llm":
@@ -289,12 +386,27 @@ class CriterionReading:
     #: When the Decider flagged it, the LLM writer's own reading (``fact``
     #: means the two judges disagree; its repair is then only a draft).
     writer_reading: str | None = None
+    #: The writer's own verdict in ``judgment_ledger`` (review F6).
+    writer_judgment_id: str | None = None
+    #: Why the writer gave no reading (its call failed or was refused): the
+    #: Decider's flag stands, with a deterministic draft.
+    writer_error: str | None = None
+    #: ``required_method``: the item's required method's own criterion, fact
+    #: by design and never judged (so never ledgered as a verdict).
+    rule: str | None = None
     #: The item's capability, for the owner's context (a method-selection
     #: item measures the choice, so its criteria deserve a careful look).
     capability: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {key: value for key, value in self.__dict__.items() if value is not None}
+
+    def judgment_ids(self) -> list[str]:
+        return [value for value in (self.judgment_id, self.writer_judgment_id) if value]
+
+
+class IncompleteJudgment(ValueError):
+    """A judge's reading that does not cover exactly the item's criteria, once each."""
 
 
 def candidate_items(vault: LoadedVault, item_ids: Sequence[str] | None = None) -> list[PracticeItem]:
@@ -396,31 +508,60 @@ def _input_hash(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode("utf-8")).hexdigest()
 
 
-def _ledger(repository: Repository, readings: Sequence[CriterionReading], *, judge: JudgeRoute,
-            prompt_version: str, input_hash: str, now: str) -> None:
+def _ledger(repository: Repository, readings: Sequence[CriterionReading], *, judge: str, judge_model: Any,
+            prompt_version: str, input_hash: str, now: str, writer: bool = False) -> None:
+    """Append each JUDGED reading's verdict and keep its id (a required
+    method's own criterion, fact by design, is not a verdict). ``writer``
+    marks the writer's verdicts after a Decider (review F6)."""
+
     from learnloop.db.stores.judgments import append_judgment
 
     with closing(connect(repository.sqlite_path)) as connection:
         with connection:
             for reading in readings:
+                if reading.rule is not None:
+                    continue
                 verdict = {"phrased_by": reading.phrased_by, "method": reading.method,
                            "fact_phrasing": reading.fact_phrasing}
-                reading.judgment_id = append_judgment(
+                judgment_id = append_judgment(
                     connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT_KIND,
-                    left_id=f"{reading.item_id}#{reading.criterion_id}", judge=judge.kind,
-                    judge_model=str(judge.model or "unknown"), prompt_version=prompt_version,
+                    left_id=f"{reading.item_id}#{reading.criterion_id}", judge=judge,
+                    judge_model=str(judge_model or "unknown"), prompt_version=prompt_version,
                     input_hash=input_hash, verdict=json.dumps(verdict, sort_keys=True),
                     score=reading.probability, rationale=(
-                        f"{judge.kind}: {reading.phrased_by}"
+                        f"{judge}{' (writer)' if writer else ''}: {reading.phrased_by}"
                         + (f" ({reading.method})" if reading.method else "")
                     ),
                     created_at=now,
                 )
+                reading.judgment_id = judgment_id
+
+
+def _check_coverage(item: PracticeItem, returned: Sequence[str]) -> None:
+    """Exactly the item's criteria, once each (review F5): a missing,
+    duplicated or unknown id is an incomplete judgment, never a verdict."""
+
+    expected = [criterion.id for criterion in item.grading_rubric.criteria]
+    counts = Counter(str(value) for value in returned)
+    missing = [cid for cid in expected if cid not in counts]
+    duplicated = sorted(cid for cid, count in counts.items() if count > 1)
+    unknown = sorted(set(counts) - set(expected))
+    if missing or duplicated or unknown:
+        raise IncompleteJudgment(
+            f"{item.id}: the reading must cover each criterion once "
+            f"(missing {missing}, duplicated {duplicated}, unknown {unknown})"
+        )
 
 
 def llm_readings(item: PracticeItem, targets: Sequence[MethodTarget], client: Any, budget: _Budget,
                  *, only: set[str] | None = None) -> tuple[list[CriterionReading], str]:
-    """One structured call: every criterion's phrasing (and the rewrites)."""
+    """One structured call: every criterion's phrasing (and the rewrites).
+
+    Raises :class:`IncompleteJudgment` unless the reading covers exactly the
+    item's criteria, once each (review F5). A required method's own criteria
+    are read as ``fact`` by design (``rule = required_method``), whatever the
+    model said.
+    """
 
     prompt = judge_prompt(item, item.grading_rubric, targets)
     budget.register_llm(client)
@@ -430,15 +571,17 @@ def llm_readings(item: PracticeItem, targets: Sequence[MethodTarget], client: An
             result = execute_structured_operation(
                 client, purpose=LLM_PURPOSE, prompt=prompt, result_model=RubricPhrasingReading, isolated=True,
             )
+    _check_coverage(item, [row.criterion_id for row in result.criteria])
     by_id = {row.criterion_id: row for row in result.criteria}
     readings: list[CriterionReading] = []
     for criterion in item.grading_rubric.criteria:
         if only is not None and criterion.id not in only:
             continue
-        row = by_id.get(criterion.id)
-        if row is None or criterion.id in _required_ids(item):
-            readings.append(CriterionReading(item.id, criterion.id, criterion.description, "fact", "llm"))
+        if criterion.id in _required_ids(item):
+            readings.append(CriterionReading(item.id, criterion.id, criterion.description, "fact", "llm",
+                                             rule="required_method"))
             continue
+        row = by_id[criterion.id]
         method = row.phrased_by == "method"
         phrasing = " ".join(str(row.fact_phrasing or "").split()) or None
         readings.append(CriterionReading(
@@ -450,22 +593,26 @@ def llm_readings(item: PracticeItem, targets: Sequence[MethodTarget], client: An
 
 
 def decider_readings(item: PracticeItem, client: Any, budget: _Budget) -> tuple[list[CriterionReading], str]:
-    """One Decider request: a choice question per criterion."""
+    """One Decider request: a choice question per criterion (a required
+    method's own criteria are not asked: fact by design)."""
 
     criteria = [criterion for criterion in item.grading_rubric.criteria if criterion.id not in _required_ids(item)]
     state = decider_state(item, item.grading_rubric)
     readings = [
-        CriterionReading(item.id, criterion.id, criterion.description, "fact", "decider")
+        CriterionReading(item.id, criterion.id, criterion.description, "fact", "decider", rule="required_method")
         for criterion in item.grading_rubric.criteria if criterion.id in _required_ids(item)
     ]
     if not criteria:
         return readings, _input_hash({"state": state})
     questions = {f"c{index}": decider_question(criterion) for index, criterion in enumerate(criteria)}
     budget.register_decider(client)
-    tokens = _estimate_tokens(state) + DECIDER_QUESTION_TOKENS * len(questions)
+    tokens = _decider_tokens(item)
     with budget.spend.collector.observing():
         with budget.spend.request(DECIDER_ROUTE, LLM_PURPOSE, input_tokens=tokens, output_tokens=0):
             result = client.decide(state, questions, purpose=LLM_PURPOSE)
+    missing = [key for key in questions if key not in result.answers]
+    if missing:
+        raise IncompleteJudgment(f"{item.id}: the Decider answered no question for {missing}")
     for index, criterion in enumerate(criteria):
         answer = result.answers[f"c{index}"]
         probabilities = {str(key): float(value) for key, value in dict(getattr(answer, "probabilities", {}) or {}).items()}
@@ -479,6 +626,16 @@ def decider_readings(item: PracticeItem, client: Any, budget: _Budget) -> tuple[
     order = {criterion.id: index for index, criterion in enumerate(item.grading_rubric.criteria)}
     readings.sort(key=lambda reading: order.get(reading.criterion_id, 0))
     return readings, _input_hash({"state": state, "questions": sorted(questions), "set": DECIDER_QUESTION_SET})
+
+
+def _judged_criteria(item: PracticeItem) -> int:
+    return sum(1 for criterion in item.grading_rubric.criteria if criterion.id not in _required_ids(item))
+
+
+def _decider_tokens(item: PracticeItem) -> int:
+    """The input tokens one Decider request for ``item`` is admitted with."""
+
+    return _estimate_tokens(decider_state(item, item.grading_rubric)) + DECIDER_QUESTION_TOKENS * _judged_criteria(item)
 
 
 # -- repairs ------------------------------------------------------------------------
@@ -499,14 +656,22 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
 
     Each method-phrased criterion becomes the item's required method's
     criterion when the item's target really is that method (by metadata, and
-    the criterion's method names the target: ``names_match``), else is
-    rephrased by fact. At most one required method per item; an item that
-    already has one only gains criteria naming that method. The required
-    method takes the target's own name (or alias). A teach-back item never
-    gains one (it explains, it does not execute), and a textbook exercise
-    only when its verbatim statement already names the method (the
-    statement is never rewritten).
+    the criterion's method names the target: ``names_match``) and the prompt
+    does not negate that method or leave it optional (the instruction would
+    contradict it: review F2), else is rephrased by fact. At most one
+    required method per item; an item that already has one only gains
+    criteria naming that method. The required method takes the target's own
+    name (or alias). A teach-back item never gains one (it explains, it does
+    not execute), and a textbook exercise only when its verbatim statement
+    already requires the method (the statement is never rewritten).
+
+    The payload carries the item's content hash (``expected_target_hash``,
+    review F3): acceptance refuses it if the item changed after this report.
+    Each action lists the ledger verdicts it rests on (``judgment_ids``:
+    the Decider's, then the writer's; review F6).
     """
+
+    from learnloop.content.proposals.patches import compute_target_hash
 
     flagged = [reading for reading in readings if reading.phrased_by == "method"]
     if not flagged:
@@ -516,11 +681,11 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
         capability=item.capability,
     )
     if _source_statement(item):
-        # Only names the verbatim statement already states, so the repair
+        # Only names the verbatim statement already requires, so the repair
         # never appends an instruction to the book's text.
         stated_targets = []
         for target in targets:
-            stated = [name for name in target.names() if prompt_states_method(item.prompt, name)]
+            stated = [name for name in target.names() if prompt_requires_method(item.prompt, name)]
             if stated:
                 stated_targets.append(dataclasses.replace(target, name=stated[0], aliases=tuple(stated[1:])))
         targets = stated_targets
@@ -533,15 +698,23 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
     for reading in flagged:
         named = reading.method or ""
         target = best_target(named, targets) if named else None
+        contradicted = None
         if target is not None and (method_name is None or names_match(named, method_name)):
-            if method_name is None:
-                # The target's own name (or alias), never a model's long paraphrase.
-                method_name, method_target = target.matching_name(named) or target.name, target
-            if reading.criterion_id not in method_criteria:
-                method_criteria.append(reading.criterion_id)
-            actions.append({"criterion_id": reading.criterion_id, "action": "add_required_method",
-                            "method": method_name, "target": target.as_context()})
-            continue
+            # The target's own name (or alias), never a model's long paraphrase.
+            candidate = method_name or target.matching_name(named) or target.name
+            if method_statement(item.prompt, candidate) == "contradicted":
+                contradicted = candidate
+            else:
+                if method_name is None:
+                    method_name, method_target = candidate, target
+                if reading.criterion_id not in method_criteria:
+                    method_criteria.append(reading.criterion_id)
+                action = {"criterion_id": reading.criterion_id, "action": "add_required_method",
+                          "method": method_name, "target": target.as_context()}
+                if reading.judgment_ids():
+                    action["judgment_ids"] = reading.judgment_ids()
+                actions.append(action)
+                continue
         if reading.fact_phrasing:
             new, rewrite = reading.fact_phrasing, reading.rewrite or "llm"
         else:
@@ -555,6 +728,16 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
             # The Decider flagged it; the LLM writer read it as a fact: a draft
             # the owner should look at before accepting (or reject).
             action["judges_disagree"] = True
+        if reading.writer_error:
+            # The writer's call failed or was refused: the Decider's flag
+            # stands with a deterministic draft.
+            action["writer_error"] = reading.writer_error
+        if contradicted is not None:
+            # The target is this method, but the prompt negates it or leaves
+            # it optional: requiring it would contradict the statement.
+            action["prompt_contradicts_method"] = contradicted
+        if reading.judgment_ids():
+            action["judgment_ids"] = reading.judgment_ids()
         actions.append(action)
     payload: dict[str, Any] = {"id": item.id, "learning_object_id": item.learning_object_id, "grading_rubric": rubric}
     if method_name is not None and method_criteria and method_target is not None and (
@@ -564,12 +747,19 @@ def repair_plan(vault: LoadedVault, item: PracticeItem, readings: Sequence[Crite
         prompt = ensure_method_instruction(item.prompt, method_name)
         if prompt != item.prompt:
             payload["prompt"] = prompt
+    current = compute_target_hash(vault, "practice_item", item.id)
+    if current is not None:
+        payload["expected_target_hash"] = current
     return {"item_id": item.id, "actions": actions, "payload": payload}
 
 
 def persist_repairs(vault: LoadedVault, repository: Repository, plans: Sequence[Mapping[str, Any]], *,
                     judge: JudgeRoute, clock: Clock | None = None) -> str | None:
-    """One pending proposal batch (never auto-applied): an update per item."""
+    """One pending proposal batch (never auto-applied): an update per item.
+
+    Each row's audit (``rubric_phrasing``) names the ledger verdicts its
+    repair rests on (review F6).
+    """
 
     if not plans:
         return None
@@ -584,17 +774,24 @@ def persist_repairs(vault: LoadedVault, repository: Repository, plans: Sequence[
     })
     rows = []
     for plan in plans:
+        judgment_ids = [value for action in plan["actions"] for value in action.get("judgment_ids") or ()]
         rows.append({
             "id": new_ulid(), "client_item_id": f"method_phrasing:{plan['item_id']}",
             "item_type": "practice_item", "operation": "update",
             "target_entity_type": "practice_item", "target_entity_id": plan["item_id"],
-            "payload": plan["payload"], "source_ref_ids": [], "audit": None, "decision": "pending",
+            "payload": plan["payload"], "source_ref_ids": [],
+            "audit": {"rubric_phrasing": {
+                "report_version": REPORT_VERSION, "judge": judge.kind, "judgment_ids": judgment_ids,
+                "actions": [dict(action) for action in plan["actions"]],
+            }},
+            "decision": "pending",
             "validation_status": "valid", "validation_errors": [], "created_at": now, "updated_at": now,
         })
     summary = (
         f"Rubric criteria phrased by method ({judge.kind} judge): {len(plans)} item(s). Each update rephrases a "
         "criterion by the fact it establishes, or makes the method the item's required method with the explicit "
-        "instruction when its target is that method. Review and accept or reject; nothing is applied until then."
+        "instruction when its target is that method. Review and accept or reject; nothing is applied until then. "
+        "An item changed after this report is refused at acceptance: run the report again."
     )
     return repository.persist_proposal_batch({
         "id": new_ulid(), "agent_run_id": agent_run_id, "purpose": PROPOSAL_PURPOSE, "source_refs": [],
@@ -616,6 +813,134 @@ def _attempted_items(repository: Repository, item_ids: Sequence[str]) -> set[str
         )}
 
 
+def _profile(vault: LoadedVault, name: str | None) -> Any | None:
+    return vault.config.ai.providers.get(name) if name else None
+
+
+def plan_dry_run(
+    vault: LoadedVault,
+    items: Sequence[PracticeItem],
+    *,
+    judge: str,
+    caps: SpendCaps,
+    price_per_million: float | None = None,
+) -> dict[str, Any]:
+    """What a run would send and cost, from configuration alone (review F7).
+
+    No client is built. Each judge the run may use is planned with every
+    request it could send: the Decider's classification (one request per item
+    with a judged criterion, at its profile's listed input price) and the
+    writer's rewrites (at most one per such item: any item may be flagged),
+    or the LLM judge's one call per item. A metered route is priced at
+    ``price_per_million`` (an owner upper bound); without one its price is
+    unknown, the estimate is never rendered as zero and the plan is
+    ``refused`` (the run would refuse those requests). A subscription route
+    (Codex, the ChatGPT plan) has no marginal dollar cost: its tokens, and an
+    API-equivalent cost at ``price_per_million``, are ``estimated_only``.
+    """
+
+    spend = ReviewSpend(caps, price_per_million=price_per_million, config=vault.config)
+    decider_name, _chat = _route_names(vault)
+    writer = writer_name(vault)
+    judged = [item for item in items if _judged_criteria(item)]
+    refused: list[str] = []
+
+    def targets_of(item: PracticeItem) -> list[MethodTarget]:
+        return method_targets(vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
+                              capability=item.capability)
+
+    def llm_step(step: str, count_key: str) -> dict[str, Any]:
+        if writer is None:
+            return {"step": step, "route": ROUTE, "provider": None, count_key: 0,
+                    "note": "no chat profile can write: the Decider's flags get deterministic drafts"}
+        profile = _profile(vault, writer)
+        info = spend.register_profile(
+            ROUTE, provider=writer, model=getattr(profile, "model", None),
+            subscription=is_subscription_transport(profile=profile) if profile is not None else False,
+            max_tokens=getattr(profile, "max_tokens", None),
+        )
+        population = judged if step == "rewrite" else list(items)
+        input_tokens = sum(_estimate_tokens(judge_prompt(item, item.grading_rubric, targets_of(item)))
+                           for item in population)
+        return _priced_step(spend, info, step, count_key, len(population), input_tokens,
+                            LLM_OUTPUT_TOKENS * len(population), price_per_million, refused)
+
+    scenarios: list[dict[str, Any]] = []
+    if judge in ("auto", "decider") and decider_name is not None:
+        profile = _profile(vault, decider_name)
+        price = getattr(profile, "price_per_million_input", None)
+        info = RouteInfo(DECIDER_ROUTE, decider_name, getattr(profile, "model", None), "metered",
+                         float(price) if price is not None else None,
+                         "listed_input_price" if price is not None else "unknown", 0)
+        spend.routes[DECIDER_ROUTE] = info
+        classify = _priced_step(spend, info, "classify", "requests", len(judged),
+                                sum(_decider_tokens(item) for item in judged), 0, price_per_million, refused)
+        scenarios.append({"judge": "decider", "steps": [classify, llm_step("rewrite", "requests_at_most")]})
+    if judge in ("auto", "llm"):
+        scenarios.append({"judge": "llm", "steps": [llm_step("classify_and_rewrite", "requests")]})
+    for scenario in scenarios:
+        costs = [step.get("estimated_usd") for step in scenario["steps"] if "estimated_usd" in step]
+        scenario["estimated_usd"] = None if any(cost is None for cost in costs) else sum(costs)
+        calls = sum(step.get("requests", step.get("requests_at_most", 0)) for step in scenario["steps"])
+        tokens = sum(step.get("metered_tokens", 0) for step in scenario["steps"])
+        if scenario["estimated_usd"] is None:
+            scenario["within_caps"] = None  # an unknown price is refused per step, above
+            continue
+        try:
+            spend.check(SpendEstimate(calls=calls, total_tokens=tokens, estimated_usd=scenario["estimated_usd"]))
+            scenario["within_caps"] = True
+        except SpendLimitExceeded as exc:
+            scenario["within_caps"] = False
+            refused.append(f"{scenario['judge']}: {exc}")
+    totals = [scenario["estimated_usd"] for scenario in scenarios]
+    subscription = [step["provider"] for scenario in scenarios for step in scenario["steps"]
+                    if step.get("billing") == "subscription"]
+    estimate = {
+        # Only one judge runs; the bound is the dearest one this run may use.
+        "estimated_usd_upper_bound": None if any(total is None for total in totals) else max(totals, default=0.0),
+        "max_estimated_usd": caps.max_estimated_usd,
+        "refused": list(dict.fromkeys(refused)),
+    }
+    if subscription:
+        estimate["subscription"] = (
+            f"{', '.join(sorted(set(subscription)))} runs on the ChatGPT subscription: no marginal dollar cost; "
+            "its tokens (and an API-equivalent cost with --price-per-million) are estimated_only, and the token "
+            "and dollar caps are not enforced on it"
+        )
+    return {
+        "status": "refused" if refused else "dry_run",
+        "judge_plan": [*scenarios, {"judge": "heuristic", "requests": 0}],
+        "estimate": estimate,
+    }
+
+
+def _priced_step(spend: ReviewSpend, info: RouteInfo, step: str, count_key: str, count: int, input_tokens: int,
+                 output_tokens: int, owner_price: float | None, refused: list[str]) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "step": step, "route": info.route, "provider": info.provider, "model": info.model, "billing": info.billing,
+        "price_per_million": info.price_per_million, "price_source": info.price_source, count_key: count,
+        "input_tokens": input_tokens, "output_tokens": output_tokens,
+    }
+    if not count:
+        out["estimated_usd"] = 0.0
+        return out
+    if info.billing == "subscription":
+        out.update(
+            estimated_usd=0.0, marginal_usd=0.0, cost_basis="estimated_only",
+            api_equivalent_usd=(input_tokens + output_tokens) * owner_price / 1_000_000 if owner_price else None,
+            note="runs on the ChatGPT subscription: no marginal dollar cost; tokens are estimated_only",
+        )
+        return out
+    estimate = spend.estimate(info.route, calls=count, input_tokens=input_tokens, output_tokens=output_tokens)
+    out["estimated_usd"] = estimate.estimated_usd
+    out["metered_tokens"] = estimate.total_tokens
+    if estimate.estimated_usd is None:
+        out["refused"] = (f"unknown price for {info.route} ({info.provider}, {info.model}): pass "
+                          "--price-per-million (an upper bound); the run refuses these requests")
+        refused.append(out["refused"])
+    return out
+
+
 def run_method_phrasing(
     vault: LoadedVault,
     *,
@@ -631,6 +956,8 @@ def run_method_phrasing(
 ) -> dict[str, Any]:
     """Read the items' criteria, report the method-phrased ones, optionally propose repairs."""
 
+    if judge not in JUDGE_CHOICES:
+        raise ValueError(f"--judge must be one of {', '.join(JUDGE_CHOICES)}")
     items = candidate_items(vault, item_ids)
     caps = caps or default_caps(len(items))
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
@@ -640,17 +967,7 @@ def run_method_phrasing(
         "items": len(items), "criteria": criteria, "caps": caps.as_dict(),
     }
     if dry_run:
-        decider_name, chat_name = _route_names(vault)
-        plan = [] if judge == "heuristic" else [
-            *([{"judge": "decider", "provider": decider_name, "requests": len(items),
-                "input_tokens": sum(_estimate_tokens(decider_state(item, item.grading_rubric))
-                                    + DECIDER_QUESTION_TOKENS * len(item.grading_rubric.criteria) for item in items)}]
-              if judge in ("auto", "decider") and decider_name else []),
-            *([{"judge": "llm", "provider": chat_name or "ai.active_provider", "requests": len(items),
-                "input_tokens": sum(_estimate_tokens(judge_prompt(item, item.grading_rubric, ())) for item in items),
-                "output_tokens": LLM_OUTPUT_TOKENS * len(items)}] if judge in ("auto", "llm") else []),
-        ]
-        report["judge_plan"] = [*plan, {"judge": "heuristic", "requests": 0}]
+        report.update(plan_dry_run(vault, items, judge=judge, caps=caps, price_per_million=price_per_million))
         report["note"] = ("auto tries the Decider, then the LLM judge, then the heuristic, whichever is ready first; "
                           "a dry run builds no client and sends nothing")
         heuristic = [reading for item in items for reading in heuristic_readings(item) if reading.phrased_by == "method"]
@@ -667,6 +984,8 @@ def run_method_phrasing(
     now = utc_now_iso(clock)
     readings: list[CriterionReading] = []
     failures: Counter = Counter()
+    writer_failures: Counter = Counter()
+    writer = route.writer
     for item in items:
         if cancelled is not None and cancelled():
             break
@@ -678,31 +997,52 @@ def run_method_phrasing(
         try:
             if route.kind == "llm":
                 item_readings, input_hash = llm_readings(item, targets, route.client, budget)
-                _ledger(repository, item_readings, judge=route, prompt_version=JUDGE_PROMPT_VERSION,
-                        input_hash=input_hash, now=now)
+                _ledger(repository, item_readings, judge="llm", judge_model=route.model,
+                        prompt_version=JUDGE_PROMPT_VERSION, input_hash=input_hash, now=now)
             else:
                 item_readings, input_hash = decider_readings(item, route.client, budget)
-                _ledger(repository, item_readings, judge=route, prompt_version=DECIDER_QUESTION_SET,
-                        input_hash=input_hash, now=now)
-                flagged = {reading.criterion_id for reading in item_readings if reading.phrased_by == "method"}
-                if flagged and route.writer is not None:
-                    # The Decider judged; the LLM route writes the fact phrasings
-                    # (and names the method) of the criteria it flagged.
-                    rewrites, _ = llm_readings(item, targets, route.writer, budget, only=flagged)
-                    by_id = {row.criterion_id: row for row in rewrites}
-                    for reading in item_readings:
-                        row = by_id.get(reading.criterion_id)
-                        if reading.phrased_by == "method" and row is not None:
-                            reading.writer_reading = row.phrased_by
-                            reading.method = row.method or reading.method
-                            reading.fact_phrasing = row.fact_phrasing
-                            reading.rewrite = "llm" if row.fact_phrasing else None
+                _ledger(repository, item_readings, judge="decider", judge_model=route.model,
+                        prompt_version=DECIDER_QUESTION_SET, input_hash=input_hash, now=now)
         except Exception as exc:  # noqa: BLE001 - one item's failure is counted, never a crashed run
             if type(exc).__name__ in {"SpendLimitExceeded", "SpendCancelled", "AIInterrupted"}:
                 raise
             failures[type(exc).__name__] += 1
             report.setdefault("failed_items", []).append({"item_id": item.id, "error": type(exc).__name__})
             continue
+        flagged_readings = [reading for reading in item_readings if reading.phrased_by == "method"]
+        if route.kind == "decider" and flagged_readings and writer is not None:
+            # The Decider judged; the LLM route writes the fact phrasings (and
+            # names the method) of the criteria it flagged. Its verdicts are
+            # ledgered under its own model, prompt version and input hash
+            # (review F6); a failed or refused call leaves the Decider's paid
+            # flags with labelled deterministic drafts (review F4).
+            try:
+                rewrites, writer_hash = llm_readings(
+                    item, targets, writer, budget, only={reading.criterion_id for reading in flagged_readings},
+                )
+            except Exception as exc:  # noqa: BLE001 - the writer's failure never drops the Decider's flags
+                if type(exc).__name__ in {"SpendCancelled", "AIInterrupted"}:
+                    raise
+                writer_failures[type(exc).__name__] += 1
+                for reading in flagged_readings:
+                    reading.writer_error = type(exc).__name__
+                if isinstance(exc, SpendLimitExceeded):
+                    # Refused before sending: no further rewrite is attempted.
+                    report["writer_stopped"] = str(exc)
+                    writer = None
+            else:
+                _ledger(repository, rewrites, judge="llm", judge_model=getattr(writer, "model", None),
+                        prompt_version=JUDGE_PROMPT_VERSION, input_hash=writer_hash, now=now, writer=True)
+                by_id = {row.criterion_id: row for row in rewrites}
+                for reading in flagged_readings:
+                    row = by_id.get(reading.criterion_id)
+                    if row is None:
+                        continue
+                    reading.writer_reading = row.phrased_by
+                    reading.writer_judgment_id = row.judgment_id
+                    reading.method = row.method or reading.method
+                    reading.fact_phrasing = row.fact_phrasing
+                    reading.rewrite = "llm" if row.fact_phrasing else None
         readings.extend(item_readings)
     capabilities = {item.id: item.capability for item in items}
     for reading in readings:
@@ -723,6 +1063,8 @@ def run_method_phrasing(
         failures=dict(failures),
         spend=spend.summary(),
     )
+    if writer_failures:
+        report["writer_failures"] = dict(writer_failures)
     if propose:
         report["proposal_id"] = persist_repairs(vault, repository, plans, judge=route, clock=clock)
     return report
@@ -739,6 +1081,7 @@ def write_report(report: Mapping[str, Any], output_dir: Path) -> dict[str, str]:
 __all__ = [
     "CriterionPhrasingReading",
     "CriterionReading",
+    "IncompleteJudgment",
     "DECIDER_QUESTION_SET",
     "JUDGE_PROMPT_VERSION",
     "JudgeRoute",
@@ -754,8 +1097,11 @@ __all__ = [
     "judge_prompt",
     "llm_readings",
     "persist_repairs",
+    "plan_dry_run",
     "repair_plan",
     "resolve_judge",
     "run_method_phrasing",
+    "can_write",
     "write_report",
+    "writer_name",
 ]

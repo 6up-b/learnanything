@@ -603,7 +603,10 @@ def _complete_attempt_with_agent_fallback(
         assessment_contract=contract,
     )
     blind = (
-        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         if split_grading_active(vault)
         else None
     )
@@ -868,18 +871,22 @@ def plan_grading_calls(
         item, rubric, draft.learner_answer_md, attempt_id="planned"
     ) is not None:
         return GradingCallPlan(kind="deterministic", calls=0)
+    contract = _assessment_contract(repository, draft)
     context = build_grading_context(
         vault,
         item,
         attempt_id="planned",
         learner_answer_md=draft.learner_answer_md,
         rubric=rubric,
-        assessment_contract=_assessment_contract(repository, draft),
+        assessment_contract=contract,
     )
     if split_grading_active(vault):
         from learnloop.attempts.blind_grading import blind_grading_prompt
 
-        blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        blind = _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         return GradingCallPlan(
             kind="blind",
             calls=_blind_sample_count(vault),
@@ -941,7 +948,10 @@ def _complete_attempt_with_agent_required(
         assessment_contract=contract,
     )
     blind = (
-        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         if split_grading_active(vault)
         else None
     )
@@ -1495,12 +1505,36 @@ class _BlindGradingPlan:
     calibration_prompt_version: str
 
 
+#: ``_blind_grading_plan``'s default: grade under the item's current required
+#: method (the live doors pass the assessment contract's instead).
+_CURRENT_ITEM_METHOD: Any = object()
+
+
+def _graded_required_method(item: PracticeItem, contract: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The required method an answer is graded under (review F1).
+
+    The one its assessment contract froze when the item was presented; a
+    contract without one (the presented item required none, or the contract
+    predates method-explicit items) gives none, whatever the item says now.
+    Without a contract the submission snapshots the item as it is now, so the
+    item's current method is the presented one.
+    """
+
+    from learnloop.learner.assessment_contracts import contract_required_method
+
+    if contract is not None:
+        return contract_required_method(contract)
+    method = getattr(item, "required_method", None)
+    return {"name": method.name, "criterion_ids": list(method.criterion_ids)} if method is not None else None
+
+
 def _blind_grading_plan(
     vault: LoadedVault,
     item: PracticeItem,
     context: Any,
     *,
     stuck: bool = False,
+    required_method: Any = _CURRENT_ITEM_METHOD,
 ) -> _BlindGradingPlan:
     """The learner-blind context for one answer: item side + this answer only.
 
@@ -1515,7 +1549,9 @@ def _blind_grading_plan(
     which change the scoring rules, so they also name the calibration
     identity (``+own-route-v1``). At the method-explicit successor they are
     ``own-route-v2`` (kill switch ``required_method.enabled``) and the policy
-    also carries the item's ``required_method`` when it has one.
+    also carries the ``required_method`` the answer is graded under (review
+    F1): the doors pass the one frozen with its assessment contract
+    (:func:`_graded_required_method`); left out, it is the item's current one.
     """
 
     from learnloop.attempts.blind_grading import (
@@ -1524,6 +1560,7 @@ def _blind_grading_plan(
         blind_prompt_version,
     )
     from learnloop.attempts.grading_support import (
+        ITEM_REQUIRED_METHOD,
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
         reference_policy,
         route_rules_suffix,
@@ -1550,6 +1587,9 @@ def _blind_grading_plan(
                 item, context.learner_answer_md, route_rules=rules or False, rubric_criterion_ids=rubric_ids,
                 # The prompt the learner answered (the assessment contract's).
                 presented_prompt=context.prompt,
+                required_method=(
+                    ITEM_REQUIRED_METHOD if required_method is _CURRENT_ITEM_METHOD else required_method
+                ),
             )
             if support else None
         ),

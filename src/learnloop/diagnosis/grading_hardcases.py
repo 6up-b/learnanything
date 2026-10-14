@@ -256,9 +256,9 @@ def load_cases(path: Path | None = None) -> tuple[str, list[HardCase]]:
             raise ValueError(f"{case_id}: a valid alternative fails no criterion; every other case fails one")
         method = item.required_method
         if method is not None:
-            from learnloop.vault.required_method import prompt_states_method
+            from learnloop.vault.required_method import prompt_requires_method
 
-            if not prompt_states_method(item.prompt, method.name):
+            if not prompt_requires_method(item.prompt, method.name):
                 raise ValueError(f"{case_id}: its prompt does not state its required method {method.name!r}")
             if set(method.criterion_ids) - criterion_ids:
                 raise ValueError(f"{case_id}: required method criteria not in its rubric")
@@ -471,19 +471,23 @@ def judge_outcome(case: HardCase, states: Mapping[str, str]) -> str:
     A required method bypassed: ``wrong_acceptance`` (a method criterion at
     full credit: the requirement was not enforced), else ``wrong_rejection``
     (a criterion other than the method's marked down: a valid route's fact
-    rejected), else ``unassessed`` (a method criterion unassessed), else
-    ``caught`` (every method criterion failed, every fact credited).
+    rejected), else ``caught`` only when every method criterion failed AND
+    every fact criterion has full credit, else ``unassessed`` (a method or a
+    fact criterion unassessed: a fact left unassessed was not credited, so
+    the case is no success; review F8).
     """
 
     if case.category == "required_method_bypassed":
         method = set(case.failing)
+        facts = [criterion.id for criterion in case.rubric.criteria if criterion.id not in method]
         if any(states.get(cid, "short") == "full" for cid in method):
             return "wrong_acceptance"
-        if any(state == "short" for cid, state in states.items() if cid not in method):
+        if any(states.get(cid, "short") == "short" for cid in facts):
             return "wrong_rejection"
-        if any(states.get(cid, "short") == "unassessed" for cid in method):
-            return "unassessed"
-        return "caught"
+        if all(states.get(cid, "short") == "short" for cid in method) and all(
+                states.get(cid) == "full" for cid in facts):
+            return "caught"
+        return "unassessed"
     if case.category == "valid_alternative":
         if any(state == "short" for state in states.values()):
             return "wrong_rejection"

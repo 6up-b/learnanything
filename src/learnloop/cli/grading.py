@@ -212,10 +212,10 @@ def grading_method_phrasing(
     judge: Annotated[str, typer.Option("--judge", help="auto (the Decider, else the LLM judge, else the heuristic: the first that is ready), decider, llm or heuristic.")] = "auto",
     item: Annotated[list[str] | None, typer.Option("--item", help="Read only this practice item; repeatable. Default: every active item with its own rubric.")] = None,
     propose: Annotated[bool, typer.Option("--propose", help="Persist the repairs as one pending proposal (never auto-applied; review with `learnloop proposals`).")] = False,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan the judge's requests and show the heuristic's flags; build no client and send nothing.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan every request the run may send (the Decider's classification and the writer's rewrites, or the LLM judge's) with its estimated cost, and show the heuristic's flags; build no client and send nothing. Exits 1 when a metered route has no price.")] = False,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Cap on metered spend.")] = 0.50,
     max_calls: Annotated[int | None, typer.Option("--max-calls", min=0, help="Cap on requests (default: two per item).")] = None,
-    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for a metered LLM judge (an upper bound); the Decider's listed price is known.")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for a metered LLM judge or writer (an upper bound; without it their requests are refused); the Decider's listed price is known.")] = None,
     output_dir: Annotated[Path | None, typer.Option("--output-dir", help="Also write the JSON report here.")] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
@@ -230,7 +230,9 @@ def grading_method_phrasing(
     update per item through the normal proposal/confirm path: rephrase the
     criterion by fact, or add the required method and its instruction when
     the item's target really is that method. Nothing is applied until you
-    accept it. --dry-run first; spend is admitted before every request.
+    accept it; an item changed after the report is refused at acceptance.
+    --dry-run first (it estimates the cost); spend is admitted before every
+    request.
     """
 
     from learnloop.ai.spend import SpendCaps
@@ -263,17 +265,21 @@ def grading_method_phrasing(
         raise typer.Exit(code=1) from exc
     if json_output:
         typer.echo(_dump(report))
-        return
-    summary = {
-        key: report.get(key)
-        for key in ("status", "judge", "judge_plan", "items", "criteria", "flagged_items", "proposal_id", "failures")
-        if key in report
-    }
-    summary["flagged"] = [
-        f"{row['item_id']}#{row['criterion_id']}: {row.get('method') or 'method'}"
-        for row in report.get("flagged") or report.get("heuristic_flags") or []
-    ]
-    typer.echo(_dump(summary))
+    else:
+        summary = {
+            key: report.get(key)
+            for key in ("status", "judge", "judge_plan", "estimate", "items", "criteria", "flagged_items",
+                        "proposal_id", "failures", "writer_failures")
+            if key in report
+        }
+        summary["flagged"] = [
+            f"{row['item_id']}#{row['criterion_id']}: {row.get('method') or 'method'}"
+            for row in report.get("flagged") or report.get("heuristic_flags") or []
+        ]
+        typer.echo(_dump(summary))
+    if report.get("status") == "refused":
+        # A dry run whose plan includes a metered route with no price.
+        raise typer.Exit(code=1)
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

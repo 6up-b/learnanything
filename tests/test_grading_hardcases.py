@@ -10,6 +10,7 @@ another valid method, each paired with the same mathematics without one.
 
 from __future__ import annotations
 
+import itertools
 import json
 
 import pytest
@@ -267,18 +268,21 @@ def test_the_production_path_applies_p1_to_a_divergent_route(tmp_path, quote):
     rejection (and held where nothing validated the answer); PF-c already
     unassesses a checkable alternative's mark-downs. A required method's
     criterion is the exception: the route is its evidence, so cell 5's method
-    criteria stay failed (the requirement enforced) and its facts unassessed."""
+    criteria stay failed while its facts (marked down by this strict grader)
+    are unassessed. Review F8: facts that were not credited make the case
+    ``unassessed``, never a success."""
 
     vault = _vault(tmp_path)
     report = run_hardcases(vault, routes=["divergent"], caps=CAPS, clients={"divergent": DivergentStrict(quote)})
     path = report["gate"]["grader=divergent"]
-    assert path["wrong_rejection"]["count"] == 0 and path["unassessed"] == 18
+    assert path["wrong_rejection"]["count"] == 0 and path["unassessed"] == 20
     # Held: 7 proofs and the 8 failing cases. Unchanged: PF-c's 3 checkable
     # alternatives and the checkable cell-5 case (PF-c unassessed its facts;
     # its method criterion stays failed). Unlocated: the other cell-5 case.
     assert path["rule"] == {"held": 15, "unchanged": 4, "unlocated": 1}
-    assert path["by_cell"]["required_method_bypassed"] == {"caught": 2}
-    assert path["required_method"]["enforced"]["count"] == 2
+    assert path["by_cell"]["required_method_bypassed"] == {"unassessed": 2}
+    assert path["required_method"]["enforced"]["count"] == 0
+    assert path["required_method"]["not_enforced"]["count"] == 0
     # The raw grade is still a rejection: the rule, not the grader, saved it.
     assert report["by_route"]["divergent"]["grader"]["wrong_rejection"]["count"] == 10
 
@@ -459,8 +463,32 @@ def test_outcomes_on_a_required_method_bypassed():
     # A fact criterion marked down: a valid route's fact rejected.
     assert judge_outcome(case, {**caught, others[0]: "short"}) == "wrong_rejection"
     assert judge_outcome(case, {**caught, "method": "unassessed"}) == "unassessed"
-    # Facts left unassessed (PF-c on a checkable answer) still enforce the method.
-    assert judge_outcome(case, {"method": "short", **{cid: "unassessed" for cid in others}}) == "caught"
+    # Review F8: facts left unassessed were not credited, so the case is not a
+    # success ("method failed, facts credited"); it stays unassessed.
+    assert judge_outcome(case, {"method": "short", **{cid: "unassessed" for cid in others}}) == "unassessed"
+
+
+@pytest.mark.parametrize("method, steps, result", list(itertools.product(("full", "short", "unassessed"), repeat=3)))
+def test_every_fact_and_method_state_on_a_required_method_bypassed(method, steps, result):
+    """Review F8: ``caught`` only when the method criterion failed AND every
+    fact criterion has full credit; a method at full credit is an unenforced
+    requirement, a fact marked down a valid route's fact rejected, and
+    anything else left unassessed is ``unassessed``."""
+
+    by_id, _method_cases_ = _method_cases()
+    case = by_id["la-det-required-cofactor-by-row-reduction"]
+    assert set(case.failing) == {"method"} and {c.id for c in case.rubric.criteria} == {"method", "steps", "result"}
+    states = {"method": method, "steps": steps, "result": result}
+    if method == "full":
+        expected = "wrong_acceptance"
+    elif "short" in (steps, result):
+        expected = "wrong_rejection"
+    elif "unassessed" in (method, steps, result):
+        expected = "unassessed"
+    else:
+        expected = "caught"
+    assert judge_outcome(case, states) == expected
+    assert (expected == "caught") == (states == {"method": "short", "steps": "full", "result": "full"})
 
 
 @pytest.mark.parametrize("mutation, message", [

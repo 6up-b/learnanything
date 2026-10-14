@@ -31,7 +31,7 @@ from learnloop.content.proposals.method_phrasing import (
     run_method_phrasing,
 )
 from learnloop.vault.loader import load_vault
-from learnloop.vault.required_method import prompt_states_method
+from learnloop.vault.required_method import prompt_requires_method
 from learnloop.vault.yaml_io import write_yaml
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -191,7 +191,8 @@ def test_the_decider_flags_and_the_llm_route_writes_the_fact_phrasings(vault_pat
     det = {action["criterion_id"]: action for action in
            next(plan for plan in report["repairs"] if plan["item_id"] == "pi_det")["actions"]}
     assert det["minors"]["rewrite"] == "llm"
-    assert {row["judge"] for row in _ledger(vault_paths)} == {"decider"}
+    # Both judges' verdicts reach the ledger (review F6): the writer's too.
+    assert {row["judge"] for row in _ledger(vault_paths)} == {"decider", "llm"}
     # The writer agreed on every flag here; a writer that reads a flagged
     # criterion as a fact is recorded as a disagreement on its draft.
     assert not any(action.get("judges_disagree") for action in det.values())
@@ -246,7 +247,7 @@ def test_repairs_are_pending_proposals_applied_only_on_accept(vault_paths):
     assert criteria["method"].correlation_group == "g1" and criteria["method"].recipe_ids == ["r1"]
     assert det.required_method is None
     assert cofactor.required_method is not None and cofactor.required_method.criterion_ids == ["method"]
-    assert prompt_states_method(cofactor.prompt, "cofactor expansion")
+    assert prompt_requires_method(cofactor.prompt, "cofactor expansion")
     # After the repair, nothing is left to flag.
     again = run_method_phrasing(load_vault(root, load_environment=False), judge="llm", clients={"llm": LLMJudge()},
                                 price_per_million=1.0, clock=CLOCK)
@@ -319,3 +320,228 @@ def test_the_llm_contract_round_trips():
     reading = RubricPhrasingReading.model_validate({"criteria": [
         {"criterion_id": "a", "phrased_by": "method", "method": "x", "fact_phrasing": "y"}]})
     assert reading.criteria[0].phrased_by == "method"
+
+
+# -- review fixes ---------------------------------------------------------------------------
+
+
+def _ledger_rows(paths):
+    with connect(paths.sqlite_path, read_only=True) as connection:
+        return [dict(zip(("id", "judge", "judge_model", "left_id", "verdict", "prompt_version", "input_hash"), row))
+                for row in connection.execute(
+                    "SELECT id, judge, judge_model, left_id, verdict, prompt_version, input_hash FROM judgment_ledger "
+                    "WHERE task = ? ORDER BY rowid", (LEDGER_TASK,))]
+
+
+def _actions(report, item_id):
+    return {action["criterion_id"]: action
+            for action in next(plan for plan in report["repairs"] if plan["item_id"] == item_id)["actions"]}
+
+
+def test_f3_a_repair_refuses_a_rubric_edited_before_acceptance(vault_paths):
+    """The proposal carries the item's content hash; an edit after the report
+    (a criterion's weight) makes acceptance refuse, so the stale rubric is
+    never restored."""
+
+    from learnloop.content.proposals.patches import PatchApplicationError, compute_target_hash
+
+    root = vault_paths.root
+    vault = load_vault(root, load_environment=False)
+    report = run_method_phrasing(vault, judge="heuristic", propose=True, clock=CLOCK)
+    rows = {row["target_entity_id"]: row for row in Repository(vault_paths.sqlite_path).proposal_items(
+        report["proposal_id"])}
+    assert rows["pi_det"]["payload"]["expected_target_hash"] == compute_target_hash(vault, "practice_item", "pi_det")
+    path = vault_paths.practice_item_path("linear-algebra", "pi_det")
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["grading_rubric"]["criteria"][2]["points"] = 2
+    data["grading_rubric"]["max_points"] = 5
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    with pytest.raises(PatchApplicationError, match="target changed"):
+        accept_items(root, report["proposal_id"])
+    after = load_vault(root).practice_items["pi_det"]
+    criteria = {criterion.id: criterion for criterion in after.grading_rubric.criteria}
+    assert criteria["result"].points == 2 and criteria["method"].description == COFACTOR
+
+
+def test_f3_an_accepted_repair_writes_no_proposal_only_key(vault_paths):
+    root = vault_paths.root
+    report = run_method_phrasing(load_vault(root, load_environment=False), judge="heuristic", propose=True,
+                                 clock=CLOCK)
+    accept_items(root, report["proposal_id"])
+    for item_id in ("pi_det", "pi_cofactor"):
+        text = vault_paths.practice_item_path("linear-algebra", item_id).read_text(encoding="utf-8")
+        assert "expected_target_hash" not in text
+
+
+@pytest.fixture()
+def routed(monkeypatch):
+    """Real route resolution: Codex reads as ready, an offline OpenRouter key."""
+
+    monkeypatch.setattr("learnloop.ai.runtime.check_codex_runtime", lambda *a, **k: SimpleNamespace(
+        status="ready", actual_revision=None, message="ok"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+
+
+def test_f4_a_decider_on_the_route_is_never_the_writer(vault_paths, routed):
+    vault = load_vault(vault_paths.root, load_environment=False)
+    vault.config.ai.routing.rubric_phrasing_judge = "openrouter_decider"
+    route = resolve_judge(vault)
+    assert route.kind == "decider" and route.client.provider_type == "decider"
+    # The writer is the serving chat profile (ai.active_provider), never the Decider.
+    assert route.writer is not None and getattr(route.writer, "provider_type", None) != "decider"
+    assert route.as_dict()["writer"] == "codex" and route.as_dict()["rewrites"] == "llm"
+    # Forcing the LLM judge on a Decider-routed vault reads with the chat profile too.
+    llm = resolve_judge(vault, "llm")
+    assert llm.kind == "llm" and getattr(llm.client, "provider_type", None) != "decider"
+    # A serving chat provider that is not ready: the fallback provider writes.
+    vault.config.ai.active_provider = "deepseek_pro"
+    vault.config.ai.fallback_provider = "codex"
+    fallback = resolve_judge(vault)
+    assert fallback.kind == "decider" and fallback.as_dict()["writer"] == "codex"
+    # A route naming a chat profile: that profile judges and writes.
+    vault.config.ai.routing.rubric_phrasing_judge = "codex_low"
+    named = resolve_judge(vault, "llm")
+    assert named.kind == "llm" and named.provider == "codex_low"
+
+
+def test_f4_a_failed_rewrite_keeps_the_deciders_paid_flags_with_labelled_drafts(vault_paths):
+    class BrokenWriter(LLMJudge):
+        def complete(self, request):
+            raise RuntimeError("the writer broke")
+
+    vault = load_vault(vault_paths.root, load_environment=False)
+    report = run_method_phrasing(vault, clients={"decider": Decider(), "llm": BrokenWriter()}, price_per_million=1.0,
+                                 clock=CLOCK)
+    assert report["judge"]["kind"] == "decider" and "failed_items" not in report
+    assert {(row["item_id"], row["criterion_id"]) for row in report["flagged"]} == {
+        ("pi_det", "method"), ("pi_det", "minors"), ("pi_cofactor", "method")}
+    assert report["writer_failures"] == {"RuntimeError": 2}
+    det = _actions(report, "pi_det")
+    assert det["minors"]["rewrite"] == "deterministic_draft" and det["minors"]["writer_error"] == "RuntimeError"
+    assert {row["judge"] for row in _ledger_rows(vault_paths)} == {"decider"}
+
+
+class _Mangled(LLMJudge):
+    """The LLM judge's reading with its criterion rows mangled."""
+
+    def __init__(self, mangle):
+        super().__init__()
+        self.mangle = mangle
+
+    def complete(self, request):
+        result = super().complete(request)
+        rows = [row.model_dump(mode="json") for row in result.criteria]
+        return request.result_model.model_validate({"criteria": self.mangle(rows)})
+
+
+@pytest.mark.parametrize("mangle", [
+    lambda rows: [],
+    lambda rows: [row for row in rows if row["criterion_id"] != "result"],
+    lambda rows: rows + rows[:1],
+    lambda rows: rows + [{"criterion_id": "ghost", "phrased_by": "fact"}],
+], ids=["empty", "missing", "duplicate", "unknown"])
+def test_f5_an_incomplete_reading_is_a_failed_item_never_a_fact_verdict(vault_paths, mangle):
+    vault = load_vault(vault_paths.root, load_environment=False)
+    report = run_method_phrasing(vault, judge="llm", clients={"llm": _Mangled(mangle)}, price_per_million=1.0,
+                                 clock=CLOCK)
+    failed = {row["item_id"]: row["error"] for row in report.get("failed_items", [])}
+    assert failed.get("pi_det") == "IncompleteJudgment" and failed.get("pi_cofactor") == "IncompleteJudgment"
+    assert not any(row["item_id"] in failed for row in report["flagged"])
+    assert not any(plan["item_id"] in failed for plan in report["repairs"])
+    # Nothing recorded for an item whose reading was incomplete.
+    ledgered = {row["left_id"].split("#")[0] for row in _ledger_rows(vault_paths)}
+    assert not ledgered & set(failed)
+
+
+def test_f5_the_required_methods_own_criteria_are_never_ledgered_as_verdicts(vault_paths):
+    """A required method's criterion is fact by design, not judged: neither
+    judge's ledger records a verdict for it."""
+
+    root = vault_paths.root
+    report = run_method_phrasing(load_vault(root, load_environment=False), judge="llm", clients={"llm": LLMJudge()},
+                                 price_per_million=1.0, propose=True, clock=CLOCK)
+    accept_items(root, report["proposal_id"])
+    vault = load_vault(root, load_environment=False)
+    before = {row["id"] for row in _ledger_rows(vault_paths)}
+    for clients in ({"llm": LLMJudge()}, {"decider": Decider(), "llm": LLMJudge()}):
+        run_method_phrasing(vault, judge="llm" if "decider" not in clients else "auto", clients=clients,
+                            price_per_million=1.0, clock=CLOCK)
+    new = [row for row in _ledger_rows(vault_paths) if row["id"] not in before]
+    assert new and "pi_cofactor#method" not in {row["left_id"] for row in new}
+
+
+def test_f6_the_writers_verdicts_reach_the_ledger_linked_to_the_repair(vault_paths):
+    vault = load_vault(vault_paths.root, load_environment=False)
+    report = run_method_phrasing(vault, clients={"decider": Decider(), "llm": LLMJudge()}, price_per_million=1.0,
+                                 propose=True, clock=CLOCK)
+    rows = _ledger_rows(vault_paths)
+    writer = [row for row in rows if row["judge"] == "llm"]
+    assert {row["left_id"] for row in writer} == {"pi_det#method", "pi_det#minors", "pi_cofactor#method"}
+    assert {(row["judge_model"], row["prompt_version"]) for row in writer} == {
+        ("llm-fake-model", "rubric-phrasing-judge-v1")}
+    decider_hashes = {row["input_hash"] for row in rows if row["judge"] == "decider"}
+    assert not decider_hashes & {row["input_hash"] for row in writer}
+    by_id = {row["id"]: row for row in rows}
+    det = _actions(report, "pi_det")
+    for criterion_id in ("method", "minors"):
+        ids = det[criterion_id]["judgment_ids"]
+        assert [by_id[value]["judge"] for value in ids] == ["decider", "llm"]
+        assert {by_id[value]["left_id"] for value in ids} == {f"pi_det#{criterion_id}"}
+    # The proposal row links the repair to both verdicts.
+    [row] = [row for row in Repository(vault_paths.sqlite_path).proposal_items(report["proposal_id"])
+             if row["target_entity_id"] == "pi_det"]
+    linked = row["audit"]["rubric_phrasing"]["judgment_ids"]
+    assert set(det["minors"]["judgment_ids"]) <= set(linked)
+
+    class FactWriter(LLMJudge):
+        def complete(self, request):
+            result = super().complete(request)
+            return result.model_copy(update={"criteria": [
+                row.model_copy(update={"phrased_by": "fact", "fact_phrasing": None, "method": None})
+                if row.criterion_id == "minors" else row for row in result.criteria]})
+
+    before = {row["id"] for row in rows}
+    split = run_method_phrasing(vault, clients={"decider": Decider(), "llm": FactWriter()}, price_per_million=1.0,
+                                clock=CLOCK)
+    disagreement = [row for row in _ledger_rows(vault_paths) if row["id"] not in before
+                    and row["judge"] == "llm" and row["left_id"] == "pi_det#minors"]
+    assert [json.loads(row["verdict"])["phrased_by"] for row in disagreement] == ["fact"]
+    assert _actions(split, "pi_det")["minors"]["judges_disagree"] is True
+
+
+def test_f7_the_dry_run_plans_rewrites_and_their_cost(vault_paths, monkeypatch):
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task",
+                        lambda *a, **k: pytest.fail("a dry run builds no client"))
+    vault = load_vault(vault_paths.root, load_environment=False)
+    report = run_method_phrasing(vault, judge="decider", dry_run=True)
+    [decider, heuristic] = report["judge_plan"]
+    assert decider["judge"] == "decider" and heuristic == {"judge": "heuristic", "requests": 0}
+    classify, rewrite = decider["steps"]
+    assert (classify["step"], classify["provider"], classify["billing"]) == ("classify", "openrouter_decider", "metered")
+    assert classify["requests"] == 3 and classify["estimated_usd"] > 0
+    # The writer (ai.active_provider: Codex on the subscription) may rewrite every item.
+    assert (rewrite["step"], rewrite["provider"], rewrite["billing"]) == ("rewrite", "codex", "subscription")
+    assert rewrite["requests_at_most"] == 3 and rewrite["cost_basis"] == "estimated_only"
+    assert rewrite["marginal_usd"] == 0.0 and "subscription" in rewrite["note"]
+    assert report["status"] == "dry_run" and report["estimate"]["estimated_usd_upper_bound"] == pytest.approx(
+        classify["estimated_usd"])
+    # A metered writer without a price: refused, never rendered as zero.
+    vault.config.ai.active_provider = "openrouter_haiku"
+    refused = run_method_phrasing(vault, judge="decider", dry_run=True)
+    rewrite = refused["judge_plan"][0]["steps"][1]
+    assert refused["status"] == "refused" and rewrite["estimated_usd"] is None
+    assert "unknown price" in rewrite["refused"] and any("unknown price" in reason
+                                                         for reason in refused["estimate"]["refused"])
+    priced = run_method_phrasing(vault, judge="decider", dry_run=True, price_per_million=1.0)
+    rewrite = priced["judge_plan"][0]["steps"][1]
+    assert priced["status"] == "dry_run" and rewrite["estimated_usd"] == pytest.approx(
+        (rewrite["input_tokens"] + rewrite["output_tokens"]) / 1_000_000)
+    # A Decider named on the route: the writer is still the chat profile.
+    vault.config.ai.routing.rubric_phrasing_judge = "openrouter_decider"
+    routed = run_method_phrasing(vault, judge="decider", dry_run=True, price_per_million=1.0)
+    assert routed["judge_plan"][0]["steps"][1]["provider"] == "openrouter_haiku"
+    cli = CliRunner().invoke(app, ["grading", "method-phrasing", "--vault", str(vault_paths.root), "--dry-run",
+                                   "--judge", "decider", "--json"])
+    assert cli.exit_code == 0, cli.output

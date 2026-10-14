@@ -55,8 +55,11 @@ answer.
 * **Required methods (method-explicit successor, ``own-route-v2``).** Owner
   rule 2026-10-13: criteria name facts, and an item whose target IS a method
   states it ("Use {method} in your answer.") and records it as
-  ``PracticeItem.required_method``. The policy then carries the item's
-  ``required_method`` (name and criterion ids) and the prompt adds
+  ``PracticeItem.required_method``. The policy then carries the
+  ``required_method`` (name and criterion ids) the answer's assessment
+  contract froze when the item was presented (review F1: a method added or
+  changed later never reaches that answer, at grading or at a regrade), only
+  when the prompt the learner answered requires it, and the prompt adds
   :data:`REQUIRED_METHOD_RULES`: a criterion tied to the required method is
   graded on USE of that method. On a route the grader reads as divergent, a
   mark-down of such a criterion stays assessed with no quoted wrong step (the
@@ -278,33 +281,57 @@ def route_rules_version(vault: LoadedVault) -> str | None:
     return None
 
 
+class _ItemRequiredMethod:
+    """:func:`reference_policy`'s default source: the item's current required method."""
+
+    def __repr__(self) -> str:
+        return "ITEM_REQUIRED_METHOD"
+
+
+#: Read the required method from the item as it is now (the gold-set harness
+#: and callers that grade the item as currently stated). The live doors pass
+#: the method frozen with the answer's assessment contract instead (review F1).
+ITEM_REQUIRED_METHOD: Any = _ItemRequiredMethod()
+
+
 def required_method_policy(
     item: PracticeItem,
     rubric_criterion_ids: Sequence[str] | None = None,
     *,
     presented_prompt: str | None = None,
+    required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
 ) -> dict[str, Any] | None:
-    """The item's required method as the grader's policy shows it, or None.
+    """The required method as the grader's policy shows it, or None.
 
+    ``required_method`` is the method the answer is graded under: the one its
+    assessment contract froze when the item was presented (``None``: the
+    presented item required none, and an answer never acquires one from
+    content changed later; review F1), or, by default, the item's current one.
     Only criteria of the rubric being graded are listed (an unknown id is
     doctor's ``required_method:unknown_criterion``, never graded). A method is
-    graded on use only when the prompt the learner answered states it
-    (``presented_prompt``, the assessment contract's prompt when the attempt
-    has one): an answer to a statement that did not require the method is
-    never failed for not using it (a required method added after the item was
-    presented waits for its next presentation).
+    graded on use only when the prompt the learner answered REQUIRES it
+    (``presented_prompt``; naming it is not enough, review F2): an answer to a
+    statement that did not require the method is never failed for not using
+    it.
     """
 
-    from learnloop.vault.required_method import prompt_states_method
+    from learnloop.vault.required_method import prompt_requires_method
 
-    method = getattr(item, "required_method", None)
-    if method is None:
+    if required_method is ITEM_REQUIRED_METHOD:
+        current = getattr(item, "required_method", None)
+        method = (
+            {"name": current.name, "criterion_ids": list(current.criterion_ids)} if current is not None else None
+        )
+    else:
+        method = dict(required_method) if isinstance(required_method, Mapping) else None
+    if method is None or not str(method.get("name") or "").strip():
         return None
-    if presented_prompt is not None and not prompt_states_method(presented_prompt, method.name):
+    name = str(method["name"])
+    if presented_prompt is not None and not prompt_requires_method(presented_prompt, name):
         return None
     known = set(rubric_criterion_ids) if rubric_criterion_ids is not None else None
-    criterion_ids = [cid for cid in method.criterion_ids if known is None or cid in known]
-    return {"name": method.name, "criterion_ids": criterion_ids}
+    criterion_ids = [str(cid) for cid in method.get("criterion_ids") or () if known is None or str(cid) in known]
+    return {"name": name, "criterion_ids": criterion_ids}
 
 
 def policy_method_criteria(policy: Mapping[str, Any] | None) -> tuple[str, ...]:
@@ -384,6 +411,7 @@ def reference_policy(
     route_rules: bool | str = False,
     rubric_criterion_ids: Sequence[str] | None = None,
     presented_prompt: str | None = None,
+    required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
 ) -> dict[str, Any]:
     """The PF-c policy block for one answer (item-side + this answer only).
 
@@ -391,9 +419,10 @@ def reference_policy(
     then carries :data:`ROUTE_RULES` and the server applies
     :func:`apply_route_rule`. ``True`` is ``own-route-v1``; a version string
     names the rules (``own-route-v2``, the method-explicit successor, also
-    shows the item's ``required_method`` when it has one and the
-    ``presented_prompt`` states it, its criteria limited to
-    ``rubric_criterion_ids``). Without it the block is exactly mvp-2.1's.
+    shows the ``required_method`` the answer is graded under, by default the
+    item's, when the ``presented_prompt`` requires it, its criteria limited
+    to ``rubric_criterion_ids``: :func:`required_method_policy`). Without it
+    the block is exactly mvp-2.1's.
     """
 
     expected = item.expected_answer
@@ -413,6 +442,7 @@ def reference_policy(
             method = required_method_policy(
                 item, rubric_criterion_ids,
                 presented_prompt=presented_prompt if presented_prompt is not None else item.prompt,
+                required_method=required_method,
             )
             if method is not None:
                 policy["required_method"] = method
@@ -1202,6 +1232,7 @@ __all__ = [
     "GRADING_SUPPORT_VERSION",
     "GateOutcome",
     "HELD_REVIEW_REASON",
+    "ITEM_REQUIRED_METHOD",
     "LEGACY_ROUTE_CHECK_JUDGMENT_TASK",
     "METHOD_ROUTE_RULES_SUFFIX",
     "METHOD_ROUTE_RULES_VERSION",

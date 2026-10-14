@@ -148,7 +148,32 @@ def compile_assessment_contract(
         ),
         "assistance": {"max_useful_hints": item.hint_policy.max_useful_hints},
     }
+    required_method = getattr(item, "required_method", None)
+    if required_method is not None:
+        # Method-explicit items (review F1): the method the presented statement
+        # requires, frozen with the contract, so a later repair that adds or
+        # changes it never reaches an answer to this presentation (grading
+        # and regrading read it from here). Only when set: every other
+        # contract, and its hash, is unchanged.
+        contract["required_method"] = {
+            "name": required_method.name,
+            "criterion_ids": list(required_method.criterion_ids),
+        }
     return contract
+
+
+def contract_required_method(contract: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The required method a stored contract froze, or None.
+
+    A contract snapshotted without one (every item without a required method,
+    and every contract written before method-explicit items) never acquires
+    one from the item's current content.
+    """
+
+    raw = (contract or {}).get("required_method")
+    if not isinstance(raw, dict) or not str(raw.get("name") or "").strip():
+        return None
+    return {"name": str(raw["name"]), "criterion_ids": [str(value) for value in raw.get("criterion_ids") or ()]}
 
 
 def rubric_from_contract(contract: dict[str, Any]) -> Rubric:

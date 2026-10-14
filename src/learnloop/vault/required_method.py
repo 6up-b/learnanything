@@ -15,8 +15,11 @@ only the criteria that record lists may grade use of the method.
 This module is the rule's dependency-neutral vocabulary, shared by every
 writer (generation paths), the grader, doctor and the repair report:
 
-* :func:`required_method_instruction` / :func:`prompt_states_method` /
-  :func:`ensure_method_instruction` - the explicit instruction;
+* :func:`required_method_instruction` / :func:`method_statement` /
+  :func:`prompt_requires_method` / :func:`ensure_method_instruction` - the
+  explicit instruction, and whether a statement REQUIRES a method (naming it
+  is not enough: "You may use X or any other method" and "Compute det(A)
+  without X" name X but contradict a requirement; review F2);
 * :func:`method_phrase` - a CONSERVATIVE heuristic for a criterion phrased by
   method: an explicit method verb ("uses", "applies", "via", "by") with a
   method noun ("expansion", "rule", "theorem", "induction"...), and never a
@@ -89,17 +92,121 @@ def _squash(text: str) -> str:
     return " ".join(folded.split()).casefold()
 
 
-def prompt_states_method(prompt: Any, name: str) -> bool:
-    """Does ``prompt`` name the method ``name`` (case and spacing aside)?"""
+#: How a statement treats a method (:func:`method_statement`).
+MethodStatement = Literal["required", "contradicted", "mentioned", "absent"]
 
-    needle = _squash(name)
-    return bool(needle) and needle in _squash(prompt if isinstance(prompt, str) else str(prompt or ""))
+#: Abbreviations whose periods do not end a clause.
+_ABBREVIATIONS = re.compile(r"\b(?:e\.\s?g|i\.\s?e|cf|etc|vs)\.", re.IGNORECASE)
+_CLAUSES = re.compile(r"[.!?;:\n]+")
+#: A requirement verb governing the method ("Use X", "by X", "Using X, ...").
+_REQUIRE_BEFORE = re.compile(
+    r"\b(?:use|uses|using|apply|applies|applying|employ|employs|employing|perform|performing|"
+    r"carry out|carrying out|by|via|by means of|with the help of|through)\s+(?:(?:the|a|an|your)\s+)?$"
+)
+_REQUIRE_AFTER = re.compile(r"^\s*(?:must|is to|should|has to)\s+be\s+used\b|^\s*is\s+required\b")
+#: A negation governing the method ("without X", "do not use X", "instead of
+#: X"): the negation, then only filler words, then the method.
+_FILLER = (r"(?:use|using|apply|applying|employ|employing|rely|relying|on|resort|resorting|to|be|by|via|allowed|"
+           r"permitted|make|making|of|any|the|a|an|your)")
+_NEGATED_BEFORE = re.compile(
+    r"(?:\b(?:without|not|never|no|avoid|avoiding|instead of|other than|rather than|except|except for|nor)|n't)"
+    rf"\s+(?:{_FILLER}\s+){{0,3}}$"
+)
+_NEGATED_AFTER = re.compile(
+    r"^\s*(?:(?:is|are|may|must|should|can|will)\s+not\b|isn't|aren't|cannot|can't|mustn't|shouldn't|"
+    r"(?:is|are)\s+(?:forbidden|disallowed)\b)"
+)
+#: An option rather than a requirement ("You may use X", "for example by X").
+_OPTIONAL_BEFORE = re.compile(
+    r"\b(?:may|might|can|could|optionally|optional|feel free|for example|for instance|eg|such as|if you "
+    r"(?:like|wish|want|prefer)|either|suggest|suggested|suggests|recommend|recommended|recommends|consider|"
+    r"perhaps|possibly|allowed|permitted|welcome|hint|try)\b"
+)
+#: Another method offered beside it ("Y or X", "X or Y", "X or any other method").
+_ALTERNATIVE_BEFORE = re.compile(r"\bor\s+(?:(?:the|a|an|by|via|using)\s+)?$")
+_OPTIONAL_AFTER = re.compile(
+    r"^\W*(?:or|and/or)\b"
+    r"|\bor\s+(?:(?:by|using|with|via|use|apply)\s+)?(?:any|another|some|other)\b(?:\s+[\w'-]+){0,2}?\s+"
+    r"(?:method|approach|technique|way|route|strategy)s?\b"
+    r"|\bany\s+(?:(?:other|valid|suitable|appropriate|correct|equivalent)\s+)*"
+    r"(?:method|approach|technique|way|route|strategy)s?\b"
+    r"|\bif you (?:like|wish|want|prefer)\b|\b(?:is|are) (?:optional|not required|not necessary|allowed|permitted)\b"
+    r"|\bneed not\b|\boptionally\b|\bor otherwise\b"
+)
+#: "any (other) method" anywhere before it in the clause ("Use any method, e.g. X").
+_ANY_METHOD = re.compile(
+    r"\bany\s+(?:(?:other|valid|suitable|appropriate|correct|equivalent)\s+)*"
+    r"(?:method|approach|technique|way|route|strategy)s?\b"
+)
+#: Words of a clause before an occurrence read for an option marker.
+_OPTION_WINDOW = 6
+
+
+def _match_form(text: str) -> str:
+    """Case-folded, dashes and hyphens as spaces, one space between words."""
+
+    return " ".join(_squash(text).replace("-", " ").split())
+
+
+def method_statement(prompt: Any, name: str) -> MethodStatement:
+    """How ``prompt`` treats the method ``name`` (review F2).
+
+    * ``required``: some clause requires it affirmatively (the explicit
+      instruction "Use {name} in your answer.", or a requirement verb that
+      governs it: "Compute det(A) by cofactor expansion.", "Using X, ...")
+      and no clause contradicts it;
+    * ``contradicted``: a clause negates it ("without X", "do not use X",
+      "instead of X", "X is not allowed") or leaves it optional ("You may use
+      X", "X or any other method", "for example by X", "X or Y"): a
+      requirement would contradict the statement;
+    * ``mentioned``: it occurs only in other ways ("Explain why X works");
+    * ``absent``: the name does not occur.
+
+    Conservative on purpose: a statement that only names the method never
+    reads as requiring it, and an ambiguous one reads as contradicting it.
+    Case, spacing, dashes and hyphens aside.
+    """
+
+    needle = _match_form(name)
+    if not needle:
+        return "absent"
+    text = prompt if isinstance(prompt, str) else str(prompt or "")
+    text = _ABBREVIATIONS.sub(lambda match: match.group(0).replace(".", "").replace(" ", ""), text)
+    pattern = re.compile(rf"(?<![0-9a-z]){re.escape(needle)}(?![0-9a-z])")
+    found = required = False
+    for clause in _CLAUSES.split(text):
+        folded = _match_form(clause)
+        for match in pattern.finditer(folded):
+            found = True
+            before, after = folded[:match.start()], folded[match.end():]
+            window = " ".join(before.split()[-_OPTION_WINDOW:])
+            if (_NEGATED_BEFORE.search(before) or _NEGATED_AFTER.search(after)
+                    or _OPTIONAL_BEFORE.search(window) or _ALTERNATIVE_BEFORE.search(before)
+                    or _OPTIONAL_AFTER.search(after) or _ANY_METHOD.search(before)):
+                return "contradicted"
+            if _REQUIRE_BEFORE.search(before) or _REQUIRE_AFTER.search(after):
+                required = True
+    if required:
+        return "required"
+    return "mentioned" if found else "absent"
+
+
+def prompt_requires_method(prompt: Any, name: str) -> bool:
+    """Does ``prompt`` require the method ``name`` (:func:`method_statement`)?"""
+
+    return method_statement(prompt, name) == "required"
 
 
 def ensure_method_instruction(prompt: str, name: str) -> str:
-    """``prompt`` with the explicit instruction appended unless it names the method."""
+    """``prompt`` with the explicit instruction appended unless it already
+    requires the method.
 
-    if prompt_states_method(prompt, name):
+    A caller checks :func:`method_statement` for ``contradicted`` first: the
+    instruction appended to a statement that negates the method or leaves it
+    optional would contradict it (the writers drop the requirement instead).
+    """
+
+    if prompt_requires_method(prompt, name):
         return prompt
     body = (prompt or "").rstrip()
     instruction = required_method_instruction(name)
@@ -359,10 +466,13 @@ def normalize_required_method(
       and the proposed name names one of them (a shared content token or
       alias); it is then linked to that target;
     * its criteria are criteria of the item's rubric (unknown ids dropped);
-    * the prompt states it. A generated prompt gets the explicit instruction
+    * the prompt REQUIRES it (:func:`method_statement`; naming it is not
+      enough). A generated prompt that does not gets the explicit instruction
       appended; a SOURCE statement (``source_statement``: a textbook
       exercise's verbatim stem) is never rewritten, so a required method its
-      statement does not already state is dropped.
+      statement does not already require is dropped; and a prompt that
+      negates the method or leaves it optional drops it (the instruction
+      would contradict the statement).
 
     Anything else drops the field. A payload without one is left as it is.
     """
@@ -395,7 +505,13 @@ def normalize_required_method(
         notes.append("required_method:dropped_unknown_criteria")
     prompt = payload.get("prompt")
     prompt_text = prompt if isinstance(prompt, str) else ""
-    if not prompt_states_method(prompt_text, name):
+    statement = method_statement(prompt_text, name)
+    if statement == "contradicted":
+        # The statement negates the method or leaves it optional: requiring it
+        # would contradict what the learner reads (review F2).
+        payload.pop("required_method", None)
+        return [*notes, "required_method:dropped_prompt_contradicts_it"]
+    if statement != "required":
         if source_statement:
             payload.pop("required_method", None)
             return [*notes, "required_method:dropped_source_statement_does_not_state_it"]
@@ -409,7 +525,9 @@ def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
     """A variant that keeps its parent's rubric verbatim keeps its required method.
 
     The parent's method (if any) is copied and the variant's prompt gets the
-    explicit instruction when it does not already state it.
+    explicit instruction when it does not already require it. A variant stem
+    that negates the method or leaves it optional is noted
+    (``required_method:prompt_contradicts_it``); doctor reports such an item.
     """
 
     method = getattr(parent, "required_method", None)
@@ -420,10 +538,14 @@ def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
     payload["required_method"] = dumped
     prompt = payload.get("prompt")
     prompt_text = prompt if isinstance(prompt, str) else ""
-    if prompt_states_method(prompt_text, dumped["name"]):
+    statement = method_statement(prompt_text, dumped["name"])
+    if statement == "required":
         return ["required_method:inherited"]
     payload["prompt"] = ensure_method_instruction(prompt_text, dumped["name"])
-    return ["required_method:inherited", "required_method:instruction_added"]
+    notes = ["required_method:inherited", "required_method:instruction_added"]
+    if statement == "contradicted":
+        notes.append("required_method:prompt_contradicts_it")
+    return notes
 
 
 # -- validation (doctor) -----------------------------------------------------------
@@ -442,7 +564,10 @@ def required_method_problems(item: Any, rubric: Any) -> list[RequiredMethodProbl
     """What doctor reports for one item under the rule.
 
     * ``required_method:not_stated`` (error): the item requires a method its
-      prompt does not state.
+      prompt does not require (absent, or only mentioned).
+    * ``required_method:contradicted`` (error): the item requires a method its
+      prompt negates or leaves optional ("without X", "You may use X or any
+      other method"): grading would penalize a learner who follows it.
     * ``required_method:unknown_criterion`` (error): the required method lists
       a criterion its rubric does not have.
     * ``criterion:method_phrased`` (warning, the conservative heuristic): a
@@ -457,10 +582,18 @@ def required_method_problems(item: Any, rubric: Any) -> list[RequiredMethodProbl
     allowed: set[str] = set()
     if method is not None:
         allowed = {str(value) for value in method.criterion_ids}
-        if not prompt_states_method(getattr(item, "prompt", ""), method.name):
+        statement = method_statement(getattr(item, "prompt", ""), method.name)
+        if statement == "contradicted":
+            problems.append(RequiredMethodProblem(
+                "error", "required_method:contradicted",
+                f"{item.id} requires {method.name!r} but its prompt negates it or leaves it optional "
+                f"(state {required_method_instruction(method.name)!r} instead, or drop the requirement)",
+                method=method.name,
+            ))
+        elif statement != "required":
             problems.append(RequiredMethodProblem(
                 "error", "required_method:not_stated",
-                f"{item.id} requires {method.name!r} but its prompt does not state it "
+                f"{item.id} requires {method.name!r} but its prompt does not require it "
                 f"(add {required_method_instruction(method.name)!r})",
                 method=method.name,
             ))
@@ -500,13 +633,15 @@ __all__ = [
     "best_target",
     "ensure_method_instruction",
     "inherit_required_method",
+    "MethodStatement",
     "learning_object_method_targets",
     "method_phrase",
+    "method_statement",
     "method_targets",
     "name_tokens",
     "names_match",
     "normalize_required_method",
-    "prompt_states_method",
+    "prompt_requires_method",
     "required_method_instruction",
     "required_method_problems",
 ]
