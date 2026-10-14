@@ -188,8 +188,8 @@ def _local_repair(ctx: JobContext) -> bool:
     """Whether this reading must stay on this computer: an extraction repair
     whose consent is local (GLM-OCR third review F10, set by
     :func:`handle_extraction_repair`). Nothing else narrows a reading: the
-    per-book "keep on this computer" is retired, and its
-    ``source_artifacts.keep_local`` column is never consulted."""
+    per-book "keep on this computer" is retired, and nothing here reads the
+    choice a library may still store for a book."""
 
     return bool(ctx.job.get("_local_repair"))
 
