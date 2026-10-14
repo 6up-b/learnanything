@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fa49d2b654dc97fdd67166e3f34a986ae97787d"
-source_commit_timestamp: "2026-10-14T01:06:35-04:00"
+source_commit: "15e6062d060ec66908da665cabeafa9aa7c4f18d"
+source_commit_timestamp: "2026-10-14T01:53:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -70,8 +70,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `tutor_qa.question_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls question likelihood min samples in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:587`; `src/learnloop/tutor/question_signal.py:156` |
 | `tutor_qa.preference_channel_damping` | `0.4` | number | modeled default or validator seed | Controls preference channel damping in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:594`; `src/learnloop/tutor/question_signal.py:423` |
 | `tutor_qa.context_token_budget` | `24000` | integer | modeled default or validator seed | Controls context token budget in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:601`; `src/learnloop/reader/reader_dialogue.py:592`; `src/learnloop/tutor/tutor_qa.py:1281` |
-| `tutor_qa.resolve_references` | `true` | boolean | modeled default or validator seed | Turns resolve references behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:606`; `src/learnloop/reader/reader_dialogue.py:593`; `src/learnloop/source_retrieval/tutor.py:182` |
-| `tutor_qa.expanded_delivery` | `true` | boolean | modeled default or validator seed | Turns expanded delivery behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:614`; `src/learnloop/reader/reader_dialogue.py:594`; `src/learnloop/source_retrieval/tutor.py:193` |
+| `tutor_qa.resolve_references` | `true` | boolean | modeled default or validator seed | Turns resolve references behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:606`; `src/learnloop/reader/reader_dialogue.py:593`; `src/learnloop/source_retrieval/tutor.py:199` |
+| `tutor_qa.expanded_delivery` | `true` | boolean | modeled default or validator seed | Turns expanded delivery behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:614`; `src/learnloop/reader/reader_dialogue.py:594`; `src/learnloop/source_retrieval/tutor.py:210` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
