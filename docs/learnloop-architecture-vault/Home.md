@@ -34,6 +34,7 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 | Map | Use it when… |
 |---|---|
 | [[Architecture Map]] | you need package boundaries, adapters, or dependency direction |
+| [[LearnLoop Pipeline Map]] | you want the current end-to-end learning loop, stage diagrams, and source links |
 | [[User Journey Map]] | you want an executable end-to-end path |
 | [[Data and State Map]] | you need authority, table roles, migrations, replay, or rebuild |
 | [[Developer Map]] | you need the correct modification point and test oracle |
