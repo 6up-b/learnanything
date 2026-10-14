@@ -236,3 +236,120 @@ Run on `8c42bfecf`, with TMPDIR set to the worktree's `fixtures-local/tmp`:
   characters, so a non-ASCII rewrite can cost up to about 6,000 tokens more than planned (under $0.001 at
   the embedding price). Bound it at 4 bytes per character in the sources track's planner? This is outside C1a.
 - Q1-Q7 are unchanged.
+
+## F4 round 3
+
+**Verified:** `4493140a2` (the re-review's fix and record). The verify reopened F4 [High] again: an unpinned
+historical answer whose text states a key nothing records any more (`att_legacy`, no contract, no snapshot,
+today's YAML edited) was withheld as a trace, but the same key, propagated through its error event, came back
+in a recorded misconception's statement and correction, a candidate's statement, and the learner-text gaps
+drawn from that answer (their words and their targets). Those sections still used per-field key filters with
+no provenance or revision check. **Fixed in:** `3e1725836`, by one rule rather than per-field patches.
+**Spec:** §4.6 and §4.7 rule 1 updated.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F4 | High | Historical answer keys (round 3: answer-derived text outside the traces had no provenance or revision check) | fixed | `3e1725836` | `test_text_drawn_from_an_unpinned_answer_is_withheld_in_every_section`; `test_text_whose_provenance_cannot_be_followed_is_withheld`; `test_every_text_field_of_the_output_is_guarded_or_not_answer_derived`; `test_only_the_renderer_releases_answer_derived_text` |
+
+**Reproduced before the fix (fail-first).** The four tests were run against `4493140a2`'s `learner_context.py`
+and `server.py` (with stub names so the test module imports), and all four failed. The reproduction world
+plants `att_legacy` and propagates it through an error event into `mc_legacy` (statement and correction) and
+`mcand_legacy`; through the gaps drawn from it (`diagnosis`, `stuck_answer`) and a question on its item asked
+outside any attempt; through a candidate a gap on it created (`mcand_from_gap`); through a misconception
+promoted from a candidate drawn from it (`mc_promoted`); and through a pinned answer's diagnosis whose context
+receipt showed it. On the unfixed code the legacy key reached 13 fields: `mc_legacy.statement`,
+`mc_legacy.correction`, `mc_promoted.statement`, `mcand_legacy.statement`, `mcand_from_gap.statement`,
+`att_own`'s diagnosis summary, and the `learner_text` and `target` of the gaps `gap_legacy_diag`,
+`gap_legacy_stuck`, `gap_item_question` (plus `gap_legacy_created.target`). After the fix it reaches none. The
+unfixed code also showed a misconception whose error events are not on record, and its schema had open
+`dict[str, Any]` entries, so no test could enumerate the text fields.
+
+### What changed
+
+- **One renderer.** `learner_context.AnswerTextGuard.render(text, origin, limit)` is the only place
+  answer-derived text is released. It returns a `GuardedText` (a `str` subclass whose constructor takes a
+  module-private token), or `None` and the reason. A test checks that the module constructs `GuardedText` only
+  inside `render`. Every section calls it: misconception statements and corrections, candidate statements,
+  open-hypothesis and recurrence-group statements, trace answers, diagnosis summaries and trace hypotheses,
+  gap words, and gap targets (`registry()` resolves the belief and its origin; a topic target is a title in
+  `target_topic`, not text).
+- **The rule.** `render` follows the text's `Origin` (the answers behind it, the items it is about, its
+  topics). It releases the text only when all of the following hold, checked in this order: (1) every answer
+  behind it passes the answers' own protection check (`attempt_reason`: exam, reserved, cold-check and probe
+  items, exam and probe attempts, unknown items, protection unreadable), and so does every item it is about;
+  (2) the keys could be read and the text restates none of its items' keys or its topics' keys; (3) every
+  answer behind it was graded against exactly one pinned contract on its own item, and every item it is
+  about has such an answer behind it; (4) every link could be followed, and there is at least one link,
+  unless the text is about no item at all (a Reader or library question). A withheld text keeps its entry,
+  its counts and its status, and its note says why. Three notes are new: `PROVENANCE_MISSING`,
+  `PROVENANCE_UNKNOWN` and `REVISION_UNKNOWN_ASKED`.
+- **Provenance followed.** The guard follows these links:
+  - a misconception: its listed error events, events linked back to it (`error_events.misconception_id`),
+    candidates promoted into it, and hypotheses whose evidence names it as promoted;
+  - a candidate: its error events, its items, the error hunts that minted or counted it, and the gaps that
+    created it (`belief_candidate`);
+  - a gap's words: the answer they are, or were asked during; otherwise the item they are about;
+  - a hypothesis: its answer and every version of its episode;
+  - a diagnosis summary: its answer, plus everything its context receipt says the diagnoser was shown
+    (failure, success and history attempts, cited attempts, attempt ids named in the text, the hypotheses and
+    recorded beliefs it was given).
+
+  A hypothesis's own error event is followed when it is on record. When it is not, nothing is lost: the
+  event belongs to the hypothesis's own answer, and a regrade replaces events with new ids.
+- **Keys.** Each text is checked against the keys of every item behind it, plus its topic's keys for
+  statements and for words tied to no item. Answers and words about one item use their item's keys, as
+  before. Adding the topic's keys to answers was tried and dropped: on the linear_algebra copy it withheld 7
+  more of 30 recent answers, all on generic keys of ordinary sibling items ("Vector addition and scalar
+  multiplication").
+- **The output schema is typed and closed.** `ContextOut` now types every section with `extra="forbid"`
+  models, and open hypotheses are a union discriminated on `kind`. `ANSWER_DERIVED_FIELDS` (10 paths) and
+  `NON_ANSWER_FIELDS` (88 paths, each with the reason it is not answer-derived) partition the 98 text fields
+  of the advertised output schema. The schema test walks that schema, fails on any open object or untyped
+  leaf, and checks the partition. It then runs `learning_context` on a world where every answer-derived field
+  is released at least once. Every value at an answer-derived path must be a `GuardedText`. No other text
+  field may be one or carry planted answer text.
+- **Test world.** `tests/mcp_world.py` now records the provenance the pipeline writes. `mc_swap`'s events `e1`
+  and `e2` are error events of the pinned `att_own` (before, they were dangling ids). The world's gaps were
+  asked during `att_own`, and `gap_open` created `mcand_row`. Under the rule, dangling or absent provenance
+  withholds.
+
+### Manual run (backup-API copies, no model, no network)
+
+`learning_context` ran through the SDK client on the `fixtures-local/c1a-manual` copies, with every model
+client refused, on the fixed code and on `4493140a2`:
+
+| Vault | 30 traces | answers shown (30 / all) | answers withheld for revision (all) | other sections |
+|---|---|---|---|---|
+| linear_algebra | 550 ms (unfixed: 526 ms) | 12 / 28 of 70, identical to unfixed | 1 of 70, identical | 1 open hypothesis shown, 1 withheld (a probe), identical; no active misconception, open candidate, open gap or completed diagnosis on the copy |
+| probability | 112 ms | 2 / 2 of 2, identical | 0 | none |
+
+On the owner's data the fix withholds nothing that was shown before. Its new checks apply to sections that are
+empty on both copies today. **Paid calls: 0; cost: $0.**
+
+### Gate (F4 round 3)
+
+Run on `3e1725836`, with TMPDIR set to the worktree's `fixtures-local/tmp`:
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **21 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,696 passed**, 0 failed (14 min 25 s); 10,692 before plus the 4 F4 round 3 tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,596 deselected (1 min 49 s) |
+| The C1a tests alone (`test_mcp_c1a_review`, `test_mcp_tools`, `test_mcp_runtime`, `test_mcp_http`, `test_mcp_cli`) | 57 passed (53 before, plus the 4 F4 round 3 tests) |
+| DB reference generate/validate, CLI help snapshot, config references | not applicable: no schema, CLI or config change (the MCP output schema is not a DB or CLI reference) |
+| npm / cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+| Paid calls | none ($0) |
+
+### Open questions for the owner (F4 round 3)
+
+- **Q9:** a regrade deletes an attempt's error events and writes new ones with new ids. A recorded
+  misconception or candidate whose listed events were replaced then has a link that cannot be followed, and
+  its text is withheld (entry and counts kept, `PROVENANCE_MISSING`). Should regrades keep event ids, or
+  should re-normalization rewrite the source list? This is desktop scope. No active belief on the copies is
+  affected today.
+- **Q10:** a tutor question about an item, asked outside any attempt, is withheld: no graded answer
+  establishes which revision of the question it was about (`REVISION_UNKNOWN_ASKED`). Should `question_events`
+  record the item's contract or snapshot hash when the question is asked, so these can show? This is desktop
+  scope.
+- Q1-Q8 are unchanged.
