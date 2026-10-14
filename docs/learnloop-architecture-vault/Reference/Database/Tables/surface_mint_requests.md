@@ -3,8 +3,8 @@ title: "surface_mint_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcd993ad8d011256dcf969fba9860096ee36434c"
-source_commit_timestamp: "2026-10-14T00:52:38-04:00"
+source_commit: "9bd9038fdd270ed844dc957f07ad01630ce8e90d"
+source_commit_timestamp: "2026-10-14T02:05:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite surface_mint_requests"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 
 - `tests/test_item_fingerprints.py`
 - `tests/test_pf_generation.py`
+- `tests/test_required_method_reopened.py`
 - `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

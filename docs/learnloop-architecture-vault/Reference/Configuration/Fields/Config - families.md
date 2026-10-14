@@ -3,8 +3,8 @@ title: "Config - families"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcd993ad8d011256dcf969fba9860096ee36434c"
-source_commit_timestamp: "2026-10-14T00:52:38-04:00"
+source_commit: "9bd9038fdd270ed844dc957f07ad01630ce8e90d"
+source_commit_timestamp: "2026-10-14T02:05:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml families"
@@ -41,7 +41,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `families.max_exhaustive_items` | `40` | integer | modeled default or validator seed | Caps exhaustive items allowed by explicit-command offline family authoring, not live scheduling. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1950`; `src/learnloop/ops/family_proposals.py:158`; `src/learnloop/ops/pf_generation.py:1255` |
+| `families.max_exhaustive_items` | `40` | integer | modeled default or validator seed | Caps exhaustive items allowed by explicit-command offline family authoring, not live scheduling. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1950`; `src/learnloop/ops/family_proposals.py:158`; `src/learnloop/ops/pf_generation.py:1279` |
 | `families.blocking_top_k` | `20` | integer | modeled default or validator seed | Controls blocking top k in explicit-command offline family authoring, not live scheduling, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1951`; `src/learnloop/ops/family_proposals.py:186` |
 
 > [!warning] Omitted does not mean frozen in the file

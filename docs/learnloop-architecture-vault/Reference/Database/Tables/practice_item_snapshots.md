@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dcd993ad8d011256dcf969fba9860096ee36434c"
-source_commit_timestamp: "2026-10-14T00:52:38-04:00"
+source_commit: "9bd9038fdd270ed844dc957f07ad01630ce8e90d"
+source_commit_timestamp: "2026-10-14T02:05:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/164_item_snapshots_and_adjudication_fk.sql"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/item_content.py"
   - "src/learnloop/field/outcomes.py"
@@ -86,6 +87,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
