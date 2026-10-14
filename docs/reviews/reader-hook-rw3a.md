@@ -157,3 +157,104 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`.
 | `npm run frontend:build` | built (the usual chunk-size warning) |
 | `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished |
 | `db_generate_reference.py`, `db_validate_reference.py`, `validate_vault.py` | regenerated; errors []; passed, 1103 notes |
+
+## Landing onto main
+
+**Branch:** `merge/rw3a-onto-main` (worktree `learnanything-merge2`). Not pushed. Owner-directed, 2026-10-14, in two phases: first onto main `9c5c62df9` (merge `f730ad6ae`, references `c9458a827`), then, once router R2a had landed, onto main `28c6040ca` (mvp-0.23, LATEST): merge `68b4b20dc`, the composition `e7bda6662`, references `3af11d56c`. `reader/rw3a` (`f946e34b1`) and its worktree were not modified.
+
+**Main since this branch's base `4cf54a295`:**
+- the contextual-embeddings experiment spec and its two reviews (docs only);
+- router R2a (`mvp-0.23`, migration 202, head fixture `migration_head_202`): the staged frame on Today, `plan_presentations` receipts with `planPresentationId` through the practice submit and draft path, the stored learner-state card, and `router.enabled` / `router.mode`.
+
+**Paid calls:** none ($0.00). **Migration:** none from this branch (head 202 is main's). **Algorithm version:** unchanged, no successor; RW3a stays display only at every version. **Config:** `[cues]` beside R2a's `[router]` keys: 822 effective leaves in 50 sections. All fifteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.23`) were recomputed from the composed defaults (template `.pyc` cleared, the template touched); the notes keep R2a's and add RW3a's. **`src-tauri`:** RW3a's three passthroughs, so `cargo check` ran.
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `apps/learnloop-tauri/src/app/App.tsx` (`openPractice`) | Main's signature (the plan presentation id, into the offer) plus RW3a's `setReaderReturn((current) => keepReaderReturn(current, id))`, so only the checked item keeps the way back to its passage |
+| `src/learnloop/config/template.py` (14 hunks) | Main's R2a notes and its new `mvp-0.23` entry, plus RW3a's `[cues]` note; every hash recomputed (above) |
+| `tests/test_mobile_allowlist.py` | Both lists pinned desktop-only: `READER_RW3A_RPCS` and `ROUTER_R2A_RPCS` |
+| 372 notes under `Reference/` | Taken from main, then regenerated: head 202, 321 table notes, 822 configuration leaves in 50 sections |
+| Auto-merged, both sides kept | `api/client.ts`, `api/dto.ts`, `db_generate_reference.py` (main's `migration_head_202` paths, RW3a's `cues` functions), `config/schema.py`, the Pipeline Map (R2a live; the Reader's hooks and margin cues) |
+
+### Compositions
+
+**Check me goes through R2a's plan path and binds to the pick's own presentation.** RW3a's *check me* proposes one item (`reader.cue_action`, under the Reader's caller), and the shell opens it as a learner pick through `plan_learner_pick` (`App.pickCheckMe`). At mvp-0.23 that RPC logs the pick block's own router decision and plan presentation (R2a review F4) and returns the step's `presentationId`. `readerCheckOffer` (`app/readerCheck.ts`) built the practice offer from the step's scheduler candidate only, so the answer to a check went unbound, and R2a's outcome derivation could join it only by R1's labelled session-rule fallback. Composed (`e7bda6662`): the offer carries the step's presentation with the plan on (none with the plan off), and `planPresentationForServe` sends it with the answer.
+- **Fail-first:** `readerCheck.test.ts`'s new case, "plan on: the answer to a check binds to the pick's own presentation", failed on the merged code (`offer.presentationId` undefined). The two existing offer cases now name `presentationId: null`.
+- **No double logging.** `tests/test_reader_rw3a_landing.py` (5 tests, a guard: the backend already composed) drives the RPCs on an mvp-0.23 vault with the router on, across the three ways a pick lands in today's plan:
+  - a new one-item pick block: one new decision, `learner_pick = 1`, no propensity;
+  - an item already planned: served by its own block, under that block's decision;
+  - a plan with nothing open: an open-list pick, a presentation with no decision.
+
+  In each case the Reader's tap writes no router decision and no presentation, and the pick writes exactly one presentation. No `receipt_key` appears twice, and the one delivery (`interventions`) and `proposalPick.routerDecisionId` name the presentation's decision. With the plan on, an answer sent with the step's presentation is bound to it (`practice_attempts.plan_presentation_id`), and the decision's outcome is `taken` with `action_binding = presentation`.
+- **Unchanged by design:** with the plan off, the open still serves the item and carries the proposal, so that serve records the delivery (no presentation). A Reader tap never logs a decision: `propose_practice` and `find_practice` log none.
+
+**A check waiting on a session.** Begin on the Start screen serves the plan's first step (`next_plan_item`, `serve: true`), and then the waiting check opens as its own learner pick, so that first step's presentation goes unanswered. That is DL1's existing behaviour for every resume path that skips the first step (a waiting guided redo or primed retry), not a second log of the check. R2a's outcomes read that block as not taken or superseded, and the session-rule fallback never takes the check's bound answer. If the check's item is the first step's item, the pick is served by that planned block (the planned case above). No change; recorded as Q-L1.
+
+**Pipeline Map.** The Reader section names the hooks (only `useReadingProgress` and `useReaderInquiry` call `checkOffer.ts`), RW3a's display-only margin cues, and *check me* as a learner pick through `plan_learner_pick` bound to its presentation. It keeps main's R2a edits.
+
+### References
+
+- `db_generate_reference.py`: schema head 202, 321 table notes, 822 configuration leaves (796 active, 7 compat, 15 dormant, 4 legacy) in 50 sections.
+- Prose counts:
+  - `Configuration.md`: 818 leaves in 49 sections became 822 in 50;
+  - `Database.md`'s validator line: 818 became 822;
+  - `Database.md`'s DERIVED callout: "19 of 319 … other 300" became "19 of 321 … other 302" (stale on main since R2a's two tables; 19 `DERIVED` per `table_roles`).
+- `db_validate_reference.py`: errors `[]`.
+- `validate_vault.py`: passed, 1105 notes.
+- CLI help snapshot: `--write` reproduced the merged file.
+- `git diff --check`: clean.
+- **Not in this gate:** `desktop_validate.py` fails on main as on this branch (`unclassified desktop source apps/learnloop-tauri/src/copy/denyList.ts`, a file neither side touched); it is left for its owner.
+
+### Gate
+
+Run in this worktree at `3af11d56c` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install puts back 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,825 passed**, 0 failed, 48 warnings (16 min 10 s, after about 17 min waiting for the lock behind other worktrees' suites). No failure, so nothing was rerun |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` | **100 passed**, 0 failed, 32 warnings (19 s, after about 40 min waiting for the lock) |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · **81 files, 575 tests passed** · built, with the usual chunk-size notice |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished |
+| Defaults | all 15 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` fingerprints recomputed equal to the stored ones after the recompute |
+| CLI help | `python tests/test_cli_help_snapshot.py --write`: no change |
+| References | see above |
+
+**Targeted runs before the gate.**
+- Phase 1, on main `9c5c62df9`: the Reader backend suites (`test_reader_*`, `test_sidecar_reader*`, `test_daily_loop_reader_*`, `test_guided_redo`, `test_pfc_unassessed_readers`) together with the allowlist, config, CLI-help, serializer and `mvp015` tests: 476 passed. Vitest: 81 files, 568 passed. Lint: 17 kept.
+- Phase 2: `tests/test_reader_rw3a_landing.py`, 5 passed; `readerCheck.test.ts`, 5 passed.
+
+### Parity
+
+**Copies.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`), in `fixtures-local/rw3a-parity`.
+
+**Migration, each copy by its own code** (`migration_coordinator.migrate_vault`), 47 migrations each, to head 202:
+- main `28c6040ca`: `src`, `migrations` and `pyproject.toml`, exported with `git archive` and run on `PYTHONPATH`. A probe printed the archive's `learnloop/__init__.py`.
+- the merge: this worktree's own code.
+
+**Runs.** On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+**Result.** The merge's outputs match main's exactly: **0 differences** on all four outputs, once ULIDs, timestamps, ids, hashes and the copy's path are set aside.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same figures as the reading-hardening landing.
+- `live_database.unchanged` is true on every run, and each copy's `state.sqlite` hash is the same before and after its runs.
+- Doctor exits 1 on both sides, as on main.
+- The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched. The owner's working vaults were opened only by the backup API, to copy them.
+- Nothing was pushed, rebased or stashed. `reader/rw3a` and `learnanything-merge4` were not modified.
+
+### Open questions for the owner (conservative defaults applied)
+
+- **Q-L1.** A check waiting on a session opens after Begin has served the plan's first step, which the learner never sees: DL1's behaviour for every waiting resume (guided redo, primed retry). The check itself is logged once. Should Begin skip serving its first step when a check, redo or primed retry is waiting? Recommended: **leave as is** for this landing. R2a's outcomes already read that block as not taken, and a change to Begin belongs with RW2a, which moves *check me* into the Reader's working posture.
