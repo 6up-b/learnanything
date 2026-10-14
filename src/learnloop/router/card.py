@@ -78,7 +78,8 @@ class CardInputs:
     self_reports: Sequence[Mapping[str, Any]] = ()
     #: newest first; each: attempt_id, at, learning_object_id, topic, kind,
     #: result (correct | partial | incorrect | held_for_review | not_graded),
-    #: hints_used, key_status, stem (or None), answer (or None)
+    #: hints_used, key_status, stem (the pinned revision's question, or None),
+    #: stem_note (why a shown attempt has no question), answer (or None)
     recent_work: Sequence[Mapping[str, Any]] = ()
     evidence_sections: Mapping[str, Any] = field(default_factory=dict)
 
@@ -115,6 +116,8 @@ def _work_line(entry: Mapping[str, Any]) -> str:
         parts.append("answer key not verified")
     if entry.get("withheld"):
         parts.append(f"question and answer withheld ({entry['withheld']})")
+    elif entry.get("stem_note"):
+        parts.append(str(entry["stem_note"]))
     line = "- " + " · ".join(part for part in parts if part)
     if entry.get("stem"):
         line += f"\n  question: {entry['stem']}"
@@ -124,7 +127,7 @@ def _work_line(entry: Mapping[str, Any]) -> str:
 
 
 def _lo_line(lo_id: str, row: Mapping[str, Any]) -> str:
-    bits = [f"- {row.get('title') or lo_id}: {row.get('status') or 'unknown'}"]
+    bits = [f"- {row.get('title') or lo_id}: {str(row.get('status') or 'unknown').replace('_', ' ')}"]
     predictor = row.get("predictor") or {}
     if predictor.get("p_success") is not None:
         low, high = predictor.get("low"), predictor.get("high")
@@ -137,7 +140,7 @@ def _lo_line(lo_id: str, row: Mapping[str, Any]) -> str:
         bits.append(
             f"{evidence.get('graded', 0)} graded ({evidence.get('correct', 0)} correct, {evidence.get('partial', 0)} "
             f"partial, {evidence.get('incorrect', 0)} incorrect, {evidence.get('held', 0)} held), "
-            f"{evidence.get('assisted', 0)} with hints"
+            f"{evidence.get('assisted', 0)} assisted (hints or a primed redo)"
         )
     if row.get("last_attempt_at"):
         bits.append(f"last {str(row['last_attempt_at'])[:10]}")

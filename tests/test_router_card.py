@@ -250,3 +250,138 @@ def test_payloads_older_than_the_retention_window_are_pruned(tmp_path, monkeypat
     with sqlite3.connect(env.repository.sqlite_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM router_decision_payloads WHERE id = 'pl_old'").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM router_decisions WHERE id = 'rd_old'").fetchone()[0] == 1
+
+
+# -- Codex review F6-F8: the card's past work, topic statuses and open problems ----
+
+OLD_STEM = "OLD_STEM_THE_LEARNER_SAW_3301"
+NEW_STEM = "NEW_STEM_NEVER_ATTEMPTED_8812"
+
+
+def _card_world(tmp_path, monkeypatch):
+    """Two candidate topics: lo_m1 (pi_a, answered then edited) and lo_m2 (pi_b)."""
+
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_m1": [], "lo_m2": []}, version=A)
+    _item(paths, "pi_a", "lo_m1", prompt=NEW_STEM, expected="kept")
+    _item(paths, "pi_b", "lo_m2", prompt="Name a basis of R^2.", expected="e1, e2")
+    clock = MovableClock()
+    env = make_env(paths.root, [scheduled("pi_a", "lo_m1", forgetting_risk=0.6),
+                                scheduled("pi_b", "lo_m2", forgetting_risk=0.6)], clock=clock, session_id="s1")
+    for item in ("pi_a", "pi_b"):
+        seed_due(env.repository, item, due=PAST, last=LAST)
+    from learnloop.source_retrieval import corpus
+
+    monkeypatch.setattr(corpus, "exam_exclusions",
+                        lambda _vault, _repo: corpus.Exclusions(frozenset(), frozenset()))
+    env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=clock)
+    return env
+
+
+def _graded_under(env, attempt_id: str, item_id: str, *, prompt: str) -> str:
+    """Grade ``attempt_id`` under a pinned contract whose revision showed ``prompt``."""
+
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    item = env.vault.practice_items[item_id].model_copy(update={"prompt": prompt})
+    version_id = snapshot_for_presentation(env.repository, env.vault, item)
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id, grading_revision) VALUES (?, ?, 'correctness', 4, 1, ?, ?, 0)",
+            (f"ge_{attempt_id}", attempt_id, iso(LAST), version_id),
+        )
+        connection.commit()
+    return version_id
+
+
+def _card(env) -> dict:
+    """The card stored with the plan's first block decision."""
+
+    build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
+    _row, payload = _stored_card(env)
+    return {"json": json.loads(payload["content_json"]), "text": payload["content_text"]}
+
+
+def test_past_work_shows_the_revision_it_answered_never_todays_edit(tmp_path, monkeypatch):
+    """Review F6: an answered item is edited afterwards. The card shows the
+    question from the attempt's pinned contract, never the current prompt; an
+    attempt whose revision cannot be established shows no question."""
+
+    env = _card_world(tmp_path, monkeypatch)
+    _attempt(env, "att_old", "pi_a", "lo_m1", iso(LAST), answer=OWN_ANSWER, correctness=1.0)
+    _graded_under(env, "att_old", "pi_a", prompt=OLD_STEM)
+    _attempt(env, "att_unpinned", "pi_a", "lo_m1", "2026-09-21T09:00:00Z", answer="second try", correctness=0.0)
+    card = _card(env)
+    work = {entry["attempt_id"]: entry for entry in card["json"]["recent_work"]}
+    assert work["att_old"]["stem"] == OLD_STEM and work["att_old"]["answer"] == OWN_ANSWER
+    assert work["att_unpinned"]["stem"] is None and work["att_unpinned"]["answer"] == "second try"
+    assert "question revision not recorded" in card["text"]
+    assert NEW_STEM not in card["text"] and NEW_STEM not in json.dumps(card["json"])
+
+
+def test_failed_or_assisted_work_is_never_demonstrated(tmp_path, monkeypatch):
+    """Review F7: a graded attempt is not a demonstration. An incorrect,
+    hinted, primed attempt is assisted-only; unassisted work without
+    capability credit is attempted, not demonstrated; only the authoritative
+    classification (the Today headline's) says demonstrated."""
+
+    env = _card_world(tmp_path, monkeypatch)
+    _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=1.0)
+    _attempt(env, "att_b", "pi_b", "lo_m2", iso(LAST), answer="wrong", correctness=0.0)
+    with env.repository.connection() as connection:
+        connection.execute("UPDATE practice_attempts SET hints_used = 2, primed = 1 WHERE id = 'att_b'")
+        connection.commit()
+    statuses = {lo: row["status"] for lo, row in _card(env)["json"]["learning_objects"].items()}
+    assert statuses == {"lo_m1": "attempted_not_demonstrated", "lo_m2": "assisted_only"}
+
+
+def test_only_the_authoritative_classification_says_demonstrated(tmp_path, monkeypatch):
+    env = _card_world(tmp_path, monkeypatch)
+    _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=1.0)
+    import learnloop.daily_plan.headline as headline
+
+    real = headline.classify_learning_objects
+    monkeypatch.setattr(headline, "classify_learning_objects",
+                        lambda vault, repository, **kw: {**real(vault, repository, **kw), "lo_m1": "demonstrated"})
+    statuses = {lo: row["status"] for lo, row in _card(env)["json"]["learning_objects"].items()}
+    assert statuses == {"lo_m1": "demonstrated", "lo_m2": "untested"}
+
+
+def _hypothesis(env, hypothesis_id: str, *, status: str, statement: str, evidence: dict) -> None:
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO causal_hypotheses(id, episode_key, version, attempt_id, learning_object_id, cause_scope, "
+            "statement, statement_normalized, status, evidence_json, created_at) "
+            "VALUES (?, ?, 1, 'att_a', 'lo_m1', 'learner_state', ?, ?, ?, ?, ?)",
+            (hypothesis_id, f"ep_{hypothesis_id}", statement, statement.lower(), status, json.dumps(evidence),
+             iso(LAST)),
+        )
+        connection.commit()
+
+
+def test_a_resolved_promoted_misconception_is_not_an_open_problem(tmp_path, monkeypatch):
+    """Review F8: a validated cause whose promoted misconception has been
+    resolved is closed, exactly as the daily plan's own predicate says; an
+    open one stays, with its supporting evidence ids."""
+
+    from learnloop.db.stores.daily_plans import open_diagnosed_problem_learning_object_ids
+
+    env = _card_world(tmp_path, monkeypatch)
+    _attempt(env, "att_a", "pi_a", "lo_m1", iso(LAST), answer="right", correctness=1.0)
+    _hypothesis(env, "hyp_resolved", status="validated", statement="Confuses rank and nullity",
+                evidence={"promoted_misconception_id": "mc_resolved"})
+    _hypothesis(env, "hyp_open", status="candidate", statement="Swaps rows and columns", evidence={})
+    with env.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO misconceptions(id, learning_object_id, statement, status, resolved_at) "
+            "VALUES ('mc_resolved', 'lo_m1', 'Confuses rank and nullity', 'resolved', ?)", (iso(LAST),),
+        )
+        connection.commit()
+        # The daily plan's predicate: the LO stays open through hyp_open only.
+        assert "lo_m1" in open_diagnosed_problem_learning_object_ids(connection)
+    card = _card(env)
+    causes = [entry for entry in card["json"]["open_hypotheses"] if entry["kind"] == "diagnosed_cause"]
+    assert "Confuses rank and nullity" not in card["text"]
+    assert [(entry["statement"], entry["hypothesis_id"], entry["attempt_id"]) for entry in causes] == [
+        ("Swaps rows and columns", "hyp_open", "att_a")
+    ]

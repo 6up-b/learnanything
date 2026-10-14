@@ -1,9 +1,12 @@
 """Router R2a: gathering ``LearnerStateCardV1``'s inputs at a plan boundary.
 
 The pure builder is :mod:`learnloop.router.card`; this module reads the
-ledger for one decision with a fixed number of bounded queries (never one per
-candidate item), strictly before the decision time, and applies the card's
-leakage rules (plan §3.6, gate G5) before anything is rendered:
+ledger for one decision, strictly before the decision time, and applies the
+card's leakage rules (plan §3.6, gate G5) before anything is rendered. Its
+reads scale with the card's topics (at most ``LEARNING_OBJECT_LIMIT``), never
+with the candidate items: the attempt history of those topics is read in full
+(for the evidence counts), the held-grade predicate reads it in 500-attempt
+chunks, and the headline classification reads each topic's certification.
 
 * it never reads a reference solution, an answer key, a rubric or source text;
 * a candidate item contributes its topic, minutes and kind only (no stem of
@@ -16,7 +19,17 @@ leakage rules (plan §3.6, gate G5) before anything is rendered:
   work shows a question or an answer (fail closed);
 * a grade held for review (THE predicate, ``held_grades``) is "held for
   review", never a score;
-* an answer on an unverified key says so (``reference_status``).
+* an answer on an unverified key says so (``reference_status``);
+* past work shows the question the learner answered: the prompt of the
+  attempt's pinned assessment contract (the revision it was graded against),
+  never today's edited prompt; an attempt whose revision cannot be
+  established shows no question (review F6).
+
+A topic is ``demonstrated`` or ``assumed`` only by the Today headline's
+classification (capability-matched, unassisted certification credit; open
+placement assumptions); other attempted topics are ``attempted_not_demonstrated``
+or ``assisted_only`` (review F7). Open problems use the daily plan's own
+resolution predicate (review F8).
 
 A section that cannot be read is named in ``unknowns`` rather than guessed.
 Read-only; nothing is written and no model is called.
@@ -76,6 +89,24 @@ def _result(correctness: Any, held: bool) -> str:
     return "partial"
 
 
+def _status(klass: str | None, counts: Mapping[str, int] | None) -> str:
+    """A topic's status on the card (review F7).
+
+    ``demonstrated`` and ``assumed`` come only from the Today headline's
+    classification (``klass``; None when it could not be read). Otherwise a
+    topic with past attempts is ``assisted_only`` when every one was assisted
+    (hints or a primed redo) and ``attempted_not_demonstrated`` when not: a
+    graded attempt is never a demonstration. With no attempts here, the
+    headline's ``learning`` (direct evidence recorded elsewhere) stands, and
+    anything else is ``untested``."""
+
+    if klass in ("demonstrated", "assumed"):
+        return klass
+    if counts and counts.get("attempts"):
+        return "assisted_only" if counts.get("assisted", 0) >= counts["attempts"] else "attempted_not_demonstrated"
+    return "learning" if klass == "learning" else "untested"
+
+
 class CardGatherer:
     """Builds the card for one plan decision (``StagedChooser.card_builder``)."""
 
@@ -113,12 +144,13 @@ class CardGatherer:
             ).fetchone()
             attempts = self._attempts(connection, los, now_iso)
             held = self._held(connection, [row["id"] for row in attempts])
+            pinned = self._pinned_stems(connection, attempts[:RECENT_WORK_LIMIT], unknowns)
             learning_objects = self._learning_objects(los, candidate_los, attempts, held, feasible, titles, now_iso,
                                                       unknowns)
             interaction = self._interaction(connection, now_iso, unknowns)
             hypotheses = self._open_problems(connection, set(los), titles, unknowns)
             reports = self._self_reports(connection, set(los), titles, now_iso, unknowns)
-        recent = self._recent_work(attempts, held, titles, unknowns)
+        recent = self._recent_work(attempts, held, pinned, titles, unknowns)
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
         session = {
             "plan_id": state.plan_id,
@@ -194,6 +226,66 @@ class CardGatherer:
 
         return held_for_review_attempts(connection, attempt_ids) if attempt_ids else frozenset()
 
+    @staticmethod
+    def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknowns: list[str]) -> dict[str, str]:
+        """The question each attempt answered (review F6): the prompt of its
+        pinned assessment contract, the one contract its current grading
+        evidence names, belonging to the attempt's item. Only the prompt is
+        read (``json_extract``), never the contract's answer key or rubric. An
+        attempt with no contract, or several, gets no stem: today's prompt is
+        never substituted for the revision the learner saw."""
+
+        items = {str(row["id"]): row.get("practice_item_id") for row in attempts}
+        if not items:
+            return {}
+        try:
+            if not _table(connection, "assessment_contract_versions"):
+                return {}
+            contracts: dict[str, set[Any]] = {}
+            for attempt_id, contract_id in connection.execute(
+                f"SELECT attempt_id, assessment_contract_version_id FROM grading_evidence "
+                f"WHERE superseded_at IS NULL AND attempt_id IN ({_marks(list(items))})",
+                list(items),
+            ):
+                contracts.setdefault(str(attempt_id), set()).add(contract_id)
+            single = {attempt: next(iter(ids)) for attempt, ids in contracts.items() if len(ids) == 1 and None not in ids}
+            if not single:
+                return {}
+            versions = sorted({str(value) for value in single.values()})
+            prompts = {
+                str(row[0]): (row[1], row[2])
+                for row in connection.execute(
+                    f"SELECT id, practice_item_id, json_extract(contract_json, '$.prompt') "
+                    f"FROM assessment_contract_versions WHERE id IN ({_marks(versions)})",
+                    versions,
+                )
+            }
+        except Exception:  # noqa: BLE001 - named as unknown; no question shows
+            _LOG.warning("router R2a card: pinned questions not read", exc_info=True)
+            unknowns.append("the questions past work answered could not be read: none is shown")
+            return {}
+        stems: dict[str, str] = {}
+        for attempt_id, version_id in single.items():
+            item_id, prompt = prompts.get(str(version_id), (None, None))
+            if item_id is not None and item_id == items.get(attempt_id) and isinstance(prompt, str) and prompt.strip():
+                stems[attempt_id] = prompt
+        return stems
+
+    def _classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None:
+        """The Today headline's class of each LO (review F7), or None when it
+        cannot be read (then no topic is demonstrated or assumed)."""
+
+        from learnloop.daily_plan import headline
+
+        try:
+            return headline.classify_learning_objects(
+                self.vault, self.repository, now=parse_utc(now_iso), learning_object_ids=los,
+            )
+        except Exception:  # noqa: BLE001 - named as unknown; fail closed
+            _LOG.warning("router R2a card: topic classes not read", exc_info=True)
+            unknowns.append("which topics are demonstrated could not be read: none is shown as demonstrated")
+            return None
+
     def _learning_objects(
         self, los: Sequence[str], candidate_los: Sequence[str], attempts: Sequence[Mapping[str, Any]],
         held: frozenset[str], feasible: Sequence[BlockCandidate], titles: Mapping[str, str], now_iso: str,
@@ -204,8 +296,9 @@ class CardGatherer:
         last: dict[str, str] = {}
         for row in attempts:
             lo = str(row["learning_object_id"])
-            counts = evidence.setdefault(lo, {"graded": 0, "correct": 0, "partial": 0, "incorrect": 0, "held": 0,
-                                              "assisted": 0})
+            counts = evidence.setdefault(lo, {"attempts": 0, "graded": 0, "correct": 0, "partial": 0, "incorrect": 0,
+                                              "held": 0, "assisted": 0})
+            counts["attempts"] += 1
             result = _result(row["correctness"], row["id"] in held)
             if result == "held_for_review":
                 counts["held"] += 1
@@ -215,14 +308,7 @@ class CardGatherer:
             if int(row.get("hints_used") or 0) > 0 or bool(row.get("primed")):
                 counts["assisted"] += 1
             last.setdefault(lo, str(row["created_at"]))
-        assumed: set[str] = set()
-        try:
-            from learnloop.placement.state import load_placement_state, placement_active
-
-            if placement_active(vault):
-                assumed = set(load_placement_state(vault, self.repository, now_iso=now_iso).open_by_lo)
-        except Exception:  # noqa: BLE001 - named as unknown
-            unknowns.append("placement state could not be read: which topics are assumed is unknown")
+        classes = self._classes(los, now_iso, unknowns)
         # The candidate items each LO is offered through, for the predictor and FSRS.
         items_by_lo: dict[str, list[str]] = {}
         for candidate in feasible:
@@ -242,9 +328,7 @@ class CardGatherer:
         out: dict[str, dict[str, Any]] = {}
         for lo in los:
             counts = evidence.get(lo)
-            status = "assumed" if lo in assumed and not counts else (
-                "demonstrated" if counts and counts["graded"] > 0 else "untested"
-            )
+            status = _status((classes or {}).get(lo), counts)
             row: dict[str, Any] = {
                 "title": titles.get(lo, lo),
                 "role": "candidate" if lo in candidate_los else "prerequisite",
@@ -282,7 +366,7 @@ class CardGatherer:
             if status == "untested" and lo in candidate_los:
                 unknowns.append(f"never tested: {titles.get(lo, lo)}")
             elif status == "assumed":
-                unknowns.append(f"assumed known (not tested): {titles.get(lo, lo)}")
+                unknowns.append(f"assumed known (not demonstrated): {titles.get(lo, lo)}")
         return out
 
     def _interaction(self, connection: Any, now_iso: str, unknowns: list[str]) -> dict[str, Any]:
@@ -320,20 +404,20 @@ class CardGatherer:
             return entries
         try:
             if _table(connection, "causal_hypotheses"):
-                for row in connection.execute(
-                    f"""SELECT h.learning_object_id, h.status, h.statement, h.created_at FROM causal_hypotheses h
-                         WHERE h.cause_scope = 'learner_state' AND h.status IN ('candidate', 'validated')
-                           AND h.learning_object_id IN ({_marks(sorted(los))})
-                           AND h.version = (SELECT MAX(head.version) FROM causal_hypotheses head
-                                             WHERE head.episode_key = h.episode_key)
-                         ORDER BY h.created_at DESC, h.id DESC""",
-                    sorted(los),
-                ):
+                from learnloop.db.stores.daily_plans import open_learner_state_hypotheses
+
+                # The daily plan's own resolution predicate (review F8): a
+                # validated cause whose promoted misconception is resolved is
+                # closed. Each entry names the evidence it rests on.
+                for row in open_learner_state_hypotheses(connection, los):
                     entries.append({
                         "kind": "diagnosed_cause", "learning_object_id": row["learning_object_id"],
                         "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
                         "status": row["status"], "since": row["created_at"],
                         "statement": excerpt(row["statement"], STATEMENT_LIMIT),
+                        "hypothesis_id": row["id"], "attempt_id": row["attempt_id"],
+                        "error_event_id": row["error_event_id"],
+                        "promoted_misconception_id": row["promoted_misconception_id"],
                     })
             if _table(connection, "unresolved_cause_factors"):
                 for row in connection.execute(
@@ -439,13 +523,12 @@ class CardGatherer:
         return frozenset(withheld)
 
     def _recent_work(
-        self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], titles: Mapping[str, str],
-        unknowns: list[str],
+        self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], pinned: Mapping[str, str],
+        titles: Mapping[str, str], unknowns: list[str],
     ) -> list[dict[str, Any]]:
         withheld = self._withheld_items(unknowns)
         work: list[dict[str, Any]] = []
         for row in attempts[:RECENT_WORK_LIMIT]:
-            item = self.vault.practice_items.get(row["practice_item_id"])
             exam_work = row.get("attempt_type") == "exam_attempt"
             hidden = withheld is None or exam_work or row["practice_item_id"] in withheld
             status = row.get("reference_status")
@@ -462,7 +545,9 @@ class CardGatherer:
                 "withheld": "exam or reserved material" if hidden and withheld is not None else (
                     "exam predicate unavailable" if hidden else None
                 ),
-                "stem": None if hidden or item is None else str(getattr(item, "prompt", "") or "") or None,
+                # The pinned revision's question, never today's (review F6).
+                "stem": None if hidden else pinned.get(str(row["id"])),
+                "stem_note": None if hidden or str(row["id"]) in pinned else "question revision not recorded",
                 "answer": None if hidden else (row.get("learner_answer_md") or None),
             })
         return work

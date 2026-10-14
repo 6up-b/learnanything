@@ -250,7 +250,7 @@ A section that cannot be read is named in `unknowns`.
 - **The presentation id.** The plan step's `presentationId` rides with the practice offer:
   - `PlanStepAction.planPresentationId`;
   - `PracticeOffer.presentationId`;
-  - `planPresentationForServe`, which follows the candidate's rules except that a resumed retry key keeps it.
+  - `planPresentationForServe`, which follows the candidate's rules except that a resumed retry key keeps it. (Corrected by review F5: the offer is in memory only, so the draft now stores the presentation beside its retry key and a restart restores it; see `router-r2a-codex-review.md`.)
 
   It reaches `PracticeScreen`, which sends it on submit and on "I don't know". This works on Begin, on Continue, on feedback's Next under the plan and on a full-list pick.
 - **`DailyPlanView`'s why toggle** shows `whyDetails` behind a collapsed `details` (router blocks only).
@@ -277,9 +277,9 @@ A section that cannot be read is named in `unknowns`.
    - A whole-frame failure (a bug) is logged with `detail.staged_frame.error` and DL1's packing stands. This fails open so Today never blocks. A single item's unknown freshness fails closed, as P4 says.
 4. **The card is built by its own gatherer, not the V3 renderer.**
    - The V3 renderer (`field/probability_states.py`) needs `diagnosis.split.history.VaultHistoryStore`, which the router leaf cannot import, and loads the whole history per prediction.
-   - The card's gatherer reads a fixed set of bounded queries per boundary.
+   - The card's gatherer reads scale with the card's topics (at most 40), never with candidate items. (Corrected by the Codex review: the topics' attempt history is read in full for the evidence counts, held grades in 500-attempt chunks, and the headline classification per topic.)
    - It follows the spec's sections and V3's budget rule, but not V3's per-attempt cutoff machinery, which is for a prediction harness.
-   - It includes the stem and the learner's own answer for attempted items (spec §4, "Recent work"), except exam or reserved material.
+   - It includes the stem and the learner's own answer for attempted items (spec §4, "Recent work"), except exam or reserved material. (Corrected by review F6: the stem is the attempt's pinned contract prompt, never today's; with no pinned revision no stem shows.)
    - Because the decision time is in the card, the hash moves with the clock.
 5. **Presentations are receipts at every plan version.** Like R1's logging, they are written wherever the plan serves, whatever `router.enabled` and the version. They change nothing served, and G8 compares `block_chosen` details. Every plan step therefore carries `presentation_id` (null until served).
 6. **Teach-back dialogues and probe-block submissions are not bound.** Their own RPCs do not take the id yet; the outcome falls back to the labelled session rule. Neither does the TUI, which keeps DL0's queue.
