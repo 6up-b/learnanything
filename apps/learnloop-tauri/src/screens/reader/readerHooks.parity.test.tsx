@@ -153,6 +153,37 @@ it("useReadingProgress: a jump is a placement, the learner's own scroll is readi
   expect(result.current.openQuestionSections.map((entry) => entry.id)).toEqual(["u2"]);
 });
 
+it("useReadingProgress: an arrow key is the learner's own scroll; Alt+↓ to a margin mark (RW3a) is not", async () => {
+  const { result } = renderHook(() => useProgressHarness());
+  act(() => result.current.placeAtOpen(view.sourceId, SPANS[2], null));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", altKey: true }));
+    result.current.onReadingScroll();
+    await vi.advanceTimersByTimeAsync(20);
+  });
+  expect(result.current.readingMoved).toBe(false);
+  await act(async () => {
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
+    result.current.onReadingScroll();
+    await vi.advanceTimersByTimeAsync(20);
+  });
+  expect(result.current.readingMoved).toBe(true);
+});
+
+it("useReadingProgress (RW3a): the passage the Reader placed the learner at is the restored one; a walk back names its own", () => {
+  const { result } = renderHook(() => useProgressHarness());
+  expect(result.current.restoredSpan).toBeNull();
+  act(() => result.current.placeAtOpen(view.sourceId, SPANS[3], null));
+  expect(result.current.restoredSpan).toBe(SPANS[3]);
+  act(() => result.current.noteRestored(SPANS[1]));
+  expect(result.current.restoredSpan).toBe(SPANS[1]);
+  act(() => result.current.noteRestored(null));
+  expect(result.current.restoredSpan).toBe(SPANS[1]);
+  act(() => result.current.resetProgress());
+  expect(result.current.restoredSpan).toBeNull();
+});
+
 it("useReadingProgress: the saved place opens, a search hit wins over it, and with neither the history decides", () => {
   window.localStorage.setItem(readingPositionKey(view.sourceId), SPANS[1]);
   const setActiveSpan = vi.fn();
