@@ -113,6 +113,8 @@ def _work_line(entry: Mapping[str, Any]) -> str:
     parts.append("no hints" if hints == 0 else f"{hints} hint{'s' if hints != 1 else ''}")
     if entry.get("key_status") == "unverified":
         parts.append("answer key not verified")
+    if entry.get("withheld"):
+        parts.append(f"question and answer withheld ({entry['withheld']})")
     line = "- " + " · ".join(part for part in parts if part)
     if entry.get("stem"):
         line += f"\n  question: {entry['stem']}"
