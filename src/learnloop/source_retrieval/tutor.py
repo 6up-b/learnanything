@@ -137,6 +137,35 @@ def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *
     return allow
 
 
+def linked_reference_filter(vault: LoadedVault, repository: Repository, *, context: str,
+                            learning_object_ids: Sequence[str], item: PracticeItem | None) -> BlockFilter:
+    """The rules a numbered block cited by a learning object's linked span
+    passes (the tutor's fallback when retrieval keeps the linked spans;
+    injected by the adapter as ``ask_question(linked_reference_filter=...)``).
+
+    Exactly a retrieved span's rules (:func:`reference_filter`) over the
+    question's own teaching scope (:func:`tutor_scope`): material without
+    teaching authority and assessment-linked spans never; in a practice or
+    feedback context also every passage linked to the item (its
+    ``entity_source_links`` of any relation and its provenance refs, the same
+    text in the source's other extractions, the worked example, exercise or
+    solution body such a passage leads) and every exercise and solution block
+    with its region's body (Codex review F1, tutor delivery fixes). The scope
+    is built on the first block asked about."""
+
+    item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
+    built: list[BlockFilter] = []
+
+    def allow(extraction_id: str, block: Any) -> str | None:
+        if not built:
+            scope = tutor_scope(vault, repository, context=context, learning_object_ids=learning_object_ids,
+                                item=item)
+            built.append(reference_filter(vault, repository, scope, item=item if item_bound else None))
+        return built[0](extraction_id, block)
+
+    return allow
+
+
 def with_references(vault: LoadedVault, repository: Repository, spans: list[dict[str, Any]], scope: Scope, *,
                     item: PracticeItem | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """``spans`` and the numbered blocks they cite (``referenced``), with what
@@ -468,6 +497,7 @@ __all__ = [
     "TutorPool",
     "TutorSpanProvider",
     "WITHHOLD_SPARE",
+    "linked_reference_filter",
     "over_soft_deadline",
     "reference_filter",
     "span_context",

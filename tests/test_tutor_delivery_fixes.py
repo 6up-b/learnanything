@@ -402,3 +402,174 @@ def test_a_pinned_passage_arrives_whole_with_the_theorem_it_cites(tmp_path):
     manifest = repository.question_event(result["event_id"])["source_context"]["source_retrieval"]
     assert manifest["basis"] == "pinned" and manifest["spans"] == 1
     assert manifest["span_keys"] == [f"ext_spec:{long_span}"]
+
+
+# -- Codex review F1: a linked span's references keep the item's exclusions -------
+#
+# When retrieval keeps the learning object's linked spans (no provider, or the
+# provider declined), the numbered blocks those spans cite pass the same rules a
+# retrieved span's references pass: the tutor's teaching scope for the question
+# (``source_retrieval.tutor.linked_reference_filter``, injected by the adapter),
+# so the item's database links, the same text in another extraction of its
+# source and a solution region's body never arrive. Without the injected rules
+# nothing is followed (fail closed).
+
+WORKED = "Example 3.2 (A diagonal matrix). Find the eigenvalues of the diagonal matrix diag(5, 7)."
+WORKED_BODY = "The eigenvalues of diag(5, 7) are its diagonal entries, read off the matrix."
+TEACHING = "A diagonal matrix has its diagonal entries as eigenvalues, as Example 3.2 shows."
+WORKED_EQUATION = "Example 3.3 (Characteristic equation). Find the eigenvalues of the matrix [[2, 1], [1, 2]]."
+SOLUTION_LEAD = "Solution."
+SOLUTION_EQUATION = "$$ t^2 - 4t + 3 = 0 \\tag{3.4} $$"
+EQUATION_TEACHING = "The roots of the characteristic equation (3.4) are the eigenvalues of the matrix."
+
+
+def _seed_hinted(repository, *, source_id: str, revision_id: str, extraction_id: str,
+                 rows: list[tuple[str, str]], register: bool = True) -> None:
+    """One chapter (header s1, then ``rows`` as s2, s3, ...) whose blocks carry
+    the extractor's role hints, as Marker's normalizer assigns them."""
+
+    from learnloop.ingest.block_roles import classify_block_role
+    from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
+    from tests.test_source_inventory import _persist
+
+    if register:
+        with repository.connection() as connection:
+            connection.execute(
+                "INSERT INTO source_artifacts(id, acquisition_kind, canonical_uri, display_title, "
+                "current_revision_id, reader_enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                (source_id, "pdf", f"file:///{source_id}.pdf", "Eigen text", revision_id, 1,
+                 "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"))
+            connection.execute(
+                "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
+                (revision_id, source_id, f"sha256:{source_id}", None, "2026-01-01T00:00:00Z"))
+            connection.commit()
+    header, ref = "Chapter 3 Eigenvalues", "/page/1/SectionHeader/1"
+    blocks = [DocumentBlock.build(span_id="s1", block_type="SectionHeader", text=header, ordinal=1, page=1,
+                                  section_path=[ref], extractor_block_id=ref)]
+    for index, (text, block_type) in enumerate(rows, start=2):
+        blocks.append(DocumentBlock.build(span_id=f"s{index}", block_type=block_type, text=text, ordinal=index,
+                                          page=1, section_path=[ref],
+                                          role_hint=classify_block_role(block_type, [], text)))
+    unit = DocumentUnit(unit_id="ch3", label=header, ordinal=0, semantic_hash=f"sha256:{extraction_id}",
+                        page_start=1, page_end=1, span_ids=[block.span_id for block in blocks])
+    _persist(repository, DocumentIR(extractor="marker", extractor_version=extraction_id, units=[unit],
+                                    blocks=blocks, assets=[], health=ExtractionHealth()),
+             revision_id=revision_id, extraction_id=extraction_id)
+
+
+def _linked_vault(tmp_path, rows: list[tuple[str, str]], *, teaching_span: str):
+    """The retrieval vault plus a primary textbook ``src_eigen`` (``ext_eigen``)
+    whose ``teaching_span`` is lo_matrices' linked passage."""
+
+    from learnloop.vault.writer import upsert_source_set
+    from tests.source_retrieval_fakes import build_retrieval_vault
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault", embeddings=False)
+    _seed_hinted(repository, source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen", rows=rows)
+    upsert_source_set(paths.root, {
+        "id": "sset_la", "subject_id": "linear-algebra", "title": "Linear algebra sources",
+        "members": [
+            {"source_id": "src_book", "revision_id": "rev_book", "default_role": "primary_textbook"},
+            {"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"},
+            {"source_id": "src_eigen", "revision_id": "rev_eigen", "default_role": "primary_textbook"},
+        ],
+    })
+    repository.insert_entity_source_link(
+        entity_type="learning_object", entity_id="lo_matrices", locator=f"span:ext_eigen/{teaching_span}",
+        relation="primary", source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen")
+    return paths, repository
+
+
+def _ask_linked(paths, repository, *, item: str = "pi_eigen_1", injected: bool = True):
+    from tests.source_retrieval_fakes import loaded
+    from tests.test_source_retrieval_tutor import CitingTutor
+
+    tutor = CitingTutor()
+    extra: dict = {}
+    if injected:
+        from learnloop.source_retrieval.tutor import linked_reference_filter
+
+        extra["linked_reference_filter"] = linked_reference_filter
+    result = ask_question(loaded(paths), repository, tutor, context="practice",
+                          question_md="Why are these the eigenvalues?", practice_item_id=item, session_id="s1",
+                          clock=CLOCK, **extra)
+    spans = tutor.contexts[0].source_spans
+    delivery = (repository.question_event(result["event_id"])["source_context"] or {}).get("delivery") or {}
+    return spans, delivery
+
+
+def test_a_linked_spans_reference_to_the_items_own_example_is_refused_by_its_database_link(tmp_path):
+    paths, repository = _linked_vault(
+        tmp_path, [(WORKED, "Text"), (WORKED_BODY, "Text"), (TEACHING, "Text")], teaching_span="s4")
+    # The item was made from Example 3.2: linked in the database only (no YAML provenance).
+    repository.insert_entity_source_link(
+        entity_type="practice_item", entity_id="pi_eigen_1", locator="span:ext_eigen/s2", relation="primary",
+        source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen")
+    spans, delivery = _ask_linked(paths, repository)
+    assert [span["text"] for span in spans] == [TEACHING]
+    assert not {WORKED, WORKED_BODY} & {span["text"] for span in spans}
+    unresolved = delivery["references"]["unresolved"]
+    assert [(entry["reference"], entry["span_id"]) for entry in unresolved] == [("Example 3.2", "s2")]
+    # Another item of the same learning object is not made from it: it is the tutor's scaffold there.
+    other, _ = _ask_linked(paths, repository, item="pi_eigen_2")
+    assert [span["text"] for span in other if span["relation"] == "referenced"] == [WORKED]
+
+
+def test_a_linked_spans_reference_to_a_re_extracted_copy_of_the_items_example_is_refused(tmp_path):
+    rows = [(WORKED, "Text"), (WORKED_BODY, "Text"), (TEACHING, "Text")]
+    paths, repository = _linked_vault(tmp_path, rows, teaching_span="s4")
+    # The item links the same example in an older extraction of the same source.
+    _seed_hinted(repository, source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen_old",
+                 rows=[("Front matter.", "Text"), *rows], register=False)
+    repository.insert_entity_source_link(
+        entity_type="practice_item", entity_id="pi_eigen_1", locator="span:ext_eigen_old/s3", relation="support",
+        source_id="src_eigen", revision_id="rev_eigen", extraction_id="ext_eigen_old")
+    spans, delivery = _ask_linked(paths, repository)
+    assert WORKED not in {span["text"] for span in spans}
+    assert [entry["reference"] for entry in delivery["references"]["unresolved"]] == ["Example 3.2"]
+
+
+def test_a_linked_spans_reference_into_a_solution_regions_body_is_refused_while_practising(tmp_path):
+    paths, repository = _linked_vault(tmp_path, [
+        (WORKED_EQUATION, "Text"), (SOLUTION_LEAD, "Text"), (SOLUTION_EQUATION, "Equation"),
+        ("Chapter three continues with the spectral theorem.", "Text"), (EQUATION_TEACHING, "Text"),
+    ], teaching_span="s6")
+    spans, delivery = _ask_linked(paths, repository)
+    assert SOLUTION_EQUATION not in {span["text"] for span in spans}
+    assert [(entry["reference"], entry["span_id"]) for entry in delivery["references"]["unresolved"]] == [
+        ("Equation 3.4", "s4")]
+
+
+def test_without_the_adapters_rules_a_linked_spans_references_are_not_followed(tmp_path):
+    paths, repository = _linked_vault(
+        tmp_path, [(WORKED, "Text"), (WORKED_BODY, "Text"), (TEACHING, "Text")], teaching_span="s4")
+    spans, _delivery = _ask_linked(paths, repository, item="pi_eigen_2", injected=False)
+    assert [span["text"] for span in spans] == [TEACHING]  # fail closed: no exclusions, no references
+
+
+def test_the_sidecar_injects_the_linked_reference_rules(tmp_path, monkeypatch):
+    from learnloop.source_retrieval.tutor import linked_reference_filter
+    from learnloop_sidecar.handlers import tutor_qa as handler
+    from tests.test_sidecar_tutor_qa import _TutorServer, _init, _rpc, _tutor_vault
+
+    seen: list[dict] = []
+    real = handler.ask_question
+
+    def capture(*args, **kwargs):
+        seen.append(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(handler, "ask_question", capture)
+    server = _TutorServer()
+    server.start()
+    try:
+        vault_root, _paths = _tutor_vault(tmp_path, server)
+        session = _rpc([_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "start_session",
+                                            "params": {"energy": "medium"}}])[1]["result"]["sessionId"]
+        response = _rpc([_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": "ask_tutor_question", "params": {
+            "context": "practice", "question": "Why orthogonal?", "practiceItemId": "pi_svd_define_001",
+            "sessionId": session, "secondsIntoAttempt": 12.0}}])[1]
+    finally:
+        server.stop()
+    assert "result" in response, response
+    assert seen and seen[0]["linked_reference_filter"] is linked_reference_filter

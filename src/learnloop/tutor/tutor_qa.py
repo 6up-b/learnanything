@@ -53,13 +53,7 @@ from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import (
-    HELD_OUT_REFUSAL,
-    exam_material,
-    held_out_among,
-    held_out_material,
-    item_source_keys,
-)
+from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     TUTOR_QA_PROMPT_VERSION,
@@ -73,7 +67,6 @@ from learnloop.config.schema import TutorQAConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.ingest.block_roles import lead_role
 from learnloop.tutor.context_delivery import (
     MAX_REFERENCES,
     NEIGHBOUR_RADIUS,
@@ -101,6 +94,13 @@ QUESTION_CONTEXTS = ("library", "practice", "feedback", "reader")
 # None); a suggester returns labelled LO suggestions for a reader span.
 SourceSpanProvider = Callable[..., tuple[list[dict[str, Any]] | None, dict[str, Any] | None]]
 LearningObjectSuggester = Callable[..., list[dict[str, Any]]]
+# Tutor delivery fixes (Codex review F1): the rules a numbered block cited by a
+# learning object's linked span passes, built per question as
+# ``(vault, repository, *, context, learning_object_ids, item) -> BlockFilter``
+# (``source_retrieval.tutor.linked_reference_filter``: the teaching scope with
+# the item's exclusions). Without it a linked span's references are not
+# followed (fail closed).
+LinkedReferenceFilter = Callable[..., BlockFilter]
 
 # U-033 (§7.6): per-ask reader answer modes. answer_directly is the launch default.
 READER_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
@@ -347,6 +347,7 @@ def ask_question(
     reader_thread: Sequence[Mapping[str, Any]] | None = None,
     tool_request_handler: Callable[..., list[dict[str, Any]]] | None = None,
     learner_draft_md: str | None = None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -361,6 +362,9 @@ def ask_question(
     learning object's linked spans), and ``learning_object_suggester`` records a
     labelled nearest-LO suggestion for a reader span without provenance. Neither
     changes the facet -> LO mapping, the candidate LOs or any evidence.
+    ``linked_reference_filter`` (tutor delivery fixes, Codex review F1) is the
+    teaching scope's rule for the numbered blocks a linked span cites; None
+    follows none of them.
 
     Canonical sources S4, injected by the adapter: ``tool_request_handler``
     turns on the answer's ``tool_requests`` field (prompt and contract) and
@@ -508,6 +512,7 @@ def ask_question(
             learner_draft_md=learner_draft_md,
             reader_withheld=reader_held_out,
             delivery_receipt=delivery,
+            linked_reference_filter=linked_reference_filter,
         )
 
     if context == "reader":
@@ -816,6 +821,7 @@ def build_tutor_opening(
     client: Any,
     *,
     practice_item_id: str,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
 ) -> str | None:
     """A proactive tutor opening for a just-closed diagnostic block (§12.1).
 
@@ -844,6 +850,7 @@ def build_tutor_opening(
         attempt=None,
         note=None,
         note_id=None,
+        linked_reference_filter=linked_reference_filter,
     )
     answer = request_tutor_answer(client, ai_context)
     return answer.answer_md
@@ -1245,6 +1252,7 @@ def _build_context(
     learner_draft_md: str | None = None,
     reader_withheld: Any = None,
     delivery_receipt: dict[str, Any] | None = None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
 ) -> TutorQAContext:
     """The tutor's context. ``delivery_receipt`` (when given) receives the
     source delivery's receipt when it records something: a trim or drop at
@@ -1293,6 +1301,7 @@ def _build_context(
     source_spans = _delivered_source_spans(
         vault, repository, context=context, item=item, lo_ids=lo_ids,
         provided_source_spans=provided_source_spans, delivery_receipt=delivery_receipt,
+        linked_reference_filter=linked_reference_filter,
     )
 
     rubric = vault.rubric_for_item(item) if item is not None else None
@@ -1354,6 +1363,7 @@ def _delivered_source_spans(
     lo_ids: list[str],
     provided_source_spans: list[dict[str, Any]] | None,
     delivery_receipt: dict[str, Any] | None,
+    linked_reference_filter: LinkedReferenceFilter | None = None,
 ) -> list[dict[str, Any]]:
     """A practice, feedback or library turn's source spans, as delivered.
 
@@ -1361,8 +1371,9 @@ def _delivered_source_spans(
     picks or pins, else the learning objects' linked spans), each its complete
     canonical block (the linked spans arrive cut at 600 characters), plus the
     numbered blocks they cite (``referenced``: the provider resolves its own
-    within its scope; for linked spans here, under :func:`_linked_reference_filter`),
-    all within ``tutor_qa.context_token_budget``."""
+    within its scope; a linked span's under the injected
+    ``linked_reference_filter``, the same teaching scope and item exclusions,
+    and none without it), all within ``tutor_qa.context_token_budget``."""
 
     settings = vault.config.tutor_qa
     source = BlockSource(repository.sqlite_path)
@@ -1378,12 +1389,11 @@ def _delivered_source_spans(
     else:
         chosen, completed = hydrate(source, _source_spans(vault, repository, lo_ids))
         candidates = list(chosen)
-        if settings.resolve_references and chosen:
+        if settings.resolve_references and chosen and linked_reference_filter is not None:
             keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
-            references = follow_references(
-                source, chosen, allow=_linked_reference_filter(vault, repository, context=context, item=item),
-                delivered=keys,
-            )
+            allow = linked_reference_filter(vault, repository, context=context, learning_object_ids=list(lo_ids),
+                                            item=item)
+            references = follow_references(source, chosen, allow=allow, delivered=keys)
             candidates += references.spans
     spans, receipt = apply_budget(candidates, settings.context_token_budget)
     if not references.empty:
@@ -1391,37 +1401,6 @@ def _delivered_source_spans(
     if delivery_receipt is not None and notable(receipt):
         delivery_receipt.update(receipt, completed=completed)
     return spans
-
-
-def _linked_reference_filter(
-    vault: LoadedVault, repository: Repository, *, context: str, item: PracticeItem | None
-) -> BlockFilter:
-    """Which numbered block a linked span's reference may add (a teaching
-    context): never exam or held-out material; while an item is being
-    practised (practice, feedback) never the item's own source, an exercise or
-    a solution, or a passage that reproduces its expected answer (the
-    retrieval scope's item-bound rules, ``source_retrieval.corpus``)."""
-
-    item_bound = context in {"practice", "feedback"} and item is not None
-    own_keys, own_whole = item_source_keys(item) if item_bound else (set(), set())
-    exam: list[Any] = []
-
-    def allow(extraction_id: str, block: Any) -> str | None:
-        if not exam:
-            exam.append(exam_material(vault, repository))
-        if exam[0].covers(extraction_id, str(block.span_id)):
-            return "exam material"
-        if not item_bound or item is None:
-            return None
-        if (extraction_id, str(block.span_id)) in own_keys or extraction_id in own_whole:
-            return "the practice item's own source"
-        if lead_role(block.text) in {"exercise", "solution"}:
-            return "an exercise or solution, while the item is being practised"
-        if span_leaks_expected(block.text, item.expected_answer):
-            return "it reproduces the answer to the item being practised"
-        return None
-
-    return allow
 
 
 def _context_learning_objects(item: PracticeItem | None, note: Any) -> list[str]:
