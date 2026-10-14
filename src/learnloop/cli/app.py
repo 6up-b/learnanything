@@ -136,12 +136,17 @@ def upgrade(
     ``voi_stopping.enabled``) and makes the probe hypothesis lane read
     the diagnoser's verdict (kill switch
     ``diagnosis.probe_lane_reads_diagnosis``) over an mvp-0.20 vault (or an
-    mvp-0.9 to mvp-0.19 vault through the chain). ``--to mvp-0.22`` (default,
-    the latest successor) lets the Decider decide the small judgments
-    (learner-text gaps, misconception matching, pattern links, question
-    classification, contamination verdicts), the LLM as fallback, over an
-    mvp-0.21 vault (or an mvp-0.9 to mvp-0.20 vault through the chain; one
-    kill switch per judgment under ``[decider_routes]``)."""
+    mvp-0.9 to mvp-0.19 vault through the chain). ``--to mvp-0.22`` lets the
+    Decider decide the small judgments (learner-text gaps, misconception
+    matching, pattern links, question classification, contamination
+    verdicts), the LLM as fallback, over an mvp-0.21 vault (or an mvp-0.9 to
+    mvp-0.20 vault through the chain; one kill switch per judgment under
+    ``[decider_routes]``). ``--to mvp-0.23`` (default, the latest successor)
+    composes Today with the router's staged frame (a block loses the items a
+    named hard constraint refuses; the order is unchanged) and sends P2 run
+    steps through the staged bridge, over an mvp-0.22 vault (or an mvp-0.9 to
+    mvp-0.21 vault through the chain; kill switch: ``router.enabled =
+    false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -205,11 +210,15 @@ def upgrade(
         from learnloop.decider_upgrade import upgrade_to_mvp022
 
         result = upgrade_to_mvp022(_root(vault))
+    elif to == "mvp-0.23":
+        from learnloop.router_staged_upgrade import upgrade_to_mvp023
+
+        result = upgrade_to_mvp023(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
-            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21 or mvp-0.22."
+            "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22 or mvp-0.23."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

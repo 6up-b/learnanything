@@ -517,6 +517,8 @@ export const api = {
     assessmentContractVersionId?: string | null;
     submissionId?: string | null;
     schedulerCandidateId?: string | null;
+    /** Router R2a: the daily-plan presentation this answer is to. */
+    planPresentationId?: string | null;
   }) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_dont_know", { input })),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),

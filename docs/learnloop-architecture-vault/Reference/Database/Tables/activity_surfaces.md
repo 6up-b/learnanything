@@ -3,13 +3,13 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
   - "table activity_surfaces"
-schema_head: 201
+schema_head: 205
 table_name: "activity_surfaces"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,14 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
+  - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/ops/pf_reports.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
-  - "src/learnloop/reader/reader_dialogue.py"
-  - "src/learnloop/scheduling/controller_snapshot.py"
+  - "src/learnloop/daily_plan/router_card.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -101,6 +101,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -114,6 +115,8 @@ Indexes and uniqueness:
 - `src/learnloop/cli/surfaces.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/curriculum/golden_path_assessment.py`
+- `src/learnloop/daily_plan/router_card.py`
+- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/substrate/activities.py`

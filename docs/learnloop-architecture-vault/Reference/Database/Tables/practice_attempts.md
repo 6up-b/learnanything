@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 201
+schema_head: 205
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`, `181_router_decisions.sql`, `182_learner_text_gaps.sql`, `186_route_check_clarification_trigger.sql`, `188_source_exercise_imports.sql`, `201_followup_value_decisions.sql`.
+- **Schema touched by:** `001_initial.sql`, `004_allow_open_text_attempt_type.sql`, `005_attempt_feedback_metadata.sql`, `006_ai_provider_metadata.sql`, `007_recall_coverage_interventions.sql`, `008_ability_transition_events.sql`, `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `017_followup_ratings.sql`, `018_exam_evidence_attempt_type.sql`, `020_teach_back_attempt_type.sql`, `021_primed_attempts.sql`, `022_exam_attempt_type.sql`, `028_probe_episodes.sql`, `031_block_end_and_longform.sql`, `053_attempt_submission_idempotency.sql`, `058_remediation_episodes.sql`, `111_deterministic_grading_source.sql`, `139_certification_cold_probes.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `143_instrument_classes.sql`, `144_diagnostic_augmentation.sql`, `151_cold_measurement_opportunities.sql`, `153_variable_rubric_scales.sql`, `159_attempt_completion_work.sql`, `161_collection_contract.sql`, `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`, `170_blind_grading_diagnosis_split.sql`, `172_placement_assumptions.sql`, `176_recurrence_groups.sql`, `178_stuck_prompt.sql`, `181_router_decisions.sql`, `182_learner_text_gaps.sql`, `186_route_check_clarification_trigger.sql`, `188_source_exercise_imports.sql`, `201_followup_value_decisions.sql`, `205_router_staged_frame.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -96,13 +96,17 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `evidence_origin` | `TEXT` | yes | `'unknown'` | — | Stored value |
 | `declared_stuck` | `INTEGER` | yes | `0` | — | Stored value |
 | `reference_status` | `TEXT` | yes | `'not_applicable'` | — | Stored value |
+| `plan_presentation_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/plan_presentations\|plan_presentations.id]] | Stored value |
 
 ## Relationships and access paths
 
-No SQLite foreign key is declared. Identifier-looking columns are application-validated soft references where applicable; this is common for YAML-owned entities and cross-generation compatibility seams.
+Declared SQLite foreign keys:
+
+- `plan_presentation_id` → [[Reference/Database/Tables/plan_presentations|`plan_presentations.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
 
 Indexes and uniqueness:
 
+- `practice_attempts_plan_presentation` on `plan_presentation_id` (unique).
 - `idx_practice_attempts_item_created` on `practice_item_id`, `created_at`, `id`.
 - `idx_practice_attempts_created` on `created_at`, `id`.
 - `idx_practice_attempts_submission_id` on `submission_id` (unique).
@@ -177,11 +181,13 @@ Indexes and uniqueness:
 - `src/learnloop/cli/router.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
@@ -337,7 +343,7 @@ CREATE TABLE "practice_attempts" (
   declared_dont_know INTEGER NOT NULL DEFAULT 0
 , collection_version TEXT NOT NULL DEFAULT 'legacy-unversioned', entry_surface TEXT NOT NULL DEFAULT 'unknown', evidence_origin TEXT NOT NULL DEFAULT 'unknown', declared_stuck INTEGER NOT NULL DEFAULT 0
   CHECK (declared_stuck IN (0, 1)), reference_status TEXT NOT NULL DEFAULT 'not_applicable'
-  CHECK (reference_status IN ('not_applicable', 'verified', 'unverified')));
+  CHECK (reference_status IN ('not_applicable', 'verified', 'unverified')), plan_presentation_id TEXT REFERENCES plan_presentations(id));
 ```
 
 ## Related notes

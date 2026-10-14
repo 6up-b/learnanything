@@ -28,6 +28,7 @@ from learnloop.daily_plan.engine import (
     stop_today,
 )
 from learnloop.daily_plan.headline import today_headline
+from learnloop.daily_plan.policy import policy_for
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
 from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
@@ -121,7 +122,15 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
             vault, queue, grading_provider_override=ctx.grading_provider_override
         )
 
-    return PlanEnv(vault=vault, repository=repository, session_id=session_id, eligible=eligible)
+    # Router R2a: the staged frame composes Today at mvp-0.23 with the router
+    # on; otherwise DL1's pair exactly (daily_plan.policy, G8).
+    return PlanEnv(
+        vault=vault,
+        repository=repository,
+        session_id=session_id,
+        eligible=eligible,
+        policy=policy_for(vault, repository, session_id=session_id),
+    )
 
 
 def _require(ctx: SidecarContext, session_id: str | None) -> tuple[Any, Any, PlanEnv] | None:

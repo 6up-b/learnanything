@@ -3,8 +3,8 @@ title: "Config - learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml learner_text_gaps"
@@ -18,12 +18,11 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
-  - "src/learnloop/ai/disclosures.py"
   - "src/learnloop/diagnosis/split/history.py"
+  - "src/learnloop/diagnosis/text_gaps/actions.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/pipeline.py"
   - "src/learnloop/placement/state.py"
-  - "src/learnloop/diagnosis/text_gaps/actions.py"
   - "src/learnloop/cli/gaps.py"
   - "src/learnloop/diagnosis/text_gaps/judges.py"
   - "tests/pf_fakes.py"
@@ -57,9 +56,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `learner_text_gaps.enabled` | `true` | boolean | modeled default or validator seed | Turns learner text gaps behavior on or off within learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1823`; `src/learnloop/ai/disclosures.py:142`; `src/learnloop/diagnosis/split/history.py:438` |
+| `learner_text_gaps.enabled` | `true` | boolean | modeled default or validator seed | Turns learner text gaps behavior on or off within learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1823`; `src/learnloop/diagnosis/split/history.py:438`; `src/learnloop/diagnosis/text_gaps/actions.py:470` |
 | `learner_text_gaps.chooser` | `"context_model"` | string | modeled default or validator seed | Controls chooser in learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1824`; `src/learnloop/diagnosis/text_gaps/jobs.py:402`; `src/learnloop/diagnosis/text_gaps/pipeline.py:271` |
-| `learner_text_gaps.decider_enabled` | `true` | boolean | modeled default or validator seed | Turns decider behavior on or off within learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1828`; `src/learnloop/ai/disclosures.py:142`; `src/learnloop/diagnosis/text_gaps/jobs.py:403` |
+| `learner_text_gaps.decider_enabled` | `true` | boolean | modeled default or validator seed | Turns decider behavior on or off within learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1828`; `src/learnloop/diagnosis/text_gaps/jobs.py:403`; `src/learnloop/diagnosis/text_gaps/pipeline.py:259` |
 | `learner_text_gaps.top_k` | `4` | integer | modeled default or validator seed | Controls top k in learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1830`; `src/learnloop/diagnosis/text_gaps/pipeline.py:360` |
 | `learner_text_gaps.judge_max_pairs` | `8` | integer | modeled default or validator seed | Controls judge max pairs in learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1832`; `src/learnloop/diagnosis/text_gaps/pipeline.py:361` |
 | `learner_text_gaps.judge_timeout_seconds` | `180` | integer | modeled default or validator seed | Sets the judge timeout duration in seconds for learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1833`; `src/learnloop/diagnosis/text_gaps/pipeline.py:167` |

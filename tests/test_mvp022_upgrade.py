@@ -66,17 +66,18 @@ from tests.helpers import NOW, _set_algorithm_version_at, create_placement_vault
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_205"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 
 def test_the_decider_successor_follows_voi_stopping_and_keeps_every_predecessor():
     assert DECIDER_TIER1_ALGORITHM_VERSION == "mvp-0.22"
-    assert SUCCESSOR_CHAIN[-3:] == (
+    assert SUCCESSOR_CHAIN[-4:-1] == (
         ROUTE_RULES_ALGORITHM_VERSION, VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION,
     )
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
-    assert DECIDER_TIER1_VERSIONS == frozenset({"mvp-0.22"})
+    # Router R2a's staged frame (mvp-0.23) followed it as the latest successor.
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.23"
+    assert DECIDER_TIER1_VERSIONS == frozenset({"mvp-0.22", "mvp-0.23"})
     # The chain is linear: mvp-0.22 means everything mvp-0.21 means PLUS the
     # Decider's judgments (main's own mvp-0.20 is the route rules, never the
     # Decider).
@@ -214,7 +215,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.21 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.23"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.18")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.22"])
     assert result.exit_code == 0, result.output
@@ -226,14 +227,16 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     assert load_vault(earlier.root).config.algorithms.algorithm_version == "mvp-0.21"
 
 
-def test_new_vaults_start_at_the_decider_successor(tmp_path):
-    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION."""
+def test_new_vaults_start_at_a_successor_with_the_deciders_judgments(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
+    (mvp-0.23 since router R2a's staged frame merged), which keeps them."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.23"
+    assert LATEST_ALGORITHM_VERSION in DECIDER_TIER1_VERSIONS
     assert all(enabled(fresh.config, task) for task in SERVING_TASKS)
 
 

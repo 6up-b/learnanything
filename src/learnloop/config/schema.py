@@ -2365,10 +2365,25 @@ class RouterConfig(BaseModel):
     (``PROBE_TIE_VERSIONS``): probe near-ties, teach-back items included (owner
     decision D11), join the Today queue's seeded exploration. Off (or below
     ``mvp-0.15``) serves exactly as ``mvp-0.14``.
+
+    Router R2a (``mvp-0.23``, ``ROUTER_STAGED_FRAME_VERSIONS``; plan_router_r2_v1
+    §9): ``enabled`` is the router's kill switch. On, Today's plan is composed
+    by the staged frame (DL1's lanes and ``lane_quota_v1`` over the set the P4
+    constraint engine admits) and ``golden_path.advance`` goes through the P2
+    bridge; off (or below ``mvp-0.23``) both serve exactly as ``mvp-0.22``.
+    ``mode`` names who chooses each block: ``staged`` (the rule; the only mode
+    until R2b adds the logged model mixture). ``card_token_budget`` bounds the
+    learner-state card each boundary stores (D8); the card is built and kept,
+    never sent, in R2a. ``payload_retention_days`` prunes the stored card text
+    (``router_decision_payloads``); the card's hash stays on the decision row.
     """
 
     log_decisions: bool = True
     probe_tie_admission: bool = True
+    enabled: bool = True
+    mode: Literal["staged"] = "staged"
+    card_token_budget: int = Field(default=16_000, ge=1_000)
+    payload_retention_days: int = Field(default=365, ge=1)
 
 
 class VoiStoppingConfig(BaseModel):

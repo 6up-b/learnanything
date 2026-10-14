@@ -95,6 +95,7 @@ export function PracticeScreen({
   practiceItemId,
   schedulerCandidateId = null,
   proposalOrigin = null,
+  planPresentationId = null,
   gradingReady,
   gradingProvider,
   restoredAnswer,
@@ -120,6 +121,8 @@ export function PracticeScreen({
   session: SessionSnapshot;
   practiceItemId: string;
   schedulerCandidateId?: string | null;
+  /** Router R2a: the daily-plan presentation this serve answers (sent on submit). */
+  planPresentationId?: string | null;
   /** The proposal a plan-off pick of this item came from: this serve records
    *  the pick's delivery (canonical sources, Codex re-review F10). */
   proposalOrigin?: { proposalId: string; importId: string | null } | null;
@@ -717,6 +720,7 @@ export function PracticeScreen({
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
         schedulerCandidateId,
+        planPresentationId,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade:
@@ -770,7 +774,8 @@ export function PracticeScreen({
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
-        schedulerCandidateId
+        schedulerCandidateId,
+        planPresentationId
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;

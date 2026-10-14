@@ -369,6 +369,10 @@ class PlanBlockDecision:
     items: tuple[tuple[str, str], ...] = ()
     decided_at: str | None = None
     config: Any = field(default=None, repr=False, compare=False)
+    #: Router R2a: the router chooser's record (``BlockChoice.router_record``),
+    #: written by the logger with the row: the card into the payload table,
+    #: its hash, mode and policy onto the decision. None from DL1's chooser.
+    router_record: Mapping[str, Any] | None = field(default=None, repr=False, compare=False)
 
 
 #: ``(connection, decision) -> router_decisions id or None``. The logger runs on
@@ -421,6 +425,15 @@ def _log_plan_decision(connection: Any, decision: PlanBlockDecision) -> str | No
 # honours ``router.log_decisions`` and leaves a chooser's own decision (R2) to
 # that chooser.
 register_plan_decision_logger(log_plan_block_decision)
+
+
+#: The keys of a router chooser's record copied onto the ``block_chosen``
+#: receipt (the card itself is stored beside the router decision).
+ROUTER_SUMMARY_KEYS = ("mode", "policy", "card_version", "card_hash", "why_code", "controller_decision_id")
+
+
+def router_summary(record: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: record[key] for key in ROUTER_SUMMARY_KEYS if record.get(key) is not None}
 
 
 def _event(connection: Any, block_id: str, kind: str, detail: Mapping[str, Any], at: str) -> None:
@@ -1259,6 +1272,12 @@ class Decision:
     fallback_from: str | None
     stop_offered: bool
     fallback_reason: str | None = None
+    #: Router R2a: the source's own record of this boundary (the staged
+    #: frame's snapshot hash, refusals and annotations); None from DL1's source.
+    source_record: Mapping[str, Any] | None = None
+    #: Router R2a: the chooser's own record (its card, mode, policy), kept
+    #: even when its choice fell back; None from DL1's chooser.
+    router_record: Mapping[str, Any] | None = None
 
 
 def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
@@ -1362,12 +1381,15 @@ def decide(
         and (items_left is None or items_left > 0)
     ]
     stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible
+    describe = getattr(source, "decision_record", None)
+    source_record = describe() if callable(describe) else None
     reason: str | None = None
     try:
         choice = policy.chooser.choose(state, feasible)
     except Exception as exc:  # noqa: BLE001 - a broken chooser falls back (rule 2)
         choice = BlockChoice(candidate_id=f"<error: {type(exc).__name__}>", chosen_by="lane_quota", propensity=None, why="", why_kind="computed")
         reason = "chooser_error"
+    router_record = getattr(choice, "router_record", None)
     feasible_ids = {candidate.candidate_id for candidate in feasible}
     valid = choice.candidate_id in feasible_ids or (choice.candidate_id == STOP_FOR_TODAY and stop_offered)
     if reason is None and not valid:
@@ -1398,6 +1420,8 @@ def decide(
         fallback_from=fallback_from,
         fallback_reason=reason if not valid else None,
         stop_offered=stop_offered,
+        source_record=source_record,
+        router_record=router_record,
     )
 
 
@@ -1598,11 +1622,20 @@ def _boundary(
         # mvp-0.21: the value-of-information decisions on today's due project
         # probes (admitted or held back), logged with the block decision.
         detail["voi_decisions"] = voi_decisions
+    router_record = decision.router_record
+    if decision.source_record:
+        # Router R2a: the staged frame's refusals (each item a named hard
+        # constraint refused, with its reason) and its snapshot hash.
+        detail["staged_frame"] = dict(decision.source_record)
+    if router_record:
+        # Router R2a: the router chooser's summary (its learner-state card is
+        # stored beside the router decision, not on this receipt).
+        detail["router"] = router_summary(router_record)
     candidate = decision.candidate
     if candidate is None and not forced:
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
-            stop_detail=detail, log_decision=True,
+            stop_detail=detail, log_decision=True, router_record=router_record,
         )
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
@@ -1650,6 +1683,7 @@ def _boundary(
                 items=tuple((item.practice_item_id, item.learning_object_id) for item, _origin in items),
                 decided_at=env.now_iso(),
                 config=env.vault.config,
+                router_record=router_record,
             ),
         )
         if decision_ref is None and logged is not None:
@@ -1748,6 +1782,7 @@ def _close(
     reason: str,
     stop_detail: Mapping[str, Any] | None = None,
     log_decision: bool = False,
+    router_record: Mapping[str, Any] | None = None,
 ) -> None:
     """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
     chooser, propensity and fallback) is appended as a stop receipt, so a plan
@@ -1775,6 +1810,7 @@ def _close(
                         chosen_by=str(stop_detail.get("chosen_by") or "lane_quota"),
                         decided_at=now,
                         config=env.vault.config,
+                        router_record=router_record,
                     ),
                 )
                 if decision_ref is None and logged is not None:
@@ -2099,7 +2135,16 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
 # -- the next step -------------------------------------------------------------------
 
 
-def _item_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, *, boundary: bool, candidate_id: str | None) -> dict[str, Any]:
+def _item_step(
+    env: PlanEnv,
+    record: PlanRecord,
+    block: PlannedBlock,
+    item: PlannedItem,
+    *,
+    boundary: bool,
+    candidate_id: str | None,
+    presentation_id: str | None = None,
+) -> dict[str, Any]:
     practice_item = env.vault.practice_items.get(item.practice_item_id)
     learning_object = env.vault.learning_objects.get(item.learning_object_id)
     return {
@@ -2114,6 +2159,9 @@ def _item_step(env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: Plan
         "est_minutes": round(item.est_minutes, 4),
         "origin": item.origin,
         "scheduler_candidate_id": candidate_id,
+        # Router R2a: the receipt an answer binds to (``plan_presentation_id``
+        # on submit); None until the item is served.
+        "presentation_id": presentation_id,
         "boundary": boundary,
     }
 
@@ -2211,14 +2259,94 @@ def advance_with_context(
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
     candidate_id = context.candidate_ids.get(item.practice_item_id)
-    step = _item_step(env, record, block, item, boundary=boundary, candidate_id=candidate_id)
+    step = _item_step(
+        env, record, block, item, boundary=boundary, candidate_id=candidate_id,
+        presentation_id=_standing_presentation(env, block, item) if item.served_at is not None else None,
+    )
     if serve:
-        _serve(env, block, item, candidate_id=candidate_id)
+        step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
     return record, step, context
 
 
-def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None) -> None:
+def _standing_presentation(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> str | None:
+    """The presentation an already-served plan item was served under, if any."""
+
+    from learnloop.db.stores import plan_presentations as presentations
+
+    try:
+        with env.repository.connection() as connection:
+            if not presentations.plan_presentations_present(connection):
+                return None
+            row = presentations.presentation_for(connection, block.id, item.practice_item_id)
+    except Exception:  # noqa: BLE001 - a receipt read never blocks the plan
+        return None
+    return str(row["id"]) if row is not None else None
+
+
+def _present(
+    env: PlanEnv,
+    connection: Any,
+    *,
+    block_id: str,
+    decision_ref: str | None,
+    practice_item_id: str,
+    position: int | None,
+    origin: str,
+    candidate_id: str | None,
+    served_at: str,
+) -> str | None:
+    """Router R2a: the served item's ``plan_presentations`` row, in the serve's
+    own transaction (one per block and item: a reopen returns the first).
+
+    The block's router decision and the staged controller decision it named
+    are copied from the ledger, so a decision id the ledger does not hold (a
+    chooser's own reference) is never written. Logging: a refused row rolls
+    back alone with a warning and the item is still served."""
+
+    from learnloop.db.stores import plan_presentations as presentations
+
+    if not presentations.plan_presentations_present(connection):
+        return None
+    connection.execute("SAVEPOINT plan_presentation")
+    try:
+        router_decision_id = controller_decision_id = None
+        if decision_ref:
+            row = connection.execute(
+                "SELECT id, controller_decision_id FROM router_decisions WHERE id = ?", (decision_ref,)
+            ).fetchone()
+            if row is not None:
+                router_decision_id, controller_decision_id = row["id"], row["controller_decision_id"]
+        presentation_id = presentations.insert_plan_presentation(
+            connection,
+            {
+                "id": new_ulid(),
+                "block_id": block_id,
+                "router_decision_id": router_decision_id,
+                "controller_decision_id": controller_decision_id,
+                "practice_item_id": practice_item_id,
+                "position": position,
+                "origin": origin,
+                "scheduler_candidate_id": candidate_id,
+                "probe_presentation_id": None,
+                "session_id": env.session_id,
+                "served_at": served_at,
+            },
+        )
+    except Exception:  # noqa: BLE001 - the receipt never blocks serving
+        connection.execute("ROLLBACK TO plan_presentation")
+        connection.execute("RELEASE plan_presentation")
+        import logging
+
+        logging.getLogger(__name__).warning("plan presentation of %s not recorded", practice_item_id, exc_info=True)
+        return None
+    connection.execute("RELEASE plan_presentation")
+    return presentation_id
+
+
+def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id: str | None) -> str | None:
+    """Record the item as served; returns its presentation (router R2a)."""
+
     now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
         if block.started_at is None:
@@ -2237,6 +2365,17 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
                 },
                 now,
             )
+        return _present(
+            env,
+            connection,
+            block_id=block.id,
+            decision_ref=block.decision_ref,
+            practice_item_id=item.practice_item_id,
+            position=item.position,
+            origin=item.origin,
+            candidate_id=candidate_id,
+            served_at=item.served_at or now,
+        )
 
 
 def _skip(env: PlanEnv, record: PlanRecord, practice_item_id: str) -> PlanRecord:
@@ -2309,10 +2448,12 @@ def learner_pick(
     )
     if planned is not None:
         block = next(b for b in record.blocks if b.id == planned.block_id)
-        _serve(env, block, planned, candidate_id=candidate_id)
+        presentation_id = _serve(env, block, planned, candidate_id=candidate_id)
         record = _reload(env, record.id)
         block = next(b for b in record.blocks if b.id == planned.block_id)
-        return record, _item_step(env, record, block, planned, boundary=False, candidate_id=candidate_id)
+        return record, _item_step(
+            env, record, block, planned, boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
+        )
     if not record.is_open:
         # The plan does not grow ("keep going" is the only extension), but the
         # pick is still the learner's choice: an open-list pick receipt keeps
@@ -2356,6 +2497,17 @@ def learner_pick(
                 },
                 env.now_iso(),
             )
+            presentation_id = _present(
+                env,
+                connection,
+                block_id=receipt_id,
+                decision_ref=None,
+                practice_item_id=practice_item_id,
+                position=None,
+                origin="open_list",
+                candidate_id=candidate_id,
+                served_at=env.now_iso(),
+            )
         return _reload(env, record.id), {
             "kind": "item",
             "plan_id": None,
@@ -2363,6 +2515,7 @@ def learner_pick(
             "practice_item_id": practice_item_id,
             "learning_object_id": practice_item.learning_object_id,
             "scheduler_candidate_id": candidate_id,
+            "presentation_id": presentation_id,
             "origin": "open_list",
             "boundary": False,
         }
@@ -2433,10 +2586,12 @@ def learner_pick(
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
     planned_item = block.items[0]
-    _serve(env, block, planned_item, candidate_id=candidate_id)
+    presentation_id = _serve(env, block, planned_item, candidate_id=candidate_id)
     record = _reload(env, record.id)
     block = next(b for b in record.blocks if b.id == block_id)
-    return record, _item_step(env, record, block, block.items[0], boundary=False, candidate_id=candidate_id)
+    return record, _item_step(
+        env, record, block, block.items[0], boundary=False, candidate_id=candidate_id, presentation_id=presentation_id
+    )
 
 
 # -- minutes, keep going, more new, reading ----------------------------------------

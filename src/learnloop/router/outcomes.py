@@ -18,10 +18,27 @@ Plan.md``, "Outcome and cost contract"):
   it or any reveal on the item or the learning object (``reveal_events``), in
   a different session from that last attempt, and unassisted as above.
 
-The action is the decision's chosen candidate. A Today offer's head is taken
-when an attempt is bound to its scheduler candidate; a learner pick's when an
-attempt is bound to the picked candidate; a staged decision's when its chosen
-item is attempted at or after the decision in its session. An untaken head is
+The action is what the decision served and the learner answered, bound by the
+most exact receipt that exists (router R2a, ``router_outcomes_v2``; plan §5.4):
+
+1. **presentation** (``action_binding = presentation``): a ``plan_block``
+   decision's block -> its ``plan_presentations`` in serving order -> the first
+   one an attempt answered (``practice_attempts.plan_presentation_id``). The
+   action is the item the learner was actually served and answered, not the
+   block's first planned item;
+2. **candidate** (``candidate``): a Today offer's head is taken when an attempt
+   is bound to its scheduler candidate; a learner pick's when an attempt is
+   bound to the picked candidate (R1);
+3. **session rule** (``session_rule``, the labelled fallback): the first
+   attempt on the decision's chosen item at or after the decision in its
+   session (R1's rule), kept only for rows and clients with no receipt (a
+   ``plan_block`` row from before R2a, a ``staged_p2`` row, an attempt sent
+   with no presentation id: an older client or the TUI). R3 reports the mix
+   and may exclude it.
+
+An attempt on an unverified answer key is an outcome like any other (owner
+Q13); its ``reference_status`` is recorded beside R_next and R_cold. An
+untaken head is
 ``overridden`` (a learner pick from the same offer), ``superseded`` (a later
 decision in its session), ``not_taken`` (its session ended) or ``open``. An
 outcome with no eligible attempt yet is ``pending``: right-censored at
@@ -67,10 +84,16 @@ import sqlite3
 from typing import Any
 
 from learnloop.clock import parse_utc
+from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
 
-OUTCOME_VERSION = "router_outcomes_v1"
+OUTCOME_VERSION = "router_outcomes_v2"
+
+#: How an action attempt was bound (plan §5.4), most exact first.
+BINDING_PRESENTATION = "presentation"
+BINDING_CANDIDATE = "candidate"
+BINDING_SESSION_RULE = "session_rule"
 
 #: The Pipeline plan's declared policy weight on durable retrieval.
 S_ALPHA = 0.75
@@ -88,6 +111,9 @@ _ATTEMPT_COLUMNS = (
     "scheduler_candidate_id, attempt_type, hints_used, primed, correctness, "
     "manual_review, manual_review_reason, evidence_origin, evidence_facets_json"
 )
+#: Columns later migrations added, read when present (205: the presentation
+#: an attempt answers; 188: its answer-key status).
+_OPTIONAL_ATTEMPT_COLUMNS = ("plan_presentation_id", "reference_status")
 
 #: The provisional R_cold rule's name (D12: a label until R3 fits coldness).
 R_COLD_RULE = "provisional_one_day"
@@ -181,10 +207,14 @@ class _Ledger:
         retrievability_by_attempt: Mapping[str, float] | None = None,
         held_attempt_ids: frozenset[str] = frozenset(),
     ) -> None:
+        present = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+        optional = "".join(
+            f", {column}" if column in present else f", NULL AS {column}" for column in _OPTIONAL_ATTEMPT_COLUMNS
+        )
         attempts = [
             dict(row)
             for row in connection.execute(
-                f"SELECT {_ATTEMPT_COLUMNS} FROM practice_attempts ORDER BY created_at, id"
+                f"SELECT {_ATTEMPT_COLUMNS}{optional} FROM practice_attempts ORDER BY created_at, id"
             )
         ]
         for row in attempts:
@@ -195,6 +225,7 @@ class _Ledger:
         self.by_lo: dict[str, list[dict[str, Any]]] = defaultdict(list)
         self.position: dict[str, int] = {}
         self.by_candidate: dict[str, dict[str, Any]] = {}
+        self.by_presentation: dict[str, dict[str, Any]] = {}
         self.by_item: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in attempts:
             lo_rows = self.by_lo[row["learning_object_id"]]
@@ -204,6 +235,9 @@ class _Ledger:
             candidate = row.get("scheduler_candidate_id")
             if candidate and candidate not in self.by_candidate:
                 self.by_candidate[candidate] = row
+            presentation = row.get("plan_presentation_id")
+            if presentation and presentation not in self.by_presentation:
+                self.by_presentation[presentation] = row
         self.observed_through = attempts[-1]["created_at"] if attempts else None
         reveals: dict[tuple[str, str], list[str]] = defaultdict(list)
         has_reveals = connection.execute(
@@ -361,20 +395,41 @@ class _Ledger:
         return latest
 
 
-def _action_attempt(decision: Mapping[str, Any], ledger: _Ledger) -> dict[str, Any] | None:
+def _decision_block(decision: Mapping[str, Any]) -> str | None:
+    """A ``plan_block`` decision's block (its receipt key names it)."""
+
+    key = str(decision.get("receipt_key") or "")
+    if decision.get("decision_kind") == "plan_block" and key.startswith("plan_block:"):
+        return key.split(":", 1)[1] or None
+    return None
+
+
+def _action_attempt(
+    decision: Mapping[str, Any],
+    ledger: _Ledger,
+    presentations: Mapping[str, list[dict[str, Any]]] | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """The action attempt and how it was bound (module docstring, rules 1-3)."""
+
+    block_id = _decision_block(decision)
+    for presentation in (presentations or {}).get(block_id or "", ()):
+        row = ledger.by_presentation.get(str(presentation["id"]))
+        if row is not None and row["created_at"] >= decision["created_at"]:
+            return row, BINDING_PRESENTATION
     candidate = decision.get("chosen_scheduler_candidate_id")
     if candidate:
-        return ledger.by_candidate.get(candidate)
+        row = ledger.by_candidate.get(candidate)
+        return (row, BINDING_CANDIDATE) if row is not None else (None, None)
     item_id = decision.get("chosen_practice_item_id")
     if not item_id:
-        return None
+        return None, None
     for row in ledger.by_item.get(item_id, []):
         if row["created_at"] < decision["created_at"]:
             continue
         if decision.get("session_id") and row["session_id"] != decision["session_id"]:
             continue
-        return row
-    return None
+        return row, BINDING_SESSION_RULE
+    return None, None
 
 
 def servable_items_by_learning_object(vault: Any) -> dict[str, set[str]]:
@@ -504,6 +559,9 @@ def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: 
         **_covariate_columns("r_next", None),
         **_covariate_columns("r_cold", None),
         "coldness_candidates_json": "[]",
+        "action_binding": None,
+        "r_next_reference_status": None,
+        "r_cold_reference_status": None,
         "detail_json": json.dumps({"basis": OUTCOME_VERSION, "r_cold_rule": R_COLD_RULE}, sort_keys=True),
     }
 
@@ -600,11 +658,14 @@ def derive_router_outcomes(
     decisions = [
         dict(row)
         for row in connection.execute(
-            "SELECT id, decision_kind, session_id, created_at, chosen_ref, chosen_practice_item_id, "
+            "SELECT id, receipt_key, decision_kind, session_id, created_at, chosen_ref, chosen_practice_item_id, "
             "chosen_learning_object_id, chosen_scheduler_candidate_id, parent_decision_id "
             "FROM router_decisions ORDER BY created_at, id"
         )
     ]
+    presentations = presentations_for_blocks(
+        connection, [block for row in decisions if (block := _decision_block(row)) is not None]
+    )
     overridden = {row["parent_decision_id"] for row in decisions if row["decision_kind"] == "learner_pick"}
     # Decisions are ordered by (created_at, id): a later one in the same
     # session supersedes an offer whose head was never taken.
@@ -620,7 +681,7 @@ def derive_router_outcomes(
             # Stop for today, a vetoed run, a block with no item: no action to follow.
             outcomes.append(_not_applicable(decision, "not_applicable", ledger.observed_through, pending=False))
             continue
-        action = _action_attempt(decision, ledger)
+        action, binding = _action_attempt(decision, ledger, presentations)
         if action is None:
             if decision["decision_kind"] == "today_offer" and decision["id"] in overridden:
                 status, pending = "overridden", False
@@ -695,6 +756,13 @@ def derive_router_outcomes(
                     "r_cold", ledger.covariates(r_cold["row"]) if r_cold["status"] == "observed" else None
                 ),
                 "coldness_candidates_json": json.dumps(candidates, sort_keys=True),
+                "action_binding": binding,
+                "r_next_reference_status": (
+                    r_next["row"].get("reference_status") if r_next["status"] == "observed" else None
+                ),
+                "r_cold_reference_status": (
+                    r_cold["row"].get("reference_status") if r_cold["status"] == "observed" else None
+                ),
                 "detail_json": json.dumps(
                     {
                         "basis": OUTCOME_VERSION,

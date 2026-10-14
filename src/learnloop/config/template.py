@@ -1077,7 +1077,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Every snapshot moves only because the effective config gains the
     # section and route; all fourteen were recomputed from the composed
     # defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "ebd63763a077b5d258a58d13492ef240d438a0ee048546de1eae1d2be950427b",
+    # Router R2a (the staged frame on Today, owner-directed 2026-10-13; built
+    # as successor mvp-0.23, a placeholder tag relabelled at its merge) adds
+    # four [router] keys: enabled (the router's kill switch, true),
+    # mode ("staged"), card_token_budget (16000, D8) and
+    # payload_retention_days (365); modelled defaults, left out of the
+    # decision-only template. The staged frame and the P2 bridge are dormant
+    # below mvp-0.23 (the algorithm version gates them), so mvp-0.9 to
+    # mvp-0.22 serving is unchanged; the receipts R2a adds (presentations,
+    # outcomes v2) are logging at every version. Every snapshot moves only
+    # because the effective config gains the keys; all fifteen were
+    # recomputed from the composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "7b7056eaaf820a7bbcf1ca95e8a47b983e03578bcb2e2cf355f8350cb50da483",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1106,7 +1117,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.10": "3db2e188b604be5a8dec7248dcaac5989a5fb60540db9840fde2883ba1b580a9",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.10": "b2e27be3b5ab9c0bfa7bb39807fc474abd4595de58fd1b8e67a31561b9f0afe3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1143,7 +1155,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.11": "604dab274902992fbdefb58d19aeda0a625ebb87db091020f4304b098cd2f972",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.11": "1006e5a1b3f9fb1161a75ee922f51509ac964088d933f22d4081ba47f1f1ae29",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1174,7 +1187,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.12": "07a19a49b316a303e1c5832620842cbc65ac94803f50e005c698eef2fb92b63f",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.12": "a421b5601189147d652c61ce3edc7cd38b1b07bc6b917e015cd8569a6ea463b6",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1200,7 +1214,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.13": "180fa348b97f8eb98ad7add49cbe28f4469c8faa8b2cf1e0f6cfc4b11d6f97db",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.13": "8f440488049446625ac1ce862a349610ec9b087a46a461fda196df0b880a9602",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1225,7 +1240,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.14": "27013f116b1a7e3ab0fcbf2e86a3b9ff5f5ec4e21c28e84687e6b09d6609ab12",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.14": "079fb6b24600e9c064cc94c495e1a39df5810442fae6d6ae97c8af9dc50a9955",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1248,7 +1264,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.15": "0fd5c12fed3adcc23eafcce4e953abbaa3d0d9cbe605e775244f14467c90d35b",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.15": "7eed756986af872949ab6c984ddb1c588b10dc95de642e175fba12617a069ba3",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1278,7 +1295,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.16": "47d4135c689ed6a5d920341d600ee7a14889dfba77226ef9f5909b9233a9f304",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.16": "b920892e263be737b4ff5429403f622608e47ab13a050751d1c09e6c5a81f13a",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1304,7 +1322,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.17": "ca1317ef6741d741dcbe4e9d353317a9e115d13c0d26451bb233a780988f890d",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.17": "559cf0dfe37d4cfb6660eab795e7f006f32ba279b5023572fd9058bcd21c046c",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1323,7 +1342,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.18": "d92a733c9039189edf73191e89a223c6e694eeb4a30be925e47f8b535420afe4",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.18": "e94b79f1476bb951e9d4f5ebc4e51187171802abc8b81a83bdd5e5b5cd14f3de",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1342,7 +1362,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.19": "b278cc42b716bc005ba7d7fc20908824ae39a167236f66a774e1f54055cbfd85",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.19": "681e99f7aa7b255bdbf42c7e4d5802eb89ae98d99e1c41f149f06935b28d1485",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1357,7 +1378,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Value-of-information stopping's [voi_stopping] and probe-lane keys move
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.20": "fc4803ae9cecaf9560ab6844b739944351d21cc59ef00aa70637edfa9b177af6",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.20": "d1d42026a77d49f4a8d4870351926da5b4bd65022a21367d99c00189b055b729",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1381,7 +1403,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # template's LATEST_ALGORITHM_VERSION; owner decision 2026-10-12) until
     # mvp-0.22 merged.
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
-    "mvp-0.21": "f7a657e69691fe497418ce4ffd8f7ddcd783b3bcdbd5e000cb1b67020edb4ca4",
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.21": "805b6821f0d04247a1973631e962ef8cde523987573ef38811550c0d1dfe245d",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1395,9 +1418,21 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # matched, links), never the meaning of recorded history. Existing vaults
     # reach it by `learnloop upgrade` (default target) from mvp-0.21, or from
     # mvp-0.9 to mvp-0.20 through the chain (under mvp-0.12's advisory
-    # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
-    # owner decision 2026-10-12).
-    "mvp-0.22": "51d0303f1f2d01f7006027c9ed75fda4d80a2bdc26c344e127f8545ecaf6f6b8",
+    # guard). New vaults started here (the template's LATEST_ALGORITHM_VERSION;
+    # owner decision 2026-10-12) until mvp-0.23 merged.
+    # Router R2a's [router] keys move it too (see mvp-0.9; dormant below mvp-0.23).
+    "mvp-0.22": "ffce28878d65494388234aa53a112175e29b46da6affd35b78e63e5b0f1600c8",
+    # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag,
+    # relabelled at its merge): mvp-0.22 plus Today composed by the staged
+    # frame (DL1's lanes and lane_quota_v1 over the set the P4 constraint
+    # engine admits: a block loses only the items a named hard constraint
+    # refuses, its order unchanged) and golden_path.advance through the P2
+    # bridge (D13). Kill switch router.enabled (off: mvp-0.22's serving
+    # exactly). Existing vaults reach it by `learnloop upgrade` (default
+    # target) from mvp-0.22, or from mvp-0.9 to mvp-0.21 through the chain
+    # (under mvp-0.12's advisory guard). New vaults start here (the template's
+    # LATEST_ALGORITHM_VERSION; owner decision 2026-10-12).
+    "mvp-0.23": "b67b8a7983d0f37f09ab75b8343fd9121b84b682dfddf03ff3606ae1ccd016bf",
 }
 
 

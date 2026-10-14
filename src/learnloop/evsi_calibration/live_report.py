@@ -77,7 +77,13 @@ from learnloop.vault.paths import VaultPaths
 #: v5 (merge of value-of-information stopping, mvp-0.21): the successor's four
 #: value-decision sites are joined by exact receipts and scored in their own
 #: alphabets.
-REPORT_VERSION = "voi_calibration_report_v5"
+#: v6 (router R2a, plan_router_r2_v1 §5.3): a committed live staged forecast
+#: joins through the exact receipt (the plan_block decision naming its
+#: controller decision -> that block's presentation of the chosen item -> the
+#: attempt bound to it), right-censored as not_presented /
+#: presented_unanswered, never by a session rule; a planned project probe
+#: prefers its presentation's bound attempt to its serving's offer.
+REPORT_VERSION = "voi_calibration_report_v6"
 
 
 def _has(connection: sqlite3.Connection, table: str) -> bool:
@@ -322,7 +328,37 @@ class LedgerOutcomeAdapter:
         ]
         if not served:
             return None, "pending"
+        bound = self._presentation_attempt([str(block["id"])], str(item))
+        if bound is not None and bound[0] is not None:
+            # Router R2a: the attempt that answered this serving's presentation.
+            return bound
         return self._candidate_attempt(served[0].get("scheduler_candidate_id"), item)
+
+    def _presentation_attempt(self, block_ids: Sequence[str], item: str) -> tuple[str | None, str] | None:
+        """The attempt bound to the item's presentation in one of ``block_ids``
+        (router R2a's receipt): ``(attempt, "taken")``, ``(None,
+        "presented_unanswered")``, or None when the item was never presented
+        there (or the database predates the receipt)."""
+
+        if not block_ids or not _has(self.connection, "plan_presentations"):
+            return None
+        marks = ",".join("?" for _ in block_ids)
+        presentations = [
+            str(row["id"])
+            for row in self.connection.execute(
+                f"SELECT id FROM plan_presentations WHERE block_id IN ({marks}) AND practice_item_id = ? "
+                "ORDER BY served_at, id",
+                (*block_ids, item),
+            )
+        ]
+        if not presentations:
+            return None
+        marks = ",".join("?" for _ in presentations)
+        row = self.connection.execute(
+            f"SELECT id FROM practice_attempts WHERE plan_presentation_id IN ({marks}) ORDER BY created_at, id LIMIT 1",
+            presentations,
+        ).fetchone()
+        return (str(row["id"]), "taken") if row is not None else (None, "presented_unanswered")
 
     def _staged_attempt(self, forecast: Mapping[str, Any]) -> tuple[str | None, str]:
         """The attempt that administered a staged diagnostic decision (review F3).
@@ -330,12 +366,17 @@ class LedgerOutcomeAdapter:
         Only a ``committed`` forecast was administered at all
         (``not_administered`` otherwise: a stop, an abstention). A shadow-mode
         decision composes no work (``shadow_not_administered``), so no later
-        attempt is its outcome. A live decision needs an explicit
-        decision-to-attempt receipt; the staged controller writes none today,
-        so it stays right-censored as ``no_attempt_binding`` rather than being
+        attempt is its outcome. A live decision binds only through the exact
+        receipt (router R2a, plan §5.3, owner Q10): the ``plan_block`` router
+        decision that names it (``controller_decision_id``) -> that block's
+        presentation of the chosen item -> the attempt bound to it
+        (``practice_attempts.plan_presentation_id``). Until such a decision
+        exists it stays ``no_attempt_binding``; a composed but unserved item is
+        ``not_presented``, a served one nobody answered (or answered without
+        the receipt) ``presented_unanswered``, both right-censored. Never
         guessed from the next attempt on the item (the error review F6 fixed
-        for follow-ups). R1's router adapter, which runs first, joins any
-        forecast that carries a scheduler candidate.
+        for follow-ups) or from a session. R1's router adapter, which runs
+        first, joins any forecast that carries a scheduler candidate.
         """
 
         body = forecast.get("forecast") or {}
@@ -349,7 +390,22 @@ class LedgerOutcomeAdapter:
             mode = row["mode"] if row is not None else None
         if mode != "live":
             return None, "shadow_not_administered"
-        return None, "no_attempt_binding"
+        ref, item = forecast.get("decision_ref"), forecast.get("chosen_practice_item_id")
+        if not ref or not item or not _has(self.connection, "router_decisions"):
+            return None, "no_attempt_binding"
+        blocks = [
+            str(row["receipt_key"]).split(":", 1)[1]
+            for row in self.connection.execute(
+                "SELECT receipt_key FROM router_decisions WHERE controller_decision_id = ? "
+                "AND decision_kind = 'plan_block' ORDER BY created_at, id",
+                (str(ref),),
+            )
+            if str(row["receipt_key"]).startswith("plan_block:")
+        ]
+        if not blocks:
+            return None, "no_attempt_binding"
+        bound = self._presentation_attempt(blocks, str(item))
+        return bound if bound is not None else (None, "not_presented")
 
     def _queue_serving_at(self, item: str, at: str) -> tuple[str, str] | None:
         """The queued decision the scheduler would serve for ``item`` at ``at``.

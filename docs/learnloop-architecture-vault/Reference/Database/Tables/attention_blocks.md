@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 201
+schema_head: 205
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`, `205_router_staged_frame.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_replay.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp014_upgrade.py`
+- `tests/test_router_presentations.py`
 - `tests/test_router_r1_composition.py`
 - `tests/test_voi_merge_composition.py`
 

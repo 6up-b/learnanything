@@ -155,6 +155,8 @@ export function GoldenPathScreen({
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [surfaceWarnings, setSurfaceWarnings] = useState<string[]>([]);
+  // Router R2a (D13): a step the staged rule deferred says why, in one sentence.
+  const [deferred, setDeferred] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!runId) {
@@ -222,13 +224,14 @@ export function GoldenPathScreen({
     if (!next.toState || next.terminal) return;
     setBusy(true);
     try {
-      await api.goldenPathAdvance({
+      const advanced = await api.goldenPathAdvance({
         runId,
         toState: next.toState,
         reason: next.reason,
         idempotencyKey: `advance:${bundle.run.headSeq}:${next.toState}`,
         expectedHeadEventId: bundle.run.headEventId,
       });
+      setDeferred(advanced.bridge?.deferred?.message ?? null);
       await load();
     } catch (error) {
       onError(errorMessage(error));
@@ -338,6 +341,11 @@ export function GoldenPathScreen({
             {surfaceWarnings.map((warning) => <Faint key={warning}>{warning}</Faint>)}
             <div><SecondaryButton onClick={() => void load()}>retry unavailable data</SecondaryButton></div>
           </Card>
+        ) : null}
+        {deferred ? (
+          <div role="status" data-testid="golden-path-deferred" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
+            {deferred}
+          </div>
         ) : null}
         {/* current stage — answers the four §9 questions */}
         <SectionHeader style={{ marginTop: 0 }}>Current Stage — {run.currentState}</SectionHeader>

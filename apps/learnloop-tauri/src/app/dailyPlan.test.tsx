@@ -23,7 +23,11 @@ const READING: PlanStepDto = {
 };
 
 it("routes an item in the block straight to practice and a new block through the plan", () => {
-  expect(planStepAction(ITEM)).toEqual({ type: "practice", practiceItemId: "pi_1", schedulerCandidateId: "cand_1" });
+  expect(planStepAction(ITEM)).toEqual({
+    type: "practice", practiceItemId: "pi_1", schedulerCandidateId: "cand_1", planPresentationId: null
+  });
+  // Router R2a: a served step carries its presentation, the receipt the answer binds to.
+  expect(planStepAction({ ...ITEM, presentationId: "pres_1" })).toMatchObject({ planPresentationId: "pres_1" });
   expect(planStepAction({ ...ITEM, boundary: true })).toEqual({ type: "plan" });
   // The plan view's own Continue serves a new block's first item directly.
   expect(planStepAction({ ...ITEM, boundary: true }, { viaBlockLine: false }).type).toBe("practice");

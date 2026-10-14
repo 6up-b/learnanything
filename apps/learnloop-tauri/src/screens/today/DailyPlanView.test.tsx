@@ -140,6 +140,29 @@ it("shows the block line, the current block's items and the next block, all labe
   expect(screen.queryByText(/overdue/i)).toBeNull();
 });
 
+// Router R2a: a block the router's rule chose says why in plain words, with the
+// receipts one more click away (behind "details"); DL1's blocks have none.
+it("shows a router block's plain why with its receipts behind details", () => {
+  const routed = block({
+    chosenBy: "staged",
+    why: "Eigenvalues again, before it slips.",
+    whyDetails: "Picked by the plan's usual rule; no model was asked. Receipt: learnloop router card --decision rd_1"
+  });
+  show(data(plan({ blocks: [routed], currentBlockId: routed.id })));
+  fireEvent.click(screen.getByRole("button", { name: "why" }));
+  const why = screen.getByTestId("plan-block-why");
+  expect(why.textContent).toContain("Eigenvalues again, before it slips.");
+  const details = screen.getByTestId("plan-block-why-details");
+  expect(details.hasAttribute("open")).toBe(false);
+  expect(details.textContent).toContain("router card --decision rd_1");
+});
+
+it("shows no details under a DL1 block's why", () => {
+  show(data(plan()));
+  fireEvent.click(screen.getByRole("button", { name: "why" }));
+  expect(screen.queryByTestId("plan-block-why-details")).toBeNull();
+});
+
 it("continues on Enter, opens the full list on l and steps the minutes with the arrows", async () => {
   const props = show(data(plan()));
   await press("Enter");

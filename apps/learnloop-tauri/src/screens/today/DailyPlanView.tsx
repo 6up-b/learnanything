@@ -89,6 +89,12 @@ export function PlanBlockLine({ plan, block }: { plan: NonNullable<DailyPlanDto[
         <div data-testid="plan-block-why" style={{ color: COLOR.textDim, fontSize: 12, marginTop: 4 }}>
           {block.why}
           {block.fallback ? " (the chooser's pick did not fit; the plan's own rule chose this)" : ""}
+          {block.whyDetails ? (
+            <details data-testid="plan-block-why-details" style={{ marginTop: 2 }}>
+              <summary style={{ cursor: "pointer" }}>details</summary>
+              {block.whyDetails}
+            </details>
+          ) : null}
         </div>
       ) : null}
     </div>

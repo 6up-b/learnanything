@@ -25,12 +25,23 @@ The row (spec_action_router_v1 §9; R1's DL1 checklist):
 * **the action** an outcome follows is the block's first planned item
   (forced items first), attempted at or after the decision in its session.
 
+Router R2a (mvp-0.23, plan_router_r2_v1 §3.2): the router's chooser never
+writes rows. It hands its record to the container (``BlockChoice.router_record``),
+which passes it here with the decision, so the row and its payload commit or
+roll back with the block. With a record the row carries the chooser's ``mode``
+and ``policy`` (``staged`` / ``staged_v1``), the staged controller decision it
+names, the learner-state card's hash (``card_hash``), and the card itself is
+stored in ``router_decision_payloads`` (pruned after
+``router.payload_retention_days``). Every item the staged frame refused is
+logged under ``exclusions_json.named.<constraint key>``, and each block
+candidate keeps the frame's annotations (its ladder rungs, whether serving it
+is reversible, its reason code).
+
 Not logged: a decision whose chooser already set its own ``decision_ref``
-(router R2's choosers log their own rows, with their model distributions), and
-every decision while ``router.log_decisions`` is off. The insert runs in its
-own savepoint (``append_router_decision``): a row the ledger refuses rolls back
-alone with a warning and the plan's block still commits, without a
-``decision_ref``.
+(R1's compatibility rule; R2a's chooser never does), and every decision while
+``router.log_decisions`` is off. The insert runs in its own savepoint
+(``append_router_decision``): a row the ledger refuses rolls back alone with a
+warning and the plan's block still commits, without a ``decision_ref``.
 
 This module is part of the router leaf: it reads the decision as plain data
 and never imports the plan, the scheduler or the substrate.
@@ -38,12 +49,18 @@ and never imports the plan, the scheduler or the substrate.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import timedelta
 import hashlib
 import json
 from typing import Any
 
-from learnloop.clock import utc_now_iso
-from learnloop.db.stores.router import ROUTER_LOG_VERSION, append_router_decision
+from learnloop.clock import parse_utc, utc_now_iso
+from learnloop.db.stores.router import (
+    ROUTER_LOG_VERSION,
+    append_router_decision,
+    append_router_payload,
+    prune_router_payloads,
+)
 from learnloop.ids import new_ulid
 
 DECISION_KIND = "plan_block"
@@ -93,6 +110,8 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
     """The ``router_decisions`` row for one plan block decision (pure)."""
 
     detail: Mapping[str, Any] = decision.detail
+    router_record: Mapping[str, Any] = getattr(decision, "router_record", None) or {}
+    frame: Mapping[str, Any] = detail.get("staged_frame") or {}
     config = getattr(decision, "config", None)
     algorithms = getattr(config, "algorithms", None)
     algorithm_version = str(getattr(algorithms, "algorithm_version", None) or "unknown")
@@ -136,20 +155,23 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = []
     for row in candidate_rows:
         ref = str(row.get("candidate_id"))
-        candidates.append(
-            {
-                "ref": ref,
-                "kind": "block",
-                "lane": row.get("lane"),
-                "item_ids": list(row.get("item_ids") or ()),
-                "learning_object_ids": list(row.get("learning_object_ids") or ()),
-                "reading": row.get("reading"),
-                "est_minutes": row.get("est_minutes"),
-                "planner_value": row.get("planner_value"),
-                "feasible": ref in feasible_ids,
-                "propensity": candidate_propensity(ref),
-            }
-        )
+        entry = {
+            "ref": ref,
+            "kind": "block",
+            "lane": row.get("lane"),
+            "item_ids": list(row.get("item_ids") or ()),
+            "learning_object_ids": list(row.get("learning_object_ids") or ()),
+            "reading": row.get("reading"),
+            "est_minutes": row.get("est_minutes"),
+            "planner_value": row.get("planner_value"),
+            "feasible": ref in feasible_ids,
+            "propensity": candidate_propensity(ref),
+        }
+        if row.get("annotations"):
+            # R2a: the staged frame's annotations (ladder rungs, reversibility,
+            # reason code).
+            entry["annotations"] = dict(row["annotations"])
+        candidates.append(entry)
     if chosen_ref.startswith("forced:"):
         candidates.append(
             {
@@ -176,11 +198,19 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
     elif detail.get("fallback"):
         policy = FALLBACK_POLICY
     else:
-        policy = str(detail.get("chooser") or "unknown")
+        policy = str(router_record.get("policy") or detail.get("chooser") or "unknown")
     excluded = sorted(
         str(row.get("candidate_id")) for row in candidate_rows if str(row.get("candidate_id")) not in feasible_ids
     )
-    exclusions = {"named": {"infeasible": excluded}} if excluded else {}
+    named: dict[str, list[str]] = {"infeasible": excluded} if excluded else {}
+    for item_id, reasons in sorted((frame.get("refused") or {}).items()):
+        # R2a: an item a named hard constraint refused never reached packing.
+        for reason in reasons or ():
+            key = str(reason.get("constraint_key") or "unknown")
+            ids = named.setdefault(key, [])
+            if item_id not in ids:
+                ids.append(str(item_id))
+    exclusions = {"named": {key: sorted(ids) for key, ids in sorted(named.items())}} if named else {}
     inputs = {
         "plan_id": decision.plan_id,
         "plan_kind": decision.plan_kind,
@@ -192,6 +222,8 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "source": detail.get("source"),
         "chooser": detail.get("chooser"),
         "algorithm_version": algorithm_version,
+        **({"staged_frame_snapshot": frame.get("snapshot_hash")} if frame else {}),
+        **({"card_hash": router_record.get("card_hash")} if router_record.get("card_hash") else {}),
     }
     row_detail = {
         "block_id": decision.block_id,
@@ -218,19 +250,35 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         # mvp-0.21: value-of-information stop/continue decisions (due project
         # probes) with their forecasts; absent below it.
         row_detail["voi_decisions"] = list(detail["voi_decisions"])
+    if detail.get("router"):
+        row_detail["router"] = dict(detail["router"])
+    if frame:
+        # The frame's snapshot and constraint manifest; its refusals are the
+        # row's named exclusions.
+        row_detail["staged_frame"] = {
+            key: frame.get(key) for key in ("source", "snapshot_hash", "manifest_hash", "evaluated_items", "error")
+            if frame.get(key) is not None
+        }
+        row_detail["staged_frame"]["refused"] = {
+            str(item_id): [
+                {key: reason.get(key) for key in ("constraint_key", "constraint_version", "reason", "kind")}
+                for reason in reasons or ()
+            ]
+            for item_id, reasons in sorted((frame.get("refused") or {}).items())
+        }
     return {
         "id": new_ulid(),
         "receipt_key": f"{DECISION_KIND}:{decision.block_id}",
         "decision_kind": DECISION_KIND,
         "surface": SURFACE,
-        "mode": MODE,
+        "mode": str(router_record.get("mode") or MODE),
         "policy": policy,
         "algorithm_version": algorithm_version,
         "log_version": ROUTER_LOG_VERSION,
         "session_id": decision.session_id,
         "parent_decision_id": None,
         "scheduler_slate_id": None,
-        "controller_decision_id": None,
+        "controller_decision_id": router_record.get("controller_decision_id"),
         "snapshot_hash": _hash(inputs),
         "design": None,
         "seed": None,
@@ -245,11 +293,49 @@ def build_plan_block_decision(decision: Any) -> dict[str, Any]:
         "propensity_kind": propensity_kind,
         "learner_pick": 1 if learner_pick else 0,
         "fallback": (str(detail.get("fallback_from")) if detail.get("fallback") and detail.get("fallback_from") else None),
+        "card_hash": router_record.get("card_hash"),
         "latency_ms": None,
         "cost_usd": 0.0,
         "detail_json": _dumps(row_detail),
         "created_at": getattr(decision, "decided_at", None) or utc_now_iso(),
     }
+
+
+def _store_card(connection: Any, decision: Any, row: Mapping[str, Any]) -> None:
+    """R2a: the learner-state card the chooser built, beside its decision.
+
+    Written in the block's transaction (its own savepoint); payloads older than
+    ``router.payload_retention_days`` are pruned on the way (the hash stays on
+    every row)."""
+
+    record: Mapping[str, Any] = getattr(decision, "router_record", None) or {}
+    card = record.get("card")
+    if not isinstance(card, Mapping):
+        return
+    append_router_payload(
+        connection,
+        {
+            "id": new_ulid(),
+            "decision_id": row["id"],
+            "kind": "card",
+            "format_version": str(card.get("card_version") or "unknown"),
+            "content_hash": str(record.get("card_hash") or card.get("card_hash") or ""),
+            "content_json": _dumps(card.get("json")),
+            "content_text": card.get("text"),
+            "created_at": row["created_at"],
+        },
+    )
+    router_config = getattr(getattr(decision, "config", None), "router", None)
+    days = getattr(router_config, "payload_retention_days", None)
+    created = parse_utc(str(row["created_at"]))
+    if days and created is not None:
+        cutoff = (created - timedelta(days=int(days))).strftime("%Y-%m-%dT%H:%M:%SZ")
+        try:
+            prune_router_payloads(connection, before=cutoff)
+        except Exception:  # noqa: BLE001 - pruning never blocks the plan
+            import logging
+
+            logging.getLogger(__name__).warning("router payload pruning failed", exc_info=True)
 
 
 def log_plan_block_decision(connection: Any, decision: Any) -> str | None:
@@ -270,6 +356,7 @@ def log_plan_block_decision(connection: Any, decision: Any) -> str | None:
         return None
     row = build_plan_block_decision(decision)
     if append_router_decision(connection, row):
+        _store_card(connection, decision, row)
         return str(row["id"])
     return None
 

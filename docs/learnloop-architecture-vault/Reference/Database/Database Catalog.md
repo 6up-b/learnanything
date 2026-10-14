@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 201
-table_count: 319
+schema_head: 205
+table_count: 321
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_201/state.sqlite"
+  - "fixtures/migration_head_205/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-201"
+  - "learnloop/database/schema-head-205"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 319 user tables at migration head 201. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 321 user tables at migration head 205. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 319 user tables at migration head 201. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 142 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 143 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 67 |
-| [[Table Roles#Workflow|`workflow`]] | 81 |
+| [[Table Roles#Workflow|`workflow`]] | 82 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 306 |
+| `active` | 308 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -244,6 +244,7 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/policy_experiment_assignments|policy_experiment_assignments]] — `receipt` · `active` · Records governed assignments for policy experiment so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `experiment_id`, `decision_id`, `unit_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_item_snapshots|practice_item_snapshots]] — `receipt` · `active` · Keeps one content-addressed copy of every practice-item revision the scheduler scored, keyed by the SHA-256 of its canonical JSON, so selection decision features can be joined to the exact item text after the vault item changes. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `practice_item_id`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/queue_state|queue_state]] — `workflow` · `active` · Stores the mutable practice queue head and its workflow position. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `singleton`, `revision`, making the operational relationship explicit.
+- [[Reference/Database/Tables/router_decision_payloads|router_decision_payloads]] — `workflow` · `active` · Gives router decision payload a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `decision_id`, `format_version`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_decisions|router_decisions]] — `raw_ledger` · `active` · Gives router decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `parent_decision_id`, `scheduler_slate_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/router_outcomes|router_outcomes]] — `derived` · `active` · Records the measured outcome and lineage for router so queue and controller decisions can resume safely and explain why an activity was selected. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `decision_id`, `target_practice_item_id`, `target_learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_explanations|scheduler_explanations]] — `receipt` · `active` · Gives scheduler explanation a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
@@ -443,6 +444,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/pf_candidates|pf_candidates]] — `workflow` · `active` · Holds candidates for pf while policy selects or reviews one so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `run_id`, `mint_request_id`, `family_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/placement_quick_check_items|placement_quick_check_items]] — `workflow` · `active` · Gives placement quick check item a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/placement_quick_checks|placement_quick_checks]] — `workflow` · `active` · Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `request_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/plan_presentations|plan_presentations]] — `raw_ledger` · `active` · Gives plan presentation a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `block_id`, `router_decision_id`, `controller_decision_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/post_attempt_jobs|post_attempt_jobs]] — `workflow` · `active` · Coordinates leased, retryable work for post attempt so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `kind`, `job_key`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_eval_queries|practice_eval_queries]] — `workflow` · `active` · Gives practice eval querie a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `seed_id`, `model_id`, `run_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_index_evaluations|practice_index_evaluations]] — `receipt` · `active` · Gives practice index evaluation a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `run_id`, `manifest_hash`, `winner`, making the operational relationship explicit.

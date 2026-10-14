@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24352,
-    "sha256": "ceb0e1a160021e6f05d9d009d8e41778285cc337b49dcf6ae15f623047ef9bf9"
+    "bytes": 24437,
+    "sha256": "a174fd546fb1b458a3adea5851c8fe1f35e57be5b1fff68cfc3b5f0ca7a072cc"
   },
   "accept": {
     "bytes": 1593,
@@ -956,8 +956,12 @@
     "sha256": "2ff2b2944e521a70cdeb67167d28ceb42435dcc13c400bde5e3f7f2891691a2c"
   },
   "router": {
-    "bytes": 1587,
-    "sha256": "54cd3c771aa1664ea6806fc064d4dcc53fcc8e3899a5154622460fc15dd98067"
+    "bytes": 1838,
+    "sha256": "635d9077a7e3ee15f722b1dbb10818f50dde414bb496fc79b3b425036c32d6e3"
+  },
+  "router card": {
+    "bytes": 1376,
+    "sha256": "e843e15abfdf9ee8485071bf17303c9dca69fc4ae34bd5df86213927c8cbdcc6"
   },
   "router log": {
     "bytes": 1550,
@@ -1120,8 +1124,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 6083,
-    "sha256": "8fa47e80a82b46e3debb2f144e2fc68fc861f02dc803371c39c6d9e383effd79"
+    "bytes": 6488,
+    "sha256": "93cf3bae81309fc4cf65ba56ff0d2698afcdcd7411e75b2c6e69844e4b0ea763"
   },
   "usage": {
     "bytes": 1546,

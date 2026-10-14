@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 201
+schema_head: 205
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/types.py"
+  - "src/learnloop/db/stores/plan_presentations.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/diagnosis/voi_stopping.py"
-  - "src/learnloop/evsi_calibration/live_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -52,7 +52,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `193_retrieval_interventions.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `193_retrieval_interventions.sql`, `205_router_staged_frame.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -107,6 +107,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `router_decisions_controller` on `controller_decision_id`.
 - `router_decisions_parent` on `parent_decision_id`.
 - `router_decisions_candidate` on `chosen_scheduler_candidate_id`.
 - `router_decisions_slate` on `scheduler_slate_id`.
@@ -128,6 +129,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/cli/router.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/outcomes.py`
@@ -150,10 +153,13 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_evsi_router_composition.py`
+- `tests/test_evsi_staged_binding.py`
 - `tests/test_learner_pick_proposal.py`
 - `tests/test_mvp015_upgrade.py`
+- `tests/test_router_g1_feasibility.py`
 - `tests/test_router_offer_log.py`
 - `tests/test_router_outcomes.py`
+- `tests/test_router_presentations.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_router_r1_composition.py`
 - `tests/test_router_staged_p2.py`
@@ -177,37 +183,22 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE router_decisions (
+CREATE TABLE "router_decisions" (
   id TEXT PRIMARY KEY,
-  -- Idempotency: today_offer:<slate>, staged_p2:<controller decision>,
-  -- learner_pick:<scheduler candidate>, plan_block:<attention block>.
   receipt_key TEXT NOT NULL UNIQUE,
   decision_kind TEXT NOT NULL CHECK (
-    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block')
+    decision_kind IN ('today_offer', 'staged_p2', 'learner_pick', 'plan_block', 'plan_interrupt')
   ),
-  -- Where the decision was served: desktop_queue | full_list | skip_requeue |
-  -- p2_bridge | daily_plan | the bind's entry surface for a learner pick.
   surface TEXT NOT NULL,
-  -- Who composed the choice: legacy_queue | staged | daily_plan (R2 adds
-  -- mixture).
   mode TEXT NOT NULL,
-  -- The policy that chose: composed_offer_v2 | staged_policy_v1 | learner |
-  -- the plan chooser (lane_quota_v1).
   policy TEXT NOT NULL,
   algorithm_version TEXT NOT NULL,
   log_version TEXT NOT NULL,
   session_id TEXT,
-  -- A learner pick names the offer it overrode.
   parent_decision_id TEXT REFERENCES router_decisions(id),
   scheduler_slate_id TEXT,
   controller_decision_id TEXT,
-  -- Content hash of the decision's inputs (candidates, planner values,
-  -- exclusions, the randomization design, the session context and the
-  -- configuration that shaped the choice; never the build time).
   snapshot_hash TEXT NOT NULL,
-  -- The assignment mechanism when the chosen candidate was drawn
-  -- (scheduler_seeded_exploration | epsilon_tiebreak; registered in
-  -- db.stores.router.ROUTER_DESIGNS); NULL when the choice was deterministic.
   design TEXT,
   seed TEXT,
   candidates_json TEXT NOT NULL,
@@ -220,7 +211,6 @@ CREATE TABLE router_decisions (
   propensity REAL,
   propensity_kind TEXT NOT NULL CHECK (propensity_kind IN ('exact', 'deterministic', 'none', 'not_served')),
   learner_pick INTEGER NOT NULL DEFAULT 0 CHECK (learner_pick IN (0, 1)),
-  -- R2 fills these (the Decider and the LLM); NULL while no model chooses.
   fallback TEXT,
   mixture_weights_json TEXT,
   model_distributions_json TEXT,
@@ -233,9 +223,6 @@ CREATE TABLE router_decisions (
   cost_usd REAL,
   detail_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  -- A drawn choice has 0 < p < 1; a deterministic one p = 1; a learner pick
-  -- has no propensity (its choice was not sampled); a list that served no
-  -- head (the learner chooses from it) has neither a choice nor a propensity.
   CHECK (
     (propensity_kind = 'exact' AND propensity > 0 AND propensity < 1)
     OR (propensity_kind = 'deterministic' AND propensity = 1)

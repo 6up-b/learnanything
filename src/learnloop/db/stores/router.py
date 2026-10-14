@@ -68,6 +68,15 @@ OUTCOME_COLUMNS: tuple[str, ...] = (
     "r_cold_since_item_seconds", "r_cold_since_facet_seconds", "r_cold_since_lo_seconds",
     "r_cold_intervening_attempts", "r_cold_predicted_retrievability", "r_cold_reveal_amount",
     "coldness_candidates_json", "detail_json",
+    # Router R2a (migration 205): how the action was bound (presentation |
+    # candidate | session_rule) and the R_next / R_cold attempts' answer-key
+    # status (owner Q13: a covariate, never an exclusion).
+    "action_binding", "r_next_reference_status", "r_cold_reference_status",
+)
+
+#: Router R2a (migration 205): one stored payload per decision and kind.
+PAYLOAD_COLUMNS: tuple[str, ...] = (
+    "id", "decision_id", "kind", "format_version", "content_hash", "content_json", "content_text", "created_at",
 )
 
 
@@ -214,6 +223,57 @@ def record_learner_pick(
         },
     )
     return decision_id if inserted else None
+
+
+def router_payloads_present(connection: sqlite3.Connection) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decision_payloads'"
+    ).fetchone() is not None
+
+
+def append_router_payload(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
+    """Store one decision payload (router R2a: its learner-state card) inside
+    the caller's transaction, never failing it: a refused row rolls back alone
+    with a warning. Idempotent on ``(decision_id, kind)``."""
+
+    if not router_payloads_present(connection):
+        return False
+    connection.execute("SAVEPOINT router_payload_append")
+    try:
+        cursor = connection.execute(
+            f"INSERT INTO router_decision_payloads ({','.join(PAYLOAD_COLUMNS)}) "
+            f"VALUES ({','.join('?' for _ in PAYLOAD_COLUMNS)}) "
+            "ON CONFLICT(decision_id, kind) DO NOTHING",
+            tuple(row.get(column) for column in PAYLOAD_COLUMNS),
+        )
+    except sqlite3.Error:
+        connection.execute("ROLLBACK TO router_payload_append")
+        connection.execute("RELEASE router_payload_append")
+        logger.warning("router R2a: payload %s of decision %s not stored", row.get("kind"), row.get("decision_id"),
+                       exc_info=True)
+        return False
+    connection.execute("RELEASE router_payload_append")
+    return cursor.rowcount > 0
+
+
+def prune_router_payloads(connection: sqlite3.Connection, *, before: str) -> int:
+    """Delete payloads stored before ``before`` (``router.payload_retention_days``).
+
+    The payload table is workflow state: the card's hash stays on its decision
+    row, and replay never reads a payload."""
+
+    if not router_payloads_present(connection):
+        return 0
+    return connection.execute("DELETE FROM router_decision_payloads WHERE created_at < ?", (before,)).rowcount
+
+
+def router_payload(connection: sqlite3.Connection, decision_id: str, kind: str) -> dict[str, Any] | None:
+    if not router_payloads_present(connection):
+        return None
+    row = connection.execute(
+        "SELECT * FROM router_decision_payloads WHERE decision_id = ? AND kind = ?", (decision_id, kind)
+    ).fetchone()
+    return dict(row) if row is not None else None
 
 
 def replace_router_outcomes(connection: sqlite3.Connection, rows: Iterable[Mapping[str, Any]]) -> int:

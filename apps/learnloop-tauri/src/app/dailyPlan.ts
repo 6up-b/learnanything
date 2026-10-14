@@ -50,7 +50,7 @@ export function useDailyPlan(sessionId: string | null | undefined, enabled = tru
 }
 
 export type PlanStepAction =
-  | { type: "practice"; practiceItemId: string; schedulerCandidateId: string | null }
+  | { type: "practice"; practiceItemId: string; schedulerCandidateId: string | null; planPresentationId: string | null }
   | { type: "reader"; reading: PlanReadingDto }
   | { type: "plan" };
 
@@ -64,7 +64,12 @@ export function planStepAction(step: PlanStepDto | null | undefined, { viaBlockL
   if (!step) return { type: "plan" };
   if (step.kind === "item") {
     if (step.boundary && viaBlockLine) return { type: "plan" };
-    return { type: "practice", practiceItemId: step.practiceItemId, schedulerCandidateId: step.schedulerCandidateId ?? null };
+    return {
+      type: "practice",
+      practiceItemId: step.practiceItemId,
+      schedulerCandidateId: step.schedulerCandidateId ?? null,
+      planPresentationId: step.presentationId ?? null
+    };
   }
   if (step.kind === "reading") {
     if (step.boundary && viaBlockLine) return { type: "plan" };

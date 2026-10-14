@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
-source_commit_timestamp: "2026-10-13T18:50:27-04:00"
+source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
+source_commit_timestamp: "2026-10-13T20:17:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 201
+schema_head: 205
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_config_refactor.py`
 - `tests/test_doctor.py`
 - `tests/test_evsi_router_composition.py`
+- `tests/test_evsi_staged_binding.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/test_forecast_ledger.py`
