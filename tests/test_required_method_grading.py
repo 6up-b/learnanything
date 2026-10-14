@@ -496,10 +496,102 @@ def test_a_regrade_never_acquires_a_required_method_added_after_the_answer(tmp_p
     assert "required_method" not in _support(repository, result.attempt_id)["proof_route_check"]
     _require_method(paths)
     vault = load_vault(paths.root)
+    grader = DivergentGrader()
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
-                    runtime=ReadyRuntime(), client=DivergentGrader(), grading_source="ai", clock=CLOCK)
+                    runtime=ReadyRuntime(), client=grader, grading_source="ai", clock=CLOCK)
     rule = _support(repository, result.attempt_id)["proof_route_check"]
     assert "required_method" not in rule
     assert rule["unlocated_criterion_ids"] == ["setup"] and rule.get("method_route_criterion_ids") is None
     rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
     assert unassessed_evidence_row(rows["setup"].attribution_json)
+    # Re-review F1: the grader reads the statement the learner answered, never
+    # the instruction added after it.
+    [prompt] = grader.prompts
+    assert f"Use {METHOD} in your answer." not in prompt
+
+
+# -- re-review F1: a regrade grades the one contract its method was frozen with -------------
+
+
+def _edit_item(paths, *, prompt: str | None = None, setup_description: str | None = None,
+               item_id: str = ITEM) -> None:
+    path = paths.practice_item_path("linear-algebra", item_id)
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if prompt is not None:
+        data["prompt"] = prompt
+    if setup_description is not None:
+        [setup] = [criterion for criterion in data["grading_rubric"]["criteria"] if criterion["id"] == "setup"]
+        setup["description"] = setup_description
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+def _contract_versions(repository, attempt_id, *, since: set[str] | None = None):
+    """The contract versions the attempt's evidence rows cite (``since``: only rows added after those ids)."""
+
+    return {row.assessment_contract_version_id
+            for row in repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+            if since is None or row.id not in since}
+
+
+def _evidence_ids(repository, attempt_id) -> set[str]:
+    return {row.id for row in repository.fetch_grading_evidence(attempt_id, include_superseded=True)}
+
+
+def test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with(tmp_path):
+    """Answered under "Use SVD in your answer."; the owner then makes the
+    current statement require another method and edits the method criterion.
+    The regrade reads the statement, the rubric and the method from the one
+    assessment contract the answer was graded under: the frozen requirement
+    is still enforced (the policy guard reads the statement that required
+    it), the grader sees what the learner answered, and the regrade's rows
+    cite that contract, so replay reads the same criteria."""
+
+    paths, vault, repository = _method_vault(tmp_path)
+    presented = vault.practice_items[ITEM].prompt
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    [version_id] = _contract_versions(repository, result.attempt_id)
+    assert version_id is not None
+    graded = _evidence_ids(repository, result.attempt_id)
+    _edit_item(paths, prompt="Write the SVD of A. Use row reduction in your answer.",
+               setup_description="Edited after the answer.")
+    vault = load_vault(paths.root)
+    grader = DivergentGrader()
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=grader, grading_source="ai", clock=CLOCK)
+    rule = _support(repository, result.attempt_id)["proof_route_check"]
+    assert rule["required_method"] == {"name": METHOD, "criterion_ids": ["setup"]}
+    assert rule["method_route_criterion_ids"] == ["setup"] and rule["unlocated_criterion_ids"] == []
+    [prompt] = grader.prompts
+    assert presented in prompt and "row reduction" not in prompt
+    assert "Edited after the answer." not in prompt and "setup is right." in prompt
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert not unassessed_evidence_row(rows["setup"].attribution_json)
+    assert _contract_versions(repository, result.attempt_id, since=graded) == {version_id}
+    assert repository.fetch_practice_attempt(result.attempt_id)["rubric_score"] == 0
+    # Replay reads the regrade's rows against that contract: a rebuild is stable.
+    project_canonical_facet_state(vault, repository)
+    before = _projection(repository)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    assert _projection(repository) == before
+
+
+@pytest.mark.parametrize("setup", ["kill_switch", "no_method"])
+def test_every_other_regrade_still_reads_the_item_as_it_is_now(tmp_path, setup):
+    """Outside method-explicit items (and with the kill switch off) a regrade
+    is unchanged: it reads the item as it is now (canonical sources §7.3a)
+    and its rows cite no contract."""
+
+    if setup == "kill_switch":
+        paths, vault, repository = _method_vault(tmp_path, config=KILL_SWITCH)
+    else:
+        paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    result = submit(vault, repository, DivergentGrader(), answer=ALTERNATIVE)
+    graded = _evidence_ids(repository, result.attempt_id)
+    _edit_item(paths, prompt="Write the SVD of A, edited after the answer.")
+    vault = load_vault(paths.root)
+    grader = DivergentGrader()
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(result.attempt_id),
+                    runtime=ReadyRuntime(), client=grader, grading_source="ai", clock=CLOCK)
+    [prompt] = grader.prompts
+    assert "edited after the answer" in prompt
+    assert _contract_versions(repository, result.attempt_id, since=graded) == {None}

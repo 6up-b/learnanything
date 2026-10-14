@@ -17,7 +17,8 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.attempts.attempts import (
     GradeAttribution,
     assessed_rubric_score,
-    attempt_required_method,
+    attempt_graded_contract,
+    regrade_reads_contract,
     unverified_attribution_json,
 )
 from learnloop.attempts.grading import (
@@ -164,13 +165,21 @@ def regrade_attempt(
     building a second grading path whose semantics could drift."""
     item = vault.practice_items[attempt["practice_item_id"]]
     learning_object = vault.learning_objects[attempt["learning_object_id"]]
-    rubric = resolved_rubric(vault, item)
+    # Method-explicit items (re-review F1): the answer is regraded under the
+    # assessment contract its method was frozen with, statement and rubric
+    # included, and the new rows cite that contract so replay reads the same
+    # criteria. Every other regrade reads the item as it is now (§7.3a).
+    graded_contract = attempt_graded_contract(repository, attempt["id"])
+    reads_contract = regrade_reads_contract(vault, item, graded_contract)
+    rubric = graded_contract.rubric() if reads_contract else resolved_rubric(vault, item)
     old_evidence = repository.fetch_grading_evidence(attempt["id"])
     context = build_grading_context(
         vault,
         item,
         attempt_id=attempt["id"],
         learner_answer_md=attempt.get("learner_answer_md") or "",
+        rubric=rubric,
+        assessment_contract=graded_contract.contract if reads_contract else None,
     )
     if clarification_exchange:
         context = replace(context, clarification_exchange=dict(clarification_exchange))
@@ -219,7 +228,7 @@ def regrade_attempt(
         # contract froze, never one the item gained afterwards.
         blind_plan = _blind_grading_plan(
             vault, item, context, stuck=bool(attempt.get("declared_stuck")),
-            required_method=attempt_required_method(repository, attempt["id"]),
+            required_method=graded_contract.required_method if graded_contract is not None else None,
         )
     if blind_plan is None and attempt.get("declared_stuck"):
         # mvp-0.13 (review F3): a joint regrade of a stuck answer re-reads it
@@ -351,6 +360,7 @@ def regrade_attempt(
                 item=item,
                 vault=vault,
                 learner_answer_md=attempt.get("learner_answer_md") or "",
+                rubric=rubric,
             )
     except Exception as exc:
         finish_agent_run(
@@ -403,6 +413,11 @@ def regrade_attempt(
                 **(
                     {"attribution_json": unverified_attribution_json()}
                     if evidence.criterion_id in unverified
+                    else {}
+                ),
+                **(
+                    {"assessment_contract_version_id": graded_contract.version_id}
+                    if reads_contract and graded_contract is not None
                     else {}
                 ),
             }
@@ -564,7 +579,9 @@ def _publish_regrade(
     # C3 (canonical sources §7.3a): the new grade was read against the item as
     # it is now. If that content's key is not verified, the grade certifies
     # nothing; the attempt's status is lowered (never raised) before the replay
-    # below reads it.
+    # below reads it. A method-explicit regrade (re-review F1) read the
+    # presented content instead, whose status the attempt recorded at attempt
+    # time; binding the current content as well only ever lowers it.
     bind_replacement_grade(
         repository.connection(),
         attempt_id=attempt["id"],

@@ -99,6 +99,7 @@ from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
     contract_required_method,
+    rubric_from_contract,
 )
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
@@ -1527,14 +1528,28 @@ def _graded_required_method(item: PracticeItem, contract: dict[str, Any] | None)
     return {"name": method.name, "criterion_ids": list(method.criterion_ids)} if method is not None else None
 
 
-def attempt_required_method(repository: Repository, attempt_id: str) -> dict[str, Any] | None:
-    """The required method a recorded attempt was graded under (review F1).
+@dataclass(frozen=True)
+class GradedContract:
+    """The assessment contract a recorded attempt was graded under (review F1)."""
 
-    Read from the assessment contract its evidence rows cite (the one frozen
-    when the item was presented, or snapshotted when it was first graded;
-    superseded rows included, since a regrade's rows need not cite it). An
-    attempt without one, or whose contract froze none, never acquires a
-    method from the item's current content.
+    version_id: str
+    contract: dict[str, Any]
+
+    @property
+    def required_method(self) -> dict[str, Any] | None:
+        return contract_required_method(self.contract)
+
+    def rubric(self) -> Rubric:
+        return rubric_from_contract(self.contract)
+
+
+def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedContract | None:
+    """The assessment contract a recorded attempt's evidence rows cite.
+
+    The one frozen when the item was presented, or snapshotted when it was
+    first graded; superseded rows included, since a regrade outside a
+    method-explicit item writes rows that cite none. None for an attempt
+    graded before contracts (or whose contract is missing).
     """
 
     evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
@@ -1545,7 +1560,32 @@ def attempt_required_method(repository: Repository, attempt_id: str) -> dict[str
     if version_id is None:
         return None
     stored = repository.fetch_assessment_contract_version(version_id)
-    return contract_required_method(stored.get("contract") if stored is not None else None)
+    if stored is None:
+        return None
+    return GradedContract(version_id=str(version_id), contract=dict(stored.get("contract") or {}))
+
+
+def regrade_reads_contract(vault: LoadedVault, item: PracticeItem, graded: GradedContract | None) -> bool:
+    """Does a regrade grade the answer under its assessment contract (re-review F1)?
+
+    Only for a method-explicit item while the required-method rules are on
+    (:func:`~learnloop.attempts.grading_support.method_rules_active`): its
+    contract froze a required method, or the item has one now. The method,
+    the statement that required it and the rubric whose criteria it lists
+    are one contract, so the regrade reads all three from it: mixing the
+    frozen method with today's statement would drop a requirement the
+    learner was given (or enforce one they never saw). Every other regrade
+    reads the item as it is now, as before (canonical sources §7.3a), and so
+    does every regrade with the kill switch off (mvp-0.20 exactly).
+    """
+
+    if graded is None:
+        return False
+    from learnloop.attempts.grading_support import method_rules_active
+
+    if not method_rules_active(vault):
+        return False
+    return graded.required_method is not None or getattr(item, "required_method", None) is not None
 
 
 def _blind_grading_plan(
