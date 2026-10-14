@@ -148,3 +148,106 @@ The first full run (on `9cf99aa1b`) had 10 failures, 10658 passed: the parameter
 - **Bare-number references** ("by 1.32") are an extension of the item-3 list, for Axler's numbering. They resolve only against number-first labels of the same extraction ("1.32 the number −1 times a vector"), and an unmatched bare number is treated as prose, so "in 2.5 seconds" adds nothing unless the book has a result numbered 2.5.
 - **Metered verification routes**: complete passages make a verification prompt larger only for blocks over 900 characters (10 of 510 in the probability copy). The token cap follows the prompt; the 0.30 dollar cap does not, so a pool of very long blocks on an expensive metered route could be refused for spend and fall back to the LO-linked spans (recorded as `over_budget`, as before). Codex and the ChatGPT plan are not money-capped.
 - **Reader answer events** now store the complete delivered spans in `reader_answer_submitted.manifest` and `question_events.source_context.source_spans` (they stored the cut previews). The manifest is now built with the tutor's own inputs (the held-out material, the budget, the switch), so it records exactly what the tutor was given; before, it left out the held-out filter.
+
+## Landing onto main
+
+**Branch:** `merge/delivery-onto-main` (worktree `learnanything-merge2`), from main `56579d271` (`mvp-0.23`, LATEST; router R2a and RW3a landed). Not pushed. Owner-directed, 2026-10-14, single phase: merge `275fd5f7e`, references (provenance only) `078705224`, this record. `tutor/delivery-fixes` (`c1c3511e4`) and its worktree `learnanything-ux-impl` were not modified.
+
+**Main since this branch's base `4cf54a295`:**
+- the contextual-embeddings experiment spec (docs only);
+- router R2a (`mvp-0.23`, migration 202, head fixture `migration_head_202`): the staged frame on Today, `plan_presentations` receipts, the stored learner-state card (`LearnerStateCardV1`), and the fifteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries `mvp-0.9`..`mvp-0.23`;
+- the Reader hook extraction and RW3a margin cues: `ReaderScreen` split into hooks, `reader/reader_cues.py`, `[cues]`, three RPCs.
+
+**Paid calls:** none ($0.00). **Migration:** none from this branch (head 202 is main's). **Algorithm version:** unchanged, no successor (replay reads none of the delivery). **Config:** the branch's seven keys beside R2a's `[router]` keys and RW3a's `[cues]`: 829 effective leaves (803 active, 7 compat, 15 dormant, 4 legacy) in 50 sections. All fifteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries were recomputed from the composed defaults (template `.pyc` deleted, `config/template.py` touched; a fresh process then found every stored fingerprint equal to `defaults_fingerprint_for_version`). **CLI help:** `--write` reproduced the merged snapshot (no change). **RPCs:** none added by this branch, so no mobile allowlist pin. **Frontend / `src-tauri`:** the merge changes nothing under `apps/` relative to main, so the frontend gate and `cargo check` were not run.
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `src/learnloop/config/template.py` (14 hunks) | Main's R2a and RW3a notes kept and the branch's notes added: its full note after RW3a's in `mvp-0.9` (now "all fourteen ... on its branch, and all fifteen again from the composed defaults when it landed after router R2a and RW3a"), its "moves it too" line in `mvp-0.10`..`mvp-0.22`, and the same line added to `mvp-0.23`, which the branch never saw. Every hash recomputed (above). |
+| 372 notes under `Reference/` | Taken from main, then regenerated (below) |
+| Auto-merged, both sides kept | `config/schema.py` (the branch's `tutor_qa`, `embedding` and `source_retrieval` keys beside `[router]` and `[cues]`); `params/parameter_registry.py` (the branch's structural/operational rule for `tutor_qa.context_token_budget` and `embedding.source_backfill_max_cost_usd` beside R2a's `router.card_token_budget` / `router.payload_retention_days` rule); `cli/app.py` (doctor's `dense_retrieval` note beside R2a's `upgrade --to mvp-0.23`); `pyproject.toml` and `tests/architecture_function_local_domain_imports.txt` (the retired `tutor_qa -> reader.span_view` edge removed; main added no edge to either) |
+
+### Compositions
+
+**Where main's new code reads source passages.** None of it reads through the tutor's delivery, and none of it brings back a tutor cut:
+- **RW3a margin cues** (`reader/reader_cues.py`) read the Guide's `suggested_passages` (`reader_guidance`): span ids, LO ids and titles, never block text. *Check me* proposes an item (`reader.cue_action`) and opens it as a learner pick; it does not call the tutor. The one cut it adds, `prompt[:219]`, shortens the proposed item's prompt that `check_me_proposal` (`learnloop_sidecar/handlers/reader.py`) returns to the shell, not a tutor context.
+- **R2a's learner-state card** (`daily_plan/router_card.py`, `router/card.py`) never reads source text, a reference solution, an answer key or a rubric (its own contract). It reads `question_events` only as a seven-day count (`tutor_questions`), so the complete spans this branch now stores in `question_events.source_context` do not reach the card or its `router.card_token_budget`. `router/outcomes.py` reads `question_events`' item, attempt, facets and time only.
+- **`reader.span_view`** keeps its importers (`reader_dialogue`, `reader_restoration`, `diagnosis.remediation`, the provenance handler) for the Reader's paging; `learnloop.tutor` imports it nowhere (lint: the frozen-cycle contract kept with the exemption gone). `reader_dialogue.build_reader_manifest` and `ask` still go through `tutor_qa._reader_source_spans`, so the Reader's manifest is the tutor's delivered context.
+- **No tutor cut reintroduced.** In the tutor paths (`tutor/tutor_qa.py`, `tutor/context_delivery.py`, `source_retrieval/tutor.py`, `source_retrieval/verify.py`, `reader/reader_dialogue.py`, the sidecar's `tutor_qa` handler) the 240- and 600-character cuts survive only as `context_delivery.PREVIEW_CHARS` / `SPAN_CHARS` behind `tutor_qa.expanded_delivery = false`, and the 900-character judge passage only as `verify.PREDECESSOR_PASSAGE_CHARS` behind `source_retrieval.complete_passages = false`. Main's code calls none of the functions whose signatures the branch changed (`span_context`, `verify_caps`, `_candidates`, `_reader_source_spans`, `build_reader_manifest`).
+- **Budgets side by side.** `tutor_qa.context_token_budget` (24,000) bounds one tutor turn's source text; `source_retrieval.passage_token_budget` (4,000) one judged passage; R2a's `router.card_token_budget` (16,000) the stored card. They bound different payloads and none reads another's.
+
+**Pipeline Map.** The Reader section gains one line on the tutor's context delivery (nearest neighbours on both sides, whole blocks under `tutor_qa.context_token_budget`, deterministic references including a bare "by 1.32", complete judge passages, the automatic source-vector backfill and doctor's dense coverage, the kill switches) and `src/learnloop/tutor/context_delivery.py` in its `source_paths`. It keeps main's R2a and RW3a edits.
+
+### References
+
+- `db_generate_reference.py`: schema head 202, 321 table notes, 829 configuration leaves (803 active, 7 compat, 15 dormant, 4 legacy) in 50 sections; regenerated again on the merge commit for provenance (`078705224`, `source_commit` lines only).
+- Prose counts: `Configuration.md`'s catalog line and `Database.md`'s validator line, 822 became 829 (sections stay 50; the `DERIVED` callout's "19 of 321" is unchanged, no table added).
+- `db_validate_reference.py`: errors `[]`.
+- `validate_vault.py`: passed, 1105 notes.
+- `git diff --check 56579d271 HEAD`: clean.
+
+### Gate
+
+Run in this worktree at `078705224` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install puts back 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** (the frozen-cycle contract with the tutor's `reader.span_view` exemption gone; `unmatched_ignore_imports_alerting = "error"` holds) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,892 passed, 1 failed**, 48 warnings (10 min 48 s, once the lock came free behind other worktrees' suites). The failure is main's own flake, below |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,793 deselected, 1 warning (1 min 48 s) |
+| Frontend / `cargo check` | not run: the merge changes nothing under `apps/` relative to main |
+| Defaults | all 15 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` fingerprints equal to `defaults_fingerprint_for_version` in a fresh process after the recompute |
+| CLI help | `python tests/test_cli_help_snapshot.py --write`: no change |
+| References | see above |
+
+**Targeted run before the gate** (on the composed tree): `test_config_refactor.py`, every `test_mvp0*_upgrade.py`, `test_tutor_delivery_fixes.py`, `test_source_vector_backfill.py`, `test_architecture.py`, `test_cli_help_snapshot.py`, `test_cli_json.py`, `test_reader_cues.py`, `test_router_card.py`, `test_mobile_allowlist.py` and the `test_param*` files: 412 passed.
+
+**The one failure is a flake on main, not this merge.** `tests/test_reader_rw3a_landing.py::test_check_me_goes_through_the_plan_path_and_is_logged_once[planned]` (RW3a's landing test, untouched here) failed once in the full run (`decision["chosen_practice_item_id"]` `pi_svd_define_002`, the check's item `pi_svd_define_001`). Rerun alone:
+- on the merge: the file 5 times, 1 failed and 4 passed;
+- on main `56579d271`'s code (the `git archive` export, with pytest's `pythonpath` pointed at it and the loaded `learnloop` printed after each run): the case 12 times, **2 failed**, 10 passed.
+
+A probe of the case (16 runs on the merge) shows why: the 25-minute plan is not the same on every run. Usually it is one block whose router decision chose `pi_svd_define_001` (14 runs), and the test passes. Sometimes that block's decision chose `pi_svd_define_002`, the Learning Object's other item, so the pick of `_001` is served by a block whose `chosen_practice_item_id` is `_002` (the failure above). Once the plan held `pi_extra_1` alone, so the pick became its own `learner_pick` block, which this case's `learner_pick == 0` assertion also rejects. The test assumes one plan shape that the plan does not guarantee. No code here touches planning, and main fails at the same rate, so it is left for RW3a's owner (Q-D1 below).
+
+### Parity
+
+**Copies.** Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`), in `fixtures-local/delivery-parity`.
+
+**Migration, each copy by its own code** (`migration_coordinator.migrate_vault`), 47 migrations each, to head 202:
+- main `56579d271`: `src`, `migrations` and `pyproject.toml`, exported with `git archive` and run on `PYTHONPATH` (a probe printed the archive's `learnloop/__init__.py`, and its `cli/app.py` has no `_dense_retrieval_note`);
+- the merge: this worktree's own code.
+
+**Runs.** On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+**Result.** **0 replay differences**: the shadow rebuilds match exactly on both fixtures once ULIDs, timestamps, ids, hashes and the copy's path are set aside. Doctor differs only by the new `dense_retrieval` key; the issues are identical.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 22 | 6 | 47 | 106 | 1 | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same figures as the RW3a landing.
+
+**The doctor difference** (the merge only):
+- linear algebra: `dense_retrieval` = `effective: false`, reason `embedding.enabled off: retrieval ranks by keyword only`, switches `embedding.enabled false`, `source_retrieval.enabled true`, `source_retrieval.dense true`, model `qwen/qwen3-embedding-8b`, `auto_backfill: embedding.enabled is false`, totals 3 sources, 699 blocks, 0 covered, 0 complete; per source (all `none`, 0 covered): the two 3Blue1Brown transcripts (217 and 142 blocks) and Axler (340). Text line: `Dense source retrieval: off (embedding.enabled off: retrieval ranks by keyword only); 0 of 3 sources complete, 0 of 699 blocks embedded (qwen/qwen3-embedding-8b); automatic backfill after extraction: embedding.enabled is false.`
+- probability: the same switches and reason; totals 4 sources, 456 blocks, 0 covered, 0 complete; per source (all `none`): pset1 (25 blocks), recitation1 (17), Blitzstein and Hwang (399), the Elevator paradox article (15). Text line: `Dense source retrieval: off (embedding.enabled off: retrieval ranks by keyword only); 0 of 4 sources complete, 0 of 456 blocks embedded (qwen/qwen3-embedding-8b); automatic backfill after extraction: embedding.enabled is false.`
+
+Both match the branch's own record above.
+- `live_database.unchanged` is true on every run, and each copy's `state.sqlite` hash is the same before and after its runs (the text doctor run included).
+- Doctor exits 1 on both sides, as on main.
+- The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched. The owner's working vaults were opened only by the backup API, to copy them.
+- Nothing was pushed, rebased or stashed. `tutor/delivery-fixes` and `learnanything-ux-impl` were not modified.
+
+### Open questions for the owner (defaults applied)
+
+- **Bare-number references** ("by 1.32"): **kept**, as built. They resolve only against number-first labels of the same extraction, and an unmatched bare number is prose. `tutor_qa.resolve_references = false` turns every reference off.
+- **Verification spend on metered routes**: `source_retrieval.rerank_max_cost_usd` **stays 0.30** until real use shows refusals. Complete passages enlarge a verification prompt only for blocks over 900 characters; a refusal falls back to the LO-linked spans and is recorded `over_budget`, so it is visible when it happens. Codex and the ChatGPT plan are not money-capped.
+- **Embeddings in the owner's vaults**: **stay off** until the owner turns them on. The automatic backfill acts only with `embedding.enabled` and `embedding.backfill_enabled` both on, so nothing is queued or sent today; doctor's dense-coverage line says so on each vault.
+- **Budgets as listed**: `tutor_qa.context_token_budget` 24,000, `source_retrieval.passage_token_budget` 4,000, `embedding.source_backfill_max_cost_usd` 1.00 per run, `tutor_qa.resolve_references` true, `embedding.backfill_sources_on_extract` true; the kill switches `tutor_qa.expanded_delivery` and `source_retrieval.complete_passages` true.
+- **Q-D1 (not this branch's).** `test_reader_rw3a_landing.py`'s `planned` case is order-dependent on main (2 of 12 runs fail on main's own code; see Gate). Recommended: RW3a's owner makes the case build a plan whose block holds only the checked item (or asserts on the block that serves the pick rather than on its decision's first choice). Not changed here, since the test and the planning code are main's.
