@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
-source_commit_timestamp: "2026-10-14T01:47:02-04:00"
+source_commit: "fcb254903e340ca4b6f427b3995f58c3933901b8"
+source_commit_timestamp: "2026-10-14T11:36:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/daily_plan/router_card.py"
-  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/daily_plan/router_card.py`
+- `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`

@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
-source_commit_timestamp: "2026-10-14T01:47:02-04:00"
+source_commit: "fcb254903e340ca4b6f427b3995f58c3933901b8"
+source_commit_timestamp: "2026-10-14T11:36:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/routing.py"
-  - "src/learnloop/cli/router.py"
+  - "src/learnloop/content/synthesis/facet_doctor.py"
   - "src/learnloop/ops/embedding_backfill.py"
   - "src/learnloop/ai/client.py"
   - "src/learnloop/ai/runtime.py"
@@ -57,7 +57,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2001`; `src/learnloop/ai/routing.py:483`; `src/learnloop/cli/router.py:263` |
+| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2001`; `src/learnloop/ai/routing.py:483`; `src/learnloop/content/synthesis/facet_doctor.py:74` |
 | `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2002`; `src/learnloop/ops/embedding_backfill.py:230` |
 | `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2003`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/runtime.py:107` |
 | `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2004`; `src/learnloop/ai/client.py:31`; `src/learnloop/content/synthesis/graph_nomination.py:360` |

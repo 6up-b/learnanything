@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
-source_commit_timestamp: "2026-10-14T01:47:02-04:00"
+source_commit: "fcb254903e340ca4b6f427b3995f58c3933901b8"
+source_commit_timestamp: "2026-10-14T11:36:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_mvp023_upgrade.py`
+- `tests/test_router_g4_restraint.py`
 - `tests/test_router_presentations.py`
 - `tests/test_router_r2a_serving.py`
 
