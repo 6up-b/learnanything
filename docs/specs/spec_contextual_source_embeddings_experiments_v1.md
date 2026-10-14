@@ -1,67 +1,59 @@
 # Perplexity contextual source embedding experiments
 
-**Status:** proposed experiment protocol, 2026-10-13. Research and code audit complete; deployments, benchmarks and training remain to be run. Code baseline: `3e59d8770`. This spec defines experiments and their implementation seams; it does not change live routes or embedding defaults.
+**Status:** proposed experiment protocol; revised 2026-10-13 after two reviews. Code baseline: `4cf54a295` (this docs branch adds the owner's draft and reviews). No experiments have been run by this revision. See the [Opus review](../reviews/contextual-embeddings-spec-opus-review.md) and [independent Codex review](../reviews/contextual-embeddings-spec-codex-review.md).
 
-**Decision to make:** whether `perplexity-ai/pplx-embed-v2-context-9b-preview` improves LearnLoop's retrieval of canonical explanations and supporting evidence enough to justify local GPU residency. Start with an 8-bit deployment on the RTX 5090 and establish quality against a BF16 reference. Then measure its incremental value when competing retrievers share an evidence-completion stage. Investigate drift-guided precision allocation and query-only distillation only after establishing that value; a student would retain the strong document index with much lower online memory use.
+**Decision to make:** does contextual encoding find canonical explanations and supporting evidence that LearnLoop otherwise misses, enough to justify another embedding space and, eventually, local Perplexity v2 9B residency? Answer three questions in order: do fixed delivery or direct reading suffice; does hosted contextualization beat cheap context using Qwen; only then, does `perplexity-ai/pplx-embed-v2-context-9b-preview` add enough to warrant local work? Vectors locate evidence; the tutor needs the actual text to reason and cite.
 
-The most promising use is finding a distant definition, theorem assumption, counterexample or alternative explanation when the learner does not know its location. For a short passage or a known section already available to the tutor, a frontier model receiving that context directly is a strong baseline. Contextual vectors help locate evidence; the tutor still needs the actual source text to reason and cite.
+**Owner update, 2026-10-13:** proceed with the review direction and hosted-first experiment. The owner has added Perplexity and Voyage keys to LearnLoop's settings file. Perplexity contextual v1 through its API, and both `voyage-context-4` and `voyage-4-large` through Voyage's API, are required first-experiment arms. Proposed adapter settings `perplexity.api_key_env` and `voyage.api_key_env` default to `PERPLEXITY_API_KEY` and `VOYAGE_API_KEY`; both names are configurable. The [app config loader](../../src/learnloop/config/loader.py) loads these from its settings file into the environment (shell values take precedence). Adapters read the configured environment variable; manifests record only its name and availability, never its value. These adapters/settings are proposed experiment code, not existing app provider support. No credential files were opened for this revision.
 
-## 1 Intended uses and expected value
+## 1 Scope, ownership and constraints
 
-This prioritization applies the [embedding brainstorm](../brainstorming/Decision%20and%20embedding%20models.md), [Reader brainstorm](../brainstorming/Improving%20Reader%27s%20design.md), [Embedding Integration Map](../brainstorming/Embedding%20Integration%20Map.md), [Bitter Lesson Research Sweep](../brainstorming/Bitter%20Lesson%20Research%20Sweep.md), [pipeline plan](../brainstorming/Pipeline%20Augmentation%20Plan.md), [embedding consumers spec](spec_embedding_consumers_v1.md), and [Reader workbench spec](spec_reader_workbench_v1.md). Expected value below is a hypothesis to test, not a measured gain.
+The [Embedding Integration Map](../brainstorming/Embedding%20Integration%20Map.md), [Bitter Lesson Research Sweep](../brainstorming/Bitter%20Lesson%20Research%20Sweep.md), [embedding consumers spec](spec_embedding_consumers_v1.md), [sources spec](spec_source_practice_and_probes_v1.md) and [Reader spec](spec_reader_workbench_v1.md) remain the product basis. Expected value is a hypothesis, not a result.
 
-### 1.1 Product hypotheses
-
-These estimates concern contextual retrieval's incremental value over independently encoded passages. Perplexity's advantage over another contextual model must be measured separately. Evidence completion may provide a larger product gain than the embedding upgrade, particularly when all retrievers already find the answer-bearing passage.
-
-| LearnLoop feature | Expected value from contextual retrieval | Contribution of evidence completion | Strong comparison |
-|---|---|---|---|
-| First: Reader tutor, “Why does this step follow?”, RW1c | High potential when notation, assumptions or a referenced theorem appear elsewhere | Builds the chain from definitions and assumptions to the disputed step | Selection plus whole section; section plus explicit reference following |
-| First: canonical tutor grounding, T6 | High potential when answer and support are dispersed across teaching sources | Checks that the delivered passages jointly support the explanation | Current rewrite, dense plus BM25/provenance and verification, with identical completion tools |
-| First: ask your library and compare sources, RW4a/RW4d | High potential when similar vocabulary hides different definitions or conventions | Preserves each source's assumptions and identifies what actually differs | Lexical/structural navigation followed by reading full sections |
-| Second: “That didn't help”; alternative explanation, RW1c | Moderate potential for finding a supporting passage or counterexample whose role is implicit | Selects a different instructional role: example, counterexample, geometric view or prerequisite | Existing correction/concept links and the same role-aware judge |
-| Second: personalized margin cues, RW3b | Moderate potential for locating passages related to a recorded difficulty | Determines whether the passage addresses that difficulty and whether showing it is timely | Existing gap targets and listwise cue judgment; no new diagnosis by embeddings |
-| Second: canonical-source questions and exercises, RW4b and authoring | Moderate potential when locating exercises or dispersed supporting material | Checks source support, explicit assumptions and whether the answer follows | Directly supply the known section; retain correctness/provenance verifiers |
-| Low initial value: selected-paragraph explanations and local quick checks, RW1a/RW1b | Low when the relevant section is already known and bounded | Can assemble support directly from that section | Existing passage/section context supplied to the tutor or question writer |
-
-Keep existing authored-practice retrieval (`find_practice` and PF) separate: item/dossier embeddings have little document context to recover. Source-authored exercise discovery is a different task and may benefit when notation is defined earlier. Diagnosis history (T1 and Slice 1) remains a separate experiment over learner traces. Identity, grading, novelty, prerequisite direction and learner-success prediction remain outside this pilot; similarity does not establish those properties.
-
-### 1.2 Retrieval and instructional decisions
-
-For remedial retrieval, embed the already-written gap or misconception statement. Do not expect an embedder to diagnose the learner from a raw reasoning trace. For syntopic reading, encode each source independently and retrieve across sources afterward; concatenating different books into one contextual document would blur attribution.
-
-The earlier Integration Map's proposed learned judge-skipping calibrators were superseded by the embedding-consumer spec's October 11 decisions. Here, **quantization calibration** means selecting numerical precision, and **query distillation** means approximating a retrieval representation. Neither trains a judge substitute or grants embeddings authority over evidence, identity or learning state. The user's October 13 request authorizes investigating these retrieval experiments.
-
-## 2 Current implementation and existing evidence
-
-Use the implementation and recent review as the baseline; the older T6 spec's “current code” paragraph predates T6's implementation.
-
-| Location | Observed behavior | Implication for the experiment |
+| Consumer | Question and existing interface | Owner / comparison |
 |---|---|---|
-| [EmbeddingClient](../../src/learnloop/ai/embedding.py) and [OpenRouter adapter](../../src/learnloop/ai/providers/openai_embedding.py) | Flat batches, one vector per input; default Qwen3 embedding route | A contextual batch needs explicit document grouping; a model-name change is insufficient |
-| [Source recipes](../../src/learnloop/source_retrieval/recipes.py) | Independent block text plus section path, capped at 6,000 characters | Build a separate contextual recipe from complete canonical blocks; hold candidate units fixed for controlled comparisons |
-| [Vector store](../../src/learnloop/db/stores/embedding_vectors.py) | FP16 blobs; content-based vector reuse | Contextual identity must include the surrounding window, not just the central block |
-| [Dense retrieval](../../src/learnloop/source_retrieval/dense.py) | Mean-centered cosine; coverage by extraction | Use ordinary normalized cosine for the Perplexity reference; test centering separately |
-| [Search](../../src/learnloop/source_retrieval/search.py) | Dense candidates widened by BM25/provenance, or RRF; records fallbacks | Preserve these as competing production baselines; do not assume RRF is strongest |
-| [Tutor provider](../../src/learnloop/source_retrieval/tutor.py) | Question-dependent retrieval, listwise verification and policy exclusions; `span_context` clips returned text to 600 characters | Measure evidence after final text delivery as well as before reranking; clipping can remove a theorem's conditions |
-| [Tutor QA](../../src/learnloop/tutor/tutor_qa.py) | Reader branch bypasses the source-span provider and uses selection plus neighbors | Reader retrieval requires a deliberate integration change, not just a new embedder |
-| [Quick checks](../../src/learnloop/reader/reader_quick_check.py) | Section and passage views already supply bounded source context | Keep direct authoring as the baseline when location is known |
-| [Evaluation](../../src/learnloop/source_retrieval/evaluation.py), [bench](../../src/learnloop/source_retrieval/bench.py), [suite registration](../../src/learnloop/source_retrieval/suites.py) | Generated and logged questions, two-pass relevance labels, paired metrics, production verification | Reuse budgets, receipts and resume behavior; add evidence sets and independent source splits |
+| Reader Ask | Why does this step follow? `find_sources(intent="explain")` is the planned retrieval seam | RW1c; fixed selection context, whole section, whole source |
+| Canonical tutor grounding | Missing definition, theorem assumption or counterexample | T6 / `TutorSpanProvider`; same delivery for every retriever |
+| Ask your library / compare | Unknown location or different source conventions; `find_sources`, `compare_sources`, `PinnedSpanProvider` | RW4a/RW4d; lexical/structural lookup and direct reading |
+| Alternative / remediation | `alternative`, `remediate`; query an already-written gap, do not diagnose from similarity | RW1c/RW3b; existing correction links and role-aware judgment |
+| Worked examples / source exercises | `worked_example`; distinguish finding an authored exercise from generating one | RW4b; deferred authoring pilot, direct known-section baseline |
+| Local quick checks / margin roles | Passage/section views; authorial-role vocabulary | RW1a/RW1b/RW4e; no initial embedding replacement |
 
-The [T6 follow-up report, corrected rerun in section 5.9](../reviews/t6-followup.md) evaluated 47 probability and 41 arxiv_v2 questions. Its verified dense-plus-BM25 pool scored nDCG@10 of 0.861 and 0.854, versus 0.768 and 0.769 for verified RRF. These are reranked retrieval metrics, not tutor-answer accuracy. The eight logged probability questions did not show a significant tutor-ranking gain and favored RRF on the display ranking. Synthetic and real questions must therefore remain separate report slices.
+RW1c is Reader build order 5, after RW4a (order 3); RW3b and RW4d follow at order 5; RW4e is order 6. Reuse its role vocabulary without blocking this experiment on its classifier. Deliver a short decision memo to these owners before integration. Retrieval as context fits RW1c's existing ruling; offers still require learner action and a lookup is not an exposure. Reuse [typed instructional tools](../../src/learnloop/instructional/tools.py), server-derived policy and existing ledgers; do not build a parallel product orchestrator.
 
-The same report records remote query embedding at p50 4.5 seconds on its timing sample, and verification around 7–8 seconds. Local embedding could reduce one component; it will not remove verification latency. Re-measure on the current routes rather than projecting that historical timing forward.
+The October 11 one-embedding-model decision remains `qwen/qwen3-embedding-8b` via OpenRouter. Experimental spaces stay outside production. A second production source space requires an explicit owner amendment **and** the adoption bar in §7. The owner's go-ahead and keys authorize experiments, not that amendment. PF, diagnosis, router context, grading, identity and mastery remain outside this experiment. Embeddings nominate; verifiers and exact policy checks retain authority.
 
-The Reader spec references `spec_source_practice_and_probes_v1.md` and a future `find_sources` service. Neither that spec file nor `source_retrieval/find_sources.py` is present in this checkout. Treat them as planned dependencies. The offline experiment can run through existing `search_spans` and `TutorSpanProvider` seams; it must not claim the planned intents are already implemented.
+A separate **delivery fixes implementation stage**, starting now, owns the Reader neighbour correction, full blocks in place of tutor 240/600-character cuts, explicit reference resolution (for example “Theorem 3.2”), raising the 900-character label/verifier view, and automatic source-vector backfill after (re-)extraction when embeddings are enabled. This experiment consumes its pinned implementation and receipts as the D1 baseline; it does not reimplement those fixes. Record its commit and delivery policy before paired runs. Its implementation checks belong to that stage; experiment checks verify the consumed behavior.
 
-## 3 Research basis
+## 2 Current baseline and evidence
 
-Sources were checked on 2026-10-13. Results describe their own benchmarks and models; each experiment below tests transfer to LearnLoop. The v2 model's release materials are distinct from the v1 technical report.
+| Code | Verified on this branch | Experiment consequence |
+|---|---|---|
+| [Embedding client](../../src/learnloop/ai/embedding.py), [OpenRouter adapter](../../src/learnloop/ai/providers/openai_embedding.py) | Flat inputs, one vector each; OpenRouter `data_collection="deny"`; no grouped-document contract | Hosted context needs a new adapter, not a model-name substitution; record provider identity or its absence |
+| [Config](../../src/learnloop/config/schema.py), [backfill](../../src/learnloop/ops/embedding_backfill.py) | `embedding.enabled` and `backfill_enabled` default false; source recipe requires explicit selection; no automatic ingest backfill found | Distinguish today's effective baseline from an enabled, fully backfilled Qwen control; automatic backfill is the delivery-stage dependency |
+| [Recipes](../../src/learnloop/source_retrieval/recipes.py) | Section header text plus independent block, 6,000-character body cap; skips furniture and blocks under 20 non-whitespace characters | “Independent Qwen” already has section context; preserve this production control and add matched-unit controls |
+| [Store](../../src/learnloop/db/stores/embedding_vectors.py), [dense search](../../src/learnloop/source_retrieval/dense.py) | FP16 blobs; identity includes record/field/content hash/model/task; reuse by content; mean-centered cosine; partial coverage is possible across extractions | No contextual cache reuse by central text alone; exact ordinary cosine in matched comparisons; report coverage and fallbacks |
+| [Search](../../src/learnloop/source_retrieval/search.py), [find_sources](../../src/learnloop/source_retrieval/find_sources.py) | `find_sources` exists with five intents, forces RRF for pagination, verifies 900-character views and returns up to 2,000 characters | Test this service itself, including a first-page pool variant without changing paging semantics |
+| [Tutor provider](../../src/learnloop/source_retrieval/tutor.py), [compare](../../src/learnloop/source_retrieval/compare.py), [verifier](../../src/learnloop/source_retrieval/verify.py) | Retrieved and pinned tutor spans clip at 600; compare uses 2,400; verifier 900; tutor rewrite defaults off | Audit text at every delivery boundary; do not credit a changed rewrite or larger prompt to embeddings |
+| [Span view](../../src/learnloop/reader/span_view.py), [Tutor QA](../../src/learnloop/tutor/tutor_qa.py) | Previous neighbours are ordered i−3, i−2, i−1. With a quoted single-block selection, the loop takes only the first two: i−3 and i−2, never i−1 or an after-block. Neighbours are 240-character previews; selected/in-view blocks are full | D0 preserves this observed defect for measurement; D1 consumes the separate fix. Without a quote or after filtering, counts can differ |
+| [Quick-check views](../../src/learnloop/reader/reader_quick_check.py) | `section_view` and `passage_view` exist but are bounded; section view stops at 24,000 characters or 60 blocks. Helpers do not themselves apply model policy | Reuse section derivation, not an assumption that these return the whole permitted section |
+| [Evaluation](../../src/learnloop/source_retrieval/evaluation.py) | T6 harness has two label passes, receipts and paired metrics; labels use 900-character views; no per-intent bank | Share the sources spec's planned per-intent bank; extend labels to evidence sets and full blocks |
+| [Exam predicate](../../src/learnloop/content/sources/exam_material.py), [corpus policy](../../src/learnloop/source_retrieval/corpus.py) | Exam/held-out resolution spans revisions; `model_reader_withheld` also covers solutions and assessment-lane material | Apply policy before encoding and prompting, not just to returned hits (§4) |
+
+[T6 corrected rerun §5.9](../reviews/t6-followup.md) reports 47 probability and 41 arxiv_v2 questions: verified dense-plus-BM25 nDCG@10 0.861/0.854 versus verified RRF 0.768/0.769. Differences on the **picked passages** were not significant; eight logged probability questions did not show a significant tutor gain. This supports a pool ablation, not a promised `find_sources` or answer-quality win. Historical query embedding p50 was about 4.5 s, verification about 7–8 s; remeasure current routes.
+
+[B4](../reviews/slice-2-t6.md) found Gemini text below Qwen (nDCG@10 0.868 vs 0.915; 0.780 vs 0.855) and page images worse. Its labels and questions came from Marker text, with κ about 0.45–0.46: this does not settle image-dependent questions. Gemini and visual retrieval are deferred. Opus reports LFM2.5's 512-token limit and retention/training terms incompatible with the present data-collection requirement; those web claims are **unverified offline**. LFM is outside the first experiment pending verified context and retention compatibility.
+
+Opus's inventory is about 20 sources, two short textbook excerpts, ten transcripts and 32 logged questions (15 Reader); largest source about 158k characters (~40k tokens). Its block/character counts were obtained from databases not opened here. Treat them as **reported inventory**, not a new census or a token-fit guarantee. The three tracked TOMLs have no `[embedding]` table; effective user settings and coverage remain unknown. Do not infer current production enablement from those TOMLs alone.
+
+## 3 Research basis and offline limits
+
+The following retains the owner's research basis and its reported findings. **External papers, model cards, endpoint availability, prices, licences and provider terms were not independently verified in this offline revision.** Recheck their contracts before execution; no external benchmark is evidence of a LearnLoop gain.
 
 | Work | Relevant finding and limit | Consequence here |
 |---|---|---|
 | [Late Chunking](https://arxiv.org/abs/2409.04701), 2024, revised 2025 | Pooling chunks after encoding surrounding text preserves context lost by independent chunk encoding | Compare the same Perplexity model on independent chunks and grouped chunks to isolate contextualization |
-| [Context is Gold / ConTEB](https://arxiv.org/abs/2505.24782), 2025 | Evaluates document-context-dependent retrieval and introduces in-sequence negative training | Include ambiguous passages and same-document distractors; use a fixed public ConTEB slice as a secondary benchmark |
+| [Context is Gold / ConTEB](https://arxiv.org/abs/2505.24782), 2025 | Evaluates document-context-dependent retrieval and introduces in-sequence negative training | Include ambiguous passages and same-document distractors; defer a fixed public ConTEB slice until the local screen merits expansion |
 | [Diffusion-Pretrained Dense and Contextual Embeddings](https://arxiv.org/abs/2602.11151), 2026 | Describes Perplexity v1's bidirectional representations and contextual document encoding | Supports the design lineage; does not establish v2 query compatibility with v1 models |
 | [Contextual embedding beyond the gold passage](https://www.perplexity.ai/en-GB/hub/blog/contextual-embedding-beyond-the-gold-passage), September 2026 release | v2 uses a context-compression teacher to target supporting evidence; reported context-bench is privately held | Build an accessible LearnLoop evidence-set benchmark; do not depend on obtaining private context-bench |
 | [Quantize by Drift](https://arxiv.org/html/2610.09227v1), October 2026 preprint | Measures module sensitivity through final embedding displacement. At the main budget, the allocation trails uniform precision on all three untouched models. Its study uses 2–4-bit weights, not this model | Treat drift as a diagnostic and candidate allocator; require uniform baselines, end-to-end retrieval and real packed-memory measurements |
@@ -72,398 +64,201 @@ Sources were checked on 2026-10-13. Results describe their own benchmarks and mo
 | [RAG or Long-Context LLMs](https://arxiv.org/abs/2407.16833), 2024 | Sufficiently resourced long-context models won on average in its comparisons, while RAG reduced cost | Include direct section/document reading with the same frontier generator |
 | [Beyond the Context Window](https://arxiv.org/abs/2603.04814), 2026 preprint | Full history beat fact-memory retrieval on some conversational benchmarks; prompt caching materially affects cost | Preserve the earlier brainstorm's full-context baseline and account for cached tokens; this is not a textbook benchmark |
 | [BRIGHT](https://arxiv.org/abs/2407.12883), 2024, revised 2025 | Reasoning-intensive retrieval is difficult; explicit query reasoning can improve it | Compare raw questions with identical cached rewrites across embedding arms |
-| [Are LLM-Based Retrievers Worth Their Cost](https://arxiv.org/abs/2604.03676), 2026 | Latency and robustness differ substantially; reasoning augmentation can hurt math/code retrieval | Report per-domain quality, end-to-end latency and rewriting ablations |
+| [Are LLM-Based Retrievers Worth Their Cost](https://arxiv.org/abs/2604.03676), 2026 | Latency and robustness differ substantially; reasoning augmentation may reduce math/code retrieval quality | Report per-domain quality, end-to-end latency and rewriting ablations |
 
-Two released alternatives matter before undertaking student training:
+[Anthropic Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) motivates 50–100-token generated chunk context, contextual BM25, and direct prompting for small knowledge bases (its reported guidance is under 200k tokens). Treat 150k-source/200k-scope sizes as revisit signals, not universal context or latency limits.
 
-- [Voyage 4](https://blog.voyageai.com/2026/01/15/voyage-4/) explicitly supports cross-size query/document compatibility within its family. It motivates the serving architecture, not a claim that its vectors align with Perplexity's.
-- [Perplexity v2 late 0.6B](https://huggingface.co/perplexity-ai/pplx-embed-v2-late-0.6b) already supports querying its late 9B sibling's index. It uses 128-dimensional token vectors and MaxSim. This is an optional separate-index comparison, particularly for visual PDFs; it cannot query the contextual model's 2048-dimensional chunk index. Measure its larger index and scoring costs before preferring it to distillation.
+Hosted contracts to validate: [Perplexity contextualized embeddings](https://docs.perplexity.ai/api-reference/contextualized-embeddings-post), reportedly `/v1/contextualizedembeddings`, nested document/chunk inputs, contextual v1 4B/0.6B, 32K tokens/document, 120K/request and 16,000 chunks, int8/binary outputs; [Voyage contextual chunks](https://docs.voyageai.com/docs/contextualized-chunk-embeddings) and [pricing](https://docs.voyageai.com/docs/pricing), including `voyage-context-4` and `voyage-4-large`. Use int8 rather than binary for the initial Perplexity arm and implement the documented decoding/scoring. Validate each family's query method and query/document compatibility. No hosted v2 9B endpoint was established by the prior review; this is not a verified current absence.
 
-## 4 Representation and integration contract
+The [v2 card](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview) reportedly specifies separate query/document methods, fixed `[Q]`/`[D]` prefixes, 2048/1024 trained dimensions, unnormalized int8-valued outputs, preview incompatibility risk and an FP32 contextual projection. Opus also reports MIT licensing, a bundled vision tower, 24/32 linear-attention layers, ~33.6 GB FP32 checkpoint and no supported vLLM/SGLang/sentence-transformers path. These are loader-verification items, not tested guarantees; a large configured context is not a feasible 5090 workload. Do not carry the draft's untested `normalize_embeddings` call signature forward.
 
-### 4.1 Canonical context windows
+[Voyage 4](https://blog.voyageai.com/2026/01/15/voyage-4/) family compatibility does not establish compatibility with Perplexity. The [Perplexity late 0.6B](https://huggingface.co/perplexity-ai/pplx-embed-v2-late-0.6b) / late 9B pair reportedly uses 128-dimensional token vectors and MaxSim, a separate index rather than the contextual model's 2048-dimensional chunk space (§9).
 
-Preserve extraction order, mathematical notation, source revision and original span identifiers. Start with one canonical block per candidate; deterministically split oversized blocks at paragraph or sentence boundaries, retaining character offsets. Every comparison using these units gets the same splits. Also retain the unmodified current production recipe as an end-to-end baseline.
+## 4 Corpus, boundaries and representation
 
-Group adjacent candidates from a single source into token-bounded windows. Start at 4,096 tokens including markers, then compare 2,048 and 8,192; try 16,384 only after profiling. Prefer section boundaries. An overlap arm can repeat context around a central region, but emit each candidate once from its assigned window. Do not average embeddings from different windows in the first experiment. Record which required dependencies lie outside the window: local contextualization cannot encode an unseen lemma.
+### 4.1 Extraction and candidate units
 
-The candidate passage used for citation and the wider context used to encode it are distinct. Store both. Record the complete context dependency list so any changed block invalidates all affected vectors. Never combine independent documents in a single row merely to fill a batch.
+Build contextual indices **and labels on GLM-OCR extractions**, as `ingest/glm-ocr` becomes the main extractor, or explicitly pin a provisional extraction engine/revision. That branch's uncommitted code was not inspected here. All paired arms use identical snapshots; Marker results cannot be presented as GLM-OCR results. Record engine/model revision, extraction options, source bytes hash, extraction ID, ordered block text and structure. Re-extraction invalidates windows, vectors, generated headers, FTS variants, labels and cached evidence packets. Reanchors assist relabelling; they do not certify unchanged evidence.
 
-### 4.2 Model and vector identity
+Use outline/heading units and numbering where available; never invent missing heading depth. Inspect equations, captions, theorem leads, footnotes and references after extraction. Report lost content as an extraction failure, not a retriever miss. Opus's GLM footnote-discard, heading-flattening and layout-class claims need verification at ingestion handoff. The [block-role regex](../../src/learnloop/ingest/block_roles.py) identifies environment leads; it does not extract numbered references or resolve them. Consume the delivery stage's resolver and its unresolved/ambiguous statuses.
 
-The [model card](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview) specifies separate query/document encoding methods, 2048 and 1024 trained dimensions, native INT8-valued outputs, and potentially incompatible future preview releases. Freeze 2048 dimensions and normalized cosine initially; dimension reduction and index storage compression are later independent ablations. Weight precision is a separate setting from output-vector quantization.
+Freeze one common candidate map before comparing models: split oversized blocks deterministically with original character offsets; attach bare equations to their explanatory text; merge adjacent short transcript captions toward 300–600 tokens within one permitted section/time sequence. Do not merge across sources, policy boundaries or distinct theorem/exercise regions. Keep all original span IDs/offsets for labels and citations. Retain unmodified production blocks as a separate end-to-end control; its top-10 is not directly interchangeable with top-10 merged units. Report token-budget coverage too.
 
-Use these explicit identities in the experiment manifest:
+Start grouped encoding at 4,096 tokens/window, including markers, with section boundaries and no overlap. Assign every candidate exactly once. Freeze the tokenizer/boundary algorithm and stable ID tie-breaks. A secondary whole-source window is allowed only when the entire permitted segment fits the validated provider limit (reported Perplexity limit 32K); it is not the tutor's whole-source delivery arm. Split larger sources deterministically; report required support outside each window. Any later overlap arm emits a candidate once by a fixed ownership rule and never averages windows implicitly.
+
+### 4.2 Policy and leakage
+
+Use [exam_material](../../src/learnloop/content/sources/exam_material.py), `held_out_material` and [model_reader_withheld](../../src/learnloop/source_retrieval/corpus.py), plus caller/item-specific restrictions. **Windows never cross exam, held-out, solution or assessment-lane boundaries.** Do not remove forbidden blocks and join their former neighbours into one window. Teaching experiment inputs exclude these regions entirely, including from generated context, lexical headers, source summaries, rewrites, labels and full-section/source prompts. This experimental policy may be stricter than the current Reader's held-out-only neighbour filter; do not claim all current paths have identical filtering.
+
+Persist policy verdicts and their dependencies with every artifact. When a unit is later marked `held_out_evaluation`, invalidate every dependent window/vector/header/label/packet, including old extraction references. Recheck current policy before retrieval and delivery; reject stale artifacts while rebuilding. Unresolvable marks fail closed. Source summaries depend on all text used to produce them, not only the central window. Do not embed exam material in this pilot; deciding whether to change existing independent exam indexing is outside it.
+
+**Benchmark-held-out source families are not learner `held_out_evaluation` material.** Benchmark test documents remain permitted searchable source text; their questions, labels and development decisions are sealed. Learner-held-out exams must never enter the experiment. Split alternate editions, overlapping documents, questions/paraphrases, learner-profile variants and follow-up traces together; no test queries or gold support may enter headers, rewrites, prompts used for tuning, training or hard-negative mining.
+
+### 4.3 Adapter, identity and receipts
+
+The isolated adapter exposes `encode_documents(list[list[Chunk]]) -> list[list[Vector]]` and `encode_queries(list[PreparedQuery]) -> list[Vector]`. Preserve document/chunk IDs through response reordering and batching. Validate query mode, dimensions, output format, finite nonzero values, count/order, token limits and no silent truncation. Reject incompatible query/document spaces explicitly. Do not assume equal dimensions mean compatibility.
 
 ```text
-document_space_id = hash(model_revision, document_weight_precision, quantizer,
-                         tokenizer_revision, document_recipe, dimensions,
-                         output_transform, scoring_transform)
+document_space_id = hash(provider_endpoint, model_revision_or_alias_epoch,
+                         serving_provider_or_unknown, precision_or_unknown,
+                         tokenizer, extraction_engine_revision, recipe,
+                         dimensions, output_format, decode_and_score_transform)
 document_vector_key = hash(document_space_id, extraction_revision,
-                           ordered_context_text_and_spans, target_span_offsets)
-query_encoder_id = hash(model_or_student_revision, weight_precision,
-                        query_recipe, projection, output_transform)
+                           ordered_context_text_spans_offsets, target_offsets,
+                           policy_fingerprint, all_generated_context_dependencies)
+query_encoder_id = hash(provider_model_revision, query_mode_recipe,
+                        precision, projection, dimensions, output_transform)
 query_vector_key = hash(query_encoder_id, complete_effective_query)
-retrieval_run_id = hash(document_space_id, query_encoder_id, corpus_manifest,
-                        scope, retrieval_settings)
+run_id = hash(document_space_id, query_encoder_id, corpus_and_split_manifests,
+              policy, prompts, retrieval_delivery_settings, budget, seed)
 ```
 
-Record tested query/document compatibility explicitly. Distilled queries must not impersonate the teacher's `model_id` to bypass the current shared-model assumption. A new student can reuse a frozen compatible document index; a changed document encoder or contextual recipe requires a new index and renewed compatibility evaluation.
+Keep vectors in research artifacts outside production `embedding_vectors`. Preserve raw provider responses/vectors privately; normalize a decoded FP32 scoring copy for exact cosine where supported. Raw integer values in [-127,127] are exactly representable in FP16, but normalized FP32 vectors are also valid evaluation artifacts: test the persistence round trip separately. Weight quantization, output quantization and stored dtype are different axes. Never substitute a different model's int8 vectors for an FP32 numerical reference.
 
-Keep experiment vectors outside the production `embedding_vectors` namespace initially. Store normalized FP32 vectors for exact-search evaluation, and separately test the existing FP16 persistence round trip. If packed INT8 storage is later tested, cast and record it explicitly; an array containing integer-valued floats does not itself occupy one byte per element.
+Pin endpoint/provider where supported; otherwise record the alias, timestamp, returned model/provider and unknown numerics. A retry/resume checks manifest and canary vectors; changed aliases or incompatible outputs create a new epoch/index. Cache the first successful output, record tolerance for hosted nondeterminism, and report repeated canary drift. No claim of exact hosted reproducibility without immutable revisions. The current OpenRouter adapter does not expose provider pinning; pinning is proposed adapter work.
 
-The research adapter should expose `encode_documents(documents: list[list[Chunk]]) -> list[list[Vector]]` and `encode_queries(queries: list[PreparedQuery]) -> list[Vector]`. A document row is one context window, and each result keeps its input chunk ID. Do not flatten this interface into the existing `embed(inputs)` contract until document grouping and cache dependencies have explicit owners. Local calls should record tokens, GPU time and zero provider billing under a local execution type; do not invent a positive token price to bypass the current unknown-model pricing guard.
+Reuse `model_call_receipts`, `judgment_ledger` and `source_tool_calls` for their existing roles. A research JSON manifest links grouped embedding jobs, labels and answer comparisons without inventing source-tool calls for operations that are not tools. Include request IDs, input hashes, usage, billed/estimated amounts, cache hits, retries, failures, elapsed time and resume status. Never log headers/keys or provider exception bodies. Local execution records zero provider billing and measured resources; reuse GLM-OCR's receipt convention when it lands, not an assumed current API.
 
-### 4.3 Scope and evidence rules
+## 5 Smallest first experiment: E0, hosted and no GPU
 
-Use Reader/library questions first. For a later practice or feedback integration, apply the [existing teaching and item exclusions](../../src/learnloop/source_retrieval/corpus.py) to **encoding context as well as returned passages**. A permitted passage contextualized together with an excluded worked solution has still depended on that solution. A library index must not silently become an assisted-practice index.
+Target 3–5 working days, **≤ $25 billed and 0 GPU-hours**. This is a bounded pilot, not a promise that every arm and label will fit. Delivery-stage implementation and a full-book ingestion project are separate dependencies/budgets. All required hosted arms remain in scope even if direct reading wins; budget or endpoint failures produce an incomplete report, never a silent substitution.
 
-Persist context dependencies; reject affected windows for a restricted request or build a policy-appropriate index from permitted text. Item-specific restrictions may require a different context recipe or lexical fallback. Validate this before enabling those consumers. Cold attempts continue to refuse source assistance. Citation allowlists, actual quote checking, exposure accounting and learner-blind grading remain the deciding contracts.
+### 5.1 Preparation and bank
 
-### 4.4 Evidence completion and tutor delivery
+1. In a later authorized execution, use [copy_tree_with_databases](../../src/learnloop/db/copies.py) for consistent vault copies, including WAL state. Keep private text/vectors/labels in gitignored `fixtures-local/contextual-embeddings/`; publish only permitted aggregates. This documentation task neither copies nor opens vault databases.
+2. Capture a redacted effective-config allowlist (embedding enablement, model/route/dimensions, rewrite, pool, policy and caps), extraction inventory and coverage. Avoid a raw config/environment dump. Preserve today's baseline before enabling Qwen/backfill on copies. Consume the delivery stage's automatic backfill and wait for complete measured coverage, or label the baseline incomplete.
+3. Freeze a 16-case smoke bank and **60–80 development questions**: roughly 20 Reader deictic selections, 20 distant same-source dependencies, 20 intent-stratified explain/remediate/alternative/worked-example/compare cases, plus direct lookup and no-support controls. Include all eligible logged questions as a separate real slice; 32 is the prior review's count, not a required yield. Tag transcripts, equations, extraction failures, long-range support and cross-source comparison. Preserve actual selection/history; a library question gets no oracle source location.
+4. Reserve source families before question generation. This pilot has no credible 300-question sealed bank by assumption. Use leave-family-out exploratory checks where feasible, reporting independent-family counts. Later obtain permitted full books for confirmation, for example Axler LADR 4e and Grinstead–Snell; their reported CC BY-NC/GFDL licences and permitted uses need checking. Two books are two clusters, not hundreds of independent samples. Do not train from private excerpts/transcripts by default.
 
-Build evidence completion independently of the embedding provider. It consumes initial candidates, identifies missing support for a provisional explanation, and returns a bounded set of canonical passages for the tutor. It can also operate over an already-known section. Context represented inside a vector does not make the corresponding source text available for inspection or citation.
+Strong writer: configured Sonnet 5.5 or GPT-6 Luna, with exact model/transport/prompt pinned; use a different strong model for adjudication. Source-derived questions must vary wording, include same-source distractors and propose support without revealing the reference label in every query. Generated questions, real questions and exact-reference lookups remain separate slices. No selection or reference is fabricated for a logged ambiguous question.
 
-For the passage “Since X and Y are independent, their covariance vanishes,” separate:
+### 5.2 Labels and metrics
 
-- **Required mathematical support:** the covariance identity, expectation factorization under independence, and applicable existence assumptions. Finite second moments are a sufficient condition. An accepted alternative derivation can have a different support set.
-- **Learner-specific scaffolding:** an explanation of independence or expectation, an intuitive example, or a counterexample to the converse. Select this from existing learner evidence and the current request; uncertain inferred needs remain hypotheses.
+Record `query_id`, split/family/origin/intent/tags, question, selection and allowed history, allowed scope/policy, effective query, canonical evidence offsets, answerability, alternative sufficient sets and label provenance. A set expresses required answer AND support spans, with OR alternatives for other valid proofs; optional background never compensates for missing conditions. No-support cases have recall N/A and are scored for abstention/false attribution.
 
-The learner's familiarity can shorten the displayed explanation without deleting its necessary support. Retain required passages in the evidence packet even when the tutor summarizes them briefly. Optional background should not recursively expand into every prerequisite of the subject.
+Pool top-20 candidates from every arm, reference targets, writer proposals and a seeded sample of non-hits. Use two independent strong-model passes, blinded to arm and ordered differently, reading full evidence and its needed context. The delivery stage's raised verifier cap does not itself guarantee full-block labels: record actual label input coverage and route oversize cases to an explicit bounded multi-pass review. Unjudged material stays unknown. Measure ordinal relevance agreement (Cohen's κ and confusion table) and separate agreement on required-support/set completeness.
 
-Proposed records, initially in the research package rather than new production tables:
+A named strong adjudicator audits **all disagreements and every accepted sufficient set used by the primary endpoint**, plus a seeded 20% sample of agreements, negatives and unanswerable cases across strata. If the budget cannot cover that audit, reduce the scored bank before results or mark completeness pool-relative; do not call unaudited labels ground truth. Report model-only, adjudicated and any owner-reviewed counts. Owner review is optional. κ < 0.60 or unresolved sufficiency disagreements blocks a verdict; revise on development and relabel consistently.
 
-| Record | Required content |
+Primary representation endpoint: **Complete Evidence@10 on context-dependent/support questions using common candidate units**. Also report Support Recall@10 (best-covered accepted set, fixed tie rule), Answer Recall, nDCG@10, MRR, role coverage, unknown-label share and coverage at a fixed evidence-token budget. Deduplicate citations by original span/offset; duplicated merged units do not earn extra recall. Measure evidence after filtering, verification, deduplication and final delivery, and report every clipping/omission reason.
+
+Blind answer evaluation scores correctness, preserved assumptions, citation entailment and abstention in two randomized orders; adjudicate disagreements independently. Primary answer measure is the share passing all applicable criteria; retain component scores. Same tutor/version/effort and output policy for every arm; same permitted learner information. Bootstrap paired differences clustered by source and query family (10,000 resamples, fixed seed); report source-macro and query-weighted results, strata and failure counts. Too few independent families means exploratory intervals, not adoption evidence. Preselect one hosted finalist on development before confirmation; otherwise adjust for multiple comparisons and disclose selection. No repeated peeking or retuning after opening confirmation results.
+
+### 5.3 Delivery arms first
+
+| Arm | Context delivered to the same tutor |
 |---|---|
-| Completion request | Question, anchor selection, permitted inquiry context, versioned learner-needs snapshot, source scope and policy, encoder identities, token/call/deadline budgets |
-| Support obligation | Stable ID, proposed claim or inference, role, required versus optional status, origin, dependencies and acceptable alternative support groups |
-| Evidence candidate | Canonical source revision, span IDs/offsets, hydrated text, retrieval query/round, proposed role, provenance and semantic-assessment results |
-| Evidence packet | Selected passages, obligation-to-span links, unresolved obligations, citations, tokens, stop reason and complete retrieval/assessment receipts |
+| D0 today's context | Pinned baseline behavior, including the neighbour defect and current clips, on the common safe corpus |
+| D1 fixed delivery | The separate delivery stage's full-block, corrected-neighbour and explicit-reference behavior; pinned implementation, policy and token limits |
+| D2 whole section | Entire permitted section containing the known selection, with omissions/boundaries recorded; not the existing capped helper mislabeled “whole” |
+| D3 whole source | Entire permitted selected source, or explicitly requested sources for a comparison, if within the actual generator context limit |
 
-Use these steps:
+D0/D1 compare the same initial evidence where possible. D2/D3 apply directly to known-source/known-section questions. For unknown-location library questions, source/section choice must use the same non-oracle locator for all arms and its latency/errors count; a gold-location diagnostic is separately labelled oracle. If a section/source does not fit, record `does_not_fit` and run a separately named bounded fallback, never silent truncation.
 
-1. **Plan support.** From the question and initial evidence, propose an explanation and its obligations. The plan is revisable: search for applicability limits and contrary evidence as well as confirmation of a candidate answer.
-2. **Retrieve missing support.** Follow explicit source references and inspect nearby text first where appropriate. Search remaining obligations with dense, lexical and structural tools under the original scope. Each follow-up query names the needed definition, assumption, theorem or instructional role. Initial and follow-up queries use the same selected query encoder in a deployment arm.
-3. **Hydrate and assess.** Load complete bounded passages by canonical IDs before the final context is assembled. Exact quote/provenance checks and semantic judgments are separate fields; a matching quote does not establish entailment or mathematical validity. Preserve source-local definitions and report unresolved contradictions.
-4. **Select sufficient evidence.** Minimize tokens and redundancy subject to required support and citation constraints; score optional scaffolding against the recorded learner need. Preserve conjunctions: a covariance definition AND factorization may be required, with an alternative valid derivation as an OR branch. Several similar definitions cannot compensate for a missing theorem. Cosine scores nominate candidates; they do not certify coverage.
-5. **Prune and stop.** Remove a passage only if required coverage and selected instructional value survive. This is operational minimality under the chosen plan, not proof of a global optimum. Stop with `sufficient`, `no_progress`, `budget_exhausted` or `insufficient_source_support`. Model-assessed sufficiency remains auditable. Unresolved cases may use a budgeted full-section fallback or an explicitly qualified answer; spending the budget never means success.
-6. **Deliver and validate.** Pass the packet to the tutor with its citation allowlist and unresolved gaps. Check final claims against delivered support; material new claims require remaining-budget completion, revision or omission. Account for all retrieval, assessment and repair calls. Reading a passage does not itself update mastery.
+Freeze a D1 retrieval evidence ceiling of 8,192 tutor tokens, with system/history/output reserves counted separately. Admit complete blocks in fixed order, recording any omission; oversize blocks use the shared offset-preserving split. D2/D3 use their actual full token sizes, so their extra tokens are a measured tradeoff, not an embedding gain. Report warm/cold cache tokens, p50/p95 latency, failures and billed/subscription usage. No Reader answer may receive solution or learner-held-out text even as a “direct” control.
 
-For the initial pilot, allow one follow-up round with at most two targeted search calls after the initial retrieval; freeze planner/assessor prompts and paid-call/deadline caps in the run plan. All completion arms receive the same limits. A wider loop is a separate development experiment. Cache source hydration by revision and offsets, reapplying scope policy when serving cached text; key learner-dependent plans/packets by the full request, learner snapshot, policy and prompt versions.
+### 5.4 Retrieval arms on the same bank
 
-Implement the offline orchestrator over `search_spans` and canonical block hydration. For later product integration, adapt `TutorSpanProvider` to assemble and verify the packet before conversion into tutor context; extend the Reader branch in `tutor_qa.py` explicitly. Replace or parameterize `span_context`'s 600-character clipping only in the controlled hydration arm. Do not assume the planned `find_sources` service exists. The tutor and authoring verifiers retain their existing authority.
-
-## 5 Benchmark and measurement design
-
-### 5.1 Data and splits
-
-Start from backup copies of `probability`, `linear_algebra` and `arxiv_v2`, then inventory independent books/papers and source families. These are candidate domains, not three guaranteed independent samples. Copy SQLite through its backup API so WAL state is included. Keep source text, queries and vectors under gitignored `fixtures-local/contextual-embeddings/`; commit only aggregate reports and protocol code.
-
-Create these separate banks before fitting anything:
-
-| Bank | Initial size and use |
+| Arm | Representation / purpose |
 |---|---|
-| Smoke | 16 explicit question/passage cases, including equations, ambiguous references, unequal document lengths and empty/oversized inputs |
-| Quantization calibration | 128 representative queries and 32 contextual windows from development sources; expand only if sensitivity rankings are unstable |
-| Development retrieval | 120 questions, balanced across the task strata below; tune windows, precision, losses and retrieval settings here |
-| Sealed evaluation | Initially 300 questions from held-out source families, plus a separately reported real-question slice; increase only through a new prespecified evaluation if precision is insufficient |
-| Student training | Later: nested 2k, 10k and 50k query banks, budget permitting, excluding evaluation source families and paraphrase groups |
+| R0 | Today's effective path, including keyword-only behavior if dense is disabled; descriptive production control |
+| R1 | Fully covered Qwen with production recipe, centering and `pool_verify`; matched-unit ordinary-cosine Qwen control for representation comparisons |
+| R1′ | Actual `find_sources` RRF/intent path versus first-page dense-plus-BM25 variant; record paging/deduplication separately |
+| R2 | Matched Qwen + deterministic title, section path, preceding environment label and bounded preceding text; all policy-filtered |
+| R3 | Matched Qwen + 50–100-token LLM chunk context from permitted source text, generated once without benchmark queries; contextual BM25 as a separately reported add-on |
+| R4 | Perplexity API `pplx-embed-context-v1-4b`: grouped windows **and singleton-document control using that same contextual model**; independent `pplx-embed-v1-4b` sibling as a separate family baseline with its documented query encoder |
+| R5 | Voyage API `voyage-context-4`: grouped windows and singleton control where supported; `voyage-4-large` via the same Voyage API as the required independent-family baseline |
 
-Sizes are starting compute budgets, not statistical guarantees. If there are too few independent sources, label results exploratory. Reserve whole source families before generation, including alternate editions and overlapping papers. Add leave-subject-out evaluation if enough subjects exist. Indexing held-out documents with the frozen teacher is allowed: student training, precision allocation and hyperparameter selection may not use their queries, labels or context windows.
+R4 and R5 are **in E0**, not optional. Validate the independent Perplexity endpoint/query pairing before calls; failure blocks that subcomparison and is reported. Same-model grouped-minus-singleton isolates added document context more closely; different sibling models measure deployment alternatives, not a pure contextualization effect. Keep context generation separate from contextual BM25 to avoid confounding their gains. Generated headers aid indexing only; delivered citations are canonical text, never invented summaries.
 
-Cover six strata: direct lookup; context-dependent proof/definition; multi-passage support; cross-source comparison; alternative or remedial explanation; no adequate source support. Tag exact-term and procedural questions as well. Include dependencies beyond one context window and diagram-dependent cases; score the latter separately as extraction/modality limitations. Preserve the Reader selection and permitted inquiry history for deictic questions such as “why does this step work?”
+For the representation screen use exact search, ordinary cosine where contract-valid, stable ID tie-breaking, identical units/scope/query information and no rewrite. For service comparisons preserve native scoring, rewrite defaults, pool and policy as explicitly named system arms. Cache identical rewrites if a later ablation enables them. Do not expand to every pool/window/rewrite combination. Run the D1 answer comparison only for the best one-model arm and hosted finalists selected on development; keep deterministic reference following identical across them and report pre- and post-reference coverage.
 
-Use logged learner questions where available, without rewriting away their ambiguity. Generate additional questions from source sections with diverse wording and explicit supporting-span proposals. A proposed seed is not automatically a verified relevant passage. Teacher top hits are candidates, not relevance labels.
+## 6 Budgets, determinism and execution records
 
-### 5.2 Evidence labels
+Before calls, freeze `environment.json`, `corpus.json`, `splits.json`, `run_plan.json`, prompt hashes, seeds, candidate maps, provider/API contracts and the D0/D1 commits. Plan limits for total input/output tokens, paid calls, retries, per-request timeout, total wall time and evidence sizes from the actual inventory. No unset or infinite bound is executable. Default two retries for transient failures, zero for authentication/contract errors; every paid attempt counts. Randomize/interleave paired answer runs with a fixed schedule to reduce provider-load bias.
 
-For each question record answer-bearing spans, required supporting spans and their roles, acceptable alternative evidence sets, source scope, and whether the permitted corpus can answer it. A definition and a theorem may both be necessary; an equivalent proof elsewhere may be a valid alternative. Distinguish useful background from necessary evidence.
+The hard E0 ceiling is $25 billed across **all** providers, vault copies and stages, including context generation, labels, embeddings, retries, verification and judging. Proposed allocation: $2 embeddings, $5 drafting/context, $10 labels/audits, $8 answers/verification. Free credits do not imply permanent zero cost. Report gross price estimates, credits, actual bills and subscription `estimated_only` tokens/quota/latency separately. A billed-only post-call check can overshoot: admit only when reconciled charges **plus conservative outstanding reservations** fit the remaining global budget. Unknown billing stays reserved until reconciliation. Keep the existing output-budget policy; do not lower generation limits just to shrink reservations. Dry-run estimates may require fewer cases or a revised plan, not bypassing admission.
 
-Build a label pool from every arm's candidates, explicit source references, proposed support, and sampled misses. Use two independent LLM labeling passes with blinded system identity and different order, following the existing harness. Audit disagreements and a stratified sample of complete evidence sets against source text. Log whether labels are model-only, adjudicated or owner-reviewed. Two model passes measure agreement, not ground truth. Unjudged hits remain unknown, never automatic negatives. Pool-relative recall must be labeled as such; use the audited sets for complete-evidence claims.
+The source-service daily guard defaults to $5 per vault and is distinct from this global cap. Only adjust it on experiment copies when the frozen plan requires it; preserve atomic reservation/accounting behavior. Hosted embeddings need equivalent admission/receipts even when they bypass the existing flat client. Missing prices or a changed endpoint stop the affected arm for contract review. Resume by complete input identity and saved successful results; never repay an entire batch to recover one completed item without recording it.
 
-A case record must contain `query_id`, `split`, `source_family`, `query_origin`, `task_tags`, `question`, `selection_span_keys`, `allowed_scope`, `effective_query`, `evidence_sets`, `answerability` and `label_provenance`. Each evidence set lists passage keys/offsets and `answer` or `required_support` roles. Score completeness against any accepted set, not the union of alternative proofs. For support recall, report coverage of the best-covered accepted set under a fixed rule shared by all arms. Questions with no required support have support recall marked N/A; unanswerable questions have evidence recall marked N/A and are evaluated for correct abstention and false source attribution.
+Use a separate experiment environment. This branch's `uv.lock` pins transformers **4.57.6**; the incoming local glmocr requires **≥5**, and pplx custom code reportedly **≥5.4**. Do not upgrade the app environment. Pin separate compatible dependencies/model code revisions after inspection; a common lower bound does not prove glmocr, vLLM, torch and pplx can share an environment. This revision ran no installs, downloads or API calls.
 
-Completion cases also record the learner-needs snapshot and provenance, support dependencies, optional scaffolding labels and why each passage is necessary or optional. Pair selected questions with different learner profiles while holding mathematical obligations fixed. Keep all profiles of a question in the same split. Save follow-up queries with parent IDs and obligation roles; audited evaluation labels are never planner inputs.
+## 7 Stop rules and adoption
 
-### 5.3 Required metrics
-
-| Measurement | Definition or purpose |
+| Rule | Decision fixed before results |
 |---|---|
-| Answer Recall at k, nDCG at k, MRR | Rank answer-bearing material; report k = 5, 10, 20 and the deployed candidate limit |
-| Support Recall at k | Fraction of required supporting evidence covered; report roles separately |
-| Complete Evidence at k | Whether at least one accepted sufficient evidence set is fully covered |
-| Teacher support retention | Of required supporting spans in teacher top-k, fraction retained by the candidate; denominator zero is N/A |
-| Lost and recovered evidence | Count teacher hits lost and teacher misses recovered, with query-level examples and ranks |
-| Delivered evidence coverage | Evidence surviving filtering, reranking, deduplication, clipping and the final context-token budget |
-| Evidence completion quality | Audited sufficient-set coverage after the full loop; missing assumptions, unresolved contradictions, unnecessary passages and appropriateness of learner scaffolding |
-| Completion efficiency | Follow-up calls and total latency/tokens at matched quality; rounds to sufficient support, budget exits, false sufficiency and full-section fallbacks |
-| Tutor answer quality | Correctness, preservation of assumptions, citation support and appropriate abstention, judged without knowing the retrieval arm |
-| Drift diagnostics | Mean, p95 and maximum cosine displacement; score/margin changes and teacher top-k overlap |
-| Resource use | Process/device VRAM, PyTorch allocated/reserved peaks, host RAM, packed bytes, load/unload time, query p50/p95, indexing throughput |
-| End-to-end cost | Embedding, rewrite, verification and generation timings/tokens; actual cache hits; local GPU time and indexing amortization |
+| S1 labels / coverage | Stop verdicts for κ < 0.60, unresolved evidence sets, extraction/policy failures or materially incomplete arms. Report denominators and failures; fix development protocol before rerunning |
+| S2 direct reading | If D2/D3 is superior, or non-inferior within a **2-point answer-pass margin with the paired 95% lower bound above −0.02**, and latency fits the pinned Reader budget, prefer it for known-location tasks. An interval merely including zero is inconclusive. Finish the required hosted screen, but do not expand local work for this stratum; unknown-location retrieval remains a separate question |
+| S3 cheap context | Default no local escalation if contextual-minus-singleton gain is <3 points, or the best Qwen contextual recipe is within 2 points of the best hosted arm. A confidence interval must support an equivalence claim; otherwise say “insufficient evidence to expand,” not “context adds nothing.” Apply to both hosted families |
+| S4 local experiment gate | Consider E1 only if the hosted finalist beats the best one-model arm by **≥5 absolute points Complete Evidence@10, paired 95% CI excluding 0**, and improves blind D1 answers. No Reader latency regression: paired p50/p95 and the frozen deadline must meet the incumbent budget. An underpowered pilot defers E1 until independent confirmation |
+| Production adoption | Repeat the ≥5-point/CI bar on untouched permitted source families, with a blind answer-pass gain whose paired CI excludes 0, delivery/policy guardrails and no Reader latency regression. Then obtain the explicit one-model owner amendment. Passing E0 or E1 alone is not production authorization |
+| Budget / futility | Stop at the declared spend/time/env/GPU bounds; report incomplete work. No post-hoc threshold changes or extra questions chosen after seeing failures; further tuning needs a new plan and fresh confirmation |
 
-Measure retrieval with exact search before introducing ANN approximation. Stable document-ID tie-breaking is required. Report source-macro averages, per-task and per-subject results, and real versus generated queries. Bootstrap paired differences by source family and query family when sample counts support it; ordinary query bootstrap alone can overstate certainty for many paraphrases of one theorem.
+Direct-reading size triggers (~150k source / 200k scope tokens), actual context overflow, unacceptable latency, or repeated unknown-location failures justify revisiting retrieval. They do not automatically authorize GPU work. Compression's 2-point retrieval non-inferiority margin is separate from the second-space adoption bar. Better retrieval/answers do not establish better learning outcomes; Reader/practice specs own those evaluations.
 
-Predeclare the primary endpoint as Complete Evidence at 10 on contextual/support tasks, with answer recall and delivered evidence as guardrails. For compression, the proposed non-inferiority margin is 2 absolute percentage points on primary retrieval metrics; report a 95% paired interval. This is an engineering tolerance, not a learned cosine threshold. If the interval crosses the margin, the verdict is inconclusive, not “no quality loss.” A small pilot will often be inconclusive.
+## 8 E1: conditional local v2 batch pilot
 
-That endpoint measures the representation at a fixed retrieval cutoff. The separate product decision in Phase 2 uses audited complete evidence **delivered within the fixed token and call budgets**, with answer quality and appropriate scaffolding as guardrails. Prespecify both decisions; additional searches must not be credited as an embedding-only gain. Retrieval and scaffolding judgments do not establish improved learner comprehension.
+Only after §7: ≤ one working day of environment work, ≤4 GPU-hours total including failed loads/profiling/indexing, and ≤$5 additional billed under a new frozen run plan. No persistent query residency. Use owner-chosen idle hours; no concurrent local GLM-OCR or substantial desktop/streaming GPU workload. Target ≤20 GiB process peak and explicit measured device headroom; if unavailable, stop or wait for a hosted v2 option.
 
-## 6 Phase 0 Prepare a reproducible run
+The draft's old NVML mismatch is resolved: on the host (checked 2026-10-13 by the orchestrator), `nvidia-smi` reports an RTX 5090 with driver 615.78.08 and 32,607 MiB, about 2.2 GiB in use at idle. The Codex revision's sandbox had no device access, so its "could not communicate with the driver" result says nothing about the host. Host memory is the tighter limit: `free -h` showed 30 GiB RAM with about 9–11 GiB available and 19–26 GiB of swap in use while other work ran. Recheck both on the execution host before E1. No driver changes are part of this experiment. A ~33.6 GB FP32 checkpoint cannot be assumed loadable in host RAM; remove the local FP32-reference requirement.
 
-1. Record code commit, source manifests, model commit, OS/driver/CUDA, GPU, CPU/RAM and dependency versions. Earlier session inspection returned an NVML driver/library mismatch; check current health before scheduling GPU work. This spec does not presume that issue persists or authorize driver changes.
-2. Create an isolated experiment environment. The model requires Transformers at least 5.4.0 and custom code; pin the exact working versions after the smoke test. Do not upgrade the app environment for this trial.
-3. Cache only the needed model files, retaining an immutable revision. The published FP32 checkpoint is about 33.6 GB, so plan disk and host-memory loading separately from GPU residency. [Checkpoint files](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview/tree/main)
-4. Build backup vault copies and the banks in section 5. Record resource and paid-call caps in a run manifest before calls. Reuse existing model-call receipts, output-budget policy and resumable checkpoints. Run the spending plan first; report incomplete work when a cap is reached.
-5. Freeze prompt versions and the currently configured frontier tutor/judge model IDs. Compare the same generator and reasoning settings across context arms. Do not substitute an old or cheap generator only for the full-context arm.
+On the reported Blackwell GPU, start **BF16**, loading shards directly with an explicit dtype and without materializing the full FP32 checkpoint. Preserve required higher-precision modules and inspect the real custom API. Then test supported **FP8 only if measured memory/latency pressure warrants it**; hardware support does not establish kernel/custom-model support. LLM.int8 is deferred behind FP8 failure (§9). No copied untested loader snippet is a deliverable.
 
-Deliverables: `environment.json`, `corpus.json`, `splits.json`, `run_plan.json`, and the smoke cases. No live retrieval switch changes in this phase.
+Smoke: separate query/document methods, expected dimensions/order, context-sensitive vectors with fixed central text, correct output decoding, finite nonzero vectors, padding/batch invariance within tolerance and no truncation. Record module dtypes, unsupported kernels, disk/host/device peaks and unload completion. Measure batch-one query latency and serialized document indexing at 2k/4k/8k before longer windows; OOMs count. Cache BF16 reference outputs sequentially, exit the process before another precision, and evaluate grouped/singleton v2 against frozen hosted/Qwen finalists on common units and budgets. Hosted v1 is a model baseline, not a numerical reference for v2.
 
-The run plan must specify `stage`, `seed`, `model_revision`, `dependency_lock_hash`, `corpus_manifest_hash`, `split_manifest_hash`, `query_recipe`, `document_recipe`, `precision`, `dimensions`, `window_tokens`, `batch_size`, `candidate_limit`, `evidence_token_budget`, `generator_and_judge_routes`, `max_gpu_hours`, `max_paid_calls`, `max_paid_tokens`, `max_cost_usd` and `output_directory`. Completion runs also fix `completion_policy_version`, planner/assessor prompt versions, `learner_snapshot_hash`, `max_completion_rounds`, `max_followup_search_calls` and `request_deadline_ms`. Set finite compute/spend bounds before execution; a larger run is a new plan. Reserve dataset splits at preparation time, but defer large-scale labeling and target generation until the INT8 smoke test passes. Inspect source licenses before pooling material into reusable student-training artifacts; preserve per-source provenance.
+Do not extrapolate a hosted v1 gain to v2. Retain local work only for measured additional evidence/answer value or a prespecified non-inferior cost/latency benefit; otherwise stop. Any new full books require a new extraction/label manifest and all compared arms on that same corpus.
 
-## 7 Phase 1 Try an 8-bit local deployment
+## 9 Deferred, with triggers
 
-### 7.1 Load and validate
+| Work | Trigger and retained protocol |
+|---|---|
+| One LLM evidence-completion round / 2×2 factorial | D1 leaves a material, audited unresolved-obligation slice after deterministic references/hydration. RW1c owns the option; compare best cheap vs contextual retriever, each with/without completion, same final token budget, max one round/two searches/one added verification round and frozen deadline. Separate retrieval, planning, assessment, delivery and generation failures |
+| Completion assessor | Reuse `facet_span_support`/Decider infrastructure only after validating a new obligation-support task against strong labels; facet relevance is not proof of joint sufficiency. Planner sees question, allowed learner snapshot and delivered text, never gold labels. Use AND/OR evidence sets, optional scaffolding, contradictions and explicit `sufficient`, `no_progress`, `budget_exhausted`, `insufficient_source_support` exits. Check final claims against delivered evidence; budgets never imply success |
+| Four-way precision matrix | E1 retained and a compressed deployment is actually needed: BF16 query/BF16 documents; compressed query/BF16 docs; BF16 query/compressed docs; both compressed. Freeze units and output transforms, exact scoring, 2-point non-inferiority margin; distinguish weight/output/storage precision |
+| LLM.int8 | BF16 needs compression and working FP8 cannot meet requirements. Inspect supported modules, threshold, projection handling, packed bytes and latency on this actual GPU. No assumption that int8 is faster; stop at E1/new-plan resource bounds |
+| Drift allocation | E1 has value and measured VRAM pressure remains after ordinary quantization. Freeze BF16 documents; perturb query layer bands first, compare uniform INT8/4-bit, simple mixed precision and drift allocation at equal packed-byte budgets. Use development/calibration data only, ≥3 resamples, actual kernels and combined-plan retrieval. For unit vectors, drift = 1−q0·q1 and score error ≤sqrt(2·drift); small drift does not guarantee rank/support retention |
+| Query-only distillation | A retained 9B space has a measured online residency/latency bottleneck and permitted training sources exist. Freeze document teacher; compare projection-only, cosine alignment and ranking/relevance losses, then ≥3 seeds for the selected recipe. Retain nested 2k/10k/50k query budgets only as later costed learning curves, not available data. Split sources/paraphrases/traces before mining; no test teacher targets. Multi-positive loss must retain every required support, not only one easy answer span. Test unseen books/subjects and both replayed queries and final completion behavior; include CPU latency and teacher fallback |
+| Late-interaction 9B-document/0.6B-query pair | Compare before expanding custom student training if online cost remains the bottleneck. Separate token-vector index/MaxSim, measured storage/scoring cost and compatible query API; no direct reuse of contextual chunk vectors or blanket visual-PDF superiority claim |
+| Local Qwen query serving | Hosted query latency remains the bottleneck across source/router consumers; compare compatibility with the existing remote document space before choosing 9B residency. Same family is not proof of cross-provider equivalence |
+| Public ConTEB, larger sealed bank / open books | Pilot merits confirmation and independently licensed/extracted source families exist. Freeze new sources and analysis before opening results. A 300-question target requires actual family diversity and a separate budget |
+| Gemini / image / LFM arms | New image-grounded labels demonstrate extraction loss, or verified provider terms/context limits materially change. B4 does not justify routine image retrieval; LFM needs retention compatibility before any private text is sent |
+| Source authoring pilot | Retrieval benefit established and sources/Reader owner schedules it. Compare known-section generation with retrieval; rubric criteria by fact, required methods stated in stems. Distinguish source-authored exercises from generated paraphrases; preserve provenance/correctness checks and authoring-only scope |
 
-The first candidate is bitsandbytes LLM.int8 with higher-precision exceptions. Its documented Transformers integration is a starting point, not evidence that this custom model works unchanged. [Bitsandbytes documentation](https://huggingface.co/docs/transformers/quantization/bitsandbytes)
+For deferred completion, key cached plans/packets by the full request, learner snapshot, extraction and policy revisions, prompts and budgets; keep parent-query/obligation IDs on traces and split them with their question family. Profile changes may alter optional scaffolding, not the mathematical requirements. Reuse the same planner/assessor across retrievers and validate final delivered claims.
 
-The following is a **candidate smoke-test recipe**, not a tested serving command. Resolve the revision and dependency pins in Phase 0. Run BF16 and INT8 in separate processes so their memory does not overlap.
+Training uses only sources with verified permissions for the intended use; keep artifacts local by default. Open licensing is not an unrestricted training/publication licence. No legal conclusion about all embeddings or queries being derived works is assumed here.
 
-```python
-import torch
-from transformers import AutoModel, BitsAndBytesConfig
+## 10 Owner decisions D1–D14
 
-model = AutoModel.from_pretrained(
-    "perplexity-ai/pplx-embed-v2-context-9b-preview",
-    revision=PINNED_REVISION,
-    trust_remote_code=True,
-    dtype=torch.bfloat16,
-    device_map={"": 0},
-    quantization_config=BitsAndBytesConfig(
-        load_in_8bit=True,
-        llm_int8_skip_modules=["contextual_projection"],
-    ),
-).eval()
+“Answered” below records the October 13 instructions, not a fresh permission request. Defaults govern the proposed protocol unless changed; operational facts must still be measured.
 
-assert model.contextual_projection.weight.dtype == torch.float32
-document_vectors = model.encode(
-    [["First source chunk", "Its following chunk"]],
-    batch_size=1, normalize_embeddings=True,
-)
-query_vectors = model.encode_queries(
-    [["A question about that source"]],
-    batch_size=1, normalize_embeddings=True,
-)
-```
-
-Inspect actual module classes, dtypes and placement. Log which weights were quantized, skipped, or offloaded. The [custom implementation](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview/blob/main/modeling_pplx_contextual.py) keeps its projection in FP32 and directly reads that weight in pooling. Preserve that behavior. Do not subsequently move the quantized model with a blanket `.to(...)` or pass `device=` to `encode`. If a hybrid-attention module is unsupported, record the exception and resulting memory; do not silently relabel a largely unquantized model as INT8.
-
-Check finite nonzero outputs, correct chunk counts/order, approximately unit norms, query/document API separation, repeated-call tolerance, and padding/batch invariance. A smoke case must prove that adding source context can change a chunk's representation while its central text stays fixed. Inspect token counts including model markers; no silent truncation.
-
-### 7.2 Profile the working range
-
-1. Measure load, idle and inference memory. CUDA synchronization surrounds timed GPU sections. Keep cold startup, warm execution and cached-query latency separate.
-2. Queries: batch one at representative 32, 128 and 512-token lengths, then actual contextualized queries. Warm up and take at least 100 timed calls across inputs. Report the batch-one interactive path before throughput batching.
-3. Documents: batch one at 2k, 4k, 8k and optionally 16k tokens. Advance only while headroom remains; an OOM is an outcome. After selecting a safe window, test batch two. Do not use the library's default batch of 32 documents.
-4. Profile a BF16 reference on the same inputs. Explicit BF16 matters because the [checkpoint configuration](https://huggingface.co/perplexity-ai/pplx-embed-v2-context-9b-preview/blob/main/config.json) specifies FP32. The approximate weight-only conversion is 16.8 GB, or 15.6 GiB; buffers and retained precision add to it. A 262k configured input limit is not a feasible 5090 memory promise.
-5. Save BF16 teacher document/query vectors sequentially; unload the reference process before loading the candidate. If the full corpus is too costly, freeze a prespecified subset and label conclusions accordingly.
-
-Proposed shared-GPU targets are at most 16 GiB peak for the selected document workload and at least 12 GiB free at the device level during warm query serving under the recorded desktop baseline. Query p95 below one second is an aspiration to test, not an assumed result or a reason to drop accuracy cases. Also report the remaining memory for the user's actual concurrent workload. Weight quantization does not impose a total-memory cap.
-
-Use a separate worker with one document job at a time, interactive-query priority, and explicit unload/idle release. Queries can wait for a current indexing window; record that contention. Unloading means freeing the model/process, not merely calling `empty_cache`. CPU offload is a separately labeled fallback with its own latency measurements.
-
-### 7.3 Compare numerical deployment choices
-
-Using identical source windows and exact cosine scoring, run:
-
-| Query encoder | Document encoder | Question answered |
+| ID | Decision | Recommended default / status |
 |---|---|---|
-| BF16 teacher | BF16 teacher | Reference quality |
-| INT8 candidate | BF16 teacher | Can online memory shrink while retaining the teacher index? |
-| BF16 teacher | INT8 candidate | How much does cheaper indexing alter the document space? |
-| INT8 candidate | INT8 candidate | Quality of the straightforward 8-bit deployment |
+| D1 | Hosted or local first? | **Answered: hosted first; go ahead.** Local v2 only under S4/E1; no residency commitment |
+| D2 | GPU schedule, memory and co-residency | E0 zero GPU; E1 ≤4 GPU-hours, ≤20 GiB target, batch exit, no local GLM-OCR contention. Owner's idle slot needed only if E1 is reached |
+| D3 | Corpus | Permitted vault copies first; reported inventory must be checked at execution. Independently licensed full books for later confirmation, not an assumed 300-case sealed bank |
+| D4 | Extraction baseline | **Answered: GLM-OCR is becoming main.** GLM extractions/labels, or explicit provisional engine/revision; invalidate on re-extraction |
+| D5 | Success bar | ≥5 points Complete Evidence@10 with paired CI excluding 0, better blind answers and no Reader latency regression; independent confirmation for adoption (§7) |
+| D6 | Second production space | **Not answered by go-ahead.** Explicit owner amendment after evidence. Keep production Qwen and isolated experimental namespaces meanwhile |
+| D7 | Completion latency | Deterministic D1 only in E0. Later ≤one added verify round, only unresolved obligations, within a frozen measured Reader deadline; reference lookup still counts latency |
+| D8 | Lookup versus offers | Retrieval as context is already permitted by RW1c. Deferred completion follows that contract; no unrequested learner-visible actions or exposure events |
+| D9 | Training permissions | No E0 training; later verify source-specific permissions and keep artifacts private unless separately cleared |
+| D10 | Evaluation models | Strong Sonnet 5.5/GPT-6 Luna routes, exact versions/transport recorded; independent strong adjudicator. No Decider label of record before validation |
+| D11 | Delivery and Reader handoff | **Answered: separate delivery fixes stage starts now.** Consume its baseline and send per-consumer decision memos; Reader owns integration |
+| D12 | Exam indexing | Exclude exam/learner-held-out/solution material from this experiment and invalidate on new marks. Existing independent exam indexing is not endorsed or changed here |
+| D13 | Hosted keys/accounts | **Answered: keys added.** Configurable `PERPLEXITY_API_KEY` / `VOYAGE_API_KEY`; both hosted families required in E0, Voyage independent also via Voyage API. Never print secrets |
+| D14 | Is dense live? | Unknown without effective-config/coverage receipt. Tracked configs lack `[embedding]`; check redacted settings at execution, enable/backfill copies for R1, preserve R0 as observed |
 
-Cache each side once; the cross-comparisons require no extra encoding. BF16 is an operational reference, not FP32 ground truth. If numerical issues appear, run a small FP32 check where host/device resources permit; do not call BF16 “full precision.”
+## 11 Deliverables and checks
 
-Exit with a hardware report, quality deltas, failing queries and a reproducible loader. Advance to use-case evaluation if a viable local candidate exists; keep BF16-only as an experimental reference if INT8 fails. Do not infer a quality win from successful loading.
+| Package | Exit evidence |
+|---|---|
+| Baseline handoff | Delivery-stage commit, extraction engine/revision, safe scope and full coverage receipts; D0/D1 behavior reproduced |
+| Hosted adapters | Perplexity/Voyage grouped and query smoke checks, contract/price pins, redacted credential availability, receipt/resume support |
+| Corpus and labels | Candidate/dependency maps, splits, audit counts, label-quality gate and prohibited-material tests |
+| E0 report | Paired delivery and retrieval results, blind answers for finalists, tokens/latency/bills, failure ledger and explicit S1–S4 decisions |
+| Conditional work | Separate E1 plan/report only after gates; production proposal only after D6 amendment |
 
-## 8 Phase 2 Determine whether contextual retrieval earns its place
+Reuse `learnloop embeddings compare --suite source_retrieval` as a baseline harness; its model flags do not implement grouped contextual APIs. Research code/commands remain proposed. No model download belongs in unit tests. Target checks: grouped response ordering, wrong query-method/mixed-space refusal, context and policy invalidation (including later held-out marks), full-source policy filtering, no truncation disguised as whole context, deterministic merge/offset maps and ties, nonfinite/zero vectors, budget admission with concurrent reservations, idempotent resume, alias drift and canonical citation support. Re-extraction tests must cover labels and generated context as well as vectors.
 
-First screen on development queries; evaluate only frozen finalists on the sealed set. This keeps the experiment from becoming a Cartesian product of every window, rewrite, pool and generator setting.
-
-| Arm | Candidate or context construction | Purpose |
-|---|---|---|
-| Current production | Existing Qwen route, recipe, scoring, pool and verification | Actual replacement baseline |
-| Lexical and structure | BM25 plus section headings, exact links and explicit reference following | Cheap source navigation baseline |
-| Matched independent Qwen | Same candidate units as Perplexity, ordinary cosine | Separates model differences from recipe/scoring changes |
-| Alternative hosted embeddings | Screen Liquid LFM2.5-Embedding-350M, Gemini Embedding 2 and ordinary Voyage on matched passages | Tests whether an available hosted model suffices; pin exact model/provider and query/document recipes |
-| Contextual Voyage | Same canonical candidates grouped through Voyage's contextual interface | Separates Perplexity's advantage from contextualization available elsewhere |
-| Independent Perplexity | Each candidate encoded as a one-chunk document | Measures the same model without surrounding context |
-| Contextual Perplexity | Ordered grouped chunks, chosen precision/window | Measures contextualization's incremental value |
-| Contextual plus existing pool | Substitute only the dense list; retain BM25/provenance and the same verification | Measures value in the current retrieval pipeline |
-| Direct selected section | Entire known section or selected sections, subject to the explicit context budget | Tests whether retrieval is unnecessary for a local Reader question |
-| Direct document | Entire currently open source when it fits | Strong long-context baseline with real scope information |
-| Source navigation plus full sections | Same frontier model chooses sections through lexical/outline tools, then reads them | Tests whether tool use and larger evidence spans explain the gain |
-| Oracle evidence | Audited sufficient evidence set | Diagnoses generator failure versus evidence-selection failure; not deployable |
-
-Use the [Liquid](https://openrouter.ai/liquid/lfm-2.5-embedding-350m:free), [Gemini](https://openrouter.ai/google/gemini-embedding-2) and [Voyage](https://openrouter.ai/voyageai/voyage-4-large) listings to pin hosted routes at execution. [Voyage Context 4](https://docs.voyageai.com/docs/contextualized-chunk-embeddings) has a separate contextualized-embeddings interface; include its native API where necessary. Check input limits before splitting and never silently truncate. Keep a common-unit comparison within every candidate's limits and label provider-specific context recipes separately. Gemini image retrieval is a separate modality slice, not evidence of a text-only embedding win.
-
-For unknown-source library questions, do not give the direct-document arm the gold book. Use a reproducible source-selection step and charge its cost, or label gold-source selection as oracle. If the permitted corpus exceeds the model's context window, report that arm as infeasible for that scope rather than silently truncating it or counting it as a wrong answer.
-
-Run raw questions first, then the same cached LLM rewrite for the finalists. Include permitted selection/inquiry context consistently. Rewrites must be produced from query-side information, never from gold supporting passages. A hypothesis that rewrite helps must survive math/proof and real-question slices independently.
-
-Keep two explicit context-delivery comparisons:
-
-1. **Controlled retrieval comparison:** identical candidate units, scope, reranker, source-text expansion policy and final 4k/8k-token evidence budgets. Hold the anchor selection first for all Reader arms.
-2. **Deployment comparison:** each method gets its intended context policy; direct reading may use 16k/32k/64k when supported. Report quality, prompt-cache behavior, total tokens and latency as a tradeoff curve. Actual uncached and cached costs are both relevant.
-
-### 8.1 Separate embedding gains from evidence completion
-
-After development screening, run the section 4.4 completion protocol as a factorial comparison. Select the affordable baseline on development data and retain contextual Voyage as a distinct comparator where feasible.
-
-| Retriever | One retrieval pass | Retrieval plus evidence completion |
-|---|---|---|
-| Best affordable baseline | A | B |
-| Contextual Perplexity at the selected precision | C | D |
-
-`B - A` measures completion's product contribution; `D - B` measures Perplexity's remaining value once completion exists. Also report `C - A` and `D - C` to show interaction. Use the same source scope, initial hydration policy, generator, citation checks, final evidence-token budget and permitted learner context. Completion arms share planner/assessor prompts and identical search/call budgets; log their actual consumption. Keep direct-section reading as an additional baseline.
-
-Run both full trajectories and a diagnostic subset with identical starting answer passages. The latter asks whether the model finds missing support better when initial answer retrieval is already solved; it cannot establish end-to-end retrieval quality. Attribute failures to initial retrieval, obligation planning, support retrieval, assessment, delivery or generation. Compare latency and search calls at matched evidence/answer quality: completion may erase a final-quality difference while Perplexity still reaches sufficient support faster.
-
-### 8.2 Delivery and adoption
-
-The 600-character tutor span cap deserves its own ablation. Report current behavior and a bounded complete-passage hydration variant. Apply the latter to every competing retriever; preserve canonical offsets and quotation checks. Otherwise a better index may appear useless because its evidence is clipped, or a larger prompt may be credited to the embedding model.
-
-For a subsequent authoring pilot, use a fixed set of concept-to-question tasks and the same question writer and correctness/provenance verifiers. Compare retrieved evidence with a directly supplied known section. Measure whether the question is answerable from its supplied material, whether assumptions and source attribution are preserved, and whether the verifier accepts it. Evaluate discovery of an existing source-authored exercise separately from generation of a new one; a paraphrase must not be labeled source-authored. This pilot uses authoring scope and does not expose answers during a learner's practice attempt.
-
-Advance to custom compression or training if Perplexity retains a credible evidence/answer gain with completion on priority tasks, or non-inferior quality with a useful measured cost/latency tradeoff. If completion supplies most of the gain with an affordable retriever, prioritize shipping that path. If full-section reading wins for known-section queries, retain it for that task. A library retrieval win need not justify replacing local quick checks.
-
-## 9 Phase 3 Investigate quantization by drift
-
-Run this after ordinary INT8 is characterized and Phase 2 supports retaining Perplexity. The trigger is remaining VRAM pressure, identifiable precision failures, or a worthwhile lower-bit target. If ordinary INT8 already meets the quality and resource goals, a small sensitivity study may suffice.
-
-### 9.1 Profile interventions
-
-1. Freeze the BF16 document index and a calibration-query bank. The first drift experiment changes only query weights, matching the intended asymmetric serving path.
-2. Enumerate actual modules and tensor sizes. Begin with a small number of layer bands separating feed-forward, full-attention and hybrid/linear-attention projections. Keep normalization, special numerical state and the contextual projection at their working precision. Use layer-level refinement only where a band shows material sensitivity.
-3. Quantize one unit at a time at supported 8-bit and 4-bit settings, restoring the same pristine reference between interventions. Record the exact algorithm, grouping, scales, unquantized tensors and packed bytes. Do not treat NF4, INT4 and INT8 as interchangeable precision labels.
-4. Re-encode the calibration queries and compute final-vector drift, score perturbations and top-k changes against the frozen document index. Measure after the deployed output transformation. Pre-output activations may aid debugging but are not the principal target.
-5. Repeat the sensitivity ranking on at least three resamples spanning domains and query lengths. Record unstable units and outlier queries. A mean alone can hide severe theorem-specific failures.
-
-For normalized teacher query `q0`, candidate `q1` and fixed normalized document `d`, use:
-
-```text
-drift(q) = 1 - dot(q0, q1)
-score_change(q, d) = dot(q1 - q0, d)
-abs(score_change) <= sqrt(2 * drift(q))
-positive_negative_margin_change = dot(q1 - q0, d_positive - d_negative)
-```
-
-These identities explain why drift is relevant but do not guarantee rank retention when competing scores are close. Log the relevant passage's rank and margin to the competing top-k boundary. The loss of a required lemma matters more than a swap between two interchangeable background passages.
-
-### 9.2 Construct and test precision plans
-
-Compare uniform INT8, uniform supported 4-bit, a simple 4-bit plan with selected units restored to 8-bit/BF16, and a drift-allocated plan under a declared packed-byte budget. Start with a greedy benefit-per-byte proposal or an additive constrained allocator; fully evaluate the resulting plan because unit effects need not add. Include an equal-budget simple baseline, counting skipped tensors and metadata, rather than comparing a larger mixed model to a smaller uniform one without disclosure.
-
-Keep a label-free allocation arm selected only by calibration drift. A second, explicitly supervised arm may select plans using **development** evidence recall and top-k losses. Neither sees sealed evaluation results. This distinguishes reproducing the paper's premise from using LearnLoop's available relevance judgments to optimize a deployment.
-
-Packed deployment is mandatory for a memory claim. Simulated rounding followed by BF16 execution is a quality diagnostic only. A precision assignment with no supported kernels is not a deployable winner. Measure real memory, conversion/load time and query latency; mixed precision may save bytes while slowing execution.
-
-Only after query-side results, optionally profile document-side interventions on the calibration windows. Evaluate document compression with frozen teacher queries, then both compressed sides. Keep this separate from the fixed-teacher-index experiment. A good query precision plan need not be a good long-document plan.
-
-Exit with `sensitivity.jsonl`, deployable precision manifests, resource measurements and the section 5 metrics. Adopt a more complex plan only if it improves the measured quality/resource frontier over ordinary quantization. Stop if kernel work or profiling costs outweigh the available headroom gain.
-
-## 10 Phase 4 Optional query encoder distillation
-
-This stage addresses persistent online residency after the contextual index has demonstrated value. Document indexing remains a scheduled 9B job. Changing a student should not force re-indexing as long as it remains compatible with the frozen document space.
-
-### 10.1 Data and training
-
-1. Freeze the best teacher document space and teacher query pipeline. Prefer BF16-generated teacher targets; if an 8-bit teacher is used, name that changed target explicitly.
-2. Begin with a pretrained small text encoder, for example [Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B), plus a learned projection to 2048 dimensions and normalization. Save the projection as part of the inference artifact. Architecture and tokenizer need not match the teacher; the output space must be learned. A larger student is a capacity ablation, not a prerequisite.
-3. Build nested query datasets from training sources, mixing natural logged phrasing, section-grounded synthetic questions, reformulations, proof conditions, comparisons and contextual Reader questions. Plot results at 2k/10k/50k examples rather than assuming a required data volume. Those counts are experimental budgets, not claims of sufficiency.
-4. Cache normalized teacher query vectors offline using the exact deployment query preparation. The student sees only information available at query time. Keep teacher/generator access to answer passages out of the student's input. Unload the teacher before training.
-5. First train cosine alignment alone. Compare a frozen student backbone with projection-only training against updating the backbone. If using LoRA or another restricted update, label it separately from full fine-tuning.
-6. Add score-distribution or relevance supervision only as controlled ablations. Hard negatives come from teacher, lexical and student retrieval over training sources. Adjudicate likely supporting passages before treating them as negatives. Keep held-out sources out of mining.
-
-Include initial questions and evidence-completion queries in these banks. Generate completion traces using only training sources and permitted learner snapshots; retain parent question, obligation role and round. Split whole traces with their source/query families. The student must learn queries for missing assumptions, definitions, counterexamples and prerequisites, including short targeted follow-ups. Cache teacher vectors for these exact prepared queries; do not supply gold evidence or hidden teacher reasoning as extra student input.
-
-Candidate objectives, with weights and temperatures chosen on development data:
-
-```text
-alignment = 1 - cosine(student_query, teacher_query)
-teacher_scores = teacher_query @ fixed_teacher_documents.T
-student_scores = student_query @ fixed_teacher_documents.T
-score_distillation = KL(softmax(teacher_scores / temperature),
-                        softmax(student_scores / temperature))
-loss = alignment_weight * alignment
-     + score_weight * score_distillation
-     + relevance_weight * multi_positive_retrieval_loss
-```
-
-For multiple necessary passages, use a loss that trains each required positive against known negatives or graded relevance targets. A numerator summing all positives can be satisfied by one easy answer passage while ignoring its prerequisite. Known positives must not become in-batch negatives for the same query. Relevance labels can correct teacher mistakes, so retain both teacher agreement and independent retrieval quality in the report.
-
-Start with a floating-point student output. Matching teacher directions does not require rounding student outputs to INT8. Student weight quantization and output compression are later independent experiments.
-
-For the first training sweep, hold the backbone architecture fixed while comparing projection-only training to one economical backbone-update method. Record optimizer, learning rate, effective batch size, sequence limit, gradient accumulation, epoch/step cap and all seeds. Start with a small development-only learning-rate sweep; stop on development retrieval rather than alignment loss alone. Run at least three seeds for the selected recipe before sealed evaluation. Keep training-query budgets and teacher precision fixed when comparing losses. This measures whether a more complex objective helps rather than whether it received more data or tuning.
-
-### 10.2 Evaluation and alternatives
-
-Compare teacher queries, the best quantized teacher queries, projection-only student, alignment-trained student, and additional-loss finalists against the **same** document index. Test new documents from unseen source families without retraining the student. Include unseen-subject and longer contextual-query slices. Use retrieval and delivered-evidence metrics; low training loss and high average cosine agreement are insufficient.
-
-Evaluate initial and follow-up query roles separately. First replay identical held-out queries to isolate encoder changes, then rerun the frozen completion policy with each encoder: changed retrieval can change the next obligation and query. Report final evidence retention, false sufficiency, extra search calls and total latency under identical budgets. Apply the same final-loop checks to drift finalists. Preserved answer recall must not hide a lost prerequisite or a student that needs more retrieval work to recover it.
-
-Cache teacher targets so training needs only the student and minibatch vectors. A 0.6B–1B student's BF16 weights are roughly 1.2–2 GB before activations; training adds gradients and optimizer state. Profile actual memory and gradient accumulation. Do not infer training feasibility from weight size alone. Measure CPU query serving as well as GPU serving if it could release the 5090 entirely.
-
-Before expanding beyond the first training pilot, compare the ready-made Perplexity late 9B-document/0.6B-query family on a small separate index. Keep its MaxSim scoring and token-vector storage explicit. If it meets quality and resource needs without custom training, that may be the better deployment despite different indexing costs.
-
-Adopt a student only if it meets the prespecified retrieval tolerance on held-out material and materially improves online memory or latency. Retain a selectable teacher-query fallback; do not invent a cosine-confidence threshold for deciding when it is needed. If alignment plateaus on unfamiliar subjects, retain the teacher or the existing source-search baseline rather than specializing the whole app to the pilot books.
-
-## 11 Implementation work packages
-
-The following files and commands are proposed, not currently implemented. Keep the first implementation in an isolated research package, then integrate only the winning source-retrieval path.
-
-| Package | Required deliverable | Completion condition |
-|---|---|---|
-| Environment and snapshots | Pinned loader, backup/export tool, immutable manifests | Re-running uses identical revisions and source snapshots |
-| Contextual corpus | Window builder, span/offset maps and dependency hashes | Changing adjacent context invalidates affected vectors; source order and policy boundaries are preserved |
-| Local runtime | Query/document methods, serialized indexing, memory/latency recorder, unload | Phase 1 smoke and measured resource report succeed |
-| Retrieval evaluation | Adapter to existing compare receipts plus contextual/evidence-set metrics | Exact search, frozen splits, complete label coverage reporting and resume without duplicate paid work |
-| Context delivery | Controlled passage hydration and direct-reading baselines | Same frontier generator, audited evidence after clipping and valid citations |
-| Evidence completion | Provider-independent obligation planner, scoped follow-up search, packet assembler and receipts | A/B/C/D comparison, bounded stopping, support dependencies, source citations and learner-profile cases |
-| Drift profiler | Single-unit interventions and executable precision manifests | Equal-budget comparisons and final combined-plan evaluation |
-| Student trainer | Cached targets, projection artifact, alignment/loss ablations | Held-out retrieval into the unchanged teacher index |
-| Product integration | Explicit source-only encoder selection and compatibility identity | Existing diagnosis/PF embeddings keep their routes; Reader can use the tested span-provider path |
-
-Suggested future command interface:
-
-```text
-python -m research.contextual_embeddings prepare --config RUN_CONFIG
-python -m research.contextual_embeddings smoke --config RUN_CONFIG --precision int8
-python -m research.contextual_embeddings profile --config RUN_CONFIG
-python -m research.contextual_embeddings encode --config RUN_CONFIG --precision bf16
-python -m research.contextual_embeddings evaluate --config RUN_CONFIG --split dev
-python -m research.contextual_embeddings drift --config RUN_CONFIG
-python -m research.contextual_embeddings distill --config RUN_CONFIG
-python -m research.contextual_embeddings evaluate --config FROZEN_FINALISTS --split test
-```
-
-Each command must expose a planning mode, resource/cost bounds, resumable outputs and the manifest it consumed. The current `learnloop embeddings compare --suite source_retrieval` is a reusable baseline; its model flags currently name OpenRouter models and do not already deploy this contextual model. Avoid presenting a Hugging Face ID as a working CLI integration.
-
-Targeted implementation checks should cover grouped document ordering, wrong query-method rejection, context-sensitive cache invalidation, mixed-space refusal, deterministic overlap assignment, zero/nonfinite vectors, padding invariance, and exact teacher/student scoring. Completion checks must cover joint versus alternative support, learner-specific optional scaffolding, removal of a required passage, contradictions, budget/no-progress exits, stale packet caches and final claims lacking delivered support. Before product use, add policy tests proving excluded content cannot enter contextual windows or delivered evidence, plus Reader citation/exposure and fallback tests. No full model download belongs in ordinary unit tests.
-
-## 12 Reports and decision rules
-
-Each stage writes machine-readable per-query results and a concise aggregate report under `docs/reviews/`. Persist a failure ledger with source/span IDs, old/new ranks, evidence roles and reasons; keep private source text in local artifacts. Record actual skipped cases, errors, OOMs and fallbacks rather than removing them from denominators without a coverage report.
-
-| Decision | Evidence required | Outcome if not supported |
-|---|---|---|
-| Use local INT8 | Working kernels, useful memory headroom, acceptable retrieval against BF16 | Keep BF16 for offline reference or current remote retrieval |
-| Use evidence completion | Better delivered support/answer quality or useful context reduction within declared latency/cost limits | Retain simpler retrieval or full-section delivery for the relevant consumer |
-| Use contextual source retrieval | Increment over affordable retrieval with the same completion policy on priority tasks, or useful cost-quality tradeoff versus direct reading | Keep completion with the cheaper retriever, whole-section context or current search |
-| Adopt drift allocation | Better measured quality per memory/latency than simple quantization at comparable budgets | Retain ordinary INT8; do not ship a custom allocator merely because drift correlates with damage |
-| Adopt query student | Compatible held-out retrieval, delivered evidence retained, material residency/latency improvement | Keep teacher queries or evaluate the released late-interaction pair |
-| Enable Reader retrieval | Provider integration, context hydration, citation/quote checks and scope/exposure tests | Leave offline findings as experiments until these are implemented |
-
-Freeze finalists and tolerances before opening sealed results. A failed test is reported as a failure; further tuning needs a fresh held-out evaluation. Retrieval gains do not establish improved learning outcomes. Existing Reader and practice specifications own any later learning-effect evaluation.
-
-The first executable milestone is deliberately bounded: **load INT8, profile a small contextual corpus, compare it with sequentially cached BF16 outputs, and run the existing/current-context baselines on the development questions**. Next, run the bounded evidence-completion comparison before investing in drift allocation or student training. These reports determine which retrieval consumers benefit and whether retaining Perplexity's document space earns the additional compression work.
+Reports under `docs/reviews/` contain aggregates and a failure ledger with IDs/reasons; private text remains in local artifacts. Report skipped/unavailable/error cases and budget stops with their original denominators. The first executable milestone is **the delivery-baseline handoff, frozen safe corpus and audited small bank, then D0–D3 plus Qwen and both required hosted families within E0's budget**. Neither local loading nor student training precedes it.
