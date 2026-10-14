@@ -33,8 +33,10 @@ most exact receipt that exists (router R2a, ``router_outcomes_v2``; plan §5.4):
    attempt on the decision's chosen item at or after the decision in its
    session (R1's rule), kept only for rows and clients with no receipt (a
    ``plan_block`` row from before R2a, a ``staged_p2`` row, an attempt sent
-   with no presentation id: an older client or the TUI). R3 reports the mix
-   and may exclude it.
+   with no presentation id: an older client or the TUI). It never takes an
+   attempt bound to a presentation: that attempt answered the step that
+   presentation names, which is not this decision's. R3 reports the mix and
+   may exclude it.
 
 An attempt on an unverified answer key is an outcome like any other (owner
 Q13); its ``reference_status`` is recorded beside R_next and R_cold. An
@@ -427,6 +429,12 @@ def _action_attempt(
         if row["created_at"] < decision["created_at"]:
             continue
         if decision.get("session_id") and row["session_id"] != decision["session_id"]:
+            continue
+        if row.get("plan_presentation_id"):
+            # An attempt with an exact receipt answered that presentation (a
+            # step this decision's block did not serve: rule 1 already read
+            # every presentation of its own). The fallback takes only an
+            # attempt sent with no presentation id (R2a review F3).
             continue
         return row, BINDING_SESSION_RULE
     return None, None

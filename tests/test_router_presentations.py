@@ -182,3 +182,34 @@ def test_the_session_rule_stays_the_labelled_fallback_for_an_unbound_attempt(tmp
     assert (outcome["action_status"], outcome["action_attempt_id"], outcome["action_binding"]) == (
         "taken", attempt_id, "session_rule",
     )
+
+
+def test_the_session_rule_never_takes_an_attempt_bound_to_another_presentation(tmp_path):
+    """Codex review F3, the negative counterpart of the skip test: block A's
+    served items are never answered; its skipped first item is answered later
+    through block B's own presentation (a pick). That attempt has an exact
+    receipt elsewhere, so A's session-rule fallback must not take it: A is
+    not ``taken``, and B's outcome keeps it."""
+
+    env, clock = _env(tmp_path)
+    build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
+    record, first = advance(env, serve=True)
+    assert first["practice_item_id"] == "pi_m1a"
+    block_a = first["block_id"]
+    clock.advance(1)
+    record, second = advance(env, serve=True, skip_practice_item_id="pi_m1a")
+    assert second["practice_item_id"] == "pi_m1b" and second["block_id"] == block_a
+    # Nothing A served is answered. The skipped item is picked and answered
+    # through the pick's own presentation.
+    clock.advance(3)
+    _record, pick = learner_pick(env, "pi_m1a")
+    assert pick["presentation_id"] and pick["block_id"] != block_a
+    clock.advance(2)
+    picked = _answer(env, "pi_m1a", clock.now(), presentation_id=pick["presentation_id"])
+
+    outcome_a = _outcome_for_block(env, block_a)
+    assert outcome_a["action_attempt_id"] is None, "A never served what this attempt answered"
+    assert outcome_a["action_status"] != "taken"
+    with connect(env.repository.sqlite_path, read_only=True) as connection:
+        rows = list(derive_router_outcomes(connection))
+    assert [row["action_attempt_id"] for row in rows].count(picked) <= 1
