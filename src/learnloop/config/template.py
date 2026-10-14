@@ -790,8 +790,9 @@ legacy_fallback = "exclude"
 question_classification_enabled = false
 llm_probability_enabled = false
 
+# auto reads with GLM-OCR (a z.ai key in Settings, or glm_ocr.backend = "local"), else Marker, else pypdf
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
+engine = "auto" # auto | glm_ocr | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
 renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
@@ -1090,7 +1091,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the key; all eleven were recomputed (defaults_fingerprint_for_version)
     # on its branch, and all fourteen again from the composed defaults when it
     # landed after value-of-information stopping and Tier 1 (the Decider).
-    "mvp-0.9": "4d7dab6338d9692124f2bfb3b9c4775d9c8740b6e05bc1730a6b4f72f2a0571f",
+    # GLM-OCR primary document reading (owner request 2026-10-13; docs/reviews/
+    # glm-ocr-ingest.md) adds [ingest.pdf.glm_ocr] (backend, endpoints, key
+    # variable name, timeout, window size, price, base64 style; modelled
+    # defaults, left out of the decision-only template) and the glm_ocr
+    # engine. Document extraction only: no scoring, scheduling, projection or
+    # serving change, so no successor. Every snapshot moves only because the
+    # effective config gains the section; all fourteen were recomputed
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "86a929398799b792777220ffebad0f6fccb79b31690e2ee87a45cad9d3f7e59f",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1120,7 +1129,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.10": "61a9ac6c700312efa754eb29dad9fa992005b28a9a6f94f41f45e91c95c8bc10",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.10": "cf1b191c21fc1f9ab26d25f0c02daf9f575822c8814074c8f88d9b11274969e3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1158,7 +1168,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.11": "d3a25d002189590983e2bceb5463f74809d92080146c2960737ab971563deed7",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.11": "85636d8a4e88cb861c6d40dcf4930b4877bfc058c014df7e270fb8deaf0a71d6",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1190,7 +1201,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.12": "b0db7fe90e1a3189db5cdd63de0e60a8af93391ec2a9a7e9a20d615cbcbb5f43",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.12": "e9f59b25e582402a6f8a66cd5d9acdcb4799283cea1c722d3936c5e3be6bddc0",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1217,7 +1229,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.13": "550ffd50bed5cca0d54d7413438c46cedc7f2fce1db4fc4a549c29818281705d",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.13": "df67cbc3519a5ffbffa9147929aba9538d9a3a0926c35ccfcb3c620a62799ca7",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1243,7 +1256,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.14": "0d52aa4008606697d02752fc4a0fb7f963038849eed48c1615e8ddb9590ef809",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.14": "18e3fe64655fb66a42ec9d5e00b299677abd0288dce6bfe20c7799be6b74bf67",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1267,7 +1281,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.15": "af43779f9fcc47244b29643d5c2c15b1d932ebcfce7f9142a65f4e181d96288d",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.15": "0a33db23771cf2a93aa4e09eaaf38f68af47355ad35419a31d60e9819ed6bb84",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1298,7 +1313,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.16": "410d048626211530957158e5af6de9c3bc68ea5b53dfd9cd759f76fdf778a7ee",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.16": "d162e28b39636eddfadafb4636e76b6b4f926e82a48a2bdb3f2612a8da88d14f",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1325,7 +1341,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.17": "f9c61587862c3bcf30e8fe37389a3d42c5688ca4e1692c5f3611eedf694a4d2b",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.17": "9f3d881ce90a8cdc724fee8bdb421272e7181fd6ba7ac45323a6cf46f6e23272",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1345,7 +1362,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.18": "e0af0a8b56c1133a6a5628598254d7210d99d69420bb9fd87cd13c1fcb1ec670",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.18": "69d5147a08431f8b9236e36b4ec84cc68197a2ed17c5b2684c6d44fcae4228a9",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1365,7 +1383,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.19": "68ff1a1569861525927ae87e83ac0d28535d8bb814e35e294f5621cd2610220a",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.19": "2661b2e6505cb933a9e9eff6017341f6f58a2967a8f3c83c353bad05af8052f3",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1381,7 +1400,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.20": "048e613cd4087875fce1f81b0919735741bf0b75c207e7fc161aa150240b1ad8",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.20": "f11c495b9938592fa00053b0b8297791727b402f2db31319a3817f044b0e5d44",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1406,7 +1426,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.22 merged.
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.21": "721d509b06edf8902879f0e7f82a1a7fbfaa00b6df11dd9778c6a5fb0bc4e68d",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.21": "45258d940b1e102ffe98ed69c3cd1c166423b2558d53ebea6fe9a7c5038f5848",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1423,7 +1444,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
     # owner decision 2026-10-12).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.22": "6ae56c6668a200f95d496af77d8e5f1cfc0f4b9c5feaa05187f0bcb0daf2c6e7",
+    # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
+    "mvp-0.22": "d1d93cbd34e5ee4c9fd4fc621a776dbb78afabc95b6d34784a5c250f226c9ba1",
 }
 
 
