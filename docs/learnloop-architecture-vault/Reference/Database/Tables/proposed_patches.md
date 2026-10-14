@@ -3,8 +3,8 @@ title: "proposed_patches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c3c43fb3089add58dd96a1f5915cf103b7029dd9"
-source_commit_timestamp: "2026-10-13T22:50:44-04:00"
+source_commit: "dcd993ad8d011256dcf969fba9860096ee36434c"
+source_commit_timestamp: "2026-10-14T00:52:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patches"
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
+- `src/learnloop/content/proposals/required_method_override.py`
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`

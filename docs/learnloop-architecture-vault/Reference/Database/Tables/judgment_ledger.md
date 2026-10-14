@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c3c43fb3089add58dd96a1f5915cf103b7029dd9"
-source_commit_timestamp: "2026-10-13T22:50:44-04:00"
+source_commit: "dcd993ad8d011256dcf969fba9860096ee36434c"
+source_commit_timestamp: "2026-10-14T00:52:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/proposals/method_statement_judge.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`

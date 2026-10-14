@@ -1092,7 +1092,12 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "2026-10-13): a decider profile (one typed fact/method choice per criterion) or a chat profile "
         "(one structured reading per item, with fact rewrites). Empty uses the code-default "
         "openrouter_decider profile when it is ready, else ai.active_provider; with neither ready the "
-        "report falls back to the conservative heuristic and says so. No serving use."
+        "report falls back to the conservative heuristic and says so. The same route makes the one-time "
+        "required-method statement judgments (redesign 2026-10-14): whether a textbook exercise's "
+        "statement requires its proposed method (at import) and whether a PF variant's stem prohibits "
+        "its parent's (at selection), the Decider first (argmax of its probabilities), else the LLM "
+        "judge, ledgered (task required_method_statement); with neither ready nothing is decided. "
+        "Grading never uses it."
     ),
     "ai.routing.project": (
         "Names the provider profile for project-understanding probe authoring and the closed-book "
@@ -1173,8 +1178,9 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "required_method.enabled": (
         "Kill switch for the method-explicit successor's required-method grading (owner rule "
         "2026-10-13; mvp-0.22-placeholder, relabelled at its merge). On, the own-route rules are "
-        "own-route-v2: an item's required_method (the method its prompt requires) reaches the "
-        "grader's policy, and a criterion tied to it is graded on use of that method, so a divergent "
+        "own-route-v2: an item's required_method, frozen with the assessment contract (the one "
+        "authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion "
+        "tied to it is graded on use of that method, so a divergent "
         "route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule "
         "unassesses it); every other criterion keeps the own-route rules. Off, new answers grade "
         "exactly as mvp-0.20. Dormant below the successor and when proof_check.enabled is off; "
