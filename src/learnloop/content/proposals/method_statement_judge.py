@@ -370,8 +370,14 @@ def resolve_statement_judge(
     clients: Any = None,
     price_per_million: float | None = None,
     caps: SpendCaps | None = None,
+    budget_for: Callable[[str], Any] | None = None,
 ) -> MethodStatementJudge | None:
-    """The Decider via its route, else the LLM judge on it; None when neither is ready."""
+    """The Decider via its route, else the LLM judge on it; None when neither is ready.
+
+    ``budget_for(billing)`` lets a caller admit the judgments under its own
+    caps (a PF run's metered or subscription budget) instead of the judge's
+    default ones.
+    """
 
     injected = _injected(clients) or {}
     spend = ReviewSpend(caps or default_caps(), price_per_million=price_per_million, config=vault.config)
@@ -379,13 +385,18 @@ def resolve_statement_judge(
     client = injected.get("decider")
     if client is None and "decider" not in injected and decider_name is not None:
         client = ready_profile_client(vault, decider_name)
+    judge: MethodStatementJudge | None = None
     if client is not None:
-        return MethodStatementJudge("decider", client, spend=spend,
-                                    provider=getattr(client, "provider_name", None) or decider_name)
-    writer, provider = ready_writer(vault, injected)
-    if writer is not None:
-        return MethodStatementJudge("llm", writer, spend=spend, provider=provider)
-    return None
+        judge = MethodStatementJudge("decider", client, spend=spend,
+                                     provider=getattr(client, "provider_name", None) or decider_name)
+    else:
+        writer, provider = ready_writer(vault, injected)
+        if writer is not None:
+            judge = MethodStatementJudge("llm", writer, spend=spend, provider=provider)
+    if judge is not None and budget_for is not None:
+        route = spend.routes[DECIDER_ROUTE if judge.kind == "decider" else LLM_ROUTE]
+        spend.budget = budget_for(route.billing)
+    return judge
 
 
 class LazyStatementJudge:

@@ -710,7 +710,11 @@ def test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published(tmp_path):
     # A verdict binds the stem it judged: a stem edited afterwards has none.
     second = _pf_method_vault(tmp_path / "second")
     repository, paths = second
-    run(paths, publish=False, select=1, fakes=clients(required_method_judge=StatementDecider(VARIANT_CONSISTENT)))
+    judged = run(paths, publish=False, select=1,
+                 fakes=clients(required_method_judge=StatementDecider(VARIANT_CONSISTENT)))
+    # The judgment is admitted under the run's own caps (its metered budget).
+    charged = lambda result: result["usage"]["charged"]["metered"]["calls"]  # noqa: E731
+    assert charged(judged) == charged(report) + 1
     [selected] = rows(repository, "status='selected'")
     payload = json.loads(selected["payload_json"])
     payload["stem"] = REPRODUCTIONS["contradictory_variant"]

@@ -301,7 +301,9 @@ class _Context:
         """The one-time required-method publication judge (redesign 2026-10-14),
         resolved on first use: ``clients["required_method_judge"]`` when
         injected, else the Decider via its route, else the LLM judge (a metered
-        one at this run's owner price)."""
+        one at this run's owner price). Its requests are admitted under this
+        run's caps (its metered or subscription budget), as the plan counts
+        them."""
 
         if self._method_judge is None:
             injected = self.injected.get("required_method_judge")
@@ -310,7 +312,8 @@ class _Context:
             price = caller.price if caller.price is not None else (
                 max(caller.input_price, caller.output_price or 0.0) if caller.input_price is not None else None)
             self._method_judge = LazyStatementJudge(lambda: resolve_statement_judge(
-                self.vault, clients=injected, price_per_million=price))
+                self.vault, clients=injected, price_per_million=price,
+                budget_for=lambda billing: caller.subscription if billing == "subscription" else caller.metered))
         return self._method_judge
 
     def role(self, name: str) -> list[RoleClient]:
