@@ -851,6 +851,10 @@ def test_settings_save_the_key_and_report_it(monkeypatch, tmp_path):
     from tests.test_ux_phase1_add_source import _held_ctx, call
     from tests.ux_phase1_support import fresh_library
 
+    # A settings.env of this test's own: the session-wide isolated one is
+    # shared by every xdist worker, and a vault load in another worker would
+    # take the key into that process's environment for good.
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
     monkeypatch.delenv("ZAI_API_KEY", raising=False)
     ctx = _held_ctx(fresh_library(tmp_path))
     state = call(ctx, "get_settings", {})["ingest"]["textRecognition"]
