@@ -18,6 +18,14 @@ to 199, head fixture `migration_head_199`).
 > binds the revision it graded. Owner overrides are ledgered, and a failed
 > PF judgment leaves its job retryable. See
 > `docs/reviews/method-explicit-2-codex-review.md`.
+>
+> **Second re-review (2026-10-14).** The writer renders the canonical
+> sentence itself and never takes generated text for it; the generation
+> guidance no longer asks the model for it (every prompt carrying the
+> guidance moved its version). Clearing or renaming a method removes a
+> legacy inline instruction too. A method contract records the presented
+> revision's key hash, and a PF job resumes at its judgment step. See
+> "Re-review" in `docs/reviews/method-explicit-2-codex-review.md`.
 
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor

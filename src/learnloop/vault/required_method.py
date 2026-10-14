@@ -270,8 +270,8 @@ def restate_method_instruction(prompt: Any, name: str | None, *, previous: str |
 
     ``prompt`` is the item's stored prompt or a generated revision of it.
     ``previous``'s instruction is taken out first
-    (:func:`strip_method_instruction`: the writer's block, else a legacy
-    inline one), and ``name``'s block is rendered
+    (:func:`strip_method_instruction`: the writer's block and any legacy
+    standalone one), and ``name``'s block is rendered
     (:func:`render_method_instruction`). A prompt that already ends with the
     block of an unchanged method is returned as it is. Without ``previous``
     no writer rendered a block for the field, so nothing in the text is
