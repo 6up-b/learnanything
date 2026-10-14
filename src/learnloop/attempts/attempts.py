@@ -98,6 +98,7 @@ from learnloop.attempts.stuck import (
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
+    contract_required_method,
 )
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
@@ -1520,12 +1521,31 @@ def _graded_required_method(item: PracticeItem, contract: dict[str, Any] | None)
     item's current method is the presented one.
     """
 
-    from learnloop.learner.assessment_contracts import contract_required_method
-
     if contract is not None:
         return contract_required_method(contract)
     method = getattr(item, "required_method", None)
     return {"name": method.name, "criterion_ids": list(method.criterion_ids)} if method is not None else None
+
+
+def attempt_required_method(repository: Repository, attempt_id: str) -> dict[str, Any] | None:
+    """The required method a recorded attempt was graded under (review F1).
+
+    Read from the assessment contract its evidence rows cite (the one frozen
+    when the item was presented, or snapshotted when it was first graded;
+    superseded rows included, since a regrade's rows need not cite it). An
+    attempt without one, or whose contract froze none, never acquires a
+    method from the item's current content.
+    """
+
+    evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    version_id = next(
+        (row.assessment_contract_version_id for row in evidence if row.assessment_contract_version_id is not None),
+        None,
+    )
+    if version_id is None:
+        return None
+    stored = repository.fetch_assessment_contract_version(version_id)
+    return contract_required_method(stored.get("contract") if stored is not None else None)
 
 
 def _blind_grading_plan(

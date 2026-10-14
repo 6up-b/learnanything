@@ -17,6 +17,7 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.attempts.attempts import (
     GradeAttribution,
     assessed_rubric_score,
+    attempt_required_method,
     unverified_attribution_json,
 )
 from learnloop.attempts.grading import (
@@ -140,29 +141,6 @@ def _run_deferred_agent_regrades(
     return DeferredRegradeResult(attempted=attempted, regraded=regraded, failed=failed)
 
 
-def _attempt_required_method(repository: Repository, attempt_id: str) -> dict | None:
-    """The required method an attempt was graded under (review F1).
-
-    Read from the assessment contract its evidence rows cite (the one frozen
-    when the item was presented, or snapshotted when it was first graded;
-    superseded rows included, since a regrade's rows need not cite it). An
-    attempt without one, or whose contract froze none, never acquires a
-    method from the item's current content.
-    """
-
-    from learnloop.learner.assessment_contracts import contract_required_method
-
-    evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
-    version_id = next(
-        (row.assessment_contract_version_id for row in evidence if row.assessment_contract_version_id is not None),
-        None,
-    )
-    if version_id is None:
-        return None
-    stored = repository.fetch_assessment_contract_version(version_id)
-    return contract_required_method(stored.get("contract") if stored is not None else None)
-
-
 def regrade_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -241,7 +219,7 @@ def regrade_attempt(
         # contract froze, never one the item gained afterwards.
         blind_plan = _blind_grading_plan(
             vault, item, context, stuck=bool(attempt.get("declared_stuck")),
-            required_method=_attempt_required_method(repository, attempt["id"]),
+            required_method=attempt_required_method(repository, attempt["id"]),
         )
     if blind_plan is None and attempt.get("declared_stuck"):
         # mvp-0.13 (review F3): a joint regrade of a stuck answer re-reads it
