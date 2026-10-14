@@ -339,3 +339,359 @@ vault database was read, and no tracked vault was opened.
 4. **The owner's clear is recorded as `not_required`,** not as one of the
    import question's options (`allows` / `prohibits`): the owner's command
    does not say which. Readers that test `== "requires"` are unaffected.
+
+## Re-review (Codex job `20261014-094127-Volan7`)
+
+The re-review read `838681f8a..444f5ba95`, read-only, and returned
+**REOPENED**:
+
+- F15 and F16 were confirmed fixed.
+- F14 (High) was reopened.
+- F13 and F17 were reopened through two new defects, F19 and F20.
+- F18 is a new defect.
+
+Every reopened and new finding reproduced. All are fixed in `82566269e`,
+and none was rejected.
+
+| Commit | What |
+|---|---|
+| `82566269e` | the fixes and their tests |
+| `fc1191a21` | regenerated architecture references (citations and source-commit stamps only) |
+| `548a6011c` | a docstring correction in `restate_method_instruction`, and the stage record's pointer |
+| `fc44c9f21` | the contract module computes the recorded hash through a private alias (the gate's first run, below) |
+| (this commit) | this record |
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F14 | High (reopened) | An indented quotation of the sentence stood for the writer's block | fixed | `82566269e` | `test_f14_*` (12 cases) |
+| F15 | High | Source updates retain a judgment for a different statement | confirmed fixed by the re-review; no change | `9bd9038fd` | `test_f15_*` (5, unchanged) |
+| F13 | Medium (reopened) | A frozen regrade can bind the wrong key revision (see F19) | fixed with F19 | `82566269e` | `test_f19_*`; one `test_f13_*` case is now historical |
+| F16 | Medium | Accepted owner overrides never reach the judgment ledger | confirmed fixed by the re-review; no change | `9bd9038fd` | `test_f16_*` (3, unchanged) |
+| F17 | Medium (reopened) | Partial publication breaks the judgment-only recovery (see F20) | fixed with F20 | `82566269e` | `test_f20_*`; `test_f17_*` (3) now resume at the judgment |
+| F18 | Medium | Clearing or renaming a legacy method leaves its instruction behind | fixed | `82566269e` | `test_f18_*` (15 cases) |
+| F19 | Medium | Frozen reconstruction mistakes equivalent rubrics for identical reference revisions | fixed | `82566269e` | `test_f19_*` (5 cases) |
+| F20 | Medium | Partial PF publication invalidates recovery checkpoints | fixed | `82566269e` | `test_f20_*` (1 case) |
+
+The new tests are in `tests/test_required_method_rereview.py` (33 cases).
+
+### F14 (High, reopened): the writer renders its block; generated text never stands for it
+
+**Reproduction.** The re-review's prompt was:
+
+```
+Compute det(B). The previous exercise said:
+
+    Use cofactor expansion in your answer.
+```
+
+`has_method_instruction` normalized whitespace, so it took the indented
+quotation for the writer's block. As a result:
+
+- `normalize_required_method` and `inherit_required_method` appended
+  nothing;
+- validation reported nothing;
+- grading enforced the field;
+- clearing the field cut the quotation out.
+
+Three more prompts reproduced the defect. Each ends with a column-0
+paragraph:
+
+- the sentence after "said:";
+- the sentence after "The previous exercise ended as follows.";
+- a block the model wrote itself.
+
+The previous fix's "move the model's own trailing sentence into the block"
+also took generated text for the block.
+
+**Fix.** The block is the writer's alone, and nothing generated stands for
+it.
+
+- **`render_method_instruction`.** This replaces `ensure_method_instruction`.
+  It always appends the block, "Use {name} in your answer.", as the final
+  paragraph after the generated text. It never reads what the text ends
+  with. Every creation writer uses it:
+  - authoring and practice proposals;
+  - synthesis;
+  - PF variants (`inherit_required_method`).
+- **The guidance.** `CRITERIA_BY_FACT_GUIDANCE`,
+  `REQUIRED_METHOD_VARIANT_GUIDANCE` and the two schema descriptions
+  (`RequiredMethodPayload.name`, `PracticeItemPatchPayload.required_method`)
+  no longer ask the model for the sentence. They now say: "LearnLoop
+  appends 'Use {name} in your answer.' … itself: never write, quote or
+  contradict it." Every prompt that carries them moved its version:
+
+  | Prompt | New version |
+  |---|---|
+  | The rule (`CRITERIA_BY_FACT_RULE_VERSION`) | `criteria-by-fact-v2` |
+  | Authoring, diagnostic authoring, practice generation, canonical ingest, exercise authoring, and synthesis and append (both variants each) | `…-criteria-by-fact-v2` |
+  | PF generator program | `pf-generator-program-v8` |
+  | PF proposer, single-shot and source-anchored | `pf-ensemble-propose-v4`, `pf-single-shot-v4`, `pf-source-anchored-v4` |
+  | Rubric-phrasing judge | `rubric-phrasing-judge-v2` |
+
+  Teach-back has its own clause and keeps its version. The guidance stays
+  the same length to within a sentence, and the spend-envelope tests pass
+  unchanged.
+- **`has_method_instruction`.** It now reads only STORED prompts, for
+  doctor, the gold-set loader, and a writer asking whether an item's prompt
+  still carries its block. The block counts only as the writer renders it:
+  - its own final paragraph after any blank lines;
+  - starting at column 0;
+  - word for word (whitespace between words aside).
+
+  An indented paragraph (two spaces, a tab, a Markdown code block) or a
+  blockquote is `required_method:not_stated`.
+- **`restate_method_instruction`.** This serves a prompt that is a revision
+  of an item's stored prompt, which carries the item's own block:
+  - updates;
+  - owner overrides;
+  - method-phrasing repairs.
+
+  It removes the previous method's instruction, then renders the field's
+  block. A prompt that already ends with an unchanged method's block is
+  kept as it is. A revision therefore carries one block, and a quotation in
+  it is followed by the writer's block.
+- **`normalize_required_method(render_instruction=False)`.** The proposal
+  writer decides the field first, then restates the text.
+
+**Tests.**
+
+- The five generated endings each get the block after them:
+  - writer and PF writer: indented, blockquote, after a colon, introduced,
+    and a block the model wrote.
+- Validation reports the indented, blockquote, two-space and tab endings,
+  and accepts the rendered block (with longer breaks, CRLF, or alone).
+- The guidance no longer asks for the sentence, and every version moved.
+- The re-review's prompt runs end to end through an authoring proposal:
+  - payload, accepted item and doctor agree;
+  - the text ends with the writer's block after the quotation.
+- A generated update keeps one block when its revision carries the item's
+  block, and renders the block after an indented quotation.
+
+**Existing tests changed.** These pinned the old adoption:
+
+- `test_f14_a_trailing_instruction_sentence_becomes_the_block_without_a_duplicate`
+  is now `test_f14_the_writer_never_takes_a_trailing_sentence_for_its_block`.
+- `test_a_generated_prompt_gets_the_canonical_sentence_whatever_it_says`
+  asserted idempotence, a second pass appending nothing. The writer's input
+  is generated text, so it now asserts the output is stated.
+- The authority test's whitespace example now starts at column 0, and the
+  indented form is asserted not stated.
+- `test_the_explicit_instruction` uses `render_method_instruction` and
+  `restate_method_instruction`.
+- The version pins moved: `test_authoring_prompts_carry_the_rule_and_moved_their_versions`,
+  the method-phrasing judge's two, and the synthesis version.
+
+### F18 (Medium): clearing or renaming removes a legacy instruction, never a quoted one
+
+**Reproduction.** A generated item has a prompt that the earlier rule
+accepted: `Define the SVD of A. Use singular value decomposition in your
+answer.`
+
+- `override_payload(clear=True)` dropped the field and kept the
+  instruction.
+- Renaming kept it and appended the new block under it.
+- A generated update renaming the method did the same.
+
+**Fix.** `strip_method_instruction` removes the instruction for the item's
+own method:
+
+- the writer's block, when the prompt ends with it;
+- then every standalone occurrence of the sentence. This is the legacy
+  inline instruction, or a copy the text repeats. An occurrence is
+  standalone when all of these hold:
+  - it is at the start of the text, or after a sentence's end (`.`, `!` or
+    `?`) on its own line or an earlier one;
+  - its line is not indented and not a blockquote;
+  - it is followed by whitespace or the end.
+
+A quoted occurrence is never edited: in quotation marks or brackets, after
+a colon, indented, or in a blockquote. A line removed whole keeps the
+larger break around it.
+
+The override (clear, rename, re-set) uses it through
+`restate_method_instruction`, as do the proposal writer and the
+method-phrasing repair. Setting the same method again converts a legacy
+instruction into the block. The repair could previously stack a renamed
+method's block; it now goes through the same path.
+
+**Tests.**
+
+- Clearing removes each legacy placement: trailing, leading, mid, own line,
+  own paragraph, the block, and a standalone copy with a block.
+- Six quoted placements survive: double quotes, after a colon, indented,
+  blockquote, after a colon on the previous line, in parentheses.
+- The re-review's scenario through `override_payload`: clear, rename and
+  re-set, then an accepted clear.
+- A generated update renaming a legacy method replaces its instruction.
+
+### F19 (Medium; F13 reopened): the regrade binds the revision the contract recorded
+
+**Reproduction.** An item graded under an inherited default rubric
+(`grading_rubric = None`) has its prompt edited, and the same rubric is
+then written inline.
+
+The reconstruction tried the current inline rubric first. Its resolved
+contract matched, so it was declared the exact revision, but its
+reference-content hash is not the `None` revision's. Both consequences
+reproduced:
+
+- an undisputed verified attempt became `unverified`, because the inline
+  twin was never checked;
+- a dispute of the revision actually graded was ignored, leaving the
+  attempt `verified`, when the inline twin had a verified check.
+
+**Fix.**
+
+- **The contract records the revision.** `compile_assessment_contract`
+  records `reference_content_hash` (statement, expected answer and the
+  item's own rubric, inline or inherited) when the item has a required
+  method. Every other contract, and its hash, is unchanged.
+- **The regrade binds that hash.** `graded_reference_contents` binds the
+  recorded hash exactly (`graded_revision=frozen`).
+- **Historical contracts keep the ambiguity.** For a contract frozen before
+  this change, every rubric representation whose contract matches is
+  collected: the current one, the snapshots', and none (inherited).
+  - One revision matches: it is `frozen`.
+  - Several match: the binding is `ambiguous`. It keeps the candidates a
+    key check recorded (a verified attempt's revision had one), else all
+    of them, and binds fail closed.
+  - None matches: `unresolved`, as before.
+- **The regrade always binds the graded revision.** It now passes the
+  frozen contract whenever it reads it. The `matches_current_content` gate
+  is gone (and the method with it), so an equivalent current rubric never
+  decides the binding.
+
+**Tests.**
+
+- A method contract records the hash; a contract without a method does not.
+- Each consequence is tested with a recorded and with a historical
+  contract:
+  - the inherited-rubric attempt stays `verified` with no binding;
+  - the disputed graded revision lowers the attempt, binding that
+    revision's hash (`frozen` / `ambiguous`).
+- `test_f13_when_the_graded_revision_cannot_be_rebuilt_*` now strips the
+  recorded hash, since the unresolved path is the historical one. Its
+  assertions are unchanged.
+
+### F20 (Medium; F17 reopened): a rerun resumes at the judgment and publication step
+
+**Reproduction.** Two variants were selected (with a publish cap of 5). One
+judgment succeeded and the other timed out. The first was published and
+the request was left `failed`.
+
+The rerun of the round re-ran the whole pipeline. The published variant
+changed the freshness comparisons and the MMR history, so 7 paid
+(fake-counted) calls missed their checkpoints.
+
+**Fix.** `_FamilyRun._resume_after_selection` checks for a persisted
+`selection_json` among the candidates of the claimed mint request. When
+there is one, the selection has finished. This covers a request left after:
+
+- a judgment failure;
+- a spend refusal or cancellation (released to `pending`);
+- a publication error.
+
+The rerun then:
+
+- loads the persisted candidates;
+- orders the selected ones by the selection judge's rank, else the MMR
+  rank;
+- asks only the missing verdicts (`_judge_required_method` reuses the
+  ledgered ones);
+- publishes and resolves the request.
+
+It skips skeleton, generation, filters, panel, freshness and selection.
+The family reports `resumed: required_method_judgment`.
+
+Partial publication on an incomplete judgment is kept: publishing the
+judged variants no longer touches the rerun's requests, and
+`learnloop pf publish` may publish them in between too.
+
+**Test.** The run has two selected variants: one judged and published, the
+other timing out. The rerun makes:
+
+- **zero** generation, panel, freshness and selection calls;
+- exactly one judgment call.
+
+It then publishes the second variant and admits the request. The F17 tests
+also take the resume path now. They pass unchanged: zero generation calls
+and one judgment.
+
+### Fail-first
+
+The base `444f5ba95` `src` was exported to `fixtures-local/tmp/base_444f5ba95`,
+with `migrations` linked in. Its `tests/` used the base versions of the five
+test modules this fix edits. No tracked vault was linked. The final
+`tests/test_required_method_rereview.py` ran against the export
+(`pytest -o pythonpath=src`; tracebacks confirm the export's modules).
+
+**25 failed, 8 passed.** Every failure is behavioural:
+
+| Finding | Failed on the base | What the base did |
+|---|---|---|
+| F14 | 10 | took the indented, after-colon, introduced and model-written endings for the block (writer and PF writer); validated the indented, two-space and tab endings; the guidance asked for the sentence; the end-to-end payload and the update kept the quotation as the block |
+| F18 | 9 | kept six legacy placements on clear (only the block-alone case passed); cut an indented quotation out; the override's clear, rename and re-set and the update's rename kept the legacy instruction |
+| F19 | 5 | recorded no hash; lowered the inherited-rubric attempt (recorded and historical); kept the attempt verified despite the graded revision's dispute (recorded and historical) |
+| F20 | 1 | the rerun made 7 non-judgment calls |
+
+The 8 that pass on the base are the intended controls:
+
+- the blockquote ending (writer and validation);
+- clearing the block alone;
+- five quoted placements surviving a clear.
+
+### Gate (re-review)
+
+The gate ran on the tree at `fc44c9f21`. The only uncommitted change was
+this record. `TMPDIR` was the worktree's `fixtures-local/tmp`. The full
+suite and the durability lane ran back to back under one hold of
+`/tmp/learnloop-fullsuite.lock`.
+
+**The first run, on `548a6011c`, found one failure.** The durability lane
+passed (99 passed, 10485 deselected). The full suite had 10583 passed and
+1 failed: `test_characterization_assessment_exam.py::test_contract_hash_is_single_monolithic_content_hash`
+pins `contract_hash` as the contract module's only public `*_hash` callable,
+and the module-level import of `reference_content_hash` added a second one.
+`fc44c9f21` imports it under a private alias. Both the full suite and the
+durability lane were then rerun from the start; the results below are that
+rerun's.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Stage tests (`test_required_method_rereview.py`, `test_required_method_reopened.py`, `test_required_method_items.py`, `test_required_method_authority.py`) | **227 passed** (the new file: 33) |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10584 passed**, 0 failed, 0 skipped (48 warnings, 518.49s) |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10485 deselected, 0 failed (1 warning, 116.22s) |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: schema head 199, 318 table notes. Only citations and source-commit stamps moved (`fc1191a21`); revalidated on `548a6011c` and `fc44c9f21` (no line moved): `errors: []` |
+| `validate_vault.py` | passed (1,099 notes, 22,001 links) |
+| CLI help snapshot | unchanged (no CLI change; `test_cli_help_snapshot.py` passes) |
+| Defaults and template snapshots | unchanged (no configuration key) |
+| Frontend and cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+
+There were no paid calls. No live check was needed: the external
+interfaces are unchanged. The prompt text that changed is the guidance
+wording, pinned by tests. No key, env file or vault database was read, and
+no tracked vault was opened. Main was not merged in.
+
+### Not changed, and open questions
+
+The earlier open questions 1, 3 and 4 still stand. Question 2 is narrowed
+to historical contracts. New:
+
+5. **A model that disobeys the new guidance gets a visible duplicate.**
+   A creation prompt that still ends with "Use X in your answer." keeps it,
+   and the writer's block follows. This is honest and harmless to grading,
+   and the guidance asks the model not to write the sentence. An update
+   that carries the item's own block or inline instruction is deduplicated
+   (it is restated).
+6. **A stored-prompt check cannot tell a column-0 final sentence's
+   author.** A non-writer edit (`edit_item`, a hand edit) ending in
+   "said:", then a blank line and the sentence, still reads as stated.
+   Writers never produce that from generated text. This is the same
+   boundary as open question 1.
+7. **A resumed PF job's publication order is approximate.** It sorts by the
+   selection judge's rank, else the MMR rank: the judge's own `selected`
+   order is not persisted. Only the daily cap's cut-off can differ.
