@@ -3,8 +3,8 @@ title: "pf_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "82566269e06342b849e6538ae6c477bad94f025b"
-source_commit_timestamp: "2026-10-14T10:23:13-04:00"
+source_commit: "7efb7664be3f2dd41be0568e28c27d8e3e3e3a32"
+source_commit_timestamp: "2026-10-14T15:55:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite pf_candidates"
@@ -127,6 +127,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_pf_reports.py`
+- `tests/test_required_method_round3.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
