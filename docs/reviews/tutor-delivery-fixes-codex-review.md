@@ -143,3 +143,46 @@ Targeted runs before the gate:
 - configuration, upgrade pins, parameter registry and reader suites: 353 passed.
 
 `uvx ruff check --select F` over the changed files reports only six findings that are already present at `4cf54a295`, on lines this stage did not touch.
+
+## Re-review
+
+**Reviewed:** `4e7397731..9e5aabbf8` by Codex (job `20261014-014539-wwSubZ`), verdict REOPENED on one finding. The re-review confirmed F1 fixed (database-only item links, re-extracted copies, worked-example continuations and solution-region bodies are refused, and nothing is followed without the injected filter). It also confirmed the long-passage correction (F2), the judge rollback (F5), the numeric-ending labels (F6) and all fourteen configuration fingerprints.
+
+The owner paused the run on 2026-10-14 (about 02:20 to 09:00) after the F7 fix was committed. The run resumed on the clean tree at `15e6062d0`; main was not merged in. **Paid calls:** none ($0.00). **Vaults:** none opened.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Linked references bypass the practice-item source exclusions | confirmed fixed by the re-review | `8420b7570` | no further change |
+| F7 | Medium | Replacing the reference filter removes protection for exercises without accurate role hints | **fixed** | `15e6062d0` | `tests/test_tutor_delivery_fixes.py`: `test_a_linked_captions_reference_to_an_exercise_caption_is_refused_while_practising`, `test_a_linked_spans_reference_to_an_exercise_with_a_missing_or_wrong_hint_is_refused` (hint None, `ordinary_prose`, `theorem`), `test_an_exercise_continuing_a_cited_theorem_is_cut_while_practising`, `test_a_retrieved_spans_reference_to_an_exercise_caption_is_refused_while_practising` |
+
+References regenerated in `033e7d465`: the fix moved lines in `source_retrieval/tutor.py`, and `db_validate_reference.py` flagged seven configuration citations to stale lines.
+
+### F7: the lead guard is back, for every path
+
+**Reproduced.** Codex's scenario: an LO-linked caption, built by the production caption normalizer (`captions_to_ir`, which gives every caption `ordinary_prose`), cites "Exercise 3.2". In practice the tutor received the exercise caption.
+
+The same happened with a Marker block "Problem 3.2. ..." that had no hint, an `ordinary_prose` hint or a `theorem` hint. An unhinted "Exercise:" block also continued a cited theorem's environment. And the retrieved path's filter followed the caption too.
+
+Before F1, the predecessor's `_linked_reference_filter` checked `lead_role(block.text)` itself. F1 swapped that filter for the teaching scope's exclusions, which read role hints only, so the check was lost.
+
+On resume, the six test cases were re-run with the fix's source change reverse-applied: all six failed. With the change re-applied, all six pass (the file: 56 passed).
+
+**Fix.** `source_retrieval.tutor.reference_filter` is shared by the retrieved, pinned and linked paths. With an item (practice and feedback), it now refuses any block whose own lead names an exercise or a solution (`ITEM_BOUND_LEAD_ROLES`, read by `lead_role`), whatever the block's hint. The reason recorded is the predecessor's: "an exercise or solution, while the item is being practised".
+
+`follow_references` asks the filter about the cited block and about each block that continues it. An exercise that follows a cited theorem therefore ends the theorem's environment. Outside practice and feedback nothing changes: the test's library-context filter allows the same block.
+
+The stage record's exam rule (`docs/reviews/tutor-delivery-fixes.md`) says so.
+
+### Re-review gate
+
+Run on `033e7d465`. Its code is that of `15e6062d0`; the later commits change only documents. `TMPDIR` was the worktree's `fixtures-local/tmp`; the full suite and the durability lane ran under `flock /tmp/learnloop-fullsuite.lock`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 17 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10707 passed**, 0 failed, 48 warnings (12 min 0 s; 10701 before plus F7's six cases) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10608 deselected, 1 warning (2 min 45 s) |
+| `db_generate_reference.py` / `db_validate_reference.py` | schema head 201 (unchanged), 319 table notes, 821 configuration leaves; errors [] |
+| `validate_vault.py` | passed, 1102 notes |
+| Frontend / `cargo check` | not run: nothing under `apps/` changed |
