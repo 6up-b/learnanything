@@ -2,6 +2,8 @@
 
 **Stage:** `mcp-c1a`, branch `mcp/c1-read-context`, base `9c5c62df9` (main, mvp-0.22).
 **Spec:** [spec_mcp_frontend_c1.md](../specs/spec_mcp_frontend_c1.md) (C1, owner decision D15's short spec).
+**Codex review:** [mcp-c1a-codex-review.md](mcp-c1a-codex-review.md): ten findings (four High), all reproduced
+and fixed in `e0fdfef36`; its gate supersedes the one below.
 **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already works with Claude chat and
 ChatGPT chat (D1); latent learner state (misconceptions, answer traces) must be shared seamlessly between the
 local LearnLoop and the chat frontend through the existing telemetry.
