@@ -332,3 +332,142 @@ No call was made against a tracked fixture.
 5. **Codex is slower than the blocking budget** (10–11 s per block decision against 8 s). On Today's prefetch path the decision was ready 11.5–13.2 s after the prefetch began, with no fallback. A Begin pressed within about 11 s of opening Today, or a Continue straight after a block's last answer, falls back for the LLM. Owner Q4 says revisit above about 20% LLM fallback; R3's report should show the rate.
 6. **Labels at the merge.** `mvp-0.24` is a placeholder. Main has moved to `56579d271` (RW3a); the landing must check which label is free and relabel.
 7. **The restraint's follow-up decline** writes a `plan_interrupt` row on the block whose answer produced the follow-up, which may already have ended. Its receipt key names that block and the item, so it stays unique; R3 should read `decline` rows as constraint refusals, not choices.
+
+## Landing onto main
+
+**Branch:** `merge/r2bc-onto-main` (worktree `learnanything-merge2`), from main `bffe086ec` (`mvp-0.23` LATEST; RW3a, the tutor delivery fixes and GLM-OCR landed since this branch's base `28c6040ca`; migration head 202, head fixture `fixtures/migration_head_202`, fifteen defaults snapshots). Merge `5a678eb37`, a real `--no-ff` merge of `router/r2bc` (`6f0b16254`, unchanged), then this record. Not pushed. Owner-directed, 2026-10-14, single phase. The sections above and `router-r2bc-codex-review.md` describe the branch as built and keep its placeholder wording.
+
+**Main since the base, none of it a successor:**
+- **RW3a:** Reader hooks, margin cues (`[cues]`), three RPCs; "check me" goes through R2a's `plan_learner_pick` and binds to the learner pick's own presentation.
+- **The tutor delivery fixes:** `tutor/context_delivery.py`; whole blocks under budgets (`tutor_qa.context_token_budget`, `source_retrieval.passage_token_budget`); reference resolution; the automatic source-vector backfill (`embedding.backfill_sources_on_extract`, `embedding.source_backfill_max_cost_usd`); doctor's dense-coverage line.
+- **GLM-OCR:** the primary extractor, `[ingest.pdf.glm_ocr]`, `set_text_recognition_api_key`; keep-local retired.
+
+**Paid calls:** none ($0.00); no network, no key read. **Migration:** none (head 202 is main's). **`src-tauri`:** identical to main's, so no `cargo check`; the frontend changed (Today's first-block prefetch, the why/details line), so the frontend gate ran.
+
+| Commit | What |
+|---|---|
+| `5a678eb37` | the merge, with the relabel comments, the composed template, the recomputed snapshots, the regenerated references, the docs and the landing tests |
+| (this commit) | this section |
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `src/learnloop/config/template.py` (15 hunks, the only source conflict) | The `DEFAULTS_SNAPSHOT_BY_ALGORITHM` block. Main's RW3a, tutor-delivery and GLM-OCR notes kept and the branch's added: its full R2b + R2c note after GLM-OCR's in `mvp-0.9` (now "all sixteen ... on its branch, and all sixteen again when it landed on main after RW3a, the tutor delivery fixes and GLM-OCR"), its "moves it too" line after main's three in `mvp-0.10`..`mvp-0.22`, the composed `mvp-0.23` entry ("New vaults started here ... until mvp-0.24 merged", main's three lines, the branch's line) and the branch's `mvp-0.24` entry. All sixteen hashes recomputed (below). |
+| 374 notes under `Reference/` | Taken from main, then regenerated. |
+| Auto-merged, both sides kept | `pyproject.toml` (GLM-OCR's `glm-ocr` extra and import-linter ignores beside R2b's `router.requests` exceptions; main's removed `tutor_qa -> reader.span_view` edge stays removed), `cli/app.py` (the `--to mvp-0.24` branch and help text), `config/schema.py` (`[cues]`, the delivery keys and `[ingest.pdf.glm_ocr]` beside the `[router]` keys), `params/parameter_registry.py` (the delivery fixes' rule beside the router's), `apps/learnloop-tauri/src/api/dto.ts`, `tests/cli_help_snapshot.json` |
+
+### The successor: `mvp-0.24`, kept
+
+The branch's one placeholder is the string `"mvp-0.24"` (`ROUTER_MIXTURE_ALGORITHM_VERSION`). Main's LATEST is `mvp-0.23` and nothing on main took 0.24 (none of the three landings is a successor), so the label stays; nothing was renamed.
+- **The chain.** `SUCCESSOR_CHAIN` ends `mvp-0.23`, `mvp-0.24`; `LATEST_ALGORITHM_VERSION` is `mvp-0.24`. `upgrade_to_mvp024` accepts `mvp-0.23`, or `mvp-0.9`..`mvp-0.22` through main's `router_staged_upgrade.upgrade_to_mvp023`, passes the chained notes through with `chained_notes = list(chained.notes or [])` (a refusal's included) and an earlier step's refusal unprefixed. T1's guard stays advisory. `learnloop upgrade` defaults to `mvp-0.24`; `--to mvp-0.10`..`--to mvp-0.23` still reach those tags.
+- **Added at the landing:** `test_mvp024_upgrade.py::test_an_earlier_vault_goes_through_mvp012s_guard_when_it_is_required`. With `config="[recurrence]\nrequire_guard = true"`, an `mvp-0.10` vault refuses at the `mvp-0.12` step: every problem starts with `mvp-0.12 step refused: ` through both later links, and the version is unchanged. After `_pass_guard`, the whole chain runs to `mvp-0.24` (the last 14 activations, `mvp-0.11`..`mvp-0.24`).
+- **Comments.** "A placeholder label, relabelled at its merge" became "kept its label at its landing" in `algorithm_versions.py`, `router_mixture_upgrade.py`, the template and `test_mvp024_upgrade.py`.
+- **Docs.** `Version Registry.md`: algorithm `mvp-0.24`; the projection base through `mvp-0.24`; the decision log's R2b + R2c additions; outcomes v2's `plan_interrupt` binding; a new row for the router's request, schema, why, summary and recipe versions. `Algorithm Versions and Reproducibility.md`: an `mvp-0.24` row; every version set through `mvp-0.24` and `ROUTER_MIXTURE_VERSIONS`; LATEST and the default target `mvp-0.24`. The R2 plan's status line records the landing.
+
+### Compositions
+
+1. **RW3a's "check me" under the mixture.** `plan_learner_pick` is a read (`_require` without `serve`), and `engine.learner_pick` never asks the chooser. It logs the learner's own block decision (`chosen_by = "learner_pick"`, no propensity) in the block's transaction, or none: a planned item is served by its block, a closed plan gives an open-list pick. R2b changed `_serve` to bind a presentation to `item.decision_ref or block.decision_ref` (review F1). A learner pick's item carries no `decision_ref`, so its presentation names the pick's own decision. New tests at mvp-0.24, with fake models that draw (the Decider takes the draw), in `tests/test_router_r2bc_landing.py`:
+   - for the three RW3a cases, exactly one new presentation;
+   - a new pick block gets exactly one new decision (`learner_pick = 1`, `propensity NULL`, `propensity_kind = none`);
+   - a planned item gets no new decision, and its block's decision is the mixture's (`router_mixture_v1`, exact propensity);
+   - a closed plan gets none;
+   - no `receipt_key` repeats, and the delivery and `proposalPick.routerDecisionId` name the decision;
+   - the answer binds by the presentation (`action_binding = presentation`, `taken`).
+
+   **A composition only the mixture creates:** "check me" while Today's first block is still being chosen. A read leaves the decision open, with the models gated. The pick is then its own one-item block: one decision, one presentation, the answer bound by it. Once the models answer, the next serving step draws the mixture's block as a separate decision with its own presentation, and the pick's row is unchanged.
+
+   RW3a's own landing test now takes a `version` (`_world(..., version=)`, default `mvp-0.23`), and its tests pass unchanged at `mvp-0.23`.
+2. **The tutor delivery fixes vs R2c's retrieval and teach-back summaries.** R2b + R2c touch none of the tutor paths (`tutor/`, `source_retrieval/`, `reader/`, `ops/`, `ai/spend.py`: an empty diff from the base). No router module reads source passages (`span_view`, `context_delivery`, `build_cross_source_spans`, `span_context`, `source_document_blocks`: no match).
+   - The `decision/context` text is a canonical rendering of the stored card: plan kind, time left, the options' kinds and topics, statuses, open problems. It contains no source text.
+   - The card carries item stems, the learner's results, open problems and teach-back summaries, never source passages, under `router.card_token_budget` (16,000).
+   - The two 240-character limits on the branch are not source cuts. `router_teach_back.POINT_LIMIT` bounds each model-written summary point (the card's budget), and `router/requests.OPTION_LIMIT` bounds an option's one-line description.
+   - New test: the summarizer receives a teach-back dialogue of more than 2,400 characters whole (its last words included), and only the model's own point is clipped to 240.
+3. **Spend: R2c's embeddings and the automatic source backfill.** Both use the embedding route (one model), and each goes through spend admission under its own guard.
+   - **R2c's query embedding at prefetch** runs inside `RouterSpend.metered` (owner `router_decision`). The router's request gate prices it, and its start receipt is admitted against `router.max_daily_cost_usd` (review F3); the decision's vector is written from that same embedding, never bought again. `learnloop router embed-decisions` goes through `ops.embedding_backfill` with its own `SpendCaps` (receipts owned by `embedding_backfill`).
+   - **The source backfill** (an ingest job) goes through the same `ops.embedding_backfill` with `SpendCaps` bounded by `embedding.source_backfill_max_cost_usd` per run (receipts owned by `embedding_backfill`).
+   - **No double count.** The router's guard sums only `GUARDED_OWNERS` (`router_decision`, `router_teach_back_summary`). A backfill's `SpendBudget` counts only its own run's requests. Main's ingest daily total (`spent_today_usd`) counts every receipt once, as it always has.
+   - **No bypass.** Both observers and gates are `ContextVar`s (`ai/execution.py`), so neither reaches the other's thread or context. The two backfills share the vault's advisory lock: a concurrent `router embed-decisions` reports `invalid` ("Another embedding backfill is running", `BackfillLockBusy`, a `ValueError`) and sends nothing.
+   - **New test, one vault, one embedder:**
+     - router decisions write `router_decision` embedding receipts, and an import's source backfill completes with `embedding_backfill` receipts;
+     - `charged.calls` equals the embedder's calls during the import only;
+     - `RouterSpend.spent_today` equals exactly the router receipts' sum, while the backfill's receipts are priced (> $0) and excluded;
+     - with the router's cap set to what it has spent, the next day's decisions log `similar = unavailable (spend)` and their spend stays put, while a re-extraction's backfill still completes;
+     - with the router's cap raised and `source_backfill_max_cost_usd = 0`, the router embeds again while a third extraction's backfill fails `over_budget`.
+4. **GLM-OCR.** No shared code with the router: GLM-OCR changes extraction and its Settings key; R2b + R2c change Today, the card, the router's routes and the teach-back finish. `set_text_recognition_api_key` was already pinned desktop-only on main, and the branch added no RPC.
+5. **The Pipeline Map** (`Maps/LearnLoop Pipeline Map.md`): R2b and R2c are live, no longer planned.
+   - The end-to-end router node names the R2a frame, the R2b mixture and R2c's restraint, sensors and retrieval; the dashed "R2b / R2c model routing, planned" node is gone (MCP stays planned).
+   - The daily-plan diagram adds the mixture (staged rule, Decider, router LLM; exact propensity and floor), R2c's context (teach-back summaries, similar decisions) feeding it, the payloads on the ledger, and the `plan_interrupt` restraint on follow-ups.
+   - The text replaces "R2b and R2c are planned" with what is live and its kill switches. The AI section names the router's routes and their daily guard. The links list the R2b + R2c review. `implementation_version: mvp-0.24`; six router modules added to `source_paths`.
+   - `validate_vault.py`: passed, 1,105 notes.
+
+### Defaults, CLI help and references
+
+- All sixteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.24`) were recomputed with `defaults_fingerprint_for_version` from the composed defaults, with the template `.pyc` deleted before and after and the file touched. Every one moved: the branch's lacked `[cues]`, the delivery keys and `[ingest.pdf.glm_ocr]`, and main's lacked the 16 `[router]` leaves and the `mixture` default. A fresh process confirms all sixteen.
+- `python tests/test_cli_help_snapshot.py --write`: no change (the auto-merged snapshot was already exact).
+- `db_generate_reference.py`: schema head 202, 321 table notes. `db_validate_reference.py` reports `errors: []` once `Configuration.md` and `Database.md` read 853 leaves (main's 837 plus the 16 `[router]` leaves; 50 sections).
+- `tests/test_mobile_allowlist.py`: unchanged. The branch adds no RPC and no parameter (`next_plan_item`'s `serve` already existed).
+
+### Gate
+
+Run in this worktree at `5a678eb37` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,076 passed**, 0 failed, 48 warnings (13 min 34 s). Main's known flake (`test_reader_rw3a_landing.py::test_check_me_goes_through_the_plan_path_and_is_logged_once[planned]`, about 1 in 6, being fixed on `fix/plan-determinism`) did not show here. It did show once in a targeted run before the gate (2 of 6 when rerun alone, unchanged code at `mvp-0.23`: the block's `chosen_practice_item_id` is not always the check's item). The new mixture tests assert no block item order and passed 10 of 10 in a row. The reading-sweep thread warning is not in the captured summary |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` | **100 passed**, 0 failed (24 s) |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · **81 files, 577 tests passed** · built, with the existing chunk-size notice |
+| `cargo check` | not needed: `src-tauri` is identical to main's |
+| Defaults · CLI help · references · vault | above |
+
+The first full-suite attempt never ran: it was still waiting for the lock when the session restarted. It was relaunched detached, as were the parity jobs (below).
+
+Targeted runs before the gate: the new landing file, RW3a's landing file and the `mvp-0.23` and `mvp-0.24` upgrade files (38 passed), then the CLI help, allowlist, config, reading-step, router, daily-plan, upgrade-chain, RW3a, cues, delivery, source-backfill, table-roles, Tier 1, judge-route, route-rules and recurrence files (998: 997 passed, plus the known flake above).
+
+### Parity
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`), in `fixtures-local/r2bc-parity`: one pristine copy each, then a copy per side and per check. Each copy was migrated by its own code (`migration_coordinator.migrate_vault`):
+- main `bffe086ec`, exported with `git archive`, first on `sys.path` (`python -I`; the probe printed the archive's `learnloop/__init__.py`);
+- the merge's own code.
+
+Both sides applied 47 migrations to 202. On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory and main's code on `PYTHONPATH` for main's side. Compared after setting aside ULIDs, timestamps, ids, hashes and paths.
+
+**At `mvp-0.23`** (the check asked for). A copy per side and fixture was taken through `learnloop upgrade --to mvp-0.9`, then `--to mvp-0.23`, by its own code (the chain's advisory-guard notes printed), then `learnloop rebuild-derived-state` twice to its fixed point. **0 differences** on all four comparisons (7,054 lines):
+
+| Fixture | Replayed attempts | Shadow (facet / mastery / schedule) | Doctor issues | Errors | `criterion:unknown_dependency` | Router or plan issues |
+|---|---:|---|---:|---:|---:|---:|
+| linear algebra | 70 | 0 / 0 / 0 | 56 | 1 | none | none |
+| probability | 2 | 0 / 0 / 0 | 98 | 49 | 46 | none |
+
+**At the fixtures' own `mvp-0.8`** (as earlier landings ran it): also **0 differences** on all four (7,817 lines). Linear algebra shadows 22 / 6 / 47 (facet / mastery / schedule) with 106 doctor issues and 1 error; probability shadows 2 / 1 / 1 with 134 issues and 49 errors (46 `criterion:unknown_dependency`). These are the fixtures' existing drift at `mvp-0.8`, the same on both sides and the same as at the GLM-OCR landing.
+
+`live_database.unchanged` is true on every shadow, and each copy's `state.sqlite` hash is identical before and after its shadow and doctor. Doctor exits 1 on both sides, as on main.
+
+**The `mvp-0.23` → `mvp-0.24` upgrade, shadowed** (playbook item 7). The merge's `mvp-0.23` copies were taken through `learnloop upgrade` (the default target: "Upgraded vault: mvp-0.23 -> mvp-0.24"), then shadowed and doctored again.
+
+| Fixture | Replayed | Shadow at mvp-0.23 | Shadow at mvp-0.24 | What differs at mvp-0.24 | Doctor at mvp-0.24 |
+|---|---:|---|---|---|---|
+| linear algebra | 70 | 0 / 0 / 0 | 0 / 21 / 0 | `algorithm_version` only (`mvp-0.23` → `mvp-0.24`), on all 21 mastery rows; no other column on any row | identical to mvp-0.23's (56 issues, 1 error), no router or plan issue |
+| probability | 2 | 0 / 0 / 0 | 0 / 18 / 0 | `algorithm_version` only, on all 18 mastery rows | identical to mvp-0.23's (98 issues, 49 errors), no router or plan issue |
+
+Outside those rows, the shadow reports differ only in the version labels themselves: `baseline_algorithm_version`, `candidate_algorithm_version` and `rebuild.algorithm_version`. So the successor adds no delta beyond the version label, as at R2a's landing (the same 21 and 18 rows).
+
+The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no subscription call, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/` or `~/.codex/auth.json`.
+- The main checkout was not touched. Its working vaults were never opened. This worktree's tracked `linear_algebra` and `probability` were opened only by the backup API, and `arxiv_v2` not at all.
+- Nothing was pushed, rebased or stashed. `router/r2bc` and its worktree `learnanything-merge4` were not modified.
+
+### Open questions for the owner (defaults applied)
+
+1. **Isolated Codex turns** (open question 1 above). Resolved by the owner on 2026-10-14: the Codex `code-review` MCP server is turned off, so isolated turns should no longer fail with "invalid transport in mcp_servers.code-review". This covers the router LLM, the teach-back summaries and the blind grader's isolated turns. The landing made no subscription or paid call, so this was not re-run. If an isolated turn still fails, the router keeps its fallback: the Decider and the rule take the LLM's share, and the decision logs `fallback = llm` with the reason.
+2. **The Decider's pre-call estimate is about 4× low** (open question 2). Default: **leave it**. The guard sums the real receipts after each call, so only the in-flight reservation is low ($0.0002–0.0006 a decision against $5 a day). If the guard ever binds, scale the estimate by the question count.
+3. **Similar-decision retrieval is empty on the owner's vaults** until new human-origin answers mature (open question 3). **Accepted.** It fills as the router runs.
+4. **The sensors stay on** (open question 4; the owner's default, about $0.0003 more a decision). R3 judges their value.
+5. **The LLM fallback rate** (open question 5: Codex took 10–11 s against the 8 s serving wait). **R3's report shows the rate**; owner Q4 revisits above about 20%.
+6. **Labels** (open question 6): resolved. `mvp-0.24` kept, no migration.
+7. **Decline rows** (open question 7): R3 reads `plan_interrupt` `decline` rows as constraint refusals, not choices.
