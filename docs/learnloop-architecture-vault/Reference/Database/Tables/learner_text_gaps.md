@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 201
+schema_head: 202
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/probability_arms.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
-  - "src/learnloop/db/stores/learner_gaps.py"
+  - "src/learnloop/daily_plan/router_card.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/field/signals.py`

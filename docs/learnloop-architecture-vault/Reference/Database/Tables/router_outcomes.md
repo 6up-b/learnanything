@@ -3,13 +3,13 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
   - "table router_outcomes"
-schema_head: 201
+schema_head: 202
 table_name: "router_outcomes"
 table_role: "derived"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `184_voi_forecasts.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `184_voi_forecasts.sql`, `202_router_staged_frame.sql`.
 - **Rebuild owner:** `router_outcomes`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +91,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `s_alpha` | `REAL` | yes | — | — | Stored value |
 | `observed_through` | `TEXT` | no | — | — | Stored value |
 | `detail_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
+| `action_binding` | `TEXT` | no | — | — | Stored value |
+| `r_next_reference_status` | `TEXT` | no | — | — | Stored value |
+| `r_cold_reference_status` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -132,7 +135,9 @@ None found by exact static reference scan.
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_router_outcomes.py`
+- `tests/test_router_presentations.py`
 - `tests/test_router_r1_composition.py`
+- `tests/test_router_r2a_serving.py`
 - `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -196,7 +201,9 @@ CREATE TABLE router_outcomes (
   s_alpha REAL NOT NULL,
   observed_through TEXT,
   detail_json TEXT NOT NULL
-);
+, action_binding TEXT CHECK (
+  action_binding IS NULL OR action_binding IN ('presentation', 'candidate', 'session_rule')
+), r_next_reference_status TEXT, r_cold_reference_status TEXT);
 ```
 
 ## Related notes

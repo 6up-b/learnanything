@@ -222,13 +222,41 @@ def test_the_pinned_source_service_rpcs_are_all_of_them():
 UX_PHASE1_RPCS = ("add_source", "get_ai_connection", "connect_ai", "source_action")
 UX_PHASE1_EXTENDED_RPCS = ("initialize", "get_source_library", "reader.pdf_view")
 
+# Router R2a (mvp-0.23) adds no RPC. It extends these: a served plan step
+# names its presentation (next_plan_item, plan_learner_pick and the plan reads
+# that return a step), submit_attempt, submit_dont_know and save_practice_draft
+# take planPresentationId (the receipt an answer binds to), and
+# golden_path.advance goes through the P2 bridge (a bridge block in its
+# response). Desktop only.
+ROUTER_R2A_RPCS = (
+    "next_plan_item",
+    "plan_learner_pick",
+    "get_daily_plan",
+    "plan_reading_ended",
+    "submit_attempt",
+    "submit_dont_know",
+    "save_practice_draft",
+    "golden_path.advance",
+)
+
+
+def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    for name in ("submit_attempt", "submit_dont_know", "save_practice_draft"):
+        model = METHOD_REGISTRY[name].params_model
+        assert "plan_presentation_id" in model.model_fields, name
+        assert model.model_fields["plan_presentation_id"].default is None, name
+
 
 @pytest.mark.parametrize(
     "method",
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS,
+    + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + ROUTER_R2A_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

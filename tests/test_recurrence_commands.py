@@ -46,7 +46,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_202"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -102,6 +102,7 @@ def test_successor_vocabulary():
         DAILY_PLAN_ALGORITHM_VERSION,
         DECIDER_TIER1_ALGORITHM_VERSION,
         LATEST_ALGORITHM_VERSION,
+        ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
         LEARNER_TEXT_GAP_ALGORITHM_VERSION,
         PLACEMENT_VERSIONS,
         PROBE_TIE_ALGORITHM_VERSION,
@@ -128,9 +129,10 @@ def test_successor_vocabulary():
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
         PROBE_TIE_ALGORITHM_VERSION, LEARNER_TEXT_GAP_ALGORITHM_VERSION, PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
-        VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION,
+        VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
     }
-    assert LATEST_ALGORITHM_VERSION == DECIDER_TIER1_ALGORITHM_VERSION
+    # Router R2a's staged frame (mvp-0.23) follows them all.
+    assert LATEST_ALGORITHM_VERSION == ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

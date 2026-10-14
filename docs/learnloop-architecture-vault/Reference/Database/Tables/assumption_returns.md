@@ -3,13 +3,13 @@ title: "assumption_returns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assumption_returns"
   - "table assumption_returns"
-schema_head: 201
+schema_head: 202
 table_name: "assumption_returns"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/172_placement_assumptions.sql"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/stores/placement.py"
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/placement/report.py"
@@ -85,6 +86,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
 

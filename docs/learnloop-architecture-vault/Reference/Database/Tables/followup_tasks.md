@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 201
+schema_head: 202
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -27,8 +27,8 @@ source_paths:
   - "src/learnloop_sidecar/handlers/knowledge_map.py"
   - "src/learnloop_sidecar/handlers/sessions.py"
   - "src/learnloop/content/authoring/item_authoring.py"
+  - "src/learnloop/daily_plan/staged_frame.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
-  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/content/authoring/item_authoring.py`
+- `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/followups.py`
@@ -149,6 +150,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_remediation_cold_retry.py`
+- `tests/test_router_r2a_serving.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`

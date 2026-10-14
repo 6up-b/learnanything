@@ -3,13 +3,13 @@ title: "source_render_block_crosswalk"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_block_crosswalk"
   - "table source_render_block_crosswalk"
-schema_head: 201
+schema_head: 202
 table_name: "source_render_block_crosswalk"
 table_role: "raw_ledger"
 functionality_status: "active"

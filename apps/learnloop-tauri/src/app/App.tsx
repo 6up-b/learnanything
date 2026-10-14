@@ -45,6 +45,7 @@ import { planStepAction, readerTargetForReading, useDailyPlan } from "./dailyPla
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
 import type { PlanReadingDto, PlanStepDto } from "../api/dto";
 import {
+  planPresentationForServe,
   proposalOriginForServe,
   schedulerCandidateForServe,
   type PracticeOffer,
@@ -509,7 +510,11 @@ export function App() {
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
       const action = planStepAction(firstStep, { viaBlockLine: false });
       if (action.type === "practice") {
-        setPracticeOffer({ itemId: action.practiceItemId, candidateId: action.schedulerCandidateId });
+        setPracticeOffer({
+          itemId: action.practiceItemId,
+          candidateId: action.schedulerCandidateId,
+          presentationId: action.planPresentationId
+        });
         setPrimedRetry(false);
         setRedoContext(null);
         setPracticeItemId(action.practiceItemId);
@@ -544,8 +549,18 @@ export function App() {
     setTodayStage("queue");
   }
 
-  function openPractice(id: string, schedulerCandidateId?: string | null, proposalOrigin?: ProposalOrigin | null) {
-    setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null, proposalOrigin: proposalOrigin ?? null });
+  function openPractice(
+    id: string,
+    schedulerCandidateId?: string | null,
+    proposalOrigin?: ProposalOrigin | null,
+    planPresentationId?: string | null
+  ) {
+    setPracticeOffer({
+      itemId: id,
+      candidateId: schedulerCandidateId ?? null,
+      proposalOrigin: proposalOrigin ?? null,
+      presentationId: planPresentationId ?? null
+    });
     setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
       setTab("start");
@@ -627,7 +642,7 @@ export function App() {
   function routePlanStep(step: PlanStepDto | null) {
     const action = planStepAction(step);
     if (action.type === "practice") {
-      openPractice(action.practiceItemId, action.schedulerCandidateId);
+      openPractice(action.practiceItemId, action.schedulerCandidateId, null, action.planPresentationId);
       return;
     }
     if (action.type === "reader") {
@@ -1148,6 +1163,13 @@ export function App() {
               primedRetry,
               guidedRedo: redoContext !== null,
               restoredSubmissionId: restored.submissionId
+            })}
+            planPresentationId={planPresentationForServe({
+              offer: practiceOffer,
+              practiceItemId,
+              primedRetry,
+              guidedRedo: redoContext !== null,
+              restoredPresentationId: restored.planPresentationId
             })}
             primed={primedRetry}
             redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}

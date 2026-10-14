@@ -243,7 +243,9 @@ def test_the_replayer_rebuilds_router_outcomes_deterministically_with_no_model_c
     with sqlite3.connect(paths.sqlite_path) as connection:
         connection.row_factory = sqlite3.Row
         row = connection.execute("SELECT * FROM router_outcomes").fetchone()
-    assert row["action_status"] == "taken" and row["outcome_version"] == "router_outcomes_v1"
+    assert row["action_status"] == "taken" and row["outcome_version"] == "router_outcomes_v2"
+    # Router R2a: the offer's head is bound through its scheduler candidate.
+    assert row["action_binding"] == "candidate"
     # The decision ledger is never touched by replay.
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 1

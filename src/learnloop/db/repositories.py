@@ -794,6 +794,33 @@ class _PinnedConnection:
             self._connection.isolation_level = ""
 
 
+
+def _bindable_plan_presentation(connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> str | None:
+    """Router R2a: the ``plan_presentation_id`` an attempt may record, or None.
+
+    The presentation must exist, be of the attempt's item, and not be answered
+    by another attempt (the partial unique index would otherwise refuse the
+    whole row). A refused id is logged and dropped: the attempt records
+    unbound, and its outcome falls back to the labelled session rule."""
+
+    presentation_id = attempt.get("plan_presentation_id")
+    if not presentation_id:
+        return None
+    from learnloop.db.stores.plan_presentations import bindable_presentation
+
+    try:
+        bound, why = bindable_presentation(
+            connection, str(presentation_id), practice_item_id=str(attempt["practice_item_id"]),
+            attempt_id=str(attempt["id"]),
+        )
+    except sqlite3.Error:
+        bound, why = None, "presentation_unreadable"
+    if bound is None:
+        logging.getLogger(__name__).warning(
+            "router R2a: attempt %s recorded without plan presentation %s (%s)", attempt.get("id"), presentation_id, why,
+        )
+    return bound
+
 class Repository(
     IngestQueueStoreMixin,
     AttemptCompletionStoreMixin,
@@ -17611,6 +17638,13 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
+        presentation_id = _bindable_plan_presentation(connection, attempt)
+        if presentation_id is not None:
+            # Router R2a (migration 202): the plan presentation this attempt
+            # answers. Checked in this transaction; a wrong or consumed id
+            # leaves the attempt unbound (binding never fails a submit).
+            columns.append("plan_presentation_id")
+            values.append(presentation_id)
         connection.execute(
             f"INSERT INTO practice_attempts({', '.join(columns)}) "
             f"VALUES ({', '.join('?' for _ in columns)})",

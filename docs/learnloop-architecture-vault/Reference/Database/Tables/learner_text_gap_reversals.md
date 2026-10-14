@@ -3,13 +3,13 @@ title: "learner_text_gap_reversals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_reversals"
   - "table learner_text_gap_reversals"
-schema_head: 201
+schema_head: 202
 table_name: "learner_text_gap_reversals"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/182_learner_text_gaps.sql"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/field/signals.py"
 tags:
@@ -87,6 +88,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/field/signals.py`
 

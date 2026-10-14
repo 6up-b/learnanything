@@ -165,6 +165,11 @@ class AttemptDraft:
     # Required for qualifying diagnostic observations; an invalid or already
     # consumed reference downgrades the attempt to incidental evidence.
     probe_presentation_id: str | None = None
+    # Router R2a: the daily-plan presentation this submission answers (the
+    # plan step's ``presentation_id``). Attempt metadata, never evidence: it
+    # binds the block's router decision to this attempt. A wrong or consumed
+    # id is dropped at insert and the attempt records unbound.
+    plan_presentation_id: str | None = None
     # Probe redesign §7.1: the learner's committed answer confidence (1-5).
     # Logged-only observation feature — never consumed by grading or scheduling.
     answer_confidence: int | None = None
@@ -1298,6 +1303,7 @@ def replay_existing_attempt(
         latency_seconds=attempt.get("latency_seconds"),
         session_id=attempt.get("session_id"),
         probe_presentation_id=attempt.get("probe_presentation_id"),
+        plan_presentation_id=attempt.get("plan_presentation_id"),
         answer_confidence=attempt.get("answer_confidence"),
         assessment_contract_version_id=next(
             (
@@ -3702,6 +3708,7 @@ def _compute_resolved_grade_application(
         "session_id": draft.session_id,
         "primed": draft.primed,
         "probe_presentation_id": draft.probe_presentation_id,
+        "plan_presentation_id": draft.plan_presentation_id,
         "answer_confidence": draft.answer_confidence,
         "submission_id": draft.submission_id,
         "scheduler_candidate_id": draft.scheduler_candidate_id,

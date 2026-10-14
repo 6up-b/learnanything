@@ -108,12 +108,40 @@ def _constraint_or_evsi_veto(result: sp.DecisionResult) -> str | None:
         return None
     if result.stop_reason in _EVSI_VETO_REASONS:
         return f"evsi:{result.stop_reason}"
-    if result.stop_reason == A.STOP_NO_FEASIBLE_ACTIVITY and result.feasibility is not None:
-        for _cand, feas in result.feasibility.excluded:
-            for reason in feas.exclusions:
-                if reason.constraint_key != sp.OWNERSHIP_REFUSAL_KEY:
-                    return f"constraint:{reason.constraint_key}:{reason.reason}"
+    if result.stop_reason == A.STOP_NO_FEASIBLE_ACTIVITY:
+        for _ref, exclusions in _excluded_by_candidate(result):
+            for constraint_key, reason in exclusions:
+                if constraint_key != sp.OWNERSHIP_REFUSAL_KEY:
+                    return f"constraint:{constraint_key}:{reason}"
     return None
+
+
+def _excluded_by_candidate(result: sp.DecisionResult) -> list[tuple[str, list[tuple[str, str]]]]:
+    """The decision's excluded candidates with their (constraint, reason) pairs, in
+    candidate-ref order (each candidate's own reasons in the engine's order).
+
+    A fresh decision carries its in-memory feasibility report. A STANDING decision
+    (a retry on the same receipt key, which ``staged_policy.decide`` reloads from its
+    row) carries only the persisted trace, whose ``exclusions`` map is the same
+    report serialized: the veto is read back from it, so a retried veto stays a veto
+    (router R2a review F1). Both forms are read in candidate-ref order, so the named
+    reason is the same on the first call and on every retry."""
+
+    if result.feasibility is not None:
+        pairs = [
+            (cand.candidate_ref, [(e.constraint_key, e.reason) for e in feas.exclusions])
+            for cand, feas in result.feasibility.excluded
+        ]
+    else:
+        persisted = (result.trace or {}).get("exclusions") or {}
+        pairs = [
+            (str(ref), [
+                (str(e.get("constraint_key")), str(e.get("reason")))
+                for e in (reasons or []) if isinstance(e, Mapping)
+            ])
+            for ref, reasons in persisted.items()
+        ]
+    return sorted(pairs, key=lambda pair: pair[0])
 
 
 def _run_signal_hints(run: Mapping[str, Any], state: GPR.RunState) -> dict[str, Any]:
@@ -140,6 +168,8 @@ def staged_next_action(
     live: bool | None = None,
     receipt_key: str | None = None,
     clock: Clock | None = None,
+    requested_to_state: str | None = None,
+    requested_reason: str | None = None,
 ) -> LiveNextAction:
     """Consult the staged policy LIVE for a P2 run's next action (design §C step 3).
 
@@ -147,12 +177,20 @@ def staged_next_action(
     staged-owned and the cutover gate is on, and (b) the staged policy names a
     constraint/EVSI reason -- in which case it vetoes with that reason. The staged
     decision is always persisted ``mode='live'`` for an owned run so the whole choice
-    replays from events."""
+    replays from events.
+
+    Router R2a (D13, owner Q10): ``requested_to_state`` is what a client asked for
+    (``golden_path.advance``). When it is not the canonical successor it is the
+    learner's explicit choice: the staged policy is consulted with
+    ``explicit_choice`` (logged as a learner pick, no propensity) and the requested
+    state stands (``authority='learner_choice'``; the learner's choice wins, P4 §4.1).
+    For a run the staged policy does not own, the request stands as it always did."""
 
     state = GPR.project_run(repository, run_id)
     canonical = state.next_action
     run = repository.golden_path_run(run_id)
     commitment_id = run.get("commitment_id") if run else None
+    explicit = requested_to_state is not None and requested_to_state != canonical.to_state
 
     gate_on = STAGED_POLICY_LIVE_FOR_P2 if live is None else live
     if (
@@ -160,6 +198,11 @@ def staged_next_action(
         or commitment_id is None
         or not own.is_staged_owned(repository, commitment_id)
     ):
+        if explicit:
+            return LiveNextAction(
+                to_state=requested_to_state, reason=requested_reason or "requested",
+                terminal=requested_to_state in GPR.TERMINAL_STATES, authority="legacy", diverged=False,
+            )
         return LiveNextAction(
             to_state=canonical.to_state, reason=canonical.reason, terminal=canonical.terminal,
             authority="legacy", diverged=False,
@@ -182,9 +225,20 @@ def staged_next_action(
     result = sp.decide(
         vault, repository, session, signals=signals, mode="live",
         owned_item_refs=owned_refs, receipt_key=receipt_key, clock=clock,
+        explicit_choice=(
+            {"action": A.PRACTICE, "commitment_id": commitment_id, "to_state": requested_to_state}
+            if explicit else None
+        ),
     )
-    veto = _constraint_or_evsi_veto(result)
-    if veto is not None:
+    veto = None if explicit else _constraint_or_evsi_veto(result)
+    if explicit:
+        # The learner's own choice wins (P4 §4.1); the staged decision is logged.
+        action = LiveNextAction(
+            to_state=requested_to_state, reason=requested_reason or "the learner's choice",
+            terminal=requested_to_state in GPR.TERMINAL_STATES, authority="learner_choice", diverged=True,
+            staged_decision_id=result.decision_id, staged_action=result.action,
+        )
+    elif veto is not None:
         action = LiveNextAction(
             to_state=None, reason=f"staged veto ({veto})", terminal=False,
             authority="staged_veto", diverged=True, staged_decision_id=result.decision_id,
@@ -272,16 +326,24 @@ def advance_live(
     idempotency_key: str,
     live: bool | None = None,
     clock: Clock | None = None,
+    requested_to_state: str | None = None,
+    requested_reason: str | None = None,
     **extra: Any,
 ) -> tuple[GPR.AdvanceResult | None, LiveNextAction]:
     """The LIVE P2 next-action path: consult the staged policy, then advance the run to
     the resolved successor. On a staged veto no transition is appended (the run defers)
     and ``(None, action)`` is returned; the caller replans (design §C: the loser
-    waits/rotates/stops, never trades the constraint)."""
+    waits/rotates/stops, never trades the constraint).
+
+    Router R2a (D13): ``golden_path.advance`` calls this with the client's request
+    (``requested_to_state`` / ``requested_reason``; see :func:`staged_next_action`).
+    When the resolved state is the one requested, the client's reason is recorded on
+    the transition, as the direct call recorded it."""
 
     action = staged_next_action(
         repository, run_id, vault=vault, session=session, live=live,
         receipt_key=f"live_next:{run_id}:{idempotency_key}", clock=clock,
+        requested_to_state=requested_to_state, requested_reason=requested_reason,
     )
     if action.to_state is None:
         # Staged veto: no run transition is appended (the run defers, design §C). Persist a
@@ -307,8 +369,9 @@ def advance_live(
             clock=clock,
         )
         return None, action
+    reason = requested_reason if requested_reason and requested_to_state == action.to_state else action.reason
     result = GPR.advance(
-        repository, run_id, to_state=action.to_state, reason=action.reason,
+        repository, run_id, to_state=action.to_state, reason=reason,
         idempotency_key=idempotency_key, clock=clock, **extra,
     )
     return result, action

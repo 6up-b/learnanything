@@ -258,23 +258,55 @@ class AdvanceInput(ParamsModel):
 
 @method("golden_path.advance", AdvanceInput)
 def golden_path_advance(ctx: SidecarContext, params: AdvanceInput) -> dict[str, Any]:
-    _vault, repository = ctx.require_vault()
+    """Advance a P2 run. Router R2a (D13): at ``mvp-0.23`` with ``router.enabled``
+    the request goes through the P2 bridge (``controller_cutover.advance_live``):
+    the staged policy is consulted for a staged-owned run and logged, a
+    requested state other than the canonical successor is the learner's own
+    choice, and a staged veto defers the run (no transition) with one plain
+    sentence. Otherwise (and for a run the staged policy does not own) the run
+    advances exactly as requested."""
+
+    vault, repository = ctx.require_vault()
+    from learnloop.daily_plan.policy import bridge_active
+
+    bridge: dict[str, Any] | None = None
     try:
-        result = GPR.advance(
-            repository,
-            params.run_id,
-            to_state=params.to_state,
-            reason=params.reason,
-            idempotency_key=params.idempotency_key,
-            expected_head_event_id=params.expected_head_event_id,
-            successor_milestone=params.successor_milestone,
-        )
+        if bridge_active(vault):
+            from learnloop.router.why import deferral_sentence
+            from learnloop.scheduling import controller_cutover as cut
+
+            result, action = cut.advance_live(
+                repository,
+                params.run_id,
+                vault=vault,
+                idempotency_key=params.idempotency_key,
+                requested_to_state=params.to_state,
+                requested_reason=params.reason,
+                expected_head_event_id=params.expected_head_event_id,
+                successor_milestone=params.successor_milestone,
+            )
+            bridge = action.as_dict()
+            if result is None:
+                bridge["deferred"] = {"veto_reason": action.veto_reason, "message": deferral_sentence(action.veto_reason)}
+        else:
+            result = GPR.advance(
+                repository,
+                params.run_id,
+                to_state=params.to_state,
+                reason=params.reason,
+                idempotency_key=params.idempotency_key,
+                expected_head_event_id=params.expected_head_event_id,
+                successor_milestone=params.successor_milestone,
+            )
     except GPR.IllegalTransition as exc:
         raise SidecarError("illegal_transition", str(exc)) from exc
     except GPR.StaleRunHead as exc:
         raise SidecarError("stale_run_head", str(exc), retryable=True) from exc
     state = GPR.project_run(repository, params.run_id)
-    return versioned({"result": result.as_dict(), "state": _run_state_dto(state)})
+    payload: dict[str, Any] = {"result": result.as_dict() if result is not None else None, "state": _run_state_dto(state)}
+    if bridge is not None:
+        payload["bridge"] = bridge
+    return versioned(payload)
 
 
 def _run_state_dto(state: GPR.RunState) -> dict[str, Any]:

@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 201
+schema_head: 202
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,8 +23,8 @@ source_paths:
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/sources/exam_material.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/goals/exam_session.py"
-  - "src/learnloop/scheduling/controller_ownership.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/sources/exam_material.py`
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/goals/exam_pool.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/scheduling/controller_ownership.py`
@@ -119,6 +120,7 @@ Indexes and uniqueness:
 - `tests/test_practice_index_admission.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_quick_check.py`
+- `tests/test_router_r2a_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

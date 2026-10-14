@@ -95,6 +95,7 @@ export function PracticeScreen({
   practiceItemId,
   schedulerCandidateId = null,
   proposalOrigin = null,
+  planPresentationId = null,
   gradingReady,
   gradingProvider,
   restoredAnswer,
@@ -120,6 +121,8 @@ export function PracticeScreen({
   session: SessionSnapshot;
   practiceItemId: string;
   schedulerCandidateId?: string | null;
+  /** Router R2a: the daily-plan presentation this serve answers (sent on submit). */
+  planPresentationId?: string | null;
   /** The proposal a plan-off pick of this item came from: this serve records
    *  the pick's delivery (canonical sources, Codex re-review F10). */
   proposalOrigin?: { proposalId: string; importId: string | null } | null;
@@ -155,6 +158,8 @@ export function PracticeScreen({
     hintsUsed: number;
     submissionId: string;
     declaredStuck: boolean;
+    /** Router R2a (review F5): restored with the draft. */
+    planPresentationId: string | null;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -228,7 +233,10 @@ export function PracticeScreen({
     hintsUsed,
     submissionId: submissionId.current,
     schedulerCandidateId,
-    declaredStuck: stuck
+    declaredStuck: stuck,
+    // Router R2a (review F5): saved with the draft so a draft resumed after a
+    // restart still submits bound to its plan presentation.
+    planPresentationId
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -322,10 +330,11 @@ export function PracticeScreen({
       hintsUsed,
       submissionId: submissionId.current,
       schedulerCandidateId,
-      declaredStuck: stuck
+      declaredStuck: stuck,
+      planPresentationId
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -496,8 +505,10 @@ export function PracticeScreen({
       // switch then fails, App restores this item from the mirror; if it
       // succeeds, App drops the mirror with the rest of the old vault's state.
       if (!draftSavingDisabled()) {
-        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck } = latestDraft.current;
-        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck });
+        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
+                planPresentationId: presentation } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
+                       planPresentationId: presentation });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -717,6 +728,7 @@ export function PracticeScreen({
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
         schedulerCandidateId,
+        planPresentationId,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade:
@@ -770,7 +782,8 @@ export function PracticeScreen({
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
-        schedulerCandidateId
+        schedulerCandidateId,
+        planPresentationId
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;

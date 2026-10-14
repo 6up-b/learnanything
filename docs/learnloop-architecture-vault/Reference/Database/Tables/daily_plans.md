@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f730ad6ae631edca8fc2397386823132e6f5cf8f"
-source_commit_timestamp: "2026-10-14T00:49:43-04:00"
+source_commit: "c9458a827f505063431b19b887aaa6308f9f1209"
+source_commit_timestamp: "2026-10-14T00:56:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 201
+schema_head: 202
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/daily_plan/estimates.py"
   - "src/learnloop/daily_plan/lanes.py"
   - "src/learnloop/daily_plan/records.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/daily_plan_upgrade.py"
   - "src/learnloop/db/stores/daily_plans.py"
-  - "src/learnloop/field/outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_replay.py`
 - `tests/test_mvp014_upgrade.py`
 - `tests/test_reading_step_switch.py`
+- `tests/test_router_card.py`
 - `tests/test_voi_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

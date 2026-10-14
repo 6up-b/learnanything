@@ -62,7 +62,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_201"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_202"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 LEARNER_GAP_TABLES = {
     "learner_text_gaps",
@@ -82,10 +82,11 @@ def test_learner_text_gap_successor_keeps_every_predecessor():
     # value-of-information stopping (mvp-0.21, tests/test_mvp021_upgrade.py)
     # and Tier 1's Decider judgments (mvp-0.22, the latest successor,
     # tests/test_mvp022_upgrade.py) followed it and keep the sooner check.
-    assert SUCCESSOR_CHAIN[-7] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
+    # Router R2a's staged frame (mvp-0.23) is now the latest.
+    assert SUCCESSOR_CHAIN[-8] == LEARNER_TEXT_GAP_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.23"
     assert LEARNER_TEXT_GAP_VERSIONS == frozenset(
-        {"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22"}
+        {"mvp-0.16", "mvp-0.17", "mvp-0.18", "mvp-0.19", "mvp-0.20", "mvp-0.21", "mvp-0.22", "mvp-0.23"}
     )
     # The chain is linear: mvp-0.16 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties

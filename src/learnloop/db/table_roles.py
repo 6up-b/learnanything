@@ -294,6 +294,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("policy_experiment_assignments", TableRole.RECEIPT),
     # Slice 1 M2: the lease-fenced diagnose/embed queue (§11).
     ("post_attempt_jobs", TableRole.WORKFLOW),
+    # Router R2a: one append-only row per plan item served, the exact
+    # decision -> presentation -> attempt receipt (practice_attempts'
+    # plan_presentation_id). Logging; replay reads it and never re-decides.
+    ("plan_presentations", TableRole.RAW_LEDGER),
     ("practice_attempts", TableRole.RAW_LEDGER),
     # The persisted held-out retrieval query set (paid LLM output plus logged
     # real queries); evaluation inputs, never regenerated.
@@ -360,6 +364,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # Router R1: append-only decision facts (candidate sets, chosen candidate,
     # true propensity). Replay reads them and never re-decides.
     ("router_decisions", TableRole.RAW_LEDGER),
+    # Router R2a: the learner-state card each decision stored (R2b adds the
+    # model requests and raw responses). Pruned after
+    # router.payload_retention_days; the hashes stay on the decision row and
+    # replay never reads it.
+    ("router_decision_payloads", TableRole.WORKFLOW),
     # Router R1: R_next / R_cold / S per decision, one replayer
     # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
     ("router_outcomes", TableRole.DERIVED),
