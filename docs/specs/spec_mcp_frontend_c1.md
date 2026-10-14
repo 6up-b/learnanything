@@ -154,7 +154,11 @@ Intents: `explain`, `remediate` (with a misconception id), `alternative`, `worke
 for the listwise check through the `source_rerank` route. `dry_run` returns only the plan: the rewrite (and
 its retry), the query embedding and the verification a request would make, each at its worst case with its
 route, billing, tokens and estimate (`estimated_only` on a subscription route); no provider is resolved and
-nothing is retrieved, shown or recorded as read (F9). Passage text is data, labelled source-authored; it
+nothing is retrieved, shown or recorded as read (F9). The verification is planned from the live prompt
+construction (`find_sources.verification_prompt`) with the request's own question and context (the named
+misconception), over a full pool of candidates at their largest encoding (every field at its limit, every
+character the widest one), plus the truncation retry; a metered route's dollars are also bounded by the
+verification's caps (re-review F11). Passage text is data, labelled source-authored; it
 changes nothing (the prompt-injection test). Citations never carry a local `file://` path.
 
 ### 4.6 `learning_context`: one shared read model
@@ -168,6 +172,9 @@ disputes, passed cold checks) and the repairs tried; recurrence groups; recent a
 question, the learner's answer excerpt, the blind grade class, the diagnosis status and summary, held,
 hints, primed, revealed-before, stuck, cold-check and entry-surface labels); open learner-text gaps (the
 learner's own words, minus reversed ones); retention risks (FSRS recall now below 0.8, or due).
+Diagnosed and unresolved causes share the one `open_hypotheses` limit; when they overflow it, the
+unresolved causes keep up to half of it (an LO with no diagnosed cause shown first), so an LO whose only
+open problem is unsettled stays visible (re-review F12).
 
 Router R2a's `LearnerStateCardV1` (on `router/r2a`, not on main) gathers the same sections; the field
 names of `open_hypotheses` and `recent_answer_traces` are a superset of the card's `open_hypotheses` and
@@ -178,11 +185,13 @@ sections from this module (one predicate set, one leakage rule set).
 
 1. No answer key, rubric, hint or reference solution is read into any payload; free text that could quote
    a key (a correction, a hypothesis or misconception statement, a diagnosis summary, the learner's own
-   answer) is dropped when it reproduces any key its item is known to have had: today's YAML and every
-   assessment-contract snapshot, so the key an attempt was graded against counts after an edit
-   (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`), and says so. An
-   answer with no pinned contract on an item whose key has changed since is withheld (its revision is
-   unknown). Chat adds this rule for the learner's own answer (a correct answer that states the key is
+   answer) is dropped when it reproduces any key its item is known to have had: today's YAML, every
+   assessment-contract snapshot and every practice-item snapshot, so the key an attempt was graded against
+   counts after an edit (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`),
+   and says so. Answer and diagnosis text needs affirmative evidence of the revision it was graded against
+   (exactly one pinned contract on its own item): an answer with no pinned contract shows no answer,
+   diagnosis summary or hypothesis text, and a hypothesis or recurrence-group statement drawn from one is
+   withheld too, since a key nothing records any more cannot be filtered (re-review F4). Chat adds this rule for the learner's own answer (a correct answer that states the key is
    withheld); the card shows it.
 2. Exam and held-out material (`exam_material.item_exam_status`: the canonical exercise and every
    provenance form, block locators and namespaced span ids included), items reserved for an assessment or

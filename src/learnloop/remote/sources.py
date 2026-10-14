@@ -37,8 +37,10 @@ on it exactly as in the Reader.
 **Dry run** (:func:`plan_passages`): the paid steps a request would make (the
 query rewrite and its retry, the query embedding, the listwise verification),
 each at its worst case, with its route, billing and estimate (a subscription
-route's tokens and dollars are ``estimated_only``). No provider is resolved,
-nothing is retrieved, shown or recorded as read.
+route's tokens and dollars are ``estimated_only``). The verification is
+estimated from the live prompt construction with the request's own question
+and context, over a full pool at its largest encoding. No provider is
+resolved, nothing is retrieved, shown or recorded as read.
 """
 
 from __future__ import annotations
@@ -270,12 +272,23 @@ def _shown(vault: Any, repository: Any, hits: Any, withheld: Any, *, intent: str
 # -- dry run -------------------------------------------------------------------------
 
 
-def _plan_verification(vault: Any, query: str, *, intent: str, verify: bool, limit: int) -> dict[str, Any]:
-    """The listwise verification a request would make, at its worst case (a
-    full pool of the longest candidates), or why it would not run."""
+def _plan_verification(vault: Any, repository: Any, query: str, *, intent: str, policy: str, verify: bool,
+                       limit: int, targets: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """The listwise verification a request would make, at its worst case, or
+    why it would not run.
+
+    The prompt is the live one (``find_sources.verification_prompt``) with this
+    request's question and context (the misconception a remediation names, the
+    resolution ``propose_sources`` makes; the chat names no facet, excluded span
+    or learner work), over a full pool of candidates at their largest encoding
+    (every field at its limit, every character the widest one,
+    ``find_sources.widest_candidates``): no pool the search can return makes a
+    larger request. The retry is the truncation retry at twice the output
+    budget. A metered route's dollars are also bounded by the verification's
+    caps, which refuse any attempt past them."""
 
     from learnloop.ai.spend import SpendBudget
-    from learnloop.ai.transport import render_structured_prompt
+    from learnloop.instructional.sources import resolve_misconceptions
     from learnloop.practice_index import paid
     from learnloop.practice_index.listwise import route_skip, task_output_tokens
     from learnloop.source_retrieval import find_sources as service
@@ -293,12 +306,10 @@ def _plan_verification(vault: Any, query: str, *, intent: str, verify: bool, lim
     if skip is not None:
         return {**base, "status": skip, "calls": 0, "estimated_usd": 0.0, "worst_case_marginal_usd": 0.0}
     task = service.intent_task(intent)
-    candidates = [{"ref": f"p{index}", "source": "x" * 120, "section": "x" * 200,
-                   "passage": "x" * service.PASSAGE_CHARS} for index in range(1, service.VERIFY_POOL + 1)]
-    instructions = getattr(service, "_INSTRUCTIONS", {}).get(intent, "")
-    prompt = render_structured_prompt("Source intent fit", task.prompt_version, {
-        "instructions": instructions + " Use only these verdicts: " + ", ".join(service.INTENT_VERDICTS[intent]),
-        "context": {"question": query[:2000], "pick_at_most": int(limit), "candidates": candidates}})
+    misconceptions = resolve_misconceptions(repository, targets, item=None) if intent == "remediate" else []
+    prompt = service.verification_prompt(
+        intent, service.verification_question(query, intent, misconceptions), service.widest_candidates(),
+        limit, service.verification_context(intent, policy=policy, misconceptions=misconceptions))
     output = task_output_tokens(task, route)
     tokens = paid.estimated_call_tokens(prompt, task.result_model, output)
     calls = paid.PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price, repository=None,
@@ -309,10 +320,20 @@ def _plan_verification(vault: Any, query: str, *, intent: str, verify: bool, lim
     retry = calls.plan([tokens + output])
     worst = (None if view["marginal_usd"] is None or retry["marginal_usd"] is None
              else view["marginal_usd"] + retry["marginal_usd"])
+    bounded = False
+    if worst is not None and route.billing != "subscription" and price is not None:
+        # The verification's caps refuse any attempt that would pass them.
+        ceilings = [caps.max_total_tokens * price / 1_000_000]
+        if caps.max_estimated_usd is not None:
+            ceilings.append(float(caps.max_estimated_usd))
+        if min(ceilings) < worst:
+            worst, bounded = min(ceilings), True
     return {**base, "status": "would_call", "calls": 1, "max_calls_with_retry": caps.max_calls,
             "estimated_tokens": view["estimated_tokens"], "estimated_usd": view["estimated_usd"],
             "marginal_usd": view["marginal_usd"], "worst_case_marginal_usd": worst,
-            "reasoning_effort": route.reasoning_effort}
+            "worst_case_bounded_by_caps": bounded, "reasoning_effort": route.reasoning_effort,
+            "estimate_basis": ("the live prompt with this request's question and context over a full pool, every "
+                               "candidate at its longest and every character at its widest encoding")}
 
 
 def plan_passages(
@@ -339,10 +360,11 @@ def plan_passages(
     from learnloop.source_retrieval.policy import derive_policy
 
     budget = max(1_000, min(int(char_budget), MAX_CHAR_BUDGET))
-    los, unknown_los, _targets = _scope(vault, repository, intent, learning_object_ids, misconception_id)
+    los, unknown_los, targets = _scope(vault, repository, intent, learning_object_ids, misconception_id)
     policy, derived_from = derive_policy(caller_for(repository, "agent", "dry_run", learning_object_ids=los))
     search = plan_library_search(vault, repository, query=query, deep=True)
-    verification = _plan_verification(vault, query, intent=intent, verify=verify, limit=max(1, min(int(limit), 12)))
+    verification = _plan_verification(vault, repository, query, intent=intent, policy=policy, verify=verify,
+                                      limit=max(1, min(int(limit), 12)), targets=targets)
     rewrite = search.get("rewrite") or {"status": search.get("status"), "calls": 0}
     embedding = search.get("query_embedding") or {"status": search.get("status"), "calls": 0}
     steps = (rewrite, embedding, verification)

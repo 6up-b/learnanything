@@ -17,18 +17,31 @@
   provider, no passage, no exposure;
 * F10: a call the SDK rejects (invalid arguments, unknown tool) is recorded
   once, and a successful call still once.
+
+The re-review (``26dc3da33..e0fdfef36``):
+
+* F4 (reopened): an answer with no pinned contract shows no answer or
+  diagnosis text, even when no key change is recorded (absence of a recorded
+  change does not establish the revision it was graded against);
+* F11: the dry run's verification plan bounds the live request it plans: the
+  same prompt construction and request context, every character at its widest
+  encoding, and the retry;
+* F12: diagnosed and unresolved causes share the one hypotheses limit, and an
+  LO with only unresolved causes keeps its entry.
 """
 
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import anyio
 import pytest
 from mcp import Client
 
-from learnloop.learner_context import WITHHELD_UNKNOWN_ITEM, WITHHELD_UNREADABLE
+from learnloop.learner_context import WITHHELD_UNKNOWN_ITEM, WITHHELD_UNREADABLE, ContextLimits, learning_context
 from learnloop.remote.runtime import RemoteRuntime
+from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 from learnloop_mcp.server import build_server
 from tests.helpers import NOW_ISO
@@ -45,6 +58,7 @@ from tests.mcp_world import (
     payload_text,
 )
 from tests.practice_index_fakes import _item
+from tests.source_service_fakes import set_config
 
 EXAM_QUERY = "compute the eigenvalues of the matrix and justify them"
 SECTIONS = ("misconceptions", "misconception_candidates", "open_hypotheses", "recurrence_groups",
@@ -157,7 +171,26 @@ def test_a_vault_that_changes_while_it_loads_fails_closed(world, runtime, server
     assert traces["att_own"]["answer"] == OWN_ANSWER
 
 
+def _pin(repository, attempt_id: str, item_id: str, prompt: str, key: str) -> None:
+    """Grade ``attempt_id`` against one contract of its item, as the desktop does."""
+
+    import json
+
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+            "schema_version, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+            (f"acv_{attempt_id}", item_id, f"h_{attempt_id}", json.dumps({"prompt": prompt, "expected_answer": key}),
+             NOW_ISO))
+        connection.execute(
+            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id) VALUES (?, ?, 'correct', 0, 1, ?, ?)",
+            (f"ge_{attempt_id}", attempt_id, NOW_ISO, f"acv_{attempt_id}"))
+        connection.commit()
+
+
 def test_an_unreadable_practice_item_withholds_its_own_answers_only(world, runtime, server):
+    _pin(world.repository, "att_held", "pi_held", "Prove that det(AB) = det(A) det(B).", "multiplicativity proof")
     path = world.paths.practice_item_path("linear-algebra", "pi_own")
     path.write_text("id: [unclosed\n", encoding="utf-8")
     _changed(path)
@@ -371,3 +404,146 @@ def test_calls_the_sdk_rejects_are_recorded_once(world, server):
             for event in _events(world.repository)]
     assert rows == [("find_sources", "error", "invalid_arguments"), ("unknown_tool", "error", "unknown_tool"),
                     ("status", "ok", None)]
+
+
+# -- re-review F4 (reopened) ---------------------------------------------------------------
+
+#: The key an item had when an older answer (graded before contracts were pinned)
+#: was graded: no contract, snapshot or YAML records it any more.
+LEGACY_KEY = "LEGACY KEY 8841 a row swap negates the volume"
+
+
+def test_an_unpinned_answer_shows_no_text_even_when_no_key_change_is_recorded(world):
+    payload = _item("pi_rewritten", "lo_matrices", "What does a row swap do to det (rewritten)?",
+                    ["facet_determinant"])
+    payload["expected_answer"] = "it multiplies the determinant by minus one"
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_rewritten"), payload)
+    statement = f"Thinks {LEGACY_KEY} only for 2x2 matrices"
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_legacy', 'pi_rewritten', 'lo_matrices', 'short_answer', 'independent_attempt', ?, 1.0, 0, "
+            "'2026-09-19T09:00:00Z', 'old', 'human', 'desktop_practice')", (f"I wrote: {LEGACY_KEY}",))
+        connection.commit()
+    world.repository.append_causal_hypothesis(
+        episode_key="ep_legacy", attempt_id="att_legacy", learning_object_id="lo_matrices",
+        cause_scope="learner_state", statement=statement, statement_normalized=statement.lower(), status="candidate")
+    world.repository.insert_attempt_diagnosis(
+        attempt_id="att_legacy", diagnosis_prompt_version="test", mode="live", history_mode="full",
+        status="completed", proposal={"analysis_md": f"The answer restates {LEGACY_KEY} exactly."},
+        causal_view=None, validation_report=None, receipt=None)
+    peer = "Mixes up swapping rows with scaling one"
+    world.repository.append_causal_hypothesis(
+        episode_key="ep_legacy_peer", attempt_id="att_own", learning_object_id="lo_matrices",
+        cause_scope="learner_state", statement=peer, statement_normalized=peer.lower(), status="candidate")
+    with world.repository.connection() as connection:
+        # The group is rooted in the unpinned answer's hypothesis (its peer is a pinned answer's).
+        for episode, text, joined in (("ep_legacy", statement, "root"), ("ep_legacy_peer", peer, "judgment")):
+            connection.execute(
+                "INSERT INTO hypothesis_recurrence_groups(episode_key, statement_normalized, group_key, "
+                "root_episode_key, class_count, joined_by, builder_version) VALUES (?, ?, 'grp_legacy', 'ep_legacy', "
+                "2, ?, 'test')", (episode, text.lower(), joined))
+        connection.commit()
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    context = result.structured_content
+    trace = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_legacy")
+    assert trace["withheld"] is None and trace["result"] == "correct"
+    assert trace["stem"] is None and trace["stem_note"] == "question revision not recorded"
+    assert trace["answer"] is None and "revision" in trace["answer_note"]
+    assert trace["diagnosis"]["status"] == "done" and trace["diagnosis"]["summary"] is None
+    assert "revision" in trace["diagnosis"]["summary_note"] and trace["diagnosis"]["hypotheses"] == []
+    hypothesis = next(h for h in context["open_hypotheses"] if h.get("attempt_id") == "att_legacy")
+    assert hypothesis["statement"] is None and "revision" in hypothesis["statement_note"]
+    group = next(g for g in context["recurrence_groups"] if g["group_key"] == "grp_legacy")
+    assert group["statement"] is None and "revision" in group["statement_note"]
+    assert LEGACY_KEY not in _text(result)
+    # A pinned answer still shows (the learner's own words, its graded question).
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER
+    _no_protected([result])
+
+
+# -- re-review F11 -------------------------------------------------------------------------
+
+PRICE = 10.0
+#: Mostly three-byte characters, with the query's words so the lexical search finds it.
+WIDE_TEXT = "determinant row swap sign " + "行列式交换两行时改变符号，" * 90
+WIDE_TITLE = "線形代数の教科書" * 20
+WIDE_SECTION = "第三章 行列式と行の交換 " * 20
+
+
+def test_the_dry_run_bounds_the_live_verification(world, monkeypatch):
+    from learnloop.practice_index import paid
+    from learnloop.practice_index.listwise import ListwiseOutcome, task_output_tokens
+    from learnloop.source_retrieval import find_sources as service
+    from tests.source_retrieval_fakes import seed_source
+
+    seed_source(world.repository, source_id="src_wide", revision_id="rev_wide", extraction_id="ext_wide",
+                title=WIDE_TITLE, units={"w": (WIDE_SECTION, [(f"{index} {WIDE_TEXT}", 1) for index in range(20)])})
+    set_config(world.paths, "ai.providers.metered", type="openrouter", model="metered/judge")
+    set_config(world.paths, "ai.routing", source_rerank="metered")
+    set_config(world.paths, "source_retrieval", llm_price_per_million=PRICE, rerank_max_cost_usd=50.0)
+    sent: list[tuple[str, Any]] = []
+
+    def judged(vault, repository, task, *, prompt, refs, **_kwargs):
+        sent.append((prompt, task, len(refs)))
+        return ListwiseOutcome("unavailable")
+
+    monkeypatch.setattr(service, "judge_listwise", judged)
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    request = {"query": "determinant row swap sign", "intent": "remediate", "misconception_id": "mc_swap"}
+    dry, _live = _call_all(server, [("find_sources", {**request, "dry_run": True}), ("find_sources", request)])
+    ((prompt, task, judged_count),) = sent
+    assert judged_count == service.VERIFY_POOL
+    route = paid.plan_route(load_vault(world.root), "source_rerank")
+    output = task_output_tokens(task, route)
+    live_tokens = paid.estimated_call_tokens(prompt, task.result_model, output)
+    plan = dry.structured_content["plan"]["verification"]
+    assert plan["status"] == "would_call" and plan["billing"] == "metered"
+    assert plan["estimated_tokens"] >= live_tokens
+    # The live worst case: the call, then a truncation retry at twice the output budget.
+    assert plan["worst_case_marginal_usd"] >= (2 * live_tokens + output) * PRICE / 1_000_000
+
+
+def test_no_character_encodes_wider_than_the_dry_runs_filler():
+    import json
+
+    from learnloop.source_retrieval.find_sources import WIDEST_CHAR
+
+    def width(char: str) -> int:
+        return len(json.dumps(char, ensure_ascii=False).encode("utf-8")) - 2
+
+    sample = [chr(code) for code in range(0x10000) if not 0xD800 <= code <= 0xDFFF]
+    sample += [chr(code) for code in (0x10000, 0x1F600, 0x10FFFF)]
+    assert max(width(char) for char in sample) == width(WIDEST_CHAR) == 6
+
+
+# -- re-review F12 -------------------------------------------------------------------------
+
+
+def test_open_hypotheses_share_one_limit_and_keep_unresolved_only_causes(world):
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_vec', 'pi_independence_1', 'lo_vectors', 'short_answer', 'independent_attempt', "
+            "'they are independent', 0.0, 0, '2026-09-20T09:00:00Z', 'old', 'human', 'desktop_practice')")
+        for factor, attempt in (("ucf_vec", "att_vec"), ("ucf_own", "att_own")):
+            connection.execute(
+                "INSERT INTO unresolved_cause_factors(id, attempt_id, candidate_causes_json, status, "
+                "algorithm_version, created_at, updated_at) VALUES (?, ?, '[]', 'open', 'test', ?, ?)",
+                (factor, attempt, NOW_ISO, NOW_ISO))
+        connection.commit()
+    vault = load_vault(world.root)
+    everything = learning_context(vault, world.repository)["open_hypotheses"]
+    kinds = [entry["kind"] for entry in everything]
+    assert kinds.count("diagnosed_cause") >= 3 and kinds.count("unresolved_cause") == 2
+    for limit in (1, 2, 3, 4):
+        entries = learning_context(vault, world.repository, limits=ContextLimits(hypotheses=limit))["open_hypotheses"]
+        assert len(entries) == limit, limit
+        if limit >= 2:
+            # The LO with only an unresolved cause keeps its entry; diagnosed causes keep theirs.
+            assert any(e["kind"] == "unresolved_cause" and e["learning_object_id"] == "lo_vectors" for e in entries)
+            assert any(e["kind"] == "diagnosed_cause" for e in entries)

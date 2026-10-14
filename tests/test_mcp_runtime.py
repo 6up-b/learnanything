@@ -117,6 +117,15 @@ def test_a_second_process_serves_the_vault_beside_the_desktop_sidecar(tmp_path):
                     "entry_surface) VALUES ('att_desktop', 'pi_svd_define_001', 'lo_svd_definition', "
                     "'short_answer', 'independent_attempt', 'DESKTOP_ANSWER_7710 rotations', 0.0, 0, "
                     "'2026-10-01T09:00:00Z', 'human', 'desktop_practice')")
+                # Graded against one contract (the revision it answered): only then is its text shown.
+                connection.execute(
+                    "INSERT INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+                    "schema_version, created_at) VALUES ('acv_desktop', 'pi_svd_define_001', 'h_desktop', "
+                    "'{\"prompt\": \"Define the SVD.\"}', 1, '2026-10-01T09:00:00Z')")
+                connection.execute(
+                    "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, "
+                    "created_at, assessment_contract_version_id) VALUES ('ge_desktop', 'att_desktop', 'correct', 0, "
+                    "1, '2026-10-01T09:00:00Z', 'acv_desktop')")
                 connection.commit()
             second = await client.call_tool("learning_context", {"learning_object_ids": ["lo_svd_definition"]})
             status = await client.call_tool("status", {})
