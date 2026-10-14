@@ -13,8 +13,9 @@ through mvp-0.19's own upgrade (below mvp-0.12, through T1's, whose same-cause
 guard is advisory unless ``recurrence.require_guard = true``). It changes what
 NEW blind grades persist only: the projection namespace is the same and
 nothing is rewritten (playbook items 1, 3, 4 and 8). Value-of-information
-stopping followed it as mvp-0.21, the latest successor
-(``tests/test_mvp021_upgrade.py``).
+stopping followed it as mvp-0.21 (``tests/test_mvp021_upgrade.py``) and Tier
+1's Decider judgments as mvp-0.22, the latest successor
+(``tests/test_mvp022_upgrade.py``).
 """
 
 from __future__ import annotations
@@ -79,11 +80,12 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_route_rules_successor_keeps_every_predecessor():
     assert ROUTE_RULES_ALGORITHM_VERSION == "mvp-0.20"
-    # Value-of-information stopping (mvp-0.21, the latest successor) followed it.
-    assert SUCCESSOR_CHAIN[-2] == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.21"
-    assert SUCCESSOR_CHAIN[-3] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
-    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21"})
+    # Value-of-information stopping (mvp-0.21) and Tier 1's Decider judgments
+    # (mvp-0.22, the latest successor) followed it.
+    assert SUCCESSOR_CHAIN[-3] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
+    assert SUCCESSOR_CHAIN[-4] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION
+    assert ROUTE_RULES_VERSIONS == frozenset({"mvp-0.20", "mvp-0.21", "mvp-0.22"})
     # The chain is linear: mvp-0.20 means the split PLUS placement PLUS
     # recurrence groups PLUS the stuck prompt PLUS the plan PLUS probe ties
     # PLUS the sooner check PLUS the answer-key gate PLUS source-first needs
@@ -114,6 +116,7 @@ def test_each_version_activates_exactly_its_features(tmp_path):
         "mvp-0.19": (True, True, True, True, True, False),
         "mvp-0.20": (True, True, True, True, True, True),
         "mvp-0.21": (True, True, True, True, True, True),
+        "mvp-0.22": (True, True, True, True, True, True),
     }
     for version, flags in expected.items():
         set_algorithm_version(paths, version)
@@ -227,7 +230,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.19 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.17")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.20"])
     assert result.exit_code == 0, result.output
@@ -236,14 +239,14 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
 
 def test_new_vaults_start_at_a_successor_with_the_route_rules(tmp_path):
     """Owner decision 2026-10-12: new vaults start at LATEST_ALGORITHM_VERSION
-    (mvp-0.21 since value-of-information stopping merged), which keeps the
+    (mvp-0.22 since Tier 1's Decider judgments merged), which keeps the
     route rules."""
 
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.22"
     assert route_rules_active(fresh) and gap_sooner_checks_active(fresh) and probe_ties_admitted(fresh.config)
 
 

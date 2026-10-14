@@ -114,3 +114,14 @@ it("describes support and values in plain words", () => {
   expect(valueText(["the matrix is real", "square"])).toBe("the matrix is real\nsquare");
   expect(valueText(null)).toBe("—");
 });
+
+it("says in plain words what the quick check found in the cited passage", () => {
+  const held = (spanSupport: FacetRewordConfirmDto["spanSupport"]) =>
+    supportLine(confirm({ spanSupport, sources: [{ sourceId: "src", revisionId: "rev", extractionId: "ext", unitId: "unit", spanId: "s1", role: "primary_textbook", relation: "support", locator: "x", assessmentOnly: false, excerpt: "SVD expresses A." }] }));
+  expect(held({ status: "ok", verdict: "partly supports", probabilities: {} })).toBe("The cited passage supports only part of the new wording.");
+  expect(held({ status: "ok", verdict: "does not support", probabilities: {} })).toBe("The cited passage does not back the new wording.");
+  expect(held({ status: "ok", verdict: "unrelated", probabilities: {} })).toBe("The cited passage is about something else.");
+  expect(held({ status: "unavailable", verdict: null, probabilities: {} })).toBe("The new wording could not be checked against the cited passage just now.");
+  // No check held it: the cited roles are named as before.
+  expect(held({})).toContain("It cites only textbook material");
+});

@@ -3,8 +3,8 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
-source_commit_timestamp: "2026-10-13T19:31:05-04:00"
+source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
+source_commit_timestamp: "2026-10-13T18:50:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
@@ -22,9 +22,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/content/authoring/practice_generation.py"
-  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/goals/exam_session.py"
   - "src/learnloop/scheduling/controller_ownership.py"
+  - "src/learnloop_sidecar/handlers/goals.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -84,7 +84,6 @@ Indexes and uniqueness:
 
 - `Repository.insert_exam_pool_items()`
 - `Repository.release_exam_pool()`
-- `Repository.release_exam_pool_items()`
 - `Repository.reserved_exam_pool_item_ids()`
 - `Repository.reserved_exam_pool_items()`
 
@@ -99,7 +98,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/practice_generation.py`
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/goals/exam_pool.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/scheduling/controller_ownership.py`
@@ -110,12 +108,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_exam_protection_review.py`
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_exam_pool.py`
-- `tests/test_exam_protection.py`
 - `tests/test_goal_scope_material.py`
-- `tests/test_learner_pick_proposal.py`
 - `tests/test_practice_index_admission.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_quick_check.py`

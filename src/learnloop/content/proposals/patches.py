@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 import hashlib
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -85,8 +86,55 @@ def apply_accepted_items(
 
     vault = load_vault(root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    # The span-support check's Decider requests go out before the lock
+    # (review F1): no network call holds the lock other writers wait for.
+    span_verdicts = _ask_span_support(vault, repository, patch_id, item_ids, clock)
     with vault_mutation_lock(vault.root, purpose="proposal_accept"):
-        return _apply_accepted_locked(vault, repository, patch_id, item_ids, clock)
+        return _apply_accepted_locked(vault, repository, patch_id, item_ids, clock, span_verdicts=span_verdicts)
+
+
+def _ask_span_support(
+    vault: LoadedVault, repository: Repository, patch_id: str, item_ids: list[str] | None, clock: Clock | None,
+) -> dict[str, dict[str, Any]]:
+    """Each facet item's span-support verdict, asked before the vault lock, by input hash (review F1).
+
+    A dry staging of the acceptance (no lock held; it writes nothing but the
+    checks' own ``judgment_ledger`` rows) asks the Decider each check the
+    compile would ask. Under the lock the compile only looks the verdicts up:
+    a check whose input changed meanwhile, or one this pass never reached,
+    finds none and its reword waits for the owner's confirm. A refusal here
+    is left to the locked apply, which raises it again.
+    """
+
+    from learnloop.ai.errors import AIInterrupted
+    from learnloop.decider_judgments import enabled
+
+    asked: dict[str, dict[str, Any]] = {}
+    if not (enabled(vault.config, "facet_span_support") and authority.meaning_policy(vault.config).hold_unsupported):
+        return asked
+    requested = repository.pending_proposal_items(patch_id, item_ids)
+    if not any(item.get("item_type") == "facet" for item in requested):
+        return asked
+    if any(item["validation_status"] == "invalid" for item in requested):
+        return asked
+    from learnloop.content.proposals.apply_protocol import compute_dependency_closure, stage_target_contents
+
+    try:
+        ordered_ids, _blocked = compute_dependency_closure(repository, requested)
+        by_id = {item["id"]: item for item in requested}
+        ordered = [by_id[item_id] for item_id in ordered_ids]
+        if not any(item.get("item_type") == "facet" for item in ordered):
+            return asked
+        _accept_time_rechecks(vault, repository, ordered)
+        stage_target_contents(
+            vault.root, vault, ordered, _proposal_origin(repository, patch_id), patch_id, clock=clock,
+            facet_authority=authority.ProposalAuthority.for_proposal(vault, repository, patch_id, record=asked),
+        )
+    except AIInterrupted:
+        raise  # a cancellation stops the acceptance
+    except Exception:  # noqa: BLE001 - the locked apply raises the same refusal itself
+        pass
+    return asked
 
 
 def _apply_accepted_locked(
@@ -95,6 +143,8 @@ def _apply_accepted_locked(
     patch_id: str,
     item_ids: list[str] | None,
     clock: Clock | None,
+    *,
+    span_verdicts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> PatchApplyResult:
     from learnloop.content.proposals.apply_protocol import (
         compute_dependency_closure,
@@ -136,7 +186,11 @@ def _apply_accepted_locked(
     # F6): each facet item's compile judges its citations, resolved in the
     # proposal's own source set, and the staged registry may change no facet's
     # meaning that a checked item did not write.
-    facet_authority = authority.ProposalAuthority.for_proposal(vault, repository, patch_id)
+    # Under the lock the span-support check only looks up the verdicts asked
+    # before it (review F1): it never sends a request here.
+    facet_authority = authority.ProposalAuthority.for_proposal(
+        vault, repository, patch_id, asked=span_verdicts if span_verdicts is not None else {},
+    )
     targets, db_plan = stage_target_contents(
         vault.root, vault, ordered_items, origin, patch_id, clock=clock, facet_authority=facet_authority,
     )
@@ -565,6 +619,7 @@ def _compile_facet(
     )
     data, side_effect = _facet_version(
         vault, item, entity_id, data, sources=authority.source_views(verdict, facet_authority.resolver),
+        span_support=verdict.span_support,
     )
     facet_authority.record(entity_id, authority.overlay(before, data))
     return CompiledPatch(
@@ -630,6 +685,7 @@ def _held_for_confirm(
                 "unresolved": list(verdict.problems),
                 "meaning_support": authority.support_entries(contributed),
                 "message": verdict.message,
+                "span_support": verdict.span_support,
                 "proposal_item_id": item["id"],
             },
         },
@@ -640,7 +696,7 @@ def _held_for_confirm(
 
 def _facet_version(
     vault: LoadedVault, item: dict[str, Any], entity_id: str, data: dict[str, Any], *,
-    sources: list[dict[str, Any]] | None = None,
+    sources: list[dict[str, Any]] | None = None, span_support: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """A write that changes an existing facet's meaning becomes a facet version.
 
@@ -663,7 +719,9 @@ def _facet_version(
     A change to a registered facet's title or worked examples only
     (``authority.PRESENTATION_FIELDS``) is not a version, but it is recorded on
     the facet's history with its ``sources`` (owner, 2026-10-13): a ``reword``
-    row marked ``presentation``, with the same undo.
+    row marked ``presentation``, with the same undo. ``span_support``: the
+    span-support check that let a cited reword apply, kept on the row so the
+    owner's undo labels it.
     """
 
     from learnloop.content.facet_identity.actions import meaning_changes
@@ -696,6 +754,7 @@ def _facet_version(
             "sources": list(sources or []),
             "presentation": bool(presentation),
             "fields": fields or presentation,
+            **({"span_support": dict(span_support)} if span_support else {}),
         },
     }
 

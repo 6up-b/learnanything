@@ -60,10 +60,14 @@ def test_one_ok_records_consent_for_the_connected_provider(tmp_path, monkeypatch
     # The AI this library is set up with, named as the learner knows it
     # (usability round 2: a Codex user's OK said only "ChatGPT").
     assert before["providerLabel"] == "Codex (your ChatGPT account)"
+    # Tier 1 (mvp-0.22, the Decider landing): the one OK also names what the
+    # Decider's small judgments send to Perplexity, as Settings discloses it
+    # (tests/test_decider_landing.py).
     assert before["whatLeaves"] == (
         "LearnLoop sends passages of the books you add, and your answers, to Codex (your ChatGPT account) "
-        "to write questions and give feedback."
+        "to write questions and give feedback. " + before["deciderNote"]
     )
+    assert "Perplexity, through OpenRouter" in before["deciderNote"]
 
     after = call(ctx, "connect_ai", {"provider": "current"})
 

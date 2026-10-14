@@ -11,12 +11,16 @@ from urllib.parse import urlsplit
 
 from learnloop.config import LearnLoopConfig
 
-#: (route task, judge, consumer) for the four judgment routes.
+#: (route task, judge, consumer) for the judgment routes. The Decider's
+#: Tier-1 route and the learner-text gaps' Decider route send learner text in
+#: the ordinary course at mvp-0.22 (owner decision 2026-10-13, D6; review F5).
 JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("llm_probability_decider", "decider", "llm_probability"),
     ("llm_probability_llm", "llm", "llm_probability"),
     ("router_decider", "decider", "router"),
     ("router_llm", "llm", "router"),
+    ("tier1_decider", "decider", "tier1"),
+    ("learner_gap_decider", "decider", "learner_text_gaps"),
 )
 
 _WHEN = {
@@ -30,6 +34,21 @@ _WHEN = {
         "Nothing is sent yet: the router has no live consumer until router R2 is built and "
         "enabled. Then each block choice sends the learner state card (your recent answers, "
         "grades, hypotheses and questions)."
+    ),
+    "tier1": (
+        "At mvp-0.22, for each [decider_routes] switch that is on: a misconception statement "
+        "diagnosed in your answer with the registry beliefs it might match, whenever an attempt's "
+        "misconceptions are matched; your tutor questions when you run learnloop field "
+        "classify-questions; your questions and the tutor's answers (and generated items beside "
+        "held-out exam text) when you run a contamination report; your earlier and current answers "
+        "when you run learnloop diagnose review. At every version, the cited source passages and the "
+        "new wording of a facet reword a proposal makes (no learner text)."
+    ),
+    "learner_text_gaps": (
+        "When the learner-text gap pipeline reads your tutor questions, stuck answers or diagnosis "
+        "readings (learner_text_gaps.enabled and learner_text_gaps.decider_enabled): the text, what "
+        "it was about, and the candidate prerequisites or beliefs it might match. At mvp-0.22 the "
+        "Decider decides; before it, its answer is a logged second opinion."
     ),
 }
 
@@ -90,4 +109,23 @@ def judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]:
     return entries
 
 
-__all__ = ["JUDGE_ROUTES", "judge_route_disclosures", "recipient"]
+def decider_destination(config: LearnLoopConfig, task: str) -> tuple[str, str] | None:
+    """``(the key it needs, where it goes)`` for a Decider route, in the connection sheet's plain words.
+
+    The same recipient :func:`recipient` names for Settings: OpenRouter,
+    which forwards to Perplexity, or Perplexity's API directly. None when the
+    route is not served by a ``decider`` profile.
+    """
+
+    from learnloop.ai.routing import provider_for_task
+
+    name = provider_for_task(config, task, allow_env=False).provider_name  # type: ignore[arg-type]
+    profile = config.ai.providers.get(name) if name else None
+    if profile is None or profile.type.strip().lower() != "decider":
+        return None
+    if getattr(profile, "api", "openrouter") == "perplexity":
+        return "a Perplexity key", "Perplexity"
+    return "an OpenRouter key", "Perplexity, through OpenRouter"
+
+
+__all__ = ["JUDGE_ROUTES", "decider_destination", "judge_route_disclosures", "recipient"]

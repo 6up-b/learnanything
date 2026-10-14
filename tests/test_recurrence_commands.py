@@ -95,11 +95,12 @@ def test_successor_vocabulary():
     plan (mvp-0.14), probe ties (mvp-0.15), learner-text gaps (mvp-0.16) and
     the proofs route check (mvp-0.17), then canonical sources' answer-key gate
     (mvp-0.18) and source-first needs (mvp-0.19), then the route rules in the
-    grader (mvp-0.20) and value-of-information stopping (mvp-0.21) follow it
-    and keep recurrence groups."""
+    grader (mvp-0.20), value-of-information stopping (mvp-0.21) and Tier 1's
+    Decider judgments (mvp-0.22) follow it and keep recurrence groups."""
 
     from learnloop.algorithm_versions import (
         DAILY_PLAN_ALGORITHM_VERSION,
+        DECIDER_TIER1_ALGORITHM_VERSION,
         LATEST_ALGORITHM_VERSION,
         LEARNER_TEXT_GAP_ALGORITHM_VERSION,
         PLACEMENT_VERSIONS,
@@ -120,15 +121,16 @@ def test_successor_vocabulary():
     # R1's probe ties (mvp-0.15), learner-text gaps' sooner check (mvp-0.16)
     # the proofs-and-explanations route check (mvp-0.17), canonical sources'
     # answer-key gate (mvp-0.18) and source-first needs (mvp-0.19), the route
-    # rules in the grader (mvp-0.20) and value-of-information stopping
-    # (mvp-0.21) follow it and keep recurrence groups.
+    # rules in the grader (mvp-0.20), value-of-information stopping (mvp-0.21)
+    # and Tier 1's Decider judgments (mvp-0.22) follow it and keep recurrence
+    # groups.
     assert RECURRENCE_GROUP_VERSIONS == {
         RECURRENCE_GROUP_ALGORITHM_VERSION, STUCK_PROMPT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION,
         PROBE_TIE_ALGORITHM_VERSION, LEARNER_TEXT_GAP_ALGORITHM_VERSION, PROOF_ROUTE_CHECK_ALGORITHM_VERSION,
         SOURCE_REFERENCE_GATE_ALGORITHM_VERSION, SOURCE_FIRST_NEEDS_ALGORITHM_VERSION, ROUTE_RULES_ALGORITHM_VERSION,
-        VOI_STOPPING_ALGORITHM_VERSION,
+        VOI_STOPPING_ALGORITHM_VERSION, DECIDER_TIER1_ALGORITHM_VERSION,
     }
-    assert LATEST_ALGORITHM_VERSION == VOI_STOPPING_ALGORITHM_VERSION
+    assert LATEST_ALGORITHM_VERSION == DECIDER_TIER1_ALGORITHM_VERSION
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():

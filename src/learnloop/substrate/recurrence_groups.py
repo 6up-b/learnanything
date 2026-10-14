@@ -64,7 +64,7 @@ from learnloop.vault.models import LoadedVault
 BUILDER_VERSION = GROUP_RECURRENCE_KEY_VERSION
 #: Authority when verdicts conflict (§3.1). ``exact_key`` verdicts never join
 #: classes: the exact key is the base, not an edge.
-AUTHORITY = {"owner": 4, "verifier": 3, "llm": 2, "diagnoser": 2, "learner_card": 1}
+AUTHORITY = {"owner": 4, "verifier": 3, "llm": 2, "diagnoser": 2, "decider": 2, "learner_card": 1}
 #: How a labelled pair came to be judged (B3, second review F3). A label is
 #: evidence about the embedding shortlist only when the shortlist did not
 #: choose the pair: the same-cause judge (live and backlog) only ever sees
@@ -433,6 +433,20 @@ def _source_judgments(build: _Build, connection: Any) -> None:
         judge = str(row.get("judge") or "")
         if verdict is None or judge not in AUTHORITY:
             continue
+        if judge == "decider":
+            # Only Tier-1's authoritative, attempt-level M1 link judgments.
+            # Historical/general same_cause second opinions remain evidence
+            # for agreement reports and never acquire authority on replay.
+            from learnloop.algorithm_versions import DECIDER_TIER1_VERSIONS
+            try:
+                detail = json.loads(row.get("rationale") or "{}")
+            except (ValueError, TypeError):
+                continue
+            if (not isinstance(detail, dict)
+                    or detail.get("decider_route") != "diagnosis_link_judgment"
+                    or detail.get("algorithm_version") not in DECIDER_TIER1_VERSIONS
+                    or row.get("left_kind") != "attempt" or row.get("right_kind") != "attempt"):
+                continue
         ref = f"judgment:{row['id']}"
         occurred = str(row.get("created_at") or "")
         left_kind, right_kind = row.get("left_kind"), row.get("right_kind")

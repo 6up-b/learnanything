@@ -45,8 +45,8 @@ from learnloop.ops.contamination.detectors import (
     DETECTORS, POSITIVE_VERDICT, SCANNERS, Candidate, DetectorScan, StoredVectors,
 )
 from learnloop.ops.contamination.judge import (
-    METERED_JUDGE_TYPES, PRIMARY_PASS, PROMPT_VERSIONS, REPEAT_PASS, JudgeRequest, build_requests,
-    estimate, judge_settings, owner_rows, rows_by_id, run_judgments,
+    METERED_JUDGE_TYPES, PRIMARY_PASS, PROMPT_VERSIONS, REPEAT_PASS, JudgeRequest,
+    build_requests, decider_profiles, estimate, judge_settings, owner_rows, rows_by_id, run_judgments,
 )
 from learnloop.ops.contamination.recipes import CONTAMINATION_RECIPES
 from learnloop.ops.contamination.symbolic import SYMBOLIC_VERSION
@@ -395,6 +395,10 @@ def contamination_report(
         raise ValueError("price_per_million must be finite and positive")
     if not judge_revision.strip():
         raise ValueError("judge_revision must be nonempty")
+    # mvp-0.22 (Tier 1): the Decider judges leak / reveal pairs first; the
+    # LLM judge is the fallback for a pair it gives no answer.
+    deciders = decider_profiles(loaded)
+    migrated = bool(deciders)
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     if not sqlite_path.exists():
         raise ValueError("The vault has no database; initialize it first")
@@ -424,13 +428,20 @@ def contamination_report(
     )
 
     def plan() -> tuple[list[JudgeRequest], dict[str, dict[str, Any]], list[JudgeRequest]]:
-        requests = build_requests(candidates, settings, repeats=repeat_questions) if judge else []
+        requests = build_requests(candidates, settings, repeats=repeat_questions, deciders=deciders) if judge else []
         verifier_ids = [verifier_judgment_id(c) for c in candidates if c.symbolic is not None and c.symbolic.decides]
         rows = rows_by_id(sqlite_path, [r.judgment_id for r in requests] + verifier_ids)
         return requests, rows, [r for r in requests if r.judgment_id not in rows]
 
     requests, rows, pending = plan()
-    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
+    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription and not migrated)
+    # The up-front refusal covers every request that goes to the LLM judge
+    # first, under the budget it had before Tier 1 (review F6); a request the
+    # Decider judges first is admitted one at a time.
+    upfront = budget if not migrated else SpendBudget(caps, cancelled=cancelled, subscription=subscription)
+
+    def llm_first(requests: list[JudgeRequest]) -> list[JudgeRequest]:
+        return [request for request in requests if request.candidate.task not in deciders]
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "report": REPORT_VERSION, "shadow": True, "proposals_executed": 0,
@@ -450,7 +461,7 @@ def contamination_report(
             "reader_scope_rule": "reservations live at, or closed after, each answer; burn only live eligible reserves",
             "noise_floor_rule": "repeat_sample pairs per detector judged a second time under identical settings",
             "tutor_floor_rule": "leak_suspected or live reveal debit >= AUTO_PRIME_REVEAL_THRESHOLD",
-            "decision_authority": ["owner", "verifier", "llm"],
+            "decision_authority": ["owner", "verifier", *(["decider"] if migrated else []), "llm"],
         },
         "judge": {
             "enabled": judge, "provider": provider, "model_id": settings["model"],
@@ -492,7 +503,7 @@ def contamination_report(
         return report
 
     try:
-        budget.check(estimate(pending, price_per_million))
+        upfront.check(estimate(llm_first(pending), price_per_million))
     except AIInterrupted:
         return finish("cancelled")
     except SpendLimitExceeded as exc:
@@ -510,39 +521,45 @@ def contamination_report(
         report["verifier"]["written"] = _write_verifier_verdicts(writer, candidates, rows)
         if not pending:
             return finish("complete")
+        problem: str | None = None
         if client is None:
             profile = route_profile
             if profile is None or not (profile.type in METERED_JUDGE_TYPES or is_subscription_transport(profile=profile)):
-                return finish(
-                    "unavailable",
-                    reason="The contamination judge needs an openai_chat/openrouter profile (bounded "
+                problem = ("The contamination judge needs an openai_chat/openrouter profile (bounded "
                            "physical requests) or a Codex profile (subscription, estimated cost). "
-                           "Set ai.routing.contamination_judge to one, or pass --no-judge.",
-                )
-            # Pin the planned route: a fallback must not silently change the
-            # dry-run model, checkpoint ids or estimate.
-            resolved = ready_client_for_task(loaded.root, loaded.config, "contamination_judge", explicit=provider)
-            if not resolved.ready:
-                return finish("unavailable", reason=resolved.runtime.message)
-            client = resolved.client
-            # The resolved client names the model the checkpoint ids include.
-            settings = judge_settings(loaded, provider, getattr(client, "model", None), judge_revision)
-            requests, rows, pending = plan()
-            report["judge"].update(
-                model_id=settings["model"], requests=len(requests), repeat_requests=_repeats(requests),
-                cached=len(requests) - len(pending), pending=len(pending),
-                estimate=asdict(estimate(pending, price_per_million)),
-            )
-            if not pending:
-                return finish("complete")
-        if not subscription and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
-            return finish("unavailable", reason="Judge transport cannot bound physical requests")
-        if not settings["model"]:
-            return finish("unavailable", reason="The contamination judge must resolve to an explicit model ID")
+                           "Set ai.routing.contamination_judge to one, or pass --no-judge.")
+            else:
+                # Pin the planned route: a fallback must not silently change the
+                # dry-run model, checkpoint ids or estimate.
+                resolved = ready_client_for_task(loaded.root, loaded.config, "contamination_judge", explicit=provider)
+                if not resolved.ready:
+                    problem = resolved.runtime.message
+                else:
+                    client = resolved.client
+                    # The resolved client names the model the checkpoint ids include.
+                    settings = judge_settings(loaded, provider, getattr(client, "model", None), judge_revision)
+                    requests, rows, pending = plan()
+                    report["judge"].update(
+                        model_id=settings["model"], requests=len(requests), repeat_requests=_repeats(requests),
+                        cached=len(requests) - len(pending), pending=len(pending),
+                        estimate=asdict(estimate(pending, price_per_million)),
+                    )
+                    if not pending:
+                        return finish("complete")
+        if client is not None and not subscription and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
+            problem, client = "Judge transport cannot bound physical requests", None
+        elif client is not None and not settings["model"]:
+            problem, client = "The contamination judge must resolve to an explicit model ID", None
+        if problem is not None:
+            if not migrated:
+                return finish("unavailable", reason=problem)
+            # The Decider judges; a pair it gives no answer stops the run
+            # (provider_failed) rather than reaching an unchecked LLM route.
+            report["judge"]["llm_fallback"] = {"status": "unavailable", "reason": problem}
         run_id = new_ulid()
         report["run_id"] = run_id
         try:
-            budget.check(estimate(pending, price_per_million))
+            upfront.check(estimate(llm_first(pending), price_per_million))
 
             def saved(_request: JudgeRequest) -> None:
                 report["judge"]["completed"] += 1
@@ -550,7 +567,7 @@ def contamination_report(
             run_judgments(
                 writer, pending, client=client, budget=budget, settings=settings,
                 subscription=subscription, price_per_million=price_per_million,
-                run_id=run_id, on_saved=saved,
+                run_id=run_id, on_saved=saved, vault=loaded if migrated else None,
             )
             return finish("complete")
         except (AIInterrupted, KeyboardInterrupt):

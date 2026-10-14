@@ -53,11 +53,12 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_reading_step_is_not_a_successor_tag():
     # No version names it, and the chain is main's: the route rules in the
-    # grader (mvp-0.20, which landed after UX Phase 1) and value-of-information
-    # stopping (mvp-0.21, the latest) follow it.
+    # grader (mvp-0.20, which landed after UX Phase 1), value-of-information
+    # stopping (mvp-0.21) and Tier 1's Decider judgments (mvp-0.22, the
+    # latest) follow it.
     assert not [name for name in dir(algorithm_versions) if "READING_FROM_FURTHEST" in name]
-    assert SUCCESSOR_CHAIN[-2] == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert SUCCESSOR_CHAIN[-3] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
     assert len(SUCCESSOR_CHAIN) == len(set(SUCCESSOR_CHAIN))
 
 

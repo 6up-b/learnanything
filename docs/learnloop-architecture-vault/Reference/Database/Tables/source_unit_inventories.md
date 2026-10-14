@@ -3,8 +3,8 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
-source_commit_timestamp: "2026-10-13T19:31:05-04:00"
+source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
+source_commit_timestamp: "2026-10-13T18:50:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
@@ -21,7 +21,7 @@ source_paths:
   - "migrations/041_source_unit_inventories.sql"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/sources/exam_material.py"
+  - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
@@ -109,7 +109,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/sources/exam_material.py`
+- `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -122,7 +122,6 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
-- `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`
 - `tests/test_source_inventory.py`

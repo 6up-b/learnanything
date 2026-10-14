@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
@@ -144,3 +146,35 @@ class FakeDecider:
             probabilities = {option: (0.85 if option == choice else 0.05) for option in wire["criteria"]}
             answers[name] = _Answer(choice=choice, probabilities=probabilities)
         return _Result(answers=answers)
+
+
+@pytest.fixture(autouse=True)
+def supporting_span_decider(monkeypatch):
+    """The span-support check's Decider, answering ``supports`` (no network).
+
+    A test module that applies cited model rewords imports this fixture: its
+    rewords apply as before the check existed. The check's other outcomes,
+    its card and its labels have their own tests (``test_tier1_decider``).
+    """
+
+    from types import SimpleNamespace
+
+    from learnloop import decider_judgments
+    from learnloop.ai.decisions import ChoiceAnswer, DecisionResult
+
+    class Supporting:
+        provider_name = "fake_span_decider"
+        provider_type = "decider"
+        model = "fake/span-decider"
+        settings = SimpleNamespace(price_per_million_input=0.02)
+
+        def decide(self, state, questions, *, purpose):
+            assert purpose == "facet_span_support"
+            assert len(questions) == 1
+            assert state["spans"]
+            return DecisionResult(
+                {name: ChoiceAnswer("supports", {option: 0.85 if option == "supports" else 0.05
+                                                 for option in question.options})
+                 for name, question in questions.items()}, self.model, 100, 0, 0.000002)
+
+    monkeypatch.setattr(decider_judgments, "client_for", lambda *args: Supporting())

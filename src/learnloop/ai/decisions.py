@@ -232,6 +232,11 @@ def _distribution(values: Any, expected: Sequence[str], what: str) -> dict[str, 
     return result
 
 
+def choice_probabilities(answer: ChoiceAnswer, question: ChoiceQuestion) -> dict[str, float]:
+    """Validate a typed choice distribution before a policy takes its argmax."""
+    return _distribution(answer.probabilities, list(question.options), 'choice')
+
+
 def _answer(name: str, question: Question, raw: Any) -> Answer:
     if not isinstance(raw, Mapping):
         raise DecisionResponseInvalid(f"answer {name!r} is not an object")
@@ -323,6 +328,7 @@ __all__ = [
     "Question",
     "ScoreAnswer",
     "ScoreQuestion",
+    "choice_probabilities",
     "parse_response",
     "request_body",
     "validate_questions",

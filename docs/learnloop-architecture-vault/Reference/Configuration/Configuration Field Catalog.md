@@ -3,17 +3,17 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
-source_commit_timestamp: "2026-10-13T19:31:05-04:00"
+source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
+source_commit_timestamp: "2026-10-13T18:50:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "Effective config index"
   - "learnloop.toml field MOC"
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
-section_count: 48
-field_count: 805
-field_status_counts: {"ACTIVE": 779, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
+section_count: 49
+field_count: 813
+field_status_counts: {"ACTIVE": 787, "COMPAT": 7, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -34,17 +34,17 @@ The section notes below enumerate every leaf in the effective configuration of a
 
 ## Runtime and refactor status
 
-Every one of the 805 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
+Every one of the 813 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 779 | Canonical typed input to current behavior. |
+| `ACTIVE` | 787 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 7 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
 
 > [!warning] Compatibility aliases are not effective leaves
-> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 805-path effective model. See [[Legacy Configuration Compatibility]].
+> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 813-path effective model. See [[Legacy Configuration Compatibility]].
 
 ## Sections
 
@@ -55,7 +55,7 @@ Every one of the 805 effective leaves has a semantic Function, a runtime/refacto
 | [[Config - algorithms|`algorithms`]] | 1 | Runtime configuration |
 | [[Config - evidence|`evidence`]] | 38 | Learning policy; see [[Learning System]] |
 | [[Config - scheduler|`scheduler`]] | 39 | Learning policy; see [[Learning System]] |
-| [[Config - goals|`goals`]] | 2 | Learning policy; see [[Learning System]] |
+| [[Config - goals|`goals`]] | 1 | Learning policy; see [[Learning System]] |
 | [[Config - hypothesis|`hypothesis`]] | 6 | Runtime configuration |
 | [[Config - mastery|`mastery`]] | 24 | Learning policy; see [[Learning System]] |
 | [[Config - probe|`probe`]] | 62 | Learning policy; see [[Learning System]] |
@@ -70,7 +70,7 @@ Every one of the 805 effective leaves has a semantic Function, a runtime/refacto
 | [[Config - rung_variants|`rung_variants`]] | 8 | Runtime configuration |
 | [[Config - animation|`animation`]] | 16 | Runtime configuration |
 | [[Config - ingest|`ingest`]] | 44 | Runtime configuration |
-| [[Config - ai|`ai`]] | 212 | AI provider profile and task routing; see [[AI Architecture]] |
+| [[Config - ai|`ai`]] | 213 | AI provider profile and task routing; see [[AI Architecture]] |
 | [[Config - embedding|`embedding`]] | 6 | Runtime configuration |
 | [[Config - graph_nomination|`graph_nomination`]] | 7 | Runtime configuration |
 | [[Config - source_retrieval|`source_retrieval`]] | 17 | Runtime configuration |
@@ -98,6 +98,7 @@ Every one of the 805 effective leaves has a semantic Function, a runtime/refacto
 | [[Config - reader_inquiry|`reader_inquiry`]] | 4 | Runtime configuration |
 | [[Config - proof_check|`proof_check`]] | 1 | Runtime configuration |
 | [[Config - voi_stopping|`voi_stopping`]] | 8 | Runtime configuration |
+| [[Config - decider_routes|`decider_routes`]] | 8 | Runtime configuration |
 
 ## Search recipes
 

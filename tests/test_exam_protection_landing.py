@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from contextlib import closing
 
+import pytest
+
 from learnloop.content.pipeline import add_source as core
 from learnloop.content.sources.source_outline import build_source_outline, resolve_extraction_id
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
@@ -90,3 +92,61 @@ def test_the_reading_step_never_offers_a_held_out_section_of_a_book_in_no_source
     assert next_reading_target(repo, exam=exam).section_id == ids["2-matrices"]
     # DL1's selection (the switch off) never reads the predicate, as before.
     assert next_reading_target(repo, from_furthest=False, exam=exam).section_id == ids["contents"]
+
+
+# -- The Decider's span-support check (Tier 1, landed on main as mvp-0.22) ----
+#
+# A model-proposed facet reword that cites explanatory spans is checked by the
+# Decider over the cited span text. The text it sends is only what the one
+# predicate allows: a held-out span resolves to the exam role (never a
+# supporting citation), and the resolver's excerpt refuses exam material.
+
+
+def _held_out_citation(paths, repo):
+    from tests.test_facet_reword_confirm import _seed
+
+    held = _seed(paths, repo, "primary_textbook", "held", text="HELD OUT: the exam's worked SVD answer.")
+    save_unit_selection(repo, held["extraction_id"], [held["unit_id"]],
+                        exam_use_modes={held["unit_id"]: "held_out_evaluation"}, clock=CLOCK)
+    return held
+
+
+def test_the_span_support_check_never_sends_held_out_text_to_the_decider(tmp_path, monkeypatch):
+    import json
+
+    from learnloop.content.proposals.patches import apply_accepted_items
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_reword_confirm import _proposal, _support
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.test_facet_span_support import SpanDecider, _span_vault
+
+    client = SpanDecider("supports")
+    paths, repo, citation = _span_vault(tmp_path, monkeypatch, client)
+    held = _held_out_citation(paths, repo)
+    patch_id = _proposal(repo, {"id": SHARED, "claim": NEW_CLAIM, "meaning_support": _support(citation, held)})
+    apply_accepted_items(paths.root, patch_id)
+
+    (state,) = client.calls
+    assert [span["text"] for span in state["spans"]] == ["SVD expresses A = U Sigma V^T."]
+    assert "HELD OUT" not in json.dumps(state)
+    assert _entry(paths, SHARED)["claim"] == NEW_CLAIM
+
+
+def test_a_reword_resting_only_on_held_out_text_never_reaches_the_decider(tmp_path, monkeypatch):
+    from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
+    from tests.test_facet_identity_actions import SHARED
+    from tests.test_facet_reword_confirm import _proposal, _support
+    from tests.test_facet_rewords import NEW_CLAIM, _entry
+    from tests.test_facet_span_support import SpanDecider, _span_vault
+    from tests.test_tier1_decider import _rows
+
+    client = SpanDecider("supports")
+    paths, repo, _citation = _span_vault(tmp_path, monkeypatch, client)
+    before = _entry(paths, SHARED)["claim"]
+    held = _held_out_citation(paths, repo)
+    patch_id = _proposal(repo, {"id": SHARED, "claim": NEW_CLAIM, "meaning_support": _support(held)})
+    with pytest.raises(PatchApplicationError, match="exam material"):
+        apply_accepted_items(paths.root, patch_id)
+
+    assert client.calls == [] and _rows(repo, "facet_span_support") == []
+    assert _entry(paths, SHARED)["claim"] == before

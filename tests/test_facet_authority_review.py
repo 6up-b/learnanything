@@ -25,6 +25,8 @@ import json
 
 import pytest
 
+from tests.facet_identity_fakes import supporting_span_decider  # noqa: F401
+
 from learnloop.content.facet_identity import actions as facet_actions
 from learnloop.content.facet_identity import authority
 from learnloop.content.facet_identity.actions import FacetIdentityActionError, list_actions, undo_action

@@ -254,7 +254,10 @@ def test_a_pending_proposal_the_old_code_refused_becomes_a_confirm_naming_the_fa
     assert "confirm" in confirm["message"]
 
 
-def test_a_confirm_refuses_when_the_facets_wording_changed_since(tmp_path):
+def test_a_confirm_refuses_when_the_facets_wording_changed_since(tmp_path, monkeypatch):
+    from learnloop import decider_judgments as tier1
+    from tests.test_tier1_decider import FixedDecider
+    monkeypatch.setattr(tier1, 'client_for', lambda *args: FixedDecider({'facet_span_support': 'supports'}))
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     confirm = _held(paths, repository)
     apply_accepted_items(paths.root, _facet_update_proposal(repository, {"id": SHARED, "claim": THIRD_CLAIM}),
@@ -722,7 +725,10 @@ def test_claim_definition_preconditions_and_non_goals_stay_meaning(tmp_path, cha
     assert [change["field"] for change in confirm["changes"]] == list(change)
 
 
-def test_a_cited_reword_records_its_sources_on_the_facets_history(tmp_path):
+def test_a_cited_reword_records_its_sources_on_the_facets_history(tmp_path, monkeypatch):
+    from learnloop import decider_judgments as tier1
+    from tests.test_tier1_decider import FixedDecider
+    monkeypatch.setattr(tier1, 'client_for', lambda *args: FixedDecider({'facet_span_support': 'supports'}))
     paths, _vault, repository = _vault_with_duplicate(tmp_path)
     text = _seed(paths, repository, "primary_textbook", "text")
     patch_id = _proposal(repository, {"id": SHARED, "claim": NEW_CLAIM, "meaning_support": _support(text)})

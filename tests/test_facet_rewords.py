@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.facet_identity_fakes import supporting_span_decider  # noqa: F401
+
 from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop.content.facet_identity.actions import (
     FacetIdentityActionError,

@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
-source_commit_timestamp: "2026-10-13T19:31:05-04:00"
+source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
+source_commit_timestamp: "2026-10-13T18:50:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -109,7 +109,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -124,6 +123,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_render_views.py`
+- `src/learnloop/reader/source_review.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -133,7 +133,6 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
-- `tests/test_exam_protection.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
@@ -150,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_landing.py`
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_review.py`
+- `tests/test_ux_phase1_usability_round1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

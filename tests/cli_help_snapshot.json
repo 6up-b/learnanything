@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24182,
-    "sha256": "121dbfabba9d7b4f104e68517fffb1a0f4e76ec5ac48f70849c5b50b4226a77e"
+    "bytes": 24352,
+    "sha256": "ceb0e1a160021e6f05d9d009d8e41778285cc337b49dcf6ae15f623047ef9bf9"
   },
   "accept": {
     "bytes": 1593,
@@ -218,6 +218,14 @@
   "decay-pressure": {
     "bytes": 1211,
     "sha256": "f10c4adbc7f2c8437839b80ceef983f6213c2e671a513a45545db742f21891cf"
+  },
+  "decider": {
+    "bytes": 1587,
+    "sha256": "af731638387061e0e027ddf86f3f61367dce8131381efdcda55405cb1b65bd75"
+  },
+  "decider agreement": {
+    "bytes": 2024,
+    "sha256": "7531452023dc3536a9957b5c4e1aa316f2759dd711bca77b2a9e2bf902bf9856"
   },
   "depth": {
     "bytes": 3200,
@@ -1112,8 +1120,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 5678,
-    "sha256": "588d9b25ecddc86fbcf2dd21b9fd39989baf78633cc9f65a265fe40cfdadef73"
+    "bytes": 6083,
+    "sha256": "8fa47e80a82b46e3debb2f144e2fc68fc861f02dc803371c39c6d9e383effd79"
   },
   "usage": {
     "bytes": 1546,

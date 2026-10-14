@@ -120,6 +120,11 @@ const LINES: SourceStatusLineDto[] = [
 
 
 
+// The Decider's sentence (Tier 1): the sheet names what its small judgments
+// send to Perplexity, as Settings does, in the sheet's plain words.
+const DECIDER_NOTE =
+  "With an OpenRouter key, LearnLoop also asks Perplexity, through OpenRouter, short questions about your answers and questions (whether a mix-up or a gap is one it already knows) and about the book passages behind a reworded skill.";
+
 const CONNECTION: AiConnectionDto = {
   canAuthor: false,
   provider: "codex_medium",
@@ -129,7 +134,8 @@ const CONNECTION: AiConnectionDto = {
   consentedAt: null,
   needs: "connect",
   message: null,
-  whatLeaves: "LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback.",
+  whatLeaves: `LearnLoop sends passages of the books you add, and your answers, to ChatGPT to write questions and give feedback. ${DECIDER_NOTE}`,
+  deciderNote: DECIDER_NOTE,
   chatgptSignedIn: false,
   openrouterKeyPresent: false
 };

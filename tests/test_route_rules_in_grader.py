@@ -137,13 +137,14 @@ def _projection(repository):
 
 
 def test_the_route_rules_follow_the_route_check_and_value_of_information_stopping_follows_them():
-    assert SUCCESSOR_CHAIN[-2] == VERSION == "mvp-0.20"
-    # Value-of-information stopping (mvp-0.21) followed the rules and keeps them.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.21"
+    assert SUCCESSOR_CHAIN[-3] == VERSION == "mvp-0.20"
+    # Value-of-information stopping (mvp-0.21) and Tier 1's Decider judgments
+    # (mvp-0.22, the latest) followed the rules and keep them.
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.22"
     # Canonical sources' mvp-0.18 and mvp-0.19 sit between the check and the rules.
-    assert SUCCESSOR_CHAIN[-3] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
-    assert SUCCESSOR_CHAIN[-5] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
-    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21"})
+    assert SUCCESSOR_CHAIN[-4] == SOURCE_FIRST_NEEDS_ALGORITHM_VERSION == "mvp-0.19"
+    assert SUCCESSOR_CHAIN[-6] == PROOF_ROUTE_CHECK_ALGORITHM_VERSION == "mvp-0.17"
+    assert ROUTE_RULES_VERSIONS == frozenset({VERSION, "mvp-0.21", "mvp-0.22"})
 
 
 def test_active_only_at_the_successor_with_the_switch_on(tmp_path):

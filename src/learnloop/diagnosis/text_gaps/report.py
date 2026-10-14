@@ -31,6 +31,7 @@ from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import learner_gaps as store
+from learnloop.decider_judgments import FAILURE_VERDICTS
 from learnloop.diagnosis.text_gaps.contract import NEEDED_TASK, SAME_BELIEF_TASK, SAME_PREREQUISITE_TASK
 from learnloop.vault.models import LoadedVault
 
@@ -53,15 +54,22 @@ def _rate(successes: int, trials: int) -> dict[str, Any]:
 
 
 def _pair_agreement(connection: Any, task: str, *, since: str | None = None) -> dict[str, Any]:
-    """LLM vs Decider on the same pair (latest standing verdict of each)."""
+    """LLM vs Decider on the same pair (latest standing verdict of each).
 
+    A Tier-1 Decider row that holds no answer (``FAILURE_VERDICTS``: the
+    Decider was unavailable, refused or failing and the LLM decided) is not a
+    verdict and is skipped.
+    """
+
+    failures = sorted(FAILURE_VERDICTS)
     latest: dict[tuple[str, str, str, str], dict[str, str]] = defaultdict(dict)
     for row in connection.execute(
         "SELECT left_kind, left_id, right_kind, right_id, judge, verdict FROM judgment_ledger j "
         "WHERE task = ? AND judge IN ('llm', 'decider') AND (? IS NULL OR created_at >= ?) "
+        f"AND NOT (judge = 'decider' AND verdict IN ({', '.join('?' for _ in failures)})) "
         "AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id) "
         "ORDER BY created_at, rowid",
-        (task, since, since),
+        (task, since, since, *failures),
     ):
         key = tuple(sorted([(str(row[0]), str(row[1])), (str(row[2]), str(row[3]))]))
         latest[key][str(row[4])] = str(row[5])  # type: ignore[index]

@@ -102,10 +102,16 @@ def add_source_rpc(ctx: SidecarContext, params: AddSourceInput) -> dict[str, Any
 
 
 def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
+    from learnloop.decider_judgments import connection_note
+
     vault, _repository = ctx.require_vault()
     route = authoring_route_for(vault)
     record = vault.config.ai.consent.get(route.consent_key)
     label = core.consent_label(route.consent_key)
+    # The Decider's small judgments go to Perplexity, not to the AI connected
+    # here: the one OK says so in the words Settings uses (Tier 1, D6).
+    decider_note = connection_note(vault.config)
+    what_leaves = core.what_leaves(label)
     if not route.ready:
         needs: str | None = "connect"
     elif record is None:
@@ -121,7 +127,8 @@ def _connection_payload(ctx: SidecarContext) -> dict[str, Any]:
         "consented_at": record.granted_at if record is not None else None,
         "needs": needs,
         "message": None if route.ready else route.message,
-        "what_leaves": core.what_leaves(label),
+        "what_leaves": what_leaves if decider_note is None else f"{what_leaves} {decider_note}",
+        "decider_note": decider_note,
         "chatgpt_signed_in": chatgpt_plan_ready(),
         "openrouter_key_present": bool(os.environ.get("OPENROUTER_API_KEY")),
     }

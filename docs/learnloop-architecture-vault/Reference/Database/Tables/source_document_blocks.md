@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a5300a0ac0ba73ef6bef5c40b8b07ed1d78572ca"
-source_commit_timestamp: "2026-10-13T19:31:05-04:00"
+source_commit: "21440c9cf89f81c8b757feb7461399ac47208310"
+source_commit_timestamp: "2026-10-13T18:50:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -20,7 +20,6 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
   - "src/learnloop/content/pipeline/add_source.py"
-  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
@@ -106,7 +105,6 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -122,7 +120,6 @@ Database triggers:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -137,14 +134,13 @@ Database triggers:
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_render_views.py`
+- `src/learnloop/reader/source_review.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
-- `tests/test_exam_protection.py`
-- `tests/test_exam_protection_review.py`
 - `tests/test_exercise_arm.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_branches.py`
@@ -163,6 +159,8 @@ Database triggers:
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_inventory.py`
+- `tests/test_source_layer.py`
+- `tests/test_ux_phase1_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
