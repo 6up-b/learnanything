@@ -347,3 +347,86 @@ Targeted runs before the gate:
 
 - **Q-RH8.** A cancel stops the batch it names. Should it also stop a follow-on for the same book that was queued just before it (one that committed first)? Recommended: **no**. The follow-on shows in Activity as its own batch, the learner can cancel that batch too, and Undo stops all of a book's automatic work.
 - **Q-RH9.** Should a jump in the reported time, made in YouTube's own controls while playing, count as a seek? Recommended: **not now**. The widget reports only the time, so any threshold is a guess that would also misread catch-up after buffering. The Reader's own seek paths (the transcript, Contents, the guide) are covered.
+
+## Landing onto main
+
+**Branch:** `merge/hardening-onto-main` (worktree `learnanything-merge4`), main `e5f880778` (mvp-0.22, LATEST) plus this branch at `5399797cf`. Merge commit `db30696ba`; references regenerated in `e97cbe370`. Not pushed. Owner-directed, 2026-10-13.
+
+**Main since this branch's base `c50dd0bcb`:** the route rules (`mvp-0.20`), the EVSI multi-family study (offline), value-of-information stopping v2 (`mvp-0.21`, migrations 200–201, head fixture `migration_head_201`), the Decider migration (`mvp-0.22`: the span-support check on model-proposed facet rewords, landed with a keep-local guard on it and a Decider sentence beside the AI consent), exam protection (one predicate, `content/sources/exam_material.py`; the Reader's Ask, RW1a dialogue, presets, section and passage checks refuse held-out material with `HELD_OUT_REFUSAL`, code `exam_material`; the `goals.held_out_selection` setting), and the Pipeline Map.
+
+**Paid calls:** none ($0.00). **Migration:** none (head 201). **Config:** unchanged: the 14 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.22`) all match their recomputed fingerprints, so nothing was recomputed and the template was not touched. **Algorithm version:** unchanged, no successor. **RPC fields:** none added; `reader.author_section_question` gains one refusal (below). `src-tauri` is identical to main's (no `cargo check` needed).
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `apps/learnloop-tauri/src/components/ConnectAI.tsx` | The one textual conflict. Main appended the Decider's note to the consent sentence; this branch dropped the sentence's last clause ("You can choose never to send a book to an AI when you add it."). Kept: "…Your library stays here." followed by main's `deciderNote` |
+| 367 notes under `Reference/` | Taken from main, then regenerated (`e97cbe370`): source-line citations only |
+| Auto-merged, both sides kept | `add_source.py`, `jobs.py`, `repositories.py`, `reader_requests.py`, the sidecar's `first_run.py`, `api/dto.ts`, `ConnectAI.test.tsx`, `tests/cli_help_snapshot.json` |
+
+### Compositions
+
+**Keep-local is never consulted.** Main's only new reader of the retired choice was the Decider landing's guard in `content/facet_identity/span_support.py` (`_kept_local_sources`, through `repository.source_kept_local`). After the merge the repository no longer has that method, so the guard had become inert through `getattr`; it is now removed outright, with its `kept_on_this_computer` rationale and its docstring paragraph. A reword citing a book that still carries the column is asked about like any other.
+- `tests/test_decider_landing.py::test_a_kept_local_books_passage_never_reaches_the_decider` (main's, written against `set_source_keep_local`, which the branch removed) became `test_a_book_carrying_the_retired_keep_local_is_asked_like_any_other`: the column set by SQL, doctor's helper names the book, the Decider is asked once and `supports` applies the reword.
+- `docs/decider-tier1-migration.md`'s facet-support row says the same. The review records (`decider-migration.md`, `exam-protection.md`) are history and keep their wording.
+- The consent text is main's, minus the opt-out clause; `ConnectAI.test.tsx`'s Decider-note test now also asserts that clause is absent. The backend's `what_leaves` never carried it.
+- `tests/test_reading_hardening_landing.py::test_nothing_in_src_consults_the_retired_keep_local` scans `src/`: no `source_kept_local`, `set_source_keep_local` or `kept_on_this_computer`, and `keep_local` only in the repository (doctor's helper), doctor, and docstring prose.
+
+**Exam refusals stay.** Where this branch removed keep-local refusals, main's held-out refusals sit in other functions, and the merge kept every one: `tutor_qa.ask_question` (Reader Ask) and `reader_dialogue.ask` (RW1a), `reader_requests.model_synthesis` (presets, checked when sent; this branch's removal was in `drain_requests`), and `jobs.handle_reader_quick_check` / `_handle_reader_inquiry_check` (section and passage checks, refused before a client is built). `reader.reconnect_answer`'s quick check queues that job, which refuses held-out material before anything is sent. Main never edited the sidecar's `handlers/reader.py` since `c50dd0bcb`, so this branch's removals there merged cleanly.
+
+**The check-offer rule composes with exam protection: a held-out section's check is never offered.** The rule (`checkOffer.ts`) offers only a section whose guide plan carries a check (`readingPhase` null is `no_check`). A check for a held-out section was never authored after the mark (the job refuses), but one authored *before* the mark was still listed by the guide plan, and `reader.author_section_question` still handed it back (exam protection's own Q1: "hide such rows in a follow-up"). With the one rule as the only offer path, that would have offered it. Composed:
+- `reader_guidance.held_out_sections` (new): the sections with any block in the held-out partition, read the way the job reads it (`held_out_material` over the vault, `held_out_among` over the section's blocks). `build_guide_plan` withholds an auto-authored check for those sections.
+- `reader.author_section_question` refuses such a section (`exam_material`, `HELD_OUT_REFUSAL`) before handing back a check or resolving a provider or queueing a job. The Reader's producer swallows the error, so the section shows nothing; without this, hiding the check would have left the producer polling for three minutes and then showing "Try again".
+- Everything else keeps the rule's reading conditions; owner-reviewed placements are unchanged (Q-L2).
+
+`tests/test_reading_hardening_landing.py` (4 tests). Fail-first: run against the auto-merged sources (the merge's index, before these edits), 3 failed: the source scan (`source_kept_local` in `span_support.py`), the guide plan (the held-out section listed its check) and the RPC (`DID NOT RAISE`). The fourth, the job's refusal of a section with a pre-mark check, is a guard: it passes before and after.
+
+**Pipeline Map.** The Reader section names the one check-offer rule (with `checkOffer.ts`), the level-triggered reading request (30 s sweep with backoff; enqueue, cancel and settle commit together at the revision read) and the retired opt-out, and links this record.
+
+### References
+
+`db_generate_reference.py`: schema head 201, 319 table notes, 814 configuration leaves in 49 sections, all as on main (the prose counts needed no edit); only source-line citations moved. `db_validate_reference.py`: errors `[]`. `validate_vault.py`: passed, 1102 notes. CLI help snapshot: `--write` reproduced the auto-merged file exactly (this branch's `sources report` options over main's). `git diff --check`: clean.
+
+### Gate
+
+Run in this worktree at `e97cbe370` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok: 163 packages resolved; the sync removes pypdfium2 and the install puts back 5.14.0 |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,639 passed**, 0 failed, 48 warnings (14 min 34 s, after about 2 min waiting for the lock behind another worktree's suite). No timing-sensitive failure, so nothing was rerun |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` | **99 passed**, 0 failed (25 s, after about 12 min waiting for the lock) |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · **75 files, 516 tests passed** · built, with the existing chunk-size notice |
+| `cargo check` | not needed: `apps/learnloop-tauri/src-tauri` is identical to main's |
+| Defaults | the 14 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` fingerprints recomputed equal to the stored ones |
+| CLI help | `python tests/test_cli_help_snapshot.py --write`: no change; `test_cli_help_snapshot.py` passed |
+| References | see above |
+
+Targeted runs before the gate: `tests/test_reading_hardening_landing.py`, `tests/test_decider_landing.py` and `tests/test_facet_span_support.py`, 41 passed; `ConnectAI.test.tsx` and `checkOffer.test.ts`, 25 passed.
+
+### Parity
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`) in `fixtures-local/parity-hardening`. Each copy was migrated by its own code (`migration_coordinator.migrate_vault`): main `e5f880778` exported with `git archive` and run on `PYTHONPATH` (a probe printed the archive's `learnloop/__init__.py` and `migrations/`), and the merge's; 46 migrations each, to 201. On each copy `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory.
+
+The merge's outputs match main's exactly: **0 differing lines** on all four outputs, once ULIDs, timestamps, 64-hex hashes and the copy's path are set aside.
+
+| Fixture | Replayed attempts | Facet | Mastery | Schedule | Doctor issues | Errors | `criterion:unknown_dependency` | `source:retired_keep_local` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| linear algebra | 70 | 22 | 6 | 47 | 106 | 1 | none | none |
+| probability | 2 | 2 | 1 | 1 | 134 | 49 | 46 | none |
+
+These are the fixtures' existing drift at `mvp-0.8`, the same figures as the exam-protection landing. `live_database.unchanged` is true on every run; doctor exits 1 on both sides, as on main. The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The owner's working vaults in the main checkout were never opened, and the main checkout was not touched. This worktree's tracked fixtures were opened only by the backup API.
+- Nothing was pushed, rebased or stashed. `ux/reading-hardening` and its worktree were not modified.
+
+### Open questions for the owner (conservative defaults applied)
+
+- **Q-L1.** The guide plan now withholds a held-out section's check authored before the mark, and `reader.author_section_question` refuses the section (exam protection's Q1, settled by this landing as its recommended default). Keep? Recommended: **keep**: nothing about held-out material is offered, and a check already pinned in an open Reader goes at the next guide refresh.
+- **Q-L2.** Owner-reviewed placements (a practice item the owner placed at a section) are still listed in a held-out section; the predicate guards source text, and the item's own exam reservation is checked when it is served. Recommended: **keep** (the owner placed it).
+- **Q-L3.** A passage check on an inquiry raised before its passage was marked held out is refused by its job (the reason shows in place), not by `reader.reconnect_answer` itself, so the "quick_check" answer is recorded first. Recommended: **keep** (nothing is sent; Reader Ask refuses new inquiries there).
+- **Q-L4.** The RPC refusal's code is `exam_material`, as the jobs use, where Reader Ask's refusal surfaces as `validation_error`. Recommended: **keep** (the Reader treats both as "no check here").
