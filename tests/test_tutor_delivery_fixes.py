@@ -625,3 +625,42 @@ def test_the_sidecar_injects_the_linked_reference_rules(tmp_path, monkeypatch):
         server.stop()
     assert "result" in response, response
     assert seen and seen[0]["linked_reference_filter"] is linked_reference_filter
+
+
+# -- Codex review F6: a numbered statement ending in a number is not a TOC line ----
+
+
+@pytest.mark.parametrize("text,block_type,expected", [
+    ("Theorem 3.2. The derivative of a constant is 0", "Text", ("theorem", "3.2")),
+    ("Definition 1.1. A group of order 2", "Text", ("definition", "1.1")),
+    ("Lemma 2.4: every subgroup of index 2", "Text", ("lemma", "2.4")),
+    # Axler's number-first labels whose OCR ends in a number (the copies' own blocks).
+    ("1.31 a number times the vector 0", "Text", (None, "1.31")),
+    ("1.15 notation: 0", "SectionHeader", (None, "1.15")),
+    ("1.7 example: 2 and 3", "SectionHeader", ("example", "1.7")),
+    # Table-of-contents lines: a TOC block, leaders, or a page number in its own column.
+    ("Theorem 3.2 Spectral theorem 45", "TableOfContents", None),
+    ("Theorem 3.2 .......... 45", "Text", None),
+    ("Theorem 3.2\tSpectral theorem\t45", "Text", None),
+    ("Theorem 3.2 Spectral theorem    45", "Text", None),
+    # A course number glued to letters is not a number-first label.
+    ("6.041SC Probabilistic Systems Analysis and Applied Probability Fall 2013", "Text", None),
+])
+def test_numbered_statements_ending_in_a_number_are_labels_and_toc_lines_are_not(text, block_type, expected):
+    from learnloop.ingest.block_roles import numbered_label
+
+    label = numbered_label(text, block_type)
+    assert (None if label is None else (label.kind, label.number)) == expected
+
+
+def test_by_theorem_resolves_to_a_statement_ending_in_a_number(tmp_path):
+    chapter = list(CHAPTER)
+    chapter[0] = ("Theorem 3.2. The derivative of a constant is 0", 1)
+    paths, repository = _vault(tmp_path, chapter=chapter)
+    spans, result = _ask(paths, repository, _span_of(repository, "Paragraph six"))
+    referenced = [span for span in spans if span["relation"] == "referenced"]
+    # The statement block leads (an unpunctuated end may take the next block as its continuation).
+    assert referenced[0]["text"] == "Theorem 3.2. The derivative of a constant is 0"
+    assert referenced[0]["reference"] == "Theorem 3.2"
+    references = repository.question_event(result["event_id"])["source_context"]["delivery"]["references"]
+    assert [entry["reference"] for entry in references["resolved"]] == ["Theorem 3.2"]

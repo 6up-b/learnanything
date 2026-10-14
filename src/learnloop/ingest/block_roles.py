@@ -177,16 +177,23 @@ _NUMBERED_LEAD_RE = re.compile(
 # A number-first label ("1.20 definition: vector space", "★ 1.4.11 (Labeling
 # objects)."): a dotted number leading the block, then optionally its kind.
 _NUMBER_FIRST_RE = re.compile(
-    _LABEL_PREFIX + rf"(?P<number>\d+(?:\.\d+)+)\.?[*_]*(?:\s+(?P<kind>{_ENVIRONMENT_WORDS}|notation)\b)?",
+    # The number stands alone ("6.041SC Probabilistic ..." is a course code).
+    _LABEL_PREFIX + rf"(?P<number>\d+(?:\.\d+)+)(?![0-9A-Za-z])\.?[*_]*"
+    rf"(?:\s+(?P<kind>{_ENVIRONMENT_WORDS}|notation)\b)?",
     re.IGNORECASE,
 )
 _EQUATION_TAG_RE = re.compile(rf"\\tag\*?\{{\s*(?P<number>{_NUMBER})\s*\}}")
 _EQUATION_END_RE = re.compile(rf"\(\s*(?P<number>{_NUMBER})\s*\)\s*(?:\$\$|\\\]|\$)?\s*$")
 _EQUATION_BLOCK_TYPES = frozenset({"equation", "equationnumber", "math"})
-# A table-of-contents line ("Theorem 3.2 .......... 45", "Theorem 3.2 Spectral
-# theorem 45") names a label without being it.
+# A table-of-contents line names a label without being it. Only strong
+# evidence counts (Codex review F6): a TableOfContents block, leader dots
+# ("Theorem 3.2 .......... 45"), or a page number in its own column (after a
+# tab, a run of spaces or a table cell). A statement that merely ends in a
+# number ("Theorem 3.2. The derivative of a constant is 0", Axler's "1.31 a
+# number times the vector 0") is a label.
 _TOC_LEADER_RE = re.compile(r"(?:\.\s*){4,}|…{2,}")
-_TOC_PAGE_RE = re.compile(r"\s\d+\s*$")
+_TOC_COLUMN_RE = re.compile(r"(?:\t| {3,}|\|)\s*\d+\s*\|?\s*$")
+_TOC_BLOCK_TYPES = frozenset({"tableofcontents"})
 
 _REF_KINDS = {
     "definition": "definition", "definitions": "definition", "def.": "definition", "defs.": "definition",
@@ -253,11 +260,10 @@ def numbered_label(text: str, block_type: str = "") -> NumberedLabel | None:
     Proof and solution leads, and table-of-contents lines, are not labels."""
 
     value = text or ""
-    if not value.strip():
+    if not value.strip() or (block_type or "").replace(" ", "").lower() in _TOC_BLOCK_TYPES:
         return None
     head = value.strip().splitlines()[0]
-    if len(head) < 120 and (_TOC_LEADER_RE.search(head) or (
-            _TOC_PAGE_RE.search(head) and len(_NUMBER_IN_RE.findall(head)) >= 2)):
+    if len(head) < 120 and (_TOC_LEADER_RE.search(head) or _TOC_COLUMN_RE.search(head)):
         return None
     lead = _NUMBERED_LEAD_RE.match(value)
     if lead:
