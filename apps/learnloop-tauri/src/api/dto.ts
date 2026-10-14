@@ -6513,7 +6513,8 @@ export interface ReaderActivityEvent {
     | "detour_returned"
     | "reconnect_shown"
     | "proactive_shown"
-    | "back_to_reading";
+    | "back_to_reading"
+    | "cue_shown";
   payload: Record<string, string | number | boolean | null | Record<string, boolean>>;
 }
 export interface ReaderAskHistoryDto {
@@ -6758,11 +6759,97 @@ export interface ReaderGuidePlanDto {
     targetContractVersionId: string | null;
   } | null;
   sections: ReaderGuideSectionDto[];
+  /** Reader workbench RW3a: the plan's own misunderstanding passages as
+   *  margin cues, within the learner's choices. Absent when cues are
+   *  switched off (cues.enabled = false) or from an older sidecar. */
+  cues?: ReaderCuesDto;
   /** Attempts whose live diagnosis is still pending behind a shown
    *  "Revisit this to resolve" reason: the reason names the error type until
    *  it lands. The Reader re-reads the plan while this is non-empty. Absent
    *  from a sidecar that predates it (nothing to wait on). */
   pendingDiagnosisAttemptIds?: string[];
+}
+
+/** The learner's margin-mark density: 0, 1, 2 or 4 marks per section (RW3a). */
+export type CueDensity = "off" | "fewer" | "normal" | "more";
+
+/** What "open" shows about a cue: the learner's earlier answer and LearnLoop's
+ *  model's reading of it once it has one. */
+export interface ReaderCueEarlierDto {
+  attemptId: string | null;
+  practiceItemId: string | null;
+  /** The question answered, clipped. */
+  prompt: string | null;
+  answeredAt: string | null;
+  /** "2 Oct". */
+  answeredOn: string | null;
+  /** The diagnoser's (or the joint grade's) statement; model text. */
+  statement: string | null;
+  /** The answer's diagnosis is still being written. */
+  statementPending: boolean;
+}
+
+/** One margin cue (RW3a): one of the Guide's own passages, with fixed copy. */
+export interface ReaderCueDto {
+  cueId: string;
+  kind: "revisit";
+  spanId: string;
+  sectionId: string;
+  learningObjectId: string;
+  learningObjectTitle: string;
+  /** The error event the cue is about (a new one is a new cue). */
+  targetId: string;
+  /** Global order for the one-mark-per-screenful rule (0 first). */
+  rank: number;
+  sectionRank: number;
+  /** "Connects to something you worked on: …" (fixed template). */
+  note: string;
+  /** "Because: your answer on … · from the Guide's citations". */
+  because: string;
+  /** The screen reader's full sentence. */
+  label: string;
+  earlier: ReaderCueEarlierDto;
+}
+
+export interface ReaderCuesDto {
+  version: string;
+  density: CueDensity;
+  budgetPerSection: number;
+  onePerViewport: boolean;
+  /** Cues are switched off for this book (marks is empty). */
+  sourceOff: boolean;
+  marks: ReaderCueDto[];
+  withheld: Record<string, number>;
+}
+
+export type ReaderCueAction = "opened" | "check_me" | "not_relevant" | "not_relevant_undone";
+
+export interface ReaderCueCheckDto {
+  status: "found" | "none" | "failed";
+  practiceItemId?: string;
+  learningObjectId?: string;
+  prompt?: string;
+  proposalId?: string | null;
+  reason?: string;
+}
+
+export interface ReaderCueActionDto {
+  cueId: string;
+  action: ReaderCueAction;
+  eventId: string;
+  verdict: string | null;
+  ledgerId: string | null;
+  /** "Check me": one item proposed for an ordinary attempt on your own. */
+  check: ReaderCueCheckDto | null;
+}
+
+export interface ReaderCuePreferencesDto {
+  enabled: boolean;
+  density: CueDensity;
+  budgetPerSection: number;
+  onePerViewport: boolean;
+  sourceOff: boolean;
+  offSourceCount: number;
 }
 
 /** One block's geometry in the original PDF (points, origin top-left). */

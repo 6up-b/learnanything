@@ -137,6 +137,9 @@ export interface ReaderInquiryInput {
   jumpGuardRef: MutableRefObject<number>;
   bodyRef: RefObject<HTMLDivElement | null>;
   askComposerRef: RefObject<HTMLTextAreaElement | null>;
+  /** A walk of the return stack landed the learner on this passage (RW3a:
+   *  no margin mark greets them there). */
+  onRestored?: (spanId: string | null) => void;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore" }) => Promise<void>) | null
@@ -200,7 +203,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
-    askComposerRef, openSourceRef,
+    askComposerRef, openSourceRef, onRestored,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -452,6 +455,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     } else if (target.spanId) {
       jumpToSpan(target.spanId);
     }
+    onRestored?.(target.spanId);
     setSelection(target.selection);
     setSelectionActions([]);
     setRailTab(target.railTab);
@@ -481,7 +485,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       settleScrollRef.current = bodyRef.current?.scrollTop ?? 0;
     }
   }, [render, library, openSourceRef, jumpToSpan, visitPayload, offline, showReconnect, jumpGuardRef,
-    setSelection, setSelectionActions, setRailTab, bodyRef]);
+    setSelection, setSelectionActions, setRailTab, bodyRef, onRestored]);
 
   // Scrolling the source: reading position, active time, "back to reading",
   // and the two RW1a things a screen of scrolling ends -- the reconnect line

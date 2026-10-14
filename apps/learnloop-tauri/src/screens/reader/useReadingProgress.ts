@@ -154,6 +154,12 @@ export interface ReadingProgress {
   readingSpan: string | null;
   setReadingSpan: Dispatch<SetStateAction<string | null>>;
   readingOffset: number | null;
+  /** The passage the Reader placed the learner at (a resume, a search hit,
+   *  the reading history, the preparing view's hand-over, a walk back): RW3a
+   *  never puts a margin mark there. */
+  restoredSpan: string | null;
+  /** A walk of the return stack landed the learner on this passage. */
+  noteRestored: (spanId: string | null) => void;
   sectionSeen: Record<string, number>;
   readingMoved: boolean;
   focusQuickCheck: string | null;
@@ -222,6 +228,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     watchRef, noteProactive, showGuideRail,
   } = input;
   const [readingSpan, setReadingSpan] = useState<string | null>(null);
+  const [restoredSpan, setRestoredSpan] = useState<string | null>(null);
   // How far into the reading passage's page the reading marker is, when the
   // original PDF only knows each passage's page (usability round 1, U2).
   const [readingOffset, setReadingOffset] = useState<number | null>(null);
@@ -315,6 +322,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (activeSeenRef.current) sendSeenCounts(seenSavesRef.current, activeSeenRef.current);
     activeSeenRef.current = null;
     setReadingSpan(null);
+    setRestoredSpan(null);
     setReadingOffset(null);
     setSectionSeen({});
     lastReadRef.current = null;
@@ -347,6 +355,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       if (savedSpan) {
         setReadingSpan(savedSpan);
         setActiveSpan(savedSpan);
+        setRestoredSpan(savedSpan);
         placed = true;
       }
     } catch {
@@ -357,6 +366,7 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (jumpSpan) {
       setReadingSpan(jumpSpan);
       setActiveSpan(jumpSpan);
+      setRestoredSpan(jumpSpan);
       placed = true;
     }
     // No saved place: the reading history decides, once it is read (below).
@@ -860,7 +870,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (guidePlan.extractionId && guidePlan.extractionId !== render.extractionId) return;
     historyResumeRef.current = false;
     const spanId = resumeSpanFromHistory(guidePlan.sections, readingHistory);
-    if (spanId) jumpToSpan(spanId, "start");
+    if (spanId) {
+      setRestoredSpan(spanId);
+      jumpToSpan(spanId, "start");
+    }
   }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
 
   // The learner's own hand on the page: what makes a scroll reading (round 2).
@@ -896,6 +909,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      // An Alt chord is never a scroll key: Alt+↓ / Alt+↑ move between margin
+      // marks (RW3a), and a mark brought into view is a placement, not reading.
+      if (event.altKey) return;
       if (SCROLL_KEYS.has(event.key)) userScrollAtRef.current = Date.now();
     };
     window.addEventListener("keydown", onKey);
@@ -939,12 +955,17 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     if (spanId) {
       setReadingSpan(spanId);
       setActiveSpan(spanId);
+      setRestoredSpan(spanId);
     }
     paneRef.current?.scrollToPage(position.page, position.offset);
   }, [render, offline, pdfView, setActiveSpan, paneRef]);
 
+  const noteRestored = useCallback((spanId: string | null) => {
+    if (spanId) setRestoredSpan(spanId);
+  }, []);
+
   return {
-    readingSpan, setReadingSpan, readingOffset, sectionSeen, readingMoved, focusQuickCheck,
+    readingSpan, setReadingSpan, readingOffset, restoredSpan, noteRestored, sectionSeen, readingMoved, focusQuickCheck,
     hiddenPdfOffers, setHiddenPdfOffers, answeredSections, setAnsweredSections, revealedSections,
     dismissedSections, setDismissedSections, completedSections, sectionPromptsEnabled, setSectionPromptsEnabled,
     boundaryChecksAvailable, authoringSections, timedOutSections, guideSectionBySpan, guideSectionByEnd,

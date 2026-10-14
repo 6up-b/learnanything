@@ -15,6 +15,7 @@ import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
 import { NativeMediaSettings } from "../components/NativeMediaSettings";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
+import { ReaderCueSettings } from "./reader/ReaderCueSettings";
 
 // UI metadata for the backend's use-case -> [ai.routing] expansion
 // (services/settings_store.USE_CASE_ROUTES). primaryRoute is the camelized
@@ -943,6 +944,8 @@ export function SettingsScreen({
           {busy === "budgets" ? "…" : "apply"}
         </button>
       </div>
+
+      <ReaderCueSettings rowStyle={rowStyle} labelStyle={labelStyle} onToast={onToast} />
 
       <SectionHeader>Appearance</SectionHeader>
       <div style={{ ...rowStyle, borderBottom: "none" }}>

@@ -8,7 +8,8 @@ export const NEEDS_SESSION = {
   practice: "Start a session before opening practice.",
   redo: "Start a session to begin the redo.",
   quickCheck: "Start a session first: the quick check runs inside a practice session.",
-  primed: "Start a session to practice the primed item — it will open automatically."
+  primed: "Start a session to practice the primed item — it will open automatically.",
+  checkMe: "Start a session to take this check on your own — it will open automatically."
 } as const;
 
 const SESSION_NOTICES: ReadonlySet<string> = new Set(Object.values(NEEDS_SESSION));

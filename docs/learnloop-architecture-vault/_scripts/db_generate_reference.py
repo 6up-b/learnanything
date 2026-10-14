@@ -871,6 +871,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
+    "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, and the facet span-support check",
@@ -1147,6 +1148,26 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and "
         "its passage-scoped quick check, and the Reader activity the reader report reads. Off: "
         "today's flat Ask rail, and every RPC RW1a extends answers byte-identically."
+    ),
+    "cues.enabled": (
+        "Kill switch for reader workbench RW3a (display only, no successor): the Guide's own passages on "
+        "a Learning Object with a recent misunderstanding shown as quiet margin marks with a fixed note "
+        "and a \"because\" line, their taps (salience-only events and learner_card verdicts on "
+        "passage_cue) and the density control. Off: the guide plan carries no cues and the Reader shows "
+        "no marks and no density control."
+    ),
+    "cues.density": (
+        "The learner's display limit of margin marks per section: off, fewer, normal or more (0, 1, 2 "
+        "or 4); \"fewer marks like this\" steps it down one notch. Remembered in vault config so it "
+        "holds across devices. A display limit only, never a count that decides learning."
+    ),
+    "cues.one_per_viewport": (
+        "At most one margin mark per screenful at every density (spacing computed when the text is "
+        "laid out, never while scrolling); off leaves the per-section density budget alone."
+    ),
+    "cues.off_sources": (
+        "Source ids the learner switched margin cues off for (from a mark's popover; undoable until "
+        "they leave the source)."
     ),
     "stuck_prompt.enabled": (
         "Kill switch for mvp-0.13's \"I'm stuck\" control (write what you can, or what's confusing "

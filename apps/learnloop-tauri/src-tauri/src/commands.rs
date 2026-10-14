@@ -1287,6 +1287,10 @@ sidecar_passthrough!(reader_reconnect_answer, "reader.reconnect_answer");
 sidecar_passthrough!(reader_inquiry_question, "reader.inquiry_question");
 sidecar_passthrough!(reader_inquiry_question_action, "reader.inquiry_question_action");
 sidecar_passthrough!(reader_log_activity, "reader.log_activity");
+// reader.* (reader workbench RW3a: margin cues from the Guide)
+sidecar_passthrough!(reader_cue_action, "reader.cue_action");
+sidecar_passthrough!(reader_cue_preferences, "reader.cue_preferences");
+sidecar_passthrough!(reader_set_cue_preferences, "reader.set_cue_preferences");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

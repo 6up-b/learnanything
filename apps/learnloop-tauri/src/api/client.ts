@@ -3,6 +3,10 @@ import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryC
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
   ReaderActivityEvent,
+  CueDensity,
+  ReaderCueAction,
+  ReaderCueActionDto,
+  ReaderCuePreferencesDto,
   ReaderInquiryQuestionActionInput,
   ReaderInquiryQuestionDto,
   ReaderInquiryQuestionReadDto,
@@ -1356,6 +1360,19 @@ export const api = {
     mutatingReader(call<{ question: ReaderInquiryQuestionDto }>("reader_inquiry_question_action", { input })),
   readerLogActivity: (input: { events: ReaderActivityEvent[] }) =>
     call<{ recorded: number }>("reader_log_activity", { input }),
+  // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
+  // and its undo) and the learner's cue preferences (density, a book off).
+  readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
+    mutatingReader(call<ReaderCueActionDto>("reader_cue_action", { input })),
+  readerCuePreferences: (input: { sourceId?: string | null } = {}) =>
+    call<ReaderCuePreferencesDto>("reader_cue_preferences", { input }),
+  readerSetCuePreferences: (input: {
+    extractionId?: string | null;
+    sourceId?: string | null;
+    density?: CueDensity | null;
+    sourceOff?: boolean | null;
+    via: "footer" | "fewer" | "popover" | "settings" | "undo";
+  }) => mutatingReader(call<ReaderCuePreferencesDto>("reader_set_cue_preferences", { input }), [TAG.settings]),
   readerAcceptProposal: (proposalId: string) =>
     mutatingReader(call<{ proposal: Record<string, unknown> }>("reader_accept_proposal", { input: { proposalId } }), [TAG.proposals, TAG.graph, TAG.library]),
   readerRejectProposal: (proposalId: string) =>

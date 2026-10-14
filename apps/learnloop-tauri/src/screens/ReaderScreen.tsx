@@ -55,6 +55,9 @@ import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
 import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
+import { useReaderCues, type CueCheckMeRequest } from "./reader/useReaderCues";
+import { CueFooter, MarginMark } from "./reader/MarginMark";
+import type { ReaderCueDto } from "../api/dto";
 
 import { type ReaderExchange } from "./reader/ReaderAskBranches";
 import { DetourStrip } from "./reader/DetourStrip";
@@ -139,12 +142,19 @@ export interface ReaderOpenSource {
   spanId: string | null;
 }
 
+/** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
+ *  your own, and the passage to come back to after its feedback. */
+export interface ReaderCheckMeRequest extends CueCheckMeRequest {
+  card: SourceLibraryCard;
+}
+
 export function ReaderScreen({
   onError,
   initialSource = null,
   onSourceChange,
   onOpenLibrary,
-  shelf
+  shelf,
+  onCheckMe,
 }: {
   onError: (message: string) => void;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
@@ -156,6 +166,9 @@ export function ReaderScreen({
   /** With no book open, the Library's own shelf (spec K5, usability round 2:
    *  the Reader's own list read as a second Library). */
   shelf?: ReactNode;
+  /** RW3a: open the item a margin cue's "check me" found, as a learner pick
+   *  with the book out of view; absent, the cue offers no check me. */
+  onCheckMe?: (request: ReaderCheckMeRequest) => void;
 }) {
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
@@ -374,7 +387,62 @@ export function ReaderScreen({
     visit, readingSpan,
     guideSectionBySpan: progress.guideSectionBySpan, jumpToSpan, onReadingScroll: progress.onReadingScroll,
     jumpGuardRef: progress.jumpGuardRef, bodyRef, askComposerRef, openSourceRef,
+    onRestored: progress.noteRestored,
   });
+
+  // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
+  const [pdfPageWidth, setPdfPageWidth] = useState<number | null>(null);
+  const openCardRef = useRef<SourceLibraryCard | null>(null);
+  const reloadGuidePlan = useCallback(async () => {
+    if (!render || offline) return;
+    const extractionId = render.extractionId;
+    try {
+      const plan = await readGuidePlan(render.sourceId, extractionId, { force: true });
+      setGuidePlan((current) => {
+        if (plan.extractionId !== extractionId) return current;
+        return current && current.sections.length > 0 && plan.sections.length === 0 ? current : plan;
+      });
+    } catch {
+      /* The Guide keeps what it had; the next open re-reads. */
+    }
+  }, [render, offline]);
+  const spanOrder = useMemo(
+    () => new Map(blocks.flatMap((block, index) => (block.spanId ? [[block.spanId, index] as const] : []))),
+    [blocks],
+  );
+  const cueSurface = watch ? "watch" : pdfView && surface === "pdf" && !offline ? "pdf" : render && !watchLoading ? "text" : "none";
+  const checkMeFromCue = useCallback((request: CueCheckMeRequest) => {
+    const card = openCardRef.current;
+    if (card && onCheckMe) onCheckMe({ ...request, card });
+  }, [onCheckMe]);
+  const cueCtl = useReaderCues({
+    render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
+    surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfPageWidth, bodyRef,
+    layoutKey: `${render?.renderViewId ?? ""}:${surface}:${guidePlan?.extractionId ?? ""}:${blocks.length}:${railCollapsed ? 1 : 0}`,
+    spanOrder, readingSpan, visitPayload, jumpToSpan,
+    onCheckMe: onCheckMe ? checkMeFromCue : undefined, onError,
+  });
+  const renderMark = (cue: ReaderCueDto, markSurface: "text" | "pdf" | "watch") => (
+    <MarginMark
+      key={cue.cueId}
+      cue={cue}
+      open={cueCtl.openCueId === cue.cueId}
+      onOpenChange={(open) => cueCtl.setOpenCueId(open ? cue.cueId : null)}
+      surface={markSurface}
+      canCheckMe={cueCtl.canCheckMe}
+      checkPhase={cueCtl.checkPhase(cue.cueId)}
+      onOpenEarlier={() => cueCtl.openEarlier(cue)}
+      onCheckMe={() => cueCtl.checkMe(cue)}
+      onNotRelevant={(text) => cueCtl.notRelevant(cue, text)}
+      onFewer={cueCtl.fewer}
+      onOffBook={cueCtl.offBook}
+      onOffEverywhere={cueCtl.offEverywhere}
+    />
+  );
+  const cueMarksFor = (markSurface: "pdf" | "watch") =>
+    cueCtl.placement.shown.length > 0
+      ? new Map(cueCtl.placement.shown.map((cue) => [cue.spanId, renderMark(cue, markSurface)] as const))
+      : null;
 
   // Captures commit locally before synthesis is queued. Reopening a real source
   // retries any durable outbox rows left behind by a transient drain failure.
@@ -536,6 +604,7 @@ export function ReaderScreen({
         );
         resetSourceState();
         setPreparingCard(null);
+        openCardRef.current = card;
         // Opening restores a position: following starts once it has settled.
         settleOpening();
         // RW1a: another source after leaving one is a detour (useReaderInquiry).
@@ -1892,6 +1961,7 @@ export function ReaderScreen({
               }}
               onTagMenu={openDomTagMenu}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              marks={cueMarksFor("watch")}
             />
           ) : watchLoading ? (
             <Card style={{ padding: 18 }}><Faint style={{ fontSize: 12 }}>◐ preparing video and synchronized transcript…</Faint></Card>
@@ -1916,6 +1986,8 @@ export function ReaderScreen({
               onTagMenu={setTagMenu}
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              marks={cueMarksFor("pdf")}
+              onPageWidth={setPdfPageWidth}
             />
           ) : null}
           {pdfOfferSection ? (
@@ -1940,6 +2012,7 @@ export function ReaderScreen({
             const isSection = (block.blockType ?? "") === "Section";
             const active = activeSpan === block.spanId;
             const guidePassage = block.spanId ? revealedPassages.get(block.spanId) : undefined;
+            const cueMark = block.spanId ? cueCtl.markOn(block.spanId) : null;
             const endSection = block.spanId ? guideSectionByEnd.get(block.spanId) : undefined;
             // The section-break button asks the one check-offer rule too.
             const endQuestionAvailable = Boolean(endSection
@@ -1970,8 +2043,11 @@ export function ReaderScreen({
                   borderLeft: `3px solid ${active ? COLOR.amber : block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.35)" : guidePassage ? COLOR.purplePill : "transparent"}`,
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
+                  // RW3a: a margin mark sits in the column's gutter, beside its passage.
+                  position: cueMark ? "relative" : undefined,
                 }}
               >
+                {cueMark ? renderMark(cueMark, "text") : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -2125,6 +2201,15 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
+            footer={cueCtl.cues ? (
+              <CueFooter
+                density={cueCtl.cues.density}
+                bookOff={cueCtl.cues.sourceOff}
+                receipt={cueCtl.receipt}
+                onDensity={cueCtl.setDensity}
+                onTurnOnBook={cueCtl.turnOnBook}
+              />
+            ) : null}
           />
 
           <NotesRail
@@ -2303,6 +2388,8 @@ export function ReaderScreen({
                 { key: "\\", label: "rail" },
               ]
             : []),
+          // RW3a: the margin marks, when any is drawn (UX §3.5).
+          ...(cueCtl.placement.shown.length > 0 ? [{ key: "alt+↓", label: "next mark" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />

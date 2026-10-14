@@ -126,6 +126,8 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onTagMenu: (request: TagMenuRequest) => void;
   /** RW1a: the reconnect line under the transcript passage holding this cue. */
   inlineNote?: { spanId: string; node: ReactNode } | null;
+  /** RW3a: margin marks by cue span, drawn in the passage's time column. */
+  marks?: ReadonlyMap<string, ReactNode> | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -138,6 +140,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onAskSpan,
   onTagMenu,
   inlineNote = null,
+  marks = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -453,6 +456,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
         </div>
         <div
           ref={transcriptRef}
+          data-transcript-scroller=""
           className="ll-scroll"
           tabIndex={0}
           onWheel={() => setFollowTranscript(false)}
@@ -478,7 +482,12 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                 aria-label={`Transcript from ${formatClock(section.start)} to ${formatClock(section.end)}`}
                 style={{ display: "grid", gridTemplateColumns: "48px minmax(0, 1fr)", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${active ? COLOR.amber : annotated ? COLOR.greenSoft : guided ? COLOR.purplePill : "transparent"}`, background: guided && !active ? COLOR.washPurple : "transparent", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11, lineHeight: 1.65 }}
               >
-                <span style={{ color: active ? COLOR.amberLink : COLOR.textFaint }}>{formatClock(section.start)}</span>
+                <span style={{ color: active ? COLOR.amberLink : COLOR.textFaint }}>
+                  {marks ? section.cues.filter((cue) => marks.has(cue.block.spanId ?? "")).slice(0, 1).map((cue) => (
+                    <span key={`cue-${cue.block.spanId}`} style={{ display: "block" }}>{marks.get(cue.block.spanId ?? "")}</span>
+                  )) : null}
+                  {formatClock(section.start)}
+                </span>
                 <span>
                   {section.cues.map((cue, index) => {
                     const spanId = cue.block.spanId ?? "";

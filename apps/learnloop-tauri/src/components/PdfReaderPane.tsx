@@ -130,6 +130,12 @@ interface PdfReaderPaneProps {
   /** RW1a: one quiet line under a passage (the reconnect line after a return
    *  the learner started), drawn just below the block on its page. */
   inlineNote?: { spanId: string; node: ReactNode } | null;
+  /** RW3a: margin marks by passage, drawn in an overlay gutter at the left of
+   *  the passage's box (only passages with a box have a place to draw). */
+  marks?: ReadonlyMap<string, ReactNode> | null;
+  /** The pages' width in pixels, reported as it changes (zoom, resize): the
+   *  Reader's one-mark-per-screenful spacing models pages at this width. */
+  onPageWidth?: (px: number) => void;
 }
 
 interface FindMatch {
@@ -138,7 +144,7 @@ interface FindMatch {
 }
 
 export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(
-  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError, inlineNote = null }: PdfReaderPaneProps,
+  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError, inlineNote = null, marks = null, onPageWidth }: PdfReaderPaneProps,
   handleRef,
 ) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -1076,6 +1082,12 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     [resolveSelection, resolveMarquee, blockAtPoint, onTagMenu],
   );
 
+  // RW3a: the Reader's mark spacing models pages at this width (zoom, resize).
+  const reportedWidth = Math.max(320, containerWidth - 2) * zoom;
+  useEffect(() => {
+    if (containerWidth > 0) onPageWidth?.(reportedWidth);
+  }, [reportedWidth, containerWidth, onPageWidth]);
+
   if (!doc) {
     return (
       <div ref={containerRef} style={{ padding: 24 }}>
@@ -1172,6 +1184,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               activeSpan={activeSpan}
               findQuery={findOpen ? findQuery.trim() : ""}
               inlineNote={inlineNote}
+              marks={marks}
             />
           </div>
         ))}
@@ -1220,6 +1233,7 @@ function PdfPage({
   activeSpan,
   findQuery,
   inlineNote,
+  marks,
 }: {
   doc: PDFDocumentProxy;
   pageIndex: number;
@@ -1235,6 +1249,7 @@ function PdfPage({
   activeSpan: string | null;
   findQuery: string;
   inlineNote: { spanId: string; node: ReactNode } | null;
+  marks: ReadonlyMap<string, ReactNode> | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1462,6 +1477,19 @@ function PdfPage({
                 }}
               >
                 {inlineNote.node}
+              </div>
+            ))
+        : null}
+      {geometry && marks && marks.size > 0
+        ? blocks
+            .filter((b) => marks.has(b.spanId) && b.bbox.length === 4)
+            .map((b) => (
+              <div
+                key={`cue-${b.spanId}`}
+                data-cue-gutter={b.spanId}
+                style={{ position: "absolute", left: Math.max(0, b.bbox[0] * scale - 24), top: b.bbox[1] * scale, zIndex: 4 }}
+              >
+                {marks.get(b.spanId)}
               </div>
             ))
         : null}
