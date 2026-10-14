@@ -35,7 +35,7 @@ Configuration is split by responsibility: `schema.py` owns typed canonical model
 ## Map of content
 
 - [[learnloop.toml]] — exact generated template, explicit decisions, and safe examples.
-- [[Configuration Field Catalog]] — all 819 effective leaf values grouped into 49 top-level sections.
+- [[Configuration Field Catalog]] — all 821 effective leaf values grouped into 49 top-level sections.
 - [[Legacy Configuration Compatibility]] — accepted old spellings, retired keys, and canonicalization rules.
 - [[Environment and Machine Settings]] — precedence, secrets, global settings, and AI defaults inheritance.
 - [[Runtime and Vault Data Files]] — files around the TOML that configure or define a vault.

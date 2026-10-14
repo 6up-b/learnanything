@@ -3,8 +3,8 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8d2deb39c5e1340e02e1c53abf065dbc92a9bd45"
-source_commit_timestamp: "2026-10-13T23:58:25-04:00"
+source_commit: "7fa49d2b654dc97fdd67166e3f34a986ae97787d"
+source_commit_timestamp: "2026-10-14T01:06:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 - `tests/test_reader_inquiry_status.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_source_block_fts.py`
+- `tests/test_tutor_delivery_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
