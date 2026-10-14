@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
-source_commit_timestamp: "2026-10-13T20:17:15-04:00"
+source_commit: "7271dbc726eb6e48dfea094c1d704c879b78b5ca"
+source_commit_timestamp: "2026-10-13T22:44:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/034_assessment_contract_snapshots.sql"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
-  - "src/learnloop/placement/state.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -94,6 +94,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/evsi_calibration/live_report.py`

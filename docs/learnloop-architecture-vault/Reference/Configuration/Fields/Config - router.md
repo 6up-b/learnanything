@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
-source_commit_timestamp: "2026-10-13T20:17:15-04:00"
+source_commit: "7271dbc726eb6e48dfea094c1d704c879b78b5ca"
+source_commit_timestamp: "2026-10-13T22:44:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -57,7 +57,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.15 successor: probe near-ties, teach-back items included, join the Today queue's seeded exploration; off serves exactly as mvp-0.14. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2382`; `src/learnloop/scheduling/scheduler.py:1110` |
 | `router.enabled` | `true` | boolean | modeled default or validator seed | Turns router behavior on or off within action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2383`; `src/learnloop/daily_plan/policy.py:35` |
 | `router.mode` | `"staged"` | string | modeled default or validator seed | Controls mode in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2384`; `src/learnloop/daily_plan/policy.py:58` |
-| `router.card_token_budget` | `16000` | integer | modeled default or validator seed | Controls card token budget in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2385`; `src/learnloop/daily_plan/router_card.py:92` |
+| `router.card_token_budget` | `16000` | integer | modeled default or validator seed | Controls card token budget in action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2385`; `src/learnloop/daily_plan/router_card.py:123` |
 | `router.payload_retention_days` | `365` | integer | modeled default or validator seed | Sets the payload retention duration in days for action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2386` |
 
 > [!warning] Omitted does not mean frozen in the file

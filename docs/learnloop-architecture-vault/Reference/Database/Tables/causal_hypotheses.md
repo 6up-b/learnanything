@@ -3,8 +3,8 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
-source_commit_timestamp: "2026-10-13T20:17:15-04:00"
+source_commit: "7271dbc726eb6e48dfea094c1d704c879b78b5ca"
+source_commit_timestamp: "2026-10-13T22:44:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
@@ -127,7 +127,6 @@ Database triggers:
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/daily_plans.py`
 - `src/learnloop/db/stores/recurrence.py`
@@ -182,6 +181,7 @@ Database triggers:
 - `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
 - `tests/test_recurrence_benchmarks.py`
+- `tests/test_router_card.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_voi_merge_composition.py`
@@ -191,7 +191,6 @@ Database triggers:
 - `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_migration.py`
-- `tests/test_causal_orchestrator.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

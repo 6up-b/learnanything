@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9633767f1bd14d802c000f777fe9a7aa34b176ff"
-source_commit_timestamp: "2026-10-13T20:17:15-04:00"
+source_commit: "7271dbc726eb6e48dfea094c1d704c879b78b5ca"
+source_commit_timestamp: "2026-10-13T22:44:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
+  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
@@ -182,7 +183,7 @@ Indexes and uniqueness:
 - `tests/test_pfc_unverified_unassessed.py`
 - `tests/test_probability_prep.py`
 - `tests/test_projection_evidence_polarity.py`
-- `tests/test_show.py`
+- `tests/test_router_card.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
