@@ -34,6 +34,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from learnloop.clock import Clock
+from learnloop.remote.errors import InvalidRequest, NotFound, RemoteRequestError
 
 CHAT_INTENTS = ("explain", "remediate", "alternative", "worked_example")
 DEFAULT_CHAR_BUDGET = 12_000
@@ -43,12 +44,11 @@ MIN_TAIL_CHARS = 200
 _PROTECTING = frozenset({"a check waiting in the app", "reserved for an assessment", "exam or held-out material"})
 
 
-class SourcesUnavailable(RuntimeError):
+class SourcesUnavailable(RemoteRequestError):
     """The sources service is off or refused the request (a learner-readable reason)."""
 
     def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
+        super().__init__(message, code=code)
 
 
 @dataclass
@@ -106,14 +106,14 @@ def find_passages(
     from learnloop.source_retrieval.policy import PolicyRefused
 
     if intent not in CHAT_INTENTS:
-        raise ValueError(f"intent must be one of {', '.join(CHAT_INTENTS)}")
+        raise InvalidRequest(f"intent must be one of {', '.join(CHAT_INTENTS)}")
     budget = max(1_000, min(int(char_budget), MAX_CHAR_BUDGET))
     los = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
     unknown_los = [lo for lo in dict.fromkeys(learning_object_ids) if lo not in vault.learning_objects]
     targets: list[dict[str, Any]] = []
     if misconception_id:
         if repository.misconception(misconception_id) is None:
-            raise LookupError(f"no misconception {misconception_id!r} in this vault")
+            raise NotFound(f"no misconception {misconception_id!r} in this vault")
         targets.append({"kind": "misconception", "id": misconception_id})
     withheld = withheld_items(vault, repository)
     if not withheld.available:

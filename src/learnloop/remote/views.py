@@ -20,6 +20,7 @@ from typing import Any
 
 from learnloop.clock import Clock, SystemClock
 from learnloop.db.migrate import applied_versions, discover_migrations
+from learnloop.remote.errors import NotFound
 
 #: The serving routes ``status`` reports, in the order a learner meets them.
 READINESS_TASKS = ("grading", "diagnosis", "source_rerank", "source_query_rewrite", "tutor_qa", "embedding")
@@ -216,7 +217,7 @@ def progress(runtime: Any, *, goal_id: str | None = None, clock: Clock | None = 
     repository = runtime.read_repository()
     now = _now(clock)
     if goal_id is not None and not any(goal.id == goal_id for goal in vault.goals):
-        raise LookupError(f"no goal {goal_id!r} in this vault")
+        raise NotFound(f"no goal {goal_id!r} in this vault")
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
     unknowns: list[str] = []
     try:

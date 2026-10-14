@@ -30,8 +30,9 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
 from learnloop.remote import views
+from learnloop.remote.errors import RemoteRequestError
 from learnloop.remote.runtime import RemoteRuntime, SchemaMismatch
-from learnloop.remote.sources import DEFAULT_CHAR_BUDGET, MAX_CHAR_BUDGET, SourcesUnavailable, find_passages
+from learnloop.remote.sources import DEFAULT_CHAR_BUDGET, MAX_CHAR_BUDGET, find_passages
 from learnloop.remote.telemetry import CallOrigin, record_shown_passages, record_tool_call
 from learnloop_mcp import ADAPTER_VERSION
 from learnloop_mcp.hosts import detect_host
@@ -171,11 +172,7 @@ class ToolCalls:
         message = ""
         try:
             outcome = body(call_id)
-        except LookupError as exc:
-            error_code, message = "not_found", str(exc).strip("'\"")
-        except ValueError as exc:
-            error_code, message = "invalid_request", str(exc)
-        except SourcesUnavailable as exc:
+        except RemoteRequestError as exc:
             error_code, message = exc.code, str(exc)
         except SchemaMismatch as exc:
             error_code, message = "schema_mismatch", str(exc)
