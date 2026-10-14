@@ -21,6 +21,9 @@ trimmed only past ``source_retrieval.passage_token_budget`` (``judge_passage``,
 marked with "…" and counted on the verification's ``trimmed_passages``). A
 block of at most 900 characters reads exactly as it did, so its ledgered
 verdicts still answer it. The call's token cap follows the prompt it sends.
+``source_retrieval.complete_passages = false`` is the kill switch (Codex
+review F5): every judge reads the predecessor's 900 characters again
+(``judged_passage``).
 """
 from __future__ import annotations
 
@@ -53,6 +56,8 @@ VERIFY_PROMPT_VERSION = "source_span_verify.v2"
 VERIFY_INPUT_TOKENS_BOUND = 60_000
 #: Characters per token of the passage budget (the repository's chars / 4).
 CHARS_PER_TOKEN = 4
+#: The predecessor's judge passage, restored by ``source_retrieval.complete_passages = false``.
+PREDECESSOR_PASSAGE_CHARS = 900
 TASK = "source_relevance"
 PRICE_SETTING = "source_retrieval.llm_price_per_million"
 _INSTRUCTIONS = (
@@ -150,6 +155,25 @@ def passage_chars(vault: LoadedVault) -> int:
     return vault.config.source_retrieval.passage_token_budget * CHARS_PER_TOKEN
 
 
+def passage_limit(vault: LoadedVault) -> int:
+    """The most characters of one judged passage under the vault's switch:
+    the passage budget, or the predecessor's 900 with complete passages off."""
+
+    return passage_chars(vault) if vault.config.source_retrieval.complete_passages else PREDECESSOR_PASSAGE_CHARS
+
+
+def judged_passage(vault: LoadedVault, text: str | None) -> tuple[str, bool]:
+    """A candidate's passage as the vault's judges read it, and whether it was
+    cut: :func:`judge_passage` at the budget, or with
+    ``source_retrieval.complete_passages`` off the predecessor's clip (900
+    characters of the collapsed text, "…" at the cut)."""
+
+    if vault.config.source_retrieval.complete_passages:
+        return judge_passage(text, passage_chars(vault))
+    value = " ".join((text or "").split())
+    return _clip(value, PREDECESSOR_PASSAGE_CHARS), len(value) > PREDECESSOR_PASSAGE_CHARS
+
+
 def judge_passage(text: str | None, max_chars: int) -> tuple[str, bool]:
     """A candidate's passage for a relevance judge: the complete block with its
     whitespace collapsed, trimmed only past ``max_chars`` (a word boundary when
@@ -189,13 +213,13 @@ def verify_prompt(question: str, context: str | None, pick_at_most: int,
                                     {"instructions": _INSTRUCTIONS, "context": payload})
 
 
-def _candidates(pool: Sequence[SpanHit], max_chars: int) -> tuple[list[dict[str, Any]], dict[str, SpanHit], int]:
+def _candidates(pool: Sequence[SpanHit], vault: LoadedVault) -> tuple[list[dict[str, Any]], dict[str, SpanHit], int]:
     context, refs = [], {}
     trimmed = 0
     for index, hit in enumerate(pool, start=1):
         ref = f"p{index}"
         refs[ref] = hit
-        passage, cut = judge_passage(hit.text, max_chars)
+        passage, cut = judged_passage(vault, hit.text)
         trimmed += cut
         context.append({"ref": ref, "source": _clip(hit.source_title, 120),
                         "section": " > ".join(hit.section_path)[:200] or None,
@@ -233,7 +257,7 @@ def verify_spans(
         if not ready.ready:
             return Verification(ready.skip or "unavailable", reason=ready.reason)
         route, client = ready.route, ready.client
-    candidates, by_ref, trimmed = _candidates(pool, passage_chars(vault))
+    candidates, by_ref, trimmed = _candidates(pool, vault)
     refs = {ref: hit.key for ref, hit in by_ref.items()}
     hits = {hit.key: hit for hit in pool}
     price = price_per_million if price_per_million is not None else vault.config.source_retrieval.llm_price_per_million
@@ -262,6 +286,7 @@ def verify_spans(
 
 __all__ = [
     "CHARS_PER_TOKEN",
+    "PREDECESSOR_PASSAGE_CHARS",
     "PRICE_SETTING",
     "TASK",
     "VERIFY_PROMPT_VERSION",
@@ -269,7 +294,9 @@ __all__ = [
     "Verification",
     "VerificationRoute",
     "judge_passage",
+    "judged_passage",
     "passage_chars",
+    "passage_limit",
     "verification_route",
     "verify_caps",
     "verify_prompt",

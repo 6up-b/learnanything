@@ -664,3 +664,133 @@ def test_by_theorem_resolves_to_a_statement_ending_in_a_number(tmp_path):
     assert referenced[0]["reference"] == "Theorem 3.2"
     references = repository.question_event(result["event_id"])["source_context"]["delivery"]["references"]
     assert [entry["reference"] for entry in references["resolved"]] == ["Theorem 3.2"]
+
+
+# -- Codex review F5: the kill switches restore the predecessor's delivery ---------
+
+_ROLLBACK = "[tutor_qa]\nexpanded_delivery = false\nresolve_references = false"
+
+
+def _predecessor_reader_spans(repository, extraction_id, span_id, *, selection_span_ids=(),
+                              selection_quote_md=None, withheld=None):
+    """tutor_qa._reader_source_spans as it was at 4cf54a295 (mvp-0.22), verbatim
+    but for the module-level names: the reference the kill switch must restore."""
+
+    from learnloop.reader.span_view import SpanViewError, build_span_view
+
+    if not extraction_id or not span_id:
+        return []
+    try:
+        view = build_span_view(repository, extraction_id, span_id, record=False)
+    except SpanViewError:
+        return []
+    spans = []
+
+    def _label(text):
+        text = " ".join((text or "").split())
+        return text[:59].rstrip() + "…" if len(text) > 60 else text
+
+    if selection_quote_md and selection_quote_md.strip():
+        spans.append({"extraction_id": extraction_id, "span_id": span_id, "label": "learner selection",
+                      "text": selection_quote_md, "relation": "selected_text"})
+    spans.append({"extraction_id": extraction_id, "span_id": span_id, "label": _label(view.get("text")),
+                  "text": view.get("text"), "relation": "in_view"})
+    for extra_id in list(dict.fromkeys(selection_span_ids))[:8]:
+        if extra_id == span_id:
+            continue
+        try:
+            extra = build_span_view(repository, extraction_id, extra_id, record=False)
+        except SpanViewError:
+            continue
+        spans.append({"extraction_id": extraction_id, "span_id": extra_id, "label": _label(extra.get("text")),
+                      "text": extra.get("text"), "relation": "in_view"})
+    max_spans = max(4, len(spans) + 2)
+    for neighbour in (view.get("previous_spans") or []) + (view.get("next_spans") or []):
+        nid = neighbour.get("span_id")
+        if nid is None or (withheld is not None and withheld.covers(str(extraction_id), str(nid))):
+            continue
+        spans.append({"extraction_id": extraction_id, "span_id": nid, "label": _label(neighbour.get("text")),
+                      "text": neighbour.get("text"), "relation": "surrounding"})
+        if len(spans) >= max_spans:
+            break
+    return spans
+
+
+@pytest.mark.parametrize("case", ["one_block", "quote", "multi_block", "held_out_neighbour"])
+def test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window(tmp_path, case):
+    from learnloop.content.sources.exam_material import held_out_material
+
+    chapter = list(CHAPTER)
+    chapter[3] = ("Paragraph five, right before the step. " + LONG, 1)  # past the 240-character preview
+    chapter[5] = ("Paragraph seven, right after the step. " + LONG, 2)
+    held = {"ch_held": ("Held-out problems", [("Held-out problem: show the eigenvalues are real.", 1)])}
+    paths, repository = _vault(tmp_path, chapter=chapter, config=_ROLLBACK,
+                               extra_units=held if case == "held_out_neighbour" else None)
+    if case == "held_out_neighbour":
+        save_unit_selection(repository, "ext_text", ["ch_held", "ch_sym"],
+                            exam_use_modes={"ch_held": "held_out_evaluation"})
+    five, six = _span_of(repository, "Paragraph five"), _span_of(repository, "Paragraph six")
+    primary, kwargs = six, {}
+    if case == "quote":
+        kwargs = {"selection_quote_md": "hence t is real"}
+    elif case == "multi_block":
+        primary, kwargs = five, {"selection_span_ids": [five, six], "selection_quote_md": "assume A^T = A. hence"}
+    elif case == "held_out_neighbour":
+        primary = _span_of(repository, "Paragraph two")
+    spans, _result = _ask(paths, repository, primary, **kwargs)
+    expected = _predecessor_reader_spans(
+        repository, "ext_text", primary, withheld=held_out_material(load_vault(paths.root), repository), **kwargs)
+    assert spans == expected
+    if case == "one_block":  # not vacuous: i-3, i-2 and the 240-character preview of i-1, nothing after
+        assert [len(span["text"]) for span in spans if span["relation"] == "surrounding"][-1] == 240
+
+
+def test_with_the_kill_switch_on_the_reader_still_gets_complete_nearest_neighbours(tmp_path):
+    chapter = list(CHAPTER)
+    chapter[3] = ("Paragraph five, right before the step. " + LONG, 1)
+    paths, repository = _vault(tmp_path, chapter=chapter)
+    spans, _ = _ask(paths, repository, _span_of(repository, "Paragraph six"))
+    assert next(span for span in spans if span.get("offset") == -1)["text"] == chapter[3][0]
+
+
+def test_the_expanded_delivery_kill_switch_restores_the_600_character_retrieved_span(tmp_path):
+    paths, repository = _retrieval_vault(tmp_path, config=_ROLLBACK)
+    spans, _result, llm = _ask_practice(paths, repository)
+    long_span = next(span for span in spans if span["text"].startswith("Why the eigenvalues"))
+    assert long_span["text"] == " ".join(EIGEN_LONG.split())[:600]  # span_context's predecessor cut
+    assert not [span for span in spans if span["relation"] == "referenced"]
+
+
+def test_the_expanded_delivery_kill_switch_keeps_a_linked_span_at_its_600_character_cut(tmp_path):
+    teaching = TEACHING + " " + LONG
+    paths, repository = _linked_vault(tmp_path, [(WORKED, "Text"), (WORKED_BODY, "Text"), (teaching, "Text")],
+                                      teaching_span="s4")
+    expanded, _ = _ask_linked(paths, repository, item="pi_eigen_2")
+    assert expanded[0]["text"] == teaching  # completed from the block
+    append_config_toml(paths.root, _ROLLBACK)
+    rolled_back, _ = _ask_linked(paths, repository, item="pi_eigen_2")
+    assert [span["text"] for span in rolled_back] == [teaching.strip()[:600]]  # the predecessor, unhydrated
+
+
+def test_the_complete_passages_kill_switch_restores_the_judges_900_characters(tmp_path):
+    from learnloop.source_retrieval.recipes import source_block_text
+
+    paths, repository = _retrieval_vault(tmp_path, config="[source_retrieval]\ncomplete_passages = false")
+    _spans, _result, llm = _ask_practice(paths, repository)
+    passages = [candidate["passage"] for purpose, context in llm.calls if purpose == "source_rerank"
+                for candidate in context["candidates"]]
+    collapsed = " ".join(EIGEN_LONG.split())
+    assert collapsed[:899] + "…" in passages and collapsed not in passages
+    labelled, report = _labelled_passages(paths)
+    assert labelled and all(len(passage) <= 900 for passage in labelled)
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_block_fts import blocks_by_key, section_header_titles
+    from contextlib import closing
+
+    span = _span_of(repository, "Why the eigenvalues", "ext_spec")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        block = blocks_by_key(connection, [("ext_spec", span)])[("ext_spec", span)]
+        embedded = source_block_text(block, section_header_titles(connection, "ext_spec"))
+    predecessor = " ".join(embedded.split())[:899] + "…"  # bench.clip(source_block_text(...), 900)
+    assert predecessor in labelled
+    assert report["results"]["passages"]["complete"] is False

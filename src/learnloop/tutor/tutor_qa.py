@@ -70,6 +70,9 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.tutor.context_delivery import (
     MAX_REFERENCES,
     NEIGHBOUR_RADIUS,
+    PREDECESSOR_RADIUS,
+    PREVIEW_CHARS,
+    SPAN_CHARS,
     BlockFilter,
     BlockSource,
     References,
@@ -79,6 +82,8 @@ from learnloop.tutor.context_delivery import (
     neighbour_order,
     notable,
     passage_label,
+    predecessor_cut,
+    predecessor_window,
 )
 from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
@@ -1275,6 +1280,7 @@ def _build_context(
             withheld=reader_withheld,
             budget_tokens=settings.context_token_budget,
             resolve_references=settings.resolve_references,
+            expanded=settings.expanded_delivery,
         )
         if delivery_receipt is not None and notable(receipt):
             delivery_receipt.update(receipt)
@@ -1373,9 +1379,16 @@ def _delivered_source_spans(
     numbered blocks they cite (``referenced``: the provider resolves its own
     within its scope; a linked span's under the injected
     ``linked_reference_filter``, the same teaching scope and item exclusions,
-    and none without it), all within ``tutor_qa.context_token_budget``."""
+    and none without it), all within ``tutor_qa.context_token_budget``.
+
+    ``tutor_qa.expanded_delivery = false`` (the kill switch, Codex review F5)
+    restores the predecessor's passages: the provider's spans as it cut them
+    (600 characters, ``source_retrieval.tutor.span_context``) and the linked
+    spans at their 600-character cut, not completed; a referenced block is
+    cut the same way."""
 
     settings = vault.config.tutor_qa
+    expanded = settings.expanded_delivery
     source = BlockSource(repository.sqlite_path)
     references = References()
     if provided_source_spans is not None:
@@ -1384,16 +1397,19 @@ def _delivered_source_spans(
         keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
         cited = [span for span in provided if span.get("relation") == "referenced"
                  and tuple(str(part) for part in span.get("referenced_from") or ()) in keys]
-        chosen, completed = hydrate(source, chosen)
+        chosen, completed = hydrate(source, chosen) if expanded else (chosen, 0)
         candidates = chosen + cited
     else:
-        chosen, completed = hydrate(source, _source_spans(vault, repository, lo_ids))
+        linked = _source_spans(vault, repository, lo_ids)
+        chosen, completed = hydrate(source, linked) if expanded else (linked, 0)
         candidates = list(chosen)
         if settings.resolve_references and chosen and linked_reference_filter is not None:
             keys = {(str(span.get("extraction_id")), str(span.get("span_id"))) for span in chosen}
             allow = linked_reference_filter(vault, repository, context=context, learning_object_ids=list(lo_ids),
                                             item=item)
             references = follow_references(source, chosen, allow=allow, delivered=keys)
+            if not expanded:
+                references.spans = [predecessor_cut(span, SPAN_CHARS) for span in references.spans]
             candidates += references.spans
     spans, receipt = apply_budget(candidates, settings.context_token_budget)
     if not references.empty:
@@ -1501,13 +1517,14 @@ def _reader_source_spans(
     withheld: Any = None,
     budget_tokens: int = DEFAULT_CONTEXT_TOKEN_BUDGET,
     resolve_references: bool = True,
+    expanded: bool = True,
 ) -> list[dict[str, Any]]:
     """The reader manifest's citable spans (:func:`_reader_delivery`)."""
 
     return _reader_delivery(
         repository, extraction_id, span_id, selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md, withheld=withheld, budget_tokens=budget_tokens,
-        resolve_references=resolve_references,
+        resolve_references=resolve_references, expanded=expanded,
     )[0]
 
 
@@ -1521,6 +1538,7 @@ def _reader_delivery(
     withheld: Any = None,
     budget_tokens: int = DEFAULT_CONTEXT_TOKEN_BUDGET,
     resolve_references: bool = True,
+    expanded: bool = True,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Block-level spans for the reader manifest (§7.6) and their delivery receipt.
 
@@ -1534,6 +1552,12 @@ def _reader_delivery(
     complete canonical block; ``budget_tokens`` bounds the whole list
     (``context_delivery.apply_budget``). NOT the P3 annotation layer. Degrades
     to [] when the span cannot be resolved.
+
+    ``expanded`` false (``tutor_qa.expanded_delivery``, the kill switch;
+    Codex review F5) restores the predecessor's window: the span view's three
+    blocks before and after the primary block (furniture and empty blocks
+    included), each a 240-character preview, until the list holds max(4,
+    spans + 2) spans; a referenced block is then a preview too.
 
     ``withheld`` (the held-out material, ``content.sources.exam_material``):
     a neighbour or referenced block it covers is never in the manifest (exam
@@ -1579,7 +1603,11 @@ def _reader_delivery(
     cited = References()
     if resolve_references:
         cited = follow_references(source, spans, allow=_refused, delivered=delivered)
+        if not expanded:
+            cited.spans = [predecessor_cut(span, PREVIEW_CHARS) for span in cited.spans]
         delivered |= {(extraction_id, str(span["span_id"])) for span in cited.spans}
+    if not expanded:
+        return _predecessor_reader_delivery(text, primary, spans, cited, _refused, budget_tokens)
     neighbours: list[dict[str, Any]] = []
     withheld_neighbours = 0
     for position, offset in neighbour_order(text, min(in_view), max(in_view)):
@@ -1600,6 +1628,46 @@ def _reader_delivery(
                              "withheld": withheld_neighbours}
     receipt["references"] = {"resolved": [*cited.resolved, *further.resolved],
                              "unresolved": [*cited.unresolved, *further.unresolved]}
+    return kept, receipt
+
+
+def _predecessor_reader_delivery(
+    text: Any,
+    primary: int,
+    spans: list[dict[str, Any]],
+    cited: References,
+    refused: BlockFilter,
+    budget_tokens: int,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """The predecessor's Reader window (``tutor_qa.expanded_delivery = false``).
+
+    As ``reader.span_view`` gave it before the tutor delivery fixes: the three
+    ordinal-adjacent blocks before the primary block, then the three after
+    (furniture and empty blocks included), each cut to its 240-character
+    preview, a held-out one skipped, until the list holds max(4, spans + 2)
+    spans (the quote and the blocks in view count; references do not)."""
+
+    extraction_id = text.extraction_id
+    limit = max(_MAX_CITATION_SPANS, len(spans) + 2)
+    referenced = {str(span["span_id"]) for span in cited.spans}
+    neighbours: list[dict[str, Any]] = []
+    withheld_neighbours = 0
+    for position in predecessor_window(text, primary):
+        if len(spans) + len(neighbours) >= limit:
+            break
+        block = text.blocks[position]
+        if str(block.span_id) in referenced:
+            continue
+        if refused(extraction_id, block) is not None:
+            withheld_neighbours += 1
+            continue
+        preview = (block.text or "")[:PREVIEW_CHARS]
+        neighbours.append({"extraction_id": extraction_id, "span_id": block.span_id,
+                           "label": passage_label(preview), "text": preview, "relation": "surrounding"})
+    kept, receipt = apply_budget([*spans, *cited.spans, *neighbours], budget_tokens)
+    receipt["neighbours"] = {"window": "predecessor", "radius": PREDECESSOR_RADIUS,
+                             "delivered": len(neighbours), "withheld": withheld_neighbours}
+    receipt["references"] = cited.describe()
     return kept, receipt
 
 

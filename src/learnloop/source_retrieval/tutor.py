@@ -65,7 +65,7 @@ from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
 from learnloop.source_retrieval.verify import verification_route, verify_spans
-from learnloop.tutor.context_delivery import BlockFilter, BlockSource, follow_references
+from learnloop.tutor.context_delivery import SPAN_CHARS, BlockFilter, BlockSource, follow_references, predecessor_cut
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -98,9 +98,16 @@ def over_soft_deadline(timings: dict[str, int], seconds: float) -> list[str]:
     return [step for step in TIMED_STEPS if timings.get(step, 0) > seconds * 1000]
 
 
-def span_context(hit: SpanHit) -> dict[str, Any]:
+#: The predecessor's cut of a retrieved or pinned span (whitespace collapsed),
+#: restored by ``tutor_qa.expanded_delivery = false`` (Codex review F5).
+SPAN_TEXT_CAP = SPAN_CHARS
+
+
+def span_context(hit: SpanHit, *, complete: bool = True) -> dict[str, Any]:
     """A verified span in the tutor's ``source_spans`` shape: the complete
-    canonical block (``tutor_qa.context_token_budget`` is the only bound)."""
+    canonical block (``tutor_qa.context_token_budget`` is the only bound), or
+    with ``complete`` false (``tutor_qa.expanded_delivery``, the kill switch)
+    the predecessor's ``SPAN_TEXT_CAP`` characters of its collapsed text."""
 
     label = hit.source_title if not hit.section else f"{hit.source_title} · {hit.section}"
     return {
@@ -110,7 +117,7 @@ def span_context(hit: SpanHit) -> dict[str, Any]:
         "semantic_authority": False,
         "source_id": hit.source_id,
         "label": label[:120],
-        "text": hit.text,
+        "text": hit.text if complete else " ".join(hit.text.split())[:SPAN_TEXT_CAP],
     }
 
 
@@ -183,7 +190,9 @@ def with_references(vault: LoadedVault, repository: Repository, spans: list[dict
         BlockSource(repository.sqlite_path), spans, allow=reference_filter(vault, repository, scope, item=item),
         delivered={(str(span["extraction_id"]), str(span["span_id"])) for span in spans}, span_extra=extra,
     )
-    return spans + found.spans, (None if found.empty else found.describe())
+    cited = found.spans if vault.config.tutor_qa.expanded_delivery else [
+        predecessor_cut(span, SPAN_TEXT_CAP, collapse=True) for span in found.spans]
+    return spans + cited, (None if found.empty else found.describe())
 
 
 @dataclass
@@ -376,7 +385,8 @@ class TutorSpanProvider:
         if not verification.ran:
             return None, {**manifest, "basis": "lo_provenance",
                           "reason": f"verification {verification.status}"}
-        spans = [span_context(hit) for hit in verification.picks]
+        complete = vault.config.tutor_qa.expanded_delivery
+        spans = [span_context(hit, complete=complete) for hit in verification.picks]
         spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
         return spans, {**manifest, "basis": "retrieved_verified", "spans": len(verification.picks),
                        "span_keys": [hit.record_id for hit in verification.picks],
@@ -424,7 +434,9 @@ class TutorSpanProvider:
             return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
         by_key = {hit.key: hit for hit in pool}
         chosen = [by_key[key] for key in picks if key in by_key]
-        spans, references = with_references(vault, repository, [span_context(hit) for hit in chosen], scope,
+        complete = vault.config.tutor_qa.expanded_delivery
+        spans, references = with_references(vault, repository,
+                                             [span_context(hit, complete=complete) for hit in chosen], scope,
                                              item=item)
         return spans, {**manifest, "basis": "retrieved_verified", "spans": len(chosen),
                        "span_keys": [hit.record_id for hit in chosen],
@@ -481,7 +493,8 @@ class PinnedSpanProvider:
             spans.append(span_context(SpanHit(
                 extraction_id=key[0], span_id=key[1], source_id=extraction.source_id,
                 source_title=extraction.title, text=block.text, block_type=block.block_type, section_path=[],
-                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})))
+                page=block.page, ordinal=block.ordinal, ranks={"pinned": 1}),
+                complete=vault.config.tutor_qa.expanded_delivery))
         pinned_keys = [f"{s['extraction_id']}:{s['span_id']}" for s in spans]
         pinned = len(spans)
         spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
@@ -493,6 +506,7 @@ __all__ = [
     "ITEM_BOUND_CONTEXTS",
     "PROVENANCE_SPANS_PER_LO",
     "PinnedSpanProvider",
+    "SPAN_TEXT_CAP",
     "TIMED_STEPS",
     "TutorPool",
     "TutorSpanProvider",

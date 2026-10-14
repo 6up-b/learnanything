@@ -604,6 +604,14 @@ class TutorQAConfig(BaseModel):
     # the budget and the exam rule). false is the kill switch: no reference
     # is followed.
     resolve_references: bool = True
+    # Kill switch for the expanded delivery (tutor delivery fixes items 1 and
+    # 2; Codex review F5): false restores the predecessor's passages. The
+    # Reader gets the span view's window again (the three blocks on each side
+    # of the block in view, page furniture included, as 240-character
+    # previews, at most max(4, spans + 2) spans) and retrieved, pinned and
+    # linked spans their 600-character cut. References (resolve_references)
+    # and the budget are separate.
+    expanded_delivery: bool = True
 
 
 class TutorPromotionConfig(BaseModel):
@@ -2241,6 +2249,11 @@ class SourceRetrievalConfig(BaseModel):
     # trimmed (marked "…" and counted) only past this; it was cut at 900
     # characters before. Generous by default.
     passage_token_budget: int = Field(default=4_000, ge=250, le=100_000)
+    # Kill switch for complete judge passages (tutor delivery fixes item 2;
+    # Codex review F5): false restores the 900-character passages the judges
+    # read before (the tutor's verification, the find_sources checks and the
+    # T6 labeller, whose report is then t6-eval-v2 again).
+    complete_passages: bool = True
 
 
 class SourceServiceConfig(BaseModel):

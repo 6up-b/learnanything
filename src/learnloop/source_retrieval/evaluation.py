@@ -55,6 +55,9 @@ agreement reported").
   The block is its canonical text after the recipe's "Section:" line
   (``recipes.source_block_passage``), never the embedded text, whose body
   the recipe caps at 6,000 characters without counting it (Codex review F2).
+  ``source_retrieval.complete_passages = false`` (the kill switch, Codex
+  review F5) restores the predecessor's labelling: the embedded text clipped
+  at 900 characters, reported as t6-eval-v2.
 
 Reports are aggregate only; every verdict is in ``judgment_ledger``.
 """
@@ -99,6 +102,7 @@ from learnloop.source_retrieval.recipes import (
     block_record_id,
     embeddable,
     source_block_passage,
+    source_block_text,
     split_record_id,
 )
 from learnloop.source_retrieval.search import (
@@ -108,7 +112,7 @@ from learnloop.source_retrieval.search import (
     search_spans,
 )
 from learnloop.source_retrieval.tutor import ITEM_BOUND_CONTEXTS, TutorPool, tutor_pool, tutor_scope
-from learnloop.source_retrieval.verify import judge_passage, passage_chars, verify_prompt, verify_spans
+from learnloop.source_retrieval.verify import judged_passage, passage_limit, verify_prompt, verify_spans
 from learnloop.vault.models import LoadedVault
 
 DISPLAY_SYSTEMS = ("substring", "keyword", "meaning", "hybrid", "hybrid_rewrite", "pool_rewrite")
@@ -434,7 +438,9 @@ class SourceRetrievalSuite:
         revision = content_key({"seeds": [[seed.qtype, *seed.keys] for seed in seeds],
                                 "logged": [entry.text for entry in logged], "scope": sorted(scope.extractions)})
         query_types = {qtype: sum(1 for seed in seeds if seed.qtype == qtype) for qtype in QUERY_TYPES}
-        manifest = {"name": "source_retrieval", "version": "t6-eval-v3",
+        # t6-eval-v3 labels read complete passages; the kill switch restores v2's.
+        version = "t6-eval-v3" if vault.config.source_retrieval.complete_passages else "t6-eval-v2"
+        manifest = {"name": "source_retrieval", "version": version,
                     "sources": [{"name": "vault library scope", "version": revision[:16],
                                  "licence": "owner's own sources"}],
                     "scope": scope.describe(), "query_types": {**query_types, LOGGED_TYPE: len(logged)}}
@@ -445,7 +451,7 @@ class SourceRetrievalSuite:
         """The most characters one judged passage can have here: the passage
         budget, or the scope's longest block when that is shorter."""
 
-        budget = passage_chars(vault)
+        budget = passage_limit(vault)
         extractions = sorted(scope.extractions)
         if not extractions:
             return 0
@@ -633,8 +639,9 @@ class SourceRetrievalSuite:
         not_dense: dict[str, dict[str, int]] = {}
         tutor_contexts: dict[str, int] = {}
         verify_truncations: list[dict[str, Any]] = []
-        # Judged passages are complete blocks, trimmed only past the budget.
-        passage_limit = passage_chars(vault)
+        # Judged passages are complete blocks, trimmed only past the budget
+        # (or the predecessor's 900 characters with complete_passages off).
+        complete = vault.config.source_retrieval.complete_passages
         trimmed_passages = 0
         verify_trimmed = 0
         for question in questions:
@@ -670,11 +677,11 @@ class SourceRetrievalSuite:
             keys = {key for ranked in rankings.values() for key in ranked[: bench.TOP_K]}
             keys |= {hit.record_id for built in pools.values() for hit in built.pool}
             pool = sorted(keys)
-            blocks = self._blocks(repository, pool)
+            blocks = self._blocks(repository, pool, complete=complete)
             titles = {hit.record_id: hit.source_title for built in pools.values() for hit in built.pool}
             candidates: dict[str, dict[str, str]] = {}
             for key in pool:
-                passage, cut = judge_passage(blocks.get(key, ""), passage_limit)
+                passage, cut = judged_passage(vault, blocks.get(key, ""))
                 trimmed_passages += cut
                 candidates[key] = {
                     "source": bench.clip(titles.get(key) or data.scope.extractions[split_record_id(key)[0]].title,
@@ -765,8 +772,8 @@ class SourceRetrievalSuite:
             "label_agreement": bench.label_agreement(all_labels),
             "label_models": label_models,
             "truncations": list(ctx.caller.truncations) + verify_truncations,
-            "passages": {"token_budget": config.passage_token_budget, "label_trimmed": trimmed_passages,
-                         "verify_trimmed": verify_trimmed},
+            "passages": {"token_budget": config.passage_token_budget, "complete": complete,
+                         "label_trimmed": trimmed_passages, "verify_trimmed": verify_trimmed},
             "mean_pool": (sum(q["pool"] for q in per_question) / len(per_question)) if per_question else None,
             "mean_relevant": (sum(q["relevant"] for q in per_question) / len(per_question)) if per_question else None,
             "method": {
@@ -917,14 +924,16 @@ class SourceRetrievalSuite:
             ctx.caller.cached_by_role[bench.VERIFY_ROLE] += 1
         return outcome, seconds
 
-    def _blocks(self, repository: Repository, keys: list[str]) -> dict[str, str]:
+    def _blocks(self, repository: Repository, keys: list[str], *, complete: bool = True) -> dict[str, str]:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             rows = blocks_by_key(connection, [split_record_id(key) for key in keys])
             titles = {extraction_id: section_header_titles(connection, extraction_id)
                       for extraction_id in sorted({key[0] for key in rows})}
         # The complete block (Codex review F2): the embedding recipe's text
-        # caps the body at 6,000 characters, uncounted.
-        return {block_record_id(*key): source_block_passage(block, titles[key[0]]) for key, block in rows.items()}
+        # caps the body at 6,000 characters, uncounted. The predecessor read
+        # that embedded text (complete_passages off: clipped at 900 anyway).
+        text_of = source_block_passage if complete else source_block_text
+        return {block_record_id(*key): text_of(block, titles[key[0]]) for key, block in rows.items()}
 
     def markdown_lines(self, results: dict[str, Any]) -> list[str]:
         types = results.get("question_types") or {}

@@ -23,6 +23,12 @@ Three rules, shared by every tutor context:
 Reader neighbours (``neighbour_order``) are the nearest content blocks around
 the passage in view, alternating sides and widening: i-1, i+1, i-2, i+2, ...
 
+``tutor_qa.expanded_delivery = false`` is the kill switch for the first two
+rules (Codex review F5): the predecessor's window (``predecessor_window``,
+the span view's three blocks a side) and its cuts (``PREVIEW_CHARS`` for a
+Reader neighbour, ``SPAN_CHARS`` for a retrieved, pinned or linked span,
+``predecessor_cut``) come back.
+
 Nothing here is evidence: the delivery is context for one answer, and replay
 reads none of it.
 """
@@ -56,6 +62,12 @@ MAX_REFERENCES = 4
 MAX_REFERENCE_BLOCKS = 4
 #: The smallest remainder worth a trimmed passage; below it the passage is dropped.
 MIN_TRIM_TOKENS = 32
+#: The predecessor's cuts, restored by ``tutor_qa.expanded_delivery = false``:
+#: a Reader neighbour's span-view preview, and a retrieved, pinned or linked span.
+PREVIEW_CHARS = 240
+SPAN_CHARS = 600
+#: The predecessor's Reader window: the span view's blocks on each side.
+PREDECESSOR_RADIUS = 3
 
 _TERMINAL = re.compile(r"[.!?…)\]]\s*(?:\$\$|\\\]|\$)?\s*[*_]*\s*$")
 _HEADER_TYPES = frozenset({"sectionheader", "title", "heading"})
@@ -188,6 +200,27 @@ def neighbour_order(text: ExtractionText, first: int, last: int, *, radius: int 
         if distance < len(after):
             order.append((after[distance], distance + 1))
     return order
+
+
+def predecessor_window(text: ExtractionText, index: int, *, radius: int = PREDECESSOR_RADIUS) -> list[int]:
+    """The predecessor's Reader neighbours of the block at ``index``: the span
+    view's ordinal-adjacent blocks, page furniture and empty blocks included,
+    the ``radius`` before (in document order) then the ``radius`` after."""
+
+    before = range(max(0, index - radius), index)
+    after = range(index + 1, min(len(text.blocks), index + 1 + radius))
+    return [*before, *after]
+
+
+def predecessor_cut(span: Mapping[str, Any], limit: int, *, collapse: bool = False) -> dict[str, Any]:
+    """``span`` with its text cut as the predecessor cut it: the first
+    ``limit`` characters, of the whitespace-collapsed text for a retrieved or
+    pinned span (``collapse``), else as stored (a span-view preview)."""
+
+    value = str(span.get("text") or "")
+    if collapse:
+        value = " ".join(value.split())
+    return {**span, "text": value[:limit]}
 
 
 @dataclass
@@ -400,6 +433,9 @@ __all__ = [
     "MAX_REFERENCE_BLOCKS",
     "MIN_TRIM_TOKENS",
     "NEIGHBOUR_RADIUS",
+    "PREDECESSOR_RADIUS",
+    "PREVIEW_CHARS",
+    "SPAN_CHARS",
     "BlockFilter",
     "BlockSource",
     "ExtractionText",
@@ -412,4 +448,6 @@ __all__ = [
     "neighbour_order",
     "notable",
     "passage_label",
+    "predecessor_cut",
+    "predecessor_window",
 ]

@@ -223,6 +223,7 @@ def build_reader_manifest(
     withheld: Any = None,
     budget_tokens: int | None = None,
     resolve_references: bool = True,
+    expanded_delivery: bool = True,
 ) -> dict[str, Any]:
     """The exact bounded context handed to the reader tutor (design A.2).
 
@@ -234,9 +235,10 @@ def build_reader_manifest(
     ``prior_exchanges`` (RW1a branches) replaces the same-span history with a
     follow-up's resolved ancestors; an empty sequence is a new root.
 
-    ``withheld``, ``budget_tokens`` and ``resolve_references`` are the tutor's
-    own delivery inputs (the held-out material, ``tutor_qa.context_token_budget``
-    and ``tutor_qa.resolve_references``), so the manifest's spans are exactly
+    ``withheld``, ``budget_tokens``, ``resolve_references`` and
+    ``expanded_delivery`` are the tutor's own delivery inputs (the held-out
+    material, ``tutor_qa.context_token_budget``, ``tutor_qa.resolve_references``
+    and ``tutor_qa.expanded_delivery``), so the manifest's spans are exactly
     the ones the tutor is given."""
 
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
@@ -249,6 +251,7 @@ def build_reader_manifest(
         withheld=withheld,
         budget_tokens=tutor_qa.DEFAULT_CONTEXT_TOKEN_BUDGET if budget_tokens is None else budget_tokens,
         resolve_references=resolve_references,
+        expanded=expanded_delivery,
     )
     prior = prior_exchanges if prior_exchanges is not None else repository.question_events(
         context="reader", note_id=span_key, answer_status="answered"
@@ -588,6 +591,7 @@ def ask(
         withheld=held_out,
         budget_tokens=vault.config.tutor_qa.context_token_budget,
         resolve_references=vault.config.tutor_qa.resolve_references,
+        expanded_delivery=vault.config.tutor_qa.expanded_delivery,
     )
     if branches:
         if ancestors and not manifest["source_spans"]:

@@ -57,7 +57,7 @@ from learnloop.source_retrieval.corpus import (
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import query_id
 from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, search_spans
-from learnloop.source_retrieval.verify import PRICE_SETTING, judge_passage, passage_chars, verify_caps
+from learnloop.source_retrieval.verify import PRICE_SETTING, judged_passage, verify_caps
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -375,12 +375,12 @@ def _verify(vault: LoadedVault, repository: Repository, *, intent: str, question
             deadline: float | None, clock: Clock | None) -> tuple[str, dict[SpanKey, Mapping[str, Any]], list[SpanKey], str | None]:
     task = intent_task(intent)
     candidates, refs = [], {}
-    max_chars = passage_chars(vault)
     for index, hit in enumerate(pool, start=1):
         ref = f"p{index}"
         refs[ref] = hit.key
-        # The complete block (tutor delivery fixes; it was cut at 900 characters).
-        passage, _trimmed = judge_passage(hit.text, max_chars)
+        # The complete block (tutor delivery fixes; it was cut at 900
+        # characters, as it is again with source_retrieval.complete_passages off).
+        passage, _trimmed = judged_passage(vault, hit.text)
         candidates.append({"ref": ref, "source": hit.source_title[:120],
                            "section": " > ".join(hit.section_path)[:200] or None,
                            "passage": passage})
