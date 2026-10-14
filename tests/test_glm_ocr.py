@@ -948,7 +948,7 @@ def test_r2_f2_an_import_without_the_ok_reads_locally_and_offers_text_recognitio
     assert job["result"]["health"]["flags"][-1] == "glm_ocr_needs_upload_ok"
     line = source_status_line(repo, load_vault(root), job["result"]["source_id"])
     assert line["action"] == {"kind": "text_recognition", "label": "Read it with text recognition"}
-    assert line["details"] == "glm_ocr_needs_upload_ok"
+    assert "z.ai" in line["details"] and "glm_ocr" not in line["details"]  # plain words (third review F14)
 
     # An explicit engine still asks rather than switch, and says where the OK is.
     batch = runner.enqueue_batch("import", [JobSpec("import", {"source": str(path), "pdf_config": {"engine": "glm_ocr"}})])
@@ -1154,9 +1154,10 @@ def test_r2_f4_cancelling_or_keeping_it_here_stops_the_windows_not_yet_sent(monk
         default_extract(book, "pdf", cancelled)
     assert len(sent) == 1
 
-    # "Keep this book on this computer" after the first window.
+    # "Keep this book on this computer" after the first window, under an
+    # explicit engine (under auto the rest is read here: test_r3_f11).
     sent.clear()
-    kept_now = _ctx(root, _keep_local=False, _source_id="src_1")
+    kept_now = _ctx(root, {"pdf_config": {"engine": "glm_ocr"}}, _keep_local=False, _source_id="src_1")
     kept_now.repo = SimpleNamespace(**vars(no_checkpoints), source_kept_local=lambda source_id: len(sent) >= 1)
     kept_now.cancelled = lambda: False
     with pytest.raises(IngestRunnerError) as caught:
@@ -1222,3 +1223,298 @@ def test_r2_f7_a_stand_in_reading_is_stored_with_its_own_model_versions(monkeypa
     run = repo.get_extraction_run(job["result"]["extraction_id"])
     assert run["extractor"] == "pypdf"
     assert run["model_versions"] == {"fallback_from": "glm_ocr"}
+
+
+# -- the third review (docs/reviews/glm-ocr-ingest.md, "Third review") ---------------------
+
+
+def _repairable(repo, root, result) -> None:
+    """Point a read book's revision at its file the way a link's URL is
+    stored: a file Add stores ``file://``, which a repair cannot fetch."""
+
+    import sqlite3
+
+    revision = repo.get_source_revision(result["revision_id"])
+    path = revision["original_uri"].removeprefix("file://")
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        connection.execute("UPDATE source_revisions SET original_uri=? WHERE id=?", (path, result["revision_id"]))
+
+
+@pytest.mark.parametrize("engine", ["auto", "glm_ocr"])
+def test_r3_f10_a_local_repair_never_leaves_this_computer(monkeypatch, tmp_path, engine):
+    from learnloop.content.pipeline.add_source import AddSourceOptions
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository, set_config
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")  # given once, on any Add
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+    read = {}
+    for keep_local, pages in ((True, 3), (False, 4)):
+        path = tmp_path / f"book{pages}.pdf"
+        path.write_bytes(pdf(pages))
+        batch = jobs.enqueue_add_source(str(path), options=AddSourceOptions(keep_local=keep_local), auto_build=False)
+        jobs._require_runner().drain()
+        (job,) = repo.ingest_jobs_for_batch(batch)
+        assert job["status"] == "completed", job.get("error")
+        _repairable(repo, root, job["result"])
+        read[keep_local] = job["result"]
+    assert repo.source_kept_local(read[True]["source_id"]) and len(sent) == 1  # only the shared book went
+    set_config(root, {("ingest", "pdf", "engine"): engine})
+    sent.clear()
+
+    # OutlineAndPlan's repair without "external VLM", and `learnloop repair-extraction` without --use-llm.
+    local = {"provider": "local", "purpose": "extraction_repair", "pages": ["2"], "external": False}
+    external = {"provider": "external_vlm", "purpose": "extraction_repair", "pages": ["2"], "external": True}
+    for result, consent in ((read[True], local), (read[False], local), (read[True], external)):
+        repair = jobs.enqueue_extraction_repair(
+            revision_id=result["revision_id"], pages=[1], repair_options={"force_ocr": True},
+            consent=consent, parent_extraction_id=result["extraction_id"],
+        )
+        jobs._require_runner().drain()
+        (job,) = repo.ingest_jobs_for_batch(repair)
+        if consent is external and engine == "glm_ocr":
+            # The book's own choice: an explicit engine refuses, as an import does.
+            assert job["error"]["code"] == "kept_local"
+            continue
+        assert job["status"] == "completed", job.get("error")
+        assert repo.get_extraction_run(job["result"]["repair_extraction_id"])["extractor"] == "pypdf"
+    assert sent == []
+
+
+@pytest.mark.parametrize("engine", ["auto", "glm_ocr"])
+def test_r3_f10_a_local_repair_of_an_image_sends_nothing_and_says_why(monkeypatch, tmp_path, engine):
+    """Only text recognition reads an image, so a repair OK'd as local has no
+    reader here: it refuses rather than upload the image (or say a key is
+    missing when one is set)."""
+
+    from learnloop.content.pipeline.add_source import AddSourceOptions
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository, set_config
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    sent = record(monkeypatch, lambda body: {"layout_details": [[region(0, "text", "Scan", [0, 0, 10, 10])]]})
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+    path = tmp_path / "page.png"
+    path.write_bytes(png())
+    batch = jobs.enqueue_add_source(str(path), options=AddSourceOptions(), auto_build=False)
+    jobs._require_runner().drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert len(sent) == 1
+    _repairable(repo, root, job["result"])
+    set_config(root, {("ingest", "pdf", "engine"): engine})
+    sent.clear()
+    # The Add's stored answer would hide what the repair selects (it is reused
+    # for the same file and page); a repair of other pages has none.
+    import sqlite3
+
+    with sqlite3.connect(root / "state.sqlite") as connection:
+        connection.execute("DELETE FROM model_work_checkpoints")
+
+    local = {"provider": "local", "purpose": "extraction_repair", "pages": ["1"], "external": False}
+    repair = jobs.enqueue_extraction_repair(
+        revision_id=job["result"]["revision_id"], pages=[0], repair_options={"force_ocr": True},
+        consent=local, parent_extraction_id=job["result"]["extraction_id"],
+    )
+    jobs._require_runner().drain()
+    (failed,) = repo.ingest_jobs_for_batch(repair)
+    assert sent == []
+    assert failed["status"] == "failed"
+    message = failed["error"]["message"]
+    assert "on this computer" in message and "external VLM" in message and "API key" not in message
+
+
+@pytest.mark.parametrize("kind", ["scan", "image"])
+def test_r3_f2_a_scan_or_image_imported_without_the_ok_asks_for_it_on_its_card(monkeypatch, tmp_path, kind):
+    from learnloop.content.pipeline.runner import JobSpec
+    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    image = kind == "image"
+    sent = record(monkeypatch, (lambda body: {"layout_details": [[region(0, "text", "Scan", [0, 0, 10, 10])]]})
+                  if image else None)
+    root = fresh_library(tmp_path)
+    ctx = _draining_ctx(root)
+    path = tmp_path / ("page.png" if image else "scan.pdf")
+    path.write_bytes(png() if image else pdf(2))  # blank pages: pypdf finds no text, as in a scan
+
+    # What `learnloop import` and the Ingest screen enqueue.
+    batch = ctx.ingest_jobs._require_runner().enqueue_batch("import", [JobSpec("import", {"source": str(path)})])
+    ctx.ingest_jobs.drain_foreground()
+    (job,) = ctx.repository.ingest_jobs_for_batch(batch)
+    assert job["error"]["code"] == "needs_upload_ok" and job["error"]["details"] == {"flow": "glm_ocr_upload"}
+    message = job["error"]["message"]
+    assert "z.ai" in message and "card in the Library" in message and "marker-pdf" not in message
+    assert ("PDF engine" in message) is False
+    assert sent == []
+
+    library = call(ctx, "get_source_library", {})
+    assert library["pending"] == []
+    (card,) = library["sources"]
+    assert card["statusLine"]["action"] == {"kind": "allow_upload", "label": "OK"}
+    call(ctx, "source_action", {"sourceId": card["sourceId"], "action": "allow_upload"})
+    assert len(sent) == 1
+    (job,) = ctx.repository.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert "glm_ocr_api_selected" in job["result"]["health"]["flags"]
+
+
+def test_r3_f11_keeping_a_book_here_mid_read_reads_the_rest_here(monkeypatch, tmp_path):
+    import sqlite3
+
+    from learnloop.content.pipeline.add_source import AddSourceOptions, add_source, keep_on_this_computer, source_status_line
+    from learnloop.vault.loader import load_vault
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+
+    def respond(body):
+        if len(sent) == 1:  # the learner presses "Never send this PDF to an AI" after window 1
+            with sqlite3.connect(root / "state.sqlite") as connection:
+                (source_id,) = [row[0] for row in connection.execute("SELECT id FROM source_artifacts")]
+            keep_on_this_computer(jobs, source_id)
+        return hosted(body["end_page_id"] - body["start_page_id"] + 1)
+
+    sent = record(monkeypatch, respond)
+    path = tmp_path / "long.pdf"
+    path.write_bytes(pdf(65))  # three windows
+    item = add_source(load_vault(root), jobs, str(path), AddSourceOptions())
+    jobs._require_runner().drain()
+    job = next(j for j in repo.ingest_jobs_for_batch(item["batch_id"]) if j["job_type"] == "import")
+    assert job["status"] == "completed", job.get("error")
+    assert len(sent) == 1  # nothing more left after the choice
+    flags = job["result"]["health"]["flags"]
+    assert "glm_ocr_kept_local_pypdf_fallback" in flags
+    assert not any(flag.startswith("glm_ocr_failed_") for flag in flags)
+    run = repo.get_extraction_run(job["result"]["extraction_id"])
+    assert run["extractor"] == "pypdf" and run["model_versions"] == {"fallback_from": "glm_ocr"}
+    line = source_status_line(repo, load_vault(root), job["result"]["source_id"])
+    assert line is None or "can't be read" not in line["text"]
+
+
+def test_r3_f7_a_double_fallback_stores_the_versions_of_what_read_it(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.add_source import AddSourceOptions
+    from tests.ux_phase1_support import fresh_library, grant_consent, repository
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: True)  # installed, but it fails
+
+    def marker_fails(self, raw, context):
+        raise RuntimeError("marker could not read it")
+
+    monkeypatch.setattr(extractors.MarkerDocumentExtractor, "extract", marker_fails)
+    plain_pypdf(monkeypatch)
+    record(monkeypatch, lambda body: (_ for _ in ()).throw(URLError("offline")))
+    root = fresh_library(tmp_path)
+    grant_consent(root, "whole_files_zai")
+    repo = repository(root)
+    jobs = _jobs(repo, root)
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(pdf(1))
+
+    batch = jobs.enqueue_add_source(str(path), options=AddSourceOptions(), auto_build=False)
+    jobs._require_runner().drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert {"glm_ocr_failed_marker_fallback", "marker_failed_pypdf_fallback"} <= set(job["result"]["health"]["flags"])
+    run = repo.get_extraction_run(job["result"]["extraction_id"])
+    assert run["extractor"] == "pypdf"
+    assert run["model_versions"] == {"fallback_from": "glm_ocr"}
+
+
+def test_r3_f12_a_book_kept_here_never_asks_for_the_z_ai_ok(monkeypatch, tmp_path):
+    from learnloop.content.pipeline.runner import JobSpec
+    from tests.test_ux_phase1_add_source import _draining_ctx, call
+    from tests.ux_phase1_support import fresh_library
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global_settings"))
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    plain_pypdf(monkeypatch)
+    sent = record(monkeypatch)
+    root = fresh_library(tmp_path)
+    ctx = _draining_ctx(root)
+
+    def card(source_id):
+        return next(c for c in call(ctx, "get_source_library", {})["sources"] if c["sourceId"] == source_id)
+
+    def asks_ok(line):
+        return bool(line) and line["action"] == {"kind": "allow_upload", "label": "OK"}
+
+    # A book with a local reading, whose re-read with text recognition waits for the OK.
+    read = tmp_path / "read.pdf"
+    read.write_bytes(pdf(2))
+    ctx.ingest_jobs._require_runner().enqueue_batch("import", [JobSpec("import", {"source": str(read)})])
+    ctx.ingest_jobs.drain_foreground()
+    (first,) = call(ctx, "get_source_library", {})["sources"]
+    source_id = first["sourceId"]
+    call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})
+    assert asks_ok(card(source_id)["statusLine"])
+    call(ctx, "source_action", {"sourceId": source_id, "action": "keep_local"})
+    assert card(source_id)["keepLocal"] is True
+    assert not asks_ok(card(source_id)["statusLine"])
+    # The waiting re-read was stopped: letting AI write questions later does not bring back its OK.
+    waiting = ctx.repository.ingest_jobs_for_source(("import",), source_id)[0]
+    assert ctx.repository.get_ingest_batch(waiting["batch_id"])["cancel_requested"]
+
+    # A book never read, whose Add waits for the OK: kept here, it is read here at once.
+    fresh = tmp_path / "fresh.pdf"
+    fresh.write_bytes(pdf(3))
+    item = call(ctx, "add_source", {"sources": [str(fresh)]})["items"][0]
+    assert asks_ok(card(item["sourceId"])["statusLine"])
+    call(ctx, "source_action", {"sourceId": item["sourceId"], "action": "keep_local"})
+    latest = ctx.repository.ingest_jobs_for_source(("import",), item["sourceId"])[0]
+    assert latest["status"] == "completed", latest.get("error")
+    assert not asks_ok(card(item["sourceId"])["statusLine"])
+    assert sent == []
+
+
+def test_r3_f13_a_stored_window_that_no_longer_reads_is_paid_for_once(monkeypatch, tmp_path):
+    import hashlib
+
+    from learnloop.content.pipeline.jobs import _ModelCheckpoints
+    from tests.ux_phase1_support import fresh_library, repository
+
+    sent = record(monkeypatch)
+    repo = repository(fresh_library(tmp_path))
+    extractor = api(monkeypatch)
+    raw = pdf(2)
+    key = extractor._checkpoint_key(hashlib.sha256(raw).hexdigest(), [0, 1])
+    # An answer saved under an earlier mapping that today's can't read.
+    repo.save_model_checkpoint(key, purpose="glm_ocr_window", result={"layout_details": []})
+    for _ in range(2):
+        ir = extractor.extract(raw, ok(checkpoints=_ModelCheckpoints(repo)))
+        assert [block.page for block in ir.blocks] == [0, 1]
+    assert len(sent) == 1  # asked once, then the new answer is the one kept
+
+
+def test_r3_f14_the_cards_details_are_plain_words(monkeypatch):
+    from learnloop.config import LearnLoopConfig
+    from learnloop.content.pipeline import add_source as core
+
+    monkeypatch.setenv("ZAI_API_KEY", KEY)
+    monkeypatch.setattr(extractors, "marker_available", lambda: False)
+    monkeypatch.setattr(core, "_completed_extraction", lambda repo, source_id: ("src_1", "ext_1"))
+    config = LearnLoopConfig()
+    for flag in ("glm_ocr_needs_upload_ok", "glm_ocr_failed_pypdf_fallback", "glm_ocr_failed_marker_fallback"):
+        repo = SimpleNamespace(source_kept_local=lambda source_id: False, get_extraction_run=lambda extraction_id: {
+            "health": {"flags": [flag, "glm_ocr_api_selected"], "pages": []}})
+        line = core._health_line(repo, "src_1", config=config)
+        assert line["details"] and "_" not in line["details"], line

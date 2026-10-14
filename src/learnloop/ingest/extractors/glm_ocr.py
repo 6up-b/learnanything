@@ -94,6 +94,12 @@ class GlmOcrConsentRequired(GlmOcrExtractionError):
     """A hosted run was attempted without the whole-file OK."""
 
 
+class GlmOcrKeptLocal(GlmOcrExtractionError):
+    """The book was kept on this computer part-way through a run: under
+    ``auto`` the rest is read locally instead (flagged
+    ``glm_ocr_kept_local_<engine>_fallback``), never by GLM-OCR."""
+
+
 # -- selection -----------------------------------------------------------------
 
 
@@ -320,7 +326,11 @@ class GlmOcrDocumentExtractor:
                 _validated(saved, pages)
                 return [(saved, pages)]
             except GlmOcrExtractionError:
-                pass  # an answer this mapping can't read is asked for again
+                # An answer this mapping can't read is asked for again, and
+                # the new answer replaces it (checkpoints are write-once).
+                discard = getattr(context.checkpoints, "discard", None)
+                if discard is not None:
+                    discard(key)
         if self.backend == "local":
             images = _render_pages(raw, pages) if reader is not None else [_data_uri(mime, raw)]
             return [(self._answer({"images": images}, pages, context), pages)]

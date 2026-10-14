@@ -171,10 +171,13 @@ def extract_with_fallback(
     Marker, which would need its own upload OK); Marker failing falls back to
     pypdf. A PNG/JPG has no fallback. Refusals are never failures to degrade
     from: a missing whole-file OK and spend refusals/cancellations propagate,
-    as does every failure under an explicit engine."""
+    as does every failure under an explicit engine. A book kept on this
+    computer part-way through a GLM-OCR run (``GlmOcrKeptLocal``) is read
+    locally like a failure, flagged ``glm_ocr_kept_local_<engine>_fallback``
+    rather than as a failure."""
 
     from learnloop.ai.spend import SpendCancelled, SpendLimitExceeded
-    from learnloop.ingest.extractors.glm_ocr import GlmOcrConsentRequired, is_image_document
+    from learnloop.ingest.extractors.glm_ocr import GlmOcrConsentRequired, GlmOcrKeptLocal, is_image_document
 
     try:
         ir = extractor.extract(raw_bytes, context)
@@ -197,7 +200,8 @@ def extract_with_fallback(
             raise ExtractionFallbackFailed(
                 f"{extractor.name}: {exc}; {fallback.name} fallback: {fallback_exc}"
             ) from fallback_exc
-        flag = f"{extractor.name}_failed_{fallback.name}_fallback"
+        why = "kept_local" if isinstance(exc, GlmOcrKeptLocal) else "failed"
+        flag = f"{extractor.name}_{why}_{fallback.name}_fallback"
         if flag not in ir.health.flags:
             ir.health.flags.append(flag)
     # Why this extractor was chosen holds whichever read it in the end (a

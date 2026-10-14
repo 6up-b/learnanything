@@ -1883,7 +1883,12 @@ def keep_on_this_computer(ingest_jobs, source_id: str, *, clock: Clock | None = 
     is flagged), and its automatic builds are cancelled (the card then says
     the book is kept on this computer). A planner still to run costs nothing
     and records "kept on this computer" itself. A request or model call
-    already under way is not recalled; nothing new starts."""
+    already under way is not recalled; nothing new starts.
+
+    An import waiting for the OK to upload the book can no longer be given
+    it (GLM-OCR third review F12): a re-read of a book that has a reading is
+    stopped, and the Add of a book never read goes on at once under the new
+    choice (read on this computer, or refused as never sent to an AI)."""
 
     repo = ingest_jobs.repository
     repo.set_source_keep_local(source_id, True, clock=clock)
@@ -1894,6 +1899,27 @@ def keep_on_this_computer(ingest_jobs, source_id: str, *, clock: Clock | None = 
         batch_id = (planner_outcome(repo, job) or {}).get("build_batch_id")
         if batch_id and _active(repo.get_ingest_batch(batch_id)):
             ingest_jobs.cancel_batch(batch_id)
+    waiting = _import_waiting_for_upload_ok(repo, source_id)
+    if waiting is not None:
+        if _completed_extraction(repo, source_id) is None:
+            ingest_jobs.resume_batch(waiting["batch_id"])
+        else:
+            ingest_jobs.cancel_batch(waiting["batch_id"])
+
+
+def _import_waiting_for_upload_ok(repo, source_id: str) -> dict[str, Any] | None:
+    """The book's latest import, when it waits for an upload OK and its Add
+    was not stopped."""
+
+    imports = import_jobs(repo, source_id)
+    latest = imports[0] if imports else None
+    if latest is None or latest["status"] != "failed":
+        return None
+    if (latest.get("error") or {}).get("code") != "needs_upload_ok":
+        return None
+    if (repo.get_ingest_batch(latest["batch_id"]) or {}).get("cancel_requested"):
+        return None
+    return latest
 
 
 def share_with_ai(ingest_jobs, source_id: str, *, clock: Clock | None = None) -> str | None:
@@ -1975,6 +2001,12 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, keep_l
     flow = str((error.get("details") or {}).get("flow") or "")
     lowered = f"{code} {message}".lower()
     retry = ("retry", "Try again")
+    if code == "needs_upload_ok" and keep_local:
+        # Never the OK for a book kept here (third review F12): the OK is
+        # library-wide, and this book would not be sent anyway. Trying again
+        # reads it under that choice.
+        return _line(f"Never sent to an AI — this {kind_noun(category)} hasn't been read yet", "quiet", retry,
+                     None)
     if code == "needs_upload_ok":
         if flow == "audio_transcription" or category == "audio":
             return _line("Transcribing this recording sends it to an online service", "quiet",
@@ -2028,6 +2060,15 @@ def text_recognition_available(*, keep_local: bool = False, config=None) -> bool
     return os.environ.get("LEARNLOOP_MARKER_PROVIDER", "").strip().lower() == "datalab" and bool(datalab_api_key())
 
 
+_GLM_FAILED_DETAILS = (
+    "Text recognition (GLM-OCR) couldn't be reached or couldn't read it, so it was read on this computer instead."
+)
+_GLM_NEEDS_OK_DETAILS = (
+    "It was read on this computer. Reading it with text recognition sends the whole file to z.ai, "
+    "which asks your OK first."
+)
+
+
 def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
     resolved = _completed_extraction(repo, source_id)
     if resolved is None:
@@ -2053,13 +2094,14 @@ def _health_line(repo, source_id: str, *, config=None) -> dict[str, Any] | None:
             if text_recognition_available(keep_local=keep_local, config=config)
             else None
         )
+        # Plain details, never the health flag (third review F14).
         return _line("Text recognition didn't work this time, so this is a plainer reading", "quiet",
-                     action, glm_failed[0])
+                     action, _GLM_FAILED_DETAILS)
     if "glm_ocr_needs_upload_ok" in flags and text_recognition_available(keep_local=keep_local, config=config):
         # Imported where no OK could be asked (the Ingest screen, `learnloop
         # import`), so read locally: reading it again asks the OK here.
         return _line("This is a plainer reading — text recognition can read it better", "quiet",
-                     ("text_recognition", "Read it with text recognition"), "glm_ocr_needs_upload_ok")
+                     ("text_recognition", "Read it with text recognition"), _GLM_NEEDS_OK_DETAILS)
     if "marker_failed_pypdf_fallback" in flags:
         return _line("Maths may look rough in the text view", "quiet", ("open_settings", "Fix it"),
                      "marker_failed_pypdf_fallback")
@@ -2149,12 +2191,13 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
             return _import_failure_line(latest_import, category, keep_local=bool(artifact.get("keep_local")), config=vault.config if vault else None)
         return _line(f"Getting this {noun} ready", "working")
 
-    imports = import_jobs(repo, source_id)
-    if imports and imports[0]["status"] == "failed" and (imports[0].get("error") or {}).get("code") == "needs_upload_ok":
+    waiting = None if artifact.get("keep_local") else _import_waiting_for_upload_ok(repo, source_id)
+    if waiting is not None:
         # A reading asked for again (text recognition) waits for the OK its
-        # upload needs; the card asks it, or that read never happens.
-        return _import_failure_line(imports[0], category, keep_local=bool(artifact.get("keep_local")),
-                                    config=vault.config if vault else None)
+        # upload needs; the card asks it, or that read never happens. Not for
+        # a book kept here, whose waiting re-read was stopped (third review
+        # F12).
+        return _import_failure_line(waiting, category, config=vault.config if vault else None)
 
     latest, outcome = latest_planner(repo, source_id)
     if latest is None:

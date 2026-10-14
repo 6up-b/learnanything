@@ -29,8 +29,9 @@ class ExtractionContext:
     # each request a provider sends (every window, every retry) and raises to
     # stop the run: a cancelled import, or a book newly kept on this computer.
     interrupt: Callable[[], None] | None = None
-    # Paid answers kept across attempts: ``load(key) -> dict | None`` and
-    # ``save(key, result)`` (the import's model_work_checkpoints).
+    # Paid answers kept across attempts: ``load(key) -> dict | None``,
+    # ``save(key, result)`` and ``discard(key)`` for one that no longer reads
+    # (the import's model_work_checkpoints).
     checkpoints: Any = None
 
 

@@ -229,17 +229,31 @@ the whole file to z.ai (GLM-OCR)"), recorded as its own consent
 (`ai.consent.whole_files_zai`): an earlier whole-file OK for a recording or
 for "your AI" (`whole_files`) never covers z.ai, nor does z.ai's cover them.
 An Add (and "Read it with text recognition") waits for it on the book card.
-An import with no card to ask on (`learnloop import`, the Ingest screen, a
-repair) reads a PDF locally under `auto` until the OK is given, flagged
+An import that asks nothing where it starts (`learnloop import`, the Ingest
+screen) reads a PDF locally under `auto` until the OK is given, flagged
 `glm_ocr_needs_upload_ok`, and the book card then offers "Read it with text
-recognition", which asks; an explicit `glm_ocr` engine fails there with
-`needs_upload_ok`, saying to add the book from the Library to give the OK. A
-book kept on this computer never leaves it for text recognition: `auto`
-passes over z.ai and over a self-hosted server that is not on a loopback
-`local_url`, and an explicit `glm_ocr` refuses either with `kept_local`. The
-choice is read again before every request, so keeping a book here part-way
-through stops the windows not yet sent. GLM-OCR adds no per-book opt-out of
-its own. Remote documents download as raw bytes, so nothing is recognised
+recognition", which asks. A scan that local reading finds no text in, an
+image, and any PDF under an explicit `glm_ocr` engine instead fail with
+`needs_upload_ok` (flow `glm_ocr_upload`), saying to give the OK on the
+book's card; the import names its book as soon as the book is registered, so
+the card finds the import that waits and asks for the OK there. A repair
+under `auto` without the OK reads locally (a scan fails as that reading
+does: no card asks a repair's OK). A book kept on this
+computer never leaves it for text recognition: `auto` passes over z.ai and
+over a self-hosted server that is not on a loopback `local_url`, and an
+explicit `glm_ocr` refuses either with `kept_local`. A repair is bound by
+the book's choice too, and a repair whose consent is local (no external VLM)
+never leaves this computer, whatever the engine (an explicit `glm_ocr` is
+read by local Marker, else pypdf, for it; an image, which only text
+recognition reads, is refused with `local_repair`, pointing to "external
+VLM", unless a server on this computer reads it). The choice is read again before
+every request, so keeping a book here part-way through stops the windows not
+yet sent; under `auto` the book is then read on this computer instead,
+flagged `glm_ocr_kept_local_<engine>_fallback`, while an explicit engine
+refuses with `kept_local`. Keeping a book here also stops a re-read that
+waits for the OK, and goes on with the Add of a book never read (read here,
+or refused as never sent to an AI); a kept-local book's card never offers
+the OK. GLM-OCR adds no per-book opt-out of its own. Remote documents download as raw bytes, so nothing is recognised
 before the OK; the extractor itself refuses a hosted run without the OK. The
 legacy one-shot PDF→Markdown path uses hosted GLM-OCR only when the vault has
 the OK naming z.ai (`auto` reads locally otherwise; an explicit `glm_ocr`
@@ -253,7 +267,9 @@ retry twice (Retry-After, else 1 s then 2 s) and a timeout once; each
 window's answer is checked before the next window is sent, and each hosted
 window's answer is checkpointed (`model_work_checkpoints`, keyed by the
 file's hash, the pages, the backend and its models), so a failure part-way or
-reading the book again pays only for the windows not yet answered. A
+reading the book again pays only for the windows not yet answered. A stored
+answer that the current mapping can't read is discarded and asked for once
+more, and the new answer replaces it. A
 cancelled import stops before its next request. Every physical request has
 its own spend admission (`SpendBudget`, no per-file money cap; a shared
 envelope or metered request gate in force around the call would also apply,
@@ -289,9 +305,12 @@ extraction request hash (they never change what is read). Under `auto`, a
 GLM-OCR failure (transport, a cut-off answer, an unrenderable page, an
 unreadable layout) falls back to local Marker, else pypdf, flagged
 `glm_ocr_failed_<engine>_fallback` (the book card then offers "Read it
-again"); the stored run records the stand-in's model versions with
-`fallback_from`. Refusals (no OK, kept on this computer, spend, cancellation)
-never fall back. The IR schema and Marker's chunk map are unchanged.
+again", with plain details, never the flag); the stored run records the
+model versions of the extractor that read it in the end, through a second
+fallback too (GLM-OCR → Marker → pypdf), with `fallback_from`. A book kept
+on this computer part-way through falls back the same way (above). Other
+refusals (no OK, spend, cancellation) never fall back. The IR schema and
+Marker's chunk map are unchanged.
 
 ## 3. Token-budgeted views
 
