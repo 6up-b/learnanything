@@ -614,3 +614,176 @@ def test_synthesis_publishes_a_required_method_only_with_an_affirmative_instruct
     assert dropped.prompt == "Diagonalize A; you may use orthogonal diagonalization or any other method."
     assert any(d["gate"] == "required_method" and "dropped_prompt_contradicts_it" in d["message"]
                for d in result.gate_diagnostics)
+
+
+# -- re-review (Codex 2026-10-13) -----------------------------------------------------------
+
+# F2 (reopened): a descriptive clause is not an instruction, and "not required to
+# use" negates; F9: inline formatting never hides an explicit instruction.
+RE_REVIEW_STATEMENTS = [
+    ("You are not required to use cofactor expansion. Compute det(A).", "contradicted"),
+    ("It is not necessary to use cofactor expansion.", "contradicted"),
+    ("You do not need to use cofactor expansion.", "contradicted"),
+    ("You don't have to apply cofactor expansion.", "contradicted"),
+    ("There is no need to use cofactor expansion here.", "contradicted"),
+    ("The worked example uses cofactor expansion. Compute det(A).", "mentioned"),
+    ("The worked example computes det(A) by cofactor expansion. Compute det(B).", "mentioned"),
+    ("In the worked example, we use cofactor expansion. Compute det(B).", "mentioned"),
+    ("In the worked example, the authors, using cofactor expansion, compute det(A). Compute det(B).", "mentioned"),
+    ("Explain why the worked example uses cofactor expansion.", "mentioned"),
+    ("Explain how to use cofactor expansion.", "mentioned"),
+    ("Compute det(A), which the worked example finds by cofactor expansion.", "mentioned"),
+    ("Recall that the textbook applies cofactor expansion. Compute det(A).", "mentioned"),
+    ("For the matrix A below, compute det(A) by cofactor expansion.", "required"),
+    ("Given A = [[1, 2], [3, 4]], compute det(A) using cofactor expansion.", "required"),
+    ("(a) Compute det(A) by cofactor expansion.", "required"),
+    ("In part (b), use cofactor expansion.", "required"),
+    ("You must use cofactor expansion.", "required"),
+    ("Your answer should use cofactor expansion.", "required"),
+    ("Show, using cofactor expansion, that det(A) = 0.", "required"),
+    ("Cofactor expansion must be used.", "required"),
+    ("Please compute det(A) and verify it by cofactor expansion.", "required"),
+    ("Compute det(A) using **cofactor expansion**.", "required"),
+    ("Compute det(A) using *cofactor expansion*.", "required"),
+    ("Compute det(A) using __cofactor expansion__.", "required"),
+    ("Compute det(A) using `cofactor expansion`.", "required"),
+    ("**Use cofactor expansion** in your answer.", "required"),
+    ("Compute det(A) using [cofactor expansion](https://example.org/cofactor).", "required"),
+    ("Compute det(A) using <b>cofactor expansion</b>.", "required"),
+    ("Compute det(A) without **cofactor expansion**.", "contradicted"),
+    ("You may use *cofactor expansion* or any other method.", "contradicted"),
+]
+
+
+@pytest.mark.parametrize("prompt, expected", RE_REVIEW_STATEMENTS, ids=[expected + ":" + prompt[:48]
+                                                                        for prompt, expected in RE_REVIEW_STATEMENTS])
+def test_rereview_an_instruction_is_read_through_descriptions_negations_and_formatting(prompt, expected):
+    assert method_statement(prompt, "cofactor expansion") == expected
+    assert prompt_requires_method(prompt, "cofactor expansion") == (expected == "required")
+
+
+# F2/F9 (cont.): an instruction whose verb is not on the imperative list, or
+# that follows a fronted condition, still requires the method (dropping it from
+# a source statement would silently disable enforcement); a description with
+# math in it, a conditional use and "whether to use" never do.
+RE_REVIEW_NAMED_STATEMENTS = [
+    ("Proceed by induction on n.", "induction", "required"),
+    ("Prove the claim. Proceed by induction on n.", "induction", "required"),
+    ("Fit the model using least squares.", "least squares", "required"),
+    ("Fit f(x) to the data using least squares.", "least squares", "required"),
+    ("Rank the matrix using row echelon form.", "row echelon form", "required"),
+    ("Tabulate the values by cofactor expansion.", "cofactor expansion", "required"),
+    ("Solve Ax = b by Gaussian elimination.", "gaussian elimination", "required"),
+    ("If A is invertible, compute A^{-1} by row reduction.", "row reduction", "required"),
+    ("Since A is symmetric, diagonalize it by orthogonal diagonalization.", "orthogonal diagonalization", "required"),
+    ("As in part (a), use cofactor expansion.", "cofactor expansion", "required"),
+    ("Determine whether the vectors are independent by row reduction.", "row reduction", "required"),
+    ("Your task is to compute det(A) using cofactor expansion.", "cofactor expansion", "required"),
+    ("x^2 + 6x + 5 = 0, solve it by completing the square.", "completing the square", "required"),
+    ("The worked example solves Ax = b by Gaussian elimination.", "gaussian elimination", "mentioned"),
+    ("Students solve Ax = b by Gaussian elimination.", "gaussian elimination", "mentioned"),
+    ("When using cofactor expansion, expand along a row with zeros.", "cofactor expansion", "mentioned"),
+    ("If using cofactor expansion, show each minor.", "cofactor expansion", "mentioned"),
+    ("Decide whether to use cofactor expansion.", "cofactor expansion", "mentioned"),
+    ("Note that the worked example computes det(A) by cofactor expansion. Compute det(B).", "cofactor expansion",
+     "mentioned"),
+    ("Earlier the example computed det(A) by cofactor expansion. Compute det(B).", "cofactor expansion", "mentioned"),
+]
+
+
+@pytest.mark.parametrize("prompt, name, expected", RE_REVIEW_NAMED_STATEMENTS,
+                         ids=[expected + ":" + prompt[:48] for prompt, _name, expected in RE_REVIEW_NAMED_STATEMENTS])
+def test_rereview_instructions_beyond_the_imperative_list_and_descriptions_with_math(prompt, name, expected):
+    assert method_statement(prompt, name) == expected
+
+
+def test_rereview_source_normalization_and_grading_read_the_instruction_not_its_formatting(vault_paths):
+    """F9: a formatted explicit source instruction keeps its requirement through
+    the writer check and the grader's policy; F2: an explanatory mention in a
+    source statement is not one, so the requirement is dropped (the statement
+    is never rewritten)."""
+
+    from learnloop.attempts.grading_support import required_method_policy
+
+    vault = load_vault(vault_paths.root)
+    targets = method_targets(vault, learning_object_id="lo_cofactor")
+    rubric = {"criteria": [{"id": "method"}, {"id": "result"}]}
+
+    def payload(prompt):
+        return {"prompt": prompt, "grading_rubric": rubric,
+                "required_method": {"name": "cofactor expansion", "criterion_ids": ["method"]}}
+
+    formatted = payload("Compute det(A) using **cofactor expansion**.")
+    assert normalize_required_method(formatted, targets, source_statement=True) == []
+    assert formatted["required_method"]["criterion_ids"] == ["method"]
+    assert formatted["prompt"] == "Compute det(A) using **cofactor expansion**."
+    item = _item(prompt=formatted["prompt"], required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
+    policy = required_method_policy(item, ["method", "result"], presented_prompt=item.prompt)
+    assert policy == {"name": "cofactor expansion", "criterion_ids": ["method"]}
+    assert required_method_problems(item, item.grading_rubric) == []
+    described = payload("The worked example uses cofactor expansion. Compute det(A).")
+    assert normalize_required_method(described, targets, source_statement=True) == [
+        "required_method:dropped_source_statement_does_not_state_it"]
+    assert "required_method" not in described
+    assert described["prompt"] == "The worked example uses cofactor expansion. Compute det(A)."
+    negated = payload("You are not required to use cofactor expansion. Compute det(A).")
+    assert normalize_required_method(negated, targets) == ["required_method:dropped_prompt_contradicts_it"]
+    assert "required_method" not in negated and negated["prompt"].startswith("You are not required")
+
+
+def test_rereview_a_contradicting_variant_gains_no_instruction_and_is_never_published():
+    """F10: a variant stem that negates the parent's method gets no appended
+    instruction (it would contradict the statement); publication refuses it."""
+
+    from learnloop.ops.pf_publish import PublishRefused, VariantContradictsRequiredMethod, build_item_payload
+
+    parent = _item(prompt="Compute det(A). Use cofactor expansion in your answer.",
+                   required_method={"name": "cofactor expansion", "criterion_ids": ["method"]})
+    variant = {"prompt": "Compute det(B) without cofactor expansion."}
+    notes = inherit_required_method(variant, parent)
+    assert "required_method:prompt_contradicts_it" in notes
+    assert "required_method:instruction_added" not in notes
+    assert variant["prompt"] == "Compute det(B) without cofactor expansion."
+    row = {"payload_json": json.dumps({"stem": "Compute det(B) without cofactor expansion.", "final_answer": "3",
+                                       "solution": "2*2 - 1*1 = 3"}),
+           "final_relation": "isomorph", "declared_relation": "isomorph", "difficulty": None,
+           "generation_path": "ensemble", "id": "cand1", "family_id": "fam1"}
+    with pytest.raises(VariantContradictsRequiredMethod, match="cofactor expansion") as refused:
+        build_item_payload(None, parent, row, item_id="pi_pf_x", now_iso=STAMP)
+    assert isinstance(refused.value, PublishRefused)
+
+
+def test_rereview_publication_rejects_a_selected_variant_that_contradicts_the_parents_method(tmp_path):
+    """F10 end to end: a selected variant whose stem negates the parent's
+    required method is refused at publication (ledgered, the candidate
+    rejected so the next run regenerates), never published with a
+    contradictory appended instruction."""
+
+    from learnloop.content.authoring.pf_sandbox import sandbox_available
+    from learnloop.db.stores import pf as store
+    from learnloop.ops.pf_generation import publish_backlog
+    from learnloop.vault.writer import upsert_practice_item
+
+    from tests.pf_fakes import seed_pf_vault
+    from tests.test_pf_generation import NEXT_DAY, ledger, rows, run
+
+    if not sandbox_available():
+        pytest.skip("bubblewrap is not installed")
+    _vault, repository, paths = seed_pf_vault(tmp_path / "vault")
+    parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
+    parent["prompt"] = "Solve 2x + 4 = 10 for x. Use substitution in your answer."
+    parent["required_method"] = {"name": "substitution", "criterion_ids": ["setup"]}
+    upsert_practice_item(paths.root, parent)
+    run(paths, publish=False, select=1)
+    [selected] = rows(repository, "status='selected'")
+    payload = json.loads(selected["payload_json"])
+    payload["stem"] = "Solve 3x + 2 = 11 for x without substitution."
+    with repository.connection() as connection:
+        store.update_candidate(connection, selected["id"], payload_json=json.dumps(payload))
+    outcome = publish_backlog(load_vault(paths.root), clock=NEXT_DAY)
+    assert outcome["published_item_ids"] == [] and outcome["refused_candidates"] == 1
+    [row] = rows(repository, "id=?", (selected["id"],))
+    assert row["status"] == "rejected" and row["rejection_filter"] == "required_method_contradicted"
+    refusals = [entry for entry in ledger(repository, "pf_publish") if entry["verdict"] == "refuse_contradicts_required_method"]
+    assert len(refusals) == 1 and refusals[0]["left_id"] == selected["id"]
+    assert not any("pf_generated" in item.tags for item in load_vault(paths.root).practice_items.values())

@@ -38,7 +38,7 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.item_fingerprints import render_expected_answer
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
-from learnloop.vault.required_method import inherit_required_method
+from learnloop.vault.required_method import VARIANT_CONTRADICTS_METHOD, inherit_required_method
 from learnloop.vault.models import ActivityFamily, LoadedVault, PracticeItem
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault_lock import vault_mutation_lock
@@ -73,6 +73,12 @@ PF_KEY_STATUS = {
 
 class PublishRefused(ValueError):
     """The candidate may not be published (unverified, disabled, wrong state)."""
+
+
+class VariantContradictsRequiredMethod(PublishRefused):
+    """The variant's stem negates the parent's required method or leaves it
+    optional, while the parent's rubric (copied verbatim) grades use of it
+    (re-review F10): rejected, so a later run regenerates the variant."""
 
 
 def utc_day_bounds(clock: Clock | None = None) -> tuple[str, str]:
@@ -149,7 +155,13 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     # Method-explicit items (owner rule 2026-10-13): the variant keeps the
     # parent's rubric verbatim, so it keeps its required method too, and its
     # stem states it ("Use {method} in your answer." when the stem does not).
-    inherit_required_method(item, parent)
+    # A stem that contradicts the method is never given the instruction nor
+    # published (re-review F10).
+    if VARIANT_CONTRADICTS_METHOD in inherit_required_method(item, parent):
+        raise VariantContradictsRequiredMethod(
+            f"The variant's stem contradicts the parent's required method "
+            f"{parent.required_method.name!r} (it negates it or leaves it optional)"
+        )
     return item
 
 
@@ -264,7 +276,11 @@ def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: st
     family = vault.activity_families.get(row["family_id"])
     if parent is None or family is None:
         raise PublishRefused("The parent item or family no longer exists")
-    payload = build_item_payload(vault, parent, row, item_id=item_id, now_iso=now_iso)
+    try:
+        payload = build_item_payload(vault, parent, row, item_id=item_id, now_iso=now_iso)
+    except VariantContradictsRequiredMethod as exc:
+        _refuse_contradiction(repository, row, str(exc), now_iso)
+        raise
     PracticeItem.model_validate(payload)
     with repository.connection() as connection:
         if decided is None:
@@ -359,6 +375,23 @@ def _refuse_stale(repository: Repository, row: Mapping[str, Any], changed: list[
                          updated_at=now_iso)
 
 
+def _refuse_contradiction(repository: Repository, row: Mapping[str, Any], reason: str, now_iso: str) -> None:
+    """Ledger the refusal and reject the candidate (re-review F10; regenerate to retry)."""
+    with repository.connection() as connection:
+        refusal_id = "pfmethod_" + content_key([row["id"], row["content_hash"], PUBLISH_POLICY_VERSION])
+        if connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (refusal_id,)).fetchone() is None:
+            append_judgment(
+                connection, id=refusal_id, task="pf_publish", left_kind="pf_candidate", left_id=row["id"],
+                judge="verifier", prompt_version=PUBLISH_POLICY_VERSION, input_hash=row["content_hash"],
+                verdict="refuse_contradicts_required_method",
+                rationale=json.dumps({"reason": reason, "family_id": row["family_id"],
+                                      "parent_item_id": row["parent_item_id"]}, sort_keys=True),
+                created_at=now_iso,
+            )
+        update_candidate(connection, row["id"], status="rejected", rejection_filter="required_method_contradicted",
+                         updated_at=now_iso)
+
+
 def _check_ledger(row: dict[str, Any], verdicts: dict[str, Any]) -> None:
     """Publication reads the authoritative verdicts (§5.8), never workflow JSON.
 
@@ -393,6 +426,7 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
     published: list[str] = []
     capped: list[str] = []
     stale: list[str] = []
+    refused: list[str] = []
     for candidate_id in candidate_ids:
         with repository.connection() as connection:
             row = load_candidate(connection, candidate_id)
@@ -406,13 +440,17 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
         except StaleSelection:
             stale.append(candidate_id)
             continue
+        except VariantContradictsRequiredMethod:
+            refused.append(candidate_id)
+            continue
         published.append(item_id)
     return vault, {"published_item_ids": published, "capped_candidates": len(capped),
-                   "stale_candidates": len(stale), "cap": vault.config.pf.max_published_per_day}
+                   "stale_candidates": len(stale), "refused_candidates": len(refused),
+                   "cap": vault.config.pf.max_published_per_day}
 
 
 __all__ = [
     "JUDGED_INPUTS_VERSION", "PF_TAG", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS", "PublishRefused",
-    "StaleSelection", "build_item_payload", "judged_inputs", "publish_candidate", "publish_selected",
-    "published_item_id", "remaining_publish_slots", "stale_inputs", "utc_day_bounds",
+    "StaleSelection", "VariantContradictsRequiredMethod", "build_item_payload", "judged_inputs", "publish_candidate",
+    "publish_selected", "published_item_id", "remaining_publish_slots", "stale_inputs", "utc_day_bounds",
 ]

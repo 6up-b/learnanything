@@ -98,23 +98,73 @@ MethodStatement = Literal["required", "contradicted", "mentioned", "absent"]
 #: Abbreviations whose periods do not end a clause.
 _ABBREVIATIONS = re.compile(r"\b(?:e\.\s?g|i\.\s?e|cf|etc|vs)\.", re.IGNORECASE)
 _CLAUSES = re.compile(r"[.!?;:\n]+")
+
+# -- inline formatting (re-review F9) -------------------------------------------------
+#: Formatting never changes what a statement asks: a link keeps its text, and
+#: emphasis, code spans, strike-through and simple HTML or LaTeX text macros
+#: keep their content ("Compute det(A) using **cofactor expansion**.").
+_MD_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+_MD_HTML = re.compile(
+    r"</?(?:b|i|em|strong|u|code|mark|span|sub|sup|small|kbd|var|samp|ins|del|s|tt)\b[^>]*>", re.IGNORECASE)
+_TEX_TEXT = re.compile(
+    r"\\(?:textbf|textit|textsl|textrm|textsf|texttt|emph|text|underline|mathrm|mathbf|mathit|operatorname)"
+    r"\s*\{([^{}]*)\}")
+_MD_MARKS = re.compile(r"\*+|~~|`+")
+_MD_UNDERSCORES = re.compile(r"(?<![0-9A-Za-z])_+|_+(?![0-9A-Za-z])")
+
+
+def _plain_text(text: str) -> str:
+    """``text`` without inline Markdown, HTML or LaTeX text formatting."""
+
+    text = _MD_HTML.sub("", _MD_LINK.sub(r"\1", text))
+    for _ in range(3):
+        text, count = _TEX_TEXT.subn(r"\1", text)
+        if not count:
+            break
+    return _MD_UNDERSCORES.sub("", _MD_MARKS.sub("", text))
+
+
+# -- requirement verbs -----------------------------------------------------------------
 #: A requirement verb governing the method ("Use X", "by X", "Using X, ...").
 _REQUIRE_BEFORE = re.compile(
-    r"\b(?:use|uses|using|apply|applies|applying|employ|employs|employing|perform|performing|"
-    r"carry out|carrying out|by|via|by means of|with the help of|through)\s+(?:(?:the|a|an|your)\s+)?$"
+    r"\b(?P<verb>use|uses|using|apply|applies|applying|employ|employs|employing|perform|performs|performing|"
+    r"carry out|carries out|carrying out|by|via|by means of|with the help of|through)\s+(?:(?:the|a|an|your)\s+)?$"
 )
 _REQUIRE_AFTER = re.compile(r"^\s*(?:must|is to|should|has to)\s+be\s+used\b|^\s*is\s+required\b")
+#: A third-person verb has a subject other than the learner ("The worked
+#: example uses X"); it instructs only in a relative clause on the learner's
+#: own work ("Write a proof that uses X").
+_THIRD_PERSON = frozenset({"uses", "applies", "employs", "performs", "carries out"})
+_BASE_FORMS = frozenset({"use", "apply", "employ", "perform", "carry out"})
+#: A subject right before a base-form verb describes someone's work ("In the
+#: worked example we use X").
+_SUBJECTS = frozenset({
+    "we", "they", "i", "he", "she", "it", "one", "you", "people", "someone", "everyone", "students", "learners",
+    "authors", "readers", "textbooks", "books", "mathematicians",
+})
+#: A past participle before "by"/"using" describes how something was obtained
+#: ("the value obtained by X", "unchanged by X").
+_IRREGULAR_PARTICIPLES = frozenset({
+    "given", "shown", "done", "found", "proven", "written", "taken", "made", "known", "seen", "drawn", "got",
+    "gotten", "built", "set", "put", "brought", "thought", "taught", "meant", "chosen", "driven", "begun",
+})
+#: Verbs ending in "-ed" that are no participle ("Proceed by induction").
+_NOT_PARTICIPLES = frozenset({"proceed", "succeed", "exceed", "embed", "speed", "breed", "bleed", "indeed"})
+
+# -- negations and options ----------------------------------------------------------------
 #: A negation governing the method ("without X", "do not use X", "instead of
-#: X"): the negation, then only filler words, then the method.
+#: X", "you are not required to use X", "no need to use X"): the negation,
+#: then only filler words, then the method.
 _FILLER = (r"(?:use|using|apply|applying|employ|employing|rely|relying|on|resort|resorting|to|be|by|via|allowed|"
-           r"permitted|make|making|of|any|the|a|an|your)")
+           r"permitted|make|making|of|any|the|a|an|your|need|needs|needed|required|necessary|obliged|obligated|"
+           r"expected|asked|forced|compelled|mandatory|compulsory|have|has|had|for|you|it|requirement|that)")
 _NEGATED_BEFORE = re.compile(
     r"(?:\b(?:without|not|never|no|avoid|avoiding|instead of|other than|rather than|except|except for|nor)|n't)"
-    rf"\s+(?:{_FILLER}\s+){{0,3}}$"
+    rf"\s+(?:{_FILLER}\s+){{0,5}}$"
 )
 _NEGATED_AFTER = re.compile(
-    r"^\s*(?:(?:is|are|may|must|should|can|will)\s+not\b|isn't|aren't|cannot|can't|mustn't|shouldn't|"
-    r"(?:is|are)\s+(?:forbidden|disallowed)\b)"
+    r"^\s*(?:(?:is|are|may|must|should|can|will|does|do|need)\s+not\b|isn't|aren't|cannot|can't|mustn't|shouldn't|"
+    r"doesn't|don't|needn't|(?:is|are)\s+(?:forbidden|disallowed)\b)"
 )
 #: An option rather than a requirement ("You may use X", "for example by X").
 _OPTIONAL_BEFORE = re.compile(
@@ -130,7 +180,8 @@ _OPTIONAL_AFTER = re.compile(
     r"(?:method|approach|technique|way|route|strategy)s?\b"
     r"|\bany\s+(?:(?:other|valid|suitable|appropriate|correct|equivalent)\s+)*"
     r"(?:method|approach|technique|way|route|strategy)s?\b"
-    r"|\bif you (?:like|wish|want|prefer)\b|\b(?:is|are) (?:optional|not required|not necessary|allowed|permitted)\b"
+    r"|\bif you (?:like|wish|want|prefer)\b"
+    r"|\b(?:is|are) (?:optional|not required|not necessary|not needed|not mandatory|unnecessary|allowed|permitted)\b"
     r"|\bneed not\b|\boptionally\b|\bor otherwise\b"
 )
 #: "any (other) method" anywhere before it in the clause ("Use any method, e.g. X").
@@ -140,6 +191,188 @@ _ANY_METHOD = re.compile(
 )
 #: Words of a clause before an occurrence read for an option marker.
 _OPTION_WINDOW = 6
+
+# -- instructions to the learner (re-review F2) -------------------------------------------
+#: Bracketed groups and inline math, dropped before a clause's shape is read
+#: ("Given A = [[1, 2], [3, 4]], compute ...", "(a) Compute ...").
+_GROUPS = re.compile(r"\([^()]*\)|\[[^\[\]]*\]|\{[^{}]*\}|\$[^$]*\$")
+#: Labels, courtesy and sequence words that open a clause without changing it.
+_LEAD = re.compile(
+    r"^(?:\s*(?:[a-z0-9]{1,4}\)|(?:part|question|exercise|problem|step)(?:\s+[a-z0-9]{1,4})?\b|"
+    r"(?:please|kindly|now|then|next|first|second|third|finally|lastly|also|again|here|so|hence|thus|"
+    r"therefore|instead|and|but)\b)\s*,?)+"
+)
+#: Verbs that open an instruction to the learner (the imperative).
+_IMPERATIVES = (
+    "use", "apply", "employ", "perform", "carry out", "compute", "calculate", "evaluate", "find", "determine",
+    "show", "prove", "verify", "check", "demonstrate", "derive", "solve", "simplify", "factor", "factorise",
+    "factorize", "expand", "integrate", "differentiate", "diagonalize", "diagonalise", "reduce", "row reduce",
+    "rewrite", "write", "express", "obtain", "establish", "deduce", "conclude", "justify", "explain", "describe",
+    "give", "state", "sketch", "draw", "construct", "compare", "estimate", "approximate", "test", "decide",
+    "classify", "identify", "list", "count", "enumerate", "convert", "transform", "invert", "decompose",
+    "orthogonalize", "orthogonalise", "orthonormalize", "orthonormalise", "normalize", "normalise", "project",
+    "work out", "figure out", "answer", "complete", "argue", "illustrate", "interpret", "analyse", "analyze",
+    "assess", "confirm", "plot", "graph", "tabulate", "redo", "recompute", "repeat", "reproduce", "do", "make",
+    "remember", "be sure to", "present", "provide", "produce", "set up", "formulate", "translate", "minimize",
+    "minimise", "maximize", "maximise", "optimize", "optimise", "bound", "fill in", "summarize", "summarise",
+    "define", "generalize", "generalise", "extend", "modify", "correct", "fix", "repair", "re derive", "recover",
+    "proceed", "continue", "start", "begin", "attempt", "take", "get", "read", "work", "reason", "fit", "rank",
+    "sort", "search", "model", "simulate", "sample", "implement", "code", "program", "encode", "decode", "partition",
+    "label", "name", "choose", "select", "pick", "measure", "record", "substitute", "multiply", "divide", "add",
+    "subtract", "sum", "rearrange", "isolate", "eliminate", "cancel", "combine", "split", "separate", "group",
+    "match", "map", "relate", "represent", "approach", "tackle", "treat", "handle", "predict", "cluster", "train",
+    "discuss", "examine", "investigate", "explore", "study", "inspect", "review", "recheck", "double check",
+    "cross check", "recalculate", "rederive", "reprove", "reformulate", "recast", "restate", "rephrase", "design",
+    "build", "create", "generate", "run", "execute", "trace", "traverse", "parametrize", "parameterize", "place",
+    "arrange", "order", "fill", "mark", "shade", "circle", "connect", "go",
+)
+_IMPERATIVE = re.compile(r"^(?:" + "|".join(sorted(map(re.escape, _IMPERATIVES), key=len, reverse=True)) + r")\b")
+#: "You must ...", "Your answer should ...", "It is required that you ...",
+#: "Your task is to ...".
+_ADDRESSED = re.compile(
+    r"^(?:(?:you|your (?:answer|solution|proof|work|working|argument|computation|calculation|derivation|response|"
+    r"reasoning)s?|the (?:answer|solution|proof|computation|calculation|derivation|argument))\s+"
+    r"(?:must|should|shall|will|ought to|need to|needs to|have to|has to|are to|is to|are required to|"
+    r"is required to|are asked to|are expected to|is expected to|are supposed to|will need to|will have to)\b"
+    r"|you'll\b|you're to\b|(?:it is|it's) (?:required|necessary|mandatory|essential|important|compulsory)\b"
+    r"|(?:your|the) (?:task|goal|aim|job|objective|assignment|exercise|challenge) (?:here )?is to\b"
+    r"|(?:we|i) (?:want|need|ask|expect) you to\b)"
+)
+#: A fronted adverbial or subordinate clause before the instruction ("For
+#: the matrix A, ...", "Given A = ..., ...", "In part (b), ...", "To compute
+#: det(A), ...", "If A is invertible, ...", "As in part (a), ...").
+_ADVERBIAL = re.compile(
+    r"^(?:for|given|in|on|at|with|from|after|before|during|throughout|when|whenever|once|assuming|suppose|"
+    r"supposing|let|starting|beginning|having|considering|to|below|above|here|if|unless|since|because|as|"
+    r"although|though|while|whilst|whereas|provided|now that)\b"
+)
+#: The generic imperative (a verb the list above lacks: "Tabulate the
+#: values by X", "Proceed by X"): a first word that is none of these, then
+#: its object, or nothing.
+_NOT_IMPERATIVE = frozenset({
+    "the", "a", "an", "this", "that", "these", "those", "each", "every", "all", "both", "some", "any", "no",
+    "most", "many", "few", "several", "such", "our", "my", "his", "her", "its", "their", "your", "there",
+    "is", "are", "was", "were", "be", "been", "has", "have", "had", "do", "does", "did", "will", "would", "can",
+    "could", "may", "might", "shall", "should", "must", "and", "or", "nor", "but", "if", "as", "so", "then",
+    "than", "of", "in", "on", "at", "by", "for", "with", "from", "to", "into", "onto", "via", "through", "after",
+    "before", "when", "while", "since", "because", "although", "though", "unless", "whether", "where", "which",
+    "who", "what", "how", "why", "like", "unlike", "about", "under", "over", "between", "among", "within",
+    "without", "beyond", "against", "toward", "towards", "across", "along", "around", "behind", "besides", "near",
+    "past", "upon", "per", "despite", "note", "notice", "recall", "observe", "consider", "see", "suppose",
+    "assume", "imagine", "earlier", "later", "elsewhere", "otherwise", "likewise", "often", "sometimes",
+    "always", "never", "also", "again", "already", "still", "just", "only", "even", "now", "here", "not",
+})
+_OBJECTS = frozenset({
+    "the", "a", "an", "this", "these", "those", "each", "every", "all", "both", "your", "its", "their", "it",
+    "them", "our", "some", "any", "his", "her",
+})
+#: A subordinate clause (a description, a question about the method): its
+#: requirement verb is not the learner's instruction.
+#: ("Determine whether S is a basis by X" still instructs; "Decide whether
+#: to use X" does not.)
+_SUBORDINATE = re.compile(
+    r"\b(?:which|who|whom|whose|where|wherein|whereby|why|how|whether to|what|when|whenever|while|whilst|"
+    r"whereas|because|since|although|though|unless|like|as in|as the|as it|as they|as we|as shown|as done|"
+    r"as described|the way|just as|similar to|similarly)\b"
+    # A fronted condition ("If using X, ...") is not an instruction either.
+    r"|^(?:if|once)\b"
+)
+_WORDS = re.compile(r"[a-z][a-z']*")
+
+
+def _last_word(text: str) -> str:
+    words = _WORDS.findall(text)
+    return words[-1] if words else ""
+
+
+def _participle(word: str) -> bool:
+    return word in _IRREGULAR_PARTICIPLES or (len(word) > 4 and word.endswith("ed") and word not in _NOT_PARTICIPLES)
+
+
+def _generic_imperative(segment: str) -> bool:
+    """A first word shaped like a verb the imperative list lacks, then its object or nothing."""
+
+    words = segment.split()
+    if not words:
+        return False
+    first = words[0]
+    if (not first.isalpha() or first in _NOT_IMPERATIVE or first in _SUBJECTS or first.endswith(("ly", "ing"))
+            or _participle(first) or (first.endswith("s") and not first.endswith("ss"))):
+        return False
+    return len(words) == 1 or words[1] in _OBJECTS
+
+
+def _instruction_opens(segment: str) -> bool:
+    return bool(_IMPERATIVE.match(segment) or _ADDRESSED.match(segment) or _generic_imperative(segment))
+
+
+def _incidental(segment: str) -> bool:
+    """A comma segment that carries no clause of its own (empty, or math: "y = 2",
+    "Solve Ax = b"); a segment opening with a determiner or a subject is prose
+    ("The worked example solves Ax = b")."""
+
+    if not segment or not segment[0].isalpha():
+        return True
+    first = segment.split()[0]
+    return "=" in segment and first not in _NOT_IMPERATIVE and first not in _SUBJECTS
+
+
+def _instructs(head: str) -> bool:
+    """Is a requirement at the end of ``head`` (a clause's text before it) the
+    learner's instruction?
+
+    The clause's main part (its first comma segment that is not a fronted
+    adverbial or math) must open with an instruction ("Compute det(A) by X",
+    "You must use X", "Your answer should use X"); with none before it, the
+    requirement opens the clause ("Use X", "Using X, ...", "In part (b), use
+    X"). A requirement in a later segment counts when that segment is itself
+    an instruction ("..., then verify it by X") or it directly follows a
+    comma ("Show, using X, that ..."); never inside a subordinate clause
+    ("..., which the worked example finds by X", "Explain how to use X").
+    Conservative: anything else reads as a description.
+    """
+
+    text = head
+    for _ in range(4):
+        text, count = _GROUPS.subn(" ", text)
+        if not count:
+            break
+    segments = [" ".join(_LEAD.sub("", segment).split()) for segment in text.split(",")]
+    last = len(segments) - 1
+    trigger_segment = segments[last]
+    if _SUBORDINATE.search(trigger_segment):
+        return False  # "When using X, ...", "..., which the worked example finds by X"
+    main = next((index for index, segment in enumerate(segments)
+                 if not _incidental(segment) and not _ADVERBIAL.match(segment)), None)
+    if main is None:
+        return True
+    if not _instruction_opens(segments[main]) or _SUBORDINATE.search(segments[main]):
+        return False
+    return main == last or not trigger_segment or _instruction_opens(trigger_segment)
+
+
+def _requires_here(before: str, after: str) -> bool:
+    """Does the clause require the method at this occurrence (``before`` and
+    ``after`` it, case-folded)?"""
+
+    match = _REQUIRE_BEFORE.search(before)
+    if match is not None:
+        verb, head = match.group("verb"), before[:match.start()]
+        previous = _last_word(head)
+        if verb in _THIRD_PERSON:
+            if previous != "that":
+                return False
+            head = head[:head.rstrip().rfind("that")]
+        elif verb in _BASE_FORMS:
+            if previous in _SUBJECTS:
+                return False
+        elif _participle(previous):
+            return False
+        return _instructs(head)
+    if _REQUIRE_AFTER.search(after):
+        # A passive requirement ("X must be used"): X is the subject.
+        return _instructs(re.sub(r"(?:\b(?:the|a|an|your)\s*)$", "", before))
+    return False
 
 
 def _match_form(text: str) -> str:
@@ -151,26 +384,31 @@ def _match_form(text: str) -> str:
 def method_statement(prompt: Any, name: str) -> MethodStatement:
     """How ``prompt`` treats the method ``name`` (review F2).
 
-    * ``required``: some clause requires it affirmatively (the explicit
-      instruction "Use {name} in your answer.", or a requirement verb that
-      governs it: "Compute det(A) by cofactor expansion.", "Using X, ...")
-      and no clause contradicts it;
+    * ``required``: some clause instructs the learner to use it (the
+      explicit instruction "Use {name} in your answer.", or a requirement
+      verb governing it in an instruction: "Compute det(A) by cofactor
+      expansion.", "Using X, ...", "You must use X") and no clause
+      contradicts it;
     * ``contradicted``: a clause negates it ("without X", "do not use X",
-      "instead of X", "X is not allowed") or leaves it optional ("You may use
-      X", "X or any other method", "for example by X", "X or Y"): a
-      requirement would contradict the statement;
-    * ``mentioned``: it occurs only in other ways ("Explain why X works");
+      "instead of X", "X is not allowed", "you are not required to use X")
+      or leaves it optional ("You may use X", "X or any other method", "for
+      example by X", "X or Y"): a requirement would contradict the
+      statement;
+    * ``mentioned``: it occurs only in other ways ("Explain why X works",
+      and descriptions: "The worked example uses X", "..., which the worked
+      example finds by X"; re-review F2);
     * ``absent``: the name does not occur.
 
-    Conservative on purpose: a statement that only names the method never
-    reads as requiring it, and an ambiguous one reads as contradicting it.
-    Case, spacing, dashes and hyphens aside.
+    Conservative on purpose: a statement that only names or describes the
+    method never reads as requiring it, and an ambiguous one reads as
+    contradicting it. Case, spacing, dashes, hyphens and inline formatting
+    (Markdown, HTML, LaTeX text macros; re-review F9) aside.
     """
 
-    needle = _match_form(name)
+    needle = _match_form(_plain_text(str(name or "")))
     if not needle:
         return "absent"
-    text = prompt if isinstance(prompt, str) else str(prompt or "")
+    text = _plain_text(prompt if isinstance(prompt, str) else str(prompt or ""))
     text = _ABBREVIATIONS.sub(lambda match: match.group(0).replace(".", "").replace(" ", ""), text)
     pattern = re.compile(rf"(?<![0-9a-z]){re.escape(needle)}(?![0-9a-z])")
     found = required = False
@@ -184,7 +422,7 @@ def method_statement(prompt: Any, name: str) -> MethodStatement:
                     or _OPTIONAL_BEFORE.search(window) or _ALTERNATIVE_BEFORE.search(before)
                     or _OPTIONAL_AFTER.search(after) or _ANY_METHOD.search(before)):
                 return "contradicted"
-            if _REQUIRE_BEFORE.search(before) or _REQUIRE_AFTER.search(after):
+            if _requires_here(before, after):
                 required = True
     if required:
         return "required"
@@ -521,13 +759,21 @@ def normalize_required_method(
     return notes
 
 
+#: :func:`inherit_required_method`'s note for a variant stem that contradicts
+#: the parent's method: the variant may not be published (re-review F10).
+VARIANT_CONTRADICTS_METHOD = "required_method:prompt_contradicts_it"
+
+
 def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
     """A variant that keeps its parent's rubric verbatim keeps its required method.
 
     The parent's method (if any) is copied and the variant's prompt gets the
     explicit instruction when it does not already require it. A variant stem
-    that negates the method or leaves it optional is noted
-    (``required_method:prompt_contradicts_it``); doctor reports such an item.
+    that negates the method or leaves it optional gets no instruction (it
+    would contradict the statement; re-review F10) and is noted
+    (:data:`VARIANT_CONTRADICTS_METHOD`): the parent's rubric grades use of
+    the method, so such a variant is rejected, never published
+    (``ops.pf_publish``).
     """
 
     method = getattr(parent, "required_method", None)
@@ -541,11 +787,10 @@ def inherit_required_method(payload: dict[str, Any], parent: Any) -> list[str]:
     statement = method_statement(prompt_text, dumped["name"])
     if statement == "required":
         return ["required_method:inherited"]
-    payload["prompt"] = ensure_method_instruction(prompt_text, dumped["name"])
-    notes = ["required_method:inherited", "required_method:instruction_added"]
     if statement == "contradicted":
-        notes.append("required_method:prompt_contradicts_it")
-    return notes
+        return ["required_method:inherited", VARIANT_CONTRADICTS_METHOD]
+    payload["prompt"] = ensure_method_instruction(prompt_text, dumped["name"])
+    return ["required_method:inherited", "required_method:instruction_added"]
 
 
 # -- validation (doctor) -----------------------------------------------------------
@@ -630,6 +875,7 @@ __all__ = [
     "OPEN_METHOD_CAPABILITIES",
     "REQUIRED_METHOD_VARIANT_GUIDANCE",
     "RequiredMethodProblem",
+    "VARIANT_CONTRADICTS_METHOD",
     "best_target",
     "ensure_method_instruction",
     "inherit_required_method",

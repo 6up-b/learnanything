@@ -1376,7 +1376,8 @@ class _FamilyRun:
         self.ctx.vault = vault
         self.ctx.caller.vault = vault
         self.report.update(published_item_ids=outcome["published_item_ids"],
-                           capped=outcome["capped_candidates"], stale=outcome["stale_candidates"])
+                           capped=outcome["capped_candidates"], stale=outcome["stale_candidates"],
+                           refused=outcome["refused_candidates"])
         for candidate in self.candidates:
             if candidate.id in order:
                 with self.ctx.repository.connection() as connection:
