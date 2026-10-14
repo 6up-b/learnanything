@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
-source_commit_timestamp: "2026-10-13T22:48:44-04:00"
+source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
+source_commit_timestamp: "2026-10-14T01:47:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -32,6 +32,7 @@ source_paths:
   - "src/learnloop/diagnosis/probe_dialogue.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
@@ -40,7 +41,6 @@ source_paths:
   - "tests/test_concept_animation_service.py"
   - "tests/test_contamination_report.py"
   - "tests/test_daily_loop_reference_adoption.py"
-  - "tests/test_daily_plan_admission.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -104,7 +104,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `probe.episode.reprobe_stale_uncertainty_days` | `30` | integer | modeled default or validator seed | Sets the reprobe stale uncertainty duration in days for diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:270`; `src/learnloop/diagnosis/probe_episodes.py:734` |
 | `probe.generation.instances_per_need` | `2` | integer | modeled default or validator seed | Controls instances per need in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:276`; `src/learnloop/diagnosis/probe_instance_generation.py:996` |
 | `probe.generation.auto_generate_on_entry` | `false` | boolean | modeled default or validator seed | Turns auto generate on entry behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:277`; `src/learnloop/diagnosis/probe_episodes.py:268` |
-| `probe.generation.llm_surfaces` | `true` | boolean | modeled default or validator seed | Turns language-model surfaces behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:281`; `src/learnloop/cli/app.py:3688`; `src/learnloop/diagnosis/probe_instance_generation.py:1036` |
+| `probe.generation.llm_surfaces` | `true` | boolean | modeled default or validator seed | Turns language-model surfaces behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:281`; `src/learnloop/cli/app.py:3697`; `src/learnloop/diagnosis/probe_instance_generation.py:1036` |
 | `probe.dialogue.planned_turns` | `3` | integer | modeled default or validator seed | Controls planned turns in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:287`; `src/learnloop/diagnosis/probe_dialogue.py:172`; `src/learnloop/diagnosis/probe_episodes.py:1537` |
 | `probe.calibration.default_time_budget_minutes` | `20` | integer | modeled default or validator seed | Sets the default time budget duration in minutes for diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:293`; `src/learnloop/diagnosis/calibration_sessions.py:186` |
 | `probe.calibration.max_planned_episodes` | `8` | integer | modeled default or validator seed | Caps planned episodes allowed by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:294`; `src/learnloop/diagnosis/calibration_sessions.py:260` |
@@ -143,6 +143,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
@@ -152,7 +153,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_config_refactor.py`
 - `tests/test_contamination_report.py`
 - `tests/test_daily_loop_reference_adoption.py`
-- `tests/test_daily_plan_admission.py`
 
 ## Extension and modification guidance
 

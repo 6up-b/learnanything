@@ -3,8 +3,8 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
-source_commit_timestamp: "2026-10-13T22:48:44-04:00"
+source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
+source_commit_timestamp: "2026-10-14T01:47:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/181_router_decisions.sql"
   - "src/learnloop/cli/router.py"
+  - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/probe_tie_upgrade.py"
@@ -138,6 +139,7 @@ None found by exact static reference scan.
 - `tests/test_router_presentations.py`
 - `tests/test_router_r1_composition.py`
 - `tests/test_router_r2a_serving.py`
+- `tests/test_router_r2b_agreement.py`
 - `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

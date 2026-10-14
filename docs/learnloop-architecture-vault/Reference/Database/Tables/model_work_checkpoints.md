@@ -3,8 +3,8 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
-source_commit_timestamp: "2026-10-13T22:48:44-04:00"
+source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
+source_commit_timestamp: "2026-10-14T01:47:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
+  - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/ops/pf_calls.py"
   - "src/learnloop/practice_index/paid.py"
-  - "src/learnloop/substrate/dataset.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -80,6 +80,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/db/stores/practice_index.py`
 

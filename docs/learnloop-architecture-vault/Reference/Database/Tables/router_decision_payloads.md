@@ -3,8 +3,8 @@ title: "router_decision_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
-source_commit_timestamp: "2026-10-13T22:48:44-04:00"
+source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
+source_commit_timestamp: "2026-10-14T01:47:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decision_payloads"
@@ -19,7 +19,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/202_router_staged_frame.sql"
+  - "src/learnloop/cli/router.py"
   - "src/learnloop/config/schema.py"
+  - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/db/stores/router.py"
   - "src/learnloop/router/card.py"
   - "src/learnloop/router/plan_log.py"
@@ -84,6 +86,8 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/cli/router.py`
+- `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/db/stores/router.py`
 
 ### Direct SQL writers
@@ -99,6 +103,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/router_mixture_helpers.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_router_card.py`
 - `tests/test_router_r2a_serving.py`

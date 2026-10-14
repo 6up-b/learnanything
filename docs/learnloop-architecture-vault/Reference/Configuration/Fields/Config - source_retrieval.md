@@ -3,8 +3,8 @@ title: "Config - source_retrieval"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "9c5c62df9453d8b49cd8561be75248f0f5966977"
-source_commit_timestamp: "2026-10-13T22:48:44-04:00"
+source_commit: "ac4edf73fb6e8dea2aa53828512126548288ac32"
+source_commit_timestamp: "2026-10-14T01:47:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_retrieval"
@@ -30,6 +30,7 @@ source_paths:
   - "src/learnloop/source_retrieval/verify.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/router_model_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
@@ -39,7 +40,6 @@ source_paths:
   - "tests/test_capture_originals_race.py"
   - "tests/test_causal_probe_commissioning.py"
   - "tests/test_certification_cold_probe.py"
-  - "tests/test_characterization_assessment_exam.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -87,6 +87,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/router_model_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
@@ -96,7 +97,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_capture_originals_race.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_certification_cold_probe.py`
-- `tests/test_characterization_assessment_exam.py`
 
 ## Extension and modification guidance
 
