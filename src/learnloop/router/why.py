@@ -143,6 +143,9 @@ def sentence(code: str, *, topic: str | None = None, section: str | None = None)
     if template is None:
         return ""
     text = template.format(topic=topic or "this topic", section=section or "the next section")
+    # A title that ends a sentence with its own mark keeps it: "Next: What
+    # Makes a Vector Space?" never "...Space?." (seen in R2bc's live session).
+    text = re.sub(r"([?!])\.$", r"\1", text)
     # A topic phrase opens some sentences: keep its own capitalisation, but a
     # sentence never starts in lower case.
     return text[:1].upper() + text[1:]
