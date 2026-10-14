@@ -3,8 +3,8 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
-source_commit_timestamp: "2026-10-14T11:49:23-04:00"
+source_commit: "4108e1ccd58b61e131ea0d5eae57ccce7e08c4ef"
+source_commit_timestamp: "2026-10-14T15:56:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
@@ -143,12 +143,12 @@ Indexes and uniqueness:
 - `tests/test_glm_ocr.py`
 - `tests/test_init.py`
 - `tests/test_mobile_doctor.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_determinism_landing.py`
 - `tests/test_probability_prep.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_router_outcomes.py`
 - `tests/test_router_presentations.py`
-- `tests/test_router_r2a_serving.py`
-- `tests/test_session_attempt_attribution.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

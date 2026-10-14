@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 import learnloop.clock as clock_module
+import learnloop.scheduling.scheduler as scheduler_module
 import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.db.stores.practice_index import insert_proposal
 from learnloop.practice_index.usage import USAGE_TASK
@@ -23,9 +24,29 @@ def _call(ctx, name, params):
     return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
+def _draw(monkeypatch, promoted: str | None) -> None:
+    """The scheduler's seeded exploration through its own draw seam.
+
+    This vault is at mvp-0.14, where the plan's pool keeps the scheduler's
+    seeded draw (router R1's design; plan-determinism review): hashed from the
+    session id, a fresh ULID per run, it moves a near-tie to the front of the
+    pool in about one session in ten. ``None`` pins the greedy order (the roll
+    misses); an item id pins the draw on that alternative wherever it is one.
+    """
+
+    def draws(_queue, _session, _now, alternatives):
+        ids = [item.practice_item_id for item in alternatives]
+        if promoted not in ids:
+            return 1.0, 0.0
+        return 0.0, (ids.index(promoted) + 0.5) / len(ids)
+
+    monkeypatch.setattr(scheduler_module, "_exploration_draws", draws)
+
+
 @pytest.fixture
 def ctx(tmp_path, monkeypatch):
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: DAY1)
+    _draw(monkeypatch, None)  # the plan these tests build is the greedy one
     paths = create_daily_plan_vault(tmp_path / "vault",
                                     learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]})
     context = SidecarContext()
@@ -142,10 +163,19 @@ def _without_r1_logging(context, paths):
     context.grading_provider_override = "manual"
 
 
-def test_the_delivery_carries_r1s_decision_of_the_block_that_served_it(ctx):
+@pytest.mark.parametrize("promoted", [None, "pi_svd_define_001"])
+def test_the_delivery_carries_r1s_decision_of_the_block_that_served_it(ctx, monkeypatch, promoted):
     """With router R1 merged, the block that serves the pick has R1's
-    ``plan_block`` row as its ``decision_ref``; the delivery names that row."""
+    ``plan_block`` row as its ``decision_ref``; the delivery names that row.
 
+    Greedy (``None``), the picked item is planned and its block (the chooser's)
+    serves it. With the scheduler's draw on ``pi_svd_define_001`` the plan's
+    first block is that item's, so the pick is outside the plan and its own
+    one-item block serves it, with its own logged decision (R2a review F4).
+    Before F4 that block logged none: this was the test's flake (the draw
+    lands there in about one session in forty)."""
+
+    _draw(monkeypatch, promoted)
     context, _paths = ctx
     session_id = _call(context, "start_session", {"availableMinutes": 25})["sessionId"]
     result = _call(context, "plan_learner_pick", {"practiceItemId": "pi_extra_1", "sessionId": session_id,
@@ -153,10 +183,19 @@ def test_the_delivery_carries_r1s_decision_of_the_block_that_served_it(ctx):
     _vault, repository = context.require_vault()
     [row] = _interventions(repository)
     with repository.connection() as connection:
-        logged = connection.execute("SELECT decision_kind FROM router_decisions WHERE id=?",
+        logged = connection.execute("SELECT * FROM router_decisions WHERE id=?",
                                     (row["router_decision_id"],)).fetchone()
+        first = connection.execute(
+            "SELECT chosen_practice_item_id FROM router_decisions WHERE decision_kind = 'plan_block' "
+            "ORDER BY created_at, id LIMIT 1").fetchone()[0]
     assert logged is not None and logged["decision_kind"] == "plan_block"
     assert result["proposalPick"]["routerDecisionId"] == row["router_decision_id"]
+    assert logged["receipt_key"] == f"plan_block:{result['step']['blockId']}"
+    assert logged["chosen_practice_item_id"] == "pi_extra_1"
+    if promoted is None:
+        assert (logged["learner_pick"], logged["propensity"], first) == (0, 1.0, "pi_extra_1")
+    else:
+        assert (logged["learner_pick"], logged["propensity"], first) == (1, None, promoted)
 
 
 def test_the_delivery_carries_the_exact_decision_of_the_block_that_served_it(ctx):

@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bffe086ece8e202152df3a71fe50be761484c23c"
-source_commit_timestamp: "2026-10-14T11:49:23-04:00"
+source_commit: "4108e1ccd58b61e131ea0d5eae57ccce7e08c4ef"
+source_commit_timestamp: "2026-10-14T15:56:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -162,6 +162,8 @@ None found by exact static reference scan.
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_mvp024_upgrade.py`
+- `tests/test_plan_determinism.py`
+- `tests/test_plan_determinism_landing.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_router_card.py`
 - `tests/test_router_g1_feasibility.py`
@@ -170,8 +172,6 @@ None found by exact static reference scan.
 - `tests/test_router_presentations.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_router_r1_composition.py`
-- `tests/test_router_r2a_landing.py`
-- `tests/test_router_r2a_serving.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

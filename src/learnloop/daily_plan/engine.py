@@ -36,7 +36,7 @@ import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
@@ -96,6 +96,9 @@ from learnloop.daily_plan.types import (
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import log_plan_block_decision
+
+if TYPE_CHECKING:
+    from learnloop.scheduling.scheduler import SchedulerSession
 
 _EPS = 1e-6
 ENGINE_VERSION = "daily_plan_v1"
@@ -234,6 +237,79 @@ DEFAULT_POLICY = PlanPolicy(source_name=SOURCE_NAME, chooser=LaneQuotaChooser(),
 EligibleBuilder = Callable[[float], Sequence[Any]]
 
 
+def staged_plans_deterministic(vault: Any) -> bool:
+    """A staged plan's pool is a fixed function of the vault state: the router
+    composes Today (:func:`learnloop.daily_plan.policy.router_active`:
+    ``mvp-0.23`` or later with ``router.enabled``) and the kill switch
+    ``plan.deterministic_staged_plans`` is on.
+
+    A live change behind its kill switch, not a successor tag (the owner's
+    standing ruling: live changes behind kill switches, not successors, for
+    serving changes replay never reads; plan-determinism Codex review F2).
+    Replay never reads a plan (migration 180), and a logged plan keeps its
+    blocks; off, the staged plan's pool is as ``mvp-0.23`` and ``mvp-0.24``
+    landed. At ``mvp-0.24`` the same pool gives the model mixture its
+    candidates (the staged pick and the support); the mixture keeps its own
+    seeded draw, floor and logged propensities."""
+
+    from learnloop.daily_plan.policy import router_active  # policy imports this module
+
+    return router_active(vault) and bool(vault.config.plan.deterministic_staged_plans)
+
+
+def plan_scheduler_session(vault: Any, session_id: str | None, minutes: float) -> SchedulerSession:
+    """The scheduler session a plan's pool is built under (every plan build).
+
+    The pool is the scheduler's ranked list, and its order is the plan's: the
+    lanes group it, the blocks pack it, and ``planner_value`` (the chooser's
+    tie-break) is its rank. Two session-seeded draws reorder that list:
+
+    * the scheduler's seeded exploration (router R1's
+      ``scheduler_seeded_exploration``, hashed from the session id and the UTC
+      date) moves a near-tie to the front;
+    * a contrast pair's member order (Meas §3.A4, hashed from the session id
+      and the pair) swaps the two members' slots, so when both fit a block its
+      order differs, and when only one fits the plan chooses a different one.
+
+    Either would make a plan depend on which session asked for it while its
+    ``plan_block`` decision logs a deterministic choice (propensity one).
+
+    Owner rule (2026-10-13): staged plans are deterministic; the router's
+    exploration comes only from the mixture's logged floor. So where
+    :func:`staged_plans_deterministic` holds, the pool is the scheduler's
+    greedy order (``seeded_exploration`` off) and a contrast pair's order is
+    the pair's own draw (``contrast_order_seed = "pair"``: seeded on the pair
+    alone, still drawn across pairs and recorded on its serving rows for A4's
+    order-effect check), and the same vault state plans the same blocks
+    whatever the session, or with none (Start builds the plan before a
+    session opens: the pair's draw applies there too, unrecorded; Codex
+    re-review F1). That order's tie-break is stable: selection reward,
+    then priority (both descending), then the practice item id; then
+    placement's new-material order and the build's composition. A4's
+    per-session draw keeps its own path: every other queue build (Today's
+    full list, the CLI and TUI queues, DL1's plan) is unchanged.
+
+    DL1's own pair (below ``mvp-0.23``, or the router switched off), and the
+    staged plan with ``plan.deterministic_staged_plans`` off, build under the
+    predecessor's session exactly (``SchedulerSession(session_id,
+    available_minutes)``; G8: the router off equals ``mvp-0.22``). Only future
+    builds change: replay never reads a plan (migration 180), and a logged
+    plan keeps its blocks.
+    """
+
+    from learnloop.scheduling.scheduler import SchedulerSession
+
+    available = int(round(minutes))
+    if not staged_plans_deterministic(vault):
+        return SchedulerSession(session_id=session_id, available_minutes=available)
+    return SchedulerSession(
+        session_id=session_id,
+        available_minutes=available,
+        seeded_exploration=False,
+        contrast_order_seed="pair",
+    )
+
+
 @dataclass
 class PlanEnv:
     vault: Any
@@ -270,13 +346,13 @@ class PlanEnv:
     def build_eligible(self, minutes: float) -> list[Any]:
         if self.eligible is not None:
             return list(self.eligible(minutes))
-        from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+        from learnloop.scheduling.scheduler import build_due_queue
 
         return build_due_queue(
             self.vault,
             self.repository,
             clock=self.clock,
-            session=SchedulerSession(session_id=self.session_id, available_minutes=int(round(minutes))),
+            session=plan_scheduler_session(self.vault, self.session_id, minutes),
             limit=None,
         )
 
@@ -3099,6 +3175,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "plan_scheduler_session",
     "reading_from_furthest_active",
     "reading_ended",
     "reconcile",
@@ -3106,6 +3183,7 @@ __all__ = [
     "remembered_minutes",
     "set_minutes",
     "simulate_blocks",
+    "staged_plans_deterministic",
     "stop_today",
     "unregister_plan_decision_logger",
 ]

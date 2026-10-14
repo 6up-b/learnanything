@@ -1161,7 +1161,26 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # and all sixteen were recomputed from the composed defaults
     # (defaults_fingerprint_for_version) on its branch, and all sixteen again
     # when it landed on main after RW3a, the tutor delivery fixes and GLM-OCR.
-    "mvp-0.9": "27b5201ceaf7b7a6014555f234aab451c46808e60c193afe95540cdd6a46d0ab",
+    # Plan determinism's Codex review (F2; docs/reviews/
+    # plan-determinism-codex-review.md) adds plan.deterministic_staged_plans
+    # = true (modelled default, left out of the decision-only template), the
+    # kill switch of the stage's serving rule (owner rule 2026-10-13: staged
+    # plans are deterministic): where the router composes Today, the plan's
+    # pool is the scheduler's greedy order and a contrast pair's member order
+    # is the pair's own draw, so the same vault state plans the same blocks in
+    # every session. A live change under the owner's standing ruling (live
+    # changes behind kill switches, not successors, for serving changes replay
+    # never reads), so no successor; off restores the staged plan's pool as
+    # mvp-0.23 and mvp-0.24 landed (session-seeded draws). Dormant below
+    # mvp-0.23 and with the router off; at mvp-0.24 it fixes the order of the
+    # candidates the mixture draws over (the staged rule's pick and the
+    # support), while the mixture keeps its own seed, floor and logged
+    # propensities. Every snapshot moves only because the effective config
+    # gains the key; all fifteen were recomputed
+    # (defaults_fingerprint_for_version) on its branch, and all sixteen again
+    # from the composed defaults when it landed on main after GLM-OCR and
+    # router R2b + R2c.
+    "mvp-0.9": "a110875afdfda7dccb606a1ce363dedb5013defadadbc8b39f35fb61ff5b1fc1",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1195,7 +1214,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.10": "e3787bc43d51150ac27ee79b8c46f0210308f43ae441480f9ee45405f1bf3c62",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.10": "90216c77a23731556f717d8bba8bbf9b4b5703112aa9ddc64b1f00c754153f43",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1237,7 +1257,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.11": "33d1f6acb519f0e1db59b70a7f0f248a8fba4a92f130c20efa5ce3aa62842b10",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.11": "95c94f0c6cd06a9e36829b7cfacec743bde234595e239185f59f977388b29427",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1273,7 +1294,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.12": "2e52017d3fd5ebe7d835f41810cead7fd8aa0f18875d7ba918db697a4a02b574",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.12": "eab6d581db8c66be255097e7633cf58ab8e4d34fbfd8bd3533a7f64d8f366451",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1304,7 +1326,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.13": "a455f7ebb30fb70295f508b42421cbe729f29ca51c38a4b6b1092a92ddb3e023",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.13": "58d1a2066483c64454771b1974d8c4b5f6c3d0b2db9265b163db59b4e7b82680",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1334,7 +1357,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.14": "cd2357f82825f2e6d0366265ade42b4b55a4040835937a8830d8dbbf03d97396",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.14": "97b7fbe6c83c2190b866b7672735f72d4ed9cf1146efb05207d71550bdece606",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1362,7 +1386,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.15": "1d66fc5cb7d631f1ed0a79ce0b265417c38fecccddc69a00db0f82447653ecd0",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.15": "d35da235c4c1f05f59008c214b6fc13d78421a0d581025c80c70af76df7181b8",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1397,7 +1422,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.16": "7f94087eddd7ca56fe100150fadf6c2cb0f0670d1d253d395b86ccfd39384f95",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.16": "a65d88e22d00f6029e44dd71afc3b9f7502eb5c583bd32eddf9c4a3e1f768bf4",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1428,7 +1454,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.17": "b27c7158038d2f57e3d3f7ae439439b7518e133565e37aa8f7727aa2ea8c0b42",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.17": "ee97c63a82147acc940c37d909003362c29464107f8328ec7dd719d21941c934",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1452,7 +1479,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.18": "ee4832c78e9c1b37391e1577faa7f155b7f2b41db693509a2a5538af599e48c8",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.18": "11dd4b6ebd3c61dc92113ee91ca8b5caffafaf0379e92572b231da726072772b",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1476,7 +1504,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.19": "56bdec3d978cd2a41a6c1d4896d0ef2fca57d6dd702d2b56e1537e261f1ed241",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.19": "17c14471e45291cef1f22aa3f89c3778ccf04cf9275618d819eabd2edd4f3bb5",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1496,7 +1525,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.20": "08151922b6bdf085bfa34396cf223b1d6018fc10c0c7ebc0389d26a6d2761a2d",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.20": "6fb456f0dd6baacf7c06a93b47f6a3ba198ca6ca76f7869e560d7846c863faf3",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1525,7 +1555,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.21": "93f6fe2fe58c4ca719375b21449a56acf578ea292cc173ab276f2f4d6dcca81a",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.21": "0436c3af7cbe7aad148e192ea7945eb1cd9b2edad0c9061662270904458df606",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1546,7 +1577,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.22": "52edc8d5615c36dc54256872e820df9877bf63cb30bf46d9f0b8cacf9ea3632f",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.22": "5509475746037f7a5d40f931920ce9b92de62066009e67c8fe53fdd134e94f3a",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1562,7 +1594,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Tutor delivery fixes' tutor_qa, source_retrieval and embedding keys move it too (see mvp-0.9).
     # GLM-OCR's [ingest.pdf.glm_ocr] moves it too (see mvp-0.9).
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
-    "mvp-0.23": "ed9f9ee4c0f2dba22b9b562ed7a882ef462eb54c1ee0f701d9136ebd05b8fa41",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.23": "ab5b61fc341f25ccfb2070dcb6bd5ad27c7b71b548e954282e8ab1d607148b97",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1575,7 +1608,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.22 through the chain (under mvp-0.12's advisory guard). New vaults
     # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
-    "mvp-0.24": "812d3be1020c1c9fd1bd12e44cfc9e15ebb7037605dac2afd58eef73f3e685ae",
+    # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
+    "mvp-0.24": "0819e6d8e2a7f5e3529a962d3613fe2168318d7212cbcdcbbb5ab419f53edf03",
 }
 
 

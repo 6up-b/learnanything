@@ -66,6 +66,22 @@ class SchedulerSession:
     session_id: str | None = None
     available_minutes: int | None = None
     energy: str | None = None
+    #: Whether the build may apply the seeded epsilon tie-break (router R1's
+    #: ``scheduler_seeded_exploration``). False makes the build greedy, and its
+    #: logged design probabilities say so (one on the head), as a build with no
+    #: session does. The daily plan turns it off where the router composes
+    #: Today (``daily_plan.engine.plan_scheduler_session``): staged plans are
+    #: deterministic, and the router's only exploration is the mixture's floor.
+    seeded_exploration: bool = True
+    #: What a contrast pair's member-order draw (Meas §3.A4) is seeded on
+    #: (``diagnosis.contrast_pairs.serving_seed``): ``"session"`` (the session
+    #: and the pair; the order varies across sessions) or ``"pair"`` (the pair
+    #: alone; the same order in every session, still drawn across pairs and
+    #: recorded). The daily plan draws per pair wherever its pool is greedy
+    #: (plan-determinism Codex review F1): the plan packs its pool in this
+    #: order, so a per-session order would choose a different member, or order
+    #: a block differently, by session.
+    contrast_order_seed: str = "session"
 
 
 @dataclass(frozen=True)
@@ -1128,8 +1144,9 @@ def _exploration_support(
 ) -> tuple[float, list[ScheduledItem]] | None:
     """The seeded epsilon tie-break's design: ``(rate, near-tie alternatives)``.
 
-    ``None`` means the build is greedy: exploration is off, there is no session
-    to seed it, a single candidate, no alternative within the reward window,
+    ``None`` means the build is greedy: exploration is off (its rate, or the
+    session's ``seeded_exploration``), there is no session to seed it, a single
+    candidate, no alternative within the reward window,
     or (below the probe-tie successor) a PROBE-intent best. Before ``mvp-0.15``
     PROBE-intent items (in-episode diagnostic probes and teach-backs) are never
     displaced and never explored to; at ``mvp-0.15`` with
@@ -1138,7 +1155,7 @@ def _exploration_support(
     """
 
     rate = clamp(config.scheduler.selection_exploration_rate)
-    if rate <= 0 or session.session_id is None or len(queue) < 2:
+    if rate <= 0 or session.session_id is None or not session.seeded_exploration or len(queue) < 2:
         return None
     admit_probes = probe_ties_admitted(config)
     best = queue[0]
@@ -2109,16 +2126,23 @@ def _apply_contrast_pair_order(
     * **Deterministic per session.** ``build_due_queue`` is called repeatedly for
       one session and must produce the same slate; the draw is seeded on
       ``(session_id, pair_key)``, so it varies across sessions — where the
-      balance accumulates — and never within one.
+      balance accumulates — and never within one. A staged plan's pool
+      (``session.contrast_order_seed == "pair"``) seeds it on the pair alone:
+      one order per pair in every session, the balance accumulating across
+      pairs (plan-determinism Codex review F1).
     * **Recorded, including the adjacency basis.** §3.A4 also forbids serving the
       two adjacent "unless the surfaces differ enough that the manipulation is
       not salient". Whether that held is a property of the realized queue, so it
       is observed and stored rather than assumed.
 
-    A session with no session id (an ad-hoc queue build) is left untouched and
-    unrecorded: there is nothing to key an idempotent serving record on, and a
-    serving record that duplicated on every call would poison the balance audit
-    the metric depends on.
+    A build with no session id is never recorded: there is nothing to key an
+    idempotent serving record on, and a serving record that duplicated on every
+    call would poison the balance audit the metric depends on. Its order: a
+    per-session draw has no seed without a session, so the queue is left
+    untouched (an ad-hoc build); the pair's own draw (``"pair"``) needs none
+    and is applied, so a staged plan built with no session (Start's build,
+    ``get_daily_plan`` with no session) orders a pair as every named session
+    does (plan-determinism Codex re-review F1).
 
     PLACEMENT. This runs before the ``limit`` truncation and before the probe
     presentation pin, both deliberately. Ahead of the pin, because a committed
@@ -2131,25 +2155,29 @@ def _apply_contrast_pair_order(
     """
 
     from learnloop.diagnosis.contrast_pairs import (
+        SEED_PER_PAIR,
         apply_serving_decisions,
         plan_contrast_pair_serving,
         record_contrast_pair_servings,
     )
 
-    if session.session_id is None or not queue:
+    if not queue:
+        return queue
+    if session.session_id is None and session.contrast_order_seed != SEED_PER_PAIR:
         return queue
     ordered_ids = [item.practice_item_id for item in queue]
     decisions = plan_contrast_pair_serving(
-        vault, ordered_ids, session_id=session.session_id
+        vault, ordered_ids, session_id=session.session_id, seed_scope=session.contrast_order_seed
     )
     if not decisions:
         return queue
     reordered_ids = apply_serving_decisions(ordered_ids, decisions)
     by_id = {item.practice_item_id: item for item in queue}
-    if not record:
-        # A router R1 counterfactual composition: the same order, no audit row
-        # (the pair's draw depends only on the session and the pair, never on
-        # the order it is applied to).
+    if not record or session.session_id is None:
+        # A router R1 counterfactual composition, or a staged plan built with
+        # no session: the same order, no audit row (the pair's draw depends
+        # only on its seed, the session's and the pair's or the pair's alone,
+        # never on the order it is applied to).
         return [by_id[item_id] for item_id in reordered_ids]
     try:
         record_contrast_pair_servings(

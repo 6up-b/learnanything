@@ -23,6 +23,7 @@ from learnloop.daily_plan.engine import (
     learner_pick,
     more_new,
     plan_active,
+    plan_scheduler_session,
     reading_ended,
     set_minutes,
     stop_today,
@@ -31,7 +32,7 @@ from learnloop.daily_plan.headline import today_headline
 from learnloop.daily_plan.policy import policy_for
 from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
 from learnloop.daily_plan.view import disabled_view, plan_view
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -111,11 +112,13 @@ def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | Non
         # block, not this list, so publishing it as "offered" (as the full
         # list does when it is shown) would be a false offer set for the field
         # and router logging (review F5). The plan's own item_served receipt
-        # records what was served.
+        # records what was served. Where the router composes Today the list is
+        # the scheduler's greedy order, without its seeded exploration
+        # (plan_scheduler_session: staged plans are deterministic).
         queue = build_due_queue(
             vault,
             repository,
-            session=SchedulerSession(session_id=session_id, available_minutes=int(round(minutes))),
+            session=plan_scheduler_session(vault, session_id, minutes),
             limit=None,
         )
         return filter_unready_teach_back_items(

@@ -2399,8 +2399,10 @@ class PlanConfig(BaseModel):
     with the re-entry cap) exactly. ``new_admission_enabled`` and
     ``reading_blocks`` are narrower sub-switches; ``reading_from_furthest``
     (a live change wherever the plan acts, no successor tag) off restores
-    DL1's reading-block selection; ``headline`` only hides the optional Today
-    headline (display).
+    DL1's reading-block selection; ``deterministic_staged_plans`` (a live
+    change wherever the router composes Today, no successor tag) off restores
+    the staged plan's pool as ``mvp-0.23`` landed (session-seeded draws);
+    ``headline`` only hides the optional Today headline (display).
     """
 
     enabled: bool = True
@@ -2417,6 +2419,20 @@ class PlanConfig(BaseModel):
     # reads). Off, the reading block is DL1's exactly, the first unfinished
     # section in book order.
     reading_from_furthest: bool = True
+    # Plan determinism (owner rule 2026-10-13: staged plans are deterministic;
+    # exploration only from the router mixture's logged floor). Where the
+    # router composes Today (mvp-0.23 or later with router.enabled), the plan's
+    # pool is the scheduler's greedy order, and a contrast pair's member order
+    # is the pair's own draw (seeded on the pair, not the session), so the same
+    # vault state plans the same blocks in every session. A live change behind
+    # this kill switch, not a successor tag (owner's standing ruling: serving
+    # changes replay never reads). At mvp-0.24 the same pool gives the model
+    # mixture its candidates (the staged pick and the support); the mixture
+    # keeps its own seeded draw, floor and logged propensities. Off, the
+    # staged plan's pool is as mvp-0.23 and mvp-0.24 landed: the scheduler's
+    # seeded exploration and the per-session pair order. DL1's own plan
+    # (router off, or below mvp-0.23) is unaffected.
+    deterministic_staged_plans: bool = True
     # D1: minutes on a fresh vault; afterwards the remembered budget.
     default_minutes: int = Field(default=25, ge=1, le=600)
     minutes_presets: list[int] = Field(default_factory=lambda: [10, 15, 25, 40, 60])
