@@ -58,7 +58,7 @@ The "keep one chapter ahead" request is durable (migration 199: one per book in 
 - **What gets re-planned:** chapters whose build was cancelled count as failed and wait for the card's Retry, as before. A planner cancelled before it ran leaves its chapters unplanned, so a later ask may plan them.
 - **Revision-safe:** a request recorded after the cancel's read survives.
 - **Why not "pending, due again when the learner next reads":** leaving it pending would let the sweep re-plan the cancelled work within one pace (the finish review's Q-F1). Parking it needs a not-due state that the start, the sweep and the Reader would all have to agree on.
-- **Across processes:** the CLI's cancel does not hold the sidecar's in-process lock. Its cancel and settle commit together, but a sidecar act that read the request just before that commit, and checks the book's work just after it, could still plan once.
+- **Across processes:** the CLI's cancel does not hold the sidecar's in-process lock. Its cancel and settle commit together. *Closed in the verify follow-up (F1, below):* an act that read the request just before that commit now queues its build only in a transaction that settles exactly the revision it read, so the cancel's settle leaves it nothing to queue. The same holds for a finished build's completion step, which holds no lock.
 
 ### Tests (`tests/test_reading_request_sweep.py`, the real worker and sweep threads, the sweep's clock scripted through `DurableIngestJobs.reading_clock`)
 
@@ -156,7 +156,7 @@ Two guards pass before and after: a section first reached by reading follows the
 - the one consent sentence and OK when an AI is connected;
 - the separate OK before a whole file leaves (`needs_upload_ok`).
 
-**Retired like other retired settings.** The `source_artifacts.keep_local` column (migration 198) stays (no migration) and nothing reads it. `learnloop doctor` warns `source:retired_keep_local`, naming the books that still carry it (`Repository.sources_with_retired_keep_local`, which is safe on a database without the column). States the old code left behind move on with one tap:
+**Retired like other retired settings.** The `source_artifacts.keep_local` column (migration 198) stays (no migration) and nothing consults it. *Corrected in the verify follow-up:* generic `SELECT *` reads of `source_artifacts` (`all_source_artifacts` and others) still fetch it, and only doctor looks at its value. `learnloop doctor` warns `source:retired_keep_local`, naming the books that still carry it (`Repository.sources_with_retired_keep_local`, which is safe on a database without the column). States the old code left behind move on with one tap:
 - a plan that waited on it: "No questions for this book yet · Build them as you read";
 - an import it refused: "This recording isn't ready yet · Get it ready".
 
@@ -211,7 +211,7 @@ No new UI, setting or cap. One store read was added (`ingest_batch_spend_rows`: 
   - in the text view, a jump (a search hit, a peek) now needs reading before the landed section's after-section check is offered (in the original it already did).
   - Before- and during-section checks keep their points.
   - An auto-authored check in the text view waits for 70 % with reading, where it used to open at once.
-- **DR5.** The CLI runs no reading sweep and no start reconciliation: it leaves requests due for the sidecar's sweep or the next start. *Corrected after Codex's review:* a build the CLI drains still runs `after_auto_build`, which acts on the pending request and can queue a follow-on planner that the same drain runs (pre-existing, unchanged here; see the table above).
+- **DR5.** The CLI runs no reading sweep and no start reconciliation: it leaves requests due for the sidecar's sweep or the next start. *Corrected after Codex's review:* a build the CLI drains still runs `after_auto_build`, which acts on the pending request and can queue a follow-on planner that the same drain runs (pre-existing, unchanged here; see the table above). Since the verify follow-up, that step queues only in the transaction that settles the revision it read, so a cancel that settled the request first leaves it nothing to queue (F1, below).
 
 ## Gate
 
@@ -245,3 +245,102 @@ Earlier gate runs, before the last two fixes:
 - **Q-RH3.** The stricter offers in DR4 (a leftover behind a resume, and a text-view jump, wait for reading). Recommended: **keep**.
 - **Q-RH4.** Books that still carry the retired choice show one tap ("Build them as you read" / "Get it ready") rather than being rebuilt automatically. Recommended: **keep** (doctor names them).
 - **Q-RH5.** The sweep's pace: 30 s. The worker's nudge makes the usual case immediate. Recommended: **keep**.
+
+## Verify follow-up
+
+**Source.** Codex's verify of the stage after its review fixes (`~/.cache/codex-agent/jobs/20261013-191205-2qLDSo`, reviewed through `5e592d70c`), verdict **REOPENED**. It confirmed the review's F2 fixed and found three defects and one inaccurate sentence. All four are closed here. The earlier review and its fixes are in [reading-hardening-codex-review.md](reading-hardening-codex-review.md).
+
+| ID | Severity | Finding | Verdict | Commit |
+|---|---|---|---|---|
+| F1 (remainder) | Medium | A cancel could still be followed by new work: a finished build's completion step (and the act, against the CLI's cancel) queued chapters after a cancel had settled the request | **fixed** | `bf8f620b8` |
+| N1 | Medium | A video seek carried earlier watching into an unread section and offered (and pinned) its check | **fixed** | `e57b0a38a` |
+| N2 | Low | One stored retry time that overflows on conversion to UTC blocked every request after it | **fixed** | `56bc008c9` |
+| Claim 3 | (record) | "Nothing reads `keep_local`": generic `SELECT *` reads still fetch it | **corrected** (wording, no behaviour change) | `e05eeaa6c` |
+
+Codex also noted that the record's "no resumed check before reading" was broader than the rule. Before-section checks, and during-section checks at 45 % or more, keep their own points and do not wait for reading. Part 2 and DR4 already say so, and nothing changed here.
+
+**Paid calls:** none ($0.00). Every model call in the tests is a house fake. **Migration, schema, config, algorithm version:** unchanged (head 199). **Rust:** nothing under `src-tauri` changed.
+
+### Fail-first
+
+Each test below was run against `5e592d70c` before its fix.
+
+| Test | Failed with |
+|---|---|
+| `tests/test_reading_hardening_verify_fixes.py::test_f1_a_cancel_committing_while_a_finished_build_plans_its_follow_on_leaves_nothing_queued[the sidecar's worker]` | "the cancel was followed by new work: `[['u5'], ['u4'], []]`": Ch. 4's planner was queued after the cancel had settled u4 |
+| `…[a CLI drain]` | the same, with the build drained by a CLI `IngestRunner` |
+| `test_f1_a_cli_cancel_committing_while_the_sidecar_acts_leaves_nothing_queued` | `[['u4', 'u5'], ['u4'], []]`: the chapters the CLI had just cancelled (Ch. 3) were planned again, with Ch. 4 |
+| `test_f1_a_request_newer_than_the_one_acted_on_is_left_for_its_own_act` | after a newer request replaced the one it had read, the act still queued a build for the old position |
+| `test_f1_a_planner_cancelled_while_it_plans_queues_no_build` | "the cancelled planner queued its build": the build batch existed and had run to the end after the cancel |
+| `test_n2_a_stored_retry_time_that_cannot_be_read_is_due_now[0001-01-01T00:00:00+01:00]` | `OverflowError: date value out of range` |
+| `test_n2_a_retry_time_that_overflows_blocks_no_other_book` | `OverflowError` from the sweep: neither book was acted on |
+| `ReaderScreen.checkOffer.test.tsx` › "a video seek (verify N1)" › both tests | `expected true to be false`: the unread summary's check was shown at the seek's landing |
+
+7 of the 8 new backend tests failed. The guard `test_n2_…[not a time]` passed before and after. Both new component tests failed.
+
+### F1: queueing and settling are one transaction
+
+**What was wrong.** Codex found the same-process case. `after_auto_build` runs on the worker, or in a CLI drain, and holds no reading lock. It read the request, worked out the follow-on chapters, then queued them and settled. A cancel that committed in between (cancel and settle together, review F1) was followed by the follow-on anyway, and a drain then ran it. The act had the same gap against the CLI's cancel, which the sidecar's lock does not cover. A preliminary recheck would only have narrowed the window.
+
+**The fix.** Every path that queues work for a reading request queues it in the transaction that settles the request, and the settle is conditional on the revision it read. A request that a cancel settled first, or that a newer request replaced, leaves nothing to queue.
+- **A finished build's follow-on** (`after_auto_build`, in the sidecar or a CLI drain): settle-then-enqueue inside `Repository.atomic()`. If the settle finds the revision gone, nothing is queued.
+- **The act** (`act_on_reading_request`: the Reader's RPC, the sweep, the start). `plan_reading_advance` now only reads and returns the chapters. The act queues them through `request_auto_build(…, answers_revision=…)`. In `DurableIngestJobs.enqueue_auto_build`, settle and enqueue are one transaction, and the worker starts only after the commit (a foreground host drains synchronously, which must not run inside the transaction). A superseded act queues nothing and says `superseded`; the newer request is acted on next.
+- **A job's own enqueue** (`JobContext.enqueue_batch`) checks the job's cancel in the same transaction and raises `JobCancelled`. A planner cancelled while it plans queues no build (the same race one step earlier: before, the build ran after the cancel). `after_auto_build` also stops there if its own build was cancelled. The settle rolls back with it, so a request newer than that cancel stays due for the sweep.
+
+**Behaviour that changed on purpose.**
+- An act whose request was replaced between its read and its queueing queues nothing for the old position. Before, it queued the old position's chapters, and the newer request then planned from what was left.
+- In a foreground host (the tests'), the request is settled before the synchronous drain rather than after it. A finished build's follow-on therefore no longer acts a second time on the request its own act answered.
+- No earlier test needed changing. Tests that inject failures into `plan_reading_advance` or `request_auto_build` still drive the same paths: an enqueue failure is still counted, backed off and retried.
+
+**What remains.** A cancel names a batch. A follow-on that committed before the cancel is an ordinary queued batch the cancel did not name, as any batch queued before a cancel is (Q-RH8). Undo still stops all of a book's automatic work.
+
+### N1: a video seek is a placement
+
+**What was wrong.** `onPlaybackSpan` only ever set `readingMoved`. A seek's landing (`advancing=false`) moved the position but never cleared it. After two cues of the lecture, a click on a transcript cue past 70 % of an unread section offered that section's after-section check, and pinned it, before playback reached it.
+
+**The fix.** The watch panel tells the Reader of every seek it makes (`onSeek`): the resume, a transcript cue, a jump. It does so before the player moves. The Reader treats a seek as a placement, the same as a jump on a page: the movement is reset, the settle window starts, and the position moves, all in the same render. So no render judges the new place by the old watching. Checks already offered stay pinned. Playing on from the new place is watching it.
+
+The tests drive the real screen. They watch the lecture through (its check is offered), click the summary's fourth cue (80 %) and let the player land there. Nothing is offered at the landing, nor 5 s later. The lecture's check is still offered. The next cue of playback offers the summary's check.
+
+**What remains.** A seek made in YouTube's own controls (its scrubber, its keys) reaches the Reader only as a new time. While the video plays, the panel cannot tell it from playback (Q-RH9).
+
+### N2: an unreadable retry time is due now and blocks nothing
+
+`_reading_due_at` now also treats `OverflowError` as "due now". The sweep reads each row's time inside its own handler, so an unreadable time never stops a pass from reaching the rows after it. The test puts a request whose time overflows ahead of a second book's due request. One pass acts on both and does not fail. A deferral rewrites the stored time only after a failed attempt, so a request with an unreadable time and no failed attempt keeps that time while it waits behind its book's work. It stays due, and the sweep re-checks it once per pass at its 30 s pace, which costs a few queries and is no hot loop.
+
+### Claim 3: `keep_local` is never consulted
+
+The record (part 3), the spec (`ux_learnloop_v1.md` §6.6), the `add_source` module docstring, `Repository.sources_with_retired_keep_local` and doctor's check now say that nothing *consults* the column. Generic `SELECT *` reads of `source_artifacts` (`all_source_artifacts` and others) still fetch it, and only doctor looks at its value. Explicit projections would touch every generic read of the table for a column nothing uses, so the record was fixed instead, as the brief preferred.
+
+### Gate
+
+Run in this worktree with `TMPDIR=<worktree>/fixtures-local/tmp`. The suites ran at `899244207`, whose code is identical to `e05eeaa6c`; only the references commit came after it.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok: 163 packages resolved. The sync removes pypdfium2 and the install puts back 5.14.0 |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,156 passed**, 0 failed, 47 warnings (7 min 0 s, after about 11 min waiting for the lock). That is the review round's 10,148 plus the 8 new tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10,057 deselected, 0 failed (1 min 41 s) |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | up to date (281 packages) · clean · **75 files, 508 tests passed** (the stage's 506 plus the 2 new) · built, with the existing chunk-size notice |
+| `cargo check` | not needed: nothing under `src-tauri` changed |
+| References | Source-line citations moved, so `db_validate_reference.py` first reported 6 stale configuration citations into `add_source.py` and `doctor.py`. Regenerated in `899244207`: schema head 199, 318 table notes, 795 configuration leaves, all unchanged; validation errors `[]`. `validate_vault.py`: passed, 1098 notes |
+
+The full suite's one `PytestUnhandledThreadExceptionWarning` is the one the review round recorded. A sweep thread left by an earlier test's host woke during `test_success_head.py::test_deterministic_rebuild_and_no_store_or_network`, which replaces `sqlite3.connect` with `pytest.fail`. The test passed.
+
+Targeted runs before the gate:
+- the stage's and this round's reading tests with the UX Phase 1 suites: 296 passed;
+- every test file that drives the ingest queue (49 files): 850 passed;
+- the new tests and the review round's F1/F2 tests under `--durable-sqlite` (WAL, `synchronous=FULL`): 16 passed;
+- `ReaderScreen.checkOffer.test.tsx` and `ReaderScreen.followsLearner.test.tsx`: 48 passed.
+
+### Safety
+
+- No paid call, no real provider, no network. No key, credential, `.env` or `settings.env` file was read.
+- The owner's working vaults were not opened, and no fixture vault was opened or copied. Every scenario runs on a fresh test library, so no manual run was needed. The reference scripts read `fixtures/migration_head_199` read-only.
+- No tailscale command was run. Nothing was merged, pushed or rebased.
+
+### Open questions for the owner (recommended defaults applied)
+
+- **Q-RH8.** A cancel stops the batch it names. Should it also stop a follow-on for the same book that was queued just before it (one that committed first)? Recommended: **no**. The follow-on shows in Activity as its own batch, the learner can cancel that batch too, and Undo stops all of a book's automatic work.
+- **Q-RH9.** Should a jump in the reported time, made in YouTube's own controls while playing, count as a seek? Recommended: **not now**. The widget reports only the time, so any threshold is a guess that would also misread catch-up after buffering. The Reader's own seek paths (the transcript, Contents, the guide) are covered.
