@@ -14,6 +14,13 @@ It runs on Phase 5b's listwise judge (``practice_index.listwise``): the same
 skip check, request-derived ledger ids, ledger-served cache, one capped call
 and one retry, and pick filtering as ``find_practice``'s rerank. Every verdict
 appends to ``judgment_ledger`` (task ``source_relevance``). Never raises.
+
+A candidate is judged on its complete block (tutor delivery fixes,
+2026-10-13; it was cut at 900 characters): whitespace collapsed as before, and
+trimmed only past ``source_retrieval.passage_token_budget`` (``judge_passage``,
+marked with "…" and counted on the verification's ``trimmed_passages``). A
+block of at most 900 characters reads exactly as it did, so its ledgered
+verdicts still answer it. The call's token cap follows the prompt it sends.
 """
 from __future__ import annotations
 
@@ -27,7 +34,13 @@ from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps, route_skip
-from learnloop.practice_index.paid import PaidRoute, plan_route, resolve_client, transport_problem
+from learnloop.practice_index.paid import (
+    PaidRoute,
+    estimated_call_tokens,
+    plan_route,
+    resolve_client,
+    transport_problem,
+)
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.source_retrieval.contracts import VERDICT_SCORE, SpanVerification
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS, query_id
@@ -35,10 +48,11 @@ from learnloop.source_retrieval.search import SpanHit
 from learnloop.vault.models import LoadedVault
 
 VERIFY_PROMPT_VERSION = "source_span_verify.v2"
-PASSAGE_CHARS = 900
-#: An upper bound on one verification prompt's input tokens (UTF-8 bytes of up
-#: to 40 candidates at PASSAGE_CHARS plus framing), for its caps.
+#: The token cap's floor for one verification prompt's input (UTF-8 bytes, the
+#: spend estimate's unit); a larger prompt raises the cap to its own size.
 VERIFY_INPUT_TOKENS_BOUND = 60_000
+#: Characters per token of the passage budget (the repository's chars / 4).
+CHARS_PER_TOKEN = 4
 TASK = "source_relevance"
 PRICE_SETTING = "source_retrieval.llm_price_per_million"
 _INSTRUCTIONS = (
@@ -71,6 +85,8 @@ class Verification:
     model: str | None = None
     reason: str | None = None
     usage: dict[str, Any] = field(default_factory=dict)
+    #: Candidates whose passage was trimmed at ``source_retrieval.passage_token_budget``.
+    trimmed_passages: int = 0
 
     @property
     def ran(self) -> bool:
@@ -80,9 +96,12 @@ class Verification:
         counts: dict[str, int] = {}
         for verdict in self.verdicts.values():
             counts[verdict] = counts.get(verdict, 0) + 1
-        return {"status": self.status, "model": self.model, "reason": self.reason,
-                "judged": len(self.verdicts), "verdicts": dict(sorted(counts.items())),
-                "picked": len(self.picks)}
+        described = {"status": self.status, "model": self.model, "reason": self.reason,
+                     "judged": len(self.verdicts), "verdicts": dict(sorted(counts.items())),
+                     "picked": len(self.picks)}
+        if self.trimmed_passages:
+            described["trimmed_passages"] = self.trimmed_passages
+        return described
 
 
 @dataclass(frozen=True)
@@ -125,11 +144,38 @@ def _clip(text: str, limit: int) -> str:
     return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
-def verify_caps(vault: LoadedVault, pool_size: int, output_tokens: int | None = None) -> SpendCaps:
-    """One call and one retry (a truncation retry asks for twice the budget)."""
+def passage_chars(vault: LoadedVault) -> int:
+    """The most characters of one judged passage (``passage_token_budget``)."""
+
+    return vault.config.source_retrieval.passage_token_budget * CHARS_PER_TOKEN
+
+
+def judge_passage(text: str | None, max_chars: int) -> tuple[str, bool]:
+    """A candidate's passage for a relevance judge: the complete block with its
+    whitespace collapsed, trimmed only past ``max_chars`` (a word boundary when
+    one is near, then "…"). Returns the passage and whether it was trimmed."""
+
+    value = " ".join((text or "").split())
+    if len(value) <= max_chars:
+        return value, False
+    cut = value[: max_chars - 1]
+    space = cut.rfind(" ")
+    if space >= len(cut) - max(1, len(cut) // 10):
+        cut = cut[:space]
+    return cut + "…", True
+
+
+def verify_caps(vault: LoadedVault, pool_size: int, output_tokens: int | None = None,
+                input_tokens: int | None = None) -> SpendCaps:
+    """One call and one retry (a truncation retry asks for twice the budget).
+
+    ``input_tokens``: the prompt's own estimate (``estimated_call_tokens`` with
+    no output), so complete passages never price a verification out of its
+    token cap; the cap is at least ``VERIFY_INPUT_TOKENS_BOUND``."""
 
     budget = output_tokens if output_tokens is not None else plan_route(vault, "source_rerank").output_tokens
-    return listwise_caps(pool_size, max_total_tokens=VERIFY_INPUT_TOKENS_BOUND * 2 + budget * 3,
+    bound = max(VERIFY_INPUT_TOKENS_BOUND, int(input_tokens or 0))
+    return listwise_caps(pool_size, max_total_tokens=bound * 2 + budget * 3,
                          max_estimated_usd=vault.config.source_retrieval.rerank_max_cost_usd)
 
 
@@ -143,15 +189,18 @@ def verify_prompt(question: str, context: str | None, pick_at_most: int,
                                     {"instructions": _INSTRUCTIONS, "context": payload})
 
 
-def _candidates(pool: Sequence[SpanHit]) -> tuple[list[dict[str, Any]], dict[str, SpanHit]]:
+def _candidates(pool: Sequence[SpanHit], max_chars: int) -> tuple[list[dict[str, Any]], dict[str, SpanHit], int]:
     context, refs = [], {}
+    trimmed = 0
     for index, hit in enumerate(pool, start=1):
         ref = f"p{index}"
         refs[ref] = hit
+        passage, cut = judge_passage(hit.text, max_chars)
+        trimmed += cut
         context.append({"ref": ref, "source": _clip(hit.source_title, 120),
                         "section": " > ".join(hit.section_path)[:200] or None,
-                        "passage": _clip(hit.text, PASSAGE_CHARS)})
-    return context, refs
+                        "passage": passage})
+    return context, refs, trimmed
 
 
 def _validate(result: SpanVerification, refs: Mapping[str, Any]) -> SpanVerification:
@@ -184,17 +233,19 @@ def verify_spans(
         if not ready.ready:
             return Verification(ready.skip or "unavailable", reason=ready.reason)
         route, client = ready.route, ready.client
-    candidates, by_ref = _candidates(pool)
+    candidates, by_ref, trimmed = _candidates(pool, passage_chars(vault))
     refs = {ref: hit.key for ref, hit in by_ref.items()}
     hits = {hit.key: hit for hit in pool}
     price = price_per_million if price_per_million is not None else vault.config.source_retrieval.llm_price_per_million
     route = route or plan_route(vault, "source_rerank", client)
+    prompt = verify_prompt(question, context, pick_at_most, candidates)
     outcome = judge_listwise(
         vault, repository, VERIFY_TASK,
-        prompt=verify_prompt(question, context, pick_at_most, candidates), refs=refs,
+        prompt=prompt, refs=refs,
         left_id=query_id(question), right_id=lambda key: hits[key].record_id,
         id_parts=lambda key: list(key), pick_at_most=pick_at_most,
-        caps=verify_caps(vault, len(pool), route.output_tokens),
+        caps=verify_caps(vault, len(pool), route.output_tokens,
+                         input_tokens=estimated_call_tokens(prompt, SpanVerification, 0)),
         price=price, owner_id=owner_id, client=client, route=route, deadline=deadline,
         validate=lambda value: _validate(value, refs), clock=clock, budget=budget, admit=admit,
     )
@@ -202,19 +253,23 @@ def verify_spans(
         status = outcome.status
         if status == "failed" and outcome.reason == "AITurnTimeout":
             status = "timed_out"
-        return Verification(status, reason=outcome.reason, usage=outcome.usage)
+        return Verification(status, reason=outcome.reason, usage=outcome.usage, trimmed_passages=trimmed)
     verdicts = {key: str(row["verdict"]) for key, row in outcome.rows.items()}
     return Verification("verified" if outcome.status == "judged" else "cached",
-                        [hits[key] for key in outcome.picks], verdicts, outcome.model, usage=outcome.usage)
+                        [hits[key] for key in outcome.picks], verdicts, outcome.model, usage=outcome.usage,
+                        trimmed_passages=trimmed)
 
 
 __all__ = [
+    "CHARS_PER_TOKEN",
     "PRICE_SETTING",
     "TASK",
     "VERIFY_PROMPT_VERSION",
     "VERIFY_TASK",
     "Verification",
     "VerificationRoute",
+    "judge_passage",
+    "passage_chars",
     "verification_route",
     "verify_caps",
     "verify_prompt",

@@ -37,6 +37,13 @@ as before, and the question records why (``source_context.source_retrieval``,
 with the span keys it saw, never their text). Spans are context: nothing here
 touches evidence, the facet -> LO mapping or scheduling (cited spans are
 reveal-accounted by ``tutor_qa``).
+
+Delivery (tutor delivery fixes, 2026-10-13): a picked or pinned span reaches
+the tutor as its complete canonical block (``span_context``; no 600-character
+cut), and the numbered blocks it cites ("by Theorem 3.2") join it as
+``referenced`` spans when they pass the same rules a retrieved span passes (the
+scope, exam material, the item's answer; ``tutor_qa.resolve_references``).
+``tutor_qa.context_token_budget`` bounds the whole delivery.
 """
 from __future__ import annotations
 
@@ -48,6 +55,7 @@ from typing import Any
 
 from learnloop.clock import Clock
 from learnloop.content.authoring.practice_leakage import build_cross_source_spans
+from learnloop.content.sources.exam_material import exam_material
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import blocks_by_key
@@ -57,10 +65,10 @@ from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
 from learnloop.source_retrieval.verify import verification_route, verify_spans
+from learnloop.tutor.context_delivery import BlockFilter, BlockSource, follow_references
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
-SPAN_TEXT_CAP = 600
 PROVENANCE_SPANS_PER_LO = 8
 #: Contexts bound to a practice item: its answer must never be retrieved.
 ITEM_BOUND_CONTEXTS = frozenset({"practice", "feedback"})
@@ -91,10 +99,10 @@ def over_soft_deadline(timings: dict[str, int], seconds: float) -> list[str]:
 
 
 def span_context(hit: SpanHit) -> dict[str, Any]:
-    """A verified span in the tutor's ``source_spans`` shape."""
+    """A verified span in the tutor's ``source_spans`` shape: the complete
+    canonical block (``tutor_qa.context_token_budget`` is the only bound)."""
 
     label = hit.source_title if not hit.section else f"{hit.source_title} · {hit.section}"
-    text = " ".join(hit.text.split())
     return {
         "extraction_id": hit.extraction_id,
         "span_id": hit.span_id,
@@ -102,8 +110,51 @@ def span_context(hit: SpanHit) -> dict[str, Any]:
         "semantic_authority": False,
         "source_id": hit.source_id,
         "label": label[:120],
-        "text": text[:SPAN_TEXT_CAP],
+        "text": hit.text,
     }
+
+
+def reference_filter(vault: LoadedVault, repository: Repository, scope: Scope, *,
+                     item: PracticeItem | None) -> BlockFilter:
+    """The rules a cited numbered block passes to join a retrieved or pinned
+    span: inside the span's scope (an item-bound scope already leaves out the
+    item's passages, exercises and solutions), never exam material, never a
+    passage that reproduces the practised item's answer."""
+
+    exam: list[Any] = []
+
+    def allow(extraction_id: str, block: Any) -> str | None:
+        if not scope.allows(extraction_id, str(block.span_id)):
+            return "outside the tutor's sources for this question"
+        if not exam:
+            exam.append(exam_material(vault, repository))
+        if exam[0].covers(extraction_id, str(block.span_id)):
+            return "exam material"
+        if item is not None and span_leaks_expected(block.text, item.expected_answer):
+            return "it reproduces the answer to the item being practised"
+        return None
+
+    return allow
+
+
+def with_references(vault: LoadedVault, repository: Repository, spans: list[dict[str, Any]], scope: Scope, *,
+                    item: PracticeItem | None) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """``spans`` and the numbered blocks they cite (``referenced``), with what
+    was followed for the manifest (None when nothing was cited or the
+    ``tutor_qa.resolve_references`` kill switch is off)."""
+
+    if not spans or not vault.config.tutor_qa.resolve_references:
+        return spans, None
+
+    def extra(extraction_id: str, _block: Any) -> dict[str, Any]:
+        found = scope.extractions.get(extraction_id)
+        return {"semantic_authority": False, "source_id": found.source_id if found else None}
+
+    found = follow_references(
+        BlockSource(repository.sqlite_path), spans, allow=reference_filter(vault, repository, scope, item=item),
+        delivered={(str(span["extraction_id"]), str(span["span_id"])) for span in spans}, span_extra=extra,
+    )
+    return spans + found.spans, (None if found.empty else found.describe())
 
 
 @dataclass
@@ -271,7 +322,8 @@ class TutorSpanProvider:
         if intent and intent.get("intent") == "remediate" and pool:
             return self._remediate(vault, repository, question_md=question_md, pool=pool, intent=intent,
                                    item=item if item_bound else None, search=search, withheld=withheld,
-                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started)
+                                   owner_id=owner_id, ready=ready, deadline=deadline, started=started,
+                                   scope=scope)
         verify_started = time.monotonic()
         verification = verify_spans(
             vault, repository, question=question_md, pool=pool, pick_at_most=config.tutor_spans,
@@ -296,12 +348,15 @@ class TutorSpanProvider:
             return None, {**manifest, "basis": "lo_provenance",
                           "reason": f"verification {verification.status}"}
         spans = [span_context(hit) for hit in verification.picks]
-        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
-                       "span_keys": [hit.record_id for hit in verification.picks]}
+        spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(verification.picks),
+                       "span_keys": [hit.record_id for hit in verification.picks],
+                       **({"references": references} if references else {})}
 
     def _remediate(self, vault: LoadedVault, repository: Repository, *, question_md: str, pool: list[SpanHit],
                    intent: dict[str, Any], item: PracticeItem | None, search: SpanSearch, withheld: list[str],
-                   owner_id: str, ready: Any, deadline: float | None, started: float) -> tuple[Any, dict[str, Any]]:
+                   owner_id: str, ready: Any, deadline: float | None, started: float,
+                   scope: Scope) -> tuple[Any, dict[str, Any]]:
         """The remediate intent: same retrieval, the intent's verification prompt (no extra call).
 
         Its receipt carries the same timing fields as an explain question's
@@ -340,9 +395,11 @@ class TutorSpanProvider:
             return None, {**manifest, "basis": "lo_provenance", "reason": f"verification {status}"}
         by_key = {hit.key: hit for hit in pool}
         chosen = [by_key[key] for key in picks if key in by_key]
-        spans = [span_context(hit) for hit in chosen]
-        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(spans),
-                       "span_keys": [hit.record_id for hit in chosen]}
+        spans, references = with_references(vault, repository, [span_context(hit) for hit in chosen], scope,
+                                             item=item)
+        return spans, {**manifest, "basis": "retrieved_verified", "spans": len(chosen),
+                       "span_keys": [hit.record_id for hit in chosen],
+                       **({"references": references} if references else {})}
 
 
 class PinnedSpanProvider:
@@ -396,23 +453,26 @@ class PinnedSpanProvider:
                 extraction_id=key[0], span_id=key[1], source_id=extraction.source_id,
                 source_title=extraction.title, text=block.text, block_type=block.block_type, section_path=[],
                 page=block.page, ordinal=block.ordinal, ranks={"pinned": 1})))
-        return spans, {"basis": "pinned", "policy": policy, "spans": len(spans),
-                       "span_keys": [f"{s['extraction_id']}:{s['span_id']}" for s in spans],
-                       "dropped_pins": dropped}
+        pinned_keys = [f"{s['extraction_id']}:{s['span_id']}" for s in spans]
+        pinned = len(spans)
+        spans, references = with_references(vault, repository, spans, scope, item=item if item_bound else None)
+        return spans, {"basis": "pinned", "policy": policy, "spans": pinned, "span_keys": pinned_keys,
+                       "dropped_pins": dropped, **({"references": references} if references else {})}
 
 
 __all__ = [
     "ITEM_BOUND_CONTEXTS",
     "PROVENANCE_SPANS_PER_LO",
     "PinnedSpanProvider",
-    "SPAN_TEXT_CAP",
     "TIMED_STEPS",
     "TutorPool",
     "TutorSpanProvider",
     "WITHHOLD_SPARE",
     "over_soft_deadline",
+    "reference_filter",
     "span_context",
     "step_timings",
     "tutor_pool",
     "tutor_scope",
+    "with_references",
 ]

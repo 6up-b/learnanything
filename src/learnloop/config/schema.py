@@ -592,6 +592,18 @@ class TutorQAConfig(BaseModel):
     # (no-op) by this factor: ratio' = 1 - (1 - ratio) * damping. 0 disables
     # the mastery effect of preference-channel questions entirely.
     preference_channel_damping: float = Field(default=0.4, ge=0.0, le=1.0)
+    # Tutor delivery fixes (owner, 2026-10-13): the source text one tutor turn
+    # reads, in tokens (characters / 4). Passages arrive as complete blocks in
+    # priority order (selection, cited blocks, nearest neighbours; or the
+    # chosen spans and what they cite); only the first passage past the budget
+    # is trimmed and the rest dropped, recorded on the question's
+    # source_context.delivery. Generous by default (no premature cut-off).
+    context_token_budget: int = Field(default=24_000, ge=1_000, le=400_000)
+    # Follow "by Theorem 3.2", "Example 1.4.13", "Equation (3.4)" in a
+    # delivered passage to the numbered block of the same extraction (within
+    # the budget and the exam rule). false is the kill switch: no reference
+    # is followed.
+    resolve_references: bool = True
 
 
 class TutorPromotionConfig(BaseModel):
@@ -2007,6 +2019,16 @@ class EmbeddingConfig(BaseModel):
     # the facet/concept-graph neighbours. Reads stored vectors only, so it
     # makes no calls and is independent of `enabled`.
     map_neighbors_enabled: bool = True
+    # Tutor delivery fixes (owner, 2026-10-13): a completed extraction (an
+    # import, a re-extraction, a page repair) queues the source_block/text
+    # backfill of its source's current extraction, so dense retrieval keeps
+    # covering it. Acts only when `enabled` and `backfill_enabled` are both on
+    # (with either off nothing is queued or sent); false is the kill switch
+    # (the explicit `learnloop embeddings backfill --record-kind source_block`
+    # remains). One run is capped at source_backfill_max_cost_usd (a whole
+    # 4,000-block book cost about $0.01 at the default model's price).
+    backfill_sources_on_extract: bool = True
+    source_backfill_max_cost_usd: float = Field(default=1.0, ge=0)
 
     @computed_field
     @property
@@ -2212,6 +2234,13 @@ class SourceRetrievalConfig(BaseModel):
     # (at most 4: the ING M8 §9.2 bound on source spans offered to one turn).
     tutor_candidate_pool: int = Field(default=12, ge=1, le=40)
     tutor_spans: int = Field(default=4, ge=1, le=4)
+    # Tutor delivery fixes (owner, 2026-10-13): one candidate passage as the
+    # relevance judges read it (the tutor's verification, the remediate and
+    # find_sources checks, the T6 report's labeller), in tokens (characters /
+    # 4). A passage is its complete block, whitespace collapsed, and is
+    # trimmed (marked "…" and counted) only past this; it was cut at 900
+    # characters before. Generous by default.
+    passage_token_budget: int = Field(default=4_000, ge=250, le=100_000)
 
 
 class SourceServiceConfig(BaseModel):
