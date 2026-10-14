@@ -112,3 +112,15 @@ def test_the_llm_prompt_lists_the_options_and_the_plain_word_rules():
     assert "at most 3 short sentences" in prompt
     assert rq.llm_result_model(rq.LLM_SCHEMA_V1) is rq.RouterLLMAnswerV1
     assert rq.llm_result_model(rq.LLM_SCHEMA_V2) is rq.RouterLLMAnswerV2
+
+
+def test_every_router_answer_model_has_the_strict_schema_the_transports_send():
+    # Found by the live session: a result model that is not a WireModel fails
+    # every real structured transport (Codex included) before it is sent.
+    from learnloop.ai.strict_schema import strict_output_schema
+    from learnloop.daily_plan.router_teach_back import TeachBackSummary
+
+    for version in (rq.LLM_SCHEMA_V1, rq.LLM_SCHEMA_V2, rq.LLM_RESTRAINT_SCHEMA):
+        schema = strict_output_schema(rq.llm_result_model(version))
+        assert schema["additionalProperties"] is False
+    assert strict_output_schema(TeachBackSummary)["additionalProperties"] is False

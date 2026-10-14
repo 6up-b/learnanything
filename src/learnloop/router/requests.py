@@ -29,8 +29,9 @@ against the card and the copy rules; a failed guard hides the text and keeps
 the distribution.
 
 A leaf module: the typed decision questions (pure dataclasses,
-``learnloop.ai.decisions``; the only import from ``learnloop.ai``, an
-import-linter exception scoped to this module), pydantic for the LLM's answer
+``learnloop.ai.decisions``) and the wire base (``learnloop.ai.schemas.WireModel``,
+pure pydantic): the only imports from ``learnloop.ai``, import-linter
+exceptions scoped to this module), pydantic for the LLM's answer
 shape, and nothing that calls a model.
 """
 
@@ -41,7 +42,7 @@ from dataclasses import dataclass, field
 import math
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from learnloop.ai.decisions import (
     ChoiceAnswer,
@@ -51,6 +52,7 @@ from learnloop.ai.decisions import (
     NoulQuestion,
     Question,
 )
+from learnloop.ai.schemas import WireModel
 
 PURPOSE = "router_decision"
 QUESTION_SET_V1 = "router_qs_v1"
@@ -285,8 +287,9 @@ class RestraintRequest:
 # -- the LLM's answers -------------------------------------------------------------------
 
 
-class _Wire(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class _Wire(WireModel):
+    """The LLM's answers cross the provider boundary: the strict output schema
+    every structured transport sends requires a ``WireModel``."""
 
 
 class OptionProbability(_Wire):

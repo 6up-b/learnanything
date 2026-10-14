@@ -32,7 +32,7 @@ import threading
 import time
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from learnloop.ai.schemas import WireModel
 
 LOG = logging.getLogger(__name__)
 
@@ -48,8 +48,7 @@ CARD_LIMIT = 6
 TIMEOUT_SECONDS = 120.0
 
 
-class TeachBackSummary(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class TeachBackSummary(WireModel):
 
     explained_correctly: list[str]
     missing_or_wrong: list[str]

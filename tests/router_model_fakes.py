@@ -131,6 +131,11 @@ class FakeLLM:
         return out
 
     def complete(self, request: Any) -> Any:
+        # Every real structured transport sends the result model's strict
+        # schema, which only a WireModel has (the live R2bc session's finding).
+        from learnloop.ai.strict_schema import strict_output_schema
+
+        strict_output_schema(request.result_model)
         self.requests.append(request)
         if self.gate is not None:
             self.gate.wait(30)
