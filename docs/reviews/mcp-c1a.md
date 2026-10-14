@@ -34,7 +34,7 @@ service spend cap and their receipts. No paid call was made in this stage.
   Funnel at it (runbook below). Agents ran no `tailscale` command; the probe service on 8768 and
   `scripts/mcp_probe/state` were not touched.
 - **SDK packaging:** `mcp==2.3.0` as the optional extra `mcp`; it resolves cleanly with the app's pins
-  (starlette 1.7.0, uvicorn 0.54.0, python-multipart 0.0.32 unchanged). It adds 14 packages and bumps `idna`
+  (starlette 1.7.0, uvicorn 0.54.0, python-multipart 0.0.32 unchanged). It installs 16 more packages (cryptography and pyjwt among them) and bumps `idna`
   3.17 → 3.20 in the shared lock (`httpx2` needs it). It is also in the `dev` extra, so `uv sync --extra dev
   --extra mobile` installs it and the MCP tests never skip silently (unlike the mobile extra).
 - **Telemetry kind:** a new `interaction_events` kind needs the CHECK widened, so one migration was
