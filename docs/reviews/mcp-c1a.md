@@ -5,8 +5,10 @@
 **Codex review:** [mcp-c1a-codex-review.md](mcp-c1a-codex-review.md): ten findings (four High), all reproduced
 and fixed in `e0fdfef36`; the re-review confirmed F1-F3, reopened F4 and raised F11 and F12, all reproduced and
 fixed in `8c42bfecf`; F4 round 3 (the verify of `4493140a2` reopened F4 for misconception, candidate and gap
-text) was reproduced and fixed by one guarded renderer in `3e1725836`. The F4 round 3 gate supersedes the ones
-below.
+text) was reproduced and fixed by one guarded renderer in `3e1725836`; the review of that fix
+([mcp-c1a-f4-codex-review.md](mcp-c1a-f4-codex-review.md)) raised F1-F3 (diagnosis context lost through derived
+beliefs, generated topic names and ids, malformed provenance lists), all reproduced and fixed. The F4 round 4
+gate there supersedes the ones below.
 **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already works with Claude chat and
 ChatGPT chat (D1); latent learner state (misconceptions, answer traces) must be shared seamlessly between the
 local LearnLoop and the chat frontend through the existing telemetry.

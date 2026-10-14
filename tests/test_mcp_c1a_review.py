@@ -58,9 +58,13 @@ from mcp import Client
 
 from learnloop.learner_context import (
     ANSWER_DERIVED_FIELDS,
+    LO_ALIAS_PREFIX,
     NON_ANSWER_FIELDS,
     PROVENANCE_MISSING,
     PROVENANCE_UNKNOWN,
+    TOPIC_FIELDS,
+    TOPIC_ID_FIELDS,
+    TOPIC_WITHHELD,
     WITHHELD_UNKNOWN_ITEM,
     WITHHELD_UNREADABLE,
     ContextLimits,
@@ -705,8 +709,11 @@ def test_text_drawn_from_an_unpinned_answer_is_withheld_in_every_section(world):
     own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
     assert own["answer"] == OWN_ANSWER
     assert own["diagnosis"]["summary"] is None and "revision" in own["diagnosis"]["summary_note"]
-    # A pinned answer's belief still shows, through the same rule.
-    assert misconceptions["mc_swap"]["statement"] == MISCONCEPTION
+    # The pinned answer's diagnosis was shown the unpinned answer, so every belief
+    # drawn from that answer's grading follows it (F4 round 4, F1), the recorded
+    # one too; a belief drawn from the learner's question during it still shows.
+    assert misconceptions["mc_swap"]["statement"] is None and "revision" in misconceptions["mc_swap"]["statement_note"]
+    assert candidates["mcand_row"]["statement"] == CANDIDATE
     _no_protected([result])
 
 
@@ -793,7 +800,7 @@ def _guarded_everywhere(world) -> list[str]:
     a correction, a diagnosis with its context receipt, an unresolved cause.
     Returns the answer-derived texts planted."""
 
-    correction = "Swapping two rows multiplies the determinant by one sign change"
+    correction = "Each row swap flips the sign of det once"
     summary = "The learner expanded along a single row and lost track of signs."
     with world.repository.connection() as connection:
         _error_event(connection, "ev_scale", "att_own", "Thinks scaling a row leaves det fixed", "mc_scale")
@@ -819,27 +826,41 @@ def test_every_text_field_of_the_output_is_guarded_or_not_answer_derived(world, 
     schema = anyio.run(advertised)["learning_context"].output_schema
     fields = _schema_text_fields(schema)
     assert fields == _schema_text_fields(ContextOut.model_json_schema())
-    assert not ANSWER_DERIVED_FIELDS & set(NON_ANSWER_FIELDS)
-    assert fields == ANSWER_DERIVED_FIELDS | set(NON_ANSWER_FIELDS), (
-        sorted(fields - ANSWER_DERIVED_FIELDS - set(NON_ANSWER_FIELDS)),
-        sorted((ANSWER_DERIVED_FIELDS | set(NON_ANSWER_FIELDS)) - fields))
+    groups = (ANSWER_DERIVED_FIELDS, TOPIC_FIELDS, TOPIC_ID_FIELDS, frozenset(NON_ANSWER_FIELDS))
+    assert sum(len(group) for group in groups) == len(frozenset().union(*groups)), "the classes overlap"
+    classified = frozenset().union(*groups)
+    assert fields == classified, (sorted(fields - classified), sorted(classified - fields))
 
     planted = _guarded_everywhere(world)
+    # F4 round 4 (F2): a prerequisite the learner-text pipeline drafted from an
+    # unrevisioned answer, in every section a topic appears in.
+    los = _generated_world(world)
+    drafted = [GENERATED_TITLE, los["tainted"], los["tainted"].split("lo_ltg_", 1)[1].rsplit("_", 1)[0], "8841"]
     context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
     unions = {path.split("[", 1)[0] for path in fields if re.match(r"^\w+\[[a-z_]+\]\.", path)}
     leaves: list[tuple[str, Any]] = []
     _output_leaves(context, "", unions, leaves)
     released: set[str] = set()
+    stood_in: set[str] = set()
     for path, value in leaves:
         assert path in fields, path
+        assert not [text for text in drafted if text in value], (path, value)
         if path in ANSWER_DERIVED_FIELDS:
             assert isinstance(value, GuardedText), (path, value)
             released.add(path)
+        elif path in TOPIC_FIELDS or path in TOPIC_ID_FIELDS:
+            # Released by the guard's name renderers, or a withheld name's stand-in.
+            stand_in = TOPIC_WITHHELD if path in TOPIC_FIELDS else LO_ALIAS_PREFIX
+            assert isinstance(value, GuardedText) or value.startswith(stand_in), (path, value)
+            if not isinstance(value, GuardedText):
+                stood_in.add(path)
         else:
             assert not isinstance(value, GuardedText), path
             assert not [text for text in planted if text in value], (path, value)
     # Every renderer-owned field was exercised (released at least once on this world).
     assert released == ANSWER_DERIVED_FIELDS, sorted(ANSWER_DERIVED_FIELDS - released)
+    # And every name field stood in for the withheld drafted name at least once.
+    assert stood_in == TOPIC_FIELDS | TOPIC_ID_FIELDS, sorted((TOPIC_FIELDS | TOPIC_ID_FIELDS) - stood_in)
     # The output is checked against that schema before it is recorded, and reaches the host unchanged.
     ContextOut.model_validate(context)
 
@@ -850,7 +871,438 @@ def test_only_the_renderer_releases_answer_derived_text():
     import learnloop.learner_context as module
 
     tree = ast.parse(inspect.getsource(module))
+    functions = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+
+    def inside(node, *names: str) -> bool:
+        return any(any(node is child for child in ast.walk(functions[name])) for name in names)
+
     calls = [node for node in ast.walk(tree)
              if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "GuardedText"]
-    render = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "render")
-    assert calls and all(any(call is node for node in ast.walk(render)) for call in calls)
+    assert calls and all(inside(call, "render") for call in calls)
+    # A vault-authored name is released as it is (F4 round 4), only by the name renderers.
+    authored = [node for node in ast.walk(tree) if isinstance(node, ast.Name) and node.id == "_AUTHORED"]
+    assigned = [node for node in authored if isinstance(node.ctx, ast.Store)]
+    assert len(assigned) == 1
+    assert all(inside(node, "render", "_name", "lo_ref") for node in authored if node not in assigned)
+
+
+# -- F4 round 4: the mcp-c1a-f4 review (F1-F3) ----------------------------------------------
+
+
+def _legacy_answer(world) -> None:
+    """The unpinned historical answer ``att_legacy``: it states a key no
+    contract, snapshot or YAML records any more (its item was rewritten)."""
+
+    payload = _item("pi_rewritten", "lo_matrices", "What does a row swap do to det (rewritten)?",
+                    ["facet_determinant"])
+    payload["expected_answer"] = "it multiplies the determinant by minus one"
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_rewritten"), payload)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_legacy', 'pi_rewritten', 'lo_matrices', 'short_answer', 'independent_attempt', ?, 0.0, 0, "
+            "'2026-09-19T09:00:00Z', 'old', 'human', 'desktop_practice')", (f"I wrote: {LEGACY_KEY}",))
+        connection.commit()
+
+
+def _pinned_answer(world, attempt_id: str, answer: str, at: str) -> None:
+    """Another answer on ``pi_own``, graded against its pinned contract."""
+
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES (?, 'pi_own', 'lo_matrices', 'short_answer', 'independent_attempt', ?, 0.0, 0, ?, 'old', 'human', "
+            "'desktop_practice')", (attempt_id, answer, at))
+        connection.execute(
+            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id) VALUES (?, ?, 'correct', 0, 1, ?, 'acv_own')",
+            (f"ge_{attempt_id}", attempt_id, NOW_ISO))
+        connection.commit()
+
+
+def _live_diagnosis(repository, attempt_id: str, analysis: str, *, view: dict | None = None,
+                    receipt: dict | None = None) -> str:
+    return repository.insert_attempt_diagnosis(
+        attempt_id=attempt_id, diagnosis_prompt_version="test", mode="live", history_mode="exact",
+        status="completed", proposal={"analysis_md": analysis}, causal_view=view, validation_report=None,
+        receipt=receipt if receipt is not None else {})
+
+
+def _group(connection, group_key: str, episode_key: str, statement: str) -> None:
+    connection.execute(
+        "INSERT INTO hypothesis_recurrence_groups(episode_key, statement_normalized, group_key, root_episode_key, "
+        "class_count, joined_by, builder_version) VALUES (?, ?, ?, ?, 2, 'root', 'test')",
+        (episode_key, statement.lower(), group_key, episode_key))
+
+
+def _hypothesis(world, episode_key: str, attempt_id: str, statement: str, *, event_id: str | None = None,
+                lo: str = "lo_matrices") -> str:
+    return str(world.repository.append_causal_hypothesis(
+        episode_key=episode_key, attempt_id=attempt_id, error_event_id=event_id, learning_object_id=lo,
+        cause_scope="learner_state", statement=statement, statement_normalized=statement.lower(),
+        status="candidate")["id"])
+
+
+def test_a_diagnosis_s_context_follows_its_text_into_every_belief_drawn_from_it(world):
+    """F1: a pinned answer's diagnosis was shown an unpinned historical answer
+    and copied its key into a cause. The overlay lays that cause on the pinned
+    answer's own error event (what every causal consumer reads), and the
+    pipeline carries it on: a hypothesis and its recurrence group, a
+    misconception and a candidate normalized from the event, a candidate a gap
+    on the diagnosis created. Each is withheld, its entry and counts kept."""
+
+    _legacy_answer(world)
+    cause = f"Believes {LEGACY_KEY} for every matrix"
+    with world.repository.connection() as connection:
+        # The blind grader's event on the pinned answer: a location, no cause of its own.
+        _error_event(connection, "ev_own", "att_own", None)
+        connection.commit()
+    diagnosis_id = _live_diagnosis(
+        world.repository, "att_own", "The learner mixed up two row operations.",
+        view={"events": {"ev_own": {"misconception_statement": cause, "is_misconception": True}}},
+        receipt={"failure_attempt_ids": ["att_legacy"]})
+    overlaid = {event["id"]: event for event in world.repository.error_events_for_attempt("att_own")}
+    assert overlaid["ev_own"]["misconception_statement"] == cause
+    hypothesis_id = _hypothesis(world, "ep_diag", "att_own", cause, event_id="ev_own")
+    with world.repository.connection() as connection:
+        _group(connection, "grp_diag", "ep_diag", cause)
+        _misconception(connection, "mc_diag", cause, '["ev_own"]', f"Correct: never {LEGACY_KEY}")
+        _candidate(connection, "mcand_diag", cause, events='["ev_own"]', items='["pi_own"]', count=2)
+        # The gap pipeline read the diagnosis (source_id) and created a candidate from its cause.
+        _gap(connection, "gap_diag", source_kind="diagnosis", source_id=diagnosis_id, attempt_id="att_own",
+             item_id="pi_own", text=OWN_ANSWER, target_kind="candidate", target_id="mcand_gap_diag",
+             action="belief_candidate")
+        _candidate(connection, "mcand_gap_diag", cause)
+        connection.commit()
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    context = result.structured_content
+    assert LEGACY_KEY not in _text(result)
+    misconceptions = {m["misconception_id"]: m for m in context["misconceptions"]}
+    diag = misconceptions["mc_diag"]
+    assert diag["statement"] is None and "revision" in diag["statement_note"]
+    assert diag["correction"] is None and "revision" in diag["correction_note"]
+    assert diag["status"] == "active" and diag["evidence_count"] == 1
+    candidates = {c["candidate_id"]: c for c in context["misconception_candidates"]}
+    for candidate_id in ("mcand_diag", "mcand_gap_diag"):
+        assert candidates[candidate_id]["statement"] is None, candidate_id
+        assert "revision" in candidates[candidate_id]["statement_note"], candidate_id
+    assert candidates["mcand_diag"]["evidence_count"] == 2
+    hypothesis = next(h for h in context["open_hypotheses"] if h.get("hypothesis_id") == hypothesis_id)
+    assert hypothesis["statement"] is None and "revision" in hypothesis["statement_note"]
+    group = next(g for g in context["recurrence_groups"] if g["group_key"] == "grp_diag")
+    assert group["statement"] is None and "revision" in group["statement_note"]
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER
+    assert own["diagnosis"]["summary"] is None and "revision" in own["diagnosis"]["summary_note"]
+    assert "revision" in own["diagnosis"]["hypotheses_note"]
+    gap = next(g for g in context["open_learner_text_gaps"] if g["gap_id"] == "gap_diag")
+    # The gap's words are the pinned answer itself; the candidate it created carries the diagnosis's cause.
+    assert gap["learner_text"] == OWN_ANSWER
+    assert gap["target"] is None and "revision" in gap["target_note"]
+    # Every belief drawn from that answer's grading follows the diagnosis, the recorded one too.
+    assert misconceptions["mc_swap"]["statement"] is None
+    # A belief drawn from the learner's question during the answer (not its diagnosis) still shows.
+    assert candidates["mcand_row"]["statement"] == CANDIDATE
+    _no_protected([result])
+
+
+def test_a_joint_grader_s_history_follows_the_causes_it_wrote(world):
+    """F1, the joint grader: its C4 history (the receipt's prior attempts) is
+    what it was shown besides the answer, so a cause it wrote follows them."""
+
+    _legacy_answer(world)
+    cause = f"Thinks {LEGACY_KEY} as graded jointly"
+    with world.repository.connection() as connection:
+        _error_event(connection, "ev_joint", "att_own", cause)
+        _misconception(connection, "mc_joint", cause, '["ev_joint"]', None)
+        connection.execute(
+            "INSERT INTO diagnostic_augmentation_receipts(id, attempt_id, grading_prompt_version, "
+            "c1_repair_before_structure, c2_verifier_observations_json, c3_sample_count, c3_agreement_support, "
+            "c3_disagreement_causes_json, c4_history_attempt_ids_json, hypotheses_json, revert_criteria_json, "
+            "created_at) VALUES ('dar_own', 'att_own', 'test', 0, '[]', 1, 1.0, '[]', '[\"att_legacy\"]', '[]', "
+            "'[]', ?)", (NOW_ISO,))
+        connection.commit()
+    hypothesis_id = _hypothesis(world, "ep_joint", "att_own", cause, event_id="ev_joint")
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    assert LEGACY_KEY not in payload_text(context)
+    joint = next(m for m in context["misconceptions"] if m["misconception_id"] == "mc_joint")
+    assert joint["statement"] is None and "revision" in joint["statement_note"]
+    hypothesis = next(h for h in context["open_hypotheses"] if h.get("hypothesis_id") == hypothesis_id)
+    assert hypothesis["statement"] is None and "revision" in hypothesis["statement_note"]
+
+
+def test_provenance_cycles_are_followed_to_the_end(world):
+    """F1, cycles: two pinned answers' diagnoses were each shown the other's
+    hypothesis, and one of them also the unpinned historical answer. Every
+    belief on the cycle follows it to that answer, whichever is read first."""
+
+    from learnloop.learner_context import AnswerTextGuard, Withheld, key_book
+
+    _legacy_answer(world)
+    _pinned_answer(world, "att_peer", "PEER_WORDS_5521 the sign flips per swap", "2026-09-21T09:00:00Z")
+    own = _hypothesis(world, "ep_own_cycle", "att_own", "Applies the column sign rule to rows")
+    peer = _hypothesis(world, "ep_peer_cycle", "att_peer", "Applies the row sign rule to columns")
+    own_diagnosis = _live_diagnosis(world.repository, "att_own", "Seen with the peer's cause.",
+                                    receipt={"hypothesis_ids": [peer]})
+    _live_diagnosis(world.repository, "att_peer", "Seen with the first cause and an old answer.",
+                    receipt={"hypothesis_ids": [own], "failure_attempt_ids": ["att_legacy"]})
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    statements = {h["hypothesis_id"]: h for h in context["open_hypotheses"] if h.get("hypothesis_id")}
+    for hypothesis_id in (own, peer):
+        assert statements[hypothesis_id]["statement"] is None, hypothesis_id
+        assert "revision" in statements[hypothesis_id]["statement_note"], hypothesis_id
+    # Whichever node of the cycle is closed first, each closure is complete.
+    roots = [("hypothesis", own), ("hypothesis", peer), ("diagnosis", own_diagnosis), ("graded", "att_own")]
+    for order in (roots, list(reversed(roots))):
+        with world.repository.connection() as connection:
+            unknowns: list[str] = []
+            guard = AnswerTextGuard(connection, Withheld(), key_book(connection, load_vault(world.root), unknowns),
+                                    unknowns, vault=load_vault(world.root))
+            for root in order:
+                assert {"att_own", "att_peer", "att_legacy"} <= guard.closure(root).attempts, root
+
+
+@pytest.mark.parametrize("member", [None, "", False, 0, [], "  "], ids=["null", "empty", "false", "zero", "list",
+                                                                     "blank"])
+def test_a_provenance_list_with_an_unreadable_member_withholds(world, member):
+    """F3: one readable link does not mask an unreadable one: a list with any
+    member that is not a nonempty string is unreadable as a whole."""
+
+    import json as _json
+
+    mixed = _json.dumps(["e1", member])
+    with world.repository.connection() as connection:
+        _misconception(connection, "mc_mixed", "Thinks a row swap is a reflection", mixed, None)
+        _candidate(connection, "mcand_mixed_events", "Thinks a row swap is a rotation", events=mixed)
+        _candidate(connection, "mcand_mixed_items", "Thinks a row swap is a projection", events='["e1"]',
+                   items=_json.dumps(["pi_own", member]))
+        connection.commit()
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    misconceptions = {m["misconception_id"]: m for m in context["misconceptions"]}
+    assert misconceptions["mc_mixed"]["statement"] is None
+    assert misconceptions["mc_mixed"]["statement_note"] == PROVENANCE_MISSING
+    candidates = {c["candidate_id"]: c for c in context["misconception_candidates"]}
+    for candidate_id in ("mcand_mixed_events", "mcand_mixed_items"):
+        assert candidates[candidate_id]["statement"] is None, candidate_id
+        assert candidates[candidate_id]["statement_note"] == PROVENANCE_MISSING, candidate_id
+    # The well-formed belief on the same answer still shows.
+    assert misconceptions["mc_swap"]["statement"] == MISCONCEPTION
+
+
+@pytest.mark.parametrize("field", ["failure_attempt_ids", "success_attempt_ids", "hypothesis_ids",
+                                   "registry_candidate_ids", "history", "validated_citations"])
+@pytest.mark.parametrize("member", [None, "", False], ids=["null", "empty", "false"])
+def test_a_diagnosis_receipt_with_an_unreadable_member_withholds(world, field, member):
+    """F3, the diagnosis's context receipt: a list member that is not an id
+    (or a citation without an answer) is a link that cannot be followed."""
+
+    receipt: dict[str, Any] = {"failure_attempt_ids": ["att_own"]}
+    if field == "history":
+        receipt["retrieval"] = {"history_attempt_ids": ["att_own", member]}
+    elif field == "validated_citations":
+        receipt["validated_citations"] = [{"claim_index": 0, "attempt_id": "att_own"},
+                                          {"claim_index": 1, "attempt_id": member}]
+    else:
+        valid = {"hypothesis_ids": world.hypothesis_id, "registry_candidate_ids": "mc_swap"}.get(field, "att_own")
+        receipt[field] = [valid, member]
+    _live_diagnosis(world.repository, "att_own", "The learner expanded along a single row.", receipt=receipt)
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER and own["diagnosis"]["status"] == "done"
+    assert own["diagnosis"]["summary"] is None and own["diagnosis"]["summary_note"] == PROVENANCE_MISSING
+
+
+GENERATED_TITLE = f"Legacy key 8841: {LEGACY_KEY.split('8841 ')[1]}"
+
+
+def _generated_prerequisite(world, *, title: str, gap_id: str, source_kind: str, source_id: str,
+                            attempt_id: str | None, item_id: str | None, text: str, created_at: str) -> str:
+    """A prerequisite the learner-text pipeline created from the learner's
+    text (``text_gaps.actions.write_created_prerequisite``'s shape): its
+    concept and LO titles were drafted from that text, and their ids carry a
+    slug of the titles. Returns the LO id."""
+
+    import hashlib
+
+    from learnloop.diagnosis.text_gaps.actions import slug
+    from learnloop.vault.writer import upsert_concept
+    from learnloop.vault.yaml_io import read_yaml
+
+    suffix = hashlib.sha256(f"{source_kind}:{source_id}".encode()).hexdigest()[:8]
+    lo_id, concept_id = f"lo_ltg_{slug(title)}_{suffix}", f"{slug(title)}_{suffix}"
+    upsert_concept(world.root, concept_id, {
+        "title": title, "type": "procedure", "aliases": [], "description": title,
+        "tags": ["learner_text_gap_v1"], "created_at": created_at, "updated_at": created_at})
+    lo = read_yaml(world.paths.learning_object_path("linear-algebra", "lo_matrices"))
+    lo.update(id=lo_id, title=title, concept=concept_id, summary=title, blueprints=[], tags=["learner_text_gap_v1"],
+              provenance={"origin": "codex_proposal", "source_refs": [], "mechanism": "learner_text_gap_v1",
+                          "learner_text": f"{source_kind}:{source_id}"},
+              created_at=created_at, updated_at=created_at)
+    write_yaml(world.paths.learning_object_path("linear-algebra", lo_id), lo)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
+            "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, target_id, "
+            "created_concept_id, created_learning_object_id, algorithm_version, pipeline_version, created_at) "
+            "VALUES (?, ?, ?, ?, ?, 'lo_matrices', ?, 'decider', ?, 'prerequisite', 'created_prerequisite', "
+            "'learning_object', ?, ?, ?, 'test', 'test', ?)",
+            (gap_id, source_kind, source_id, attempt_id, item_id, text,
+             "tutor" if source_kind == "tutor_question" else "gap_reader", lo_id, concept_id, lo_id, created_at))
+        connection.commit()
+    return lo_id
+
+
+def _generated_world(world) -> dict[str, str]:
+    """F2: a prerequisite created from the unpinned historical stuck answer
+    (its title restates the key that answer was graded against), shown in
+    every section an LO appears in; a control created earlier from the pinned
+    answer; and one created later, whose drafter was shown the first one's
+    concept among the subject's concepts."""
+
+    _legacy_answer(world)
+    safe = _generated_prerequisite(world, title="Permutation parity basics", gap_id="gap_gen_safe",
+                                   source_kind="stuck_answer", source_id="att_own", attempt_id="att_own",
+                                   item_id="pi_own", text=OWN_ANSWER, created_at="2026-09-19T08:00:00Z")
+    tainted = _generated_prerequisite(world, title=GENERATED_TITLE, gap_id="gap_gen", source_kind="stuck_answer",
+                                      source_id="att_legacy", attempt_id="att_legacy", item_id="pi_rewritten",
+                                      text=f"I wrote: {LEGACY_KEY}", created_at="2026-09-19T10:00:00Z")
+    later = _generated_prerequisite(world, title="Elementary matrix inverses", gap_id="gap_gen_later",
+                                    source_kind="stuck_answer", source_id="att_own_later", attempt_id="att_own",
+                                    item_id="pi_own", text=OWN_ANSWER, created_at="2026-09-19T11:00:00Z")
+    payload = _item("pi_gen", tainted, "Swap two rows of a 3x3 matrix and compare determinants.",
+                    ["facet_determinant"])
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_gen"), payload)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_gen', 'pi_gen', ?, 'short_answer', 'independent_attempt', 'the two values differ', 0.0, 0, "
+            "'2026-09-20T09:00:00Z', 'old', 'human', 'desktop_practice')", (tainted,))
+        connection.execute(
+            "INSERT INTO unresolved_cause_factors(id, attempt_id, candidate_causes_json, status, algorithm_version, "
+            "created_at, updated_at) VALUES ('ucf_gen', 'att_gen', '[]', 'open', 'test', ?, ?)", (NOW_ISO, NOW_ISO))
+        connection.execute(
+            "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, "
+            "source_error_event_ids_json, correction_statement, created_at, updated_at) VALUES ('mc_gen', ?, "
+            "'Thinks a pivot may be zero', 0.5, 'active', '[\"e1\"]', NULL, ?, ?)", (tainted, NOW_ISO, NOW_ISO))
+        connection.execute(
+            "INSERT INTO misconception_candidates(id, learning_object_id, statement, statement_normalized, "
+            "source_error_event_ids_json, item_ids_json, occurrence_count, status, created_at, updated_at) "
+            "VALUES ('mcand_gen', ?, 'Thinks pivots commute', 'thinks pivots commute', '[\"e1\"]', '[\"pi_own\"]', "
+            "1, 'candidate', ?, ?)", (tainted, NOW_ISO, NOW_ISO))
+        connection.commit()
+    _hypothesis(world, "ep_gen", "att_own", "Drops the sign when pivoting", lo=tainted)
+    with world.repository.connection() as connection:
+        _group(connection, "grp_gen", "ep_gen", "Drops the sign when pivoting")
+        connection.commit()
+    world.repository.upsert_practice_item_state("pi_gen", difficulty=5.0, stability=1.0,
+                                                due_at="2026-09-21T09:00:00Z",
+                                                last_attempt_at="2026-09-20T09:00:00Z", active=True)
+    return {"safe": safe, "tainted": tainted, "later": later}
+
+
+def _lo_entries(context: dict, lo_ref: str) -> dict[str, list[dict]]:
+    found: dict[str, list[dict]] = {}
+    for section in ("misconceptions", "misconception_candidates", "open_hypotheses", "recent_answer_traces",
+                    "open_learner_text_gaps", "retention_risks"):
+        found[section] = [entry for entry in context[section] if entry.get("learning_object_id") == lo_ref]
+    found["recurrence_groups"] = [g for g in context["recurrence_groups"] if lo_ref in g["learning_object_ids"]]
+    return found
+
+
+def test_a_prerequisite_drafted_from_an_unpinned_answer_shows_neither_its_title_nor_its_id(world):
+    """F2: the learner-text pipeline drafts a missing prerequisite's titles
+    from the learner's text and derives its ids from them. A title drafted from
+    an unpinned answer is withheld wherever the LO appears, its id replaced by
+    an opaque alias (accepted back as a named id), and a topic search cannot
+    find it by the withheld words. A title drafted from a pinned answer shows."""
+
+    los = _generated_world(world)
+    tainted_slug = los["tainted"].split("lo_ltg_", 1)[1].rsplit("_", 1)[0]
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    text = _text(result)
+    assert "8841" not in text and tainted_slug not in text and los["tainted"] not in text
+    context = result.structured_content
+    gaps = {gap["gap_id"]: gap for gap in context["open_learner_text_gaps"]}
+    alias = gaps["gap_gen"]["learning_object_id"]
+    assert alias.startswith("lo_withheld_")
+    assert alias in context["scope"]["learning_object_ids"]
+    entries = _lo_entries(context, alias)
+    assert all(entries.values()), {section: len(found) for section, found in entries.items()}
+    for section, found in entries.items():
+        for entry in found:
+            topics = entry["topics"] if section == "recurrence_groups" else [entry["topic"]]
+            assert all(topic.startswith("a topic named from the learner's own words") for topic in topics), section
+    assert any(e["kind"] == "unresolved_cause" for e in entries["open_hypotheses"])
+    assert gaps["gap_gen"]["target_topic"].startswith("a topic named from the learner's own words")
+    assert gaps["gap_gen"]["learner_text"] is None
+    # The text about the topic (a misconception from the pinned answer) still shows; only its name is withheld.
+    assert next(m for m in entries["misconceptions"])["statement"] == "Thinks a pivot may be zero"
+    # The control, drafted from the pinned answer before it, shows its title and its id.
+    assert gaps["gap_gen_safe"]["learning_object_id"] == los["safe"]
+    assert gaps["gap_gen_safe"]["target_topic"] == "Permutation parity basics"
+    # Drafted after it, in its subject: the drafter was shown its concept, so this one follows it.
+    assert gaps["gap_gen_later"]["learning_object_id"].startswith("lo_withheld_")
+    assert "Elementary matrix inverses" not in text
+    # The alias is accepted back; a topic search cannot find the LO by its withheld words.
+    named, searched, control = _call_all(server, [
+        ("learning_context", {"learning_object_ids": [alias]}),
+        ("learning_context", {"topic": "8841 negates"}),
+        ("learning_context", {"topic": "permutation parity"}),
+    ])
+    assert named.structured_content["scope"]["learning_object_ids"] == [alias]
+    assert any(m["misconception_id"] == "mc_gen" for m in named.structured_content["misconceptions"])
+    assert searched.structured_content["scope"]["learning_object_count"] == 0
+    assert "8841" not in payload_text({k: v for k, v in searched.structured_content.items() if k != "scope"})
+    assert control.structured_content["scope"]["learning_object_ids"] == [los["safe"]]
+    for call in (named, searched, control):
+        assert tainted_slug not in _text(call) and los["tainted"] not in _text(call)
+
+
+def test_text_a_model_wrote_while_shown_a_withheld_topic_name_follows_it(world):
+    """F2 with F1: a grader writing a cause for a pinned answer on a generated
+    topic's item, and a reader naming a belief from words anchored on that
+    topic, were shown its drafted name; their text follows that name's
+    provenance. The same pinned answer's own words still show."""
+
+    los = _generated_world(world)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO assessment_contract_versions(id, practice_item_id, contract_hash, contract_json, "
+            "schema_version, created_at) VALUES ('acv_gen', 'pi_gen', 'h_gen', ?, 1, ?)",
+            ('{"prompt": "Swap two rows and compare determinants.", "expected_answer": "they differ in sign"}',
+             NOW_ISO))
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_gen_pinned', 'pi_gen', ?, 'short_answer', 'independent_attempt', 'GEN_PINNED_7710 equal', "
+            "0.0, 0, '2026-09-22T09:00:00Z', 'old', 'human', 'desktop_practice')", (los["tainted"],))
+        connection.execute(
+            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id) VALUES ('ge_gen', 'att_gen_pinned', 'correct', 0, 1, ?, 'acv_gen')",
+            (NOW_ISO,))
+        _error_event(connection, "ev_gen", "att_gen_pinned", "Thinks a swap leaves the value equal", "mc_graded_gen")
+        connection.execute(
+            "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, "
+            "source_error_event_ids_json, created_at, updated_at) VALUES ('mc_graded_gen', 'lo_matrices', "
+            "'Thinks a swap leaves the value equal', 0.4, 'active', '[\"ev_gen\"]', ?, ?)", (NOW_ISO, NOW_ISO))
+        connection.execute(
+            "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
+            "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, target_id, "
+            "algorithm_version, pipeline_version, created_at) VALUES ('gap_on_gen', 'stuck_answer', 'att_gen_pinned', "
+            "'att_gen_pinned', 'pi_gen', ?, 'GEN_PINNED_7710 equal', 'decider', 'gap_reader', 'misconception', "
+            "'belief_candidate', 'candidate', 'mcand_read_gen', 'test', 'test', ?)", (los["tainted"], NOW_ISO))
+        _candidate(connection, "mcand_read_gen", "Thinks swapped rows are interchangeable")
+        connection.commit()
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    graded = next(m for m in context["misconceptions"] if m["misconception_id"] == "mc_graded_gen")
+    assert graded["statement"] is None and "revision" in graded["statement_note"]
+    read = next(c for c in context["misconception_candidates"] if c["candidate_id"] == "mcand_read_gen")
+    assert read["statement"] is None and "revision" in read["statement_note"]
+    trace = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_gen_pinned")
+    assert trace["answer"] == "GEN_PINNED_7710 equal" and trace["topic"].startswith(TOPIC_WITHHELD)
+    assert "8841" not in payload_text(context)

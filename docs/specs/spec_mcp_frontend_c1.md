@@ -174,7 +174,9 @@ hints, primed, revealed-before, stuck, cold-check and entry-surface labels); ope
 learner's own words and what they were matched to, minus reversed ones); retention risks (FSRS recall now
 below 0.8, or due). The output schema types and closes every field (F4 round 3), so each text field is
 either answer-derived (`learner_context.ANSWER_DERIVED_FIELDS`, released only by the guarded renderer of
-§4.7 rule 1) or not drawn from an answer by construction (`NON_ANSWER_FIELDS`), checked by a test.
+§4.7 rule 1), a topic name or id (`TOPIC_FIELDS`, `TOPIC_ID_FIELDS`: released only by the guard's name
+renderers, F4 round 4) or not drawn from an answer by construction (`NON_ANSWER_FIELDS`), checked by a
+test.
 Diagnosed and unresolved causes share the one `open_hypotheses` limit; when they overflow it, the
 unresolved causes keep up to half of it (an LO with no diagnosed cause shown first), so an LO whose only
 open problem is unsettled stays visible (re-review F12).
@@ -205,7 +207,21 @@ sections from this module (one predicate set, one leakage rule set).
    diagnosis with no context receipt, a belief with no provenance at all), or words about an item with no
    graded answer behind them, withhold the text too. A withheld text keeps its entry, counts and status,
    and says why. Chat adds this rule for the learner's own answer (a correct answer that states the key is
-   withheld); the card shows it.
+   withheld); the card shows it. **Transitive provenance (F4 round 4):** the links are followed to the end,
+   cycles handled (`AnswerTextGuard.closure`): a belief drawn from an answer's error events follows that
+   answer's grading, so every completed live diagnosis of it (the diagnosis overlay lays its causes on the
+   answer's events; a superseded one counts too), the joint grader's C4 history and the answer's topic name
+   when that topic was generated; a diagnosis follows everything its context receipt says it was shown
+   (answers, hypotheses, recorded beliefs, generated topics in its neighbourhood); a gap follows the
+   diagnosis it read (`source_id`) and a generated topic it is anchored on. An id list with any member that
+   is not a nonempty string, or a citation that names no answer, cannot be read as a whole. **Topic names
+   and ids (F4 round 4):** the learner-text pipeline drafts a missing prerequisite's titles from the
+   learner's text and derives its ids from them (`lo_ltg_<slug>_<hash>`), so every topic name and id in the
+   output is released by `AnswerTextGuard.topic` / `lo_ref`: a generated topic's name with the provenance
+   of its drafting (the gaps that created it, and earlier generated topics in its subject, whose concepts
+   its drafter was shown), any other name as the vault has it. While a generated name is withheld the entry
+   shows a fixed label with the reason and an opaque alias id (`lo_withheld_<digest>`, accepted back as a
+   named id), and a topic search does not match its words.
 2. Exam and held-out material (`exam_material.item_exam_status`: the canonical exercise and every
    provenance form, block locators and namespaced span ids included), items reserved for an assessment or
    a held-out exam, items held by an open cold check or a repair's cold retry, and diagnostic probes keep
