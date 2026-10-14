@@ -544,6 +544,9 @@ class RestraintOutcome:
     record: dict[str, Any]
     refused: dict[str, Any] = field(default_factory=dict)
     why: str = ""
+    #: Whether waiting was a choice: the boundary still had room for the
+    #: follow-up after the current block (Codex review F8).
+    wait_feasible: bool = True
 
     @property
     def insert(self) -> bool:
@@ -597,9 +600,15 @@ class RestraintGate:
             return ()
         return tuple(material.refusals.get(item.practice_item_id) or ())
 
-    def decide(self, record: Any, current: Any, item: Any) -> RestraintOutcome:
+    def decide(self, record: Any, current: Any, item: Any, *, wait_feasible: bool = True) -> RestraintOutcome:
         """The decision for one follow-up the rules would place now (raises
-        :class:`DecisionPending` on a read whose models are still out)."""
+        :class:`DecisionPending` on a read whose models are still out).
+
+        ``wait_feasible`` False: the boundary would have no room for the
+        follow-up after the current block, so waiting would drop it from
+        today's plan. The restraint decides only now or at the boundary, never
+        whether (VOI does), so it joins now deterministically and no model is
+        asked (Codex review F8)."""
 
         base: dict[str, Any] = {"mode": MODE, "why_version": router_why.MIXTURE_WHY_VERSION}
         refusals = self._refusals(item)
@@ -608,6 +617,10 @@ class RestraintGate:
         config = self.vault.config
         settings = router_settings(config)
         state, candidates = self._state(record, current, item)
+        if not wait_feasible:
+            card = _build_card(self.card_builder, state, candidates)
+            base.update(policy=mx.STAGED_POLICY, decided_by="no_room_to_wait", **_card_fields(card))
+            return RestraintOutcome(INSERT_NOW, 1.0, base, why="", wait_feasible=False)
         readiness = self.runtime.readiness(self.vault)
         ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
         if not ready:

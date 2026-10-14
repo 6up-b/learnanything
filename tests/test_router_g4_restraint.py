@@ -222,7 +222,7 @@ def test_with_no_model_set_up_a_placeable_follow_up_joins_deterministically(tmp_
     assert (row["chosen_ref"], row["propensity_kind"], row["policy"]) == ("insert_now", "deterministic", "staged_v1")
 
 
-# -- Codex review F1 -------------------------------------------------------------------
+# -- Codex review F1, F6, F8 -------------------------------------------------------------------
 
 
 def _bound_answer(env, step, *, correctness: float = 1.0) -> str:
@@ -274,3 +274,123 @@ def test_an_inserted_follow_up_is_bound_to_its_own_decision_by_its_presentation(
     # The block's own decision never takes the follow-up's answer as its action.
     block_decision = next(row for row in rows(env) if row["receipt_key"] == f"plan_block:{step['block_id']}")
     assert outcomes[block_decision["id"]]["action_attempt_id"] != answered
+
+
+def _tight_env(tmp_path, runtime, *, budget: float, followup_los: dict[str, list[tuple[str, float]]]):
+    """A plan whose first block (two 1.5-minute items) fills nearly all of
+    ``budget``; ``followup_los`` adds learning objects for follow-ups. The
+    first item is served and answered."""
+
+    from learnloop.algorithm_versions import ROUTER_MIXTURE_ALGORITHM_VERSION
+    from learnloop.daily_plan.policy import policy_for
+
+    from tests.daily_plan_fakes import MovableClock, make_env
+    from tests.helpers import append_config_toml, create_daily_plan_vault
+    from tests.test_daily_plan_build import _seed_wide
+
+    los = {"lo_m1": [("pi_m1a", 1.0), ("pi_m1b", 1.0)], "lo_m2": [("pi_m2a", 2.0)],
+           "lo_r1": [("pi_r1a", 2.0), ("pi_r1b", 2.0)], "lo_p1": [("pi_p1a", 3.0), ("pi_p1b", 3.0)],
+           **followup_los}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los,
+                                    version=ROUTER_MIXTURE_ALGORITHM_VERSION)
+    append_config_toml(paths.root, DECIDER_ONLY)
+    live = list(_wide_items())
+    env = make_env(paths.root, lambda: live, clock=MovableClock(), session_id="s1")
+    _seed_wide(env.repository)
+    env.policy = policy_for(env.vault, env.repository, session_id="s1", clock=env.clock, runtime=runtime, serve=True)
+    build_plan(env, kind="normal", budget=budget, remembered=int(budget), minutes_source="chip")
+    record, step = advance(env, serve=True)
+    assert [item.practice_item_id for item in record.current_block().items] == ["pi_m1a", "pi_m1b"]
+    env.clock.advance(1)
+    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                   session_id=env.session_id)
+    return env, live
+
+
+def _play_out(env, step, record):
+    served = []
+    for _ in range(12):
+        if step is None or step["kind"] != "item":
+            break
+        served.append((step["practice_item_id"], step["block_ordinal"]))
+        env.clock.advance(2)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], env.clock.now(),
+                       session_id=env.session_id)
+        record, step = advance(env, serve=True)
+    return record, served
+
+
+def test_competing_follow_ups_log_only_the_insertions_that_happen(tmp_path):
+    # Codex review F6: two follow-ups each fit only by displacing the same
+    # remaining tail item. They are decided one at a time against the plan
+    # the earlier one left: the second no longer fits, so no insertion is
+    # logged for it, and every logged insert_now is placed.
+    runtime = fake_runtime(decider=FakeDecider(choice=first_option, p_yes=1.0),
+                           seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
+    env, live = _tight_env(tmp_path, runtime, budget=3.05,
+                           followup_los={"lo_f1": [("pi_f1a", 0.7), ("pi_f1b", 0.7)]})
+    for item in ("pi_f1a", "pi_f1b"):
+        live.insert(0, scheduled(item, "lo_f1", followup_kind="negative_surprise_followup"))
+    env.clock.advance(1)
+    record, step = advance(env, serve=True)
+    planned = {item.practice_item_id for item in record.items() if item.origin == "followup" and not item.displaced}
+    inserted = [row for row in rows(env, "plan_interrupt") if row["chosen_ref"] == "insert_now"]
+    assert len(planned) == 1 and step["practice_item_id"] in planned
+    assert {row["chosen_practice_item_id"] for row in inserted} == planned
+    assert record.minutes_planned() <= record.budget + 1e-6
+
+
+def test_a_follow_up_that_waiting_would_drop_joins_now(tmp_path):
+    # Codex review F8: the follow-up fits now only by displacing the block's
+    # unserved tail, so after the block there is no room for it today.
+    # Waiting would drop it, so waiting is not offered: it joins now, with no
+    # model asked, and the row names waiting infeasible.
+    decider = FakeDecider(choice=first_option, p_yes=0.0)
+    runtime = fake_runtime(decider=decider, seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
+    env, live = _tight_env(tmp_path, runtime, budget=3.05, followup_los={"lo_f1": [("pi_f1a", 0.7)]})
+    asked_before = len(decider.calls)
+    live.insert(0, scheduled("pi_f1a", "lo_f1", followup_kind="negative_surprise_followup"))
+    env.clock.advance(1)
+    record, step = advance(env, serve=True)
+    assert step["practice_item_id"] == "pi_f1a"
+    (row,) = rows(env, "plan_interrupt")
+    assert (row["chosen_ref"], row["propensity_kind"], row["policy"]) == ("insert_now", "deterministic", "staged_v1")
+    by_ref = {entry["ref"]: entry for entry in row["candidates_json"]}
+    assert by_ref["insert_now"]["feasible"] and not by_ref["continue_current"]["feasible"]
+    assert row["detail_json"]["wait"] == {"feasible": False, "reason": "no_room_after_block"}
+    assert len(decider.calls) == asked_before
+    _record, served = _play_out(env, step, record)
+    assert ("pi_f1a", 1) in served
+
+
+class _WaitsOnF1(FakeDecider):
+    """P(intervene now) = 0 for the follow-up on F1, 1 for any other."""
+
+    def _decide(self, state, questions, **kwargs):
+        self.p_yes = 0.0 if "question on F1" in str(state) else 1.0
+        return super()._decide(state, questions, **kwargs)
+
+
+def test_a_waiting_follow_up_keeps_its_room_until_the_boundary(tmp_path):
+    # Codex review F8: a follow-up that waits keeps its room. A later
+    # follow-up cannot take it (it must displace the tail instead), and at
+    # the boundary the waiting one opens the next block in its kept room,
+    # although its estimate has grown since with the session's answers.
+    runtime = fake_runtime(decider=_WaitsOnF1(choice=first_option),
+                           seed=seed_with_first_uniform(at_least=PAST_THE_FLOOR))
+    env, live = _tight_env(tmp_path, runtime, budget=4.6,
+                           followup_los={"lo_f1": [("pi_f1a", 0.7)], "lo_g1": [("pi_g1a", 0.7)]})
+    live.insert(0, scheduled("pi_g1a", "lo_g1", followup_kind="negative_surprise_followup", priority=0.4))
+    live.insert(0, scheduled("pi_f1a", "lo_f1", followup_kind="negative_surprise_followup", priority=0.9))
+    env.clock.advance(1)
+    record, step = advance(env, serve=True)
+    decisions = {row["detail_json"]["followup"]["practice_item_id"]: row for row in rows(env, "plan_interrupt")}
+    assert decisions["pi_f1a"]["chosen_ref"] == "continue_current"
+    assert decisions["pi_f1a"]["propensity_kind"] == "exact"
+    assert decisions["pi_g1a"]["chosen_ref"] == "insert_now"
+    assert record.current_block().deferred_followups() == {"pi_f1a"}
+    # The later follow-up displaced the tail rather than taking the kept room.
+    assert {item.practice_item_id for item in record.items() if item.displaced} == {"pi_m1b"}
+    record, served = _play_out(env, step, record)
+    assert ("pi_g1a", 1) in served and ("pi_f1a", 2) in served
+    assert record.minutes_planned() <= record.budget + 1e-6

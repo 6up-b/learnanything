@@ -114,6 +114,10 @@ class PlannedBlock:
     #: ``practice_item_id -> "deferred" | "refused"`` (``followup_deferred``,
     #: ``followup_refused`` events).
     followup_decisions: dict[str, str] = field(default_factory=dict)
+    #: Router R2c: the minutes kept for each deferred follow-up (its estimate
+    #: when it was deferred, on its ``followup_deferred`` event): it is placed
+    #: in that room at the boundary (Codex review F8).
+    followup_kept: dict[str, float] = field(default_factory=dict)
 
     @property
     def is_reading(self) -> bool:
@@ -399,6 +403,8 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
         block.reading_progress = (int(detail.get("spans_seen") or 0), int(detail.get("span_count") or 0))
     elif kind == "followup_deferred" and item_id:
         block.followup_decisions[str(item_id)] = "deferred"
+        if detail.get("kept_minutes") is not None:
+            block.followup_kept[str(item_id)] = float(detail["kept_minutes"])
     elif kind == "followup_refused" and item_id:
         block.followup_decisions[str(item_id)] = "refused"
 

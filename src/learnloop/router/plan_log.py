@@ -499,8 +499,9 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
     the chosen ref (``insert_now``: the follow-up joins the current block now;
     ``continue_current``: it waits and opens the next block; ``decline``: a
     hard constraint refused it), the choice's propensity, the constraint
-    engine's named refusals and the router record (the mixture's draw, the
-    card, the models' answers and payloads)."""
+    engine's named refusals, whether waiting was feasible (``wait_feasible``:
+    the boundary keeps room for it; Codex review F8) and the router record
+    (the mixture's draw, the card, the models' answers and payloads)."""
 
     record: Mapping[str, Any] = decision.get("router_record") or {}
     mixture: Mapping[str, Any] = record.get("mixture") or {}
@@ -513,7 +514,10 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         propensity, propensity_kind = 1.0, "deterministic"
     else:
         propensity, propensity_kind = raw, "exact"
-    feasible = {INSERT_REF: not refused, CONTINUE_REF: not refused, DECLINE_REF: bool(refused)}
+    # Waiting is infeasible when the boundary would have no room for the
+    # follow-up after the current block (Codex review F8): it joins now.
+    wait_feasible = bool(decision.get("wait_feasible", True))
+    feasible = {INSERT_REF: not refused, CONTINUE_REF: not refused and wait_feasible, DECLINE_REF: bool(refused)}
 
     def candidate_propensity(ref: str) -> float:
         if ref == chosen_ref:
@@ -553,6 +557,7 @@ def build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]
         "block_id": decision.get("block_id"),
         "followup": dict(followup),
         "why": decision.get("why"),
+        **({} if wait_feasible or refused else {"wait": {"feasible": False, "reason": "no_room_after_block"}}),
         "refused": [
             {key: reason.get(key) for key in ("constraint_key", "constraint_version", "reason", "kind")}
             for reason in refused.get("reasons") or ()
