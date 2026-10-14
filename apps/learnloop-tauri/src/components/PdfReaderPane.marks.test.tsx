@@ -1,11 +1,14 @@
 // Reader workbench RW3a on the original PDF: a margin mark is drawn in an
 // overlay gutter at the left of its passage's box, once the passage's page is
-// drawn, and only for passages with a box. The pane reports its pages' width
-// so the Reader's one-mark-per-screenful spacing models pages at it.
+// drawn, and only for passages with a box. The pane reports its pages' own
+// sizes, loaded with the document and not from drawing, so the Reader's
+// one-mark-per-screenful spacing follows landscape and mixed-size pages
+// (review F5), and an undrawn page already has its own height.
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { createRef, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ReaderPdfBlockDto } from "../api/dto";
+import type { PdfPageLayout } from "../screens/reader/cues";
 import { PdfReaderPane, type PdfReaderPaneHandle } from "./PdfReaderPane";
 
 const { acquirePdfDocument } = vi.hoisted(() => ({ acquirePdfDocument: vi.fn() }));
@@ -44,10 +47,12 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+// Letter pages, but page 2 is landscape.
+const SIZES = [[612, 792], [612, 792], [792, 612], [612, 792], [612, 792]];
 const fakeDoc = {
   numPages: 5,
-  getPage: async () => ({
-    getViewport: ({ scale }: { scale: number }) => ({ width: 612 * scale, height: 792 * scale }),
+  getPage: async (pageNumber: number) => ({
+    getViewport: ({ scale }: { scale: number }) => ({ width: SIZES[pageNumber - 1][0] * scale, height: SIZES[pageNumber - 1][1] * scale }),
     render: () => ({ promise: Promise.resolve() }),
     streamTextContent: () => ({})
   })
@@ -99,7 +104,7 @@ async function flush(ms = 0) {
   }
 }
 
-function renderPane(extra: { marks?: ReadonlyMap<string, ReactNode>; onPageWidth?: (px: number) => void } = {}) {
+function renderPane(extra: { marks?: ReadonlyMap<string, ReactNode>; onPageLayout?: (layout: PdfPageLayout) => void } = {}) {
   const handle = createRef<PdfReaderPaneHandle>();
   const view = render(
     <div data-testid="scroller" style={{ overflowY: "auto" }}>
@@ -115,7 +120,7 @@ function renderPane(extra: { marks?: ReadonlyMap<string, ReactNode>; onPageWidth
         onTagMenu={() => undefined}
         onError={() => undefined}
         marks={extra.marks}
-        onPageWidth={extra.onPageWidth}
+        onPageLayout={extra.onPageLayout}
       />
     </div>
   );
@@ -143,9 +148,8 @@ async function drawPages() {
 it("a mark is drawn at the left of its passage's box once the page is drawn", async () => {
   acquirePdfDocument.mockResolvedValue({ doc: fakeDoc, pageTexts: new Map() });
   const marks = new Map<string, ReactNode>([["s2", <button key="m" type="button" data-cue-mark="cue_s2">mark</button>]]);
-  const onPageWidth = vi.fn();
   Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 642 });
-  renderPane({ marks, onPageWidth });
+  renderPane({ marks });
   await flush();
   layout.ready = true;
   await flush(200);
@@ -159,8 +163,28 @@ it("a mark is drawn at the left of its passage's box once the page is drawn", as
   expect(parseFloat(gutter!.style.left)).toBeLessThan(50);
   expect(parseFloat(gutter!.style.top)).toBeGreaterThan(0);
   expect(document.querySelectorAll("[data-cue-gutter]")).toHaveLength(1);
-  // The pages' width, for the Reader's spacing model (642 - 2 at 100 %).
-  expect(onPageWidth).toHaveBeenLastCalledWith(640);
+  // @ts-expect-error -- restore jsdom's own (prototype chain) getter
+  delete HTMLElement.prototype.clientWidth;
+});
+
+it("the pane reports each page's own size before any page is drawn, and an undrawn page has its own height", async () => {
+  acquirePdfDocument.mockResolvedValue({ doc: fakeDoc, pageTexts: new Map() });
+  const onPageLayout = vi.fn();
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 642 });
+  renderPane({ onPageLayout });
+  await flush();
+  // Nothing is drawn (no page came near the view), yet the sizes are known:
+  // the Reader's spacing model reads them at the pages' width (642 - 2 at 100 %).
+  expect(onPageLayout).toHaveBeenLastCalledWith({
+    widthPx: 640,
+    pages: SIZES.map(([widthPoints, heightPoints], page) => ({ page, widthPoints, heightPoints, leftOutBefore: false })),
+  });
+  // The landscape page's placeholder is already landscape, so the layout the
+  // model assumes is the layout on screen while the learner scrolls.
+  const landscape = document.querySelector<HTMLElement>("[data-pdf-page='2']");
+  expect(parseFloat(landscape!.style.height)).toBeCloseTo(640 * (612 / 792), 3);
+  const portrait = document.querySelector<HTMLElement>("[data-pdf-page='1']");
+  expect(parseFloat(portrait!.style.height)).toBeCloseTo(640 * (792 / 612), 3);
   // @ts-expect-error -- restore jsdom's own (prototype chain) getter
   delete HTMLElement.prototype.clientWidth;
 });

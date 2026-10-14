@@ -267,10 +267,54 @@ def test_a_split_cue_names_the_diagnosers_statement_as_the_rail_does(tmp_path):
     assert mark["earlier"]["attempt_id"] == result.attempt_id
     assert mark["earlier"]["practice_item_id"] == "pi_svd_compute_001"
     assert mark["earlier"]["prompt"]
+    # "Open" shows the cited attempt itself: the learner's own answer (review F7).
+    assert mark["earlier"]["answer"] == "A = U Sigma V wrong"
     assert mark["because"] == f"Because: your answer on {mark['earlier']['answered_on']} · from the Guide's citations"
     # The note never repeats the statement (details on demand: "Open").
     assert _DIAGNOSED not in mark["note"]
     assert pending_plan is not None
+
+
+# -- "Open" shows the earlier work: the learner's own answer (review F7) -------------------------
+
+
+def _attempt(repository: Repository, *, attempt_id: str, answer: str | None) -> None:
+    repository.insert_practice_attempt({
+        "id": attempt_id, "practice_item_id": "pi_svd_define_001", "learning_object_id": "lo_svd_definition",
+        "subject": "linear-algebra", "concept": "singular_value_decomposition", "practice_mode": "short_answer",
+        "attempt_type": "independent_attempt", "learner_answer_md": answer, "evidence_facets": ["recall"],
+        "evidence_weights": {"recall": 1.0}, "rubric_score": 1, "correctness": 0.25, "confidence": 3,
+        "latency_seconds": 30, "hints_used": 0, "error_type": "conceptual_slip", "grader_confidence": 1.0,
+        "created_at": NOW_ISO, "updated_at": NOW_ISO,
+    })
+
+
+def test_open_carries_the_cited_attempts_answer_in_the_learners_words(tmp_path):
+    _root, vault, repository = _cue_vault(tmp_path, error=False)
+    answer = "SVD is just the eigendecomposition.\n\nSo Sigma holds the eigenvalues."
+    _attempt(repository, attempt_id="att-svd", answer=answer)
+    _active_error(repository, attempt_id="att-svd")
+    _plan, cues = _plan_and_cues(vault, repository)
+    assert cues["marks"]
+    for mark in cues["marks"]:
+        earlier = mark["earlier"]
+        assert earlier["attempt_id"] == "att-svd"
+        # Verbatim, line breaks kept: the learner's voice, not a summary.
+        assert earlier["answer"] == answer
+        # Never in the note or the "because" line (details on demand).
+        assert "eigendecomposition" not in mark["note"] + mark["because"] + mark["label"]
+
+
+def test_a_long_answer_is_clipped_and_an_error_without_an_attempt_has_none(tmp_path):
+    _root, vault, repository = _cue_vault(tmp_path, error=False)
+    _attempt(repository, attempt_id="att-long", answer="word " * 400)
+    _active_error(repository, attempt_id="att-long")
+    _plan, cues = _plan_and_cues(vault, repository)
+    clipped = cues["marks"][0]["earlier"]["answer"]
+    assert clipped.endswith("…") and len(clipped) <= RCU.MAX_ANSWER_CHARS
+    _root2, vault2, repository2 = _cue_vault(tmp_path / "bare")
+    _plan2, bare = _plan_and_cues(vault2, repository2)
+    assert bare["marks"] and all(mark["earlier"]["answer"] is None for mark in bare["marks"])
 
 
 # -- taps: events and learner_card verdicts ------------------------------------------------------

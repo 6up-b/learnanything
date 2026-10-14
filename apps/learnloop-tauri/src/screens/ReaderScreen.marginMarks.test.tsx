@@ -48,6 +48,7 @@ const view: ReaderRenderViewDto = {
 const card = { sourceId: view.sourceId, title: "Probability", canonicalUri: "book.pdf", readiness: "ready", readerEnabled: true } as SourceLibraryCard;
 const source = vi.hoisted(() => ({ card: null as unknown }));
 const STATEMENT = "The learner reads a density value as a probability.";
+const ANSWER = "Yes: f(0.5) = 2 means it happens twice as often.";
 
 function cue(spanId: string, rank: number): ReaderCueDto {
   const note = "Connects to something you worked on: Densities.";
@@ -57,7 +58,7 @@ function cue(spanId: string, rank: number): ReaderCueDto {
     learningObjectTitle: "Densities", targetId: "err_1", rank, sectionRank: rank, note, because,
     label: `Note on this paragraph: ${note} ${because}`,
     earlier: {
-      attemptId: "att_1", practiceItemId: "pi_density", prompt: "Is f(0.5) = 2 a probability?",
+      attemptId: "att_1", practiceItemId: "pi_density", prompt: "Is f(0.5) = 2 a probability?", answer: ANSWER,
       answeredAt: "2026-10-02T09:00:00Z", answeredOn: "2 Oct", statement: STATEMENT, statementPending: false,
     },
   };
@@ -234,8 +235,13 @@ it("Enter opens the popover; open shows the earlier work, the model's reading in
   fireEvent.click(within(popover).getByRole("button", { name: "open · what you worked on" }));
   expect(within(popover).getByText("You answered a question on this on 2 Oct.")).toBeTruthy();
   expect(within(popover).getByText(/the question: “Is f\(0.5\) = 2 a probability\?”/)).toBeTruthy();
+  // The cited attempt itself: the learner's own answer, in the learner's voice (review F7).
+  const learner = popover.querySelector("[data-voice='learner']");
+  expect(learner?.textContent).toContain(ANSWER);
+  expect(learner?.textContent).toContain("your answer");
   const voice = popover.querySelector("[data-voice='model']");
   expect(voice?.textContent).toContain(STATEMENT);
+  expect(voice?.textContent).not.toContain(ANSWER);
   await waitFor(() => expect(api.readerCueAction).toHaveBeenCalledWith({ extractionId: view.extractionId, cueId: "cue_b1", action: "opened", text: null }));
   // Esc closes it and returns focus to the mark.
   fireEvent.keyDown(popover, { key: "Escape" });
@@ -340,18 +346,84 @@ it("check me says so plainly when nothing fits, and is absent when the shell can
   expect(within(screen.getByRole("group", { name: "this margin note" })).queryByRole("button", { name: /^check me/ })).toBeNull();
 });
 
-it("each mark shown counts once per visit in the funnel, with no learner-facing words", async () => {
-  TOPS.b4 = 900;
-  const { unmount } = openReader();
-  await findMark("b1");
-  await waitFor(() => expect(markFor("b4")).not.toBeNull());
-  unmount();
-  flushReaderActivity();
-  const events = api.readerLogActivity.mock.calls.flatMap((call) => call[0].events as Array<{ event?: string; payload: Record<string, unknown> }>);
-  const shown = events.filter((event) => event.event === "cue_shown");
-  expect(shown.map((event) => event.payload.cue_id).sort()).toEqual(["cue_b1", "cue_b4"]);
-  expect(shown[0].payload).toMatchObject({ element: "margin_mark", cue_kind: "revisit", density: "normal" });
-  expect(JSON.stringify(shown)).not.toContain("Connects to");
+it("a mark counts once per visit when it comes into view, never because it was placed, with no learner-facing words", async () => {
+  // Review F6: the funnel's "marks shown" is what the learner saw. The webview
+  // reports a mark's visibility; jsdom has no layout, so this stands in for it.
+  const observers: Array<{ callback: IntersectionObserverCallback; nodes: Element[] }> = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    private entry: { callback: IntersectionObserverCallback; nodes: Element[] };
+    constructor(callback: IntersectionObserverCallback) {
+      this.entry = { callback, nodes: [] };
+      observers.push(this.entry);
+    }
+    observe(node: Element) {
+      this.entry.nodes.push(node);
+    }
+    unobserve(node: Element) {
+      this.entry.nodes = this.entry.nodes.filter((entry) => entry !== node);
+    }
+    disconnect() {
+      this.entry.nodes = [];
+    }
+  });
+  const inView = (spanId: string, visible: boolean) => act(() => {
+    for (const observer of observers) {
+      for (const node of observer.nodes) {
+        if (node.getAttribute("data-cue-span") !== spanId) continue;
+        observer.callback(
+          [{ isIntersecting: visible, intersectionRatio: visible ? 1 : 0, target: node } as unknown as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      }
+    }
+  });
+  const shownIds = () => {
+    flushReaderActivity();
+    return api.readerLogActivity.mock.calls
+      .flatMap((call) => call[0].events as Array<{ event?: string; payload: Record<string, unknown> }>)
+      .filter((event) => event.event === "cue_shown");
+  };
+  try {
+    TOPS.b4 = 900;
+    const { unmount } = openReader();
+    await findMark("b1");
+    await waitFor(() => expect(markFor("b4")).not.toBeNull());
+    // Both marks are placed, but on opening only b1 is in the reading area.
+    inView("b1", true);
+    inView("b4", false);
+    expect(shownIds().map((event) => event.payload.cue_id)).toEqual(["cue_b1"]);
+    // Reading on brings b4 into view: counted once; b1 again adds nothing.
+    inView("b4", true);
+    inView("b1", true);
+    inView("b4", true);
+    unmount();
+    const shown = shownIds();
+    expect(shown.map((event) => event.payload.cue_id).sort()).toEqual(["cue_b1", "cue_b4"]);
+    expect(shown[0].payload).toMatchObject({ element: "margin_mark", cue_kind: "revisit", density: "normal" });
+    expect(JSON.stringify(shown)).not.toContain("Connects to");
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it("a mark the learner never scrolled to is never counted shown", async () => {
+  vi.stubGlobal("IntersectionObserver", class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  });
+  try {
+    TOPS.b4 = 900;
+    const { unmount } = openReader();
+    await findMark("b1");
+    await waitFor(() => expect(markFor("b4")).not.toBeNull());
+    unmount();
+    flushReaderActivity();
+    const events = api.readerLogActivity.mock.calls.flatMap((call) => call[0].events as Array<{ event?: string }>);
+    expect(events.filter((event) => event.event === "cue_shown")).toEqual([]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 it("switched off (no cues in the plan): no marks and no density control", async () => {

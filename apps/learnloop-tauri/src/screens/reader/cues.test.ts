@@ -7,7 +7,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import type { ReaderCueDto } from "../../api/dto";
-import { CUE_COPY, CUE_DENSITIES, DENSITY_BUDGET, pdfPassageTop, placeCueMarks, stepDown, stepMark } from "./cues";
+import {
+  CUE_COPY, CUE_DENSITIES, DENSITY_BUDGET, PDF_LEFT_OUT_LINE_PX, PDF_PAGE_GAP_PX, pdfPageTops, pdfPassageTop, placeCueMarks,
+  stepDown, stepMark, type PdfPageLayout,
+} from "./cues";
 
 function cue(spanId: string, rank: number): ReaderCueDto {
   return {
@@ -15,7 +18,7 @@ function cue(spanId: string, rank: number): ReaderCueDto {
     targetId: "err", rank, sectionRank: rank, note: "Connects to something you worked on: Densities.",
     because: "Because: your answer on 2 Oct · from the Guide's citations",
     label: "Note on this paragraph: Connects to something you worked on: Densities. Because: your answer on 2 Oct · from the Guide's citations",
-    earlier: { attemptId: null, practiceItemId: null, prompt: null, answeredAt: null, answeredOn: "2 Oct", statement: null, statementPending: false },
+    earlier: { attemptId: null, practiceItemId: null, prompt: null, answer: null, answeredAt: null, answeredOn: "2 Oct", statement: null, statementPending: false },
   };
 }
 
@@ -79,11 +82,45 @@ it("Alt+↓ / Alt+↑ step through the drawn marks in reading order", () => {
   expect(stepMark(0, -1, 1)).toBeNull();
 });
 
-it("the original's spacing models letter pages at the pane's width, never what has been drawn", () => {
-  const width = 612;
-  expect(pdfPassageTop(0, 100, width)).toBe(100);
-  expect(pdfPassageTop(1, 100, width)).toBe(792 + 14 + 100);
-  expect(pdfPassageTop(1, 100, width * 2)).toBe(2 * (792 + 100) + 14);
+// The original's spacing (review F5): each page's own size, loaded with the
+// document (never from what has been drawn), at the pane's width, with the
+// pane's gap between pages and its "pages left out" line.
+const LETTER = { widthPoints: 612, heightPoints: 792 };
+const LANDSCAPE = { widthPoints: 792, heightPoints: 612 };
+const A4 = { widthPoints: 595, heightPoints: 842 };
+
+it("the original's spacing: consecutive landscape pages are closer than a letter-page model says", () => {
+  const layout: PdfPageLayout = { widthPx: 600, pages: [{ page: 0, ...LANDSCAPE }, { page: 1, ...LANDSCAPE }] };
+  const tops = pdfPageTops(layout);
+  const first = pdfPassageTop(tops, 0, 100) as number;
+  const second = pdfPassageTop(tops, 1, 100) as number;
+  // A landscape letter page drawn 600px wide is 463.6px tall: the marks are ~478px apart.
+  expect(second - first).toBeCloseTo(612 * (600 / 792) + PDF_PAGE_GAP_PX, 6);
+  expect(second - first).toBeLessThan(600);
+  // So in a 600px reading area they share a screenful: only the higher-ranked is drawn.
+  const placed = placeCueMarks({
+    ...base, viewportHeight: 600, marks: [cue("p0", 0), cue("p1", 1)],
+    positionOf: (spanId) => pdfPassageTop(tops, spanId === "p0" ? 0 : 1, 100),
+  });
+  expect(placed.shown.map((entry) => entry.spanId)).toEqual(["p0"]);
+  expect(placed.suppressed.map((entry) => entry.reason)).toEqual(["spacing"]);
+});
+
+it("the original's spacing: mixed page sizes add up page by page, each at its own scale", () => {
+  const layout: PdfPageLayout = {
+    widthPx: 612,
+    pages: [{ page: 0, ...LETTER }, { page: 1, ...LANDSCAPE }, { page: 2, ...A4 }, { page: 5, ...LETTER, leftOutBefore: true }],
+  };
+  const tops = pdfPageTops(layout);
+  const landscapeHeight = 612 * (612 / 792);
+  const a4Height = 842 * (612 / 595);
+  expect(pdfPassageTop(tops, 0, 100)).toBeCloseTo(100, 6);
+  expect(pdfPassageTop(tops, 1, 100)).toBeCloseTo(792 + PDF_PAGE_GAP_PX + 100 * (612 / 792), 6);
+  expect(pdfPassageTop(tops, 2, 100)).toBeCloseTo(792 + landscapeHeight + 2 * PDF_PAGE_GAP_PX + 100 * (612 / 595), 6);
+  // Pages 3-4 are not in the extraction: the pane's "pages left out" line sits above page 5.
+  expect(pdfPassageTop(tops, 5, 0)).toBeCloseTo(792 + landscapeHeight + a4Height + 3 * PDF_PAGE_GAP_PX + PDF_LEFT_OUT_LINE_PX, 6);
+  // A page the pane does not show (or whose size is not known yet) has no place.
+  expect(pdfPassageTop(tops, 3, 100)).toBeNull();
 });
 
 // Trait words, and about the learner's work, verdict words (spec G16, UX U6);
