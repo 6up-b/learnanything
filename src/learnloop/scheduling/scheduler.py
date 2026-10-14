@@ -66,6 +66,13 @@ class SchedulerSession:
     session_id: str | None = None
     available_minutes: int | None = None
     energy: str | None = None
+    #: Whether the build may apply the seeded epsilon tie-break (router R1's
+    #: ``scheduler_seeded_exploration``). False makes the build greedy, and its
+    #: logged design probabilities say so (one on the head), as a build with no
+    #: session does. The daily plan turns it off where the router composes
+    #: Today (``daily_plan.engine.plan_scheduler_session``): staged plans are
+    #: deterministic, and the router's only exploration is the mixture's floor.
+    seeded_exploration: bool = True
 
 
 @dataclass(frozen=True)
@@ -1128,8 +1135,9 @@ def _exploration_support(
 ) -> tuple[float, list[ScheduledItem]] | None:
     """The seeded epsilon tie-break's design: ``(rate, near-tie alternatives)``.
 
-    ``None`` means the build is greedy: exploration is off, there is no session
-    to seed it, a single candidate, no alternative within the reward window,
+    ``None`` means the build is greedy: exploration is off (its rate, or the
+    session's ``seeded_exploration``), there is no session to seed it, a single
+    candidate, no alternative within the reward window,
     or (below the probe-tie successor) a PROBE-intent best. Before ``mvp-0.15``
     PROBE-intent items (in-episode diagnostic probes and teach-backs) are never
     displaced and never explored to; at ``mvp-0.15`` with
@@ -1138,7 +1146,7 @@ def _exploration_support(
     """
 
     rate = clamp(config.scheduler.selection_exploration_rate)
-    if rate <= 0 or session.session_id is None or len(queue) < 2:
+    if rate <= 0 or session.session_id is None or not session.seeded_exploration or len(queue) < 2:
         return None
     admit_probes = probe_ties_admitted(config)
     best = queue[0]

@@ -36,7 +36,7 @@ import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from learnloop.algorithm_versions import DAILY_PLAN_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
@@ -95,6 +95,9 @@ from learnloop.daily_plan.types import (
 from learnloop.db.stores import daily_plans as store
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import log_plan_block_decision
+
+if TYPE_CHECKING:
+    from learnloop.scheduling.scheduler import SchedulerSession
 
 _EPS = 1e-6
 ENGINE_VERSION = "daily_plan_v1"
@@ -229,6 +232,44 @@ DEFAULT_POLICY = PlanPolicy(source_name=SOURCE_NAME, chooser=LaneQuotaChooser(),
 EligibleBuilder = Callable[[float], Sequence[Any]]
 
 
+def plan_scheduler_session(vault: Any, session_id: str | None, minutes: float) -> SchedulerSession:
+    """The scheduler session a plan's pool is built under (every plan build).
+
+    The pool is the scheduler's ranked list, and its order is the plan's: the
+    lanes group it, the blocks pack it, and ``planner_value`` (the chooser's
+    tie-break) is its rank. The scheduler's seeded exploration (router R1's
+    ``scheduler_seeded_exploration``, hashed from the session id and the UTC
+    date) would move a near-tie to the front of that list, so a plan would
+    depend on which session asked for it while its ``plan_block`` decision
+    logs a deterministic choice (propensity one).
+
+    Owner rule (2026-10-13): staged plans are deterministic; the router's
+    exploration comes only from the mixture's logged floor. So where the
+    router composes Today (:func:`learnloop.daily_plan.policy.router_active`:
+    ``mvp-0.23`` or later with ``router.enabled``) the pool is the scheduler's
+    greedy order (``seeded_exploration`` off), and the same vault state plans
+    the same blocks whatever the session. That order's tie-break is stable:
+    selection reward, then priority (both descending), then the practice item
+    id; then placement's new-material order and the build's composition, whose
+    one session-seeded step is a recorded measurement design, not exploration
+    (a contrast pair's member order, Meas §3.A4, logged per session and pair).
+
+    DL1's own pair (below ``mvp-0.23``, or the router switched off) keeps the
+    scheduler's draw exactly as before (G8: the switch off equals
+    ``mvp-0.22``). Only future builds change: replay never reads a plan
+    (migration 180), and a logged plan keeps its blocks.
+    """
+
+    from learnloop.daily_plan.policy import router_active  # policy imports this module
+    from learnloop.scheduling.scheduler import SchedulerSession
+
+    return SchedulerSession(
+        session_id=session_id,
+        available_minutes=int(round(minutes)),
+        seeded_exploration=not router_active(vault),
+    )
+
+
 @dataclass
 class PlanEnv:
     vault: Any
@@ -265,13 +306,13 @@ class PlanEnv:
     def build_eligible(self, minutes: float) -> list[Any]:
         if self.eligible is not None:
             return list(self.eligible(minutes))
-        from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+        from learnloop.scheduling.scheduler import build_due_queue
 
         return build_due_queue(
             self.vault,
             self.repository,
             clock=self.clock,
-            session=SchedulerSession(session_id=self.session_id, available_minutes=int(round(minutes))),
+            session=plan_scheduler_session(self.vault, self.session_id, minutes),
             limit=None,
         )
 
@@ -2880,6 +2921,7 @@ __all__ = [
     "more_new",
     "note_reading_progress",
     "plan_active",
+    "plan_scheduler_session",
     "reading_from_furthest_active",
     "reading_ended",
     "reconcile",
