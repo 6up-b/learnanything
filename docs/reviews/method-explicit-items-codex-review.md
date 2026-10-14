@@ -299,3 +299,190 @@ the final tree.
 | `validate_vault.py` | passed (1,099 notes) |
 | CLI help snapshot | regenerated (`grading method-phrasing` only) |
 | Frontend and cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+
+## Re-review (Codex, 2026-10-13)
+
+Codex re-reviewed `39c370ef6..164c77990` read-only (job
+`20261013-220458-juQEy5`, no paid calls, suite not run there). Verdict:
+REOPENED. It reopened F1 and F2 and raised F9, F10 and F11. This section
+covers the fix step for those findings.
+
+Every finding reproduced with a failing test and was fixed. None was
+rejected. Part of the fix had been written by a fix run that crashed before
+it committed. That work was checked against the findings, reproduced (below),
+and corrected where probing found new misreadings (F2) and one over-plan
+(F11) before it was committed.
+
+### Commits
+
+| Commit | What |
+|---|---|
+| `d3af07fb9` | F1: a method-explicit regrade reads its whole assessment contract |
+| `88268b7c9` | F2, F9, F10: instructions, not descriptions or formatting; contradicting variants refused |
+| `c3c43fb30` | F11: the dry run prices every writer the run may select |
+| `4404cc10f` | regenerated architecture references (moved source-line citations only) |
+| `5294d2674` | the playbook and `Algorithm Versions and Reproducibility.md` state F1's rule |
+| (this commit) | this record |
+
+Counts (`git diff --numstat 164c77990`): `src/` +460 / −66, `tests/` +344 /
+−1. No migration, no new table, no schema, configuration or CLI change,
+nothing under `apps/learnloop-tauri`.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test, or reason |
+|---|---|---|---|---|---|
+| F1 | High | Regrades combine the frozen method with the current prompt and rubric | fixed | `d3af07fb9` | `tests/test_required_method_grading.py`: `test_a_regrade_grades_the_statement_and_rubric_its_method_was_frozen_with` (the reviewer's scenario: the current statement changed to "Use row reduction", the method criterion edited), `test_a_regrade_never_acquires_a_required_method_added_after_the_answer` (now also checks the statement the grader sees), `test_every_other_regrade_still_reads_the_item_as_it_is_now[kill_switch, no_method]` |
+| F2 | High | Descriptions and "not required to use" still read as requirements | fixed | `88268b7c9` | `tests/test_required_method_items.py`: `test_rereview_an_instruction_is_read_through_descriptions_negations_and_formatting` (31 statements, including both of the reviewer's), `test_rereview_instructions_beyond_the_imperative_list_and_descriptions_with_math` (20 statements), `test_rereview_source_normalization_and_grading_read_the_instruction_not_its_formatting` |
+| F9 | Medium | Formatting drops an explicit source requirement | fixed | `88268b7c9` | the same 31-statement test (7 formatted statements) and the source-normalization-and-grading test (the reviewer's statement, through `normalize_required_method(source_statement=True)`, the grader's `required_method_policy` and doctor) |
+| F10 | Medium | Variant normalization appends a contradictory instruction | fixed | `88268b7c9` | `test_rereview_a_contradicting_variant_gains_no_instruction_and_is_never_published` (the reviewer's stem), `test_rereview_publication_rejects_a_selected_variant_that_contradicts_the_parents_method` (end to end through `publish_backlog`) |
+| F11 | Medium | The dry run omits the configured fallback writer | fixed | `c3c43fb30` | `tests/test_method_phrasing_report.py`: `test_f11_the_dry_run_prices_the_configured_fallback_writer[unset, decider]` (refused without a price; with one, inside the bound; the run really selects it when Codex is missing), `test_f11_an_explicit_chat_route_or_an_env_override_has_no_fallback_writer`, `test_f11_an_unset_route_without_a_serving_provider_reaches_no_fallback` |
+
+### The fixes
+
+**F1.** The method, the statement that required it, and the rubric whose
+criteria it lists form one assessment contract. A regrade now reads all
+three from it.
+
+- **Which contract.** `attempts.attempts.attempt_graded_contract` returns
+  the contract the attempt's evidence rows cite, superseded rows included.
+  It replaces `attempt_required_method`, which was removed as unused.
+- **When.** `regrade_reads_contract` is true only while the required-method
+  rules are on (`method_rules_active`) and the contract froze a method or
+  the item has one now. In that case `regrade_attempt` builds the grading
+  context from the contract's prompt and expected answer, uses
+  `rubric_from_contract`, and passes the frozen method to the policy. The
+  policy guard therefore reads the statement the learner answered.
+- **Replay.** The new evidence rows cite that contract
+  (`assessment_contract_version_id`), so replay reads the same criteria.
+- **Everything else unchanged.** Every other regrade, and every regrade
+  with the kill switch off, reads the item as it is now (canonical sources
+  §7.3a; mvp-0.20 exactly). This supersedes the earlier "Not changed" note
+  on the regrade prompt, for required-method items only.
+
+**F2.** A requirement verb counts only inside an instruction to the learner
+(`_requires_here`, `_instructs`). The clause's main part, its first comma
+segment that is neither a fronted adverbial or condition nor bare math, must
+open with one of these:
+
+- an imperative from the list, now broadened;
+- a verb missing from the list followed by its object or by nothing ("Tabulate
+  the values by X", "Proceed by X"), unless it is a determiner, pronoun,
+  auxiliary, preposition or discourse word ("Note", "Recall", "Earlier");
+- an address to the learner ("You must", "Your answer should", "Your task is
+  to").
+
+The following read as `mentioned`:
+
+- **Third-person verbs.** "The worked example uses X" counts only in a
+  relative clause on the learner's work ("Write a proof that uses X").
+- **A subject before a base-form verb.** "In the worked example, we use X".
+- **A participle before "by" or "using".** "the value obtained by X".
+- **Subordinate clauses.** "..., which the example finds by X", "Explain
+  how to use X", "Decide whether to use X".
+- **Fronted conditions.** "If using X, ...", "When using X, ...".
+
+"Determine whether S is a basis by X" still instructs. Negations now
+include "not required, necessary, needed, expected or obliged to use", "no
+need to use", "do not need to" and "don't have to".
+
+**Probe against regressions.** Before committing, 99 realistic phrasings were
+compared with `164c77990`. The crashed run's version had dropped explicit
+instructions whose verb was not on its list: "Proceed by induction" (also
+misread as a participle), "Fit the model using least squares" and "Rank the
+matrix using row echelon form". It also still read "The worked example
+solves Ax = b by Gaussian elimination" as required, because any segment with
+`=` counted as math. All of these are fixed and pinned by the 20-statement
+test. On the final tree 14 of the 99 readings differ from `164c77990`; each
+is a description, conditional or "whether to" now read as a mention.
+
+The rule stays conservative: ambiguous text is read as a mention, not a
+requirement.
+
+**F9.** `_plain_text` removes inline formatting before the statement and the
+method name are read:
+
+- Markdown emphasis, code spans and strike-through;
+- links, keeping their text;
+- simple HTML tags;
+- LaTeX text macros such as `\textbf{...}` and `\emph{...}`.
+
+Source normalization, the grader's guard and doctor all read through
+`method_statement`, so a formatted explicit instruction keeps its
+requirement. The statement itself is never rewritten.
+
+**F10.** `inherit_required_method` no longer appends the instruction to a
+stem that contradicts the method (negated or optional). It returns
+`VARIANT_CONTRADICTS_METHOD` instead. `ops.pf_publish.build_item_payload`
+raises `VariantContradictsRequiredMethod`, a `PublishRefused`. Publication
+then:
+
+- ledgers a `refuse_contradicts_required_method` verdict;
+- rejects the candidate (`rejection_filter = required_method_contradicted`)
+  so a later run regenerates it;
+- counts it as `refused_candidates` in `publish_selected` and in the PF run
+  report (`refused`).
+
+**F11.** `writer_names` lists every chat profile a run may write with, in
+the order `_ready_writer` tries them:
+
+- the primary;
+- then `ai.fallback_provider`, exactly where the run falls back to it. That
+  is a route naming a decider, or an unset route with a serving provider and
+  no `LEARNLOOP_AI_PROVIDER` override, as `fallback_provider_for` resolves.
+
+There is no fallback writer for a route naming a chat profile, an
+environment override, or an empty or `manual` serving provider. The last
+case was an over-plan in the crashed run's version, now fixed.
+
+`plan_dry_run` prices each writer step on every such writer:
+
+- the fallback is labelled `fallback_for` the primary;
+- an unknown metered price on any writer is refused;
+- a step is bounded by its dearest writer, since only one of them runs.
+
+### Fail-first
+
+`164c77990`'s `src` was exported to `fixtures-local/tmp/base_164c77990`.
+`migrations` and the two gold fixture directories were linked in; no tracked
+vault was linked. The four changed test files ran against the export
+(`pytest -o pythonpath=<export>/src`).
+
+**Result on the export: 32 failed, 116 passed, 1 collection error.**
+
+| Finding | Failing tests |
+|---|---|
+| F1 | 2 |
+| F2 | 20 (5 negations, 8 of the 31 descriptions, 7 of the 20 descriptions and conditions) |
+| F9 | 7 formatted statements |
+| F2 + F9 | 1 (the source-normalization-and-grading test) |
+| F10 | 2 |
+| F11 | the collection error: `test_method_phrasing_report.py` imports `writer_names`, which the export lacks |
+
+Earlier in the step, before that import existed, the two F11 pricing tests
+failed behaviourally against `164c77990`'s `src`. The 13 `required`
+statements of the 20-statement test (the instructions the crashed run's
+version dropped, and their neighbours) pass on the export, as they should.
+Every test passes on the fixed tree.
+
+### Live check
+
+Not run. Every finding is deterministic: statement reading, regrade context,
+publication and dry-run planning. None needs a model call to show it fixed,
+so no paid calls were made.
+
+### Gate (re-review)
+
+Run on the tree at `5294d2674` (the later commit is this record only), with
+`TMPDIR` set to the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10,467 passed**, 0 failed (8 min 18 s) |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10,368 deselected |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors** (only source-line citations and source-commit stamps moved) |
+| `validate_vault.py` | passed (1,099 notes) |
+| CLI help snapshot | unchanged (no CLI change) |
+| Frontend and cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
