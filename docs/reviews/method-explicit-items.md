@@ -11,6 +11,13 @@ to 199, head fixture `migration_head_199`).
 > textbook statement or a PF variant's stem is judged once (Decider, else
 > the LLM judge, ledgered). See "Redesign" in
 > `docs/reviews/method-explicit-items-codex-review.md`.
+>
+> **Second review (2026-10-14).** The canonical sentence is now the
+> writer's own final paragraph (a quoted sentence never counts). A decided
+> source statement is never rewritten through a proposal. A frozen regrade
+> binds the revision it graded. Owner overrides are ledgered, and a failed
+> PF judgment leaves its job retryable. See
+> `docs/reviews/method-explicit-2-codex-review.md`.
 
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor
