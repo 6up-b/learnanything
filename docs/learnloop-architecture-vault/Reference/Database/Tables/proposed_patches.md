@@ -3,8 +3,8 @@ title: "proposed_patches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dd262244835b0474e467e945ae11fd20886e9480"
-source_commit_timestamp: "2026-10-13T17:13:37-04:00"
+source_commit: "64297af461b89fbcd4dbee68204f1bb7e65c3ef6"
+source_commit_timestamp: "2026-10-13T20:01:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patches"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
-  - "src/learnloop/content/proposals/patches.py"
+  - "src/learnloop/content/proposals/method_phrasing.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -101,6 +101,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/proposals/apply_protocol.py`
+- `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/source_append.py`
@@ -121,6 +122,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_method_phrasing_report.py`
 - `tests/test_migrations.py`
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
@@ -140,7 +142,6 @@ Indexes and uniqueness:
 - `tests/test_proposal_persistence.py`
 - `tests/test_reader_progression.py`
 - `tests/test_repositories.py`
-- `tests/test_self_attributed_misconceptions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

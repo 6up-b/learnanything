@@ -3,8 +3,8 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dd262244835b0474e467e945ae11fd20886e9480"
-source_commit_timestamp: "2026-10-13T17:13:37-04:00"
+source_commit: "64297af461b89fbcd4dbee68204f1bb7e65c3ef6"
+source_commit_timestamp: "2026-10-13T20:01:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_mvp017_route_check_replay.py`
+- `tests/test_required_method_grading.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

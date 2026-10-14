@@ -3,8 +3,8 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "dd262244835b0474e467e945ae11fd20886e9480"
-source_commit_timestamp: "2026-10-13T17:13:37-04:00"
+source_commit: "64297af461b89fbcd4dbee68204f1bb7e65c3ef6"
+source_commit_timestamp: "2026-10-13T20:01:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/regrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
+- `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/content/synthesis/source_append.py`
@@ -136,7 +137,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/tutor/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
