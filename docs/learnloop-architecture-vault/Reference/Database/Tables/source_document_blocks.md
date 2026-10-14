@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "0fa0ec1b46c210a01cbe5f1a8fe23f1c53d0a3d7"
+source_commit_timestamp: "2026-10-13T23:11:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/source_retrieval/evaluation.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -110,6 +111,7 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/source_retrieval/evaluation.py`
 
 ### Direct SQL writers
 
@@ -151,6 +153,7 @@ Database triggers:
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_sources_merge_composition.py`
+- `tests/test_tutor_delivery_fixes.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_facet_authority_review.py`
@@ -162,7 +165,6 @@ Database triggers:
 - `tests/test_reading_hardening_landing.py`
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
-- `tests/test_sidecar_span_view.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

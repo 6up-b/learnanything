@@ -3,8 +3,8 @@ title: "Config - stuck_prompt"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "0fa0ec1b46c210a01cbe5f1a8fe23f1c53d0a3d7"
+source_commit_timestamp: "2026-10-13T23:11:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml stuck_prompt"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1782`; `src/learnloop/attempts/stuck.py:81` |
+| `stuck_prompt.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for mvp-0.13's "I'm stuck" control (write what you can, or what's confusing you). On, a stuck answer is an ordinary attempt at the standard mass: graded and diagnosed when it has text, scored 0 with no model call and no error tag when empty. Off, an mvp-0.13 vault shows "I don't know" and records dont_know exactly as mvp-0.12. Dormant below mvp-0.13; replay reads practice_attempts.declared_stuck, never this switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1794`; `src/learnloop/attempts/stuck.py:81` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

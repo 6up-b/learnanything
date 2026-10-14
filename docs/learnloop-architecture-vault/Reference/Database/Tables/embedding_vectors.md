@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e5f880778229bb853669834ba9ee8bf18169b2b4"
-source_commit_timestamp: "2026-10-13T20:34:32-04:00"
+source_commit: "0fa0ec1b46c210a01cbe5f1a8fe23f1c53d0a3d7"
+source_commit_timestamp: "2026-10-13T23:11:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -129,6 +129,7 @@ None found by exact static reference scan.
 - `tests/test_practice_index_find.py`
 - `tests/test_source_retrieval_search.py`
 - `tests/test_source_retrieval_suites.py`
+- `tests/test_source_vector_backfill.py`
 - `tests/test_success_head_cli.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
