@@ -1080,7 +1080,7 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "ingest.pdf.glm_ocr.max_pages_per_request": "Largest page window per GLM-OCR request (1-30; the hosted service reads at most 30 pages).",
     "ingest.pdf.glm_ocr.price_per_million_tokens": (
         "USD per million GLM-OCR tokens, input and output alike, for receipts, the automatic-build "
-        "daily guard and import previews (6,000 tokens a page estimated); no per-file money cap."
+        "daily guard and import previews (3,500 tokens a page estimated); no per-file money cap."
     ),
     "ingest.pdf.glm_ocr.base64_style": "How the file is sent to the hosted API: a data URI (documented) or bare base64.",
     "ai.routing.embedding": (

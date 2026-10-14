@@ -1,0 +1,269 @@
+{
+ "created": 1760000000,
+ "data_info": {
+  "num_pages": 2,
+  "pages": [
+   {
+    "height": 2640,
+    "width": 2040
+   },
+   {
+    "height": 2640,
+    "width": 2040
+   }
+  ]
+ },
+ "id": "synthetic-book-window",
+ "layout_details": [
+  [
+   {
+    "bbox_2d": [
+     400,
+     100,
+     1640,
+     240
+    ],
+    "height": 2640,
+    "index": 0,
+    "label": "text",
+    "native_label": "doc_title",
+    "width": 2040,
+    "content": "<div align=\"center\">\n\n# Chapter 1 Vector Things\n\n</div>"
+   },
+   {
+    "bbox_2d": [
+     300,
+     300,
+     1200,
+     350
+    ],
+    "height": 2640,
+    "index": 1,
+    "label": "text",
+    "native_label": "paragraph_title",
+    "width": 2040,
+    "content": "## 1A Lists and Tuples"
+   },
+   {
+    "bbox_2d": [
+     300,
+     380,
+     1740,
+     440
+    ],
+    "height": 2640,
+    "index": 2,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "We study lists of things here."
+   },
+   {
+    "bbox_2d": [
+     300,
+     480,
+     900,
+     530
+    ],
+    "height": 2640,
+    "index": 3,
+    "label": "text",
+    "native_label": "paragraph_title",
+    "width": 2040,
+    "content": "## Odd Things"
+   },
+   {
+    "bbox_2d": [
+     300,
+     560,
+     1740,
+     700
+    ],
+    "height": 2640,
+    "index": 4,
+    "label": "text",
+    "native_label": "algorithm",
+    "width": 2040,
+    "content": "1. 11 definition: $ \\mathbf{T}^{n} $, tuple\n\nA tuple is a list of length $ n $ of things."
+   },
+   {
+    "bbox_2d": [
+     300,
+     720,
+     1400,
+     770
+    ],
+    "height": 2640,
+    "index": 5,
+    "label": "text",
+    "native_label": "paragraph_title",
+    "width": 2040,
+    "content": "## 1.4 example: commuting things"
+   },
+   {
+    "bbox_2d": [
+     300,
+     800,
+     500,
+     840
+    ],
+    "height": 2640,
+    "index": 6,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "1. 39"
+   },
+   {
+    "bbox_2d": [
+     300,
+     860,
+     1740,
+     960
+    ],
+    "height": 2640,
+    "index": 7,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "1. 4.11 (Naming items). Picking a few items from a pile is a common chore."
+   },
+   {
+    "bbox_2d": [
+     700,
+     1000,
+     1300,
+     1080
+    ],
+    "height": 2640,
+    "index": 8,
+    "label": "formula",
+    "native_label": "display_formula",
+    "width": 2040,
+    "content": "$$\nx ^ {2} + y ^ {2} = 1\n$$"
+   },
+   {
+    "bbox_2d": [
+     300,
+     1120,
+     1740,
+     1220
+    ],
+    "height": 2640,
+    "index": 9,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "There are three prizes worth $1, $2, and $3. A ticket costs $5 and pays $10 if $ x > 2 $ holds."
+   },
+   {
+    "bbox_2d": [
+     300,
+     1260,
+     1200,
+     1340
+    ],
+    "height": 2640,
+    "index": 10,
+    "label": "text",
+    "native_label": "algorithm",
+    "width": 2040,
+    "content": "m <- 12; j <- 4\n\nsample(m,j)"
+   },
+   {
+    "bbox_2d": [
+     600,
+     1380,
+     1440,
+     1900
+    ],
+    "height": 2640,
+    "index": 11,
+    "label": "image",
+    "native_label": "image",
+    "width": 2040
+   },
+   {
+    "bbox_2d": [
+     500,
+     1920,
+     1540,
+     1980
+    ],
+    "height": 2640,
+    "index": 12,
+    "label": "text",
+    "native_label": "figure_title",
+    "width": 2040,
+    "content": "<div align=\"center\">\n\nFig. 2. Two invented arrows.\n\n</div>"
+   },
+   {
+    "bbox_2d": [
+     500,
+     1990,
+     1540,
+     2030
+    ],
+    "height": 2640,
+    "index": 13,
+    "label": "text",
+    "native_label": "vision_footnote",
+    "width": 2040,
+    "content": "Photo credit: An Invented Person CC BY-SA"
+   },
+   {
+    "bbox_2d": [
+     300,
+     2060,
+     1740,
+     2150
+    ],
+    "height": 2640,
+    "index": 14,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "Thus every tuple has a length."
+   }
+  ],
+  [
+   {
+    "bbox_2d": [
+     300,
+     100,
+     900,
+     150
+    ],
+    "height": 2640,
+    "index": 0,
+    "label": "text",
+    "native_label": "paragraph_title",
+    "width": 2040,
+    "content": "## Exercises 1A"
+   },
+   {
+    "bbox_2d": [
+     300,
+     180,
+     1740,
+     240
+    ],
+    "height": 2640,
+    "index": 1,
+    "label": "text",
+    "native_label": "text",
+    "width": 2040,
+    "content": "1 Show that the empty list is a tuple."
+   }
+  ]
+ ],
+ "layout_visualization": [],
+ "md_results": "(not used)",
+ "model": "glm-ocr",
+ "request_id": "synthetic",
+ "usage": {
+  "completion_tokens": 1500,
+  "prompt_tokens": 4100,
+  "total_tokens": 5600
+ }
+}

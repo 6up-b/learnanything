@@ -4,15 +4,23 @@ Fakes only: no request leaves the machine. The response fixtures are shaped
 after the glmocr 0.1.5 SDK source (its MaaS client and Flask server) and z.ai's
 documentation: hosted ``bbox_2d`` in pixels of the provider's own page render,
 self-hosted ``bbox_2d`` normalised to 0-1000, one ``[[regions]]`` per image from
-the self-hosted server. They are not captures of live sessions.
+the self-hosted server. They are not captures of live sessions, except one:
+``tests/fixtures/glm_ocr/arxiv_2302_11517_trimmed.json`` is z.ai's recorded
+answer for Wei Tang, Kangning Cui and Raymond H. Chan, arXiv:2302.11517v2
+(CC BY 4.0), trimmed and unmodified (see the README beside it). The book
+patterns of the live check are reproduced with invented text only
+(``synthetic_book_window.json``); no book text is in the repository.
 """
 
 from __future__ import annotations
 
 import base64
+import importlib.util
 import io
 import json
+import re
 import threading
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from urllib.error import HTTPError, URLError
@@ -530,7 +538,13 @@ def test_versions_name_backend_models_and_mapping_so_caches_re_extract(monkeypat
     hosted_extractor = api(monkeypatch)
     local = glm.GlmOcrDocumentExtractor(backend="local")
     assert hosted_extractor.version() == f"glm-ocr-0.9B+PP-DocLayout-V3+api+map{glm.MAP_VERSION}"
-    assert local.model_versions() == {"backend": "local", "recognition": "glm-ocr-0.9B", "layout": "PP-DocLayout-V3"}
+    # map2: the content-quality fixes (docs/reviews/glm-ocr-quality.md).
+    assert glm.MAP_VERSION == 2
+    # Whether the PDF's own text layer can be read decides the reading too
+    # (footnotes and equation numbers), so it is part of the identity.
+    layer = "pdfium" if importlib.util.find_spec("pypdfium2") else "none"
+    assert local.model_versions() == {"backend": "local", "recognition": "glm-ocr-0.9B", "layout": "PP-DocLayout-V3",
+                                      "text_layer": layer}
 
     def key(extractor):
         return extraction_request_hash(revision_id="r", extractor=extractor.name, extractor_version=extractor.version(),
@@ -1494,3 +1508,527 @@ def test_every_glm_ocr_reading_queues_the_source_block_backfill(monkeypatch, tmp
     queued = [j for j in repo.ingest_jobs_by_types((SOURCE_VECTORS_JOB,))]
     assert [j["payload"]["extraction_id"] for j in queued] == [job["result"]["extraction_id"]]
     assert queued[0]["status"] == "completed", queued[0].get("error")
+
+
+# -- content quality (docs/reviews/glm-ocr-quality.md) ---------------------------------------
+#
+# The first live runs on the owner's books (2026-10-14) found: an estimate
+# about twice the real tokens per page; `<div align="center">` around every
+# title and caption; every heading at level 2; labels split as "1. 11";
+# currency dollars paired as maths; boxed results labelled `algorithm` read
+# as code; and no footnote, page number or equation number in any answer.
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "glm_ocr"
+# The PDF outline of arXiv:2302.11517v2 (its bookmarks), zero-based pages.
+ARXIV_OUTLINE = [
+    {"title": title, "heading_level": level, "page_id": page}
+    for title, level, page in (
+        ("Introduction", 1, 0), ("Related Works", 1, 0), ("Medical Image Segmentation", 2, 0),
+        ("Hard Exudate Detection", 2, 1), ("Contrastive Learning", 2, 1), ("Methodology", 1, 1),
+        ("Patch-wise Density Contrasting", 2, 1), ("Discriminative Edge Inspection", 2, 2),
+        ("Experiments", 1, 2), ("Experimental Setup", 2, 2), ("Results and Discussion", 2, 3),
+        ("Conclusion and Future Works", 1, 3), ("Compliance with Ethical Standards", 1, 3),
+        ("Acknowledgement", 1, 4), ("References", 1, 4),
+    )
+]
+BOOK_OUTLINE = [
+    {"title": "Vector Things", "heading_level": 1, "page_id": 0},
+    {"title": "Lists and Tuples", "heading_level": 2, "page_id": 0},
+    {"title": "Odd Things", "heading_level": 3, "page_id": 0},
+    {"title": "Exercises 1A", "heading_level": 3, "page_id": 1},
+]
+TEXT_LAYER_FLAGS = {"glm_ocr_no_text_layer", "glm_ocr_text_layer_unavailable"}
+
+
+def fixture(name: str) -> dict:
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def by_text(ir, start: str):
+    return next(block for block in ir.blocks if block.text.startswith(start))
+
+
+def seg(x0, top, x1, bottom, text):
+    return glm.TextSegment(float(x0), float(top), float(x1), float(bottom), text)
+
+
+def layer(pages: dict[int, list]):
+    """A PDF text layer as the extractor reads it (pdfium's text runs in the
+    Reader's points), for the pages given; other pages have none."""
+
+    return lambda page: pages.get(page)
+
+
+def book_text_layer():
+    """What the synthetic book page's own text layer holds beyond the answer:
+    a footnote with a raised marker, a page number, a running footer on both
+    pages, the equation's number, and one body line that spills just below
+    its region (already read, so never a footnote)."""
+
+    footer = seg(200, 770, 400, 779, "Invented Algebra, by Nobody")
+    return layer({
+        0: [
+            seg(95, 116, 400, 128, "We study lists of things here."),  # inside its region
+            seg(220, 305, 380, 318, "x2 + y2 = 1"),  # the display, inside its region
+            seg(500, 307, 515, 317, "(3)"),  # its number, right of it
+            seg(90, 647, 160, 656, "has a length."),  # spills below its region
+            seg(92, 690, 95, 695, "1"),  # the raised marker
+            seg(97, 691, 300, 700, "An invented footnote about tuples."),
+            seg(303, 750, 309, 758, "7"),  # the page number
+            footer,
+        ],
+        1: [seg(95, 56, 520, 70, "1 Show that the empty list is a tuple."), seg(303, 750, 309, 758, "8"), footer],
+    })
+
+
+def book_ir(**kwargs):
+    kwargs.setdefault("outline", BOOK_OUTLINE)
+    kwargs.setdefault("text_layer", book_text_layer())
+    return glm.responses_to_ir([(fixture("synthetic_book_window.json"), [0, 1])], sizes=[(612.0, 792.0)] * 2,
+                               version="t", **kwargs)
+
+
+def _math_spans(text: str) -> list[str]:
+    """Inline maths as remark-math (micromark-extension-math) pairs it: a run
+    of unescaped dollars opens, the next run of the same length closes."""
+
+    spans, runs, index = [], [], 0
+    while index < len(text):
+        if text[index] == "\\":
+            index += 2
+            continue
+        if text[index] == "$":
+            end = index
+            while end < len(text) and text[end] == "$":
+                end += 1
+            runs.append((index, end))
+            index = end
+            continue
+        index += 1
+    while runs:
+        start, end = runs.pop(0)
+        closer = next((run for run in runs if run[1] - run[0] == end - start), None)
+        if closer is None:
+            continue
+        spans.append(text[end:closer[0]])
+        runs = runs[runs.index(closer) + 1:]
+    return spans
+
+
+def test_q1_the_estimate_is_3500_tokens_a_page_from_the_live_receipts():
+    # Receipts 2026-10-14: books 2,765 and 3,052 tokens a page (highest window
+    # 3,336), small PDFs 1,652 and 2,104, a dense two-column paper 5,411, a
+    # scan 1,376.
+    assert glm.ESTIMATED_TOKENS_PER_PAGE == 3500
+    plan = glm.estimate(404)  # Axler: $0.0335 actual
+    assert plan["total_tokens"] == 404 * 3500 == 1_414_000
+    assert plan["estimated_usd"] == pytest.approx(0.04242)
+
+
+def test_q2a_html_wrappers_never_reach_block_text_or_section_paths():
+    page = [
+        region(0, "text", '<div align="center">\n\n# A TITLE\n\n</div>', [200, 100, 1024, 160], native="doc_title"),
+        region(1, "text", '<div align="center">\n\nFig. 2. An overview.\n\n</div>', [100, 200, 600, 240],
+               native="figure_title"),
+        region(2, "text", '<div align="center">\n\ntection [13]. A body line read as a caption.', [100, 250, 600, 300],
+               native="figure_title"),  # one answer lacked its closing tag
+        region(3, "text", "<P(B|C) $ and $ P(A|C^{c})<P(B|C^{c}) $ holds.", [100, 310, 600, 360]),
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t")
+
+    title, caption, misread, prose = ir.blocks
+    assert (title.block_type, title.text, title.section_path) == ("SectionHeader", "A TITLE", ["A TITLE"])
+    assert (caption.block_type, caption.text) == ("Caption", "Fig. 2. An overview.")
+    assert misread.text == "tection [13]. A body line read as a caption."
+    assert prose.text.startswith("<P(B|C) $")  # a "<" that opens no wrapper is text
+    assert not any("<div" in b.text or "</div>" in b.text or any("<" in s for s in b.section_path) for b in ir.blocks)
+
+
+def test_q2b_heading_depth_comes_from_the_outline_else_the_numbering():
+    paper = [
+        region(0, "text", "# A Paper", [200, 100, 1024, 160], native="doc_title"),
+        region(1, "text", "## 2. RELATED WORKS", [100, 200, 600, 240], native="paragraph_title"),
+        region(2, "text", "## 2.1. Medical Image Segmentation", [100, 250, 600, 290], native="paragraph_title"),
+        region(3, "text", "Words.", [100, 300, 600, 340]),
+        region(4, "text", "## 2.1.1 Finer Points", [100, 350, 600, 390], native="paragraph_title"),
+        region(5, "text", "## 3. METHOD", [100, 400, 600, 440], native="paragraph_title"),
+        region(6, "text", "## Remarks", [100, 450, 600, 490], native="paragraph_title"),
+        region(7, "text", "More words.", [100, 500, 600, 540]),
+    ]
+
+    def ir(outline):
+        return glm.responses_to_ir([({"layout_details": [paper]}, [0])], sizes=[(612.0, 792.0)], outline=outline,
+                                   version="t")
+
+    numbered = ir([])  # no outline: the numbering
+    assert by_text(numbered, "Words.").section_path == ["A Paper", "2. RELATED WORKS", "2.1. Medical Image Segmentation"]
+    assert by_text(numbered, "2.1.1").section_path == ["A Paper", "2. RELATED WORKS", "2.1. Medical Image Segmentation",
+                                                       "2.1.1 Finer Points"]
+    # An unnumbered heading sits one level under the last placed heading.
+    assert by_text(numbered, "More words.").section_path == ["A Paper", "3. METHOD", "Remarks"]
+    assert [u.label for u in numbered.units if u.parent_unit_id is None] == ["A Paper"]
+
+    outlined = ir([{"title": "Related Works", "heading_level": 1, "page_id": 0},
+                   {"title": "Medical Image Segmentation", "heading_level": 2, "page_id": 0},
+                   {"title": "Method", "heading_level": 1, "page_id": 0}])
+    assert by_text(outlined, "Words.").section_path == ["A Paper", "2. RELATED WORKS", "2.1. Medical Image Segmentation"]
+    assert by_text(outlined, "More words.").section_path == ["A Paper", "3. METHOD", "Remarks"]
+
+    # A book whose outline places chapters, sections and subsections, and
+    # numbers its results like sections ("1.4 example: ..."): the outline
+    # wins, so the label nests under the subsection instead of popping it.
+    book = book_ir(text_layer=None)
+    assert by_text(book, "Thus every tuple").section_path == [
+        "Chapter 1 Vector Things", "1A Lists and Tuples", "Odd Things", "1.4 example: commuting things"]
+    assert by_text(book, "1 Show that").section_path == ["Chapter 1 Vector Things", "1A Lists and Tuples",
+                                                         "Exercises 1A"]
+    assert len({len(b.section_path) for b in book.blocks if b.block_type == "SectionHeader"}) == 4  # never all level 2
+
+
+def test_q2c_split_numbering_is_collapsed_where_it_is_a_label():
+    from learnloop.ingest.block_roles import numbered_label
+
+    assert glm._collapse_split_number("1. 11 definition: tuple") == "1.11 definition: tuple"
+    assert glm._collapse_split_number("1. 39") == "1.39"
+    assert glm._collapse_split_number("3. 6 $ \\mathcal{T}(A, B) $ is a set of maps") == (
+        "3.6 $ \\mathcal{T}(A, B) $ is a set of maps")
+    assert glm._collapse_split_number("1. 4.11 (Naming things). Picking") == "1.4.11 (Naming things). Picking"
+    assert glm._collapse_split_number("2. 4.1. When we count") == "2.4.1. When we count"
+    for unchanged in ("1. Write each of the following", "6. 012XY Invented Course", "1.10 notation",
+                      "Then 1. 5 is wrong"):
+        assert glm._collapse_split_number(unchanged) == unchanged
+
+    ir = book_ir(text_layer=None)
+    labels = {(label.kind, label.number) for label in (numbered_label(b.text, b.block_type) for b in ir.blocks) if label}
+    assert {("definition", "1.11"), (None, "1.39"), (None, "1.4.11"), ("example", "1.4")} <= labels
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("costs $1, another costs $2, ..., and the last costs $100.", r"costs \$1, another costs \$2, ..., and the last costs \$100."),
+    ("trade it for $1000 if B happens.", r"trade it for \$1000 if B happens."),
+    ("between $5 and $10 a day", r"between \$5 and \$10 a day"),
+    ("the gain is $18-$7 = $11).", r"the gain is \$18-\$7 = \$11)."),
+    (r"just $1 extra. The $ \infty $ in the puzzle", r"just \$1 extra. The $ \infty $ in the puzzle"),
+    ("you get $n$ instead of $2^{n}$ when", "you get $n$ instead of $2^{n}$ when"),
+    ("is about $10^{-6}$. Hence", "is about $10^{-6}$. Hence"),
+    ("equals $1/(j^2 + k)$. Next", "equals $1/(j^2 + k)$. Next"),
+    ("a far smaller value $10^{100}$.", "a far smaller value $10^{100}$."),
+    ("$1 \\text{ if } x > 0$ and", "$1 \\text{ if } x > 0$ and"),
+    (r"already \$5 escaped", r"already \$5 escaped"),
+    ("$$\n10 + 2 = 12\n$$", "$$\n10 + 2 = 12\n$$"),
+    ("costs $5 and pays $10 if $ x > 2 $ holds.", r"costs \$5 and pays \$10 if $ x > 2 $ holds."),
+    # Found re-reading the saved live answers (docs/reviews/glm-ocr-quality.md):
+    # a closing dollar that opens something else, a spaced amount, and real
+    # maths with an operator name or an environment that must stay maths.
+    ("worth $1, $2, ..., $n. Pick some", r"worth \$1, \$2, ..., $n. Pick some"),
+    ("once the $ 100 is split at random as in (b). Is $ B_{2} $ then",
+     r"once the \$ 100 is split at random as in (b). Is $ B_{2} $ then"),
+    (r"shows that $ 0 \in range S. $ So", r"shows that $ 0 \in range S. $ So"),
+    (r"sums $ 4\left( \begin{array}{c c} 2 & 7 \end{array} \right) $ and",
+     r"sums $ 4\left( \begin{array}{c c} 2 & 7 \end{array} \right) $ and"),
+    (r"$2\begin{array}{cc} 1 & 0 \end{array}$ holds", r"$2\begin{array}{cc} 1 & 0 \end{array}$ holds"),
+])
+def test_q2d_currency_dollars_are_escaped_and_real_maths_is_kept(text, expected):
+    escaped = glm._escape_currency(text)
+    assert escaped == expected
+    for span in _math_spans(escaped):
+        assert not re.search(r"\b(?:if|and|one|worth|more|occurs|day|pays|a)\b", re.sub(r"\\text\{[^}]*\}", "", span)), span
+
+
+def test_q2d_a_block_with_three_amounts_ends_with_every_dollar_escaped():
+    ir = book_ir(text_layer=None)
+    prizes = by_text(ir, "There are three prizes")
+    assert prizes.text == r"There are three prizes worth \$1, \$2, and \$3. A ticket costs \$5 and pays \$10 if $ x > 2 $ holds."
+    assert _math_spans(prizes.text) == [" x > 2 "]
+
+
+def test_q2e_algorithm_regions_are_code_only_when_they_hold_code():
+    for code in ("m <- 12; j <- 4\n\nsample(m,j)", "w[-(3:5)]", "1/(1:50)^3", "```r\n\nx <- 1\n\n```",
+                 "# not a heading\nbut a code comment", "mean(s)\n\n12*(1-(11/12)^m)\n\nThe run agreed with it."):
+        assert glm._holds_code(code), code
+    for code in ("max(w[c > (1/4)*w])-c", "0,0,1,0,\n\n1/3,0,2/3,0),nrow=4,ncol=4,byrow=TRUE)"):
+        assert glm._holds_code(code), code  # shapes of R the live re-read showed
+    for prose in ("1.6 notation: T\n\nIn these notes, T means one of two invented sets.",
+                  "1. 11 definition: $ \\mathbf{T}^{n} $ is the set of tuples of length $ n $.",
+                  "As before, we may enter", "Theorem (Name) holds for every list", "(a) If b is in T, then"):
+        assert not glm._holds_code(prose), prose
+    ir = book_ir(text_layer=None)
+    assert by_text(ir, "1.11 definition").block_type == "Text"
+    assert by_text(ir, "m <- 12").block_type == "Code"
+
+
+def test_q4_the_recorded_arxiv_answer_reads_cleanly(monkeypatch):
+    """Wei Tang, Kangning Cui, Raymond H. Chan, arXiv:2302.11517v2, CC BY 4.0:
+    z.ai's answer for its five pages, trimmed and unmodified."""
+
+    answer = fixture("arxiv_2302_11517_trimmed.json")
+    record(monkeypatch, lambda body: answer)
+    events = []
+    with observe_model_calls(lambda a, e: events.append((a, e))):
+        ir = api(monkeypatch).extract(pdf(5), ok())  # 612 x 792 points, as the paper
+    (done,) = finishes(events)
+    assert (done["input_tokens"], done["output_tokens"], done["total_tokens"]) == (18711, 8342, 27053)
+    assert json.loads(done["usage_json"])["cost_basis"] == "reported_usage"
+    assert done["cost"] == pytest.approx(27053 * 0.03 / 1e6)
+
+    assert "glm_ocr_response_nested" in ir.health.flags
+    assert TEXT_LAYER_FLAGS & set(ir.health.flags)  # blank test pages: nothing to recover from
+    title = ir.blocks[0]
+    title_text = "OPTIMIZED HARD EXUDATE DETECTION WITH SUPERVISED CONTRASTIVE LEARNING"
+    assert (title.block_type, title.text, title.section_path) == ("SectionHeader", title_text, [title_text])
+    assert title.bbox == [80.4, 94.5, 532.8, 122.4]  # [268, 315, 1776, 408] px of a 2040 x 2640 render
+    assert by_text(ir, "Fig.1.").block_type == "Caption"
+    assert by_text(ir, "| Model | IoU | F1score | AUC | Recall |\n| --- |").block_type == "Table"
+    equation = next(b for b in ir.blocks if b.block_type == "Equation")
+    assert equation.text.startswith("$$\n\\mathcal {L} _ {t o t a l}") and equation.text.endswith("$$")
+    assert [b.text for b in ir.blocks if b.block_type == "Figure"] == [""]
+    assert not any(b.block_type == "Footnote" for b in ir.blocks)
+    assert not any("<div" in b.text or any("<div" in s for s in b.section_path) for b in ir.blocks)
+    # No outline in the test PDF: depth from the numbering.
+    assert by_text(ir, "Deep learning has").section_path == [title_text, "2. RELATED WORKS",
+                                                             "2.1. Medical Image Segmentation"]
+
+    outlined = glm.responses_to_ir([(answer, [0, 1, 2, 3, 4])], sizes=[(612.0, 792.0)] * 5, outline=ARXIV_OUTLINE,
+                                   version="t")
+    assert by_text(outlined, "Deep learning has").section_path == [title_text, "2. RELATED WORKS",
+                                                                   "2.1. Medical Image Segmentation"]
+    assert by_text(outlined, "Diabetic retinopathy").section_path == [title_text, "ABSTRACT"]
+    assert by_text(outlined, "[1] W. L. Alyoubi").section_path == [title_text, "8. REFERENCES"]
+    assert [u.label for u in outlined.units][:3] == ["Introduction", "Related Works", "Medical Image Segmentation"]
+
+
+def test_q3_footnotes_come_back_from_the_text_layer_without_furniture_or_repeats():
+    ir = book_ir()
+    footnotes = [b for b in ir.blocks if b.block_type == "Footnote"]
+    credit, recovered = footnotes
+    assert credit.text == "Photo credit: An Invented Person CC BY-SA"  # the answer's own vision_footnote
+    assert recovered.text == "¹ An invented footnote about tuples."
+    assert recovered.bbox == [92.0, 690.0, 300.0, 700.0] and recovered.page == 0
+    # In reading order: after the page's last block, under the same heading.
+    last = by_text(ir, "Thus every tuple")
+    assert recovered.ordinal == last.ordinal + 1 and recovered.section_path == last.section_path
+    assert recovered.extractor_block_id == "glm/page/0/text_layer/0"
+    # The page numbers, the running footer and the spilled body line stay out.
+    assert not any(b.text in {"7", "8"} or "Invented Algebra" in b.text or b.text == "has a length." for b in ir.blocks)
+    assert "glm_ocr_footnotes_from_text_layer" in ir.health.flags
+    assert ir.health.pages[0].block_counts["Footnote"] == 2
+    assert not TEXT_LAYER_FLAGS & set(ir.health.flags)
+    assert ir.health.flagged_pages() == []  # recovering is not a difficult page
+
+
+def test_q3_a_footnote_under_the_left_column_is_found_though_the_right_column_runs_lower():
+    page = [
+        region(0, "text", "Left column words.", [100, 100, 560, 1000]),
+        region(1, "text", "Right column words.", [660, 100, 1120, 1400]),
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                             text_layer=layer({0: [seg(50, 600, 52, 604, "∗"), seg(54, 600, 200, 608, "Corresponding author."),
+                                                   seg(400, 600, 540, 608, "Right column words.")]}))
+    assert [b.text for b in ir.blocks] == ["Left column words.", "Right column words.", "∗ Corresponding author."]
+
+
+def test_q3_equation_numbers_become_tags_that_numbered_label_reads():
+    from learnloop.ingest.block_roles import numbered_label
+
+    ir = book_ir()
+    equation = next(b for b in ir.blocks if b.block_type == "Equation")
+    assert equation.text == "$$\nx ^ {2} + y ^ {2} = 1 \\tag{3}\n$$"
+    assert numbered_label(equation.text, equation.block_type).number == "3"
+    assert equation.bbox == [210.0, 300.0, 390.0, 324.0]  # geometry unchanged
+    assert "glm_ocr_equation_numbers_from_text_layer" in ir.health.flags
+
+
+def test_q3_equation_numbers_are_never_guessed_or_doubled():
+    page = [
+        region(0, "formula", "$$\na = b\n$$", [200, 200, 800, 260]),  # two numbers in its band
+        region(1, "formula", "$$\nc = d \\tag{7}\n$$", [200, 400, 800, 460]),  # already tagged
+        region(2, "formula", "$$\ne = f\n$$", [200, 600, 800, 660]),
+        region(3, "text", "See (9) in the margin.", [900, 590, 1150, 680]),  # its "(9)" belongs to this text
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                             text_layer=layer({0: [seg(450, 102, 460, 110, "(1)"), seg(500, 112, 510, 120, "(2)"),
+                                                   seg(450, 202, 460, 210, "(7)"), seg(470, 302, 480, 310, "(9)")]}))
+    assert [b.text for b in ir.blocks if b.block_type == "Equation"] == [
+        "$$\na = b\n$$", "$$\nc = d \\tag{7}\n$$", "$$\ne = f\n$$"]
+    assert "glm_ocr_equation_numbers_from_text_layer" not in ir.health.flags
+
+
+def test_q3_scans_and_images_record_that_nothing_could_be_recovered(monkeypatch):
+    page = [region(0, "text", "Scanned words.", [100, 100, 1000, 200])]
+    scan = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                               text_layer=layer({0: []}))
+    assert "glm_ocr_no_text_layer" in scan.health.flags
+    assert scan.health.flagged_pages() == []
+
+    record(monkeypatch, lambda body: {"layout_details": [[region(0, "text", "Scan", [0, 0, 10, 10])]]})
+    image = api(monkeypatch).extract(png(), ok())
+    assert "glm_ocr_no_text_layer" in image.health.flags
+
+    monkeypatch.setitem(__import__("sys").modules, "pypdfium2", None)  # not installed
+    record(monkeypatch)
+    assert "glm_ocr_text_layer_unavailable" in api(monkeypatch).extract(pdf(1), ok()).health.flags
+    assert glm.GlmOcrDocumentExtractor(backend="local").model_versions()["text_layer"] == "none"
+
+
+def test_q2b_numbered_subsections_under_a_bookmark_are_siblings_and_bookmarks_match_through_latex():
+    pages = [[
+        region(0, "text", "## 1 Chance and tallies", [100, 100, 900, 140], native="paragraph_title"),
+        region(1, "text", "## 1A $ \\mathbf{S}^{n} $ and $ \\mathbf{Q}^{n} $", [100, 150, 900, 190],
+               native="paragraph_title"),
+        region(2, "text", "## 1.4 Ways to tally", [100, 200, 900, 240], native="paragraph_title"),
+        region(3, "text", "## 1.4.1 Product rule", [100, 250, 900, 290], native="paragraph_title"),
+        region(4, "text", "## Solution:", [100, 300, 900, 340], native="paragraph_title"),
+        region(5, "text", "## 1.4.2 Fixing double counts", [100, 350, 900, 390], native="paragraph_title"),
+        region(6, "text", "Words.", [100, 400, 900, 440]),
+    ], [
+        region(0, "text", "## 1.5 Story arguments", [100, 100, 900, 140], native="paragraph_title"),
+        region(1, "text", "More words.", [100, 150, 900, 190]),
+    ]]
+    outline = [{"title": "Chance and tallies", "heading_level": 1, "page_id": 0},
+               {"title": "S^n and Q^n", "heading_level": 2, "page_id": 0},
+               {"title": "Ways to tally", "heading_level": 2, "page_id": 0},
+               {"title": "Story arguments", "heading_level": 2, "page_id": 1}]
+    ir = glm.responses_to_ir([({"layout_details": pages}, [0, 1])], sizes=[(612.0, 792.0)] * 2, outline=outline,
+                             version="t")
+
+    assert by_text(ir, "1A").section_path == ["1 Chance and tallies", "1A $ \\mathbf{S}^{n} $ and $ \\mathbf{Q}^{n} $"]
+    assert by_text(ir, "Solution:").section_path[-2:] == ["1.4.1 Product rule", "Solution:"]
+    # "1.4.2" is numbering below the bookmarked "Ways to tally": a sibling of "1.4.1".
+    assert by_text(ir, "Words.").section_path == ["1 Chance and tallies", "1.4 Ways to tally", "1.4.2 Fixing double counts"]
+    assert by_text(ir, "More words.").section_path == ["1 Chance and tallies", "1.5 Story arguments"]
+
+
+def test_q3_margin_notes_and_lines_the_answer_dropped_are_not_footnotes_and_hyphens_join():
+    page = [
+        region(0, "text", "Body words across the page.", [100, 100, 1124, 900]),  # [50, 50, 562, 450]
+        region(1, "text", "Left part words that end the page.", [100, 920, 600, 1300]),  # [50, 460, 300, 650]
+    ]
+    segments = [
+        seg(320, 500, 540, 508, "A margin note beside the text"),  # under region 0, beside region 1
+        seg(50, 651, 290, 659, "a line the answer dropped"),  # runs on from region 1, no gap
+        seg(50, 700, 52, 704, "2"), seg(54, 701, 300, 709, "A footnote whose word is hyph\u00ad"),
+        seg(50, 711, 200, 719, "enated and Jean\u00ad"), seg(50, 721, 150, 729, "Paul agrees."),
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                             text_layer=layer({0: segments}))
+    assert [b.text for b in ir.blocks][2:] == ["² A footnote whose word is hyphenated and Jean-Paul agrees."]
+    assert ir.blocks[2].bbox == [50.0, 700.0, 300.0, 729.0]
+
+
+def test_q3_some_pages_without_a_text_layer_are_recorded_as_such():
+    pages = [[region(0, "text", "Born-digital words.", [100, 100, 1000, 200])],
+             [region(0, "text", "Scanned words.", [100, 100, 1000, 200])]]
+    ir = glm.responses_to_ir([({"layout_details": pages}, [0, 1])], sizes=[(612.0, 792.0)] * 2, outline=[],
+                             version="t", text_layer=layer({0: [seg(50, 52, 500, 98, "Born-digital words.")]}))
+    assert "glm_ocr_text_layer_missing_on_some_pages" in ir.health.flags
+    assert not TEXT_LAYER_FLAGS & set(ir.health.flags)
+    assert ir.health.flagged_pages() == []
+
+
+def test_q3_a_number_inside_a_formula_or_across_the_gutter_is_not_an_equation_number():
+    page = [
+        region(0, "formula", "$$\nP(X < 2) = F (2)\n$$", [200, 100, 700, 160]),  # [100, 50, 350, 80]
+        region(1, "formula", "$$\na = b\n$$", [100, 500, 500, 560]),  # left column [50, 250, 250, 280]
+        region(2, "formula", "$$\nc = d\n$$", [640, 500, 1080, 560]),  # right column [320, 250, 540, 280]
+    ]
+    segments = [
+        seg(110, 58, 296, 72, "P(X < 2) = F"), seg(297.5, 58, 309, 72, "(2)"),  # a thin space after "F"
+        seg(255, 258, 265, 268, "(1)"),  # the left display's number, in the gutter
+        seg(545, 258, 556, 268, "(7)"),  # the right display's, beyond the right column
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                             text_layer=layer({0: segments}))
+    assert [b.text for b in ir.blocks] == [
+        "$$\nP(X < 2) = F (2)\n$$", "$$\na = b \\tag{1}\n$$", "$$\nc = d \\tag{7}\n$$"]
+
+
+def _pdf_string(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def text_pdf(pages: list[list[tuple[float, float, float, str]]], size=(612, 792)) -> bytes:
+    """A PDF whose pages carry a real text layer (Helvetica). Each item is
+    (x, baseline measured from the top, font size, text), in points."""
+
+    width, height = size
+    count = len(pages)
+    objects = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        2: ("<< /Type /Pages /Kids [" + " ".join(f"{5 + 2 * i} 0 R" for i in range(count))
+            + f"] /Count {count} >>").encode(),
+        3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    }
+    for i, items in enumerate(pages):
+        ops = "".join(f"BT /F1 {size_:g} Tf {x:g} {height - baseline:g} Td ({_pdf_string(text)}) Tj ET\n"
+                      for x, baseline, size_, text in items).encode("latin-1")
+        objects[4 + 2 * i] = b"<< /Length %d >>\nstream\n" % len(ops) + ops + b"\nendstream"
+        objects[5 + 2 * i] = (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {width} {height}] "
+                              f"/Resources << /Font << /F1 3 0 R >> >> /Contents {4 + 2 * i} 0 R >>").encode()
+    out, offsets = bytearray(b"%PDF-1.4\n"), {}
+    for number in sorted(objects):
+        offsets[number] = len(out)
+        out += b"%d 0 obj\n" % number + objects[number] + b"\nendobj\n"
+    xref, size_ = len(out), max(objects) + 1
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % size_
+    out += b"".join(b"%010d 00000 n \n" % offsets[number] for number in range(1, size_))
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (size_, xref)
+    return bytes(out)
+
+
+def test_q3_a_real_pdfs_text_layer_gives_the_footnote_and_the_equation_number(monkeypatch):
+    pytest.importorskip("pypdfium2")
+    from learnloop.ingest.block_roles import numbered_label
+
+    raw = text_pdf([
+        [(72, 100, 11, "Body words of the first page."), (250, 160, 11, "a = b + c"), (500, 160, 11, "(3)"),
+         (72, 702, 6, "1"), (76, 706, 9, "A generated footnote."), (300, 760, 9, "1")],
+        [(72, 100, 11, "Body words of the second page."), (300, 760, 9, "2")],
+    ])
+    # The answer has the body and the display, never the footnote or the numbers.
+    record(monkeypatch, lambda body: {"layout_details": [
+        [region(0, "text", "Body words of the first page.", [140, 176, 700, 210]),
+         region(1, "formula", "$$\na = b + c\n$$", [480, 296, 760, 332])],
+        [region(0, "text", "Body words of the second page.", [140, 176, 720, 210])],
+    ], "data_info": {"pages": [{"width": 1224, "height": 1584}] * 2}})
+    ir = api(monkeypatch).extract(raw, ok())
+
+    equation = next(b for b in ir.blocks if b.block_type == "Equation")
+    assert equation.text.endswith("\\tag{3}\n$$") and numbered_label(equation.text, "Equation").number == "3"
+    (footnote,) = [b for b in ir.blocks if b.block_type == "Footnote"]
+    assert footnote.text == "¹ A generated footnote." and footnote.page == 0
+    x0, top, x1, bottom = footnote.bbox
+    assert 70 <= x0 <= 74 and 690 <= top <= 700 and 150 <= x1 <= 180 and 704 <= bottom <= 712
+    assert [b.page for b in ir.blocks].count(1) == 1  # page 2's only extra line is its page number
+    assert "glm_ocr_footnotes_from_text_layer" in ir.health.flags
+    assert "glm_ocr_equation_numbers_from_text_layer" in ir.health.flags
+
+
+def test_q3_text_layer_boxes_follow_the_rotated_crop_box_the_reader_draws_in():
+    pytest.importorskip("pypdfium2")
+    from pypdf import PdfReader, PdfWriter
+
+    reader = PdfReader(io.BytesIO(text_pdf([[(100, 200, 10, "Marker words")]], size=(600, 800))))
+    writer = PdfWriter()
+    page = writer.add_page(reader.pages[0])
+    page.cropbox.lower_left = (50, 100)
+    page.cropbox.upper_right = (550, 700)  # 500 x 600 points shown
+    out = io.BytesIO()
+    writer.write(out)
+    unrotated = glm._open_text_layer(out.getvalue())[0]
+    try:
+        (words,) = [s for s in unrotated(0) if s.text.strip() == "Marker words"]
+    finally:
+        unrotated.close()
+    # Baseline 600 from the bottom of the media box: 100 from the crop box's top.
+    assert 48 <= words.x0 <= 52 and 90 <= words.top <= 100 and 98 <= words.bottom <= 104
+
+    page.rotate(90)  # shown 600 x 500: the crop box's left edge is now its top
+    out = io.BytesIO()
+    writer.write(out)
+    rotated = glm._open_text_layer(out.getvalue())[0]
+    try:
+        (turned,) = [s for s in rotated(0) if s.text.strip() == "Marker words"]
+    finally:
+        rotated.close()
+    assert 48 <= turned.top <= 52 and turned.bottom > turned.top + 40  # runs down the page
+    assert 496 <= turned.x0 <= 504 and turned.x1 <= 512
