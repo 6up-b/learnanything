@@ -281,3 +281,16 @@ def test_head_fixture_predecessor_to_successor_path(tmp_path):
     assert snapshot((TableRole.DERIVED,)) == second
     assert upgrade_to_mvp023(root, clock=CLOCK).upgraded is False
     assert hashlib.sha256((HEAD / "state.sqlite").read_bytes()).hexdigest() == before_hash
+
+
+def test_the_routers_decider_route_is_never_a_tier1_judgment_at_the_successor(tmp_path):
+    """Plan §4 (the Decider migration's composition): the router's own Decider
+    route never takes Tier 1's generic LLM fallback. R2a calls no model; this
+    pins that mvp-0.23 keeps the rule for R2b."""
+
+    from learnloop.decider_judgments import enabled
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.23")
+    config = load_vault(paths.root).config
+    assert not enabled(config, "router_decider")
+    assert not enabled(config, "router_llm")
