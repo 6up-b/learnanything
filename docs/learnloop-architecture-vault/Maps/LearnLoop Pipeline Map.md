@@ -7,8 +7,8 @@ status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.22
 last_reviewed: 2026-10-13
-source_commit: f2bfa2928a89fe8a2c62d49cf84a7fc7fba8645d
-source_commit_timestamp: "2026-10-13T20:02:08-04:00"
+source_commit: fc697aab4b9f6b5680e2cff7b0aecad45c693297
+source_commit_timestamp: "2026-10-13T20:34:01-04:00"
 source_paths:
   - src/learnloop/algorithm_versions.py
   - src/learnloop/content/pipeline/add_source.py
@@ -16,6 +16,7 @@ source_paths:
   - src/learnloop/content/synthesis/source_set_synthesis.py
   - src/learnloop/content/facet_identity/authority.py
   - src/learnloop/content/sources/role_authority.py
+  - src/learnloop/content/sources/exam_material.py
   - src/learnloop/content/authoring/source_exercise_import.py
   - src/learnloop/ops/pf_generation.py
   - src/learnloop/source_retrieval/corpus.py
@@ -85,8 +86,7 @@ flowchart TB
         PERSIST["State and Persistence"] --> PD["Ledgers to replayers to projections<br/>rebuild and version successors"]
         ADAPT["Adapter Architecture"] --> AD["Tauri + Python JSON-RPC sidecar<br/>CLI, TUI, mobile capture host"]
         AD -.-> MCP["MCP frontend<br/>planned"]
-        GUARD["Protection rules<br/>exam corpus predicates + facet role authority<br/>shared held-grade predicate"]
-        GUARD -.-> ONE["Unified exam / held-out predicate<br/>planned consolidation"]
+        GUARD["Protection rules<br/>one exam / held-out predicate<br/>shared held-grade predicate"]
     end
     AID -->|bounded model work| DIAG
     PD -->|read and record| STATE
@@ -94,7 +94,7 @@ flowchart TB
     GUARD -->|gate text and evidence| GRADE
     class AI,PERSIST,ADAPT internal-link;
     classDef planned stroke-dasharray: 5 5;
-    class R2,MCP,ONE planned;
+    class R2,MCP planned;
 ```
 
 Grading measures the current answer; diagnosis interprets it across time. State updates do not wait for every diagnosis, and Reader text can enter the gap pipeline without becoming an attempt. The Decider handles bounded judgments, not blind grading or the whole learning policy. See [[Learning System]], [[Architecture Map]] and [[Data and State Map]].
@@ -121,7 +121,7 @@ flowchart LR
 - `src/learnloop/content/synthesis/source_set_synthesis.py` ([source](../../../src/learnloop/content/synthesis/source_set_synthesis.py)) builds proposals for LOs, facets, practice items and rubrics. [[Canonical Knowledge Model]] and [[Build a Study Map]] explain the authored model and application workflow.
 - Every facet meaning mutation passes `src/learnloop/content/facet_identity/authority.py` ([source](../../../src/learnloop/content/facet_identity/authority.py)): `check_meaning_write`, proposal application and the guarded registry writer share authority. `src/learnloop/content/sources/role_authority.py` ([source](../../../src/learnloop/content/sources/role_authority.py)) permits exam material to align assessment, never independently establish facet meaning. Model rewords can be held for owner confirmation; the Decider span-support check fails closed to that confirmation path. See the [facet authority review](../../reviews/facet-authority-fixes.md) and [reword review](../../reviews/facet-reword-confirm.md).
 - Practice families use `src/learnloop/ops/pf_generation.py` ([source](../../../src/learnloop/ops/pf_generation.py)) to generate, verify, filter, select and publish stored instances. Exercise imports use `src/learnloop/content/authoring/source_exercise_import.py` ([source](../../../src/learnloop/content/authoring/source_exercise_import.py)), with checks bound to the current prompt/key/rubric in [[reference_key_checks]]. An unverified imported answer key can support practice but gives no certification credit at `mvp-0.18+`; `mvp-0.19+` adds source-first fulfillment of eligible follow-up needs. See the [sources track](../../reviews/sources-spec.md).
-- **Exam protection is not yet one helper.** `src/learnloop/source_retrieval/corpus.py` ([source](../../../src/learnloop/source_retrieval/corpus.py)) owns `exam_exclusions`, `source_exam_exclusions`, `exam_withheld` and broader teaching exclusions. Facet citation resolution separately applies role/scope authority, treating `held_out_evaluation` units as exam material. The [current predicate comparison](../../reviews/facet-reword-confirm.md#103-the-two-exam-predicates) also identifies the separate leakage inventory in `src/learnloop/content/authoring/practice_leakage.py` ([source](../../../src/learnloop/content/authoring/practice_leakage.py)), whose held-out-unit rule still requires an exam role. A universal exam predicate is planned, not claimed here.
+- **Exam protection is one predicate.** `src/learnloop/content/sources/exam_material.py` ([source](../../../src/learnloop/content/sources/exam_material.py)) answers whether a span, unit, extraction or item is exam or held-out material: exam members and units count in any revision of their source, `held_out_evaluation` units count whatever their role, and unresolvable units fail closed. The corpus exclusions in `src/learnloop/source_retrieval/corpus.py` ([source](../../../src/learnloop/source_retrieval/corpus.py)), facet citation resolution (which keeps its separate rule that an explanatory citation can support a facet beside an exam one), the leakage inventory, practice-family generation, imports, automatic builds, the reading step and the Reader's Ask and checks all route through it. Material the learner has seen never becomes an exam item or a cold check. See the [exam-protection review](../../reviews/exam-protection.md).
 
 ## Reader
 
@@ -290,7 +290,7 @@ These links supply the recent details that the older concept notes do not yet co
 - **Decider tier-1 and facet span support:** [landing review](../../reviews/decider-migration.md).
 - **VOI stopping and live calibration:** [stopping](../../reviews/voi-stopping.md), [calibration](../../reviews/evsi-calibration.md).
 - **Own-route grading and held evidence:** [route rules](../../reviews/route-check-in-grader.md), [held-grade predicate](../../reviews/held-grade-evidence.md).
-- **Sources track and exam protection:** [sources](../../reviews/sources-spec.md), [source practice/probe spec](../../specs/spec_source_practice_and_probes_v1.md), [current two-predicate comparison](../../reviews/facet-reword-confirm.md#103-the-two-exam-predicates). Unified protection remains planned.
+- **Sources track and exam protection:** [sources](../../reviews/sources-spec.md), [source practice/probe spec](../../specs/spec_source_practice_and_probes_v1.md), [exam protection](../../reviews/exam-protection.md) (one predicate, landed after this map was first written).
 - **UX Phase 1 and RW1a:** [UX completion](../../reviews/ux-phase1-finish.md), [inquiry](../../reviews/rw1a-inquiry.md).
 - **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2 spec](../../specs/spec_action_router_v1.md). R2's live frame/card and later R2b/R2c are not verified as shipped; the checked-in plan does not define that finer phase split.
 - **Learner-text gaps and mobile/MCP:** [gaps](../../reviews/learner-text-gaps.md), [mobile M1](../../reviews/mobile-m1.md), [deferred Reader learning service](../../specs/spec_reader_workbench_v1.md).
