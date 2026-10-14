@@ -1247,3 +1247,19 @@ button { color: inherit; }
   cursor: crosshair !important;
 }
 
+
+/* Reader workbench RW3a: a margin mark. The glyph is drawn by CSS, so the
+   mark has no text node: a selection or a marquee over the passage never
+   quotes it. Static: nothing about it moves or changes over time (the
+   attention budget, UX §4.12); the visible focus ring is the app's own. */
+.ll-reader-cue-mark::before {
+  content: "◌┆";
+}
+.ll-reader-cue-mark {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ll-reader-cue-mark:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: 1px;
+}

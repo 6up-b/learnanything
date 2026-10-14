@@ -51,6 +51,7 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     "reconnect_shown",    # the reconnect line appeared (inline or in the rail)
     "proactive_shown",    # another element LearnLoop started (a waiting quick check, ...)
     "back_to_reading",    # the first touch of the source after a usable result
+    "cue_shown",          # RW3a: a margin mark in the learner's view (once per visit; spec §11)
 )
 # ... and the ones the sidecar writes itself, for acts with a server effect.
 SERVER_ACTION_EVENTS: tuple[str, ...] = (
@@ -78,6 +79,8 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     "root_exchange_id", "exchange_id", "placement", "element", "job_id", "job_kind",
     "status", "failure_reason", "latency_ms", "model", "prompt_version", "route",
     "active_seconds", "idle_seconds", "seconds_after",
+    # RW3a's mark impressions: which cue, its kind and the density in force.
+    "cue_id", "cue_kind", "density",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200

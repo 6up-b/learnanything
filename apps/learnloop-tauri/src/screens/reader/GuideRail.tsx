@@ -1,7 +1,7 @@
 // The Reader rail's Guide tab (RW1a split of ReaderScreen; a move, not a
 // redesign): the reading guide, contents, "worth a second look", the section
 // quick checks, and the offline demo's fixture question.
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { api } from "../../api/client";
 import type {
   ReaderDisposition,
@@ -82,6 +82,8 @@ export interface GuideRailProps {
   sendQuestionControl: (control: string) => void | Promise<void>;
   disposition: ReaderDisposition | null;
   chooseDisposition: (d: ReaderDisposition) => void | Promise<void>;
+  /** RW3a: the margin marks' density control, legend and receipt (absent when cues are off). */
+  footer?: ReactNode;
 }
 
 export function GuideRail({
@@ -127,6 +129,7 @@ export function GuideRail({
   sendQuestionControl,
   disposition,
   chooseDisposition,
+  footer = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
   // Without a read count (an older caller) the bar follows the reading marker.
@@ -356,6 +359,7 @@ export function GuideRail({
           </Card>
         </>
       ) : null}
+      {footer}
     </div>
   );
 }

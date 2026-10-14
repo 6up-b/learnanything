@@ -26,6 +26,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import "pdfjs-dist/web/pdf_viewer.css";
 import type { ReaderPdfBlockDto } from "../api/dto";
 import type { AnnotationTrail } from "../screens/ReaderScreen";
+import type { PdfPageLayout } from "../screens/reader/cues";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { RectUnionOverlay } from "./RectUnionOverlay";
 import { acquirePdfDocument } from "./pdfDocumentCache";
@@ -130,6 +131,14 @@ interface PdfReaderPaneProps {
   /** RW1a: one quiet line under a passage (the reconnect line after a return
    *  the learner started), drawn just below the block on its page. */
   inlineNote?: { spanId: string; node: ReactNode } | null;
+  /** RW3a: margin marks by passage, drawn in an overlay gutter at the left of
+   *  the passage's box (only passages with a box have a place to draw). */
+  marks?: ReadonlyMap<string, ReactNode> | null;
+  /** The shown pages' own sizes and the width they are drawn at, reported
+   *  once the sizes are read (with the document, never from drawing) and as
+   *  the width changes (zoom, resize): the Reader's one-mark-per-screenful
+   *  spacing places marks on this layout (RW3a review F5). */
+  onPageLayout?: (layout: PdfPageLayout) => void;
 }
 
 interface FindMatch {
@@ -138,7 +147,7 @@ interface FindMatch {
 }
 
 export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>(function PdfReaderPane(
-  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError, inlineNote = null }: PdfReaderPaneProps,
+  { fileUrl, blocks, trails, guidanceSpans, selectedSpans, activeSpan, onTextSelection, onTagMenu, onError, inlineNote = null, marks = null, onPageLayout }: PdfReaderPaneProps,
   handleRef,
 ) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
@@ -209,6 +218,35 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       setDoc(null);
     };
   }, [fileUrl, onError]);
+
+  // Each shown page's own size, read with the document rather than from
+  // drawing it (RW3a review F5): the Reader's mark spacing lays pages out with
+  // it, and an undrawn page's placeholder takes it, so the layout the spacing
+  // assumes is the layout on screen and nothing moves as pages are drawn while
+  // the learner scrolls. Only with block geometry: without boxes no passage
+  // has a place for a mark, and a whole book's pages need not be read.
+  const [pageSizes, setPageSizes] = useState<{ doc: PDFDocumentProxy; sizes: ReadonlyMap<number, PageGeometry> } | null>(null);
+  const hasBoxes = blocks.length > 0;
+  useEffect(() => {
+    if (!doc || !hasBoxes) return;
+    let cancelled = false;
+    Promise.all(
+      coveredPages.map(async (page) => {
+        const base = (await doc.getPage(page + 1)).getViewport({ scale: 1 });
+        return [page, { widthPoints: base.width, heightPoints: base.height }] as const;
+      }),
+    )
+      .then((entries) => {
+        if (!cancelled) setPageSizes({ doc, sizes: new Map(entries) });
+      })
+      .catch(() => {
+        /* No sizes, no layout: the Reader draws no mark on the original. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [doc, coveredPages, hasBoxes]);
+  const sizes = pageSizes && pageSizes.doc === doc ? pageSizes.sizes : null;
 
   useEffect(() => {
     const node = containerRef.current;
@@ -1076,6 +1114,21 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     [resolveSelection, resolveMarquee, blockAtPoint, onTagMenu],
   );
 
+  // RW3a: the layout the Reader's mark spacing reads -- each shown page's own
+  // size at the width pages are drawn (zoom, resize), with the "pages left
+  // out" line where the pane draws one.
+  const reportedWidth = Math.max(320, containerWidth - 2) * zoom;
+  useEffect(() => {
+    if (!onPageLayout || containerWidth <= 0 || !sizes) return;
+    const pages = coveredPages.flatMap((page, index) => {
+      const size = sizes.get(page);
+      return size
+        ? [{ page, widthPoints: size.widthPoints, heightPoints: size.heightPoints, leftOutBefore: index > 0 && coveredPages[index - 1] !== page - 1 }]
+        : [];
+    });
+    onPageLayout({ widthPx: reportedWidth, pages });
+  }, [reportedWidth, containerWidth, sizes, coveredPages, onPageLayout]);
+
   if (!doc) {
     return (
       <div ref={containerRef} style={{ padding: 24 }}>
@@ -1161,6 +1214,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               doc={doc}
               pageIndex={page}
               widthPx={pageWidth}
+              size={sizes?.get(page) ?? null}
               blocks={blocksByPage.get(page) ?? []}
               trails={trailsByPage.get(page) ?? []}
               guidanceSpans={guidanceSpans}
@@ -1172,6 +1226,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               activeSpan={activeSpan}
               findQuery={findOpen ? findQuery.trim() : ""}
               inlineNote={inlineNote}
+              marks={marks}
             />
           </div>
         ))}
@@ -1209,6 +1264,7 @@ function PdfPage({
   doc,
   pageIndex,
   widthPx,
+  size,
   blocks,
   trails,
   guidanceSpans,
@@ -1220,10 +1276,13 @@ function PdfPage({
   activeSpan,
   findQuery,
   inlineNote,
+  marks,
 }: {
   doc: PDFDocumentProxy;
   pageIndex: number;
   widthPx: number;
+  /** The page's own size, read with the document: its placeholder's shape before it is drawn. */
+  size: PageGeometry | null;
   blocks: ReaderPdfBlockDto[];
   trails: AnnotationTrail[];
   guidanceSpans: Set<string>;
@@ -1235,6 +1294,7 @@ function PdfPage({
   activeSpan: string | null;
   findQuery: string;
   inlineNote: { spanId: string; node: ReactNode } | null;
+  marks: ReadonlyMap<string, ReactNode> | null;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1312,7 +1372,10 @@ function PdfPage({
     }
   }, [findQuery, geometry]);
 
-  const aspect = geometry ? geometry.heightPoints / geometry.widthPoints : 1.294; // letter-ish placeholder
+  // Drawn: the page's size; not yet drawn: its size read with the document
+  // (RW3a review F5), else a letter-ish placeholder.
+  const known = geometry ?? size;
+  const aspect = known ? known.heightPoints / known.widthPoints : 1.294;
   const scale = geometry ? widthPx / geometry.widthPoints : 1;
   return (
     <div
@@ -1462,6 +1525,19 @@ function PdfPage({
                 }}
               >
                 {inlineNote.node}
+              </div>
+            ))
+        : null}
+      {geometry && marks && marks.size > 0
+        ? blocks
+            .filter((b) => marks.has(b.spanId) && b.bbox.length === 4)
+            .map((b) => (
+              <div
+                key={`cue-${b.spanId}`}
+                data-cue-gutter={b.spanId}
+                style={{ position: "absolute", left: Math.max(0, b.bbox[0] * scale - 24), top: b.bbox[1] * scale, zIndex: 4 }}
+              >
+                {marks.get(b.spanId)}
               </div>
             ))
         : null}

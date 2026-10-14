@@ -28,7 +28,8 @@ import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
-import type { ReaderOpenSource } from "../screens/ReaderScreen";
+import type { ReaderCheckMeRequest, ReaderOpenSource } from "../screens/ReaderScreen";
+import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -198,6 +199,11 @@ export function App() {
   // episode in `treatment` forever (it is never reused). Stash it, route the
   // learner to session start, and resume the primed retry when a session begins.
   const [pendingPrimedItemId, setPendingPrimedItemId] = useState<string | null>(null);
+  // RW3a: "check me" on a Reader margin cue -- the item it opened (back from
+  // its practice or feedback returns to the passage) and one waiting for a
+  // session to begin.
+  const [readerReturn, setReaderReturn] = useState<ReaderReturn | null>(null);
+  const [pendingCheckMe, setPendingCheckMe] = useState<ReaderCheckMeRequest | null>(null);
   // Same stash-and-resume for a guided redo begun with NO session open:
   // start_guided_redo has already committed the repair episode to treatment on
   // the redo item, so dropping the DTO here would strand that episode exactly
@@ -493,6 +499,12 @@ export function App() {
     // A notice that asked for a session is resolved now (usability round 2).
     setToast(noticeAfterSessionBegins);
     setTab("today");
+    // RW3a: a Reader check waiting on a session opens now, as a learner pick.
+    if (pendingCheckMe) {
+      setPendingCheckMe(null);
+      void pickCheckMe(pendingCheckMe, next.sessionId);
+      return;
+    }
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
     if (firstStep && !pendingRedo && !pendingPrimedItemId) {
       const action = planStepAction(firstStep, { viaBlockLine: false });
@@ -534,6 +546,7 @@ export function App() {
 
   function openPractice(id: string, schedulerCandidateId?: string | null, proposalOrigin?: ProposalOrigin | null) {
     setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null, proposalOrigin: proposalOrigin ?? null });
+    setReaderReturn((current) => keepReaderReturn(current, id));
     if (!session) {
       setTab("start");
       setToast(NEEDS_SESSION.practice);
@@ -545,6 +558,50 @@ export function App() {
     setPracticeItemId(id);
     setTab("today");
     setTodayStage("practice");
+  }
+
+  // RW3a (spec §6.1, D40): "check me" on a margin cue opens one item as an
+  // ordinary attempt on your own -- a learner pick through the daily plan
+  // when it serves, else the open serves it with the proposal's delivery --
+  // on the practice screen, so the book is out of view until the workbench's
+  // working posture lands (RW2a). Back from it returns to the passage.
+  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string) {
+    try {
+      const result = await api.planLearnerPick(request.practiceItemId, sessionId, null, request.proposalId ?? null);
+      setPracticeOffer(readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null));
+      setReaderReturn({ card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId });
+      setPrimedRetry(false);
+      setRedoContext(null);
+      setAskTarget(null);
+      setPracticeItemId(request.practiceItemId);
+      setTab("today");
+      setTodayStage("practice");
+    } catch (error) {
+      onError(errorMessage(error, "Could not open the check."));
+    }
+  }
+
+  function checkMeFromReader(request: ReaderCheckMeRequest) {
+    if (!session) {
+      setPendingCheckMe(request);
+      setTab("start");
+      setToast(NEEDS_SESSION.checkMe);
+      return;
+    }
+    void pickCheckMe(request, session.sessionId);
+  }
+
+  /** Back from a Reader check's practice or feedback: the passage, in the Reader. */
+  function backFromPractice() {
+    if (readerReturn && returnsToReader(readerReturn, practiceItemId)) {
+      setReaderSource({ card: readerReturn.card, spanId: readerReturn.spanId });
+      setReaderOpenSeq((seq) => seq + 1);
+      setReaderReturn(null);
+      setTodayStage("queue");
+      setTab("reader");
+      return;
+    }
+    setTodayStage("queue");
   }
 
   // Daily-loop DL1 (§6.10): a reading step opens the reader at its section.
@@ -1104,7 +1161,7 @@ export function App() {
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
             onContinueDiagnostic={openPractice}
-            onBack={() => setTodayStage("queue")}
+            onBack={backFromPractice}
             onCheckpointCleared={clearLocalCheckpoint}
             onDraftSaved={onPracticeDraft}
             onTeachBackActive={onTeachBackActive}
@@ -1148,7 +1205,7 @@ export function App() {
             nextPlan={session && !calibrationSessionId && planServing ? { sessionId: session.sessionId } : null}
             onPlanStep={routePlanStep}
             onNext={() => setTodayStage("queue")}
-            onBack={() => setTodayStage("queue")}
+            onBack={backFromPractice}
             onOpenNotes={() => gotoTab("library")}
             onPrimedRetry={openPrimedRetry}
             onGuidedRedo={openGuidedRedo}
@@ -1280,11 +1337,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} />;
     }
     if (tab === "maintain") {
       return (

@@ -1090,7 +1090,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the key; all eleven were recomputed (defaults_fingerprint_for_version)
     # on its branch, and all fourteen again from the composed defaults when it
     # landed after value-of-information stopping and Tier 1 (the Decider).
-    "mvp-0.9": "4d7dab6338d9692124f2bfb3b9c4775d9c8740b6e05bc1730a6b4f72f2a0571f",
+    # Reader workbench RW3a (docs/reviews/reader-hook-rw3a.md) adds [cues]
+    # (enabled = true, density = "normal", one_per_viewport = true,
+    # off_sources = []; modelled defaults, left out of the decision-only
+    # template): margin cues from the Guide's own citations, display only
+    # (taps are salience-only events and learner_card verdicts), so no
+    # scoring, scheduling, projection or serving change and no successor;
+    # it acts at every version. Every snapshot moves only because the
+    # effective config gains the section; all fourteen were recomputed
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "9015fb68bdcadb8936e3c477dcb6aaab6296a7a6fec36faad48e381fe761eb86",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1120,7 +1129,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.10": "61a9ac6c700312efa754eb29dad9fa992005b28a9a6f94f41f45e91c95c8bc10",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.10": "256d2dc86f63ebc9d921e58876f13a622ec5f0f1e2377bee7856655bf82ed3a0",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1158,7 +1168,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.11": "d3a25d002189590983e2bceb5463f74809d92080146c2960737ab971563deed7",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.11": "da7ad23550d74feac5547b7ed76dd2bee7dcee3937b51dc1f288ca5a96acb3d0",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1190,7 +1201,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.12": "b0db7fe90e1a3189db5cdd63de0e60a8af93391ec2a9a7e9a20d615cbcbb5f43",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.12": "3b79f5e55177d44dadcc47011242873532df2446990b50b46f7d29cf5890638e",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1217,7 +1229,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.13": "550ffd50bed5cca0d54d7413438c46cedc7f2fce1db4fc4a549c29818281705d",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.13": "4941129a6fa14470e8e89f60eccf39d8e36b724133db105982be7e69313139d3",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1243,7 +1256,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.14": "0d52aa4008606697d02752fc4a0fb7f963038849eed48c1615e8ddb9590ef809",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.14": "e22d913c1dc56e0e91aa6a83e50c0c4f3cac50fd1bbf37bc3dbbad7c7f89e250",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1267,7 +1281,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.15": "af43779f9fcc47244b29643d5c2c15b1d932ebcfce7f9142a65f4e181d96288d",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.15": "1925ff1721907296d59d8f9d0ef8716ecbf1ba6a75facbd8d1387e3f37c7b1c3",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1298,7 +1313,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.16": "410d048626211530957158e5af6de9c3bc68ea5b53dfd9cd759f76fdf778a7ee",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.16": "f7de8265e77088d6dcb86fe13a592c3311fd08be0d5ca5cb516db9496a5d6d90",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1325,7 +1341,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.17": "f9c61587862c3bcf30e8fe37389a3d42c5688ca4e1692c5f3611eedf694a4d2b",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.17": "1cdd559a55eea53057f225b370f8b334dea3a17fc4e55274e0dcb27551df561d",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1345,7 +1362,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.18": "e0af0a8b56c1133a6a5628598254d7210d99d69420bb9fd87cd13c1fcb1ec670",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.18": "6b328a05c35fe80bbf18f93c65f51f2740edf5589c34705ecc6ab71253b3159d",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1365,7 +1383,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.19": "68ff1a1569861525927ae87e83ac0d28535d8bb814e35e294f5621cd2610220a",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.19": "a14a4455eac563a0458e4a531649b8395a1497cfafc024b0298d72850eb12771",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1381,7 +1400,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it too (see mvp-0.9; dormant below mvp-0.21).
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.20": "048e613cd4087875fce1f81b0919735741bf0b75c207e7fc161aa150240b1ad8",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.20": "029517ec6beda0e97f392e808a70e81fcf158831682c1eb818643603efeebdb4",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1406,7 +1426,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.22 merged.
     # Tier 1's [decider_routes] and route move it too (see mvp-0.9; dormant below mvp-0.22).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.21": "721d509b06edf8902879f0e7f82a1a7fbfaa00b6df11dd9778c6a5fb0bc4e68d",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.21": "b1f6ac571e7a7bafa738bb7896bedb9d9418079a0843576740203d8ac4e1acfd",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1423,7 +1444,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # guard). New vaults start here (the template's LATEST_ALGORITHM_VERSION;
     # owner decision 2026-10-12).
     # Exam protection's goals.held_out_selection moves it too (see mvp-0.9).
-    "mvp-0.22": "6ae56c6668a200f95d496af77d8e5f1cfc0f4b9c5feaa05187f0bcb0daf2c6e7",
+    # Reader workbench RW3a's [cues] moves it too (see mvp-0.9).
+    "mvp-0.22": "f0252761f7407912db9e58abe497cfd51bc0edaa242ebf76824b3bfa715b0f68",
 }
 
 
