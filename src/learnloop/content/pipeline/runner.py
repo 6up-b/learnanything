@@ -115,6 +115,7 @@ KNOWN_JOB_TYPES = frozenset(
         "bootstrap_synthesis",
         "append_synthesis",
         "extraction_repair",
+        "source_embedding_backfill",
     }
 )
 
@@ -206,6 +207,9 @@ class RunnerServices:
     # UX Phase 1: which provider would write questions for an automatic build
     # and whether it is ready (learnloop.content.pipeline.add_source).
     authoring_route_factory: Callable[["JobContext"], Any] | None = None
+    #: Tutor delivery fixes: the embedding client a source_embedding_backfill
+    #: job uses (None: the vault's ``embedding`` route; tests inject a fake).
+    embedding_client_factory: Callable[["JobContext"], Any] | None = None
     _inventory_identity_cache: tuple[str, str] | None = field(
         default=None, init=False, repr=False
     )

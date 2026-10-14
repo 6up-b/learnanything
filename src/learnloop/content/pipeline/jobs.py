@@ -1918,6 +1918,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 health=ir.health.model_dump(mode="json"),
                 clock=ctx.clock,
             )
+            queue_source_vectors(ctx, extraction_id, title=display_title)
 
     ctx.report("extracted", message="Extracted document structure")
     return {
@@ -1936,6 +1937,67 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
             "flagged_pages": ir.health.flagged_pages(),
         },
     }
+
+
+def queue_source_vectors(ctx: JobContext, extraction_id: str, *, title: str | None = None) -> str | None:
+    """Queue the source-block embedding backfill after an extraction completes.
+
+    Tutor delivery fixes (2026-10-13): every path that completes an
+    extraction run (an import, a page repair, any extractor) calls this, so a
+    re-extracted source does not silently fall back to keyword search. Acts
+    only when ``embedding.enabled``, ``embedding.backfill_enabled`` and
+    ``embedding.backfill_sources_on_extract`` are on; otherwise nothing is
+    queued (or sent). Queued as its own batch (``source_embedding_backfill``),
+    so the import never waits on it and a failure never fails the import.
+    Returns the batch id, or None."""
+
+    from learnloop.config.loader import load_config
+    from learnloop.source_retrieval.source_vectors import SOURCE_VECTORS_JOB, auto_backfill_reason
+
+    try:
+        config = load_config(Path(ctx.vault_root) / "learnloop.toml", load_environment=False)
+    except Exception:  # noqa: BLE001 - no readable config: nothing to queue
+        return None
+    if auto_backfill_reason(config) is not None:
+        return None
+    payload: dict[str, Any] = {"extraction_id": extraction_id}
+    if title:
+        payload["title"] = title
+    try:
+        return ctx.enqueue_batch(SOURCE_VECTORS_JOB, [JobSpec(SOURCE_VECTORS_JOB, payload)])
+    except JobCancelled:
+        raise
+    except Exception:  # noqa: BLE001 - the backfill is follow-up work; the extraction stands
+        logging.getLogger(__name__).warning("could not queue the source-block backfill for %s", extraction_id,
+                                            exc_info=True)
+        return None
+
+
+def handle_source_embedding_backfill(ctx: JobContext) -> dict[str, Any]:
+    """source_embedding_backfill: embed a source's current extraction's blocks.
+
+    Through ``ops.embedding_backfill`` (switches, caps, lock, receipts); the
+    result is the aggregate report (counts, caps, charges), never block text."""
+
+    from learnloop.source_retrieval.dense import clear_cache
+    from learnloop.source_retrieval.source_vectors import backfill_source_vectors
+    from learnloop.vault.loader import load_vault
+
+    extraction_id = str(ctx.payload.get("extraction_id") or "").strip()
+    if not extraction_id:
+        raise IngestRunnerError("source_embedding_backfill requires an 'extraction_id'.")
+    ctx.report("acquired", message="Indexing the source for meaning search")
+    factory = ctx.services.embedding_client_factory
+    report = backfill_source_vectors(
+        load_vault(ctx.vault_root), extraction_id,
+        client_factory=(lambda: factory(ctx)) if factory is not None else None,
+        cancelled=ctx.cancelled,
+    )
+    if report.get("embedded"):
+        clear_cache()
+    title = ctx.payload.get("title")
+    ctx.report("applied", message="Meaning search index updated")
+    return {**report, **({"title": title} if title else {})}
 
 
 def _compose_display_title(title: str | None, authors: Sequence[str]) -> str | None:
@@ -2128,6 +2190,7 @@ def handle_extraction_repair(ctx: JobContext) -> dict[str, Any]:
             health=repair_ir.health.model_dump(mode="json"),
             clock=ctx.clock,
         )
+        queue_source_vectors(ctx, repair_extraction_id)
 
     ctx.report("extracted", message="Composed repaired pages with the parent extraction")
     composed = compose_extraction_runs(parent_ir, repair_ir)
@@ -2962,6 +3025,7 @@ DEFAULT_HANDLERS: dict[str, Handler] = {
     "question_promotion": handle_question_promotion,
     "rung_variant": handle_rung_variant,
     "concept_animation": handle_concept_animation,
+    "source_embedding_backfill": handle_source_embedding_backfill,
 }
 
 

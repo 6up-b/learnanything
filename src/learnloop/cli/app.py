@@ -1348,10 +1348,12 @@ def doctor(
         # Content first, so the doctor report below describes the repaired vault.
         fix_report = fix_criterion_dependencies(_root(vault), dry_run=dry_run)
     report = run_doctor(_root(vault), fix_state=fix_state, ai=ai, ai_provider=ai_provider)
+    dense = _dense_retrieval_note(_root(vault))
     if json_output:
         payload = report.as_dict()
         if fix_report is not None:
             payload["fix_content"] = fix_report
+        payload["dense_retrieval"] = dense
         typer.echo(_dump(payload))
         if not report.clean:
             raise typer.Exit(code=1)
@@ -1360,6 +1362,10 @@ def doctor(
         _echo_fix_content(fix_report)
     if report.storage is not None:
         typer.echo(_storage_line(report.storage))
+    if dense is not None:
+        from learnloop.source_retrieval.source_vectors import coverage_line
+
+        typer.echo(coverage_line(dense))
     if report.clean:
         typer.echo("No doctor issues found.")
         return
@@ -1368,6 +1374,24 @@ def doctor(
         subject = f" {issue.entity_id}" if issue.entity_id else ""
         typer.echo(f"{issue.severity}: {issue.code}{subject}: {issue.message}{location}")
     raise typer.Exit(code=1)
+
+def _dense_retrieval_note(root: Path) -> dict | None:
+    """The doctor's dense-retrieval status note (tutor delivery fixes): per
+    source, how much of its current extraction has block vectors, and whether
+    dense retrieval is effectively on. Read-only; None when it cannot be read."""
+
+    try:
+        from learnloop.db.repositories import Repository
+        from learnloop.source_retrieval.source_vectors import source_coverage
+
+        loaded = load_vault(root)
+        sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        if not sqlite_path.exists():
+            return None
+        return source_coverage(loaded, Repository.attach(sqlite_path, read_only=True))
+    except Exception:  # noqa: BLE001 - a status note never fails the doctor
+        return None
+
 
 def _echo_fix_content(fix: dict) -> None:
     verb = "would remove" if fix["dry_run"] else "removed"

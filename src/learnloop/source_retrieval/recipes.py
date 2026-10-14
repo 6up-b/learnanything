@@ -13,7 +13,10 @@ when named (``--record-kind source_block``). A source corpus is one or two
 orders of magnitude larger than the item and facet corpora, so joining the
 default would make every default-capped backfill plan exceed its caps (and so
 stop backfilling the other recipes), and would buy the whole library for an
-owner who never asked for it.
+owner who never asked for it. A completed extraction queues the recipe for its
+own source (``source_retrieval.source_vectors``; tutor delivery fixes) when
+both embedding switches are on, so a new import or a re-extraction keeps its
+source in dense retrieval without a library-wide run.
 """
 from __future__ import annotations
 
