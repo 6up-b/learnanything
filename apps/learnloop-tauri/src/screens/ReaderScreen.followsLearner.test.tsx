@@ -750,6 +750,29 @@ it("F5: jumping a paused video to a short section is not watching it", async () 
   expect(within(contentsEntry("Summary")).queryByText("✓")).toBeNull();
 });
 
+it("reading-hardening review 2 (F2): a jump that lands late, after a report from before it, is not watching", async () => {
+  const video = videoFixture();
+  render(<ReaderScreen onError={() => undefined} initialSource={{ card: video, spanId: null }} />);
+  await settle(2_000);
+  fireEvent.load(document.querySelector("iframe")!);
+  await settle(100);
+  // Playing near the start.
+  player({ playerState: 1, currentTime: 2 });
+  await settle(100);
+
+  fireEvent.click(contentsEntry("Summary"));
+  await settle(100);
+  // Sent before the jump took effect ...
+  player({ currentTime: 3 });
+  await settle(1_800);
+  // ... and the jump lands 2.4 s after it, still playing.
+  player({ currentTime: 40.5 });
+  await settle(3_000);
+
+  expect(authoredFor("u2")).toEqual([]);
+  expect(within(contentsEntry("Summary")).queryByText("✓")).toBeNull();
+});
+
 it("F5: playing on after a jump is watching", async () => {
   const video = videoFixture();
   render(<ReaderScreen onError={() => undefined} initialSource={{ card: video, spanId: null }} />);

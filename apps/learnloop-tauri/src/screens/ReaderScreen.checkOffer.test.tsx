@@ -499,4 +499,63 @@ describe("a video seek (verify N1)", () => {
     expect(shown(LECTURE_CHECK.prompt)).toBe(true); // pinned when offered, until answered or set aside
     expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
   });
+
+  // Codex's review of the verify follow-up (F2): the player's reports are
+  // messages, and one sent before the seek can arrive after the click. It
+  // moved the place back to where the player had been; a landing after the
+  // settle window then counted as watching from there to the clicked cue.
+
+  it("a report from before the seek, then a landing after the settle window, is still a placement", async () => {
+    await watchTheLecture();
+    expect(shown(LECTURE_CHECK.prompt)).toBe(true);
+
+    fireEvent.click(document.querySelector('[data-transcript-span="v8"]')!);
+    await settle(100);
+    // Sent before the click took effect: the player had played on into v5.
+    await player({ currentTime: 41 });
+    await settle(1_800);
+    // The seek lands 2.4 s after the click, the player still playing.
+    await player({ currentTime: 70.5 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+    await settle(5_000);
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+
+    // Playing on from where it landed is watching the summary.
+    await player({ currentTime: 81 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(true);
+  });
+
+  it("a report from before the seek that arrives just after its landing is not playback", async () => {
+    await watchTheLecture();
+
+    fireEvent.click(document.querySelector('[data-transcript-span="v8"]')!);
+    await settle(100);
+    await player({ currentTime: 70.5 }); // lands at once
+    await player({ currentTime: 41 }); // then a late report of where the player was
+    await settle(1_800);
+    await player({ currentTime: 73 }); // playing on inside the cue it landed on
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+    await settle(5_000);
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+
+    await player({ currentTime: 81 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(true);
+  });
+
+  it("a seek whose landing is never reported stops holding playback back", async () => {
+    await watchTheLecture();
+
+    fireEvent.click(document.querySelector('[data-transcript-span="v8"]')!);
+    await settle(100);
+    // The player never reports the clicked cue (the learner moved it with
+    // YouTube's own controls): where it reports from is a placement ...
+    await player({ currentTime: 41 });
+    await settle(10_000);
+    await player({ currentTime: 52 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(false);
+    // ... and watching on from there is watching.
+    await player({ currentTime: 62 });
+    await player({ currentTime: 72 });
+    expect(shown(SUMMARY_CHECK.prompt)).toBe(true);
+  });
 });

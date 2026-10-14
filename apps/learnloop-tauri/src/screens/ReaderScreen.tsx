@@ -143,6 +143,18 @@ const BADGED_HEALTH = new Set(["suspect", "failed"]);
 // reading positions gather before they are saved.
 const SEEN_SETTLE_MS = 1500;
 const SEEN_REPORT_MS = 1500;
+// The playing cue is the one with the latest start at most this far ahead of
+// the player's time.
+const CUE_LOOKAHEAD_S = 0.15;
+// A seek the watch panel makes has landed when the player reports a time from
+// just before its cue (the lookahead) to a moment of playing on after it.
+// Until then the player's reports are from before the seek. A seek whose
+// landing is never reported (the learner moved the player with YouTube's own
+// controls) stops waiting after a while: the next report is where the player
+// is, a placement too (reading-hardening Codex review 2, F2).
+const SEEK_LANDING_EARLY_S = CUE_LOOKAHEAD_S;
+const SEEK_LANDING_LATE_S = 2.5;
+const SEEK_LANDING_WAIT_MS = 10_000;
 // Timed retries of a failed progress save (leaving the Reader always retries).
 const SEEN_RETRY_LIMIT = 3;
 // The reading marker sits 70% of the way down the reading area (as the
@@ -4009,6 +4021,19 @@ interface TranscriptCue {
   end: number;
 }
 
+// The cue playing at ``time``. Auto-generated captions commonly overlap:
+// stopping at the first cue whose end still covered the time left an older
+// phrase highlighted while a newer one was being spoken, so it is the cue
+// with the latest start at/before playback.
+function cueAt(cues: TranscriptCue[], time: number): TranscriptCue | null {
+  let active: TranscriptCue | null = null;
+  for (const cue of cues) {
+    if (cue.start > time + CUE_LOOKAHEAD_S) break;
+    active = cue;
+  }
+  return active;
+}
+
 interface TranscriptSection {
   cues: TranscriptCue[];
   start: number;
@@ -4063,7 +4088,8 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   resumeSpan: string | null;
   findShortcutEnabled: boolean;
   /** The cue playback is at; ``advancing`` is false for a seek's landing
-   *  and while the player is paused (only playing on is watching). */
+   *  and while the player is paused (only playing on is watching). Nothing
+   *  is reported while a seek is on its way (its landing not yet reported). */
   onPlaybackSpan: (spanId: string | null, advancing: boolean) => void;
   /** Every seek this panel makes (a resume, a transcript cue, a jump), told
    *  before the player moves: a seek is a placement, not watching. */
@@ -4096,10 +4122,43 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   // playback.
   const playingRef = useRef<boolean | null>(null);
   const seekUntilRef = useRef(0);
-  const noteSeek = useCallback((spanId: string | null) => {
-    seekUntilRef.current = Date.now() + SEEN_SETTLE_MS;
+  // The seek this panel made last (reading-hardening Codex review 2, F2):
+  // where it goes, when, and the time the player reported on landing. Until it
+  // lands, a report is from before it (a message sent before the seek can
+  // arrive after it) and reaches neither the transcript nor the Reader.
+  const seekRef = useRef<{ target: number; at: number; landing: number | null } | null>(null);
+  // The cue a seek landed on, until the Reader is told: a placement, never
+  // watching, however late the landing came.
+  const placementRef = useRef<string | null | undefined>(undefined);
+  const cuesRef = useRef<TranscriptCue[]>([]);
+  const noteSeek = useCallback((spanId: string | null, target: number) => {
+    const now = Date.now();
+    seekUntilRef.current = now + SEEN_SETTLE_MS;
+    seekRef.current = { target, at: now, landing: null };
+    placementRef.current = undefined;
     onSeek(spanId);
   }, [onSeek]);
+  // Whether a time the player reported is where it is now, as opposed to a
+  // report sent before the panel's last seek.
+  const acceptPlayerTime = useCallback((time: number): boolean => {
+    const seek = seekRef.current;
+    if (!seek) return true;
+    const now = Date.now();
+    if (seek.landing === null) {
+      const landed = time >= seek.target - SEEK_LANDING_EARLY_S && time <= seek.target + SEEK_LANDING_LATE_S;
+      if (!landed && now - seek.at < SEEK_LANDING_WAIT_MS) return false;
+      seek.landing = time;
+      placementRef.current = cueAt(cuesRef.current, time)?.block.spanId ?? null;
+      return true;
+    }
+    if (now >= seek.at + SEEN_SETTLE_MS) {
+      seekRef.current = null;
+      return true;
+    }
+    // Just after the landing, only playing on from it is the player now; a
+    // report from before the seek can still arrive.
+    return time >= seek.landing - SEEK_LANDING_EARLY_S && time <= seek.landing + SEEK_LANDING_LATE_S + (now - seek.at) / 1000;
+  }, []);
   // ctrl/cmd+F transcript find (mirrors the PDF pane's find conventions).
   const [findOpen, setFindOpen] = useState(false);
   const [findQuery, setFindQuery] = useState("");
@@ -4115,21 +4174,11 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     }
     return cues.sort((a, b) => a.start - b.start || a.end - b.end);
   }, [blocks]);
+  cuesRef.current = transcriptCues;
 
   const transcriptSections = useMemo(() => groupTranscriptCues(transcriptCues), [transcriptCues]);
 
-  const activeCue = useMemo(() => {
-    let active: TranscriptCue | null = null;
-    // Auto-generated captions commonly overlap. The previous implementation
-    // stopped at the first cue whose end still covered the playback time, which
-    // left an older phrase highlighted while a newer one was being spoken.
-    // The cue with the latest start at/before playback is the visible phrase.
-    for (const cue of transcriptCues) {
-      if (cue.start > currentTime + 0.15) break;
-      active = cue;
-    }
-    return active;
-  }, [transcriptCues, currentTime]);
+  const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
 
   const post = useCallback((func: string, args: unknown[] = []) => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT_ORIGIN);
@@ -4141,7 +4190,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: "llwatch", channel: "widget" }), YT_ORIGIN);
     const resumeCue = transcriptCues.find((cue) => cue.block.spanId === resumeSpanRef.current);
     if (resumeCue && resumeCue.start > 0) {
-      noteSeek(resumeCue.block.spanId ?? null);
+      noteSeek(resumeCue.block.spanId ?? null, resumeCue.start);
       post("seekTo", [resumeCue.start, true]);
       setCurrentTime(resumeCue.start);
     }
@@ -4164,12 +4213,14 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
       }
       if (data?.event === "infoDelivery" && typeof data.info === "object" && data.info !== null) {
         if (typeof data.info.playerState === "number") playingRef.current = data.info.playerState === 1;
-        if (typeof data.info.currentTime === "number") setCurrentTime(data.info.currentTime);
+        if (typeof data.info.currentTime === "number" && acceptPlayerTime(data.info.currentTime)) {
+          setCurrentTime(data.info.currentTime);
+        }
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [acceptPlayerTime]);
 
   // Keep playback anchored in a dedicated transcript scroller, rather than
   // scrolling the whole Reader and pushing the video out of view. A learner who
@@ -4178,7 +4229,16 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   useEffect(() => {
     if (!playerReady) return;
     const spanId = activeCue?.block.spanId ?? null;
-    onPlaybackSpan(spanId, playingRef.current !== false && Date.now() >= seekUntilRef.current);
+    const seek = seekRef.current;
+    // A seek still on its way tells the Reader nothing: it already knows the
+    // place (onSeek). The cue it lands on is a placement, never watching;
+    // only playing on from there is (reading-hardening Codex review 2, F2).
+    if (!seek || seek.landing !== null) {
+      const placement = placementRef.current;
+      placementRef.current = undefined;
+      const placing = placement !== undefined && placement === spanId;
+      onPlaybackSpan(spanId, !placing && playingRef.current !== false && Date.now() >= seekUntilRef.current);
+    }
     if (!spanId || !followTranscript) return;
     const scroller = transcriptRef.current;
     const cue = scroller?.querySelector(`[data-transcript-span="${spanId}"]`);
@@ -4211,7 +4271,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   const seekToCue = useCallback((cue: TranscriptCue) => {
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) return;
-    noteSeek(cue.block.spanId ?? null);
+    noteSeek(cue.block.spanId ?? null, cue.start);
     post("seekTo", [cue.start, true]);
     post("playVideo");
     setFollowTranscript(true);
@@ -4285,7 +4345,7 @@ const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     seekToSpan: (spanId: string) => {
       const cue = transcriptCues.find((c) => c.block.spanId === spanId);
       if (!cue) return false;
-      noteSeek(spanId);
+      noteSeek(spanId, cue.start);
       post("seekTo", [cue.start, true]);
       setCurrentTime(cue.start);
       setFollowTranscript(true);
