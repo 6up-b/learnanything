@@ -19,6 +19,7 @@ import importlib.util
 import io
 import json
 import re
+import sys
 import threading
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -215,8 +216,15 @@ def test_429_and_5xx_retry_with_their_own_admission_and_receipt(monkeypatch):
             raise HTTPError(request.full_url, 503, "busy", {}, io.BytesIO(b"{}"))
         return io.BytesIO(json.dumps(hosted()).encode())
 
+    def sleep(seconds):
+        # Only the retry loop's own waits. The patch is process-wide, and
+        # subprocess also calls time.sleep while it waits for the text layer's
+        # worker to exit after answering (often, on a loaded machine).
+        if sys._getframe(1).f_globals.get("__name__") == glm.__name__:
+            sleeps.append(seconds)
+
     monkeypatch.setattr(glm, "_open", fake)
-    monkeypatch.setattr(glm.time, "sleep", sleeps.append)
+    monkeypatch.setattr(glm.time, "sleep", sleep)
     gate = MeteredRequestGate(limit_usd=None, price_per_token=lambda p: 0.03 / 1e6, is_subscription=lambda c: False)
     with gate_model_requests(gate), observe_model_calls(lambda a, e: events.append((a, e))):
         api(monkeypatch).extract(pdf(), ok())
