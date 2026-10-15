@@ -592,9 +592,52 @@ def _marked_selections(connection: Any) -> list[tuple[str, str | None, str | Non
     return found
 
 
-def _signal_ledger(connection: Any) -> list[dict[str, Any]]:
-    """Every row of the held-out signal ledger with its book (migration 225)."""
+def _held_out_signal_spans(inventory: Any) -> list[str]:
+    spans: set[str] = set()
+    for signal in (inventory.get("assessment_signals") or []) if isinstance(inventory, Mapping) else []:
+        if isinstance(signal, Mapping) and signal.get("held_out"):
+            spans |= {str(span) for span in signal.get("span_ids") or [] if span}
+    return sorted(spans)
 
+
+def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
+    """The ledger migration 225's backfill would write, read from the
+    inventory cache: for a database read before it is migrated (a dry run
+    never migrates). A row whose usage names no inventory it was rebound from
+    is on its own extraction; a rebound row, or one whose usage cannot be
+    read, names no reading."""
+
+    found: list[dict[str, Any]] = []
+    for revision_id, extraction_id, unit_id, inventory_json, usage_json, source_id in connection.execute(
+            "SELECT inventory.source_revision_id, inventory.extraction_id, inventory.unit_id, inventory.inventory_json, "
+            "inventory.usage_json, revision.source_id FROM source_unit_inventories AS inventory "
+            "LEFT JOIN source_revisions AS revision ON revision.id = inventory.source_revision_id "
+            "WHERE inventory.inventory_json LIKE '%held_out%' ORDER BY inventory.created_at, inventory.id"):
+        spans = _held_out_signal_spans(_json_value(inventory_json, {}))
+        if not spans:
+            continue
+        if usage_json is None:
+            bound = True
+        else:
+            try:
+                usage = json.loads(usage_json)
+            except (TypeError, ValueError):
+                usage = None
+            bound = isinstance(usage, dict) and usage.get("rebound_from_inventory_id") is None
+        found.append({"revision_id": None if revision_id is None else str(revision_id),
+                      "extraction_id": str(extraction_id) if bound and extraction_id else None,
+                      "unit_id": str(unit_id), "made_as_role": None, "span_ids": frozenset(spans),
+                      "source_id": None if source_id is None else str(source_id)})
+    return found
+
+
+def _signal_ledger(connection: Any) -> list[dict[str, Any]]:
+    """Every row of the held-out signal ledger with its book (migration 225);
+    on a database not yet migrated, what its backfill would write."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                          "AND name = 'source_held_out_signal_marks'").fetchone() is None:
+        return _cache_signal_ledger(connection)
     rows = connection.execute(
         "SELECT m.revision_id, m.extraction_id, m.unit_id, m.made_as_role, m.span_ids_json, r.source_id "
         "FROM source_held_out_signal_marks AS m LEFT JOIN source_revisions AS r ON r.id = m.revision_id "

@@ -682,7 +682,12 @@ def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank
         cached("inv_unreadable", "extXB", "u4", ["y3"], "{not json")
         cached("inv_nothing_held", "extXA", "u5", ["x3"], json.dumps({"calls": 1}), held_out=False)
         connection.commit()
+    # Read before it is migrated (a dry run never migrates): the same protection the backfill gives.
+    unmigrated = (EM.source_marks(_exam_sets(default_role="exam", scope=()), repo),
+                  EM.held_out_material(_exam_sets(default_role="exam", scope=()), repo))
     assert [migration.version for migration in apply_migrations(repo.sqlite_path)] == [225]
+    assert (EM.source_marks(_exam_sets(default_role="exam", scope=()), repo),
+            EM.held_out_material(_exam_sets(default_role="exam", scope=()), repo)) == unmigrated
 
     rows = {row["inventory_id"]: row for row in repo.held_out_signal_marks()}
     assert set(rows) == {"inv_fresh", "inv_null_usage", "inv_rebound", "inv_unreadable"}
