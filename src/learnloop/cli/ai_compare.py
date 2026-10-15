@@ -39,6 +39,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import combinations
 import json
+import os
 from pathlib import Path
 import shutil
 import statistics
@@ -129,23 +130,36 @@ def tracked_database_reason(vault: LoadedVault) -> str | None:
     ``fixtures/linear_algebra``, ``probability`` and ``arxiv_v2`` are): the
     comparison writes receipts and runs migrations, so it runs on a backup-API
     copy instead (``--copy-from``).
+
+    The check fails closed: only git's own "untracked" (exit 1) or "not a git
+    repository" lets the vault through. A check that cannot finish (a timeout,
+    an OS error, any other git failure such as dubious ownership) refuses, since
+    the vault it could not classify may be a working one. Without a git
+    executable there is nothing to ask, and the vault is let through.
     """
 
     database = VaultPaths(vault.root, vault.config).sqlite_path
     git = shutil.which("git")
     if git is None or not database.exists():
         return None
+    copy_hint = (f"Compare on a backup-API copy: learnloop ai compare --copy-from {vault.root} "
+                 "--vault fixtures-local/<name> ...")
     try:
         result = subprocess.run(
             [git, "-C", str(database.parent), "ls-files", "--error-unmatch", "--", database.name],
             capture_output=True, text=True, timeout=20, check=False,
+            # git's messages in English, so "not a git repository" can be matched.
+            env={**os.environ, "LC_ALL": "C", "LANGUAGE": "C"},
         )
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (f"Could not check whether git tracks {database} ({type(exc).__name__}), so {vault.root} is "
+                f"treated as a working vault. {copy_hint}")
+    if result.returncode == 0:
+        return f"{vault.root} is a working vault (git tracks {database.name}). {copy_hint}"
+    if result.returncode == 1 or "not a git repository" in (result.stderr or "").lower():
         return None
-    if result.returncode != 0:
-        return None
-    return (f"{vault.root} is a working vault (git tracks {database.name}). Compare on a backup-API copy: "
-            f"learnloop ai compare --copy-from {vault.root} --vault fixtures-local/<name> ...")
+    return (f"Could not tell whether git tracks {database} (git exited {result.returncode}), so {vault.root} "
+            f"is treated as a working vault. {copy_hint}")
 
 
 def copy_vault(source: Path, destination: Path) -> list[Path]:

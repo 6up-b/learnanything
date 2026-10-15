@@ -212,7 +212,11 @@ teach-back authoring draft. Nothing is written but receipts. The report
   profile's agreement with the grade the vault recorded.
 
 Safety: a vault whose database git tracks is refused (the owner's working
-vaults); `--copy-from` makes a backup-API copy (also on a dry run) into a new
+vaults), checked before the database is opened. The check fails closed: only
+git's "untracked" (exit 1) or "not a git repository" lets a vault through; a
+timeout, an OS error or any other git failure (dubious ownership, say) refuses
+it as a working vault (fixed on resume, 2026-10-15: it used to let those
+through). `--copy-from` makes a backup-API copy (also on a dry run) into a new
 directory outside the source; subscription profiles only; the call cap is the
 plan. `tee_model_calls` measures beside the command's receipt observer, so
 receipts still land in the copy.
@@ -231,12 +235,13 @@ receipts still land in the copy.
   workspace under `single_request()`, inline mode and its budget, a snapshot
   diagnosis end to end, the provenance mapping, routing (capability,
   deadline), Codex fallback while paused, disclosures, profile validation.
-- `tests/test_ai_compare.py` (9): dry run sends nothing, a run on a
+- `tests/test_ai_compare.py` (11 cases): dry run sends nothing, a run on a
   `--copy-from` copy (agreement, validity, latency, tokens, allowance;
   original untouched, receipts in the copy, no learner text or model prose in
   the report), a usage limit stopping a profile, a failed diagnosis keeping
-  its reason, the working-vault refusal, metered/unknown/non-generation
-  profiles refused, copy rules.
+  its reason, the working-vault refusal and its fail-closed check (timeout,
+  other git failures), metered/unknown/non-generation profiles refused, copy
+  rules, the request meter counting only requests that were sent.
 - The fake Responses server (`tests/chatgpt_plan_fakes.py`) enforces the
   route's tool contract: namespaced function tools only, hosted tools
   refused, `include` required, no input item with a stored id, reasoning

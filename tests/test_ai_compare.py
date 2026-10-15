@@ -257,6 +257,31 @@ def test_a_working_vault_is_refused(source, server):
     assert server.requests == []
 
 
+def test_the_working_vault_check_fails_closed(source, server, monkeypatch):
+    from learnloop.cli import ai_compare
+
+    loaded = load_vault(source)
+
+    def answering(returncode: int, stderr: str = ""):
+        return lambda args, **_kwargs: subprocess.CompletedProcess(args, returncode, "", stderr)
+
+    def timing_out(args, **_kwargs):
+        raise subprocess.TimeoutExpired(args, 20)
+
+    # Only git's "untracked" and "not a git repository" let a vault through.
+    monkeypatch.setattr(ai_compare.subprocess, "run", answering(1, "error: pathspec did not match"))
+    assert ai_compare.tracked_database_reason(loaded) is None
+    monkeypatch.setattr(ai_compare.subprocess, "run", answering(128, "fatal: not a git repository (or any parent)"))
+    assert ai_compare.tracked_database_reason(loaded) is None
+    # A check that cannot finish refuses, and the command refuses before opening the database.
+    for run in (timing_out, answering(128, "fatal: detected dubious ownership in repository")):
+        monkeypatch.setattr(ai_compare.subprocess, "run", run)
+        assert "treated as a working vault" in ai_compare.tracked_database_reason(loaded)
+        result, payload = _invoke("--vault", str(source), "--profiles", "chatgpt", "--dry-run")
+        assert result.exit_code == 1 and payload["error"] == "working_vault"
+    assert server.requests == []
+
+
 @pytest.mark.parametrize(("profiles", "code"), [("openrouter", "metered_profile"), ("nope", "unknown_profile"),
                                                 ("openrouter_embedding", "not_generation")])
 def test_metered_unknown_and_non_generation_profiles_are_refused(source, profiles, code):
