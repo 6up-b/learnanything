@@ -937,7 +937,12 @@ def test_schema_interpretation_gets_the_applicability_prompt():
         elicitations_this_session=0,
     )
     assert decision.elicit is True
-    assert "fit" in (decision.prompt or "").lower()
+    # UX Phase 4 (m13) reworded the applicability prompt from "what made this
+    # case fit?" to "what told you this idea applies here?"; the discriminator
+    # is still the applicability question, not the decision-point one.
+    prompt = (decision.prompt or "").lower()
+    assert "applies here" in prompt
+    assert "why this approach" not in prompt
 
 
 def test_a_no_reliable_decomposition_contract_does_not_suppress_elicitation():
