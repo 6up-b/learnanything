@@ -28,7 +28,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 import { errorMessage, getCommandError } from "../errors";
 import { expectedAnswerText, simplePracticeFeedback } from "../app/practiceFeedback";
-import { DetailsToggle, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
+import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
 
 type CommittedAttemptRecovery = {
   attemptId: string;
@@ -876,10 +876,7 @@ export function PracticeScreen({
           <Card focused>
             <div style={{ lineHeight: 1.6 }}>Your answer is saved. LearnLoop is finishing the grading.</div>
             <div className="form-row" style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center" }}>
-              <button className="queue-row focused" type="button" disabled={submitting} onClick={() => setLoadRevision((value) => value + 1)}>
-                <span className="queue-title">Try again</span>
-                <span className="queue-hotkey" aria-hidden="true">r</span>
-              </button>
+              <PrimaryAction hotkey="r" disabled={submitting} onClick={() => setLoadRevision((value) => value + 1)}>Try again</PrimaryAction>
               <DetailsToggle open={cardDetailsOpen} onToggle={() => setCardDetailsOpen((open) => !open)} />
             </div>
             {cardDetailsOpen ? (
@@ -936,12 +933,8 @@ export function PracticeScreen({
           <Card focused>
             <div style={{ lineHeight: 1.6 }} role="alert">This question isn't available any more.</div>
             <div className="form-row" style={{ marginTop: 14 }}>
-              <button className="queue-row focused" type="button" onClick={onBack}>
-                <span className="queue-title">Next question</span>
-              </button>
-              <button className="queue-row" type="button" onClick={() => setLoadRevision((value) => value + 1)}>
-                <span className="queue-title">Try again</span>
-              </button>
+              <PrimaryAction onClick={onBack}>Next question</PrimaryAction>
+              <QuietAction onClick={() => setLoadRevision((value) => value + 1)}>Try again</QuietAction>
             </div>
           </Card>
         </div>
@@ -994,6 +987,9 @@ export function PracticeScreen({
             // the mode, the grader and the estimate are receipts (details).
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 }}>
               <span style={{ color: COLOR.textDim }}>{item.learningObjectTitle}</span>
+              {/* An honest label, quiet (§4.2): a primed retry or a redo is
+                  practice with help. */}
+              {primed && !onYourOwnCheck ? <span style={quietLine}>◌ with help</span> : null}
               <span style={{ flex: 1 }} />
               {!probeActive ? (
                 <button
@@ -1348,8 +1344,12 @@ export function PracticeScreen({
                     <button
                       key={level}
                       type="button"
-                      className={on ? "queue-row focused" : "queue-row"}
-                      style={{ padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
+                      // Phase 4: small inline buttons (the queue-row grid
+                      // stretched each one across the card).
+                      className={simple ? (on ? "plain-action primary" : "plain-action") : on ? "queue-row focused" : "queue-row"}
+                      style={simple
+                        ? { padding: "1px 8px", fontSize: 11, fontFamily: FONT_MONO, opacity: on ? 1 : 0.7 }
+                        : { padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
                       onClick={() => setAnswerConfidence(on ? null : level)}
                       disabled={locked}
                       aria-pressed={on}
@@ -1362,7 +1362,7 @@ export function PracticeScreen({
                 {answerConfidence != null && !submitting && !selfGradeVisible ? (
                   <button
                     type="button"
-                    className="queue-row"
+                    className={simple ? "plain-action" : "queue-row"}
                     style={{ padding: "0 7px", opacity: 0.55 }}
                     onClick={() => setAnswerConfidence(null)}
                     aria-label="clear answer confidence"
@@ -1447,18 +1447,13 @@ export function PracticeScreen({
               // check on your own offers no hint.
               <div className="form-row" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
-                  <button className="queue-row focused" type="button" onClick={() => void submit()} disabled={submitting}>
-                    <span className="queue-title">Submit</span>
-                    <span className="queue-hotkey" aria-hidden="true">^↵</span>
-                  </button>
+                  <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting}>Submit</PrimaryAction>
                 )}
                 {!probeActive && !onYourOwnCheck && hintsUsed < item.hints.length && !selfGradeVisible ? (
                   <QuietAction onClick={revealHint} disabled={submitting}>{hintsUsed > 0 ? "Hint again" : "Hint"}</QuietAction>
                 ) : null}
                 {stuckPrompt && !stuck && !selfGradeVisible ? (
-                  <button className="queue-row" type="button" onClick={pressStuck} disabled={submitting}>
-                    <span className="queue-title">I'm stuck</span>
-                  </button>
+                  <QuietAction onClick={pressStuck} disabled={submitting}>I'm stuck</QuietAction>
                 ) : null}
                 {!probeActive && !selfGradeVisible ? (
                   <QuietAction onClick={() => openAsk()} disabled={submitting}>Ask</QuietAction>
@@ -1515,7 +1510,7 @@ export function PracticeScreen({
       </div>
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
-        ...(probeActive || onYourOwnCheck ? [] : [{ key: "^h", label: "hint" }]),
+        ...(probeActive || onYourOwnCheck || item.hints.length === 0 ? [] : [{ key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
@@ -1871,9 +1866,7 @@ function PlainSelfGrade({
                 </label>
               ))}
               <div style={{ marginTop: 8 }}>
-                <button className="queue-row focused" type="button" onClick={onDonePartly} disabled={submitting}>
-                  <span className="queue-title">Done</span>
-                </button>
+                <PrimaryAction hotkey="↵" onClick={onDonePartly} disabled={submitting}>Done</PrimaryAction>
               </div>
             </div>
           ) : null}

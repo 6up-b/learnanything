@@ -55,6 +55,7 @@ import {
   verdictOf
 } from "../app/practiceFeedback";
 import { FeedbackSurface, type FeedbackNextStep } from "./feedback/FeedbackSurface";
+import { PrimaryAction, QuietAction } from "../components/PlainParts";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -2071,7 +2072,10 @@ export function FeedbackScreen({
       // note) instead of a silent regrade (usability round 1, M-b).
       else if (simple && event.key === "r") {
         event.preventDefault();
-        if (feedback.gradingSource !== "self") setContestOpen(true);
+        const right = verdictOf({
+          score: feedback.rubricScore, max: feedback.maxPoints, correctness: feedback.correctness, held: feedback.heldForReview === true
+        }) === "right";
+        if (feedback.gradingSource !== "self" && !right) setContestOpen(true);
       }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
       else if (event.key === "D") { event.preventDefault(); void handleTriggerFollowup(); }
@@ -2101,7 +2105,8 @@ export function FeedbackScreen({
   ) {
     const held = f.heldForReview === true;
     const verdict = verdictOf({ score: f.rubricScore, max: f.maxPoints, correctness: f.correctness, held });
-    const contestAvailable = f.gradingSource !== "self";
+    // Nothing to contest on a grade the learner gave, or on a right answer.
+    const contestAvailable = f.gradingSource !== "self" && verdict !== "right";
     // ONE next step besides Next (§7.5), the one the system recommends: fix a
     // named mix-up, else redo the part missed, else a similar question. A
     // right answer, or one held for review, needs none.
@@ -2408,12 +2413,8 @@ export function FeedbackScreen({
             <div style={{ maxWidth: 720 }} role="alert">
               <div style={{ color: C.text, marginBottom: 12 }}>Couldn't load the feedback.</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" className="queue-row focused" onClick={() => setFeedbackLoadRevision((value) => value + 1)}>
-                  <span className="queue-title">Try again</span>
-                </button>
-                <button type="button" className="queue-row" onClick={() => void advance()}>
-                  <span className="queue-title">Next question</span>
-                </button>
+                <PrimaryAction onClick={() => setFeedbackLoadRevision((value) => value + 1)}>Try again</PrimaryAction>
+                <QuietAction onClick={() => void advance()}>Next question</QuietAction>
               </div>
             </div>
           ) : (

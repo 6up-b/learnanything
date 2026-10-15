@@ -43,9 +43,9 @@ export function PrimaryAction({
   ariaLabel?: string;
 }) {
   return (
-    <button className="queue-row focused" type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
-      <span className="queue-title">{children}</span>
-      {hotkey ? <span className="queue-hotkey" aria-hidden="true">{hotkey}</span> : null}
+    <button className="plain-action primary" type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
+      <span>{children}</span>
+      {hotkey ? <span className="plain-key" aria-hidden="true">{hotkey}</span> : null}
     </button>
   );
 }
@@ -63,8 +63,8 @@ export function QuietAction({
   ariaLabel?: string;
 }) {
   return (
-    <button className="queue-row" type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
-      <span className="queue-title">{children}</span>
+    <button className="plain-action" type="button" onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
+      <span>{children}</span>
     </button>
   );
 }

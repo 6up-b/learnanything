@@ -31,7 +31,7 @@ import {
 } from "../components/CausalAttribution";
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill } from "../components/term";
-import { FIX_MIX_UP_LABEL, plainSlug, simplePracticeFeedback } from "../app/practiceFeedback";
+import { FIX_MIX_UP_LABEL, simplePracticeFeedback } from "../app/practiceFeedback";
 import { DetailsToggle, PrimaryAction, quietLine } from "../components/PlainParts";
 
 const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
@@ -282,11 +282,10 @@ export function RepairScreen({
         compare={
           kase ? (
             <>
-              <div style={{ lineHeight: 1.6 }}>
-                {kase.targetFacet && kase.confusedWithFacet
-                  ? `Some answers mixed up ${plainSlug(kase.targetFacet)} and ${plainSlug(kase.confusedWithFacet)}.`
-                  : kase.statement}
-              </div>
+              {/* The case's own statement, as an evidence relation: facet ids
+                  are slugs (often cut short), never words to show a learner
+                  (found in the Phase 4 harness walk). */}
+              <div style={{ lineHeight: 1.6 }}>Some answers were consistent with this mix-up: {kase.statement}</div>
               {kase.correctionStatement ? (
                 <div style={{ marginTop: 6, color: COLOR.green, lineHeight: 1.6 }}>
                   The distinction to use here: {kase.correctionStatement}
@@ -503,6 +502,14 @@ export function RepairScreen({
   );
 }
 
+/** A passage's section path in words: an extraction's raw block addresses
+ *  ("/page/14/SectionHeader/0", found in the Phase 4 harness walk) are left
+ *  out, never shown as a heading. */
+function plainSectionPath(sectionPath: string[]): string {
+  const titles = sectionPath.filter((part) => part.trim() && !part.trim().startsWith("/"));
+  return titles.length > 0 ? ` · ${titles.join(" › ")}` : "";
+}
+
 // ── UX Phase 4.3: the plain repair step ─────────────────────────────────────
 function SimpleRepairStep({
   onClose,
@@ -578,7 +585,7 @@ function SimpleRepairStep({
                   <div key={`${passage.facetId}:${index}`} style={{ border: `1px solid ${COLOR.border}`, padding: "8px 10px" }}>
                     <div style={quietLine}>
                       {passage.role.includes("confused") ? "What it gets mixed up with" : "The idea to use"}
-                      {passage.spanView.sectionPath.length > 0 ? ` · ${passage.spanView.sectionPath.join(" › ")}` : ""}
+                      {plainSectionPath(passage.spanView.sectionPath)}
                     </div>
                     <div style={{ marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>
                       {passage.spanView.text}

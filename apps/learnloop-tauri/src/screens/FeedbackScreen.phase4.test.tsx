@@ -364,3 +364,34 @@ it("classic restores the screen exactly: the score block, the grader tier and th
   expect(screen.queryByText("Partly right")).toBeNull();
   expect(screen.queryByRole("button", { name: /I think I was right/ })).toBeNull();
 });
+
+// Found in the Phase 4 harness walk (fake AI, the linear-algebra library copy).
+it("offers nothing to contest on a right answer", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, rubricScore: 4, correctness: 1 });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Right")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /I think I was right/ })).toBeNull();
+  await press("r");
+  expect(screen.queryByRole("textbox", { name: /why you think you were right/i })).toBeNull();
+});
+
+it("offers why? when the possible causes are known but no sentence is, and keeps the learner's verdict noted", async () => {
+  const causal = {
+    receiptId: "r1", verifiedCorrection: null,
+    causalHypotheses: [{ hypothesisId: "h1", label: "old rule", statement: "The old rule still seemed to apply.", causeScope: "learner_state", supportScore: null }],
+    unverified: [], proposedNextAction: null, demonstratedCriteria: [], firstDivergence: null, protectedTargets: [],
+    contestAction: { available: true, reasons: ["diagnosis_wrong"], factorId: null },
+    repairedTrace: null, repairedTraceWithheldReason: null, permittedUses: []
+  };
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, feedbackMd: null, causalFeedback: causal });
+  api.contestCausalDiagnosis.mockResolvedValue({});
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /why\?/ }));
+  expect(screen.getByText(/The old rule still seemed to apply/)).toBeTruthy();
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, feedbackMd: null, causalFeedback: { ...causal, contestAction: { available: false, reasons: [], factorId: null } } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "this doesn't sound right" }));
+  });
+  expect(await screen.findByText("Noted. Thanks.")).toBeTruthy();
+});

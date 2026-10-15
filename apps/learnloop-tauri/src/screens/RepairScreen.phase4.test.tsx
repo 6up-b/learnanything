@@ -28,7 +28,7 @@ const CASE = {
 const EPISODE = { id: "ep_1", passagesShown: [], primedItemId: null, coldItemId: null };
 const PASSAGES = [
   { role: "target", facetId: "facet_conditional_probability", spanView: { extractionId: "ex_1", spanId: "sp_1", sectionPath: ["2.2 Conditional probability"], blockType: "paragraph", text: "P(A|B) = P(A and B) / P(B)." } },
-  { role: "confused_with", facetId: "facet_unconditional_probability", spanView: { extractionId: "ex_1", spanId: "sp_2", sectionPath: ["1.3 Probability"], blockType: "paragraph", text: "P(A) counts every outcome." } }
+  { role: "confused_with", facetId: "facet_unconditional_probability", spanView: { extractionId: "ex_1", spanId: "sp_2", sectionPath: ["/page/25/SectionHeader/17"], blockType: "paragraph", text: "P(A) counts every outcome." } }
 ];
 
 function bodyText(): string {
@@ -55,8 +55,11 @@ it("is one timed step: compare, read both passages, then try one, each on the pr
   render(<RepairScreen misconceptionId="mis_1" sessionId="s1" onClose={vi.fn()} onPractice={onPractice} onError={vi.fn()} />);
   expect(await screen.findByText("Fix this mix-up · about 4 min")).toBeTruthy();
   expect(await screen.findByText(/Conditioning shrinks the outcomes/)).toBeTruthy();
-  expect(bodyText()).toContain("conditional probability");
+  // The case's statement as an evidence relation, never facet slugs (they
+  // are ids, often cut short: the harness walk found "…to each o").
+  expect(bodyText()).toContain("Some answers were consistent with this mix-up: Treats P(A|B) as P(A)");
   expect(bodyText()).not.toContain("facet_");
+  expect(bodyText()).not.toContain("unconditional probability");
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: /Read both passages/ }));
   });
@@ -89,7 +92,9 @@ it("keeps the measurement bookkeeping off the surface", async () => {
     fireEvent.click(screen.getByRole("button", { name: /Read both passages/ }));
   });
   await screen.findByText("P(A|B) = P(A and B) / P(B).");
-  for (const internal of ["exposure", "proof", "Demonstrated credit", "not measurable", "prime", "canonical", "misconception", "active"]) {
+  // A raw block address is never a heading (the harness walk found them).
+  expect(bodyText()).toContain("2.2 Conditional probability");
+  for (const internal of ["exposure", "proof", "Demonstrated credit", "not measurable", "prime", "canonical", "misconception", "active", "/page/"]) {
     expect(bodyText()).not.toContain(internal);
   }
 });

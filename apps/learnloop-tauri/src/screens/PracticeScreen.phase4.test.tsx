@@ -188,3 +188,10 @@ it("classic restores the card exactly: the item id, the mode pill and the grader
   expect(text).toContain("codex grading");
   expect(text).toContain("mastery estimate");
 });
+
+// Found in the Phase 4 harness walk: a primed retry (after a repair, or from
+// feedback) said nothing about being practice with help.
+it("labels primed practice quietly as with help", async () => {
+  render(<PracticeScreen {...props({ primed: true })} />);
+  expect(await screen.findByText("◌ with help")).toBeTruthy();
+});

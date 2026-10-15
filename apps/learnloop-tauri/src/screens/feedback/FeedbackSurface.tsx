@@ -141,7 +141,12 @@ export function FeedbackSurface({
     ?? (f.feedbackMd?.trim() || null);
   const prerequisite = diagnosis.status === "done" ? diagnosis.card?.prerequisiteGap ?? null : null;
   const whyHasContent =
-    why.causes.length > 0 || why.showed.length > 0 || Boolean(why.mechanism) || why.madeBefore.length > 0 || why.onNotRight !== null;
+    why.causes.length > 0 ||
+    why.showed.length > 0 ||
+    Boolean(why.mechanism) ||
+    why.madeBefore.length > 0 ||
+    why.onNotRight !== null ||
+    why.notRightRecorded;
   const contestBox = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (contest.open) contestBox.current?.focus();
@@ -281,7 +286,7 @@ export function FeedbackSurface({
 
       {/* One sentence on what went wrong; it updates in place when the
           diagnosis lands. */}
-      {sentence || prerequisite ? (
+      {sentence || prerequisite || (whyHasContent && verdict !== "right") ? (
         <div style={{ marginTop: 14, fontSize: 13, lineHeight: 1.6, color: COLOR.text }} data-testid="feedback-sentence">
           {sentence ? <MarkdownMath value={sentence} /> : null}
           {prerequisite ? <div style={{ marginTop: 4 }}>This needs {prerequisite.title} first.</div> : null}
@@ -320,9 +325,9 @@ export function FeedbackSurface({
               ))}
             </div>
           ) : null}
-          {why.onNotRight ? (
+          {why.onNotRight || why.notRightRecorded ? (
             <div style={{ marginTop: 8 }}>
-              {why.notRightRecorded ? (
+              {why.notRightRecorded || !why.onNotRight ? (
                 <span>Noted. Thanks.</span>
               ) : (
                 <button type="button" style={quietLink} onClick={why.onNotRight}>this doesn't sound right</button>
