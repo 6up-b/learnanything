@@ -223,7 +223,8 @@ export function usePdfSelection(options: PdfSelectionOptions) {
       containerRef.current?.focus({ preventScroll: true });
       cancelSettle();
       const pos = hitTest(model, point.page, point.x, point.y);
-      const from = paintedRef.current.length ? paintedRef.current[paintedRef.current.length - 1].anchor : caretRef.current;
+      // Shift+click extends from the caret a click left, else from what is painted.
+      const from = caretRef.current ?? (paintedRef.current.length ? paintedRef.current[paintedRef.current.length - 1].anchor : null);
       if (event.shiftKey && from && pos) {
         // Shift+click extends what is there.
         pressRef.current = { point, pos, clientX: event.clientX, clientY: event.clientY, clicks: 1, moved: true, anchor: from, highlight: null };
@@ -538,7 +539,9 @@ export function usePdfSelection(options: PdfSelectionOptions) {
       const move = KEY_MOVES[event.key];
       if (!move || !event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
       event.preventDefault();
-      const current = paintedRef.current;
+      // A caret placed by a click starts a new selection there (the capture
+      // stays until it is replaced); otherwise the painted one extends.
+      const current = caretRef.current ? [] : paintedRef.current;
       const last = current[current.length - 1];
       const anchor = last ? last.anchor : keyboardStart();
       if (!anchor) return;

@@ -639,6 +639,20 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     return next;
   }, [model, sel.painted, nearPages, modelVersion]);
 
+  // The active passage's frame steps back while a selection is painted on
+  // it: its words already say where the learner is (no whole-paragraph wash).
+  const framedSpan = useMemo(() => {
+    if (!activeSpan) return null;
+    const block = model.blockIndex(activeSpan);
+    if (block === undefined) return activeSpan;
+    const covered = sel.painted.some((range) => {
+      const lo = Math.min(range.anchor.block, range.head.block);
+      const hi = Math.max(range.anchor.block, range.head.block);
+      return block >= lo && block <= hi;
+    });
+    return covered ? null : activeSpan;
+  }, [activeSpan, model, sel.painted]);
+
   const caret = useMemo((): { page: number; box: Box } | null => {
     void modelVersion;
     if (!sel.caret) return null;
@@ -682,16 +696,18 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     [sel.pressing, sel.sweeping, pointAt, highlightAtPoint, model],
   );
 
-  const removeHighlight = useCallback(
-    (id: string) => {
-      setActiveHighlight(null);
-      setHoveredHighlight(null);
-      onHighlightRemove?.(id);
-      // The keyboard stays on the pages, not on a removed stop.
-      containerRef.current?.focus({ preventScroll: true });
-    },
-    [onHighlightRemove],
-  );
+  // The Reader's highlight callbacks through refs: the pages' props stay the
+  // same while the Reader re-renders, so no page redraws for it.
+  const highlightActions = useRef({ onHighlightOpen, onHighlightRemove });
+  highlightActions.current = { onHighlightOpen, onHighlightRemove };
+  const removeHighlight = useCallback((id: string) => {
+    setActiveHighlight(null);
+    setHoveredHighlight(null);
+    highlightActions.current.onHighlightRemove?.(id);
+    // The keyboard stays on the pages, not on a removed stop.
+    containerRef.current?.focus({ preventScroll: true });
+  }, []);
+  const openHighlight = useCallback((id: string) => highlightActions.current.onHighlightOpen?.(id), []);
 
   const onPagesKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -705,7 +721,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          onHighlightOpen?.(activeHighlight);
+          openHighlight(activeHighlight);
           return;
         }
         if (event.key === "Escape") {
@@ -716,7 +732,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       }
       sel.onKeyDown(event);
     },
-    [activeHighlight, removeHighlight, onHighlightOpen, sel],
+    [activeHighlight, removeHighlight, openHighlight, sel],
   );
 
   // Right-click → tag menu: on the painted selection it tags the selection;
@@ -862,7 +878,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 registerPage={registerPage}
                 blocks={blocksByPage.get(page) ?? NO_BLOCKS}
                 guidanceSpans={guidanceSpans}
-                activeSpan={activeSpan}
+                activeSpan={framedSpan}
                 findQuery={findOpen ? findQuery.trim() : ""}
                 inlineNote={inlineNote}
                 marks={marks}
@@ -875,7 +891,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 marqueeRects={marqueeByPage.get(page) ?? NO_MARQUEE}
                 marqueeDraft={sel.marqueeDraft && sel.marqueeDraft.page === page ? sel.marqueeDraft.rect : null}
                 onHighlightFocus={setActiveHighlight}
-                onHighlightOpen={onHighlightOpen}
+                onHighlightOpen={onHighlightOpen ? openHighlight : undefined}
                 onHighlightRemove={onHighlightRemove ? removeHighlight : undefined}
               />
             </div>

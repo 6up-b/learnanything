@@ -343,6 +343,27 @@ describe("selecting on the page", () => {
     expect(onSelectionCleared).toHaveBeenCalledTimes(1);
   });
 
+  it("after a click elsewhere, Shift+arrows start at the click, not at the capture it kept", async () => {
+    const { onTextSelection, container } = await open();
+    await drag(at("s2", "lazy"), at("s2", "dog"));
+    await flush(SELECTION_SETTLE_MS);
+    const point = at("s3", "second");
+    fireEvent.mouseDown(pageEl(0), { ...point, button: 0, detail: 1 });
+    fireEvent.mouseUp(window, point);
+    await flush();
+    const pane = container.querySelector<HTMLElement>("[role='document']")!;
+    fireEvent.keyDown(pane, { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(pane, { key: "ArrowRight", shiftKey: true });
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes.map((node) => [node.spanId, node.quote])).toEqual([["s3", "second paragraph"]]);
+    // Shift+click extends from the new selection's start.
+    const end = at("s3", "page,");
+    fireEvent.mouseDown(pageEl(0), { ...end, button: 0, detail: 1, shiftKey: true });
+    fireEvent.mouseUp(window, end);
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("second paragraph of this page,");
+  });
+
   it("a capture restored by the Reader paints its words and never moves the keyboard", async () => {
     const elsewhere = document.createElement("textarea");
     document.body.appendChild(elsewhere);

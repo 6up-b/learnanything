@@ -159,7 +159,7 @@ export function NotesRail(props: NotesRailProps) {
           <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Faint style={{ fontSize: 11 }}>
-                selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : selection.spanId}
+                selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : "1 passage"}
               </Faint>
               <button
                 type="button"

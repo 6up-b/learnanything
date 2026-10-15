@@ -1245,6 +1245,15 @@ button { color: inherit; }
   user-select: none;
   -webkit-user-select: none;
 }
+/* The pages take the keyboard on a click (Shift+arrows extend from there):
+   a quiet ring only when the keyboard brought it there. */
+.ll-pdf-pages:focus {
+  outline: none;
+}
+.ll-pdf-pages:focus-visible {
+  outline: 1px dashed var(--border-focus);
+  outline-offset: 4px;
+}
 /* A highlight's keyboard stop: invisible until the keyboard reaches it. */
 .ll-pdf-highlight-stop:focus-visible {
   outline: 2px solid var(--border-focus);
