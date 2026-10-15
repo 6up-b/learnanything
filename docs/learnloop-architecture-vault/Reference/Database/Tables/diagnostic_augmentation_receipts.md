@@ -3,13 +3,13 @@ title: "diagnostic_augmentation_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_augmentation_receipts"
   - "table diagnostic_augmentation_receipts"
-schema_head: 204
+schema_head: 205
 table_name: "diagnostic_augmentation_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/144_diagnostic_augmentation.sql"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
@@ -100,6 +101,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 
 ### Direct SQL writers
@@ -118,10 +120,11 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/mcp_world.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
+- `tests/test_diagnostic_augmentation.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_diagnosis_pipeline.py`
-- `tests/test_diagnostic_augmentation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

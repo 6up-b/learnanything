@@ -3,13 +3,13 @@ title: "causal_repair_class_definitions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_repair_class_definitions"
   - "table causal_repair_class_definitions"
-schema_head: 204
+schema_head: 205
 table_name: "causal_repair_class_definitions"
 table_role: "raw_ledger"
 functionality_status: "active"

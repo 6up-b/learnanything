@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 204
+schema_head: 205
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
+  - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/instructional/interventions.py"
 tags:
@@ -53,7 +54,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -93,6 +94,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `source_context_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `leak_overlap` | `REAL` | no | — | — | Stored value |
 | `remediation_episode_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `assessment_contract_version_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -126,7 +128,9 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
+- `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/field/probability_states.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_report.py`
 - `src/learnloop/router/outcomes.py`
 
@@ -164,6 +168,8 @@ Indexes and uniqueness:
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_exam_protection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_interaction_signals.py`
@@ -179,8 +185,6 @@ Indexes and uniqueness:
 - `tests/test_tier1_decider.py`
 - `tests/test_tutor_qa.py`
 - `tests/source_service_fakes.py`
-- `tests/test_contamination_report.py`
-- `tests/test_family_memory_projection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -231,7 +235,7 @@ CREATE TABLE "question_events" (
     signal_channel IS NULL OR signal_channel IN ('epistemic', 'interaction_preference')
   )
 , resolution TEXT NOT NULL DEFAULT 'open'
-  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT);
+  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT);
 ```
 
 ## Related notes

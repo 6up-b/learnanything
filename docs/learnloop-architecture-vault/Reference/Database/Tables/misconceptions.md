@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 204
+schema_head: 205
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -161,6 +161,7 @@ Indexes and uniqueness:
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_cli_commands.py`
 - `tests/test_codex_http_client.py`
+- `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_gate.py`
 - `tests/test_durable_promotion_arms.py`
@@ -174,7 +175,6 @@ Indexes and uniqueness:
 - `tests/test_matching.py`
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
-- `tests/test_mcp_tools.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

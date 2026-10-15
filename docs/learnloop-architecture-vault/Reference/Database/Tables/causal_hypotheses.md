@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 204
+schema_head: 205
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -159,6 +159,7 @@ Database triggers:
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/guided_redo.py`
+- `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/recurrence/kind.py`
 - `src/learnloop/diagnosis/recurrence/live.py`
@@ -166,7 +167,6 @@ Database triggers:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/text_gaps/actions.py`
-- `src/learnloop/scheduling/unresolved_cost.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -180,6 +180,7 @@ Database triggers:
 - `tests/test_causal_repair_mapping_p2.py`
 - `tests/test_causal_trace_consistency_p2.py`
 - `tests/test_diagnosis_history_modes.py`
+- `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
 - `tests/test_mcp_c1a_landing.py`
@@ -192,7 +193,6 @@ Database triggers:
 - `tests/test_voi_merge_composition.py`
 - `tests/daily_plan_fakes.py`
 - `tests/mcp_world.py`
-- `tests/test_agent_runs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

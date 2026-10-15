@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 204
+schema_head: 205
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/diagnoser.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/placement/state.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
@@ -125,6 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_diagnosis_input_provenance.py`
 - `tests/test_learner_text_gaps_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -3,13 +3,13 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
   - "table post_attempt_jobs"
-schema_head: 204
+schema_head: 205
 table_name: "post_attempt_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -115,6 +115,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_embeddings.py`
+- `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
 - `tests/test_field_split_outcomes.py`

@@ -3,13 +3,13 @@ title: "source_held_out_signal_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
+source_commit_timestamp: "2026-10-15T14:11:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_held_out_signal_marks"
   - "table source_held_out_signal_marks"
-schema_head: 204
+schema_head: 205
 table_name: "source_held_out_signal_marks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -47,7 +47,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/204_source_held_out_signal_marks.sql`.
-- **Schema touched by:** `204_source_held_out_signal_marks.sql`.
+- **Schema touched by:** `204_source_held_out_signal_marks.sql`, `205_write_provenance.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -109,6 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_coordinated_migrations.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_reread_safety.py`
