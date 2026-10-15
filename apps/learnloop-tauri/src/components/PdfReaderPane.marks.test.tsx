@@ -112,9 +112,7 @@ function renderPane(extra: { marks?: ReadonlyMap<string, ReactNode>; onPageLayou
         ref={handle}
         fileUrl="llpdf://sha256-book"
         blocks={BLOCKS}
-        trails={[]}
         guidanceSpans={new Set()}
-        selectedSpans={new Set()}
         activeSpan={null}
         onTextSelection={() => undefined}
         onTagMenu={() => undefined}

@@ -423,6 +423,27 @@ def delete_intent_annotation(
     )
 
 
+def restore_annotation(
+    repository: Repository, *, annotation_id: str, clock: Clock | None = None
+) -> dict[str, Any]:
+    """Undo a delete (reader-pdf-selection): a disposition event that
+    withdraws the delete intent hiding the annotation, so it is listed again
+    with its anchor, versions and history untouched. Deletion stays a
+    tombstone event, never a hard delete (§4.1), and so does its undo.
+    Restoring an annotation that is not deleted changes nothing."""
+
+    if repository.annotation_head(annotation_id) is None:
+        raise AnnotationError(f"unknown annotation: {annotation_id!r}")
+    withdrawn = repository.pending_annotation_delete(annotation_id)
+    if withdrawn is None:
+        return {"annotation_id": annotation_id, "restored": False, "event_id": None}
+    event_id = repository.append_annotation_event(
+        annotation_id=annotation_id, event_type="disposition",
+        payload={"undo": "delete_intent", "event_id": withdrawn}, clock=clock,
+    )
+    return {"annotation_id": annotation_id, "restored": True, "event_id": event_id}
+
+
 def reanchor_annotation(
     repository: Repository,
     *,

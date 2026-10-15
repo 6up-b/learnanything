@@ -455,6 +455,45 @@ export function anchorRange(model: SelectionModel, spanId: string, start: number
   return { anchor: { block, unit: first }, head: { block, unit: last } };
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** A node the extracted-text view made (a native selection of a rendered
+ *  block), in the shape the original PDF's model sends: when its quote is in
+ *  the block's text once (exactly, or with the extraction's line breaks for
+ *  spaces), the exact slice with code-point offsets, so both views anchor,
+ *  paint and restore a selection the same way. Otherwise (rendered maths,
+ *  a repeated phrase) the node as it is, for the sidecar's own tiers. */
+export function exactNode<T extends { spanId: string; quote: string }>(
+  blockText: string | null | undefined,
+  node: T,
+): T | (T & { start: number; end: number }) {
+  const text = blockText ?? "";
+  const quote = node.quote.trim();
+  if (!text || !quote) return node;
+  let at = -1;
+  let length = 0;
+  const first = text.indexOf(quote);
+  if (first !== -1) {
+    if (text.indexOf(quote, first + 1) !== -1) return node;
+    at = first;
+    length = quote.length;
+  } else {
+    const pattern = new RegExp(quote.split(/\s+/).map(escapeRegExp).join("\\s+"), "gu");
+    const matches = [...text.matchAll(pattern)];
+    if (matches.length !== 1 || matches[0].index === undefined) return node;
+    at = matches[0].index;
+    length = matches[0][0].length;
+  }
+  return {
+    ...node,
+    quote: text.slice(at, at + length),
+    start: toCodepoint(text, at),
+    end: toCodepoint(text, at + length),
+  };
+}
+
 /** The ranges a selection's nodes cover here (a selection restored from the
  *  return stack, or made on the extracted text): nodes with offsets by their
  *  offsets, others as their whole block. */

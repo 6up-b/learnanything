@@ -558,6 +558,7 @@ fn main() {
             reader_create_annotation,
             reader_edit_annotation,
             reader_delete_intent_annotation,
+            reader_restore_annotation,
             reader_reanchor,
             reader_annotation_history,
             reader_source_annotations,

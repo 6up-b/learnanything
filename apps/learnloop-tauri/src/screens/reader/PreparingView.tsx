@@ -152,9 +152,7 @@ export function PreparingView({
           <PdfReaderPane
             fileUrl={convertFileSrc(manifest.fileName ?? "", "llpdf")}
             blocks={manifest.blocks}
-            trails={[]}
             guidanceSpans={NO_SPANS}
-            selectedSpans={NO_SPANS}
             activeSpan={null}
             onTextSelection={() => undefined}
             onTagMenu={() => undefined}

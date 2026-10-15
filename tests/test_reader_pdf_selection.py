@@ -293,3 +293,59 @@ def test_a_book_with_no_exam_material_has_no_protection(two_books):
                                    ("reader.pdf_view", {"extractionId": "ext_syn"})])
     assert out[1]["result"]["protection"] == {"withheld": False, "heldOutSpanIds": [], "message": None}
     assert out[2]["result"]["protection"] == {"withheld": False, "heldOutSpanIds": [], "message": None}
+
+
+# --- remove and undo: a delete is a tombstone, and so is its undo -------------------------
+
+
+def test_a_removed_highlight_comes_back_on_undo_with_its_anchor_and_history(two_books):
+    """reader.delete_intent_annotation hides it; reader.restore_annotation
+    lists it again, placed exactly where it was. Nothing is hard-deleted."""
+
+    from tests.test_sidecar_reader_p3 import _rpc
+
+    nodes = next(s for s in _contract()["selections"] if s["name"] == "a hyphenated word")["nodes"]
+    capture = ("reader.capture", {"sourceId": "src_syn", "revisionId": "rev_syn", "extractionId": "ext_syn",
+                                  "action": "highlight", "clientIdempotencyKey": "k-undo",
+                                  "rawSelection": {"nodes": nodes}, "learnerText": "remember this"})
+    listing = ("reader.source_annotations", {"sourceId": "src_syn", "extractionId": "ext_syn"})
+    out = _rpc(two_books["root"], [capture, listing])
+    annotation_id = out[1]["result"]["annotationId"]
+    (before,) = out[2]["result"]["annotations"]
+
+    out = _rpc(two_books["root"], [
+        ("reader.delete_intent_annotation", {"annotationId": annotation_id}),
+        listing,
+        ("reader.restore_annotation", {"annotationId": annotation_id}),
+        listing,
+        ("reader.restore_annotation", {"annotationId": annotation_id}),
+        ("reader.annotation_history", {"annotationId": annotation_id}),
+    ])
+    assert out[2]["result"]["annotations"] == []
+    assert out[3]["result"]["restored"] is True
+    (after,) = out[4]["result"]["annotations"]
+    assert after == before
+    assert after["placement"]["segments"][0]["exactQuote"] == "long computation of"
+    # Undoing what is not deleted changes nothing.
+    assert out[5]["result"] == {"version": out[5]["result"]["version"], "annotationId": annotation_id,
+                                "restored": False, "eventId": None}
+    events = [event["eventType"] for event in out[6]["result"]["history"]["events"]]
+    assert events == ["create", "delete_intent", "disposition"]
+
+
+def test_a_second_delete_after_an_undo_hides_it_again(two_books):
+    repo = two_books["repo"]
+    translation = ANN.translate_selection(repo, extraction_id="ext_syn", raw_selection={
+        "nodes": [{"spanId": "s2", "quote": "lazy dog"}]})
+    annotation_id = ANN.append_annotation(repo, source_id="src_syn", revision_id="rev_syn", extraction_id="ext_syn",
+                                          annotation_type="highlight", translation=translation)["annotation_id"]
+    listed = lambda: [head["annotation"]["id"] for head in repo.annotations_for_source("src_syn")]  # noqa: E731
+    assert listed() == [annotation_id]
+    ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    assert listed() == []
+    assert ANN.restore_annotation(repo, annotation_id=annotation_id)["restored"] is True
+    assert listed() == [annotation_id]
+    ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    assert listed() == []
+    with pytest.raises(ANN.AnnotationError):
+        ANN.restore_annotation(repo, annotation_id="ann_missing")

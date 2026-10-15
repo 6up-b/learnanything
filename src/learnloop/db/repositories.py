@@ -60,6 +60,17 @@ OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
 #: A falsifiable expectation extracted from the learner's own tutor question.
 OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
 
+#: An annotation's latest delete intent or undo (a disposition event that
+#: withdraws a delete, reader-pdf-selection), newest first by event id (ULIDs
+#: sort in the order they were written). ``{columns}`` are the columns read and
+#: ``{annotation}`` is the annotation id's SQL expression.
+_LATEST_DELETE_OR_UNDO = (
+    "SELECT {columns} FROM source_annotation_events e "
+    "WHERE e.annotation_id = {annotation} AND (e.event_type = 'delete_intent' OR "
+    "(e.event_type = 'disposition' AND json_extract(e.payload_json, '$.undo') = 'delete_intent')) "
+    "ORDER BY e.id DESC LIMIT 1"
+)
+
 
 class StaleContractHead(Exception):
     """The predecessor a successor was built against is no longer the head (L3,
@@ -12341,18 +12352,26 @@ class Repository(
 
         Deletion is a tombstone disposition event (§4.1) — history keeps every
         version and event, but the reading-surface listing honors the learner's
-        delete intent."""
+        delete intent. An undo (a disposition event withdrawing the delete,
+        reader-pdf-selection) lists it again: the latest of the two decides."""
 
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT id FROM source_annotations WHERE source_id = ? "
-                "AND id NOT IN ("
-                "  SELECT annotation_id FROM source_annotation_events"
-                "  WHERE event_type = 'delete_intent'"
-                ") ORDER BY created_at, id",
+                "SELECT a.id FROM source_annotations a WHERE a.source_id = ? AND COALESCE(("
+                + _LATEST_DELETE_OR_UNDO.format(columns="e.event_type", annotation="a.id")
+                + "), '') != 'delete_intent' ORDER BY a.created_at, a.id",
                 (source_id,),
             ).fetchall()
         return [self.annotation_head(row["id"]) for row in rows]
+
+    def pending_annotation_delete(self, annotation_id: str) -> str | None:
+        """The id of the delete-intent event that hides the annotation now
+        (the latest delete or undo is a delete), else None."""
+
+        with self.connection() as connection:
+            row = connection.execute(_LATEST_DELETE_OR_UNDO.format(columns="e.event_type, e.id", annotation="?"),
+                                     (annotation_id,)).fetchone()
+        return str(row["id"]) if row is not None and row["event_type"] == "delete_intent" else None
 
     def search_source_blocks(
         self, *, query: str, extraction_ids: Sequence[str], limit: int = 80

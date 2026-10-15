@@ -11,16 +11,15 @@
 // requires an exact anchor with the same offsets. UPDATE_PDF_SELECTION_CONTRACT=1
 // rewrites the file; otherwise the model must still produce it exactly.
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ReaderPdfBlockDto } from "../../api/dto";
 import { hitTest, rangeRects, selectionNodes, selectionText, SelectionModel, type Pos, type SelRange, type SpanNode } from "./model";
 import { buildPdf, readPdf } from "./testing/syntheticPdf";
 import { SYNTHETIC_BLOCKS, SYNTHETIC_PAGES } from "./testing/syntheticBook";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const arxiv = JSON.parse(readFileSync(join(here, "fixtures", "arxiv_2302_11517_glm_blocks.json"), "utf-8")) as {
+const here = __dirname;
+const arxiv = JSON.parse(readFileSync(join(here, "fixtures", "arxiv_2302_11517_glm_blocks.json"), "utf8")) as {
   credit: string;
   blocks: ReaderPdfBlockDto[];
 };
@@ -148,7 +147,7 @@ describe("the selection contract with the sidecar", () => {
       selections,
     };
     const path = join(here, "fixtures", "selection_contract.json");
-    if (process.env.UPDATE_PDF_SELECTION_CONTRACT === "1") writeFileSync(path, JSON.stringify(contract, null, 1) + "\n", "utf-8");
-    expect(JSON.parse(readFileSync(path, "utf-8"))).toEqual(JSON.parse(JSON.stringify(contract)));
+    if (process.env.UPDATE_PDF_SELECTION_CONTRACT === "1") writeFileSync(path, JSON.stringify(contract, null, 1) + "\n", "utf8");
+    expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(JSON.parse(JSON.stringify(contract)));
   });
 });

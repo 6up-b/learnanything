@@ -1,0 +1,497 @@
+{
+ "about": "pdf.js text content of testing/syntheticBook.ts's pages (written by model.test.ts)",
+ "pages": [
+  {
+   "page": 0,
+   "items": [
+    {
+     "str": "Synthetic Notes on Foxes",
+     "transform": [
+      8,
+      0,
+      0,
+      8,
+      72,
+      752
+     ],
+     "width": 91.15200000000002,
+     "height": 8,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      14,
+      0,
+      0,
+      14,
+      72,
+      702
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "1 Foxes and Dogs",
+     "transform": [
+      14,
+      0,
+      0,
+      14,
+      72,
+      702
+     ],
+     "width": 113.61000000000001,
+     "height": 14,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      672
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "The quick brown fox jumps over",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      672
+     ],
+     "width": 141.16000000000005,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "the lazy dog while a long compu-",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      658
+     ],
+     "width": 145.62000000000003,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "tation of the integral runs in",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      644
+     ],
+     "width": 120.62000000000002,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "the background very quietly.",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      630
+     ],
+     "width": 125.06000000000002,
+     "height": 10,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      8,
+      0,
+      0,
+      8,
+      72,
+      52
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "1 A footnote about foxes, read after the body.",
+     "transform": [
+      8,
+      0,
+      0,
+      8,
+      72,
+      52
+     ],
+     "width": 160.55200000000005,
+     "height": 8,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      320,
+      672
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "Right column begins with the",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      320,
+      672
+     ],
+     "width": 127.82999999999991,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "second paragraph of this page,",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      320,
+      658
+     ],
+     "width": 137.8599999999999,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "which a careful reader reads",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      320,
+      644
+     ],
+     "width": 126.15999999999991,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "after the whole left column.",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      320,
+      630
+     ],
+     "width": 119.4999999999999,
+     "height": 10,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      8,
+      0,
+      0,
+      8,
+      300,
+      22
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "7",
+     "transform": [
+      8,
+      0,
+      0,
+      8,
+      300,
+      22
+     ],
+     "width": 4.448,
+     "height": 8,
+     "hasEOL": false
+    }
+   ],
+   "transform": [
+    1,
+    0,
+    0,
+    -1,
+    0,
+    792
+   ],
+   "width": 612,
+   "height": 792
+  },
+  {
+   "page": 1,
+   "items": [
+    {
+     "str": "Continuing on the next page, the",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      702
+     ],
+     "width": 144.54000000000005,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "paragraph ends with an equation:",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      688
+     ],
+     "width": 148.42000000000002,
+     "height": 10,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      12,
+      0,
+      0,
+      12,
+      200,
+      662
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "x2 + y2 = 1",
+     "transform": [
+      12,
+      0,
+      0,
+      12,
+      200,
+      662
+     ],
+     "width": 59.37600000000005,
+     "height": 12,
+     "hasEOL": false
+    },
+    {
+     "str": "",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      622
+     ],
+     "width": 0,
+     "height": 0,
+     "hasEOL": true
+    },
+    {
+     "str": "Table 1 lists two values of the",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      622
+     ],
+     "width": 131.17000000000002,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "unknowns a and b.",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      608
+     ],
+     "width": 83.94000000000001,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "a",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      100,
+      582
+     ],
+     "width": 5.5600000000000005,
+     "height": 10,
+     "hasEOL": false
+    },
+    {
+     "str": " ",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      105.56,
+      582
+     ],
+     "width": 54.44,
+     "height": 0,
+     "hasEOL": false
+    },
+    {
+     "str": "b",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      160,
+      582
+     ],
+     "width": 5.5600000000000005,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "1",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      100,
+      568
+     ],
+     "width": 5.5600000000000005,
+     "height": 10,
+     "hasEOL": false
+    },
+    {
+     "str": " ",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      105.56,
+      568
+     ],
+     "width": 54.44,
+     "height": 0,
+     "hasEOL": false
+    },
+    {
+     "str": "2",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      160,
+      568
+     ],
+     "width": 5.5600000000000005,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "Let x be positive; then x2 > 0",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      532
+     ],
+     "width": 127.58000000000004,
+     "height": 10,
+     "hasEOL": true
+    },
+    {
+     "str": "holds for every such x.",
+     "transform": [
+      10,
+      0,
+      0,
+      10,
+      72,
+      518
+     ],
+     "width": 100.04000000000002,
+     "height": 10,
+     "hasEOL": false
+    }
+   ],
+   "transform": [
+    1,
+    0,
+    0,
+    -1,
+    0,
+    792
+   ],
+   "width": 612,
+   "height": 792
+  },
+  {
+   "page": 2,
+   "items": [],
+   "transform": [
+    1,
+    0,
+    0,
+    -1,
+    0,
+    792
+   ],
+   "width": 612,
+   "height": 792
+  }
+ ]
+}

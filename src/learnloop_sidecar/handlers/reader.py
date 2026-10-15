@@ -808,6 +808,22 @@ def reader_delete_intent_annotation(ctx: SidecarContext, params: ReaderDeleteInt
     return versioned({"event_id": event_id})
 
 
+class ReaderRestoreAnnotationInput(ParamsModel):
+    annotation_id: str
+
+
+@method("reader.restore_annotation", ReaderRestoreAnnotationInput)
+def reader_restore_annotation(ctx: SidecarContext, params: ReaderRestoreAnnotationInput) -> dict[str, Any]:
+    """Undo a delete (reader-pdf-selection): the annotation is listed again."""
+
+    _vault, repository = _require_reader(ctx)
+    try:
+        result = ANN.restore_annotation(repository, annotation_id=params.annotation_id)
+    except ANN.AnnotationError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return versioned(result)
+
+
 class ReaderReanchorInput(ParamsModel):
     annotation_id: str
     new_extraction_id: str

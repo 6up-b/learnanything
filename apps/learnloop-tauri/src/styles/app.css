@@ -1228,6 +1228,42 @@ button { color: inherit; }
   border-radius: 2px;
 }
 
+/* The original PDF's pages own selection (reader-pdf-selection): the
+   selection model paints it from the extraction's words, so the browser's own
+   selection never runs over the text layer (it would follow the content
+   stream, not the reading order). The text layer stays for find and for
+   screen readers. */
+.ll-pdf-pages .textLayer,
+.ll-pdf-pages .textLayer span,
+.ll-pdf-pages .textLayer br {
+  pointer-events: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: inherit !important;
+}
+.ll-pdf-pages canvas {
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* A highlight's keyboard stop: invisible until the keyboard reaches it. */
+.ll-pdf-highlight-stop:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+.ll-pdf-highlight-stop:focus:not(:focus-visible) {
+  outline: none;
+}
+.ll-pdf-chip-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--amber-link);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* Block-snapped sweep in flight: the drag paints whole extraction blocks, so
    the native glyph selection must stay fully out of the way — no text cursor,
    no accidental blue selection under the sweep. */

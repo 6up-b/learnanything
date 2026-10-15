@@ -3,6 +3,8 @@
 // (reader-pdf-selection): two columns, a footnote drawn between them, a word
 // hyphenated across a line break, a display formula, a table, inline maths,
 // a page break, and a scanned page with no text layer.
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   anchorRange,
@@ -19,14 +21,24 @@ import {
   type SelRange,
 } from "./model";
 import { toCodepoint } from "./tokens";
-import { buildPdf, readPdf } from "./testing/syntheticPdf";
+import { buildPdf, readPdf, type ParsedPage } from "./testing/syntheticPdf";
 import { linePoint, SYNTHETIC_BLOCKS, SYNTHETIC_PAGES } from "./testing/syntheticBook";
 
 let model: SelectionModel;
+let parsed: ParsedPage[];
 
 beforeAll(async () => {
   model = new SelectionModel(SYNTHETIC_BLOCKS);
-  for (const page of await readPdf(buildPdf(SYNTHETIC_PAGES))) model.setPageText(page.page, page.items, page.transform);
+  parsed = await readPdf(buildPdf(SYNTHETIC_PAGES));
+  for (const page of parsed) model.setPageText(page.page, page.items, page.transform);
+});
+
+it("records the text content pdf.js reads from the synthetic book (the pane's jsdom tests draw with it)", () => {
+  // UPDATE_PDF_SELECTION_CONTRACT=1 rewrites it; otherwise pdf.js must still read exactly this.
+  const path = join(__dirname, "fixtures", "synthetic_text_content.json");
+  const recorded = { about: "pdf.js text content of testing/syntheticBook.ts's pages (written by model.test.ts)", pages: parsed };
+  if (process.env.UPDATE_PDF_SELECTION_CONTRACT === "1") writeFileSync(path, JSON.stringify(recorded, null, 1) + "\n", "utf8");
+  expect(JSON.parse(readFileSync(path, "utf8"))).toEqual(JSON.parse(JSON.stringify(recorded)));
 });
 
 /** The `nth` unit reading `text` in a block. */
@@ -255,5 +267,48 @@ describe("anchors and boxes", () => {
       ["s6", "$$\nx^{2} + y^{2} = 1\n$$"],
       ["s7", "Table 1 lists two"],
     ]);
+  });
+});
+
+describe("one selection model for both views", () => {
+  it("gives a node made on the extracted text the same exact slice and offsets as the original's", async () => {
+    const { exactNode } = await import("./model");
+    const block = model.blockIndex("s2") as number;
+    const text = model.blocks[block].text;
+    const fromPdf = selectionNodes(model, drag(at("s2", "lazy"), at("s2", "dog")))[0];
+    expect(exactNode(text, { spanId: "s2", quote: "lazy dog" })).toEqual(fromPdf);
+    // The rendered text's spaces for the extraction's line breaks.
+    expect(exactNode("one\ntwo three", { spanId: "x", quote: "one two" })).toEqual({ spanId: "x", quote: "one\ntwo", start: 0, end: 7 });
+    // Code points, not UTF-16 units.
+    expect(exactNode("𝑧 and 𝑤 span", { spanId: "x", quote: "and 𝑤" })).toEqual({ spanId: "x", quote: "and 𝑤", start: 2, end: 7 });
+    // Ambiguous or not in the text (rendered maths): left to the sidecar's own tiers.
+    expect(exactNode("the cat and the cat", { spanId: "x", quote: "the cat" })).toEqual({ spanId: "x", quote: "the cat" });
+    expect(exactNode("Let $x^{2}$ be", { spanId: "x", quote: "Let x2 be" })).toEqual({ spanId: "x", quote: "Let x2 be" });
+  });
+});
+
+describe("highlights from anchors", () => {
+  it("are placed on the words their anchors name, a flagged one on the passage that took its place", async () => {
+    const { highlightAt, highlightFromPlacement, highlightsOnPage, placeHighlights } = await import("./highlights");
+    const text = model.blocks[model.blockIndex("s2") as number].text;
+    const start = Array.from(text.slice(0, text.indexOf("long"))).length;
+    const here = highlightFromPlacement(
+      { id: "h", kind: "highlight", quote: "long computation", note: "" },
+      { state: "here", segments: [{ spanId: "s2", codepointStart: start, codepointEnd: start + 16, exactQuote: "long computation" }], flagSpanId: null },
+    )!;
+    const flagged = highlightFromPlacement({ id: "f", kind: "highlight", quote: "x", note: "" }, { state: "flagged", segments: [], flagSpanId: "s7" })!;
+    expect(highlightFromPlacement({ id: "e", kind: "highlight", quote: "x", note: "" }, { state: "elsewhere", segments: [], flagSpanId: null })).toBeNull();
+    const placed = placeHighlights(model, [here, flagged, { ...here, id: "gone", segments: [{ spanId: "not-here", start: 0, end: 4 }] }]);
+    expect(placed.map((entry) => entry.id)).toEqual(["h", "f"]);
+    const page0 = highlightsOnPage(model, placed, 0);
+    // The hyphenated word puts it on two lines.
+    expect(page0).toHaveLength(1);
+    expect(page0[0].rects).toHaveLength(2);
+    expect(selectionText(model, placed[0].ranges)).toBe("long computation");
+    const [x0, y0, x1, y1] = page0[0].rects[0];
+    expect(highlightAt(page0, (x0 + x1) / 2, (y0 + y1) / 2)).toBe("h");
+    expect(highlightAt(page0, 10, 10)).toBeNull();
+    const page1 = highlightsOnPage(model, placed, 1);
+    expect(page1).toEqual([{ id: "f", kind: "highlight", state: "flagged", rects: [model.blocks[model.blockIndex("s7") as number].bbox], starts: true }]);
   });
 });

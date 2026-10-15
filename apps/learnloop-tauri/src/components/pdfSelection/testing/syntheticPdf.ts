@@ -80,7 +80,7 @@ export interface ParsedPage {
 /** Each page's text content and scale-1 viewport, read by the real pdf.js. */
 export async function readPdf(bytes: Uint8Array): Promise<ParsedPage[]> {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const task = pdfjs.getDocument({ data: bytes.slice(), isEvalSupported: false, disableFontFace: true, verbosity: 0 });
+  const task = pdfjs.getDocument({ data: bytes.slice(), disableFontFace: true, verbosity: 0 });
   const doc = await task.promise;
   const out: ParsedPage[] = [];
   for (let number = 1; number <= doc.numPages; number++) {
