@@ -36,8 +36,8 @@ This is a documentation stage, directed by the owner on 2026-10-14. No code, mig
 
 | Check | Result |
 |---|---|
-| Internal consistency | Author read-through, three read-only Codex reviews before commit (appendix §5), then the post-commit Codex review and its fix pass (`docs/reviews/adaptive-difficulty-spec-codex-review.md`) |
-| Code citations | After the fix pass: 164 `file:line` citations, continuation citations included, extracted by script; every one resolves to a unique tracked file with a valid range, and each cited line was printed and read against its claim. Symbol citations (`exam_pool.reserved_item_ids`, `PracticeItem.canonical_exercise`, `canonical_projection.surface_group_id`, `practice_attempts.plan_presentation_id`) and the migration head (202) checked by grep |
+| Internal consistency | Author read-through, three read-only Codex reviews before commit (appendix §5), then the post-commit Codex review, its fix pass, the Codex re-review and its fix pass (`docs/reviews/adaptive-difficulty-spec-codex-review.md`) |
+| Code citations | After the re-review fix pass: 179 `file:line` citations (164 after the first fix pass), continuation citations on the same line included, extracted by script, plus two line-opening continuations read by hand; every one resolves to a unique tracked file with a valid range, and each cited line was printed and read against its claim. Symbol citations (`exam_pool.reserved_item_ids`, `PracticeItem.canonical_exercise`, `canonical_projection.surface_group_id`, `practice_attempts.plan_presentation_id`) and the migration head (202) checked by grep |
 | External citations | 121 of 121 sources verified at the primary record; every key the spec cites is a row of the appendix (appendix §1.2, §5). The fix pass added no external source |
 | `git diff --check` | Clean |
 | Tests | None run: no code changed |
