@@ -244,6 +244,20 @@ GLM_OCR_EXTENDED_RPCS = ("update_ingest_settings", "start_ingest", "start_import
 # get_source_set (scopeExtractionId, scopeRevisionId, scopeSeal). Desktop only.
 REREAD_SAFETY_RPCS = ("reader.saved_place",)
 REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
+#: The book card's actions (source_action): UX Phase 1's, GLM-OCR's
+#: allow_upload, and re-read safety's restore_reading (the E1 repair) and
+#: mark_exam_material (a held-back reading's one action). Desktop only, with
+#: source_action itself.
+SOURCE_ACTION_ACTIONS = ("undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
+                         "allow_upload", "restore_reading", "mark_exam_material")
+
+
+def test_the_pinned_source_action_actions_are_all_of_them():
+    from typing import get_args
+
+    from learnloop_sidecar.handlers.first_run import SourceActionInput
+
+    assert set(get_args(SourceActionInput.model_fields["action"].annotation)) == set(SOURCE_ACTION_ACTIONS)
 
 # Router R2a (mvp-0.23) adds no RPC. It extends these: a served plan step
 # names its presentation (next_plan_item, plan_learner_pick and the plan reads

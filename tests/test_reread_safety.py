@@ -868,7 +868,11 @@ def test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book(tmp_path, mon
     item = core.add_source(load_vault(root), jobs, str(_blank_pdf(tmp_path / "axler.pdf", 404)))
     jobs._require_runner().drain()
     line = core.source_status_line(repo, load_vault(root), item["source_id"])
-    assert line["text"] == "Reading this document (404 pages, about $0.07) sends the whole file to z.ai (GLM-OCR)"
+    # The estimate is GLM-OCR's own (ESTIMATED_TOKENS_PER_PAGE at the default
+    # price): 3,500 tokens a page since GLM-OCR quality, about $0.04 here.
+    usd = 404 * no_network.ESTIMATED_TOKENS_PER_PAGE * 0.03 / 1_000_000
+    assert line["text"] == (f"Reading this document (404 pages, about ${usd:.2f}) sends the whole file to "
+                            "z.ai (GLM-OCR)")
     assert line["action"] == {"kind": "allow_upload", "label": "OK"}
 
 
@@ -883,7 +887,7 @@ def test_the_reread_confirmation_shows_pages_and_cost_when_z_ai_reads_it(card_bo
     assert asked["needsConfirmation"] is True
     confirmation = asked["confirmation"]
     assert confirmation["engine"] == "glm_ocr" and confirmation["pages"] == 26
-    assert confirmation["estimatedUsd"] == pytest.approx(26 * 6000 * 0.03 / 1_000_000)
+    assert confirmation["estimatedUsd"] == pytest.approx(26 * no_network.ESTIMATED_TOKENS_PER_PAGE * 0.03 / 1_000_000)
     assert confirmation["lines"][1] == "z.ai (GLM-OCR) reads it: less than $0.01."
 
 

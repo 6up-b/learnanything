@@ -2216,7 +2216,7 @@ _RESTORE_READING_DETAILS = (
 
 
 def glm_estimate_phrase(details: Mapping[str, Any]) -> str:
-    """" (404 pages, about $0.07)" from a z.ai OK's estimate, or "" without one."""
+    """" (404 pages, about $0.04)" from a z.ai OK's estimate, or "" without one."""
 
     from learnloop.content.pipeline.reread import cost_phrase
 
