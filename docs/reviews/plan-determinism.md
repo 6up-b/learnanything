@@ -2,6 +2,8 @@
 
 **Status:** fixed in production planning, tests pinned through the scheduler's own draw seam. Base `6dabbc33c` (`mvp-0.23`). No migration, no schema change, no config key, no new algorithm version.
 
+*Landed on main at `mvp-0.24` (merge `01dc98793`; "Landing onto main" below): the switch also fixes the candidates the R2b mixture draws over, and the flake loop shows 0 failures in 250 runs.*
+
 *Amended by the Codex review (`plan-determinism-codex-review.md`): F1 found a second session-seeded draw in the pool (a contrast pair's member order), now drawn per pair in staged plans; F2 put the rule behind a kill switch, `plan.deterministic_staged_plans` (one config key, all fifteen defaults snapshots recomputed). Still no migration, no schema change and no new algorithm version.*
 
 **In one paragraph.** Today's plan takes its pool from the scheduler's ranked list. The scheduler applies router R1's seeded exploration (`scheduler_seeded_exploration`) to that list: with probability `scheduler.selection_exploration_rate` (0.1), one near-tie within the reward window moves to the front. The draw is a hash of the session id, the UTC date and the candidate ids. Every test run mints a fresh ULID for its session, so about one run in ten planned different blocks. At `mvp-0.23` with the router on, that broke the owner's rule that staged plans are deterministic: the `plan_block` row logged `staged_v1` with propensity 1 for a block built from a randomized pool. The fix keeps the draw out of the pool wherever the router composes Today. DL1's own pair (the router off, or a vault below `mvp-0.23`) keeps the draw unchanged, as G8 requires. Replay is unchanged, because replay never reads a plan.
@@ -177,3 +179,133 @@ Run in this worktree at `f25592344` (the fix `8137d6d7c` plus its references), w
 2. **Past staged rows.** Before this fix, up to one staged plan build in ten (the rate) drew its pool, and its `plan_block` rows still logged propensity 1. Flag them in the router's outcome analysis (join on the same build's slate `exploration_flag`), or leave them? Recommended: flag them when R2b's evaluation first reads staged rows. No tracked vault has any.
 3. **Contrast-pair order in staged plans.** The composition still randomizes which member of a contrast pair is served first, seeded on the session and the pair and recorded per session (Meas §3.A4). On a vault with contrast pairs, the same state can plan a pair's two items in either order across sessions. It is a measurement design, not exploration, so it was left in place. Keep it in staged plans? Recommended: keep it, since order randomization is the measurement's point. *Superseded by Codex review F1: kept, but drawn per pair in staged plans, so the plan is deterministic and the draw still varies across pairs (and is recorded); every other queue build keeps the per-session draw.*
 4. **DL1's plans.** Below `mvp-0.23`, or with the router off, the plan's pool still takes the draw while lane quota logs propensity 1 (G8 keeps those plans as they were). The draw is reproducible from the slate (the new test). Making DL1 greedy too would change serving at older versions, which needs a successor or an owner decision. Recommended: leave it.
+
+## Landing onto main
+
+**Branch:** `merge/plandet-onto-main` (worktree `learnanything-merge2`), from main `4108e1ccd` (`mvp-0.24` LATEST; GLM-OCR and router R2b + R2c landed since this branch's base `6dabbc33c`; migration head 202, sixteen defaults snapshots). Merge `01dc98793`, a real `--no-ff` merge of `fix/plan-determinism` (`2d5c73af7`, unchanged; the final Codex verify was clean), then this record. Not pushed. Owner-directed, 2026-10-14, single phase. The sections above and `plan-determinism-codex-review.md` describe the branch as built, at `mvp-0.23`.
+
+**Paid calls:** none ($0.00); no network, no key read. **Migration:** none (head 202 is main's). **`apps/`:** unchanged, so no frontend gate and no `cargo check`.
+
+| Commit | What |
+|---|---|
+| `01dc98793` | the merge: the composed template and recomputed snapshots, the switch's wording at `mvp-0.24`, the regenerated references, the Pipeline Map line and `tests/test_plan_determinism_landing.py` |
+| (this commit) | this section |
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `src/learnloop/config/template.py` (15 hunks, the only source conflict) | The `DEFAULTS_SNAPSHOT_BY_ALGORITHM` block. Main's GLM-OCR and R2b + R2c notes kept and the branch's added after them: its full note in `mvp-0.9` (now saying the switch fixes the order of the candidates the mixture draws over at `mvp-0.24`, and "all fifteen ... on its branch, and all sixteen again ... when it landed on main after GLM-OCR and router R2b + R2c"), and its "moves it too" line in every later entry, `mvp-0.24`'s included. All sixteen hashes recomputed (below). |
+| 375 notes under `Reference/` | Taken from main, then regenerated. |
+| Auto-merged, both sides kept | `daily_plan/engine.py` (`plan_scheduler_session` and `staged_plans_deterministic` beside R2b + R2c's `policy_for` and env changes), `learnloop_sidecar/handlers/daily_plan.py` (the pool's session inside R2b's `_env`), `config/schema.py` (the key in `PlanConfig`; R2b + R2c's `[router]` keys untouched), `_scripts/db_generate_reference.py`, `spec_daily_loop_v1.md` |
+| This side only | `scheduling/scheduler.py`, `diagnosis/contrast_pairs.py` (main has not changed either since `6dabbc33c`), the two test files |
+
+R2b + R2c's modules are untouched by the merge: `git diff 4108e1ccd 01dc98793` is empty for `src/learnloop/router/` and `daily_plan/router_chooser.py`, so the mixture's seed (`seed_for(boundary key, decision id)`), its two-stage draw, its floor and its logged propensities are main's. The switch's wording now names `mvp-0.24` (the schema comment, `staged_plans_deterministic`'s docstring, the reference override and the daily-loop spec's §11 row): the same pool gives the mixture its candidates (the staged rule's pick and the support), the mixture keeps its own seeded draw, and off restores the pool as `mvp-0.23` and `mvp-0.24` landed.
+
+### Compositions
+
+New tests in `tests/test_plan_determinism_landing.py` (19), all at `mvp-0.24`, on the stage's two worlds (R1's near-ties and the contrast pair, both fitting or only one), with the router's fake models (`tests/router_model_fakes.py`; no network):
+
+1. **Staged mode under `mvp-0.24`.** With `router.mode = "staged"`, and with the default mixture when no model is set up (the staged rule decides: `staged_v1`, propensity 1, kind `deterministic`), sixteen fixed sessions and Start's sessionless build plan one plan in each of the three worlds, and Begin on Start's plan keeps Start's block. A pair's order is the pair's own draw, and each session's serving row records it with the seed `pair|pi_pair_a|pi_pair_b`. Every outcome of R1's draw, forced (`pi_extra_2`, `pi_svd_define_001`), leaves the plan greedy, and the draw is never called.
+2. **Mixture mode.** With both models answering (uniform) and the chooser's own seeds, every session and Start offer the mixture the same staged pick and the same top-k support, in the same order, with the same items and planner values. For each decision:
+   - **G3:** the logged propensity equals `mixture.recompute` over the logged support, staged pick, epsilon, effective weights and model distributions (to 1e-12), and the logged seed reproduces the two-stage draw (choice, component, `u1`, `u2`);
+   - **the chooser's own draws:** each seed is `seed_for(boundary key, decision id)`, a different one for every decision;
+   - **the floor:** every option of the support keeps at least `epsilon`, outside the support is 0, and the support sums to 1. With both models' mass on the staged pick, every other option is exactly `epsilon`, so the floor binds. A seed whose first uniform falls under `k * epsilon` takes the uniform branch.
+
+   With one pinned seed per session, the sessions draw different blocks over the same candidates, so the mixture's exploration is its own. With R1's roll forced to miss (both pools greedy), each session's decision is identical with the switch on and off, field for field (seed, uniforms, component, choice, every candidate's propensity). The switch changes the pool and nothing in the draw.
+3. **The kill switch off at `mvp-0.24`.** `plan_scheduler_session` returns the predecessor's session, field for field, in both modes (and with the router off), and the greedy session with the pair's draw when on. Off, a forced R1 draw moves the staged plan's first block (staged mode) or the mixture's staged pick and candidates (mixture mode), and both still pass G3. The pair is again ordered per session in both modes (both orders across sixteen sessions, each session's seed recorded), and Start keeps the greedy order, unrecorded: main's behaviour. Main's own code was also compared with the switch off on the owner's data (Parity, below).
+
+**Fail-first.** With `staged_plans_deterministic` forced to return False (main's pool), 14 of the 19 fail. The 5 that still pass are the four switch-off tests and the floor test, which do not depend on the switch.
+
+The branch's own tests run unchanged at `mvp-0.23`: `test_plan_determinism.py` 14 passed, and `test_every_defaults_snapshot_records_the_switch_on` passes over all sixteen versions.
+
+### The flake
+
+Every run is a separate `pytest` process on the merge, with `TMPDIR` in this worktree's `fixtures-local/tmp`. The loops ran while this worktree's full suite was running, so the machine was loaded.
+
+| Run (merge `01dc98793`) | Result |
+|---|---|
+| `test_reader_rw3a_landing.py::test_check_me_goes_through_the_plan_path_and_is_logged_once[planned]` alone, 50 runs | **50 of 50 passed** |
+| `tests/test_learner_pick_proposal.py` alone, 50 runs | **50 of 50 passed** (17 tests each) |
+| the RW3a `[planned]` case under `-n 8`, 50 runs | **50 of 50 passed** |
+| `tests/test_learner_pick_proposal.py` under `-n 8`, 50 runs | **50 of 50 passed** (17 tests each) |
+| both together under `-n 8`, 50 runs | **50 of 50 passed** (18 tests each) |
+| **Baseline:** main `4108e1ccd` (`git archive`, its own `src` and `tests`, the process loading the archive's `learnloop`), RW3a `[planned]` alone, 50 runs | **8 of 50 failed**, every one `assert (1 == 0)`: R1's draw put a `pi_extra_*` near-tie first, and "check me" became its own `learner_pick` block (the shape described above) |
+
+0 failures on the merge, against about 1 in 6 on main.
+
+### Defaults, CLI help and references
+
+- **Defaults.** All sixteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.24`) were recomputed with `defaults_fingerprint_for_version` from the composed defaults, with the template `.pyc` deleted before and after and the file touched. Every one moved: the branch's lacked GLM-OCR's and R2b + R2c's keys, and main's lacked the switch. A fresh process confirms all sixteen.
+- **CLI help.** `test_cli_help_snapshot.py` passes unchanged (the merge adds no CLI option), so the snapshot was not regenerated.
+- **References.** `db_generate_reference.py`: schema head 202, 321 table notes; `Config - plan` gains the field (22 leaves). `db_validate_reference.py` reports `errors: []` once `Configuration.md` and `Database.md` read 854 leaves (main's 853 plus the switch; 50 sections).
+- **Pipeline Map** (`Maps/LearnLoop Pipeline Map.md`). One line after R2b + R2c's: staged plans are deterministic behind `plan.deterministic_staged_plans` (the pool in greedy order, a contrast pair's order per pair, Start included), and the mixture draws over that fixed candidate order with its own seed, floor and propensities. `validate_vault.py` passed: 1,105 notes.
+
+### Gate
+
+Run in this worktree at `01dc98793` with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (the sync removes pypdfium2; the install restores 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,110 passed**, 0 failed, 48 warnings (14 min 41 s): main's 11,076, the branch's 15 (14 new plus the learner-pick R1 test's second case), and the 19 landing tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` | **100 passed**, 0 failed (31 s, after 30 minutes waiting for the lock) |
+| Frontend, `cargo check` | not run: nothing under `apps/` changed |
+| Targeted, before the merge commit | the plan-determinism, landing, learner-pick, RW3a, R2b + R2c landing, G3, config, reading-step, CLI-help, every `test_mvp0*_upgrade.py`, router, daily-plan, contrast-pair and scheduler files: **694 passed** |
+
+No failure needed a rerun.
+
+### Parity
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`) are in `fixtures-local/plandet-parity`: one pristine copy each, then a copy per side and per check. Each copy was migrated by its own code (`migration_coordinator.migrate_vault`, 47 migrations to 202):
+
+- **main `4108e1ccd`**, exported with `git archive` (`src`, `tests`, `migrations`) and first on `PYTHONPATH`. The migration printed the archive's `learnloop/__init__.py`.
+- **the merge's own code.**
+
+On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json` ran with `LEARNLOOP_CONFIG_DIR` an empty directory. The outputs were compared after setting aside ULIDs, timestamps, ids, hashes and paths.
+
+| Fixture | Version | Shadow (facet / mastery / schedule) | Doctor issues / errors | Router or plan issues | Differences, main vs merge |
+|---|---|---|---|---:|---:|
+| linear algebra | `mvp-0.8` (own) | 22 / 6 / 47 | 106 / 1 | 0 | **0** (shadow and doctor) |
+| probability | `mvp-0.8` (own) | 2 / 1 / 1 | 134 / 49 (46 `criterion:unknown_dependency`) | 0 | **0** |
+| linear algebra | `mvp-0.24` | 0 / 0 / 0 | 56 / 1 | 0 | **0** |
+| probability | `mvp-0.24` | 0 / 0 / 0 | 98 / 49 (46) | 0 | **0** |
+
+**How the `mvp-0.24` copies were made.** Each side's own code ran `learnloop upgrade --to mvp-0.9`, then `--to mvp-0.24` (the chain's advisory-guard notes printed), then `learnloop rebuild-derived-state` twice, to its fixed point. The `mvp-0.8` rows are the fixtures' existing drift, the same on both sides and the same as at the R2b + R2c landing.
+
+**Every run left its copy alone.** `live_database.unchanged` is true on every shadow. Each copy's `state.sqlite` hash is the same before and after its shadow and doctor. Doctor exits 1 on both sides, as on main. Replay reads none of this change.
+
+**Plans built on each copy.** Each `mvp-0.24` copy was the template for one backup-API copy per build. The builds ran Today's `get_daily_plan` through the sidecar, with:
+
+- `SystemClock` frozen at 2026-10-14 12:00Z, manual grading and an empty `LEARNLOOP_CONFIG_DIR`;
+- the router's fake runtime (no model call, no key);
+- five fixed sessions (25 minutes each), plus Start's sessionless build (remembering 25 minutes) and Begin on Start's copy.
+
+The runs covered three modes: staged (`router.mode = "staged"`), the mixture with no model set up, and the mixture with uniform fake models and one pinned seed per session. Each mode ran on main, on the merge with the switch on, and on the merge with it off.
+
+| Fixture | Mode | Merge (on): distinct plans over 5 builds + Start | Begin keeps Start's block | Main: distinct / sessions whose slate explored | Main vs merge (off), all 7 builds |
+|---|---|---:|---|---|---|
+| linear algebra | staged | **1** | yes | 3 / 2 of 5 | **identical** |
+| linear algebra | mixture, no model | **1** (`staged_v1`, deterministic) | yes | 3 / 2 of 5 | **identical** |
+| linear algebra | mixture, uniform models | **1** set of candidates; 5 different blocks drawn | yes | 3 / 2 of 5 | **identical** |
+| probability | staged | **1** | yes | 1 / 0 of 5 | **identical** |
+| probability | mixture, no model | **1** | yes | 1 / 0 of 5 | **identical** |
+| probability | mixture, uniform models | **1** set of candidates; 4 different blocks drawn | yes | 1 / 0 of 5 | **identical** |
+
+- **On main, the draw reached the owner's data.** On linear algebra, main's two explored sessions (`s_00`, `s_04`) logged different candidate rows: the planner values of the repair and maintain blocks moved, for example the first repair block's from 0.067 to 1.0. The blocks served, the projection and the support's order did not change; the first block is the repair block `[pi_orient_operations_omission_rewrite, pi_orient_incomplete_spec_02]` in every build. On the merge (switch on), every build logs the same rows, equal to those of main's three unexplored sessions and Start (the greedy order). On probability, no session explored.
+- **"Identical" for main against the merge with the switch off** covers every field recorded: blocks, `plan_block` decisions, the mixture's staged pick, support and candidates, the projection, the contrast serving rows and every slate's candidates.
+
+The tracked fixtures were only copied: `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no subscription call, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched, and its working vaults were never opened. This worktree's tracked `linear_algebra` and `probability` were opened only by the backup API, and `arxiv_v2` not at all.
+- Nothing was pushed, rebased or stashed. `fix/plan-determinism` and its worktree `learnanything-docs` were not modified.
+
+### Open questions for the owner (defaults applied)
+
+1. **The full list's per-session pair order in a staged vault** (Codex review open question 2). Today's full list, one key from the plan, still orders a contrast pair by session, so it can show a pair in the other order from the plan. The serving row is first-wins per item and session, and the plan builds first on Today, so the recorded order is the plan's. The same holds at `mvp-0.24`, where the list is unchanged. **Default: leave it.** A pick from the list is the learner's own order.
+2. **The optional successor tag** (Codex review F2 and open question 3). **Decided as none** under the owner's standing ruling (live changes behind kill switches, not successors, for serving changes replay never reads). The switch is the rollback, and the parity above shows it restores main's plans exactly. The review's fallback, folding a tag into R2b + R2c's successor, no longer exists: `mvp-0.24` has landed. If the owner asks for a tag, it would be its own (`mvp-0.25`) with an upgrade step, and no meaning in recorded history would change.
+3. **Past staged `plan_block` rows logged with propensity 1** (the stage's open question 2, the review's open question 4). Before this landing, staged builds whose pool R1's draw or a per-session pair order had reordered still logged a deterministic choice. At `mvp-0.24` the same applies to the mixture's logged staged pick, support and candidate rows: the parity above shows their planner values moved on the owner's linear algebra data. The mixture's propensities stay exact given what was logged (G3 conditions on the logged support and staged pick), but the staged component's "deterministic rule" was applied to a randomized pool. Such rows can be found from the same build's slate (`exploration_flag = 1`) or from a serving row whose seed names the session. **Default: flag them when R3's evaluation first reads staged or mixture rows.** No tracked fixture holds any (they are at `mvp-0.8`).
