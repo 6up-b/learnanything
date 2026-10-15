@@ -237,3 +237,205 @@ Two earlier runs failed:
 - **One vitest run** had a timing failure in `FeedbackScreen.test.tsx`, under load from parallel suites. It passed alone and in the full rerun.
 
 **Tests added:** 29 in `tests/test_reread_safety.py`. 3 assertions changed in `tests/test_glm_ocr.py`. RPC pins added in `tests/test_mobile_allowlist.py`. On the desktop, 3 in `LibraryPlace.reread.test.tsx` and 4 in `ReaderScreen.guide.test.tsx`, plus test doubles updated in `ReaderScreen.preparing` and `ReaderScreen.review`.
+
+## Landing onto main
+
+**Branch:** `merge/reread-safety-onto-main` (worktree `learnanything-merge2`), from main `fdfcf1934` (`mvp-0.25` LATEST; migration head 203, head fixture `fixtures/migration_head_203`, seventeen defaults snapshots `mvp-0.9`..`mvp-0.25`). Not pushed. Owner-directed, 2026-10-15, single phase. The sections above, `reread-safety-codex-review.md`, `exam-protection-identity.md` and its Codex review describe the branch as built and keep its placeholder (migration 225).
+
+**Commits:**
+- `1ef2f14eb`: a real `--no-ff` merge of `fix/reread-safety` (`ca114c1e2`, unchanged, 39 commits from `bffe086ec`), with the conflict resolution, the renumber and the coordinated-migration conversions the merged tree needs to run.
+- `c4dee14ae`: the compositions, with their landing tests.
+- `61728b042`: the regenerated references and the Pipeline Map.
+- This record.
+
+**Main since `bffe086ec`, composed:**
+- Router R2b + R2c (`mvp-0.24`), plan determinism, and method-explicit items (`mvp-0.25`: `presented_prompt`, `answered_prompt`, `fit_presented_prompt`, the Decider task).
+- GLM-OCR quality (3,500 tokens a page, `MAP_VERSION` 2, the text layer read in a pdfium worker) and the Marker pdfium worker (`marker_worker.py`; the Reader renders under a lock).
+- The chat frontend's C1a (`learnloop_mcp`, attach-only `learnloop.remote`, `learner_protection.py`, migration 203, 22 import-linter contracts).
+- The storage spec, the adaptive-difficulty spec and its revision.
+
+No algorithm successor: the branch has none, and the landing changes no scoring, scheduling, projection or config value.
+
+### Conflicts
+
+469 files:
+- **373 generated reference notes** (322 under `Reference/Database`, 51 under `Reference/Configuration`): main's side, then regenerated.
+- **72 head-fixture files**, a rename/rename (the base's `migration_head_202` became main's `migration_head_203` and the branch's `migration_head_225`): main's `migration_head_203` kept, the branch's `migration_head_225` dropped, then renamed and rebuilt (below).
+- **24 other files** (21 test files, both `_scripts/db_*_reference.py`, `docs/decider-tier1-migration.md`): every hunk was the head number, 203 against 225. Each was resolved to 204.
+
+### The renumber: migration 225 → 204
+
+- **Migration.** `migrations/225_source_held_out_signal_marks.sql` became `migrations/204_source_held_out_signal_marks.sql`. Its header names both numbers (built as 225, a placeholder, renumbered 204 after main's 203). Only the comment above the `CREATE TABLE` changed, so no stored DDL moves. `source_held_out_signal_marks` stays `RAW_LEDGER` in `table_roles.py`, so it needs no replayer.
+- **Every mention of 225 now says 204:** `migration_coordinator.py`, `db/stores/held_out_signals.py`, `exam_material.py`, `vault/writer.py`, `table_roles.py`, `tests/test_coordinated_migrations.py`, `tests/test_exam_protection_identity.py` (its `[225]` assertions and `DELETE ... version = 225` setups), `Architecture/State and Persistence.md` and the generator's table description. Two comments in the identity tests describe `bbe340ce9`, where the number was 225, and say so ("225 (now 204)").
+- **Head fixture.** `git mv fixtures/migration_head_203 fixtures/migration_head_204`. Its `state.sqlite` was rebuilt:
+  - a backup-API copy (`learnloop.db.copies.backup_database`) of main's 203 database;
+  - only 204 applied through `apply_migrations`;
+  - `wal_checkpoint(TRUNCATE)` → `(0, 0, 0)`, then `journal_mode=DELETE` (header bytes 18-19 are 1/1);
+  - `integrity_check` ok, `foreign_key_check` empty;
+  - copied back with the backup API, with no companion files.
+
+  Its `sqlite_master` equals the branch's head-225 fixture's except `interaction_events` (main's 203 CHECK widening). The new ledger has 0 rows (no inventories to backfill). The README gains the 204 paragraph and the build chain.
+- **Hard-coded head paths.** 24 test files name `migration_head_204`: the 21 conflicted ones, plus main's `test_mvp024_upgrade.py`, `test_plan_determinism.py` and `test_method_explicit_upgrade.py`. Also: both reference scripts (`SCHEMA_PATH`, `SCHEMA_HEAD = 204`, the generator's other mention), the max-migration assertion (`test_route_rules_in_grader.py`: 204) and `docs/decider-tier1-migration.md`. (The merge commit's message says "27 test files". It means these 27 files.)
+
+### Coordinated migrations on main's code
+
+`tests/test_coordinated_migrations.py` failed on the merged tree at first. It found main's three `Repository(path)` sites, exactly the ones `exam-protection-identity.md` predicted:
+- `router_mixture_upgrade.py` (the `mvp-0.24` step) and `method_explicit_upgrade.py` (`mvp-0.25`) now use `open_vault_repository(vault.root, sqlite_path)`, as the branch did for the `mvp-0.22`/`0.23` steps.
+- `content/proposals/method_phrasing.py` (`run_method_phrasing`, below the CLI's entry) now uses `vault_repository(VaultPaths(...))`.
+
+Neither MCP C1a nor the Marker worker constructs a `Repository` or calls `apply_migrations`. After the conversions, the guard passes (6 tests).
+
+**Attach-only, confirmed:**
+- `learnloop.remote.runtime.RemoteRuntime.attach` checks that the applied migrations equal this code's (`check_schema`), then uses `Repository.attach`. The guard pins that only the coordinator (and the offline review's scratch copy) call `apply_migrations`.
+- `learnloop mcp serve` exits 78 on `SchemaMismatch`. `tests/test_mcp_runtime.py::test_secondary_attach_refuses_a_schema_it_does_not_match` checks the 78 and that the vault's `schema_migrations` is unchanged. The mobile host does the same.
+- One wording fix rode along. The mismatch hint said "run `learnloop doctor` once to migrate", but doctor migrates only with `--fix-state`, on main and here. The hint now names `learnloop doctor --fix-state` in `remote/runtime.py`, the `mcp serve` help (CLI help snapshot regenerated: only `mcp serve` moves), and the mobile host and its doctor.
+
+### Compositions
+
+1. **Protection reaches every model-visible path.** `learner_protection.withheld_items` reads `exam_material.exam_material` and `item_exam_status`. The chat's `find_sources` filters by `exam_material` (the service's `exam_withheld` pool filter, then `remote.sources._shown`'s last check). Rule 4's held-back readings are whole extractions in that material (`unmarked_reading`), so every path sees them with no code change. Landing test `test_an_unmarked_reading_of_a_protected_book_is_withheld_from_every_model_visible_path`:
+   - the chat frontend's world gets a re-read of its book (`ext_book_r2`, now current) carrying a passage only it has, and an item made from that passage, answered and graded against a pinned contract;
+   - control: before any mark, MCP `find_sources` returns the passage, and `learning_context` and router R2a's card show the answer with its question;
+   - then a held-out mark is made exactly on the book's first reading. The re-read is held back (`reading_held_back`, verdict `unmarked_reading`). MCP `find_sources` returns nothing of it and counts it under `withheld.exam_material`. `learning_context` and the card both withhold the answer as "exam or held-out material", keeping its result.
+2. **Prompt rendering.** `test_a_cue_on_a_reread_resolves_the_cited_passage_and_shows_the_question_with_its_method`:
+   - an item cites `s1`-`s3` and `s5` on `ext1`, and its answer was graded under a contract that froze a required method;
+   - the book is read again (`ext2`: the same text under other span ids), and `carry_over` records the aliases;
+   - `SpanTranslator` resolves every cited span exactly, and the Guide of the re-read places each passage there (`current`), never the old span id;
+   - the margin cue's "Open" shows the answered question with the method's sentence whole (`answered_question` → `fit_presented_prompt`).
+3. **Cost tests.** GLM-OCR quality's estimate is 3,500 tokens a page:
+   - `test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book` computes the line from `glm_ocr.ESTIMATED_TOKENS_PER_PAGE` (now "about $0.04");
+   - `test_the_reread_confirmation_shows_pages_and_cost_when_z_ai_reads_it` reads the constant instead of 6000;
+   - `glm_estimate_phrase`'s docstring says $0.04.
+4. **The workers get the stored original's bytes.** In both tests, `canonical_uri` holds a git-LFS pointer and the re-read runs through the real `default_extract`:
+   - `test_a_marker_reread_hands_the_worker_the_stored_originals_bytes` (Marker with `force_ocr`, `marker_worker.run_marker` captured): every byte string handed to the worker hashes to the revision's `asset_hash`, and no revision is registered;
+   - `test_a_glm_reread_uploads_pages_of_the_stored_original_not_the_pointer` (GLM-OCR through a fake transport): the uploads are the reading's 26 pages, read from the store.
+
+   No code change: `_extract_pdf_locally` hands `fetched.raw_bytes` to both readers, and on a re-read `fetched` is `original_bytes`.
+
+**Also:**
+- `tests/test_mobile_allowlist.py` pins `source_action`'s actions (`restore_reading`, `mark_exam_material` among them). `reader.saved_place` came pinned from the branch.
+- No `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entry moves: the branch changed only a comment in `config/schema.py`, and the template is untouched. The snapshot tests pass.
+
+### Generated files
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**; schema head 204, 322 table notes, 857 effective configuration leaves. `Database.md`'s prose counts were corrected: 322 tables, 19 `DERIVED`, 303 others. `validate_vault.py` passes: 1,107 notes, all reachable from Home.
+- **Pipeline Map.**
+  - A re-read reads the stored original (hash-checked, never `canonical_uri`), and Marker's worker and GLM-OCR get those bytes.
+  - The one alias authority and what routes through it.
+  - Rule 4, marks bound to the reading they were made on, and the owner's marking. Protection is not behind `plan.reading_from_furthest`, and the chat and the card read it through `learner_protection`.
+  - Only the coordinator upgrades a vault's database.
+  - Its source paths and gaps list are updated to match.
+
+### Gate
+
+Run on the final code tree, `61728b042`; only this record was committed after it. `TMPDIR` was the worktree's `fixtures-local/tmp`. No paid calls ($0.00); every test uses fakes, and npm and cargo ran `--offline`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` (5.14.0); `uv run --no-sync` afterwards | ok |
+| `uv run lint-imports --no-cache` | **22 kept**, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11,815 passed**, 0 failed (14 min 23 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability -n auto` | **105 passed** |
+| `apps/learnloop-tauri`: `npm install` (up to date), `npm run typecheck` | ok, no errors |
+| `npm test` (vitest) | **599 passed** in 84 files |
+| `npm run frontend:build` | built |
+| `cargo check --manifest-path src-tauri/Cargo.toml` (src-tauri changed: the branch's `reader_saved_place` passthrough) | ok |
+| `db_generate_reference.py` / `db_validate_reference.py` / `validate_vault.py` | 0 errors / passes (above) |
+
+**The first full suite**, on the merge commit `1ef2f14eb` alone, had 3 failures and 11,807 passed. Each was a composition this landing then made (`c4dee14ae`):
+- the CLI help snapshot (`mcp serve`'s corrected hint);
+- the two cost tests, still at 6,000 tokens a page.
+
+No test failed on timing, so nothing needed a rerun alone.
+
+**Tests:**
+- 4 added in `tests/test_reread_safety_landing.py`, and 1 in `tests/test_mobile_allowlist.py` (`source_action`'s actions);
+- 2 changed in `tests/test_reread_safety.py` (they read the estimate constant);
+- 24 test files' head path and `test_route_rules_in_grader.py`'s max migration moved to 204;
+- `tests/test_exam_protection_identity.py` and `tests/test_coordinated_migrations.py` renumbered to 204.
+
+### Parity
+
+**Setup:**
+- **Copies.** Backup-API copies (`copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability`, under `fixtures-local/tmp/parity`.
+- **Main's side.** Main `fdfcf1934`, exported with `git archive` (`src`, `migrations`) and put first on `PYTHONPATH` (the probe printed the export's `learnloop/__init__.py`). It applied 48 migrations, to 203.
+- **The merge's side:** 49 migrations, to 204, each copy through `migrate_vault`.
+- **Runs.** `learnloop rebuild --shadow --json` and `learnloop doctor --json` on each copy, with `LEARNLOOP_CONFIG_DIR` set to an empty directory.
+- **Comparison.** Shadows were compared structurally, with ULIDs, timestamps, hashes and paths set aside. Doctor reports were compared positionally and as multisets, with the copy's directory name normalized.
+
+| Fixture | Shadow (facet / mastery / schedule) | Shadow differences | Doctor main → merge |
+|---|---|---:|---|
+| linear algebra | 22 / 6 / 47 on both sides | **0** | 107 → 107 (1 error, 106 warnings); identical positionally and as multisets |
+| probability | 2 / 1 / 1 on both sides | **0** | 138 → 138 (49 errors, 46 of them `criterion:unknown_dependency`); identical |
+
+**Checks:**
+- **New doctor checks.** Re-read safety adds five: `source:current_revision_unread` (error, fixed by `--fix-state`), `source:reread_carry_incomplete`, `source:reading_held_back`, `source:citation_text_changed` and `source:links_on_old_reading`. None fires on these copies before a re-read.
+- **The copies are unchanged.** `live_database.unchanged` is true on every shadow. Each copy's `state.sqlite` hash (checkpointed) is the same before and after its shadow and doctor.
+- **No protected sources, nothing held back.** On the merge's copies:
+  - `source_marks` is empty (0 protected books);
+  - exam material and the held-out partition are empty;
+  - no current reading is held back (0 of 3, 0 of 4), and no selection has exam use modes.
+- **The 204 backfill** wrote one ledger row in linear algebra: a held-out signal on a lecture video's inventory, role not recorded. That book is not exam material, so it protects nothing.
+- **The 15 withheld items** in linear algebra are a goal's reserved exam pool (`reserved_exam_pool_item_ids`) on both sides, not source protection.
+- **The tracked fixtures were only copied.** Their hashes (`a3972c00…`, `0ac51001…`) are the same before and after, and `git status fixtures/` is clean. `arxiv_v2` was not opened, and the main checkout was not touched.
+
+### E1 and E2 on main and on the merge (free, offline)
+
+**Setup:**
+- The stage's `scenario.py`, unchanged except for the receipts date, ran on fresh backup-API copies of the same two fixtures:
+  - `before_e1` (as is) and `before_e2` (repointed) ran main `fdfcf1934`, the code before the fix;
+  - `after` ran the merge.
+- Each copy was prepared by its own side's code (migrated, then loaded once by the sidecar).
+- The tracked copies record their books at paths in the main checkout. So that nothing outside the copies was read, each copy's `canonical_uri` and `original_uri` were first pointed at a local git-LFS pointer file (`oid` and `size` of the revision), which is what the owner's checkout holds there.
+- The engine is pypdf, rewritten at enqueue time. Every key was blanked and every socket refused. `model_call_receipts` from today: 0 on every copy.
+
+The counts match the stage's run on the owner's working vaults, case by case.
+
+**E1 (the recorded file is a git-LFS pointer; all four PDFs):**
+
+| | Before (main) | After (the merge) |
+|---|---|---|
+| The card's import | failed (`PyPdfExtractionError`, "Stream has ended unexpectedly": it read the pointer) | completed, from the originals store (hash-checked) |
+| A revision registered from the pointer | yes: 2 revisions, the pointer stored | no: 1 revision |
+| Current revision | moved to the unread pointer revision | unchanged |
+| The book opens from the Library | no: `extraction_not_found` | yes (`reader.render_view` by source; the two problem sets are reader-disabled) |
+
+**E2 (what the learner has after a completed re-read).** Before the fix, the recorded path was repointed at a `.pdf` of the stored bytes:
+
+| | Axler before | Axler after | Blitzstein before | Blitzstein after |
+|---|---|---|---|---|
+| Asked first | no | yes: "Pages 15–40 (26 pages), as before. / Read on this computer: free. / Your progress (11 sections), 4 notes, …" | no | yes: "Pages 12–54 (43 pages), as before. …" (8 sections, 12 notes) |
+| Pages read | whole book (404) | 26, as before | whole book (617) | 43, as before |
+| Section progress on the reading the Reader opens | 11 read through → 0 | 6 sections carry progress, 1 read through | 8 → 0 | 8 of 8 read through |
+| Guide passages | 20 → 0, not personalized | 6, all flagged, personalized | 22 → 0 | 16, all flagged |
+| LOs highlighted | 19 → 0 | 18 | 17 → 0 | 16 |
+| LO, facet and item links (166 / 194) | stay on the old reading | 79 `needs_reanchor`, 87 `stale` | stay on the old reading | 140 `needs_reanchor`, 54 `stale` |
+| Source-object citations (7 / 13) | **7 of 7 on a different block** (s179 "(−1+√3i)/2" → §5D) | **0 misplaced**: 7 kept on their reading, flagged | **13 of 13 different** (s57 "Definition 1.3.1" → conditional probability) | **0 misplaced** |
+| Saved reading place (11 / 8 samples) | 11 of 11 on a different block | 11 of 11 near, said so | 8 of 8 different | 8 of 8 near, said so |
+| Annotations (4 / 12) | stay on the old reading | re-anchored onto the new reading, `needs_reanchor` | stay | 12 re-anchored, `needs_reanchor` |
+| Unit selection | 59 units → none | 11 of the new reading's units, 3 old units `needs_review` | 10 → none | 10 |
+| Aliases recorded | 0 | 252 | 0 | 295 |
+| Doctor (new issues) | none | `source:citation_text_changed` 1, `source:links_on_old_reading` 1 | none | 1 and 2 (Blitzstein, pset1) |
+
+**The problem sets:**
+- **Before:** E1 the same. After E2, their selections were lost (2 → 0, 1 → 0), and their saved places pointed at missing or other blocks (6 missing, 3 different).
+- **After:** selections 2 → 1 and 1 → 1; places are said approximate (6, 3); pset1's 4 links are 1 `needs_reanchor` and 3 `stale`.
+
+**Replay is unaffected.** `rebuild --shadow` was run on one more fresh copy of each fixture, prepared the same way, before and after its re-read:
+- the `learner_state_diff` is byte-identical (linear algebra 2 / 7 / 48, probability 2 / 1 / 1);
+- only the `source_block_fts` replayer grows, by the new reading's blocks: 972 → 998 and 510 → 558 rows, as the stage found;
+- `live_database.unchanged` holds.
+
+These counts differ from the parity copies' 22 / 6 / 47 because preparation also loads each copy once in the sidecar, before the re-read. The comparison that matters is the same copy before and after.
+
+### Open questions for the owner (defaults as landed)
+
+1. **No owner "un-protect a book" action yet.** A book is protected while any mark or signal names one of its readings. A signal made under an exam role stays in the append-only ledger after the book leaves every set. **Default:** fail closed. Every reading of a protected book that is not marked exactly is held back until "Mark exam material on this reading" is confirmed on it. No action removes a book's protection, and a recorded signal cannot be withdrawn. A "this book holds no exam material" action is the owner's to decide.
+2. **Library search keeps finding, then withholding, exam hits.** `corpus.library_scope` excludes nothing (the sources merge's "found, then withheld" transparency). A held-back reading's hits are found, then every caller filters each hit, so nothing of it is shown. **Default:** as landed (pinned by `test_sources_merge_composition`).
+3. **The marking suggestion is not editable.** "Mark exam material on this reading" holds out the whole suggestion: the units the book's marks would protect on this reading by their own unit ids, and legacy marks' units. The marking is bound to the reading and the proposal hash it showed. **Default:** confirm it as shown, or decline it.
+4. **Search does not cover old readings.** Both readings' blocks stay in `source_block_fts`, but library search covers the books' current readings only. A hit found before a re-read and opened after it is translated onto the reading the Reader opened. **Default:** current readings only.
+5. **No UI to re-place `needs_reanchor` links.** LO, facet and item links resolve through the aliases and are left pinned to their reading:
+   - a `needs_reanchor` link shows flagged, and a `stale` one does not show;
+   - doctor's `source:links_on_old_reading` counts them;
+   - annotations have their re-anchor action, and the Guide shows moved passages flagged.
+
+   **Default:** no "place it again" action yet.
