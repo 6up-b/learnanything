@@ -6,6 +6,8 @@
 `learning_context`, provenance followed back to the originating answers, the output schema typed and closed.
 **Codex job:** `20261014-160833-QIinAQ`. **Fixed in:** `c06f73aae`. Main is `4108e1ccd` (mvp-0.24); it was not
 merged here (convergence happens at landing).
+**Re-review:** job `20261014-194615-xeJ3ee` confirmed F3 and reopened F1 and F2, both fixed in `0b53313ef`
+(see [Re-review (F4 round 5)](#re-review-f4-round-5); its gate supersedes the round 4 gate).
 
 ## Findings
 
@@ -174,5 +176,119 @@ comparison were rerun on that commit), with TMPDIR set to the worktree's `fixtur
 | `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10625 deselected (1:47) |
 | The C1a tests alone (`test_mcp_c1a_review`, `test_mcp_tools`, `test_mcp_runtime`, `test_mcp_http`, `test_mcp_cli`) | **86 passed** (57 before, plus 29: the 28 fail-first cases and the topic-name link test) |
 | DB reference generate/validate, CLI help snapshot, config references | not applicable: no schema, CLI or config change (the MCP output schema's field types are unchanged) |
+| npm / cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
+| Paid calls | none ($0) |
+
+## Re-review (F4 round 5)
+
+**Reviewed:** the F4 round 4 fix, `4493140a2..223d27ef2` (fix `c06f73aae`). **Codex job:**
+`20261014-194615-xeJ3ee`. **Verdict:** REOPENED. F3 was confirmed fixed. F1 and F2 were reopened as incomplete
+fixes. No new defects were reported. **Fixed in:** `0b53313ef`. Main was not merged here.
+
+| ID | Severity | Title | Verdict | Commit | Test (fails before the fix, passes after) |
+|---|---|---|---|---|---|
+| F1 | High | Historical answers are terminal in a diagnosis, so their grading's provenance is not followed (reopened) | **fixed** | `0b53313ef` | `test_a_diagnosis_follows_the_grading_of_every_answer_it_was_shown` (6 cases: failure, success, history, citation, named, own); control `test_a_diagnosis_shown_a_pinned_answer_s_grading_does_not_inherit_that_answer_s_diagnoses` |
+| F2 | High | A generated topic's id escapes through diagnosis text via a shown belief's `learning_object_id` (reopened) | **fixed** | `0b53313ef` | `test_a_diagnosis_shown_a_belief_on_a_generated_topic_follows_its_name` (4 cases: registry misconception, registry candidate, hypothesis, named; plus the `safe` control) |
+| F3 | Medium | Malformed provenance lists fail open | confirmed fixed by the re-review (`c06f73aae`) | none | the round 4 tests, unchanged |
+
+All tests are in `tests/test_mcp_c1a_review.py`. Nothing was rejected.
+
+### Reproduction (fail first)
+
+The new tests were written first and run against `223d27ef2`, whose `learner_context.py` is identical to
+`c06f73aae`'s. **10 of 10** reproduction cases failed, each for the reason the finding names. The 2 controls
+passed. The check was repeated before the gate, with `c06f73aae`'s `learner_context.py` laid over the fixed
+tree (a scratch overlay ahead of `src` on pytest's path): again 10 failed and 2 passed. With the fix, all 12
+pass.
+
+- **F1.** `PEER` is a pinned answer whose joint grader's C4 history names the unpinned `att_legacy`. A diagnosis
+  of `att_own` was shown `PEER` in its failure list, its success list, its retrieval history or a validated
+  citation, or it names `PEER` in its text. Its summary and a misconception normalized from its overlaid cause
+  were both released with `LEGACY KEY 8841 a row swap negates the volume`. The `own` case puts the C4 history on
+  the diagnosed answer itself, and it released the summary the same way. In every case,
+  `guard.closure(("diagnosis", id))` lacked `att_legacy`.
+- **F2.** `mc_gen` and `mcand_gen` are registry beliefs supported by the pinned answer's event, and `ep_gen` is
+  a prior hypothesis. Each sits on the topic drafted from `att_legacy`'s stuck answer. A diagnosis shown any one
+  of them, with a neighbourhood of `lo_matrices` only, released `lo_ltg_legacy_key_8841_…` in its summary. So
+  did a diagnosis whose receipt lists nothing but whose text names the id.
+
+### What changed
+
+- **An answer's grading is its own node (F1).** `grading` is the answer's grading as its grader wrote it. It
+  covers the answer, the answers its joint grader was shown (C4 history) and its topic's name when that topic
+  was generated.
+  - **`graded` is now `grading` plus every completed live diagnosis of the answer.** Beliefs drawn from an
+    answer's events follow `graded`, as before.
+  - **A diagnosis follows `grading` for every answer in its receipt:** its own answer, the failures, successes
+    and history, the citations, and the record ids named in its text. A history row (`_render_attempt`) carries
+    that answer's grader output: error types, fatal errors and first-divergence quotes from its repair plans.
+  - **A diagnosis does not follow that answer's own diagnoses.** The history store reads error events as
+    written (`raw_error_events_for_attempt`, `attempt_feedback_metadata`, blind grade records), never a
+    diagnosis's overlay. Nothing rewrites an event's or a grade's text after grading: the only updates set
+    `misconception_id`, `status` or shown counts. The new control test pins this: a diagnosis shown a pinned
+    answer whose own diagnosis was shown `att_legacy` still shows its summary. Following `graded` there would
+    have over-withheld.
+- **A shown belief carries its topic id (F2).** The diagnosis context renders each prior hypothesis
+  (`_render_hypothesis`) and registry record (`_render_registry`) with its `learning_object_id`. The
+  whole-vault registry shortlist (`_registry_shortlist`) reaches beyond the neighbourhood. The receipt's
+  hypotheses and registry ids now go through a `shown` node. It follows the belief's own provenance, as before,
+  plus `title` for its topic when that topic was generated. As a backstop, a generated topic whose full id
+  appears in the diagnosis's text is followed too. So is one whose id slug appears, provided the slug contains an
+  underscore and has at least 12 characters. A model can only reproduce an id it was shown, which is the same
+  rule that already applies to named answer ids.
+  - **The belief's own rendering is unchanged.** A misconception on a generated topic, drawn from a pinned
+    answer, still shows its statement with the topic's name withheld, as the round 4 test requires. Only a
+    model that was shown the belief alongside the id follows the name.
+- **Code:** `AnswerTextGuard._local_grading`, `_local_graded`, `_local_diagnosis`, `_local_shown` (replacing
+  `_local_belief`), `_named_topics`, and a `hypothesis` kind in `_belief`. The spec (§4.7 rule 1) and
+  `mcp-c1a.md` were updated.
+
+### Q9 and Q10, re-assessed
+
+- **Q9 (a regrade re-mints error-event ids):** unchanged by round 5 and kept. A belief that lists a replaced
+  event still has a missing link, and fail-closed is right. The remedy is durable provenance (desktop scope).
+- **Q10 (a tutor question asked outside any attempt is withheld for lack of a revision):** unchanged and kept.
+  Its round 4 extension, a prerequisite drafted from such a question, is unaffected.
+
+### New open question
+
+- **Q14 (an unrecorded C4 history reads as none):** `attempts._record_diagnostic_augmentation` writes the
+  Phase-C receipt after the grading transaction. It swallows a failed write by design ("telemetry must not be
+  able to turn a committed grade into a failure"), and the receipt is first-write-wins per attempt
+  (`INSERT OR IGNORE`, `attempt_id UNIQUE`). If that write fails, a joint grading that was shown prior answers
+  looks like one shown none, and `grading` cannot tell the difference. This predates round 5 and is outside
+  the two reopened findings. Recommended fix (desktop scope): write the receipt inside the grading
+  transaction, so its absence means "not augmented".
+- Q1-Q13 are otherwise unchanged.
+
+## Manual run (F4 round 5; backup-API copies, no model, no network)
+
+`learning_context` (30 traces, fixed `now`) was run by a direct read-only call on the
+`fixtures-local/c1a-manual` backup-API copies (`Repository.attach(..., read_only=True)`, no model client,
+`*_API_KEY` variables blanked). It ran on both `0b53313ef` and `c06f73aae`'s `learner_context.py` (loaded
+from `git show`), best of three:
+
+| Vault | round 5 | round 4 | output |
+|---|---|---|---|
+| linear_algebra | 268 ms | 262 ms | **byte-identical** JSON (minus `as_of`): 30 traces (12 answers shown), 2 open hypotheses, 7 retention risks, scope 21 topics, 0 aliases, 0 completed diagnoses |
+| probability | 45 ms | 45 ms | **byte-identical**: 2 traces (2 answers shown), 0 hypotheses, 1 retention risk, scope 18 topics, 0 aliases |
+
+Neither copy has a completed diagnosis or a generated topic, so round 5 changes nothing on the owner's data.
+**Paid calls: 0; cost: $0.**
+
+## Gate (F4 round 5)
+
+Run on `0b53313ef`, with TMPDIR set to the worktree's `fixtures-local/tmp`. Logs are in `fixtures-local/` as
+`c1a-f4r5-fullsuite.log` and `c1a-f4r5-durability.log`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **21 kept, 0 broken** |
+| `git diff --check 223d27ef2..0b53313ef` | clean |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10737 passed**, 0 failed, 16 warnings (14:27). Round 4 had 10725, plus the 12 new cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10637 deselected (2:05) |
+| The C1a tests alone (`test_mcp_c1a_review`, `test_mcp_tools`, `test_mcp_runtime`, `test_mcp_http`, `test_mcp_cli`) | **98 passed** (86 before, plus 12: the 10 fail-first cases and 2 controls) |
+| DB reference generate/validate, CLI help snapshot, config references | not applicable: no schema, CLI, config or output-schema change |
 | npm / cargo | not applicable: nothing under `apps/learnloop-tauri` changed |
 | Paid calls | none ($0) |
