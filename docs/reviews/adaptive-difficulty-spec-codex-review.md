@@ -92,3 +92,66 @@ Each finding was reproduced against the code in this worktree, which no commit o
 | `git diff --check` | Clean, on the working tree and on `4108e1ccd..HEAD` |
 | Tests | None run: no code changed. The F3 numbers come from a scratch script outside the repository that imports `learnloop.diagnosis.probe_families` (0.724 before the fix, 0.800 after) |
 | Paid calls | None |
+
+## Final verify fix and owner direction
+
+**Final verify:** `0e8dfed7a..docs/adaptive-difficulty-spec` at `d2fd43272` and the record above. Codex job `20261015-011258-aimwep`. Verdict: REOPENED. F1, F2, F3 and F9 were confirmed fixed, and there was one new finding, F10.
+**Fixed in:** `adc504f72` (2026-10-15). The same commit folds in the owner's direction from the 2026-10-14 conversation, recorded as decided in spec §15 (D3, D15–D17).
+
+### F10
+
+| ID | Severity | Title | Verdict | Commit | Reproduction, fix and test |
+|---|---|---|---|---|---|
+| F10 | Medium | Empty-support displacement can repeatedly reselect the rejected item | fixed | `adc504f72` | **Reproduced:** Each step was checked against the code. `planned_ids()` leaves displaced items out ("displaced items go back to the pool", `daily_plan/records.py:247-250`). The boundary's pool is the plan's universe minus planned and skipped items only (`daily_plan/engine.py:1218-1230`), and the projection uses the same set (`:1083`). The out-of-timing exclusions bind only selectors outside the scheduler's timing (`scheduling/serving_exclusions.py:18-27`). So an item AD displaces for a recent reveal is proposed again at the next boundary, and displaced again, without progress. A scratch script outside the repository then ran the real fold (`learnloop.daily_plan.records.assemble`) on `item_planned` plus `item_displaced(ad_ineligible)`. It gave `planned_ids() = ∅` and the item back in the boundary pool under the `:1223-1230` rule. The reviewer's four-boundary in-memory run was not repeated. **Fix:** spec §6.1 step 0. A slot item displaced with `ad_ineligible` joins the plan's **exclusion set**: `planned_ids()`, plus skipped items, plus active AD deferrals, folded from the plan's own events, so a rebuild reproduces it. That set replaces the planned-and-skipped set in the boundary context, which the lane sources (`daily_plan/lanes.py:463`) and the staged frame (`daily_plan/staged_frame.py:548`) read, and in the projection. A later plan of the same day starts with the day's active deferrals. **When it clears:** at each boundary, the failed checks are re-read with the draw's own functions, and the deferral clears when they all pass. A recent reveal clears once it is older than the cold retrieval delay (`diagnosis/remediation.py:31`). An open cold follow-up's hold clears once that task closes. A cold check or reserved surface clears once it closes. A constraint refusal clears once a fresh snapshot admits the item. A serving block clears once it lifts. Exam reservation, retirement, held-out derivation and the envelope clear only if the fact changes. Pre-exposure is never a deferral reason. The boundary's decision detail records the deferrals applied and cleared. With nothing else to do, the boundary closes the plan as complete (`engine.py:1657-1662`). §10.2, §11.2 (the `item_displaced` detail and fold) and §14 are aligned. **Test:** G-AD2-31 (new). It runs the verify's scenario with no loop over 20 advances, with the router off and on, and checks the projection, a keep-going plan, rebuild, readmission after the delay and after a follow-up closes, and the switch-off predecessor. G-AD2-30 (formerly G-AD3-12) is unchanged |
+
+### The owner's direction (2026-10-14), folded in
+
+- **(a) Practice targeting goes live early (D3).**
+  - Practice selection now serves from **AD2**, behind `selection` and its successor, with the a-priori constants and the honest uncertainty already specified. It no longer waits for predictor promotion: QUEST+-style band targeting corrects itself from outcomes (§6.1, §5.9).
+  - Harness promotion (field §7.4, unchanged) is now **AD3** and governs only (i) which predictor drives the readiness numbers the learner sees and (ii) whether cross-LO sharing steers live decisions.
+  - For (ii), the AD filter runs in two views (§5.6). Each LO's view reads only that LO's answers, and live draws read it until AD3. The subject view is scored throughout and steers only from AD3, under the new kill switch `promoted_predictor`. A6, §6.3 (the state AD5 composes from), §8.2's forecaster table (`ad_threshold@lo` / `@subject`), §8.4, §9.5, §10.1, §10.4 (serving from AD2, promotion, what it governs, live monitoring), §11.1, §11.4, §12, §14, §17 Q5 and §18 are aligned.
+  - Exact logged propensities are unchanged (A7).
+  - **D3 now reads:** "Decided by the owner (2026-10-14). Practice selection serves from AD2, behind `selection` and its algorithm successor, with the a-priori constants of §5.5 and the honest uncertainty of §5.7. It does not wait for promotion, because QUEST+-style band targeting corrects itself from the learner's outcomes even when its prior is off. It is guarded by AD2's simulation gate, including the decision-level checks of G-AD2-18, by live monitoring and by its kill switch. Promotion is the harness's own rule (field §7.4: superiority on attempt-level log loss, overall and on the first attempt at a never-seen LO; report 2's miss rate no worse), plus this spec's never-seen-cell split and band-region reliability. It governs only (i) which predictor drives the readiness numbers the learner sees and (ii) whether cross-LO sharing (the subject view) steers live decisions. It never blocks adaptation. Randomized draws keep exact, logged propensities. This supersedes the earlier default, under which selection itself waited for promotion."
+- **(b) A usable estimate within 10–15 answered questions per subject (D15).**
+  - **Hierarchy.** §5.2 was per facet with a vault-wide capability offset and no level shared across facets. It now has an explicit hierarchy: `θ_{f,k} = θ_{G,j} + θ_f + ψ_{j,k} + e_{f,k}`, with a subject level and capability offsets per subject, as in field's `lo_general` and `+capability` (the subject read as field reads it, `attempts/attempts.py:3296-3297`, `field/outcomes.py:610`).
+  - **Priors.** `ad_priors_v1` (§5.5) gives `N(0, 1.5)` to the subject level and `N(0, 0.75)` each to the facet and cell offsets. A fresh retrieval cell keeps the cold-start 3.0. Claims re-anchor the subject or facet mean and never shrink a variance. Field's quarter split and a three-quarter split are harness arms.
+  - **Identifiability.** §5.8 adds what the hierarchy identifies (observed-cell sums, the subject level as the observed facets' common part, and capability contrasts from facets seen at two capabilities) and what it cannot: the division of an observed cell, and the distance of a never-seen cell from the shared prediction, which only the first-attempt split tests.
+  - **The arithmetic (§5.9).** At `a = 1` with no residual, 0.19–0.25 units of information per answer from a prior of 3.0 leave about ±0.6 logits (±12 points) after 12 answers and about ±7 points after 30. On the model's scale (`τ0 = 1`, lapse) the information is about 0.12–0.16 per answer, but in points the result is the same, close to the binomial limit. Band mode engages at about ±0.74 logits, after about 10–13 answers that inform the served quantity. Partial credit adds about 9% near 55%, help is kept as information, and rating and timing add up to about 0.06 and 0.04 per answer once their sub-arms earn activation.
+  - **Learning.** The learning transition raises the touched cells by `E[γ]` before the next outcome, `γ` is learned, and its uncertainty and the drift act as process noise (a steady-state sd near 0.5 logits at most).
+  - **The honest limit.** Sharing cannot make a never-seen cell band-ready on its first answer, because its own offsets keep their prior variance (1.5 for a never-seen facet in v1). By a linear-Gaussian approximation, such a cell needs about 10 of its own answers (11 with no sharing, 6–8 under the three-quarter split). Its first item is still pitched by the shared terms. Before AD3, sharing is within an LO, so the target reads "per LO".
+  - **Gate.** G-AD2-18 (new) runs synthetic learners. With one LO and one cell, band mode must engage by the 15th answer for ≥ 80% of learners, with a band-hit rate ≥ 0.35 over answers 16–30. Under a prior off by 1.5 logits, the band-hit rate must be ≥ 0.30. Under the plan's flow, it must be at least the incumbent waypoint ladder's and at least AD without updates, and the results are reported by seen and never-seen cell.
+- **(c) Certification never reads an estimated difficulty (D16).**
+  - New standing constraint A11, a "What certification reads" preamble to §9, and the §9.3 bullet "Never from the posterior, never from an estimated difficulty".
+  - A new replay invariant in §11.3, with a second import-linter contract, and D9 cross-referenced.
+  - Test G-AD4-13 (new): every estimated difficulty changed, and credit, levels, requirements, certificate ids and the cold probe's item choice stay byte-identical.
+- **(d) The first-attempt split is primary (D17).** §8.3 makes field's first-attempt split the primary score for item-side signals (`α`, each `z`, the `+outside` arm, `llm_v1:item`, `solver_panel`) and for commissioned items' re-forecasts, as it already was for promotion. §7.3 and §7.4 point to it.
+
+### Gate ids after this fix
+
+Selection moved from AD3 to AD2, so its tests moved with it:
+- G-AD3-1–12 are now **G-AD2-19–30**, in the same order and with unchanged text.
+- New: G-AD2-18 (time to usable), G-AD2-31 (F10), G-AD3-1–3 (promotion: the LO view until AD3, readiness numbers only after it, the promotion report) and G-AD4-13 (no estimated difficulty in certification).
+
+The tables above that cite G-AD3-9 to G-AD3-12 describe the spec as it was at `99a2d811c` and `b6a597fad`.
+
+**Superseded by this fix:**
+- the AD2 phase "the arm (offline)" and the AD3 phase "practice in the band": AD2 is now "practice in the band" (a successor) and AD3 is "promotion";
+- the earlier D3 default, which made selection wait for promotion and named non-inferiority as the alternative;
+- §8.2's "Served after AD3 promotion; otherwise scored only";
+- §10.4's "Promotion to the active predictor for practice selection" and its decision-level conditions, which are now AD2's serving gate.
+
+### Gate (final verify fix)
+
+| Check | Result |
+|---|---|
+| Internal consistency | Every `§` reference either resolves to a heading of this spec (§5.9 is new) or names another spec (router, field, plan R2, ingestion, storage or probe spec). Gate ids are defined and contiguous: G-AD1-1–10, G-AD2-1–31, G-AD3-1–3, G-AD4-1–13, G-AD5-1–7, with no id used undefined. D1–D17 and A1–A11 are all defined and used. Stale terms are absent: `N(0, 2.0)` for the facet, "≈ 3.25", "promoted for selection", "the arm (offline", "variance ≥ 2.0", the bare `ψ_k`. The subject index is `j`, because `s_i` already names the surface group and `s` the state vector |
+| Code citations | A script extracted **200** `file:line` citations, counting continuations on the same line; the same script counts 179 at `d2fd43272`. **200 of 200** resolve to a unique tracked file with a valid range. The two line-opening continuations (`:246` in §5.1, `:1501-1537` in §7.1) are unchanged and were re-read by hand. Every citation on a changed line (28 distinct ranges) was printed and read against its claim. `daily_plan/lanes.py:444` was re-checked and stands. No source file changed on this branch since `4108e1ccd` |
+| External citations | Unchanged: 121 of 121 verified (appendix §1.2). The fix added no external source. The appendix's `rachatasumrit2024` verdict now names the decision-level checks in AD2's serving gate |
+| Numbers | The §5.9 figures come from scratch scripts outside the repository, using numpy only and no vault data. They cover Gauss–Hermite information per answer with the residual and lapse integrated, `max P_band` against the posterior sd, and a linear-Gaussian approximation of the hierarchy under three splits. The F10 fold reproduction imports `learnloop.daily_plan.records` |
+| `git diff --check` | Clean, on the working tree and on `4108e1ccd..HEAD` |
+| Tests | None run: no code changed |
+| Paid calls | None |
+
+**For the owner:**
+- Direction (a)(ii) keeps cross-LO sharing out of live decisions until AD3. So before promotion the 10–15-question target holds per LO, not per subject: a new LO starts from the prior, and its own answers carry it. If the intent was to let the subject view steer practice draws from AD2, the change is confined to A6, D3 and §6.1, and the subject view is already computed and scored.
+- Even after promotion, a never-seen facet needs about 10 of its own answers before band mode. That follows from any honest prior split, not from a missing term.
