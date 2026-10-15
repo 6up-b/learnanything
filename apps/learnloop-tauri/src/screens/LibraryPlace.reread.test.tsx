@@ -134,7 +134,9 @@ it("protection redesign: a held-back reading says why and is marked by the owner
   const MARK = {
     sourceId: "src_axler",
     extractionId: "ext_new",
+    revisionId: "rev_1",
     heldOutUnitIds: ["h3"],
+    proposalHash: "sha256:shown",
     needsConfirmation: true,
     title: "Mark exam material on this reading of “Linear Algebra Done Right”?",
     lines: [
@@ -171,6 +173,75 @@ it("protection redesign: a held-back reading says why and is marked by the owner
     fireEvent.click(within(dialog).getByRole("button", { name: "Mark them" }));
   });
   await waitFor(() => expect(api.sourceAction).toHaveBeenCalledTimes(2));
-  expect(api.sourceAction).toHaveBeenLastCalledWith({ sourceId: "src_axler", action: "mark_exam_material", confirmed: true });
+  // Bound to the reading and the proposal it showed (exam protection by extraction identity, F13).
+  expect(api.sourceAction).toHaveBeenLastCalledWith({
+    sourceId: "src_axler",
+    action: "mark_exam_material",
+    confirmed: true,
+    confirmedExtractionId: "ext_new",
+    confirmedProposalHash: "sha256:shown"
+  });
   expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("extraction identity: a marking confirmed after its reading changed asks again, and the fresh one is what is sent", async () => {
+  const SHOWN = {
+    sourceId: "src_axler",
+    extractionId: "ext_b",
+    revisionId: "rev_1",
+    heldOutUnitIds: ["u2"],
+    proposalHash: "sha256:b",
+    needsConfirmation: true,
+    title: "Mark exam material on this reading of “Linear Algebra Done Right”?",
+    lines: ["Held out as exam material: Exam.", "These are suggested from what you marked before: check them."],
+    confirmLabel: "Mark them",
+    cancelLabel: "Not now"
+  };
+  const FRESH = {
+    ...SHOWN,
+    extractionId: "ext_c",
+    heldOutUnitIds: [],
+    proposalHash: "sha256:c",
+    lines: [
+      "This reading changed since you looked, so nothing was marked yet. Check it again:",
+      "Nothing in this reading matches the exam material you marked before."
+    ],
+    confirmLabel: "Mark it"
+  };
+  api.sourceAction
+    .mockResolvedValueOnce({ version: 1, sourceId: "src_axler", action: "mark_exam_material", needsConfirmation: true, confirmation: SHOWN })
+    .mockResolvedValueOnce({ version: 1, sourceId: "src_axler", action: "mark_exam_material", needsConfirmation: true, confirmation: FRESH })
+    .mockResolvedValueOnce({
+      version: 1,
+      sourceId: "src_axler",
+      action: "mark_exam_material",
+      marked: { extractionId: "ext_c", heldOutUnitIds: [], fromExtractionIds: [] }
+    });
+  place({
+    ...CARD,
+    statusLine: {
+      text: "This reading is held back until you mark its exam material",
+      tone: "problem",
+      action: { kind: "mark_exam_material", label: "Mark exam material on this reading" },
+      details: null
+    }
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Mark exam material on this reading" }));
+  const first = await screen.findByRole("alertdialog", { name: SHOWN.title });
+  await act(async () => {
+    fireEvent.click(within(first).getByRole("button", { name: "Mark them" }));
+  });
+  const again = await screen.findByRole("alertdialog", { name: FRESH.title });
+  for (const line of FRESH.lines) expect(within(again).getByText(line)).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(within(again).getByRole("button", { name: "Mark it" }));
+  });
+  await waitFor(() => expect(api.sourceAction).toHaveBeenCalledTimes(3));
+  expect(api.sourceAction).toHaveBeenLastCalledWith({
+    sourceId: "src_axler",
+    action: "mark_exam_material",
+    confirmed: true,
+    confirmedExtractionId: "ext_c",
+    confirmedProposalHash: "sha256:c"
+  });
 });

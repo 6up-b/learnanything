@@ -329,7 +329,8 @@ def test_a_unit_override_is_resolved_on_its_reading_and_an_unmarked_reimport_is_
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     upsert_source_set(paths.root, {"id": "sset_la", "subject_id": "linear-algebra", "title": "LA", "members": [
         {"source_id": "src_book", "revision_id": "rev_book", "default_role": "primary_textbook",
-         "scope": [{"unit_id": "ch_det", "role_override": "exam"}]},
+         "scope": [{"unit_id": "ch_det", "role_override": "exam"}],
+         "scope_extraction_id": "ext_book", "scope_revision_id": "rev_book"},
         {"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"},
     ]})
     from tests.source_retrieval_fakes import BOOK

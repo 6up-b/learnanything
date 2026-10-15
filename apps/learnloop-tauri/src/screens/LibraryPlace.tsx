@@ -136,6 +136,8 @@ export function LibraryPlace({
     batchId?: string | null;
     action: SourceActionKind;
     confirmed?: boolean;
+    confirmedExtractionId?: string | null;
+    confirmedProposalHash?: string | null;
   }) => {
     setNotice(null);
     try {
@@ -211,7 +213,16 @@ export function LibraryPlace({
                   onClick={() => {
                     const chosen = confirming;
                     setConfirming(null);
-                    void run({ sourceId: chosen.sourceId, action: chosen.action, confirmed: true });
+                    // The marking's confirmation is bound to the reading and
+                    // the proposal it showed: if either changed meanwhile the
+                    // sidecar marks nothing and asks again.
+                    const binding = chosen.confirmation.proposalHash
+                      ? {
+                          confirmedExtractionId: chosen.confirmation.extractionId,
+                          confirmedProposalHash: chosen.confirmation.proposalHash
+                        }
+                      : {};
+                    void run({ sourceId: chosen.sourceId, action: chosen.action, confirmed: true, ...binding });
                   }}
                 >
                   {confirming.confirmation.confirmLabel}

@@ -8,8 +8,9 @@ and back matter (contents, preface, index) are never the step while a chapter
 is left (UX Phase 1 usability round 1, U4), wherever the plan acts: a live
 change behind its kill switch, not a successor tag (the owner's ruling at the
 UX Phase 1 merge: replay never reads the selection). With
-``plan.reading_from_furthest = false`` the selection is DL1's, the first
-unfinished section in book order. Its estimate is the section's words left
+``plan.reading_from_furthest = false`` the order is DL1's, the first
+unfinished section in book order; either way exam and held-out material
+(the one exam predicate) is never the step. Its estimate is the section's words left
 over ``plan.read_words_per_minute``, where words left =
 section words x (1 - spans seen / span count) from ``reader_section_progress``.
 Section completion still triggers item generation as today, and those items
@@ -72,10 +73,11 @@ def next_reading_target(
     "next" is DL1's: the first unfinished section in book order, front matter
     included. ``exam`` (the one exam predicate, ``content.sources.
     exam_material``, as ``source_retrieval.corpus.exam_exclusions`` returns
-    it: ``extractions`` and ``(extraction, span)`` ``spans``)
-    keeps U4's step off exam material: a section with an exam span (a
-    ``held_out_evaluation`` unit) is never the step to read, and an exam
-    extraction offers none. DL1's selection (the switch off) is unchanged."""
+    it: ``extractions`` and ``(extraction, span)`` ``spans``) keeps the step
+    off exam material in either order (the setting orders the step only;
+    exam protection by extraction identity, final verify F15): a section
+    with an exam span (a ``held_out_evaluation`` unit) is never the step to
+    read, and an exam extraction (a reading held back whole) offers none."""
 
     candidates = extraction_ids if extraction_ids is not None else as_you_read_extraction_ids(repository)
     if not candidates:
@@ -100,7 +102,7 @@ def next_reading_target(
     for extraction_id in ordered:
         target = _first_unfinished(
             repository, extraction_id, progress_by_extraction.get(extraction_id, {}), from_furthest=from_furthest,
-            exam=exam if from_furthest else None,
+            exam=exam,
         )
         if target is not None:
             return target

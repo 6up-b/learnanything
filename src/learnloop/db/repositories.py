@@ -18965,6 +18965,9 @@ class Repository(
             else:
                 counts.setdefault("source_span_reanchors", 0)
             by_ids("source_unit_inventories", "extraction_id", extraction_ids)
+            # The held-out signal ledger is keyed by revision (a row whose
+            # reading is unknown names none).
+            by_ids("source_held_out_signal_marks", "revision_id", revision_ids)
 
             # --- render views (crosswalk rows hang off the view) ------------
             view_ids = [
@@ -19493,9 +19496,35 @@ class Repository(
         model: str,
         inventory: Mapping[str, Any],
         usage: Mapping[str, Any] | None = None,
+        made_as_role: str | None = None,
+        reused_from_inventory_id: str | None = None,
         clock: Clock | None = None,
     ) -> None:
+        """Write one cached inventory (§7) and, for a model run on
+        ``extraction_id`` (not a reuse), its held-out signals into the
+        append-only ``source_held_out_signal_marks`` ledger, in one
+        transaction (exam protection by extraction identity).
+
+        The cache row is keyed per revision, so a reuse for another reading
+        of the revision rebinds it there; exam protection never reads that
+        binding. ``reused_from_inventory_id`` names the inventory a reuse
+        re-anchored (recorded in ``usage`` as ``rebound_from_inventory_id``,
+        as before): a reuse writes no ledger row, so it never marks the
+        reading it is bound to, and the origin's ledger row stays.
+        ``made_as_role`` is the role the model run was made under."""
+
         now = utc_now_iso(clock)
+        usage_row = dict(usage or {})
+        if reused_from_inventory_id:
+            usage_row.setdefault("rebound_from_inventory_id", reused_from_inventory_id)
+        reused = bool(reused_from_inventory_id or usage_row.get("rebound_from_inventory_id"))
+        held_out_spans = sorted({
+            str(span)
+            for signal in (dict(inventory).get("assessment_signals") or [])
+            if isinstance(signal, Mapping) and signal.get("held_out")
+            for span in (signal.get("span_ids") or [])
+            if span
+        })
         with self.connection() as connection:
             connection.execute(
                 """
@@ -19525,11 +19554,32 @@ class Repository(
                     provider,
                     model,
                     _json(dict(inventory)),
-                    _json(dict(usage or {})),
+                    _json(usage_row),
                     now,
                 ),
             )
+            if held_out_spans and not reused:
+                spans_json = _json(held_out_spans)
+                digest = hashlib.sha256(
+                    _json([source_revision_id, extraction_id, unit_id, made_as_role, held_out_spans]).encode()
+                ).hexdigest()[:32]
+                connection.execute(
+                    "INSERT OR IGNORE INTO source_held_out_signal_marks(id, revision_id, extraction_id, unit_id, "
+                    "inventory_id, made_as_role, span_ids_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, id, made_as_role, spans_json, now),
+                )
             connection.commit()
+
+    def held_out_signal_marks(self) -> list[dict[str, Any]]:
+        """Every row of the held-out signal ledger (exam protection by
+        extraction identity), with its book's source id, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT m.*, r.source_id AS source_id FROM source_held_out_signal_marks AS m "
+                "LEFT JOIN source_revisions AS r ON r.id = m.revision_id ORDER BY m.created_at, m.id"
+            ).fetchall()
+        return [{**dict(row), "span_ids": _loads(row["span_ids_json"], [])} for row in rows]
 
     def reusable_unit_inventories(
         self,

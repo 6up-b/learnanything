@@ -247,6 +247,13 @@ class SourceActionInput(ParamsModel):
     # material on a held-back reading (protection redesign) asks the same way,
     # naming what it will hold out.
     confirmed: bool = False
+    # The marking's confirmation is bound to the reading and the proposal it
+    # showed (exam protection by extraction identity, final verify F13): the
+    # card sends back the confirmation's extractionId and proposalHash; a
+    # confirmed marking without them, or for a reading or proposal that
+    # changed meanwhile, gets a fresh confirmation and writes nothing.
+    confirmed_extraction_id: str | None = None
+    confirmed_proposal_hash: str | None = None
 
 
 def _allow_file_upload(ctx: SidecarContext, flow: str | None = None) -> None:
@@ -359,13 +366,24 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         from learnloop.content.pipeline import exam_marking
 
         revision = repository.get_source_revision(str(artifact.get("current_revision_id") or "")) or None
-        plan = exam_marking.mark_plan(vault, repository, params.source_id,
-                                      title=f"“{core.learner_title(artifact, revision)}”")
-        if plan is None:
-            raise SidecarError("nothing_to_mark", "This book's reading isn't held back, so there's nothing to mark.")
+        title = f"“{core.learner_title(artifact, revision)}”"
+        nothing = SidecarError("nothing_to_mark", "This book's reading isn't held back, so there's nothing to mark.")
         if not params.confirmed:
+            plan = exam_marking.mark_plan(vault, repository, params.source_id, title=title)
+            if plan is None:
+                raise nothing
             return versioned({**result, "needs_confirmation": True, "confirmation": plan})
-        result["marked"] = exam_marking.mark_exam_material(vault, repository, params.source_id)
+        try:
+            result["marked"] = exam_marking.mark_exam_material(
+                vault, repository, params.source_id, extraction_id=params.confirmed_extraction_id,
+                proposal_hash=params.confirmed_proposal_hash, title=title)
+        except exam_marking.StaleMarkConfirmation as stale:
+            if stale.plan is None:
+                raise nothing from stale
+            named = params.confirmed_extraction_id or params.confirmed_proposal_hash
+            fresh = {**stale.plan, "lines": [exam_marking.CHANGED_LINE, *stale.plan["lines"]]} if named \
+                else stale.plan
+            return versioned({**result, "needs_confirmation": True, "confirmation": fresh})
     else:  # text_recognition: read again with OCR; questions already built stay.
         if not core.text_recognition_available(config=vault.config):
             # Plain words and how to get it (usability round 2); the shelf

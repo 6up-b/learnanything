@@ -438,6 +438,8 @@ def upsert_source_set(
         raise VaultWriterError("Source set id is required")
     index = _list_index_by_id(source_sets, set_id)
     existing = _mapping(source_sets[index]) if index is not None else {}
+    if isinstance(raw.get("members"), list):
+        raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
     merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
     validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
     if index is None:
@@ -447,6 +449,44 @@ def upsert_source_set(
     paths.source_sets_path.parent.mkdir(parents=True, exist_ok=True)
     write_yaml(paths.source_sets_path, data)
     return paths.source_sets_path
+
+
+#: The member fields naming the reading a scope's unit ids were chosen on
+#: (``SourceSetMember.scope_extraction_id``; exam protection by extraction identity).
+_SCOPE_READING_FIELDS = ("scope_extraction_id", "scope_revision_id")
+
+
+def _scope_key(member: Any) -> tuple[Any, ...] | None:
+    if not isinstance(member, dict):
+        return None
+    scope = []
+    for entry in member.get("scope") or []:
+        if not isinstance(entry, dict):
+            return None
+        scope.append((str(entry.get("unit_id") or ""), entry.get("role_override") or None))
+    return (str(member.get("source_id") or ""), str(member.get("revision_id") or ""), tuple(scope))
+
+
+def _keep_scope_readings(existing: Any, incoming: list[Any]) -> list[Any]:
+    """Each incoming member that re-sends an unchanged scope (same source,
+    pinned revision, unit ids and role overrides) without naming its reading
+    keeps the reading the stored member names: a writer that does not know
+    the field (an older desktop, a hand-built payload) never erases it. A
+    changed scope is a new choice and keeps nothing: a writer that changes
+    a scope names the reading it chose on, or the scope names none."""
+
+    recorded: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for member in existing if isinstance(existing, list) else []:
+        key = _scope_key(member)
+        if key is not None and key[2] and member.get("scope_extraction_id"):
+            recorded.setdefault(key, {field: member.get(field) for field in _SCOPE_READING_FIELDS})
+    kept: list[Any] = []
+    for member in incoming:
+        key = _scope_key(member)
+        if (key is not None and key[2] and not member.get("scope_extraction_id") and key in recorded):
+            member = {**member, **{field: value for field, value in recorded[key].items() if value}}
+        kept.append(member)
+    return kept
 
 
 def _vault_paths(root: Path) -> VaultPaths:

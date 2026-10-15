@@ -216,15 +216,11 @@ def _advance_membership(root, vault, source_set_id, source_id, old_revision_id, 
             kept.append(member.source_id)
             advancing = False
         revision_id = new_revision_id if advancing else member.revision_id
-        members.append(
-            {
-                "source_id": member.source_id,
-                "revision_id": revision_id,
-                "default_role": member.default_role,
-                "scope": [{"unit_id": s.unit_id, **({"role_override": s.role_override} if s.role_override else {})} for s in member.scope],
-                "priority": member.priority,
-            }
-        )
+        # Every field of the member is kept, the reading its scope names
+        # included (``scope_extraction_id``): advancing the pin never moves a
+        # scope to the new revision's reading (exam protection by extraction
+        # identity).
+        members.append({**member.model_dump(mode="json"), "revision_id": revision_id})
     upsert_source_set(
         root,
         {"id": source_set.id, "subject_id": source_set.subject_id, "title": source_set.title, "members": members},

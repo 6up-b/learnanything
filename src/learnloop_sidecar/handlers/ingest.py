@@ -853,6 +853,11 @@ class SourceSetMemberParams(ParamsModel):
     default_role: str = "reference"
     scope: list[SourceSetScopeParams] = []
     priority: int = 1
+    # The reading the scope's unit ids were chosen on (exam protection by
+    # extraction identity). A re-sent member that omits it keeps the stored
+    # one when its scope is unchanged (vault.writer.upsert_source_set).
+    scope_extraction_id: str | None = None
+    scope_revision_id: str | None = None
 
 
 class UpsertSourceSetInput(ParamsModel):

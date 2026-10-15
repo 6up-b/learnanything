@@ -459,12 +459,14 @@ def _check_reread_state(
 
     for held in held_back_readings(vault, repository):
         older = held["older"]
+        why = ("exam material was marked on it before LearnLoop recorded which reading it was marked on, so it "
+               "can't tell where that material is" if held.get("ambiguous") else
+               "exam material is marked on another reading of it and none on this one")
         issues.append(_issue(
             "warning",
             "source:reading_held_back",
             f"'{_book_title(repository, held['source_id'])}': its reading {held['extraction_id']} is held back "
-            "whole (no explanations, questions, search or Ask) because exam material is marked on another reading "
-            "of it and none on this one. Fix: the owner taps "
+            f"whole (no explanations, questions, search or Ask) because {why}. Fix: the owner taps "
             f"'{MARK_LABEL}' on its card in the Library."
             + (f" {len(older)} older reading(s) of it stay held back too." if older else ""),
             entity_id=held["source_id"],

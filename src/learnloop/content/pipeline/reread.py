@@ -48,7 +48,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources import span_aliases
-from learnloop.content.sources.exam_material import PROTECTION_MARK_KEY, source_marks
+from learnloop.content.sources.exam_material import MARKS_MADE_ON_KEY, PROTECTION_MARK_KEY, source_marks
 from learnloop.ingest.hashing import asset_hash
 from learnloop.reader.annotations import AnnotationError, reanchor_annotation
 from learnloop.reader.reader_guidance import extraction_sections
@@ -351,9 +351,10 @@ def carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: 
         moved = {key: value for key, value in dict(override).items() if key != "at_span_id"}
         moved["unit_id"] = target
         overrides.append(moved)
-    # The paper's metadata moves; the old reading's protection mark never does.
+    # The paper's metadata moves; the old reading's protection mark, and the
+    # reading its marks name, never do.
     metadata = {key: value for key, value in dict(stored.get("exam_paper_metadata") or {}).items()
-                if key != PROTECTION_MARK_KEY}
+                if key not in (PROTECTION_MARK_KEY, MARKS_MADE_ON_KEY)}
     kept = existing or {}
     metadata.update(dict(kept.get("exam_paper_metadata") or {}))
     run = repository.get_extraction_run(new_extraction_id) or {}

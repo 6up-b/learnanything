@@ -124,13 +124,34 @@ class SourceSetMember(VaultModel):
     """A pinned source in a set. Authoritative role/scope/priority live HERE, not
     on the source note — one source of truth (§4.3). ``revision_id`` is required
     and pinned; ``source_id`` lets the system discover later revisions without
-    silently changing the collection. Empty scope = whole artifact."""
+    silently changing the collection. Empty scope = whole artifact.
+
+    ``scope_extraction_id`` (and ``scope_revision_id``) name the reading the
+    scope's unit ids were chosen on (exam protection by extraction identity,
+    2026-10-15): unit ids are positional, so a scope is resolved on that
+    reading and nowhere else. An exam scope that names none (written before
+    the field existed) is ambiguous, and its book's readings are withheld
+    whole until the owner marks one (``content.sources.exam_material``).
+    Every writer of a scope records the reading it chose units on; the vault
+    writer keeps the recorded reading of an unchanged scope that a writer
+    re-sends without it. Omitted from the YAML when not recorded."""
 
     source_id: str
     revision_id: str
     default_role: str = "reference"
     scope: list[SourceSetScope] = Field(default_factory=list)
     priority: int = 1
+    scope_extraction_id: str | None = None
+    scope_revision_id: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_unrecorded_scope_reading(self, handler: Any) -> Any:
+        data = handler(self)
+        if isinstance(data, dict):
+            for key in ("scope_extraction_id", "scope_revision_id"):
+                if data.get(key) is None:
+                    data.pop(key, None)
+        return data
 
 
 class SourceSet(VaultModel):

@@ -670,7 +670,14 @@ export const api = {
   // the book card's one action, and connect-once / consent-once.
   addSource: (input: AddSourceInput) =>
     mutating([...INGEST_TAGS, TAG.vault], call<AddSourceResultDto>("add_source", { input })),
-  sourceAction: (input: { sourceId?: string | null; batchId?: string | null; action: SourceActionKind; confirmed?: boolean }) =>
+  sourceAction: (input: {
+    sourceId?: string | null;
+    batchId?: string | null;
+    action: SourceActionKind;
+    confirmed?: boolean;
+    confirmedExtractionId?: string | null;
+    confirmedProposalHash?: string | null;
+  }) =>
     mutating([...INGEST_TAGS, TAG.vault, TAG.queue, TAG.graph, TAG.proposals], call<SourceActionResultDto>("source_action", { input })),
   getAiConnection: () => call<AiConnectionDto>("get_ai_connection", { input: {} }),
   connectAi: (input: { provider: "chatgpt" | "openrouter" | "current"; model?: string | null }) =>

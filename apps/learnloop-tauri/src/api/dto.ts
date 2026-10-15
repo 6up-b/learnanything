@@ -3429,12 +3429,20 @@ export interface SourceActionConfirmationDto {
   lines: string[];
   confirmLabel: string;
   cancelLabel: string;
+  /** The marking's confirmation only: the identity of the proposal shown,
+   *  sent back with its extractionId when the owner confirms (exam
+   *  protection by extraction identity, final verify F13). */
+  proposalHash?: string | null;
 }
 
 /** Protection redesign: what marking exam material on a held-back reading
- *  will hold out (suggested from the reading marked before). */
+ *  will hold out (suggested from the reading marked before). Confirming sends
+ *  back its extractionId and proposalHash; if either changed meanwhile the
+ *  sidecar marks nothing and returns a fresh confirmation. */
 export interface SourceMarkConfirmationDto extends SourceActionConfirmationDto {
   heldOutUnitIds: string[];
+  revisionId: string | null;
+  proposalHash: string;
 }
 
 /** What reading a book again reads, costs and carries, in plain words. */
@@ -3590,6 +3598,11 @@ export interface SourceSetMemberDto {
   defaultRole: string;
   scope: SourceSetScopeDto[];
   priority: number;
+  /** The reading (extraction) the scope's unit ids were chosen on, and its
+   *  revision (exam protection by extraction identity). Absent when not
+   *  recorded; re-sent as received. */
+  scopeExtractionId?: string | null;
+  scopeRevisionId?: string | null;
 }
 
 export interface SourceSetDto {

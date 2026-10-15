@@ -1024,8 +1024,8 @@
     "sha256": "11bfedf06d5cfccfba9bfbcfb48ff9943784f96752df1c59b7bf527230465dd7"
   },
   "source-set add": {
-    "bytes": 2352,
-    "sha256": "c15a414d23213b1084ca8d57b4bdc0c49af81e0ad80ac4cc77a4517e3cd8c6bd"
+    "bytes": 2522,
+    "sha256": "a46f94da63293995df80a2a884a77ee06dd27bb2391322c4bc0094e9948ab072"
   },
   "source-set create": {
     "bytes": 1841,

@@ -21,6 +21,12 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentIR
 from learnloop.ingest.reanchor import reanchor_spans
+from learnloop.content.sources.exam_material import (
+    HELD_OUT_EVALUATION,
+    MARKS_MADE_ON_KEY,
+    PROTECTION_MARK_KEY,
+    marks_made_on,
+)
 from learnloop.content.sources.role_authority import KNOWN_ROLES
 
 # Boundary-override operations a user can layer over the ExtractionRun (§5.3).
@@ -373,7 +379,12 @@ def save_unit_selection(
     extraction's selection already holds (protection redesign, 2026-10-15): a
     study-map save that does not name them (the desktop's, the CLI's) never
     erases a held-out mark or the owner's "Mark exam material on this reading",
-    which would release held-out material or hold the reading back again."""
+    which would release held-out material or hold the reading back again.
+
+    Explicit ``exam_use_modes`` are chosen on this extraction, so the save
+    records the reading they were made on (``exam_material.MARKS_MADE_ON_KEY``:
+    exam protection by extraction identity); marks saved without one (left as
+    they were) keep whatever they recorded."""
 
     ir = repo.load_document_ir(extraction_id)
     if ir is None:
@@ -390,6 +401,17 @@ def save_unit_selection(
     revision = repo.get_source_revision(revision_id) if revision_id else None
     source_id = revision["source_id"] if revision else None
     stored = repo.get_unit_selection(extraction_id) or {}
+    metadata = (dict(stored.get("exam_paper_metadata") or {}) if exam_paper_metadata is None
+                else dict(exam_paper_metadata))
+    if exam_use_modes is not None:
+        # Marks chosen now, on this extraction: they name it; none left, nothing to name.
+        if any(mode == HELD_OUT_EVALUATION for mode in exam_use_modes.values()) or PROTECTION_MARK_KEY in metadata:
+            metadata[MARKS_MADE_ON_KEY] = marks_made_on(extraction_id, revision_id)
+        else:
+            metadata.pop(MARKS_MADE_ON_KEY, None)
+    elif exam_paper_metadata is not None and MARKS_MADE_ON_KEY in (stored.get("exam_paper_metadata") or {}):
+        # New paper metadata keeps the reading the stored marks name.
+        metadata.setdefault(MARKS_MADE_ON_KEY, (stored.get("exam_paper_metadata") or {})[MARKS_MADE_ON_KEY])
     repo.upsert_unit_selection(
         extraction_id=extraction_id,
         source_id=source_id,
@@ -398,8 +420,7 @@ def save_unit_selection(
         boundary_overrides=normalize_overrides(boundary_overrides),
         needs_review=[],
         exam_use_modes=dict(stored.get("exam_use_modes") or {}) if exam_use_modes is None else dict(exam_use_modes),
-        exam_paper_metadata=(dict(stored.get("exam_paper_metadata") or {}) if exam_paper_metadata is None
-                             else dict(exam_paper_metadata)),
+        exam_paper_metadata=metadata,
         role_override=normalized_role,
         clock=clock,
     )
@@ -516,15 +537,20 @@ def reanchor_selection_to(
     revision = repo.get_source_revision(revision_id) if revision_id else None
     source_id = revision["source_id"] if revision else None
     # Carry exam use modes/metadata forward, re-anchoring per-unit modes onto the
-    # new unit ids (dropping modes for units that failed to re-anchor).
+    # new unit ids (dropping modes for units that failed to re-anchor). Never
+    # a protection mark (exam protection by extraction identity): a held-out
+    # mode, the owner's marking and the reading they name stay on the reading
+    # they were made on, and the new one is withheld until it is marked.
     old_modes = stored.get("exam_use_modes") or {}
     from_ir_units = {unit.unit_id for unit in from_ir.units}
     reanchor_map = reanchor_units(from_ir, to_ir)
     new_modes = {
         reanchor_map[old_id]: mode
         for old_id, mode in old_modes.items()
-        if old_id in from_ir_units and reanchor_map.get(old_id) is not None
+        if old_id in from_ir_units and reanchor_map.get(old_id) is not None and mode != HELD_OUT_EVALUATION
     }
+    carried_metadata = {key: value for key, value in dict(stored.get("exam_paper_metadata") or {}).items()
+                        if key not in (PROTECTION_MARK_KEY, MARKS_MADE_ON_KEY)}
     repo.upsert_unit_selection(
         extraction_id=to_extraction_id,
         source_id=source_id,
@@ -533,7 +559,7 @@ def reanchor_selection_to(
         boundary_overrides=reanchored.boundary_overrides,
         needs_review=reanchored.needs_review,
         exam_use_modes=new_modes,
-        exam_paper_metadata=stored.get("exam_paper_metadata") or {},
+        exam_paper_metadata=carried_metadata,
         role_override=stored.get("role_override"),
         clock=clock,
     )

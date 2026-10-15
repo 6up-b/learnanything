@@ -116,8 +116,10 @@ def plan_active(vault: Any) -> bool:
 def reading_from_furthest_active(vault: Any) -> bool:
     """The reading block continues from the furthest section read (UX Phase 1,
     U4) wherever the plan acts, with its kill switch
-    ``plan.reading_from_furthest`` on; off, it is DL1's selection exactly, the
-    first unfinished section in book order.
+    ``plan.reading_from_furthest`` on; off, it is DL1's order, the first
+    unfinished section in book order. Either way the one exam predicate keeps
+    exam and held-out material off the step (the setting orders it only;
+    exam protection by extraction identity, final verify F15).
 
     A live change behind a kill switch, not a successor tag (owner ruling at
     the UX Phase 1 merge, docs/reviews/ux-phase1.md "Landing onto main"): the
@@ -979,8 +981,11 @@ def _prepare_plan(
     reading_full: float | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
         from_furthest = reading_from_furthest_active(env.vault)
-        exam = _exam_material(env.vault, env.repository) if from_furthest else None
-        if not (from_furthest and exam is None):
+        # Protection whatever the reading order (exam protection by extraction
+        # identity, final verify F15): the setting orders the step, the one
+        # exam predicate decides what may be one; unreadable, no step.
+        exam = _exam_material(env.vault, env.repository)
+        if exam is not None:
             reading = next_reading_target(env.repository, from_furthest=from_furthest, exam=exam)
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)

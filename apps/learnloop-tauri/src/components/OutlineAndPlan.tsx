@@ -1012,6 +1012,7 @@ function BuildPlanView({
           sourceId={outline.sourceId ?? outline.extractionId}
           revisionId={outline.revisionId}
           scopeUnitIds={selectedUnitIds}
+          scopeExtractionId={outline.extractionId}
           seedRole={role || suggestedRole}
           onClose={() => setAddOpen(false)}
           onAdded={(setId, setTitle, pinnedSubjectId) => {

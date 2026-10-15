@@ -197,6 +197,10 @@ def scope_for(vault: LoadedVault, repository: Repository, *, policy: str, scope:
         return Scope("post_attempt", extractions, frozenset(excluded), tuple(notes))
     if scope == "teaching":
         return teaching_scope(vault, repository, learning_object_ids, item_bound=False)
+    # The library scope excludes nothing itself (the sources merge's "found,
+    # then withheld"): every caller of a library scope (find_sources' pool,
+    # compare's and the tutor's pins) withholds each exam hit by the one
+    # predicate, under every policy.
     return library_scope(repository)
 
 

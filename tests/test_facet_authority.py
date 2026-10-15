@@ -120,8 +120,11 @@ def _add_member(repo, root, *, source_id, revision_id, extraction_id, units, rol
     vault = load_vault(root)
     current = next(source_set for source_set in vault.source_sets if source_set.id == "set_la")
     members = [member.model_dump(mode="json", exclude_none=True) for member in current.members]
+    # The scope names the reading its unit ids were chosen on (exam
+    # protection by extraction identity).
     members.append({"source_id": source_id, "revision_id": revision_id, "default_role": role,
-                    "scope": scope, "priority": 1})
+                    "scope": scope, "priority": 1, "scope_extraction_id": extraction_id,
+                    "scope_revision_id": revision_id})
     upsert_source_set(root, {"id": "set_la", "subject_id": SUBJECT, "title": "Linear Algebra",
                              "members": members}, clock=_CLOCK)
 

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-202. Migration 167 adds the learner-field F1 read model
+225 (a placeholder number: see the end of the migration list). Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -123,15 +123,22 @@ the exact decision -> presentation -> attempt receipt) and
 `practice_attempts.plan_presentation_id` with its partial unique index; and
 adds `router_decision_payloads` (WORKFLOW: the learner-state card each
 decision stored).
-Built as a backup-API copy of `migration_head_201` (itself a backup-API copy
-of `migration_head_199` with only 200-201 applied, that of
-`migration_head_197` with only 198-199 applied, that of
+Migration 225 comes from exam protection by extraction identity
+(`fix/reread-safety`, docs/reviews/exam-protection-identity.md; 225 is a
+placeholder, renumbered when it lands on main after the migrations queued
+ahead of it): it adds `source_held_out_signal_marks` (RAW_LEDGER, never
+updated by trigger: the held-out signals each fresh inventory marked on the
+reading its model run read, with its revision and the role it was made
+under) and backfills it from `source_unit_inventories` (none here).
+Built as `migration_head_202` (a backup-API copy of `migration_head_201`,
+itself a backup-API copy of `migration_head_199` with only 200-201 applied,
+that of `migration_head_197` with only 198-199 applied, that of
 `migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 202 applied through
+`migration_head_186` with 187-195 applied, with only 202 applied), renamed to
+this directory, with only 225 applied through
 `learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_201` was renamed to this
-directory. It pins
+`foreign_key_check` clean, no companion files). It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 
