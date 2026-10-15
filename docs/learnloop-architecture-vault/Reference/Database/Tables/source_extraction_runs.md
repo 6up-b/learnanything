@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
-source_commit_timestamp: "2026-10-15T02:09:56-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 202
+schema_head: 225
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -51,7 +51,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/032_source_layer.sql`.
-- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `041_source_unit_inventories.sql`, `054_extraction_health.sql`, `088_source_render_views.sql`, `089_source_block_health.sql`.
+- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `041_source_unit_inventories.sql`, `054_extraction_health.sql`, `088_source_render_views.sql`, `089_source_block_health.sql`, `225_source_held_out_signal_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -146,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_m3.py`

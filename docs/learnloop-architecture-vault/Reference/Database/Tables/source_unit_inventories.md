@@ -3,13 +3,13 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
-source_commit_timestamp: "2026-10-15T02:09:56-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
   - "table source_unit_inventories"
-schema_head: 202
+schema_head: 225
 table_name: "source_unit_inventories"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/041_source_unit_inventories.sql"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
+  - "src/learnloop/content/synthesis/source_unit_inventory.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/041_source_unit_inventories.sql`.
-- **Schema touched by:** `041_source_unit_inventories.sql`.
+- **Schema touched by:** `041_source_unit_inventories.sql`, `225_source_held_out_signal_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -109,7 +109,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -122,6 +121,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_exam_protection_identity.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`

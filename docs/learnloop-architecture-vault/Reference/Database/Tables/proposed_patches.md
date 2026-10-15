@@ -3,13 +3,13 @@ title: "proposed_patches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
-source_commit_timestamp: "2026-10-15T02:09:56-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patches"
   - "table proposed_patches"
-schema_head: 202
+schema_head: 225
 table_name: "proposed_patches"
 table_role: "workflow"
 functionality_status: "active"

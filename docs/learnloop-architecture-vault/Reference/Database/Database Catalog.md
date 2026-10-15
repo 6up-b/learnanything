@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
-source_commit_timestamp: "2026-10-15T02:09:56-04:00"
+source_commit: "542adc8869b3c2d17c359f79a489c4b4b8519192"
+source_commit_timestamp: "2026-10-15T06:29:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 202
-table_count: 321
+schema_head: 225
+table_count: 322
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_202/state.sqlite"
+  - "fixtures/migration_head_225/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-202"
+  - "learnloop/database/schema-head-225"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 321 user tables at migration head 202. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 322 user tables at migration head 225. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,7 +38,7 @@ This is the exhaustive map of the 321 user tables at migration head 202. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 143 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 144 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 67 |
 | [[Table Roles#Workflow|`workflow`]] | 82 |
@@ -48,7 +48,7 @@ This is the exhaustive map of the 321 user tables at migration head 202. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 308 |
+| `active` | 309 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -311,6 +311,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/source_exercise_imports|source_exercise_imports]] — `workflow` · `active` · Tracks each textbook exercise imported as practice (canonical sources S1): the caller and proposal, the exercise's extraction, spans and revision, the authored item, the answer-key ladder's status and label, any family attachment and the intervention need it fulfilled. Workflow state for the interactive import's time box and background check; certification reads the key through reference_key_checks. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `proposal_id`, `extraction_id`, `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_exposure_events|source_exposure_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of source exposure so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `extraction_id`, `span_id`, `revision_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_extraction_runs|source_extraction_runs]] — `workflow` · `active` · Tracks one execution, input identity, and result for source extraction so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `revision_id`, `parent_extraction_id`, `extractor_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/source_held_out_signal_marks|source_held_out_signal_marks]] — `raw_ledger` · `active` · Keeps each held-out assessment signal on the reading its model run read (exam protection by extraction identity, migration 225): one row per fresh inventory that held anything out, with the extraction and revision it read, the unit, the role it ran under and the sorted span ids. `content.sources.exam_material` reads protection from it, never from `source_unit_inventories`, whose cache rows a reuse rebinds to another reading. A reuse writes no row. Backfilled rows from rebound cache rows name no reading (`extraction_id` NULL): their book stays protected and they mark no reading. Append-only (an update aborts); deleted only with its book. It supplies replay-stable input rather than a disposable cache. Rows bind `revision_id`, `extraction_id`, `unit_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_locator_schemes|source_locator_schemes]] — `compat` · `dormant-owner-gated` · Retains dormant locator-to-scheme detection state; retirement remains owner-gated. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `locator`, `scheme`, `detected_at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_object_citations|source_object_citations]] — `raw_ledger` · `active` · Gives source object citation a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_object_version_id`, `revision_id`, `span_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_object_relations|source_object_relations]] — `raw_ledger` · `active` · Gives source object relation a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_object_id`, `related_object_id`, `relation_type`, making the operational relationship explicit.
