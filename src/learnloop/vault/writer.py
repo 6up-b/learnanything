@@ -451,9 +451,10 @@ def upsert_source_set(
         raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
     merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
     validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
-    ended = exam_member_sources(existing.get("members")) - exam_member_sources(validated.get("members"))
-    if ended:
-        _record_exam_qualification(paths.sqlite_path, ended, clock=clock)
+    # A book this write makes exam material in the set, or stops making it.
+    changed = exam_member_sources(existing.get("members")) ^ exam_member_sources(validated.get("members"))
+    if changed:
+        _record_exam_qualification(paths.sqlite_path, changed, clock=clock)
     if index is None:
         source_sets.append(validated)
     else:
@@ -468,10 +469,11 @@ def _record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock
     their held-out signals whose role was not recorded (signals migration 225
     backfilled) as exam material, so the change never releases protection
     they gave (``db.stores.held_out_signals``; Codex review of exam protection
-    by extraction identity, F3). The app records them when it opens the vault
-    too, which covers a hand edit of the file (re-review F3). A database that
-    cannot record it refuses the change (fail closed); a vault with no
-    database, or one not migrated to 225, has nothing to record."""
+    by extraction identity, F3). A write that makes them exam material records
+    them too, and so does the app when it opens the vault, so a later hand
+    edit of the file releases nothing (re-review F3). A database that cannot
+    record it refuses the change (fail closed); a vault with no database, or
+    one not migrated to 225, has nothing to record."""
 
     if not sqlite_path.exists():
         return

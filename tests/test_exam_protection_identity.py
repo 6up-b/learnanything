@@ -1041,17 +1041,23 @@ def test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changin
 
 
 def test_identity_review_f3_an_unchanged_membership_records_nothing(exam_book):
-    """The writer records nothing while the book stays exam material (or was
-    never it): the owner's textbook signals keep protecting nothing."""
+    """The writer records nothing for a book that never is exam material
+    (the owner's textbook signals keep protecting nothing), nor while its
+    exam membership stays as it is. A write that makes it exam material
+    records its signals once (re-review F3)."""
 
     from learnloop.vault.writer import upsert_source_set
 
     repo, root = exam_book["repo"], exam_book["root"]
     _rerun_migration_225(repo, lambda repo: _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"]))
     textbook = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "primary_textbook", "scope": []}
-    for members in ([textbook], [], [{**textbook, "default_role": "exam"}], [{**textbook, "default_role": "exam"}]):
+    for members in ([textbook], [], [textbook]):
         upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "T", "members": members})
     assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+    for _ in range(2):
+        upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "T",
+                                 "members": [{**textbook, "default_role": "exam"}]})
+    assert sorted(row["made_as_role"] or "" for row in repo.held_out_signal_marks()) == ["", "exam"]
 
 
 @pytest.mark.durability  # the verdict and the marking in one transaction, under WAL too
@@ -1302,3 +1308,32 @@ def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_boo
     assert not EM.held_out_material(sets, repo).covers("extXA", "x1")
     # With exam role evidence, the same row protects (membership; an outline pick).
     assert EM.held_out_material(_exam_sets(default_role="exam", scope=()), repo).covers("extXA", "x1")
+
+
+@pytest.mark.parametrize("member", ["exam_role", "exam_scope"])
+def test_identity_rereview_f3_exam_membership_the_writer_adds_survives_a_hand_edit(exam_book, member):
+    """Re-review F3, within one session: the book was a textbook at the
+    upgrade (its backfilled signal unrecorded), the owner makes it exam
+    material through the app (the vault writer), then removes that in a text
+    editor before the app opens the vault again. The writer records the
+    book's unrecorded signals when its write makes the book exam material, as
+    it does when one ends it."""
+
+    from learnloop.migration_coordinator import migrate_vault
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.writer import upsert_source_set
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
+    _older_build_with_membership(exam_book, textbook)
+    assert [migration.version for migration in migrate_vault(root, repo.sqlite_path)] == [225]
+    assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+
+    exam = _EXAM_MEMBER if member == "exam_role" else _SCOPED_MEMBER
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "members": [exam]})
+    assert EM.held_out_material(load_vault(root), repo).covers("extXA", "x1")
+    _hand_edit_members(root, [textbook])
+    vault = load_vault(root)
+    held = EM.held_out_material(vault, repo)
+    assert held.covers("extXA", "x1"), "A's question stays held out after the hand edit"
+    assert "extXB" in held.extractions and "src_x" in EM.source_marks(vault, repo)

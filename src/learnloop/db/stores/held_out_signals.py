@@ -16,9 +16,9 @@ recorded as exam material: an appended copy (``hos_q_<row id>``,
   (``learnloop.migration_coordinator``; the upgrade to 225 first), for the
   books ``source_sets.yaml`` makes exam material then, so a later hand edit of
   that file releases nothing (Codex re-review F3).
-* The vault writer records them before it writes a source set that ends a
-  book's exam membership in that set, and the repository before an outline
-  exam pick is changed.
+* The vault writer records them before it writes a source set that begins
+  or ends a book's exam membership in that set, and the repository before an
+  outline exam pick is changed.
 """
 
 from __future__ import annotations
