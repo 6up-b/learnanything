@@ -1,6 +1,6 @@
 # Adaptive difficulty and mastery: practice in the band, probes that discriminate, levels that mean something (v1)
 
-**Status:** drafted 2026-10-14 at the owner's request, on branch `docs/adaptive-difficulty-spec` from main `4108e1ccd` (`mvp-0.24`). Spec only: no code changes. Decision-ready: every owner decision in §15 has a recommended default, which is accepted unless the owner overrides it at its checkpoint (owner decision 2026-10-12).
+**Status:** drafted 2026-10-14 at the owner's request, on branch `docs/adaptive-difficulty-spec` from main `4108e1ccd` (`mvp-0.24`); revised 2026-10-15 for the final Codex verify (F10) and the owner's direction of 2026-10-14 (practice targeting live before promotion, a per-subject time-to-usable target, certification never from an estimated difficulty, the first-attempt split as the primary score). Spec only: no code changes. Decision-ready: every owner decision in §15 has a recommended default, which is accepted unless the owner overrides it at its checkpoint (owner decision 2026-10-12). D3 and D15–D17 record the owner's direction and are decided.
 
 **Research appendix:** `docs/specs/research/adaptive_difficulty_sources_v1.md`. It holds the six research angles, every source with its verdict, the verification log, and the local measurement (appendix §4, summarized here in §3.3). Bracketed keys in this spec, such as `[watson2017]`, name rows of that appendix. Every external source cited here was opened at its primary record (DOI registry, arXiv abstract page, proceedings page or the paper itself) and its title and first author checked; anything that could not be verified was dropped.
 
@@ -21,12 +21,12 @@
 
 **The answer this spec builds.**
 1. **Difficulty is a property of a feature point, learned from this learner's own history.** An item's difficulty is `b = (effect of its task features) + (an item offset with wide uncertainty)`. Feature effects are shared across items, so they can be learned from one learner (explanatory IRT, `[fischer1973]`, `[deboeck2008]`). The offset of a one-off item cannot be learned, so it is integrated out, never estimated (§5).
-2. **The learner state is a posterior over ability per (facet, capability) cell, on the same scale as the feature ladder.** It changes as the learner learns. Updates are deterministic and replayable, with zero model calls (§5.6).
-3. **Practice is chosen to land in the band.** Inside a block the router has already drawn, the rule serves, among the items that block admits, the one with the highest posterior probability that this learner's success chance lies in 70–80%. When no item in the cell can, it commissions one at the feature point most likely to. Near-ties and a small exploration share are randomized with exact, logged propensities (§6.1). The LLM writes a surface *at* the commissioned feature point and is no longer asked to hit a difficulty (§7).
+2. **The learner state is a posterior over ability per (facet, capability) cell, on the same scale as the feature ladder.** It is hierarchical: a subject level, capability offsets and feature effects are shared, and each facet and cell refines its own offset as evidence arrives, so answers anywhere in a subject inform every cell of it (§5.2). It changes as the learner learns. Updates are deterministic and replayable, with zero model calls (§5.6). The target is a usable estimate within 10–15 answered questions per subject; §5.9 gives the arithmetic and what sharing can and cannot buy.
+3. **Practice is chosen to land in the band.** Inside a block the router has already drawn, the rule serves, among the items that block admits, the one with the highest posterior probability that this learner's success chance lies in 70–80%. When no item in the cell can, it commissions one at the feature point most likely to. Near-ties and a small exploration share are randomized with exact, logged propensities (§6.1). The LLM writes a surface *at* the commissioned feature point and is no longer asked to hit a difficulty (§7). This serves from AD2, with a-priori constants, before any predictor promotion: band targeting corrects itself from the learner's outcomes (§6.1).
 4. **Probes are chosen to discriminate.** They keep the existing hypothesis EIG and stopping rules. The item offset's uncertainty is folded into each hypothesis's predictions, and probe authoring targets feature points where hypotheses disagree, not a 45–55% band (§6.3).
 5. **Every forecast is logged before the attempt and scored after it.** This covers the model in use, the incumbent, and outside forecasters (solver panel, an LLM given the item, an LLM and the Decider given the learner's history). Trust in each is learned from proper scores. Item-side signals enter the item-offset prior with learned weights. Forecasts that already read the learner's history compete as experts and are never folded in a second time (§8).
-6. **Certification says "demonstrated up to level k".** Credit counts only from items at or above the level, judged by the features of the revision the learner answered and its audit. The evidence is stored by feature point, not by level number. A level is always a level of one goal's ladder, and a requirement or certificate records the feature point it needs, so a new exam or milestone never changes what an existing one means. The features of practice-available exam and problem-set units define a goal's top level, "full mastery". Held-out exams are never served and never steer practice (§9).
-7. **It ships in phases**, starting with logging that changes nothing served (AD1). The model follows as a gated harness arm with a-priori constants (AD2). It is promoted by the harness's own rule before it chooses anything (AD3). Levels follow in AD4 and probe targeting in AD5. Each serving change is a successor with a kill switch (§14).
+6. **Certification says "demonstrated up to level k".** Credit counts only from items at or above the level, judged by the features of the revision the learner answered and its audit, never by an estimated difficulty. The evidence is stored by feature point, not by level number. A level is always a level of one goal's ladder, and a requirement or certificate records the feature point it needs, so a new exam or milestone never changes what an existing one means. The features of practice-available exam and problem-set units define a goal's top level, "full mastery". Held-out exams are never served and never steer practice (§9).
+7. **It ships in phases**, starting with logging that changes nothing served (AD1). Practice in the band follows as a successor with a-priori constants and a kill switch (AD2); until promotion it reads only the evidence of the LO at hand. Promotion by the harness's own rule (AD3) governs only which predictor's readiness numbers the learner sees and whether evidence shared across LOs steers live decisions; it never holds adaptation back. Levels follow in AD4 and probe targeting in AD5. Each serving change is a successor with a kill switch (§14).
 
 **The honest limit, stated once.** One learner's history cannot separate "skill rose" from "items at this feature level are easier than assumed" when feature levels rise in step with time. The design reduces the confound by randomizing feature points across time, reports it when it remains, and never presents a per-item difficulty as measured (§5.8).
 
@@ -47,6 +47,12 @@ The direction agreed in conversation was evaluated against the research (§4.2).
 - forecasts that already read the learner's history become competing experts rather than item-offset priors (R7);
 - probes get their own objective, and calibration a bounded one (R4).
 
+Later in the same conversation the owner directed four more points, binding and recorded as decided in §15:
+- **Practice targeting goes live early (D3).** It serves from AD2, before any predictor promotion, because band targeting corrects itself from outcomes. Promotion governs only the readiness numbers the learner sees and cross-LO sharing in live decisions (§6.1, §10.4).
+- **A usable estimate within 10–15 answered questions per subject (D15).** This needs explicit sharing across cells (§5.2, §5.9).
+- **Certification reads declared or audited features, never an estimated difficulty (D16, A11, §9).**
+- **The first-attempt split is the primary score** for item-side signals and commissioned items (D17, §8.3).
+
 ---
 
 ## 2. Standing constraints
@@ -58,11 +64,12 @@ The direction agreed in conversation was evaluated against the research (§4.2).
 | A3 | **Live changes through the playbook.** Each serving change is an immediate successor with a kill switch that restores the predecessor exactly, plus receipts. | playbook steps 1–8; field F3 |
 | A4 | **Honest labels, generous defaults.** Untested, assumed, predicted and demonstrated are always distinguished; nothing predicted is shown as demonstrated (Ready vs Demonstrated, KM §9.6). | field F4; `exam_readiness.py:1-20` |
 | A5 | **No per-learner-fitted hyperparameters; no hand-picked evidence weights.** Prior means and variances are set a priori and versioned (`ad_priors_v1`). Every effect that weighs an observation (feature effects, warmth, learning rate, trust in each outside signal, rating and timing links) is latent state with such a prior, learned with uncertainty. The few fixed measurement constants (§5.5) are versioned and swept in the harness. | field F5; owner 2026-10-14 |
-| A6 | **Knowledge-model alignment.** No propagation along `part_of`, `related`, `analogous_to` or `confusable_with`. Sharing across LOs (feature effects, capability offsets) steers a live decision only after the harness shows held-out support. | field F6; KM §8.1, §8.3 |
+| A6 | **Knowledge-model alignment.** No propagation along `part_of`, `related`, `analogous_to` or `confusable_with`. Sharing across LOs (the subject level, capability offsets, feature effects and every other shared parameter learned from another LO's answers) steers a live decision only after the harness shows held-out support: AD3's promotion (§10.4). Until then, live decisions read the LO view (§5.6). | field F6, §7.4; KM §8.1, §8.3 |
 | A7 | **Biased sampling is declared.** Every served item records its serving origin. Every randomized choice logs seed and exact propensity before selection. | field F7; `randomization_layer.py:1-25` |
 | A8 | **Exam protection.** Held-out exam and problem-set units are never served. They are never quoted to any AD prompt (generation, feature audit, forecasting). They never update learner state, and they never steer selection, generation or the ladder (router §15.6). Where the existing ingest inventory already gives them feature tuples, those tuples feed one evaluation-only report (§9.5). | `exam_material.py:25-60`; ingestion §4.2, §8.5; router §15.5–15.6 |
 | A9 | **Never blend.** AD's predictions change neither well depth nor the demonstrated beads. A level is a label beside them, never a second depth. | field F8; `apps/learnloop-tauri/src/screens/KnowledgeWellView.tsx:8-26` (one continuous quantity owns the geometry; Demonstrated is a discrete marker) |
 | A10 | **Asking for help is never penalized in the record.** Hints change the outcome category of one observation (§5.3). They never reduce certification credit beyond the existing unassisted rule, and never write extra evidence. | field G13 |
+| A11 | **Certification never reads an estimated difficulty.** Levels, requirement points, feature-qualified credit, certificates and the cold probe's item choice read only declared features (stamped on the answered revision, or written in a target or requirement) and audited features, the more conservative per dimension. They never read an estimated `b`: not AD's posterior, `β`, `α` or any `z` signal, not the item's `difficulty` label or `difficulty_source`, not a solver-panel rate, not empirical-Bayes `b`, not `resolve_item_irt_params` (§9). | owner 2026-10-14 (D16); A2 |
 
 ---
 
@@ -225,7 +232,7 @@ Six Codex research workers with live, unrestricted web search covered six angles
   - Stacking `[yao2018]` and fixed-share expert weighting `[herbster1998]` combine forecasters chronologically.
   - Feature-rich logistic models are competitive with deep KT and should be checked for calibration `[gervet2020]`.
   - Fit statistics are a biased measure of a knowledge tracer's quality as a policy `[rachatasumrit2024]`.
-- **Change.** §8.3–8.4, and promotion gates that include decision-level checks (band-hit rate, delayed cold success, false certification), not only log loss (§10.4).
+- **Change.** §8.3–8.4, and serving and promotion gates that include decision-level checks (band-hit rate, delayed cold success, false certification), not only log loss (§10.4).
 
 **R9. Observations beyond correctness.**
 - **Findings.**
@@ -268,7 +275,7 @@ Six Codex research workers with live, unrestricted web search covered six angles
 |---|---|---|
 | Explanatory IRT (LLTM): `b = f(features) + offset`, wide-variance offset | **Keep** | Add learned weights on item-side signals inside the offset (R7). Integrate the offset, never estimate it per item (R1, R6). |
 | Per-item `b` unidentified at n=1, feature effects identifiable across items; state the confound honestly | **Keep, sharpen** | Identifiable only with feature–time overlap and a fixed scale. Randomized overlap and diagnostics (§5.8). |
-| Per-(facet, capability) posterior over the learner's threshold on the feature ladder | **Keep, make dynamic** | Learning increment plus drift (R2). Hierarchical prior across capabilities of a facet (§5.5). |
+| Per-(facet, capability) posterior over the learner's threshold on the feature ladder | **Keep, make dynamic and hierarchical** | Learning increment plus drift (R2). A shared subject level and capability offsets above facet and cell offsets, so a subject's answers inform all of its cells (§5.2, §5.5, §5.9). |
 | QUEST+/Psi Bayesian adaptive choice: band for practice, information for calibration | **Keep, refine** | Practice maximizes `P(p ∈ band)`, not distance of a point estimate (R1, R4). Calibration maximizes psi-marginal information only among acceptable items (R3, §6.2). |
 | LLM writes a surface *at* the chosen feature point | **Keep** | Add an independent feature audit and a re-forecast before serving (R10). |
 | Every forecast logged before the attempt and scored | **Keep** | Receipts per presentation and a DERIVED scorer (§8). |
@@ -285,8 +292,10 @@ Six Codex research workers with live, unrestricted web search covered six angles
 ### 5.1 Units and notation
 
 - **Cell** `c = (f, k)`: a canonical facet `f` and a capability `k ∈ {retrieval, schema_interpretation, procedure_execution, method_selection, coordination}`.
+- **Subject** `j`: read as the field harness reads it. An attempt's subject is the one it recorded, the item's first subject (`practice_attempts.subject`, set from `vault.subjects_for_item`, `attempts/attempts.py:3296-3297`, `:3690`), or `default` when there is none (`field/outcomes.py:610`). A candidate's subject is its item's first subject; a feature point's is the first subject of the LO at hand.
 - **Item** `i`:
   - capability `k_i`;
+  - subject `j_i`;
   - facet weights `w_{i,f}` (normalized `evidence_weights`, falling back to equal weights over `evidence_facets`);
   - a **feature tuple** `x_i` on schema `p1_launch@1`: `complexity` 0–4, `transfer`, `scaffolding`, `span`, `response`, `tools`. The `representation` and `time` dimensions are not modelled in v1;
   - surface group `s_i` (`canonical_projection.surface_group_id`, `:246`);
@@ -302,11 +311,13 @@ Six Codex research workers with live, unrestricted web search covered six angles
 ### 5.2 State
 
 A single Gaussian `N(μ, Σ)` over:
-- **Cell abilities**, through a hierarchical decomposition: `θ_{f,k} = θ_f + ψ_k + e_{f,k}`.
-  - `θ_f`: facet level.
-  - `ψ_k`: a capability offset shared across facets in the vault; `ψ_retrieval ≡ 0` anchors the scale.
-  - `e_{f,k}`: the cell deviation.
-  - State dimensions are created lazily, when a cell is first observed or first asked about.
+- **Cell abilities**, through an explicit hierarchy (owner direction 2026-10-14, as in field's `lo_general` and `lo_general+capability`): for an item or point of subject `j`, the ability on cell `(f, k)` is `θ_{f,k} = θ_{G,j} + θ_f + ψ_{j,k} + e_{f,k}`.
+  - `θ_{G,j}`: the subject's **general level**, shared by every facet and capability of the subject (field's `θ_general`, one per subject).
+  - `θ_f`: the facet's offset from that level, shared by the facet's capabilities.
+  - `ψ_{j,k}`: a **capability offset** shared across the subject's facets (field's `δ_cap`); `ψ_{j,retrieval} ≡ 0` anchors the scale.
+  - `e_{f,k}`: the cell's own offset.
+  - So every answer in a subject informs `θ_{G,j}`, its capability's `ψ_{j,k}` and the feature effects `β`; every answer on a facet informs `θ_f`; only answers on the cell inform `e_{f,k}`. Each offset refines as its own evidence arrives. What the hierarchy can and cannot identify is in §5.8, and how much it speeds a usable estimate in §5.9.
+  - State dimensions are created lazily, when a subject, facet or cell is first observed or first asked about.
 - **Shared feature effects** `β`: cumulative increments per ordinal level of each feature dimension, plus contrasts for `response` and `tools`. The reference tuple `x_ref` (the default trajectory's `recall` waypoint: complexity 0, `same_context`, `short_constructed`, `cue`, `atomic`, `closed_book`) has demand 0, which anchors the location.
 - **Item-signal weights** `α` (§7.3).
 - **Learning increment** `γ` and **warmth shift** `ζ`.
@@ -353,7 +364,8 @@ The linear predictor for attempt `t` on item `i`:
 ```
 
 - `φ(x)` is the cumulative dummy coding of `x` relative to `x_ref`.
-- **The projection `ũ_t`.** Every state coordinate enters `η_t` linearly, warmth included: `ũ_t` has `a·w_{i,f}` on the cell abilities, `−a·φ(x_i)` on `β`, `−a·z_i` on `α` and `w_t` on `ζ`. So `ζ`'s uncertainty and its covariances are carried through prediction and update like every other coordinate.
+- `θ_{f,k_i}` is the §5.2 sum at the item's subject `j_i`. Because the facet weights sum to 1, `θ_{G,j_i}` and `ψ_{j_i,k_i}` enter with coefficient `a`.
+- **The projection `ũ_t`.** Every state coordinate enters `η_t` linearly, warmth included: `ũ_t` has `a·w_{i,f}` on the cell abilities (so `a` on the subject level and the capability offset, `a·w_{i,f}` on each facet and cell offset), `−a·φ(x_i)` on `β`, `−a·z_i` on `α` and `w_t` on `ζ`. So `ζ`'s uncertainty and its covariances are carried through prediction and update like every other coordinate.
 - **Warmth.** `w_t = exp(−Δh_t / h_w)`, with `h_w = 6` hours (a fixed, versioned constant swept by the harness), where `Δh_t` is the number of hours since the learner's last exposure to the item's LO in any logged channel. The channels are: an attempt on another item of the LO, a `reveal_events` row for the LO (`migrations/154_reveal_ledger.sql`), and, once router §15.2's covariate view exists, reading and tutor events. `w_t = 0` with no prior exposure. `w_t` is known when the item is served, so it is a valid forecast covariate. Its weight `ζ` is learned (router §15.2: "coldness is learned, not hard-coded").
 
 Graded response, with guess floor `g_i = guess_floor_for_item` (`blueprint_projection.py:164`) and lapse `λ`:
@@ -380,9 +392,11 @@ All factors of one attempt (the outcome, and the rating and timing where present
 
 | Parameter | Prior | Basis |
 |---|---|---|
-| `θ_f` | `N(0, 2.0)` at the cell's creation. Self-assessment claims then **re-anchor the mean** of `θ_f` to `logit(claimed_level)` at the claim's `created_at`, in the same ordered stream as attempts, and only while the facet has no eligible AD observation. The variance is set to `max(current, claim_prior_min_variance = 2.0)`, mirroring today's claim seeding (`learner/mastery.py:172-201`), so a claim moves the mean and never shrinks uncertainty. Claims made after the facet's first eligible observation are not read by AD. **Allowlist:** the init wizard's global claim (`learner/learner_profile.py:61-80`, applied to every facet) and tutor gap declarations (`tutor/promotions.py:772-796`, applied to the facets or LO in scope). **Excluded:** claims written by easier/harder requests (`rung_variant_request`, `content/authoring/rung_variants.py:416-432`) and by too-easy/too-hard reports (`learner_report`, `content/authoring/item_authoring.py:317-365`), which AD does not read in v1 (D8). The EKF posterior is never used | Claims move the mean only; the variance never falls below 2.0. Applying them at their own time means a later claim never seeds earlier observations. Claims are mutable rows, so a replaced claim's earlier version is not replayed (stated in the AD report) |
-| `ψ_k` | schema_interpretation `N(−0.3, 0.5²)`, procedure_execution `N(−0.5, 0.5²)`, method_selection `N(−0.8, 0.5²)`, coordination `N(−1.2, 0.5²)`; retrieval ≡ 0 | Ordering from capability dominance (measurement spec B1); magnitudes a priori. Field's `lo_general+capability` uses `N(0, 0.5²)`; the harness sweeps both |
-| `e_{f,k}` | `N(0, 1.0)` | Fresh-cell total variance ≈ 3.25, matching the cold-start 3.0 (`schema.py` `cold_start_prior_logit_variance`) |
+| `θ_{G,j}` (subject level) | `N(0, 1.5)` at the subject's creation | Half the cold-start variance, so a subject's answers inform every cell of it. Field's `lo_general` puts 0.75 here (`σ_g²`, with 2.25 per LO); the harness sweeps the split (`split_field`, `split_shared`, §10.4). The split is an a-priori assumption that only forecasts on never-seen items can test (§5.8, §5.9) |
+| `θ_f` (facet offset) | `N(0, 0.75)` at the facet's creation | With the cell offset, the half of the prior that is the facet's and cell's own |
+| **Claims** (re-anchoring, on the coordinates above) | Self-assessment claims **re-anchor a mean** at the claim's `created_at`, in the same ordered stream as attempts. The init wizard's global claim (`learner/learner_profile.py:61-80`, applied to every facet) re-anchors `θ_{G,j}`'s mean to `logit(claimed_level)`, for each subject with no eligible AD observation yet. A tutor gap declaration (`tutor/promotions.py:772-796`, applied to the facets or LO in scope) re-anchors `θ_f`'s mean so that the facet level `θ_{G,j} + θ_f` has mean `logit(claimed_level)`, for each facet in scope with no eligible observation yet. The re-anchored coordinate's variance is set to `max(current, its prior variance)`, so while the subject has no evidence a facet's level keeps at least 1.5 + 0.75 = 2.25, above today's `claim_prior_min_variance = 2.0` (`learner/mastery.py:172-201`; `config/schema.py:199-200`). Claims made after the first eligible observation of their scope are not read by AD. **Excluded:** claims written by easier/harder requests (`rung_variant_request`, `content/authoring/rung_variants.py:416-432`) and by too-easy/too-hard reports (`learner_report`, `content/authoring/item_authoring.py:317-365`), which AD does not read in v1 (D8). The EKF posterior is never used | A claim moves a mean and never shrinks a variance. A facet's variance can be lower than at its creation only because the subject level has learned from answers, never because of the claim. Applying claims at their own time means a later claim never seeds earlier observations. Claims are mutable rows, so a replaced claim's earlier version is not replayed (stated in the AD report) |
+| `ψ_{j,k}` | schema_interpretation `N(−0.3, 0.5²)`, procedure_execution `N(−0.5, 0.5²)`, method_selection `N(−0.8, 0.5²)`, coordination `N(−1.2, 0.5²)`; retrieval ≡ 0; one set per subject | Ordering from capability dominance (measurement spec B1); magnitudes a priori. Field's `lo_general+capability` uses `N(0, 0.5²)`; the harness sweeps both |
+| `e_{f,k}` | `N(0, 0.75)` | A fresh retrieval cell totals 1.5 + 0.75 + 0.75 = 3.0, the cold-start variance (`schema.py` `cold_start_prior_logit_variance`); other capabilities add `ψ`'s 0.25 |
 | `β` complexity, each step 0→1→2→3→4 | `N(0.5, 0.3²)` | Monotone ordering from the default trajectory; ~0.5 logit ≈ 10 points of success near 75% |
 | `β` transfer, each step same_context→near→far→novel_combination | `N(0.5, 0.3²)` | Same |
 | `β` scaffolding: cue→none `+`, cue→partial `−`, partial→worked `−` | `N(0.5, 0.3²)`, `N(−0.5, 0.3²)`, `N(−0.5, 0.3²)` | Less scaffolding is harder (`depth_rungs.py:41`) |
@@ -405,6 +419,11 @@ Cross-dimension correlations in the prior are zero except as implied by the hier
 
 Rows are processed in fixed order (`created_at`, `attempt_id`) in float64. Rebuild is byte-identical (G1 of field §7.1).
 
+**Two views of one filter.** The same update runs over two sets of rows:
+- The **subject view** reads every eligible row. It is the view the harness scores and promotes, and, after AD3, the one live decisions read.
+- The **LO view** of an LO `L` reads only the eligible rows on `L`'s items (each item has one `learning_object_id`), from the same a-priori priors. Its shared terms (subject level, capability offsets, feature effects, `α`, `γ`, `ζ`) are learned from `L`'s answers alone, so its subject level acts as `L`'s level. Until AD3's promotion, every live AD decision about `L` (its serve and commission draws, §6.1) reads `L`'s LO view, so no other LO's evidence steers it (A6).
+- Both views are DERIVED, keyed by view in `ad_state` and `ad_attempt_trace` (§11.2), and rebuilt byte-identically.
+
 1. **Eligibility.** A row updates the state only if it is all of the following:
    - a graded attempt of type `independent_attempt`, `open_text`, `diagnostic_probe` or `exam_attempt` (on reserved pool items, which are ordinary items);
    - the **first** graded attempt on its surface group `s_i` (repeat attempts on the same surface are FSRS's job, D10);
@@ -414,7 +433,7 @@ Rows are processed in fixed order (`created_at`, `attempt_id`) in float64. Rebui
    - with usable inputs: its frozen serve inputs, or a historical resolution whose status is not `excluded` (§7.5).
 
    Excluded: `self_report` rows, so that the rung-variant evidence package is not read twice (D8); presentations exposed before serving, and revealed attempts with no bound presentation (§5.3); `teach_back` in v1 (§16); and any held-out exam unit (A8). A primed attempt revealed *during* its presentation is not excluded: it enters as the censored factor (§5.3).
-2. **Claims.** An allowlisted claim (§5.5) whose `created_at` falls before this row re-anchors `θ_f`'s mean first, if the facet has no eligible observation yet (mean-only, variance ≥ 2.0).
+2. **Claims.** An allowlisted claim (§5.5) whose `created_at` falls before this row re-anchors its mean first (`θ_{G,j}` for the global claim, `θ_f` for a gap declaration), if its scope has no eligible observation yet (mean-only; the variance never falls below the coordinate's prior).
 3. **Propagate.** For each touched cell, add `σ²_drift · Δdays` (since that cell's last update) to `Var(e_{f,k})`. There is no mean decay; forgetting stays with FSRS (field §4.3, "Time").
 4. **One joint factor per attempt.**
    - **Dependence.** The attempt's likelihood (the outcome category, and, where the active arm has them, the rating and the timing) depends on the state only through a low-dimensional vector `v_t`. It holds the linear projection `ũ_tᵀs` that forms `η_t` (warmth included, §5.4), plus the sub-arm link coordinates (`c_1, d̃, ρ̃`; `ν, ω̃`). That is at most six coordinates, and exactly one in the base arm.
@@ -424,12 +443,12 @@ Rows are processed in fixed order (`created_at`, `attempt_id`) in float64. Rebui
    - **Quadrature.** `Z_t` and the posterior mean and covariance of `v_t` come from tensor Gauss–Hermite quadrature: 32 nodes on the `η` coordinate, with the `ε` variance `a²·τ0²` folded into it, and 5 nodes on each link coordinate. In the base arm this is the one-dimensional assumed-density update TrueSkill uses `[herbrich2006]`.
    - **Back-projection.** The full state is updated by linear-Gaussian back-projection from the moment-matched `v_t`: the rest of the state is regressed on `v_t` through `Σ`. This is the standard assumed-density-filter projection for a factor on a linear subspace.
    - **Why it matters.** Unlike today's EKF (`mastery.py:450+`), which linearizes at the prior mean, this is exact moment matching of a non-Gaussian likelihood, which matters at the ceiling. Correlated observations of one attempt enter once.
-5. **Learn.** After the update, apply the learning transition `e_{f,k} ← e_{f,k} + w_{i,f}·γ` for each touched cell. It is linear in the joint state, so the covariance propagates exactly.
+5. **Learn.** After the update, apply the learning transition `e_{f,k} ← e_{f,k} + w_{i,f}·γ` for each touched cell. It is linear in the joint state, so the covariance propagates exactly. It is how the estimate tracks a moving threshold (§5.9).
 6. **Record.** The per-attempt trace (prior and posterior moments of `η`, predicted category probabilities, information gained) is written to the DERIVED trace (§11.2).
 
 ### 5.7 Predictive quantities
 
-For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`):
+For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`), in the view the decision reads (§5.6, §6.1):
 - **`p̄(x)`**: posterior predictive unassisted success, `E[g + (1 − g − λ)·σ(η)]` with `η ~ N(m(x), v(x))`. This is the family expected response `[sinharay2003]`. For a specific pool item, its own `z_i` enters `m`.
 - **`p_θ(x)`**: the expected success *given* the epistemic state. The item residual `ε` is integrated and the state is held fixed. It is a monotone function `F_x` of the epistemic part `η_e = ũᵀs ~ N(m(x), v_e(x))`, `v_e = ũᵀΣũ`. The warmth at serve time sits inside `ũ` (§5.4).
 - **`P_band(x)`** `= P(p_θ(x) ∈ [0.70, 0.80]) = Φ((F_x⁻¹(0.80) − m)/√v_e) − Φ((F_x⁻¹(0.70) − m)/√v_e)`. It is exact, because `F_x` is monotone.
@@ -440,8 +459,10 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 
 ### 5.8 Identifiability: what one learner's history can and cannot say
 
-**Can be identified** (given the scale fixed by `a = 1`, `ψ_retrieval = 0` and `x_ref`):
-- contrasts between cells;
+**Can be identified** (given the scale fixed by `a = 1`, `ψ_{j,retrieval} = 0` and `x_ref`, and the location split fixed by the zero prior means of the facet and cell offsets):
+- the ability on each observed cell (the §5.2 sum), and contrasts between cells;
+- the subject level, as the part the observed facets share. It sharpens as more facets have answers; with one or two facets it stays close to its prior;
+- each capability offset `ψ_{j,k}`, from facets observed both at `k` and at retrieval;
 - the feature effects `β`, but only along directions of the design that vary independently: of each other, of the item-side signals, and of time within a cell. If two feature columns always move together (the default trajectory raises `complexity` and `transfer` in the same steps, `depth_rungs.py:101-122`), only their sum is identified, however well randomized the timing;
 - the weights `α` on item-side signals, which are a regression across many items, subject to the same rank condition against the features;
 - the learning increment `γ`, to the extent the same feature points recur.
@@ -450,9 +471,11 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 - the offset of a one-off item (its posterior is the prior plus one response's worth, and it is never shown or used as "measured" difficulty);
 - between-learner variance;
 - whether `β` is universal or this learner's;
-- growth versus feature effects when features rise with time. If `x_t` is a function of `t`, then `(β + v, θ_t + x_t·v)` fits every observation equally well (R6).
+- growth versus feature effects when features rise with time. If `x_t` is a function of `t`, then `(β + v, θ_t + x_t·v)` fits every observation equally well (R6);
+- how an observed cell's ability divides between the subject level, the facet offset and the cell offset, beyond the sharing above. The data see sums, so that division is the prior's;
+- how far a never-seen cell sits from what the shared terms predict. That is the prior split (§5.5), an a-priori assumption the learner's own history cannot check before the cell is answered. Forecasts on never-seen items, field's first-attempt split, are its only test (§8.3, D17), and AD3's promotion requires that test before the subject view steers anything (A6, §10.4).
 
-**The honest statement, shown in the AD report and in the glass-box view (not in the default UI).** "The estimated rise in your skill and the estimated hardness of each kind of question are conditional on two assumptions: that the hardness of a question kind is stable over time, and that generated questions really have the features they were asked for. Your answers alone cannot separate a rise in skill from questions at a level being easier than assumed."
+**The honest statement, shown in the AD report and in the glass-box view (not in the default UI).** "The estimated rise in your skill and the estimated hardness of each kind of question are conditional on two assumptions: that the hardness of a question kind is stable over time, and that generated questions really have the features they were asked for. Your answers alone cannot separate a rise in skill from questions at a level being easier than assumed. On something you have not practised yet, the first estimate leans on your other answers, and your first answers there correct it."
 
 **Design remedies:**
 1. Randomized overlap: 10% of practice choices sample uniformly among items with acceptable predicted success, so feature level is not a function of time (§6.1). Commission candidates include one-step neighbours on a *single* dimension, so feature columns are varied one at a time and stop moving together.
@@ -466,6 +489,39 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 - prior sensitivity: rerun with each prior mean shifted ±1 sd and report how many band decisions change;
 - simulation recovery (AD2) under the actual policy versus a monotone policy.
 
+### 5.9 How fast the estimate becomes usable (owner target, 2026-10-14)
+
+**The target (D15).** A usable estimate within 10–15 answered questions per subject, not per cell. "Usable" means the practice draw can target the band: band mode engages (`max P_band ≥ calibrate_below = 0.35`, §6.1 step 2). On the model's scale that needs a posterior sd of about 0.74 logits at the served point, about ±11 points of success around 75%.
+
+**The information arithmetic.**
+- **At `a = 1`, with no item residual.** One answer near the threshold carries `p(1 − p)` units of Fisher information: about 0.19 at 75% and 0.25 at 50%. From a prior variance of about 3.0 logits², 12 well-chosen answers leave about ±0.6 logits, about ±12 points around 75%; 30 leave about ±0.4 logits, about ±7 points.
+- **On the model's own scale.** The integrated item residual (`τ0 = 1`) and the lapse lower the information per answer to about 0.12 near 75% and 0.16 near 55% (where calibrate mode serves). They also flatten the success curve by the same factor, so the error *in points* barely moves: 12 answers leave ±0.67–0.75 logits, ±10–11 points; 30 leave ±0.44–0.50, ±7–8 points. In points this is close to the binomial limit `√(p(1 − p)/n)`, whatever the constants.
+- **So band mode engages after about 10–13 answers that inform the quantity being served.** Calibrate mode's more informative items (§6.2) shorten that.
+
+**"Per subject" needs sharing, and sharing has a limit.**
+- Answers spread over a subject's cells inform a given cell only through what the cells share. §5.2 makes the sharing explicit: every answer in the subject informs `θ_{G,j}`, its capability's `ψ_{j,k}` and `β`; every answer on a facet informs `θ_f`; only the cell's own answers inform `e_{f,k}`.
+- Before AD3, live decisions read the LO view (§5.6), so the shared terms are learned from the slot's LO and the target reads "per LO". After promotion they are learned from the whole subject.
+- A cell's predictive variance is what remains of the shared terms' variance plus its own offsets'. No answer elsewhere reduces the second part. A never-seen facet keeps at least `Var(θ_f) + Var(e_{f,k}) = 1.5` (sd 1.22) under `ad_priors_v1`. A never-seen facet could be band-ready on its first answer only if the prior put less than about 0.55 logits² in the facet and cell offsets together, that is, asserted that the learner's facets differ from their subject level by less than about ±0.74 logits. None of the three splits the harness compares does (§10.4), and no a-priori split could honestly.
+- **What sharing buys, then.** These figures come from a linear-Gaussian approximation of §5.6, at 0.14 per answer, with `β` included, after 15 answers elsewhere in the subject:
+  - Where the answers concentrate, 10–15 answers in the subject make the practised cells usable. They do concentrate, because a new-lane block stays on one LO (`daily_plan/lanes.py:444`).
+  - A never-seen cell needs about 10 of its own answers under the v1 split, against 11 with no shared history or under `split_field`, and 6–8 under `split_shared`.
+  - Its first item is still pitched at the learner, not at the cold-start mean: its predicted mean comes from the shared terms, so calibrate mode serves an item of acceptable predicted success (§6.2) while the cell's own offset is learned.
+- **The split is an assumption, tested where it matters.** Field's `lo_general` puts a quarter of the variance in the shared level; `ad_priors_v1` puts half; a three-quarter split is the third harness arm (§10.4). Only forecasts on never-seen items can test the split. That is why field's first-attempt split is the primary score for promotion, for item-side signals and for commissioned items (§8.3, D17).
+
+**What adds information per question.**
+- **Partial credit.** The ordinal outcome (§5.3, `κ = 1.5`) adds about 9% near 55% and under 1% near 75%.
+- **Help.** It is kept, never dropped. Early help is an observed fail, help after work began is a partial, and unknown timing is a censored non-success (§5.3). A design that kept only unassisted presentations would discard each of these.
+- **Rating and timing.** Once their sub-arms earn activation (§5.4), they add at most about 0.06 and 0.04 per answer at their prior links: about +50% and +35% near 75%. Timing applies only to unassisted successes with a latency. Both share the item residual with the outcome in one joint factor, so together they add less than the sum.
+
+**Learning moves the threshold.** Practice changes the learner. Field's `+practice` arm puts `γ` at about 0.2 logits per cold opportunity, about seven opportunities from 50% to 80%. The estimate tracks that moving threshold in three ways:
+- **It anticipates.** After each update, the learning transition (§5.6 step 5) raises the touched cells by `E[γ]` before the next outcome is seen. So the next draw already aims at the higher threshold, and the selection steps up with the learner.
+- **It learns the rate.** `γ` is shared latent state. A learner who learns faster than its prior mean produces successes above prediction. Those raise both the cell and `γ`, and every later step follows.
+- **It never collapses.** `γ`'s remaining uncertainty and the daily drift act as process noise. Treating `Var(γ) = 0.01` as fresh noise at every opportunity holds a practised cell's steady-state sd near 0.5 logits (±8 points). Since `γ` is one coordinate learned from every cell, the real figure is lower.
+
+**Self-correction.** A wrong prior mean costs answers, not direction. A run of easy successes raises the estimate, and the next band draw steps up; failures step it down. The prior's variance (3.0 at a fresh cell, never shrunk by a claim) keeps the data in charge. After 12 answers, the prior carries about a sixth of the weight on the quantity they inform.
+
+**The gate.** G-AD2-18 measures time-to-usable and the band-hit rate after 10–15 questions on synthetic learners (§14).
+
 ---
 
 ## 6. Selection
@@ -475,6 +531,12 @@ For cell `c` and a candidate feature point `x` (a not-yet-written item; `z = 0`)
 **Scope.** AD decides *which feature point and which item* for new material in a cell. *Which LO or facet to practise* is decided upstream (daily-plan lanes, router blocks, diagnosis repair).
 
 AD makes two kinds of draw, logged separately: a **serve draw** over items that exist, and a **commission draw** over feature points to generate. Only the serve draw puts an item in front of the learner, so only its propensity enters off-policy evaluation of what was served.
+
+**When it serves, and which state it reads (owner direction 2026-10-14; D3).**
+- Practice selection serves from AD2, behind its switch `selection`, with the a-priori constants of §5.5 and the honest uncertainty of §5.7. It does not wait for AD3's promotion. A QUEST+-style band rule corrects itself from the learner's own outcomes even when its prior is off: a run of easy successes raises the estimate, and the next draw steps up (§5.9).
+- Every draw about an LO `L`, serve or commission, reads `L`'s LO view (§5.6) until AD3. From AD3, with `promoted_predictor` on, it reads the subject view, so evidence from the rest of the subject steers it (A6).
+- Promotion governs only that, and which predictor's readiness numbers the learner sees (§10.4). It never turns practice targeting on or off.
+- Whenever a draw randomizes, its propensity is exact and logged before the item is served (A7, step 4).
 
 **The cell pool `P_c`.** An item is in cell `(f, k)` when `k_i = k` and `w_{i,f} > 0`.
 - Every never-attempted, servable item in the cell, with its features and signals resolved as of now (§7.5).
@@ -503,7 +565,20 @@ AD makes two kinds of draw, logged separately: a **serve draw** over items that 
 **Serve rule (`ad_select_v1`):**
 0. **Empty support.** If `S` is empty, AD makes no draw. The row records `empty_support` and each candidate's failed check.
    - **Pre-exposure only.** If the slot item failed only the pre-exposure check (§5.3), it is served as the predecessor serves it, with no draw: the row's mode is `predecessor` with `π_AD = 1`, and its receipts carry `pre_exposed = true`, so it neither trains nor is scored. So a pre-exposed item is never in a randomized support, and the learner still gets the item the plan chose.
-   - **Otherwise** the slot is displaced with the container's existing event, `item_displaced`, with reason `ad_ineligible` and the failed check. This is how reconciliation displaces an item that is no longer servable (`daily_plan/engine.py:1932-1936`), and the container's rules pick the next step. An item revealed within the delay comes back once the delay has passed; an item held by a cold follow-up is served by that follow-up.
+   - **Otherwise** the slot is displaced with the container's existing event, `item_displaced`, with reason `ad_ineligible`. Its detail lists the slot item's failed checks, pre-exposure excepted. This is how reconciliation displaces an item that is no longer servable (`daily_plan/engine.py:1932-1936`), and the container's rules pick the next step.
+   - **The displaced item is deferred until its blocking condition clears** (final verify F10). Displacement alone returns an item to the pool: `planned_ids()` drops displaced items (`daily_plan/records.py:247-250`), and a boundary's pool removes only planned and skipped items (`daily_plan/engine.py:1218-1230`). The scheduler does not apply the out-of-timing exclusions to ordinary items, so the next boundary could propose the same item, AD would displace it again, and the plan would loop without spending a minute. So:
+     - **The exclusion set.** An item displaced with `ad_ineligible` joins the plan's exclusion set: `planned_ids()`, plus skipped items, plus active AD deferrals. The set is folded from the plan's own events (the `item_displaced` fold, `daily_plan/records.py:394-396`), so a rebuild reproduces it. It replaces the planned-and-skipped set wherever a pool source reads the plan: the boundary's context (`engine.py:1218-1230`), which the lane sources (`daily_plan/lanes.py:463`) and, with the router on, the staged frame (`daily_plan/staged_frame.py:548`) read; and the plan projection (`simulate_blocks`, `engine.py:1083`), which holds the set fixed. A later plan of the same day (`day_records`, `engine.py:310-311`) starts with the day's active deferrals.
+     - **When it clears.** At each boundary, the deferral's failed checks are re-read with the functions the draw uses: check 0's sources, and check 1 on a fresh snapshot. The deferral clears when all of them pass, and the item rejoins the pool at that boundary. In practice:
+       - a recent reveal clears once the item's latest reveal is older than the cold retrieval delay (one day, `diagnosis/remediation.py:31`);
+       - an open cold follow-up's hold clears once that task closes, because the follow-up served the item or was cancelled;
+       - an open cold check or a reserved surface clears once it closes or is released;
+       - a constraint refusal clears once a fresh snapshot admits the item;
+       - a serving block clears once it lifts;
+       - an exam reservation, retirement, held-out derivation or envelope breach clears only if that fact changes.
+
+       Pre-exposure is never a deferral reason, since alone it does not displace (above).
+     - **Recorded.** The boundary's decision detail records the deferrals it applied and any it cleared, so each decision's pool can be reconstructed from its own row.
+     - **Progress.** A deferred item is in no pool. The boundary chooses other work or, with none left, closes the plan as complete, as it does today when the pool runs out (`engine.py:1657-1662`). An item is displaced for ineligibility at most once per deferral, and a deferral clears only after something changes in the vault (time passing a delay, a task closing, a reservation released, a snapshot changing). So the plan cannot loop on the item. Test: G-AD2-31.
 1. Compute `P_band(i)` and `p̄(i)` for every `i ∈ S`.
 2. **Calibrate instead** if `max_{i∈S} P_band(i) < 0.35` (the posterior is too wide to target the band; typical in a new cell). Choose by §6.2.
 3. Near-tie set `T = {i ∈ S : P_band(i) ≥ max P_band − 0.05}`. Overlap set `O = {i ∈ S : p̄(i) ∈ [0.55, 0.90]}`.
@@ -569,7 +644,7 @@ Probes keep their episode model, hypothesis sets, actual and predictive EIG (`di
    | `procedure_without_selection` | procedure_execution at or above; method_selection below |
    | `robust_initial_grasp` | retrieval and the item's capability at or above |
 
-   - `q_h(i)` is the posterior predictive success on `i` (the residual `ε` and the uncertainty of `β` and `α` integrated, §5.7) with the AD state conditioned on the constraint. The constraint truncates at most two linear functionals of the Gaussian state. The expectation is computed by deterministic quadrature over the truncated region, with the remainder conditional-Gaussian. If the constraint has probability below 1e-6 under the state, the slot is left uncomposed and the snapshot says so.
+   - `q_h(i)` is the posterior predictive success on `i` (the residual `ε` and the uncertainty of `β` and `α` integrated, §5.7) with the AD state conditioned on the constraint. The state is the view live decisions read (§6.1): the subject view once `promoted_predictor` is on, else the probe LO's view. The constraint truncates at most two linear functionals of the Gaussian state. The expectation is computed by deterministic quadrature over the truncated region, with the remainder conditional-Gaussian. If the constraint has probability below 1e-6 under the state, the slot is left uncomposed and the snapshot says so.
    - **Not composed:** `surface_only` and `schema_without_transfer` (transfer is a shared feature effect in v1, not a learner state AD can condition on), `other_or_unknown`, and every `misconception:*` and `confuses_with:*` slot. Their rows stay exactly the card's or the legacy fallback's, with their discrimination profiles and contrast pairs (`PracticeItem.discrimination_profiles`, `contrast_of`).
    - Card slot aliases (for example `surface_only` → `recall_without_mechanism` in the derivation family, `probe_families.py:1292-1294`) resolve before composition, so an aliased label reads its slot's composed row.
 4. **Grader channel, applied once.** Uncomposed slots go through `compose_with_grader_channel` with the family's grader policy and reliability, exactly as today (§7.6 of the probe spec). A composed row is already observed and does not go through the channel again.
@@ -602,7 +677,7 @@ Probes keep their episode model, hypothesis sets, actual and predictive EIG (`di
 
 ## 7. Generation at a feature point
 
-### 7.1 The contract to the generator (AD3 successor; switch `generation_contract`)
+### 7.1 The contract to the generator (AD2 successor; switch `generation_contract`)
 
 - The commissioned `RungTarget` carries `capability = k`, `task_features = x`, and `task_feature_bounds` with `max = x` on every dimension. The existing deterministic gate already rejects overshoot (`depth_rungs.py:204-208` point bounds; `validate_item_against_rung`, `:538-544`).
 - The prompt **drops** every band instruction: `practice_generation.py:1062`, `:1919`, and the band clause of `:1922`. The waypoint clause ("NEVER change the waypoint") stays.
@@ -644,7 +719,7 @@ The signals:
 
 `δ_i = α·z_i + ε_i`.
 
-- The weights `α` are latent and shared (§5.5). Trust in each source is learned, and a useless source's weight shrinks toward 0 with no rule change.
+- The weights `α` are latent and shared (§5.5). Trust in each source is learned, and a useless source's weight shrinks toward 0 with no rule change. Whether a signal earns its place is judged first on field's first-attempt split, the forecasts on never-seen items that generation needs (§8.3, D17).
 - A missing signal contributes 0.
 - Because the regression sits beside the features `β`, it captures what a signal says *beyond* the item's features.
 
@@ -654,7 +729,8 @@ The signals:
   - If `p̄(i) ∈ [0.55, 0.90]`, it joins the cell's pool and is eligible.
   - If not, it still joins the pool (it may suit the learner later) but is not served for this commission.
   - Either way, an `ad_commission_results` receipt is appended, linked to the commission's `ad_selections` row. It records the item, `p̄(i)`, and in band or `realized_out_of_band`. The selection row is never mutated; the combined status is derived.
-- The realized miss rate per feature point is a generator-quality metric. If it stays above 40% after AD3, generating several candidates per commission becomes the trigger in §16.
+- The realized miss rate per feature point is a generator-quality metric. If it stays above 40% after AD2, generating several candidates per commission becomes the trigger in §16.
+- A commissioned item's re-forecast is a forecast on a never-seen item, so it is scored first on field's first-attempt split (§8.3, D17).
 
 ### 7.5 Frozen serve inputs and historical attempts (AD1; switch `forecast_receipts`)
 
@@ -700,7 +776,7 @@ The features and signals an AD decision or update reads are fixed when the item 
 
 | Forecaster | Reads | When on | Role |
 |---|---|---|---|
-| `ad_threshold` (and sub-arms) | the AD state (§5) | AD2 onward, computed in-process at serve time even before promotion | Served after AD3 promotion; otherwise scored only |
+| `ad_threshold@lo` and `ad_threshold@subject` (and sub-arms) | the AD state (§5), in the LO view and the subject view (§5.6) | AD2 onward, computed in-process at serve time | `@lo` drives practice selection from AD2, behind `selection` (§6.1). `@subject` is scored only until AD3 promotion; from AD3 it drives selection and the readiness numbers the learner sees (§10.4) |
 | `mastery_ekf` (incumbent) | `resolve_item_irt_params` and the EKF | AD1 onward | Incumbent |
 | `lo_general+composite` | field §4.3 | AD1 onward | Challenger |
 | `solver_panel` | `difficulty_source = solver_panel` items: panel rate mapped through the item's `b` at the learner's incumbent ability | when present | Item-side signal and scored forecaster |
@@ -719,7 +795,13 @@ The features and signals an AD decision or update reads are fixed when the item 
   - ranked probability score on categories where given, over attempts whose category is fully observed (censored `{0, 1}` attempts are skipped);
   - the skip rate per forecast decile (§5.3);
   - reliability by decile and in the band region `[0.6, 0.9]`;
-  - splits: first surface in a never-seen cell vs later, capability, coldness, serving origin.
+  - splits: field's first-attempt split (below), first surface in a never-seen cell vs later, capability, coldness, serving origin.
+- **The primary split (owner direction 2026-10-14; D17).** Every presentation AD scores is a never-seen item, the first on its surface (§5.6). Field's first-attempt split (the first attempt on a never-seen LO, field §7.2) isolates the forecasts that rest only on shared terms and item-side information. Those are the forecasts generation needs. It is the primary score:
+  - for promotion (§10.4);
+  - for item-side signals: the weights `α` and each `z` signal (§7.3), the `+outside` arm, and the `llm_v1:item` and `solver_panel` forecasters;
+  - for commissioned items' re-forecasts (§7.4).
+
+  AD's never-seen-cell split is reported beside it, then all presentations.
 - **Comparisons** between any two forecasters on the same presentations use anytime-valid confidence sequences on the score difference `[choe2023]`, so continuous monitoring is honest.
 - **Planning illustration** (worker f; iid, not a guarantee): detecting a mean Brier advantage of 0.01 with score-difference sd 0.10 at 80% power needs about 784 outcomes. At n=1, promotions are slow by nature.
 
@@ -731,12 +813,18 @@ The features and signals an AD decision or update reads are fixed when the item 
   - chronological stacking `[yao2018]` as a second report.
 - **The ensemble is never served** in this spec. Serving it would be a further successor, with its own trigger (§16).
 - **What "trust" decides:**
-  - which model is the active predictor for selection (§10.4);
+  - whether the subject view is promoted, and so drives the readiness numbers the learner sees and lets cross-LO sharing steer live decisions (§10.4). Practice selection itself serves from AD2 without waiting for promotion (§6.1);
   - whether the router's card shows an outside forecast (router §10, item 1).
 
 ---
 
 ## 9. Levels, certification and full mastery
+
+**What certification reads: features, never an estimated difficulty (A11; owner direction 2026-10-14, D16).**
+- Every input to a level, a requirement, a credit row, a certificate or the cold probe's item choice is a **feature point**: an answered revision's stamped tuple, its canonical audit (§7.2), or a point written in a target or requirement (§9.1, §9.4, §9.5). Where a stamped and an audited reading differ, the more conservative (easier) one counts (§9.2).
+- No estimated difficulty enters, ever. That covers AD's posterior and its feature effects `β`, the signal weights `α` and every `z` signal (§7.3), the item's `difficulty` label and `difficulty_source`, solver-panel rates, empirical-Bayes `b` (`learner/mastery.py:400-447`) and `resolve_item_irt_params` (`:381-397`).
+- An estimate may be wrong in a way one learner's answers cannot reveal (§5.8). A demonstration must not inherit that error.
+- The rule holds with every AD switch on or off. G-AD4-13 tests it, and an import-linter contract forbids the certification and feature-credit code from importing AD's state or the IRT seam (§11.3).
 
 ### 9.1 Ladders: one per (target, capability), immutable (`ad_ladder_v1`, deterministic)
 
@@ -787,7 +875,7 @@ The features and signals an AD decision or update reads are fixed when the item 
   - Incomplete observations (§9.2: an audit pending, failed or tied; legacy; `excluded`) count toward `e_k` only, unless they are known below entry.
   - Level-0 observations count toward no point at or above `e_k`. That includes observations known below entry while their audit is still missing.
 - **"Demonstrated up to level k of `L`"** is the largest `k` such that the cell is demonstrated at `L[k]`. It is computed when read, for any ladder instance, and never stored as a bare number.
-- **Never from the posterior.** No level is ever derived from AD's state (A2). The posterior predicts; the ledger demonstrates.
+- **Never from the posterior, never from an estimated difficulty.** No level is ever derived from AD's state (A2), and no credit row, level or requirement reads an estimated `b` (A11, above). The posterior predicts; the ledger demonstrates.
 
 ### 9.4 Reconciliation with capability-matched certification
 
@@ -833,7 +921,7 @@ The features and signals an AD decision or update reads are fixed when the item 
 **Two labels, never blended,** both per goal and cell, and both naming the ladder instance they read:
 - **Full mastery (demonstrated):** the cell is demonstrated at `t_{g,c}`, the top rung of the goal's ladder (§9.3).
 - **Ready for exam level (predicted):** `p̄(t_{g,c}) ≥ 0.8`, labelled as a prediction (KM §9.6; `exam_readiness.py:5-12`).
-  - It needs a predictor that can predict at a feature point, which the incumbent cannot. So it is shown only once AD is promoted for selection (AD3).
+  - It needs a predictor that can predict at a feature point, which the incumbent cannot. It is a readiness number shown to the learner, so it is shown only once AD's subject view is promoted (AD3, §10.4), even though AD selects practice from AD2.
   - Before that, the line reads "exam level: not yet predicted". Demonstrated levels (AD4) do not depend on it.
 
 **Without practice-available exams or problem sets,** the top level is the milestone or default target, and "full mastery" is shown as "top level for this goal".
@@ -841,7 +929,7 @@ The features and signals an AD decision or update reads are fixed when the item 
 ### 9.6 Ground truth
 
 - The delayed cold probe stays the external check. `false_certification_rate` is reported per requirement level (on the default ladder of `k`, §9.4) and per capability.
-- AD3 and AD4 add one metric: the **trivial-success rate**, the share of successes on items whose `p̄ > 0.95` at serve time. It falls when AD works. A high rate before AD is G4 measured.
+- AD2 and AD4 add one metric: the **trivial-success rate**, the share of successes on items whose `p̄ > 0.95` at serve time. It falls when AD works. A high rate before AD is G4 measured.
 
 ---
 
@@ -853,14 +941,14 @@ The features and signals an AD decision or update reads are fixed when the item 
 - **The joint action.** What is logged is the pair (block, served item), with propensity `π_router(block) · π_AD(i | block, slot, S)`. It is the propensity of that pair, not the marginal probability of the item across blocks. Both factors are logged before exposure, so router R3's doubly-robust replay and an AD replay both have valid importance weights for pair-level policies. They evaluate serving policies *conditional on the pool that existed*. Alternative commissioning policies are not evaluable from these weights (§6.1).
 - **Later decisions.** A substitution changes the block's planned minutes, and so the `minutes_left` the router reads at its next decision. That decision logs its own propensity on the state it saw, so the sequential factorization stays exact.
 - AD registers its draw as a fifth admissible design, **`feature_overlap`**, in `scheduling/randomization_layer.py:57`. Like `model_mixture`, it declares its own floor (`q/|O|` on the overlap set), and the dormant 0.05 floor never clips it. Outcomes join at the next spaced cold review, as for the other designs (`randomization_layer.py:19-25`).
-- **The router's card** (`LearnerStateCardV1`) gains, per LO, after AD3: demonstrated level / K, `P_band` of the next point, and `p̄` at the target. The card's version moves accordingly (plan R2 §3.6).
+- **The router's card** (`LearnerStateCardV1`) gains, per LO, after AD3: demonstrated level / K, `P_band` of the next point, and `p̄` at the target. These are readiness numbers from the subject view, and they steer the router's block choice across LOs, so they wait for promotion (§10.4). The card's version moves accordingly (plan R2 §3.6).
 
 ### 10.2 Daily-plan lanes
 
-- Under AD3, each **new**-lane slot (`new_admitted`, §6.1) is served by AD's draw over its support, one draw per served slot. A slot whose support is empty is displaced. The exception is a slot whose item only pre-exposure ruled out: the predecessor serves it, with no draw (§6.1, step 0). The lane's packing, order, minutes and admission are the predecessor's (`daily_plan/lanes.py:1-27`).
+- Under AD2, each **new**-lane slot (`new_admitted`, §6.1) is served by AD's draw over its support, one draw per served slot. A slot whose support is empty is displaced, and its item is deferred from every pool of the day's plans until its blocking condition clears (§6.1, step 0). The exception is a slot whose item only pre-exposure ruled out: the predecessor serves it, with no draw. The lane's packing, order, minutes and admission are the predecessor's (`daily_plan/lanes.py:1-27`); the deferral only removes an item AD could not serve.
 - **push** holds already-attempted items on goal frontiers, and **repair** holds follow-ups and already-attempted items. Neither has a new-material slot, so both are untouched (§6.4).
 - **maintain** (due reviews and scheduled checks) is untouched.
-- **Kill switch** `selection = false`: no draw and no substitution; every slot serves its planned item, exactly as the predecessor.
+- **Kill switch** `selection = false`: no draw, no substitution and no deferral; every slot serves its planned item, exactly as the predecessor.
 
 ### 10.3 The Decider
 
@@ -870,31 +958,41 @@ The features and signals an AD decision or update reads are fixed when the item 
 
 ### 10.4 Field harness arms and promotion
 
-**Arms** added to `learnloop eval` (field §7.2):
+**Arms** added to `learnloop eval` (field §7.2), each scored in both views (`@lo` and `@subject`, §5.6):
 - `ad_threshold` (base);
 - `ad_threshold+rating` and `ad_threshold+timing`;
 - `ad_threshold+outside` (adds `z_v1`; `z_llm`, `z_panel` and `z_origin` are in the base);
+- `ad_threshold:split_field` and `ad_threshold:split_shared`: the prior split of §5.5 with the subject level at 0.75 (field's `lo_general`) and at 2.25 instead of 1.5, the facet and cell offsets scaled so that a fresh retrieval cell still totals 3.0;
 - `ad_threshold:grid` (QUEST+-exact grid for `θ_c` with shared parameters at their posterior means, to expose non-Gaussian error near the ceiling);
 - `ad_threshold:ts` (Thompson-sampled selection, for the decision-level simulation only).
 
 Each arm's constants are pre-registered in `docs/reviews/adaptive-difficulty-ad2.md` before the first replay on owner data, as T8 did (`field/success_head.py:14-15`).
 
-**Promotion to the active predictor for practice selection** (AD3 entry). The harness's own rule (field §7.4), applied as written, as the owner directed:
-- `ad_threshold` (or one sub-arm) beats `mastery_ekf` on report 1's attempt-level log loss, overall *and* on field's first-attempt split (the first attempt on a never-seen LO);
+**Serving from AD2 (owner direction 2026-10-14; D3).** Practice selection does not wait for promotion. AD2 is a successor that serves `ad_threshold@lo` (§6.1) with the a-priori constants of §5.5, once:
+- its gate passes (§14), including the simulation's decision-level checks (R8). In G-AD2-18, AD-selected practice lands in the band at least as often as the incumbent's waypoint choice, with a trivial-success rate no worse, and band mode engages within the time-to-usable target (§5.9);
+- the owner has read the AD2 report on a backup copy.
+
+Its kill switch and the live monitoring below guard it from then on.
+
+**Promotion (AD3 entry).** The harness's own rule (field §7.4), applied as written, as the owner directed:
+- `ad_threshold@subject` (or one sub-arm or split arm) beats `mastery_ekf` on report 1's attempt-level log loss, overall *and* on field's first-attempt split (the first attempt on a never-seen LO, the primary split, §8.3);
 - the bootstrap interval excludes 0, at the margin fixed before the run (field D9);
 - report 2's fast-track miss rate, recomputed with AD as the predictor, is no worse;
 - "can't tell" keeps the incumbent.
 
 Added by this spec, as further conditions, never replacements:
 - a first-surface-in-a-never-seen-*cell* split (a new cell can belong to a seen LO) is reported, and must not be worse;
-- **decision-level conditions** (R8):
-  - in the replay simulation (AD2), AD-selected practice lands in the band at least as often as the incumbent's waypoint choice;
-  - the trivial-success rate is no worse;
-  - the band-region reliability error is ≤ 0.05.
-- D3 records the alternative (non-inferiority) and why the default follows the owner's direction.
+- the band-region reliability error is ≤ 0.05, since promotion puts readiness numbers in front of the learner.
 
-**After promotion:**
+**What promotion governs, and only this:**
+- **(i) Readiness numbers.** Which predictor's numbers the learner sees as readiness: "Ready for exam level" and "likely ready" (§9.5, §12), and the router card's AD fields (§10.1).
+- **(ii) Cross-LO sharing.** Whether sharing across LOs steers live decisions: practice and commission draws read the subject view instead of the LO view (§6.1), and so does AD5's probe composition (§6.3).
+
+Promotion never turns practice targeting on or off. It is the AD3 successor, with kill switch `promoted_predictor`; off restores AD2 exactly.
+
+**Live monitoring (from AD2):**
 - realized success on AD-selected practice (target 0.70–0.80);
+- time to a usable estimate: answered questions per subject (and per LO before AD3) until band mode engages, and the band-mode share of draws (§5.9);
 - delayed cold success (`R_cold`, router §15.2);
 - `false_certification_rate`;
 - minutes per demonstrated level.
@@ -925,8 +1023,8 @@ A8, §9.5. A test plants a sentinel string in a held-out unit. It asserts the se
 | Phase | Successor? | Switch(es) under `[adaptive_difficulty]` (false = predecessor exactly) |
 |---|---|---|
 | AD1 measure and log | **No.** It adds receipts (forecasts and frozen serve inputs), two nullable attempt columns (rating, first-hint progress) and audit judgments, but changes no persisted meaning and nothing served | `forecast_receipts`, `outside_forecasters`, `rating_tap`, `feature_audit` (Decider switch `ad_feature_audit`) |
-| AD2 the arm | No. An offline harness, plus `ad_threshold` receipts written at serve time; nothing served changes | `forecast_receipts` (shared with AD1) |
-| AD3 practice in the band | **Yes** (next free tag at merge) | `selection`, `generation_contract` |
+| AD2 practice in the band | **Yes** (next free tag at merge). The offline harness and the `ad_threshold` receipts change nothing served; serve and commission draws in the LO view, substitutions, deferrals and the generation contract do | `selection`, `generation_contract`; receipts under `forecast_receipts` (shared with AD1) |
+| AD3 promotion | **Yes**, merged only once §10.4's rule is met on owner data | `promoted_predictor` (off: the LO view and no AD readiness numbers, exactly as AD2) |
 | AD4 levels and full mastery | **Yes** | `rung_certification` |
 | AD5 probes that discriminate | **Yes** | `probe_targeting` |
 
@@ -947,9 +1045,10 @@ A8, §9.5. A test plants a sentinel string in a held-out unit. It asserts the se
 | `judgment_ledger` rows, task `ad_feature_audit` | RAW_LEDGER (existing) | §7.2, with the audited revision's `content_hash` | — |
 | `ad_selections` | RAW_LEDGER (append-only) | decision id, `kind` (`serve` / `commission`), cell; for a serve draw, the block id, slot position and slot item; mode (`band` / `calibrate` / `predecessor`); the support (or commission candidates) with `P_band`, `p̄`, `I_c`, `π`, and each excluded candidate's failed check; seed; the chosen item (serve) or feature point (commission); `empty_support`; state hash; versions | — |
 | `item_substituted` block event | a new `kind` in the existing `attention_block_events` ledger (migration 096; `kind` is free text, so no migration) | §6.1 step 5: slot item, drawn item, both estimates, the `ad_selections` id; folded by `daily_plan/records.py:357-410` | — |
+| `item_displaced` block event, reason `ad_ineligible` | the existing kind in `attention_block_events`; its detail is free JSON, so no migration | §6.1 step 0: the slot item's failed checks (pre-exposure excepted) and the `ad_selections` id. The plan record folds it into the plan's exclusion set as an AD deferral (`daily_plan/records.py:394-396` today keeps only the reason); each boundary's decision detail records the deferrals it applied and cleared | — |
 | `ad_commission_results` | RECEIPT (append-only) | per landed commission: the `ad_selections` id, the generated item, its audited features, `p̄(i)`, in band or `realized_out_of_band` (§7.4) | never cleared |
-| `ad_state` | DERIVED | current posterior: cell moments and shared parameters, sparse covariance | AD replayer |
-| `ad_attempt_trace` | DERIVED | per eligible attempt: prior and posterior `η` moments, category probabilities, information gained, `input_status` (§7.5) | AD replayer |
+| `ad_state` | DERIVED | current posterior per view (`subject`, or `lo:<id>`, §5.6): subject levels, facet and cell moments and shared parameters, sparse covariance | AD replayer |
+| `ad_attempt_trace` | DERIVED | per eligible attempt and view: prior and posterior `η` moments, category probabilities, information gained, `input_status` (§7.5) | AD replayer |
 | `item_forecast_scores` | DERIVED | §8.3 | forecast-score replayer |
 | `facet_capability_feature_credit` | DERIVED | §9.3: per (attempt, facet, capability), banked credit and the conservative tuple; no level numbers | canonical-projection replayer (same owner as `facet_capability_evidence`) |
 
@@ -961,6 +1060,7 @@ A8, §9.5. A test plants a sentinel string in a held-out unit. It asserts the se
 - **Zero model calls in replay.** The AD state is a pure function of the attempt ledger, the `item_serve_inputs` and `item_forecasts` receipts, `judgment_ledger` audit rows, `practice_item_snapshots`, and `ad_priors_v1`. Current vault content is read only for a historical attempt resolved `reconstructed_current` under the field's explicit fallback (§7.5). Outside forecasts are read from receipts and never re-asked.
 - **Deterministic rebuilds.** Two rebuilds are byte-identical.
 - **AD never touches evidence.** Mastery, facet recall, FSRS, `grading_evidence` and `facet_capability_evidence` are byte-identical with AD on vs off. This is enforced by an import-linter contract forbidding the AD package from importing evidence writers. AD4's feature-credit ledger is the one exception: it is written by the canonical projection, not by AD.
+- **Certification never reads an estimated difficulty (A11).** Credit rows, levels, requirement points, certificates and the cold probe's item choice are byte-identical under any change to AD's state, the item-side signals, the `difficulty` label, solver-panel rates or empirical-Bayes `b`. A second import-linter contract forbids the certification and feature-credit code from importing the AD package or `resolve_item_irt_params` (G-AD4-13).
 
 ### 11.4 Config (new section)
 
@@ -971,8 +1071,9 @@ forecast_receipts = true
 outside_forecasters = ["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]   # D4; spend-capped
 rating_tap = true
 feature_audit = true
-selection = true            # acts at the AD3 tag or later, after promotion
-generation_contract = true  # AD3 tag
+selection = true            # AD2 tag or later; serves before promotion (D3)
+generation_contract = true  # AD2 tag
+promoted_predictor = true   # AD3 tag, merged only after the §10.4 rule is met
 rung_certification = true   # AD4 tag
 probe_targeting = true      # AD5 tag
 practice_band = [0.70, 0.80]
@@ -1003,7 +1104,7 @@ daily_spend_cap_usd = 0.50        # outside forecasters on paid routes
   - calibrate: "A question to find your level here".
 - **Levels on the map and the LO page:**
   - "Shown at level 2 of 4" (Demonstrated), on the ladder of the goal in view (§9.1); with no goal in view, the default ladder;
-  - with an exam target: "Exam level: not yet shown · likely ready" (Ready, labelled as a prediction).
+  - with an exam target: "Exam level: not yet shown · likely ready" (Ready, labelled as a prediction). The prediction appears from AD3; before it, the line reads "exam level: not yet predicted" (§9.5).
   - Well depth and beads are unchanged by AD; the level is a label beside them (A9).
 - **No jargon.** "Level", not rung; "chance", not probability.
 - **Glass box on demand:**
@@ -1017,7 +1118,7 @@ daily_spend_cap_usd = 0.50        # outside forecasters on paid routes
 
 ## 13. n>1: pooled priors from consented data
 
-- **What pooling can supply.** Population priors for `β`, `ψ_k`, `α`, `γ` and `ζ`, and the residual variance `τ0²` per generator family and version. These are exactly the quantities n=1 identifies weakly or not at all.
+- **What pooling can supply.** Population priors for `β`, `ψ_{j,k}`, `α`, `γ` and `ζ`, the residual variance `τ0²` per generator family and version, and the prior split between subject level, facet and cell (§5.5, §5.9). These are exactly the quantities n=1 identifies weakly or not at all; the split in particular is a between-learner quantity.
 - **What stays local.** Personal cell abilities, always.
 - **Staged path** (worker f, R12):
   1. **One learner (now).** A-priori priors, prior-predictive checks, sensitivity analysis and chronological scoring (§5.5, §8).
@@ -1072,11 +1173,17 @@ Each test below is written first, and fails on today's code for the stated reaso
 | G-AD1-9 | `test_item_only_forecast_enters_inputs_only_if_received_before_serve`: an `llm_v1:item` receipt prepared with the pool appears in the first serve's `z_i`; one received after the serve is scored but absent from that serve's inputs (no item-scoped receipt today) |
 | G-AD1-10 | `test_first_hint_progress_recorded_and_missing_is_null`: a first hint revealed with an empty answer stores `no_draft`, after typing `draft_started`; a restored draft keeps the marker; a client that sends none stores null (no column today; `field/probability_states.py:98-101`) |
 
-### AD2: the arm (offline; pre-registered)
+### AD2: practice in the band (successor; switches `selection`, `generation_contract`)
 
-**Builds:** the AD replayer (`ad_state`, `ad_attempt_trace`); in-process `ad_threshold` receipts at serve time (scored, not served); arms in `learnloop eval` (§10.4); `learnloop ad report` (prequential metrics, band-region reliability, identifiability diagnostics, sensitivity); simulation recovery on `sim/` synthetic learners with known `θ_t`, `β`, `γ`.
+**Needs:** AD1 merged (its receipt tables). It does **not** need promotion (D3): practice selection serves from AD2 with a-priori constants, in the LO view (§6.1).
 
-**Gate:** G-AD2-1 to G-AD2-17, then the owner reads the report once on a backup copy (owner-run, field §7.3 style).
+**Builds:**
+- **The model.** The AD replayer in both views (`ad_state`, `ad_attempt_trace`, §5.6); in-process `ad_threshold@lo` and `@subject` receipts at serve time; arms in `learnloop eval` (§10.4); `learnloop ad report` (prequential metrics with the first-attempt split first, band-region reliability, identifiability diagnostics, sensitivity, time to a usable estimate); simulation recovery and time-to-usable runs on `sim/` synthetic learners with known `θ_t`, `β`, `γ`.
+- **The serving.** `ad_selections` and `ad_commission_results`; the `feature_overlap` design; lane integration; serve and commission draws in the LO view; AD deferrals in the plan's exclusion set (§6.1 step 0); the generation contract (§7.1); re-forecast (§7.4); "why this item".
+
+**Gate:** G-AD2-1 to G-AD2-31, then the owner reads the AD2 report once on a backup copy (owner-run, field §7.3 style) before the successor merges.
+
+**The model (offline):**
 
 | Id | Test |
 |---|---|
@@ -1097,31 +1204,41 @@ Each test below is written first, and fails on today's code for the stated reaso
 | G-AD2-15 | `test_unknown_hint_timing_never_read_as_after_work`: a success with ordinary hints and no marker, and one with a help-equivalent tutor question and no progress marker, both enter as censored `{0, 1}`; with `draft_started` they are category 1, with `no_draft` category 0 |
 | G-AD2-16 | `test_replay_uses_frozen_inputs_and_explicit_history`: each attempt's factor is built from its `item_serve_inputs` row, never the current item; historical attempts resolve `exact`, `reconstructed_current` only under the field's fallback, else `excluded`, and `excluded` attempts never update |
 | G-AD2-17 | `test_pre_exposed_presentation_excluded_from_update_and_scoring`: a reveal sum at the auto-prime threshold before `served_at` removes the item from `P_c`, sets `pre_exposed`, and the attempt neither updates nor is scored |
+| G-AD2-18 | `test_time_to_usable_estimate_on_synthetic_learners` (**the owner's target**, §5.9; thresholds pre-registered with the arms). Setup: 200 synthetic learners per scenario from `sim/`, with true parameters drawn from `ad_priors_v1`, learning at their own `γ`, and item residuals at `τ0`. Pools hold items at every ladder point. Per answered question in the subject, the test records whether band mode engaged at the served point, and whether the draw was a band hit: the served item's true family-expected success (residual integrated) in [0.70, 0.80]. Pass conditions:<br>• **One LO, one cell** (every answer informs the served quantity, as in §5.9's arithmetic): band mode engages by the 15th answer for ≥ 80% of learners, and the band-hit rate over answers 16–30 is ≥ 0.35. The arithmetic gives about 0.45.<br>• **Wrong prior** (the true subject level 1.5 logits above or below the prior mean): the band-hit rate over answers 16–30 is ≥ 0.30, so the selection corrects itself.<br>• **The plan's flow** (one-LO blocks over three LOs and two capabilities, in the LO view): the band-hit rate over answers 16–30 is at least the incumbent waypoint ladder's (`depth_rungs.py:228-319`) and at least AD's with its updates switched off, and the trivial-success rate is no worse than the incumbent's.<br>The plan-flow results are reported for seen and never-seen cells separately (the first-attempt split), with the number of own answers each never-seen cell needed, and with the subject view's figures beside the LO view's |
 
-### AD3: practice in the band (successor; switches `selection`, `generation_contract`)
-
-**Needs:** AD2 report read; the §10.4 promotion rule met on owner data.
-
-**Builds:** `ad_selections` and `ad_commission_results`; the `feature_overlap` design; lane integration; serve and commission draws; the generation contract (§7.1); re-forecast (§7.4); "why this item"; card fields.
+**The serving (AD2's successor):**
 
 | Id | Test |
 |---|---|
-| G-AD3-1 | `test_propensity_recomputes_from_logged_row` and `test_seed_reproduces_draw` |
-| G-AD3-2 | `test_generation_prompt_has_no_band_language_under_successor` (**fail-first**: `practice_generation.py:1919` contains the band instruction today) |
-| G-AD3-3 | `test_selection_switch_off_restores_lane_order` (byte-identical plans on fixture copies) |
-| G-AD3-4 | `test_exam_reserved_and_retired_items_never_selected`; `test_coordination_requires_envelope` |
-| G-AD3-5 | `test_calibrate_mode_prefers_overlap_band`; `test_calibrate_with_empty_overlap_picks_nearest_to_band` |
-| G-AD3-6 | `test_joint_propensity_logged_with_router_block` |
-| G-AD3-7 | `test_commission_result_appended_never_mutates_selection`: an out-of-band landed item gets an `ad_commission_results` row and is not served for that commission |
-| G-AD3-8 | `test_serve_propensity_is_over_existing_items`; `test_empty_overlap_sets_q_zero`; `test_empty_support_makes_no_draw_and_displaces`; `test_empty_pool_commissions_at_generation` |
-| G-AD3-9 | `test_item_over_block_budget_not_in_support` (**fail-first**: no slot substitution exists today): an otherwise eligible item whose estimate exceeds the slot item's plus the block's, plan's or lane's slack is not in `S`; after any substitution the block is within 15 minutes and the plan within its budget |
-| G-AD3-10 | `test_support_respects_constraints_reversibility_and_admission`: an item the constraint engine refuses, one holding an open cold check or a reserved surface, one planned elsewhere, and a costlier item for a floor-admitted slot are never in `S` |
-| G-AD3-11 | `test_draw_after_block_choice_with_pair_propensity`: AD draws only at a `new_admitted` slot of the chosen block, inside the serve transaction; the logged pair propensity is `π_router · π_AD`; router candidates and `π_router` are byte-identical with AD on vs off; `item_substituted` folds into the plan record |
-| G-AD3-12 | `test_support_rechecked_at_draw_slot_item_included` (**fail-first**: before a serve, reconciliation re-checks only status and serving blocks, `daily_plan/engine.py:1925-1931`). After a block is admitted and before its slot is served, the slot item becomes exam-reserved, gains an open cold follow-up, is revealed within the cold retrieval delay, reaches the pre-exposure threshold, or is refused on a fresh snapshot. The same is done, separately, to another candidate. None of them is in `S`. A slot item with no other candidate is displaced with `ad_ineligible`, except in the pre-exposure-only case, which is served with `mode = predecessor` and `π_AD = 1`. With `selection = false` the predecessor serves the planned item byte-identically |
+| G-AD2-19 | `test_propensity_recomputes_from_logged_row` and `test_seed_reproduces_draw` |
+| G-AD2-20 | `test_generation_prompt_has_no_band_language_under_successor` (**fail-first**: `practice_generation.py:1919` contains the band instruction today) |
+| G-AD2-21 | `test_selection_switch_off_restores_lane_order` (byte-identical plans on fixture copies) |
+| G-AD2-22 | `test_exam_reserved_and_retired_items_never_selected`; `test_coordination_requires_envelope` |
+| G-AD2-23 | `test_calibrate_mode_prefers_overlap_band`; `test_calibrate_with_empty_overlap_picks_nearest_to_band` |
+| G-AD2-24 | `test_joint_propensity_logged_with_router_block` |
+| G-AD2-25 | `test_commission_result_appended_never_mutates_selection`: an out-of-band landed item gets an `ad_commission_results` row and is not served for that commission |
+| G-AD2-26 | `test_serve_propensity_is_over_existing_items`; `test_empty_overlap_sets_q_zero`; `test_empty_support_makes_no_draw_and_displaces`; `test_empty_pool_commissions_at_generation` |
+| G-AD2-27 | `test_item_over_block_budget_not_in_support` (**fail-first**: no slot substitution exists today): an otherwise eligible item whose estimate exceeds the slot item's plus the block's, plan's or lane's slack is not in `S`; after any substitution the block is within 15 minutes and the plan within its budget |
+| G-AD2-28 | `test_support_respects_constraints_reversibility_and_admission`: an item the constraint engine refuses, one holding an open cold check or a reserved surface, one planned elsewhere, and a costlier item for a floor-admitted slot are never in `S` |
+| G-AD2-29 | `test_draw_after_block_choice_with_pair_propensity`: AD draws only at a `new_admitted` slot of the chosen block, inside the serve transaction; the logged pair propensity is `π_router · π_AD`; router candidates and `π_router` are byte-identical with AD on vs off; `item_substituted` folds into the plan record |
+| G-AD2-30 | `test_support_rechecked_at_draw_slot_item_included` (**fail-first**: before a serve, reconciliation re-checks only status and serving blocks, `daily_plan/engine.py:1925-1931`). After a block is admitted and before its slot is served, the slot item becomes exam-reserved, gains an open cold follow-up, is revealed within the cold retrieval delay, reaches the pre-exposure threshold, or is refused on a fresh snapshot. The same is done, separately, to another candidate. None of them is in `S`. A slot item with no other candidate is displaced with `ad_ineligible`, except in the pre-exposure-only case, which is served with `mode = predecessor` and `π_AD = 1`. With `selection = false` the predecessor serves the planned item byte-identically |
+| G-AD2-31 | `test_ineligible_displacement_defers_until_condition_clears` (**fail-first**, final verify F10: a displaced item returns to the pool, `daily_plan/records.py:247-250`, and the boundary pool removes only planned and skipped items, `daily_plan/engine.py:1223-1225`).<br>• **The verify's scenario.** `selection` on, router off. A five-minute, never-attempted ordinary item `a` is planned. Before it is served, it gets a partial reveal below the 0.35 auto-prime threshold, with no cold follow-up, and there are no substitutes.<br>• **No loop.** Step 0 displaces `a` once, with `ad_ineligible` and the failed check `recent_reveal`. Across 20 further advances, no block holds `a`, and with no other work the plan closes as complete. The projection never plans `a`, and a keep-going plan the same day excludes it. Rebuilding the plan record from its events gives the same exclusion set. The same holds with the router on.<br>• **Readmission.** With other work in the plan, `a` stays out while the reveal is within the delay, and rejoins the pool at the first boundary after it (fake clock), where AD may draw it. An item held by an open cold follow-up is readmitted once that task closes.<br>• **Switch off.** With `selection = false`, none of this happens and the predecessor serves `a` |
+
+### AD3: promotion (successor; switch `promoted_predictor`)
+
+**Needs:** AD2 merged, and the §10.4 promotion rule met on owner data (the owner-run harness report).
+
+**Builds:** the subject view as the state of live decisions (§6.1, §6.3); the readiness numbers the learner sees ("Ready for exam level" and "likely ready", §9.5, §12) and the router card's AD fields (§10.1); the promotion report (§10.4).
+
+| Id | Test |
+|---|---|
+| G-AD3-1 | `test_live_decisions_read_lo_view_until_promotion` (**fail-first**: no AD state exists today). Before AD3, answers on another LO change no `P_band`, `π` or commission point of an LO's draws, while they do change `ad_threshold@subject`'s receipts. From the AD3 tag with `promoted_predictor` on, draws read the subject view. With the switch off, draws and receipts are byte-identical to AD2's |
+| G-AD3-2 | `test_readiness_numbers_only_after_promotion`: before AD3 the exam line reads "exam level: not yet predicted" and the router card carries no AD fields; from AD3 they appear, labelled as predictions; with the switch off, both are byte-identical to AD2's |
+| G-AD3-3 | `test_promotion_report_applies_field_rule`: the report computes field §7.4's rule from the harness output (attempt-level log loss overall and on the first-attempt split, the bootstrap interval at the pre-registered margin, report 2's miss rate), plus the never-seen-cell split and the band-region reliability; "can't tell" keeps the incumbent |
 
 ### AD4: levels and full mastery (successor; switch `rung_certification`)
 
-**Needs:** AD1 audits running (levels use audited features). It does **not** need AD3: demonstrated levels come from the ledger, not the predictor. The predicted "ready for exam level" line appears only after AD3 promotion (§9.5).
+**Needs:** AD1 audits running (levels use audited features). It does **not** need AD2 or AD3: demonstrated levels come from the ledger, never from the predictor or any estimated difficulty (A11). The predicted "ready for exam level" line appears only after AD3 promotion (§9.5).
 
 | Id | Test |
 |---|---|
@@ -1137,6 +1254,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 | G-AD4-10 | `test_target_revision_keeps_existing_certificate`: a new exam import or re-classified unit makes a new ladder instance and changes no requirement; a reached milestone makes a new certificate id; the earlier certificate's id, `p_req` and cold-probe verdict are unchanged |
 | G-AD4-11 | `test_level_pending_until_canonical_audit`: an observation stamped at or above `e_k` counts toward `e_k` only until its revision's canonical audit lands. It is then counted once at its audited level, which may be 0. A later run of the same audit version changes nothing |
 | G-AD4-12 | `test_known_below_entry_never_credited_while_audit_missing`. A retrieval item stamped `scaffolding = worked` earns no credit at `e_k` or above in three states: while its audit is pending, after the audit fails or ties on a dimension, and after it lands. A legacy item whose canonical audit reads below entry is level 0. Only observations with genuinely missing readings fall back to entry credit |
+| G-AD4-13 | `test_certification_never_reads_estimated_difficulty` (**owner direction**, A11). Changing every estimated difficulty leaves `facet_capability_feature_credit`, levels, requirement points, certificate ids and the cold probe's item choice byte-identical. That covers AD's state in both views, `β`, `α`, every `z` signal, the item's `difficulty` and `difficulty_source`, solver-panel rates and empirical-Bayes `b`. Changing a stamped tuple or a canonical audit does move them. An import-linter contract forbids the certification and feature-credit modules from importing the AD package or `resolve_item_irt_params` |
 
 ### AD5: probes that discriminate (successor; switch `probe_targeting`)
 
@@ -1150,7 +1268,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 | G-AD5-6 | `test_composition_scope`: a rubric above 4 points, misconception, `confuses_with`, `surface_only`, `schema_without_transfer` and `other_or_unknown` slots keep the card's rows exactly; an aliased label reads its slot's composed row; a constraint with probability below 1e-6 is left uncomposed and recorded |
 | G-AD5-7 | `test_composed_success_marginal_survives_grader_channel` (**non-identity channel**). Under the contrast family's channel (six outcomes, reliability 0.90), a composed slot with `q_h = 0.80` has an observed success probability of 0.80 within 1e-12; composing before the channel would give 0.724. Its within-class shapes are those of the grader-composed calibrated row. An instrument with no composed slot has conditionals and `compiled_likelihood_hash` byte-identical to today's |
 
-**Order.** AD1 now. AD2 in parallel with AD1: its replayer and harness arms read existing ledgers and resolve attempts historically (§7.5) until AD1's receipts exist. Its serve-time `ad_threshold` receipts write into AD1's `item_forecasts`, so that part lands after AD1 merges. AD4 can follow AD1 without waiting for AD3. AD3 waits for promotion. AD5 follows AD3.
+**Order.** AD1 now. AD2's replayer, harness arms and simulations can be built in parallel with AD1: they read existing ledgers and resolve attempts historically (§7.5) until AD1's receipts exist. Its serve-time receipts and its serving write into AD1's tables, so AD2 merges after AD1. AD4 can follow AD1 without waiting for AD2 or AD3. AD3 waits for promotion. AD5 follows AD3.
 
 ---
 
@@ -1160,18 +1278,21 @@ Each test below is written first, and fails on today's code for the stated reaso
 |---|---|---|
 | D1 | Practice band and what "success" means | `[0.70, 0.80]`; success = first unassisted response at correctness ≥ 0.8 (the cold probe's definition). The research supports a band in this region without fixing a number (R5) |
 | D2 | Outcome categories (§5.3): help-adjusted success counts as "partial"; early help counts as fail; unknown help timing and answers revealed during the presentation are censored as "not an unassisted success" | Yes, aligned with field's hint arm (graded outcome by help depth). Training and scoring read the same event, so assisted presentations are never dropped from training |
-| D3 | Promotion rule for AD3 selection | **The harness's own rule (field §7.4: superiority on log loss, overall and on the first attempt at a never-seen LO; report 2's miss rate no worse), plus this spec's added cell-level and decision-level checks**, as the owner directed. Alternative: non-inferiority for *selection only*, since the incumbent cannot predict at feature points it has never authored. Revisit if "can't tell" persists after 300 first-surface attempts |
+| D3 | When AD's practice selection serves, and what promotion governs | **Decided by the owner (2026-10-14).**<br>• Practice selection serves from AD2, behind `selection` and its algorithm successor, with the a-priori constants of §5.5 and the honest uncertainty of §5.7. It does not wait for promotion, because QUEST+-style band targeting corrects itself from the learner's outcomes even when its prior is off (§6.1, §5.9).<br>• It is guarded by AD2's simulation gate, including the decision-level checks of G-AD2-18 (band hits at least the incumbent's, trivial successes no worse), by live monitoring and by its kill switch (§10.4).<br>• Promotion is the harness's own rule (field §7.4: superiority on attempt-level log loss, overall and on the first attempt at a never-seen LO; report 2's miss rate no worse), plus this spec's never-seen-cell split and band-region reliability. It governs only (i) which predictor drives the readiness numbers the learner sees and (ii) whether cross-LO sharing (the subject view) steers live decisions. It never blocks adaptation.<br>• Randomized draws keep exact, logged propensities (A7).<br>• This supersedes the earlier default, under which selection itself waited for promotion |
 | D4 | Live outside forecasters | On: the item-only LLM once per item revision when it is prepared for the pool, with a one-time backfill; the LLM with history (Codex on the subscription) and the Decider (OpenRouter, ~$0.50/day cap) per presentation. Learning trust needs hundreds of outcomes (§8.3), so collection should start early. Off the critical path |
 | D5 | Rating tap placement | Beside Submit, before feedback; optional; hideable per session |
 | D6 | Overlap exploration share | `q = 0.10` over items with `[0.55, 0.90]` predicted success |
 | D7 | Required level for certification | The capability's entry point `e_k` (level 1 on every ladder), unless a commitment's milestone contract or a component's `min_task_features` sets a harder feature point (§9.4). Requirements are feature points, never level numbers. Full mastery is a separate label, never a certification requirement by default |
 | D8 | Learner "easier/harder" and "too easy/too hard" | Keep today's owner-approved effects (self-report evidence package, claims). AD excludes the `self_report` rows and the claims these requests write (`rung_variant_request`, `learner_report`). It does not read the requests themselves in v1, because they come after feedback (§10.7). Nothing is counted twice. Replacing the 0.3-mass package is a separate decision (§16) |
-| D9 | Feature-audit judge | Decider Tier-1 pattern, LLM fallback; certification uses the easier of stamped and audited features |
+| D9 | Feature-audit judge | Decider Tier-1 pattern, LLM fallback; certification uses the easier of stamped and audited features, never an estimated difficulty (D16) |
 | D10 | AD observations | First graded attempt per surface group only; repeats stay FSRS's |
 | D11 | Keep the generator's `difficulty` label | Yes, as signal `z_llm` with a learned weight (§3.3 shows it carried information here); never as the item's difficulty under AD |
 | D12 | Exam target and exam-target calibration | Target = the per-dimension 0.8-quantile of family-collapsed tuples from practice-available exam/pset units; exam-target calibration (§6.2) off by default |
 | D13 | Should the AD4 upgrade apply even if the shadow rebuild shows certificates changing? | Yes, after the owner reads the diff once. A certificate resting only on level-0 items was not a demonstration |
 | D14 | Held-out exam features | Evaluation only. The target level comes from practice-available exam and problem-set units (router §15.6). Held-out tuples, where ingest already records them, feed only the coverage report (§9.5). The owner's 2026-10-14 framing ("only its features") is honoured without letting held-out units steer practice. Override: let held-out tuples define the *full-mastery label* (never the ladder, selection or generation), at the cost of a second target |
+| D15 | Time to a usable estimate, and the sharing it needs | **Decided by the owner (2026-10-14):**<br>• **Target.** A usable estimate within 10–15 answered questions per subject, not per cell.<br>• **Sharing.** The model shares across cells through a subject level, capability offsets and feature effects, as field's `lo_general` and `+capability` do, and each facet and cell offset refines as its evidence arrives (§5.2).<br>• **Gate.** G-AD2-18 measures the band-hit rate after 10–15 questions on synthetic learners.<br>• **Recommended default for the prior split:** half the cold-start variance on the subject level (`ad_priors_v1`, §5.5), with field's quarter and a three-quarter split as harness arms.<br>• **Honest limit (§5.9).** The target holds where the answers concentrate. A never-seen cell keeps its own offsets' prior variance and needs about 10 of its own answers to reach band mode. Before AD3, sharing is within an LO |
+| D16 | What certification may read | **Decided by the owner (2026-10-14):** declared (stamped, or written in a target or requirement) and audited features only, the more conservative per dimension; never an estimated difficulty of any kind (A11, §9, G-AD4-13) |
+| D17 | The primary scoring split | **Decided by the owner (2026-10-14):** field's first-attempt split (the first attempt on a never-seen LO), the forecasts on never-seen items that generation needs. It is the primary score for item-side signals and commissioned items (§7.3, §7.4, §8.3), as it already is for promotion (§10.4) |
 
 ---
 
@@ -1180,7 +1301,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 | Deferred | Trigger |
 |---|---|
 | Per-family discrimination `a` | ≥ 3 generator families with ≥ 30 first-surface attempts each, and harness misfit in the slope (reliability-curve tilt) |
-| Several candidates per commission, pick by re-forecast | Realized out-of-band rate > 40% over 100 commissions after AD3 |
+| Several candidates per commission, pick by re-forecast | Realized out-of-band rate > 40% over 100 commissions after AD2 |
 | Grid or particle filter replacing ADF | `ad_threshold:grid` beats the base arm on band-region reliability with an interval excluding 0 |
 | POMDP planning or amortized design policies `[rafferty2016]`, `[foster2021]` | A simulator validated against this learner's held-out data, and ≥ 1,000 AD decisions |
 | LLM simulated-student panels as an item-side signal `[acquaye2026]` | A panel reaching ρ ≥ 0.5 against this learner's first-surface outcomes on ≥ 100 items |
@@ -1209,7 +1330,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 2. **Q2. Generator compliance.** How often does the generator realize the requested feature point, by the audit's reading? Unknown until AD1 audits run. A low rate would make the feature model weak and push the "several candidates" trigger.
 3. **Q3. Unit-to-facet mapping for exam targets.** How many exam units carry a facet mapping in the inventory? A unit without one feeds no target in v1 (§9.5); spreading it over a goal's facets is deferred (§16). Measured by AD1's data-check, which counts mapped and unmapped units.
 4. **Q4. Rating timing.** Is a pre-feedback tap acceptable friction, or should the rating ride the existing post-feedback "too easy/too hard" controls (fewer taps, outcome-contaminated)? D5 recommends pre-feedback; the AD2 `+rating` arm will show whether it earns its place.
-5. **Q5. Data volume for promotion.** With about 10³ attempts a year and the §8.3 illustration, superiority (D3) may take months to resolve. The owner may prefer to revisit D3 at AD2's first report.
+5. **Q5. Data volume for promotion.** With about 10³ attempts a year and the §8.3 illustration, superiority (D3) may take months to resolve. Since the owner's direction of 2026-10-14, that delays only readiness numbers and cross-LO sharing; practice targeting serves from AD2 (§6.1). Until promotion, each LO's estimate is learned from that LO alone, so a new LO starts from the prior (§5.9).
 6. **Q6. Motivation vs learning.** The research shows easier practice wins short-term engagement and harder practice wins learning `[papousek2016]`. Should the band move with the learner's session state (re-entry after a gap; frustration signals) before the band experiment reports? This spec keeps it fixed.
 
 ---
@@ -1232,15 +1353,18 @@ switches, spend caps and model routes, judgment_ledger writes, tests) to
 docs/reviews/adaptive-difficulty-ad<n>.md and proceed.
 
 Prerequisites (§14 "Order"): AD1 and AD2 can start from main, but AD2's serve-time
-receipts need AD1's item_forecasts merged; AD4 needs AD1 merged (audits); AD3 needs AD2
-merged, its report read by the owner and the §10.4 promotion rule met on owner data; AD5
+receipts and serving need AD1's tables merged, and AD2 merges only after its gate passes
+and the owner has read its report; AD2 does not wait for promotion (D3). AD4 needs AD1
+merged (audits); AD3 needs AD2 merged and the §10.4 promotion rule met on owner data; AD5
 needs AD3. If yours is not met, stop and say so.
 
 Build exactly your phase: its "Builds" list, its tests (each written first and failing
-for the stated reason), its switches. AD1 and AD2 change nothing served. AD3, AD4 and AD5
+for the stated reason), its switches. AD1 changes nothing served. AD2, AD3, AD4 and AD5
 are successors: each takes the next free mvp-0.N at merge, and with its switch false the
-behaviour is byte-identical to the predecessor. Never write evidence, mastery, FSRS or
-certification from AD's state (A2). AD2 pre-registers each arm's constants in
+behaviour is byte-identical to the predecessor. Until AD3, live AD decisions read the LO
+view only (A6). Never write evidence, mastery, FSRS or certification from AD's state (A2),
+and never let certification read an estimated difficulty (A11). AD2 pre-registers each
+arm's constants and G-AD2-18's thresholds in
 docs/reviews/adaptive-difficulty-ad2.md before the first replay on owner data.
 
 Paid routes: the feature audit on the existing tier1_decider route (the Decider,
