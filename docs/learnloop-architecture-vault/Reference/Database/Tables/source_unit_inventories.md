@@ -3,8 +3,8 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "535210d038b68fad58f3f734120193f09d492133"
-source_commit_timestamp: "2026-10-15T06:44:55-04:00"
+source_commit: "90f203c4b8c15f4f3908bfdd92311f502d93a666"
+source_commit_timestamp: "2026-10-15T07:17:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/041_source_unit_inventories.sql"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 
 ### Direct SQL writers
