@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 202
+schema_head: 203
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,8 +23,8 @@ source_paths:
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/sources/exam_material.py"
-  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/goals/exam_session.py"
+  - "src/learnloop/learner_protection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,9 +100,9 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/sources/exam_material.py`
-- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/goals/exam_pool.py`
 - `src/learnloop/goals/exam_session.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/controller_ownership.py`
 - `src/learnloop_sidecar/handlers/goals.py`
 

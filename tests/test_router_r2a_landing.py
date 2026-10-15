@@ -83,9 +83,9 @@ def test_the_card_withholds_what_the_one_exam_predicate_names(tmp_path):
     paths, repository = _textbook_world(tmp_path)
     unknowns: list[str] = []
     withheld = CardGatherer(load_vault(paths.root), repository)._withheld_items(unknowns)
-    assert withheld is not None and unknowns == []
-    assert {"pi_eigen_1", "pi_eigen_2", "pi_determinant_1"} <= withheld
-    assert "pi_eigen_3" not in withheld and "pi_matmul_1" not in withheld
+    assert withheld.available and unknowns == []
+    assert {"pi_eigen_1", "pi_eigen_2", "pi_determinant_1"} <= withheld.item_ids
+    assert withheld.reason("pi_eigen_3") is None and withheld.reason("pi_matmul_1") is None
 
 
 def test_the_cards_exam_protection_is_not_behind_the_serving_switch(tmp_path):
@@ -96,7 +96,7 @@ def test_the_cards_exam_protection_is_not_behind_the_serving_switch(tmp_path):
     before = CardGatherer(load_vault(paths.root), repository)._withheld_items([])
     _switch_off(paths.root)
     after = CardGatherer(load_vault(paths.root), repository)._withheld_items([])
-    assert before == after and {"pi_eigen_1", "pi_eigen_2", "pi_determinant_1"} <= after
+    assert before == after and {"pi_eigen_1", "pi_eigen_2", "pi_determinant_1"} <= after.item_ids
 
 
 def test_a_cause_diagnosed_from_exam_work_shows_no_statement(tmp_path, monkeypatch):
@@ -107,9 +107,10 @@ def test_a_cause_diagnosed_from_exam_work_shows_no_statement(tmp_path, monkeypat
     card = _card(env)
     [cause] = [entry for entry in card["json"]["open_hypotheses"] if entry["kind"] == "diagnosed_cause"]
     assert (cause["hypothesis_id"], cause["topic"], cause["status"]) == ("hyp_exam", "M1", "candidate")
-    assert cause["statement"] is None and cause["withheld"] == "exam or reserved material"
+    # The shared protection names why (learner_protection, the chat frontend's too).
+    assert cause["statement"] is None and cause["withheld"] == "exam or held-out material"
     assert "STATEMENT_FROM_THE_EXAM_4471" not in card["text"] and "EXAM_WORDS_6610" not in card["text"]
-    assert "statement withheld (exam or reserved material)" in card["text"]
+    assert "statement withheld (exam or held-out material)" in card["text"]
 
 
 def test_a_cause_diagnosed_from_ordinary_practice_keeps_its_statement(tmp_path, monkeypatch):

@@ -8,18 +8,31 @@ with the candidate items: the attempt history of those topics is read in full
 (for the evidence counts), the held-grade predicate reads it in 500-attempt
 chunks, and the headline classification reads each topic's certification.
 
+**The protection is shared** with the chat frontend's read model
+(``learnloop.learner_protection``, one authority; converged at the chat
+frontend's landing, Q16 of docs/reviews/mcp-c1a-narrow.md). Only the card's
+text rule is its own (:class:`CardText`, G5): its reader is the router model,
+which reads the learner's own answers and the statements LearnLoop's
+diagnosers wrote; the chat's rule (``learner_context.TextGuard``) shows far
+less.
+
 * it never reads a reference solution, an answer key, a rubric or source text;
 * a candidate item contributes its topic, minutes and kind only (no stem of
   an item the learner has not attempted);
-* past work on exam material (an ``exam_attempt``, or an item the one exam
-  predicate, ``content.sources.exam_material.item_exam_status``, names: one
-  reserved for a goal's held-out exam, or one whose own source (its
-  canonical exercise, its block-level source refs) is exam material, every
-  ``held_out_evaluation`` unit included) and on a surface holding a live
-  assessment reservation keeps its result but shows no question and no
-  answer, whatever ``goals.held_out_selection`` says (a model-context
-  protection, never switched); when the exam predicate cannot be read, no
-  past work shows a question or an answer (fail closed);
+* past work on protected material keeps its result but shows no question and
+  no answer, naming why (``learner_protection.withheld_items`` and
+  ``attempt_protection``): exam material by the one exam predicate
+  (``content.sources.exam_material.item_exam_status``: an item reserved for a
+  goal's held-out exam, or one whose own source is exam material, every
+  ``held_out_evaluation`` unit included) and exam work, a surface holding a
+  live assessment reservation, an item an open cold check or a repair's cold
+  retry holds, a diagnostic probe, and an item the vault cannot read, whatever
+  ``goals.held_out_selection`` says (a model-context protection, never
+  switched); when the predicates cannot be read, no past work shows a
+  question or an answer (fail closed);
+* a statement written from protected work (a cause whose episode rests on an
+  exam answer, a learner's words about a probe) keeps its entry and never its
+  words (``learner_protection.statement_text``);
 * a grade held for review (THE predicate, ``held_grades``) is "held for
   review", never a score;
 * an answer on an unverified key says so (``reference_status``);
@@ -29,7 +42,7 @@ chunks, and the headline classification reads each topic's certification.
   established shows no question (review F6). A contract that froze a
   required method shows its instruction ("Use {method} in your answer."),
   rendered from the frozen field after the statement and kept whole when the
-  question is shortened (method-explicit items, ``presented_prompt``).
+  question is shortened (``learner_protection.PinnedContract.question``).
 
 A topic is ``demonstrated`` or ``assumed`` only by the Today headline's
 classification (capability-matched, unassisted certification credit; open
@@ -49,10 +62,19 @@ from datetime import timedelta
 from math import exp, log, sqrt
 from typing import Any
 
+from learnloop import learner_protection as protection
 from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
-from learnloop.router.card import STEM_LIMIT, CardInputs, LearnerStateCard, build_card, excerpt
-from learnloop.vault.required_method import fit_presented_prompt, method_instruction
+from learnloop.learner_protection import PastWork, Withheld, attempt_result, past_work_text, statement_text
+from learnloop.router.card import (
+    EXCERPT_LIMIT,
+    STATEMENT_LIMIT,
+    STEM_LIMIT,
+    CardInputs,
+    LearnerStateCard,
+    build_card,
+    excerpt,
+)
 
 _LOG = logging.getLogger(__name__)
 
@@ -83,19 +105,6 @@ def _marks(values: Sequence[Any]) -> str:
     return ",".join("?" for _ in values)
 
 
-def _result(correctness: Any, held: bool) -> str:
-    if held:
-        return "held_for_review"
-    if correctness is None:
-        return "not_graded"
-    value = float(correctness)
-    if value >= 0.999:
-        return "correct"
-    if value <= 0.001:
-        return "incorrect"
-    return "partial"
-
-
 def _status(klass: str | None, counts: Mapping[str, int] | None) -> str:
     """A topic's status on the card (review F7).
 
@@ -114,19 +123,28 @@ def _status(klass: str | None, counts: Mapping[str, int] | None) -> str:
     return "learning" if klass == "learning" else "untested"
 
 
-def _exam_or_withheld(attempt: Mapping[str, Any] | None, withheld: frozenset[str]) -> bool:
-    """Whether an attempt is exam work (an ``exam_attempt``) or on an item the
-    card withholds (exam or reserved material)."""
+class CardText:
+    """The card's text rule (plan §3.6, gate G5), a parameter of the shared
+    protection (``learner_protection.TextRule``). It is asked only once the
+    shared protection has passed: the router model reads the question as
+    graded (:meth:`question`), the learner's own answer whole (the builder
+    shortens it) and a statement as LearnLoop wrote it."""
 
-    if attempt is None:
-        return False
-    return attempt.get("attempt_type") == "exam_attempt" or str(attempt.get("practice_item_id")) in withheld
+    def __init__(self, past: PastWork) -> None:
+        self.past = past
 
+    def question(self, attempt_id: str, lo_id: Any) -> tuple[str | None, str | None]:
+        pin = self.past.pinned(attempt_id)
+        question = pin.question(STEM_LIMIT, excerpt) if pin is not None else None
+        return (question, None) if question else (None, protection.STEM_UNRECORDED)
 
-def _withheld_reason(hidden: bool, withheld: frozenset[str] | None) -> str | None:
-    if not hidden:
-        return None
-    return "exam predicate unavailable" if withheld is None else "exam or reserved material"
+    def answer(self, attempt_id: str, text: Any, limit: int) -> tuple[str | None, str | None]:
+        # Whole: the builder shortens it to ``limit`` (and drops older ones first).
+        return (text or None), None
+
+    def statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Any = (), items: Any = (),
+                  los: Any = ()) -> tuple[str | None, str | None]:
+        return excerpt(text, limit), None
 
 
 class CardGatherer:
@@ -159,23 +177,25 @@ class CardGatherer:
                     neighbours.append(prerequisite)
         los = list(dict.fromkeys(candidate_los + neighbours))[:LEARNING_OBJECT_LIMIT]
         unknowns: list[str] = [f"not recorded: {NOT_RECORDED}"]
-        # Exam and reserved material, by the one exam predicate (None: unreadable, nothing shows).
+        # The shared protection (learner_protection): the withheld items, by the
+        # one exam predicate and the rest (unavailable: nothing shows).
         withheld = self._withheld_items(unknowns)
         with self.repository.connection() as connection:
+            past = PastWork(connection, vault, self.repository, withheld=withheld, unknowns=unknowns)
+            rule = CardText(past)
             as_of = connection.execute(
                 "SELECT id FROM practice_attempts WHERE created_at < ? ORDER BY created_at DESC, id DESC LIMIT 1",
                 (now_iso,),
             ).fetchone()
             attempts = self._attempts(connection, los, now_iso)
-            held = self._held(connection, [row["id"] for row in attempts])
-            pinned = self._pinned_stems(connection, attempts[:RECENT_WORK_LIMIT], unknowns)
+            held = past.held([row["id"] for row in attempts])
             learning_objects = self._learning_objects(los, candidate_los, attempts, held, feasible, titles, now_iso,
                                                       unknowns)
             interaction = self._interaction(connection, now_iso, unknowns)
-            hypotheses = self._open_problems(connection, set(los), titles, unknowns, withheld)
+            hypotheses = self._open_problems(connection, set(los), titles, unknowns, past, rule)
             reports = self._self_reports(connection, set(los), titles, now_iso, unknowns)
             evidence_sections = self._evidence_sections(connection, los, titles, now_iso, withheld, unknowns)
-        recent = self._recent_work(attempts, held, pinned, titles, withheld)
+            recent = self._recent_work(attempts, held, past, rule, titles)
         candidates = [self._candidate(candidate, titles) for candidate in feasible]
         session = {
             "plan_id": state.plan_id,
@@ -216,7 +236,7 @@ class CardGatherer:
 
     @staticmethod
     def _evidence_sections(connection: Any, los: Sequence[str], titles: Mapping[str, str], now_iso: str,
-                           withheld: frozenset[str] | None, unknowns: list[str]) -> dict[str, Any]:
+                           withheld: Withheld, unknowns: list[str]) -> dict[str, Any]:
         """The typed evidence registry (R2a's hook). Router R2c: teach-back summaries."""
 
         sections: dict[str, Any] = {}
@@ -264,66 +284,6 @@ class CardGatherer:
         ).fetchall()
         return [dict(row) for row in rows]
 
-    @staticmethod
-    def _held(connection: Any, attempt_ids: Sequence[str]) -> frozenset[str]:
-        from learnloop.held_grades import held_for_review_attempts
-
-        return held_for_review_attempts(connection, attempt_ids) if attempt_ids else frozenset()
-
-    @staticmethod
-    def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknowns: list[str]) -> dict[str, str]:
-        """The question each attempt answered (review F6): the prompt of its
-        pinned assessment contract, the one contract its current grading
-        evidence names, belonging to the attempt's item. Only the prompt and
-        the required method it froze are read (``json_extract``), never the
-        contract's answer key or rubric. An attempt with no contract, or
-        several, gets no stem: today's prompt is never substituted for the
-        revision the learner saw. A frozen required method's instruction is
-        rendered after the statement (method-explicit items), the statement
-        shortened to the card's stem limit so the sentence stays whole."""
-
-        items = {str(row["id"]): row.get("practice_item_id") for row in attempts}
-        if not items:
-            return {}
-        try:
-            if not _table(connection, "assessment_contract_versions"):
-                return {}
-            contracts: dict[str, set[Any]] = {}
-            for attempt_id, contract_id in connection.execute(
-                f"SELECT attempt_id, assessment_contract_version_id FROM grading_evidence "
-                f"WHERE superseded_at IS NULL AND attempt_id IN ({_marks(list(items))})",
-                list(items),
-            ):
-                contracts.setdefault(str(attempt_id), set()).add(contract_id)
-            single = {attempt: next(iter(ids)) for attempt, ids in contracts.items() if len(ids) == 1 and None not in ids}
-            if not single:
-                return {}
-            versions = sorted({str(value) for value in single.values()})
-            prompts = {
-                str(row[0]): (row[1], row[2], row[3])
-                for row in connection.execute(
-                    f"SELECT id, practice_item_id, json_extract(contract_json, '$.prompt'), "
-                    f"json_extract(contract_json, '$.required_method') "
-                    f"FROM assessment_contract_versions WHERE id IN ({_marks(versions)})",
-                    versions,
-                )
-            }
-        except Exception:  # noqa: BLE001 - named as unknown; no question shows
-            _LOG.warning("router R2a card: pinned questions not read", exc_info=True)
-            unknowns.append("the questions past work answered could not be read: none is shown")
-            return {}
-        stems: dict[str, str] = {}
-        for attempt_id, version_id in single.items():
-            item_id, prompt, frozen_method = prompts.get(str(version_id), (None, None, None))
-            if item_id is not None and item_id == items.get(attempt_id) and isinstance(prompt, str) and prompt.strip():
-                method = _frozen_method(frozen_method)
-                # The question as presented: the statement, then the frozen
-                # method's sentence, whole within the card's stem limit (so the
-                # card's own clip is a no-op on it).
-                stems[attempt_id] = (fit_presented_prompt(prompt, method, STEM_LIMIT, excerpt)
-                                     if method_instruction(method) is not None else prompt)
-        return stems
-
     def _classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None:
         """The Today headline's class of each LO (review F7), or None when it
         cannot be read (then no topic is demonstrated or assumed)."""
@@ -352,7 +312,7 @@ class CardGatherer:
             counts = evidence.setdefault(lo, {"attempts": 0, "graded": 0, "correct": 0, "partial": 0, "incorrect": 0,
                                               "held": 0, "assisted": 0})
             counts["attempts"] += 1
-            result = _result(row["correctness"], row["id"] in held)
+            result = attempt_result(row["correctness"], row["id"] in held)
             if result == "held_for_review":
                 counts["held"] += 1
             elif result != "not_graded":
@@ -448,11 +408,9 @@ class CardGatherer:
         return signals
 
     def _open_problems(
-        self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str],
-        withheld: frozenset[str] | None = frozenset(),
+        self, connection: Any, los: set[str], titles: Mapping[str, str], unknowns: list[str], past: PastWork,
+        rule: CardText,
     ) -> list[dict[str, Any]]:
-        from learnloop.router.card import STATEMENT_LIMIT, excerpt
-
         entries: list[dict[str, Any]] = []
         if not los:
             return entries
@@ -464,19 +422,22 @@ class CardGatherer:
                 # validated cause whose promoted misconception is resolved is
                 # closed. Each entry names the evidence it rests on.
                 rows = open_learner_state_hypotheses(connection, los)
-                evidence = self._evidence_attempts(connection, [row["attempt_id"] for row in rows])
+                behind = protection.hypothesis_answers(connection, [row["id"] for row in rows])
                 for row in rows:
-                    # A cause diagnosed from exam or reserved work keeps its
-                    # topic and status, never its statement (the diagnoser's
-                    # words about an exam answer; landing onto main, with the
-                    # one exam predicate). Fail closed as past work does.
-                    hidden = withheld is None or _exam_or_withheld(evidence.get(row["attempt_id"]), withheld)
+                    # A cause diagnosed from protected work (any answer of its
+                    # episode: exam or reserved material, a check waiting, a
+                    # probe) keeps its topic and status, never its statement:
+                    # the shared leakage rule. Fail closed as past work does.
+                    statement, _note, reason = statement_text(
+                        past, rule, "hypothesis", row["id"], row["statement"], STATEMENT_LIMIT,
+                        answers=sorted(behind.get(str(row["id"]), frozenset()) | {str(row["attempt_id"] or "")}),
+                        los=(row["learning_object_id"],))
                     entries.append({
                         "kind": "diagnosed_cause", "learning_object_id": row["learning_object_id"],
                         "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
                         "status": row["status"], "since": row["created_at"],
-                        "statement": None if hidden else excerpt(row["statement"], STATEMENT_LIMIT),
-                        "withheld": _withheld_reason(hidden, withheld),
+                        "statement": statement,
+                        "withheld": reason,
                         "hypothesis_id": row["id"], "attempt_id": row["attempt_id"],
                         "error_event_id": row["error_event_id"],
                         "promoted_misconception_id": row["promoted_misconception_id"],
@@ -500,7 +461,8 @@ class CardGatherer:
                 if _table(connection, "learner_text_gap_reversals"):
                     reversed_ids = {row[0] for row in connection.execute("SELECT gap_id FROM learner_text_gap_reversals")}
                 for row in connection.execute(
-                    f"""SELECT id, anchor_learning_object_id, target_id, kind, learner_text, created_at
+                    f"""SELECT id, anchor_learning_object_id, target_id, kind, learner_text, created_at,
+                               attempt_id, practice_item_id
                           FROM learner_text_gaps
                          WHERE kind IN ('prerequisite', 'misconception')
                            AND (anchor_learning_object_id IN ({_marks(sorted(los))})
@@ -511,10 +473,17 @@ class CardGatherer:
                     if row["id"] in reversed_ids:
                         continue
                     lo = row["target_id"] if row["target_id"] in los else row["anchor_learning_object_id"]
+                    # The learner's own words (G5 shows them), unless they were
+                    # written about protected work (the shared leakage rule).
+                    statement, _note, reason = statement_text(
+                        past, rule, "learner_text_gap", row["id"], row["learner_text"], STATEMENT_LIMIT,
+                        answers=[row["attempt_id"]] if row["attempt_id"] else [],
+                        items=[row["practice_item_id"]] if row["practice_item_id"] else [],
+                        los=(row["anchor_learning_object_id"],))
                     entries.append({
                         "kind": f"learner_named_{row['kind']}", "learning_object_id": lo,
                         "topic": titles.get(lo, lo), "status": "open", "since": row["created_at"],
-                        "statement": excerpt(row["learner_text"], STATEMENT_LIMIT),
+                        "statement": statement, "withheld": reason,
                     })
         except Exception:  # noqa: BLE001 - named as unknown
             _LOG.warning("router R2a card: open problems not read", exc_info=True)
@@ -551,59 +520,34 @@ class CardGatherer:
         reports.sort(key=lambda entry: str(entry.get("at") or ""), reverse=True)
         return reports[:SELF_REPORT_LIMIT]
 
-    def _withheld_items(self, unknowns: list[str]) -> frozenset[str] | None:
-        """Practice items whose question and answers the card never shows:
-        exam material by the one exam predicate (``content.sources.exam_material``:
-        an item reserved for a goal's held-out exam, or made from exam or
-        held-out material) and reserved assessment surfaces. None when either
-        cannot be read (then none show).
+    def _withheld_items(self, unknowns: list[str]) -> Withheld:
+        """The items whose question and answers the card never shows: the
+        shared predicate (``learner_protection.withheld_items``, the chat
+        frontend's too): exam material by the one exam predicate, live
+        assessment reservations, items a cold check or a repair's cold retry
+        holds, diagnostic probes, and items the vault cannot read. Unavailable
+        when any of it cannot be read (then none show, and ``unknowns`` says so).
 
         Not behind ``goals.held_out_selection``: that switch restores the
         predecessor's *serving* selection, and the card is a model context
-        (R2b sends it), whose exam protections are never switched."""
+        (R2b sends it), whose protections are never switched."""
 
-        vault = self.vault
-        withheld: set[str] = set()
-        try:
-            for row in self.repository.reserved_assessment_surfaces():
-                if row.get("legacy_practice_item_id"):
-                    withheld.add(str(row["legacy_practice_item_id"]))
-        except Exception:  # noqa: BLE001 - fail closed
-            unknowns.append("assessment reservations could not be read: past questions and answers are withheld")
-            return None
-        try:
-            from learnloop.content.sources import exam_material as EM
-
-            material = EM.exam_material(vault, self.repository)
-            reserved = frozenset(self.repository.reserved_exam_pool_item_ids())
-            for item in vault.practice_items.values():
-                if EM.item_exam_status(item, material=material, reserved=reserved) is not None:
-                    withheld.add(str(item.id))
-        except Exception:  # noqa: BLE001 - fail closed
-            unknowns.append("exam material could not be read: past questions and answers are withheld")
-            return None
-        return frozenset(withheld)
-
-    @staticmethod
-    def _evidence_attempts(connection: Any, attempt_ids: Sequence[Any]) -> dict[str, Mapping[str, Any]]:
-        """The attempts diagnosed causes rest on (their item and type), one read."""
-
-        ids = sorted({str(attempt_id) for attempt_id in attempt_ids if attempt_id})
-        if not ids:
-            return {}
-        return {
-            str(row["id"]): dict(row) for row in connection.execute(
-                f"SELECT id, practice_item_id, attempt_type FROM practice_attempts WHERE id IN ({_marks(ids)})", ids,
-            )
-        }
+        withheld = protection.withheld_items(self.vault, self.repository)
+        for unknown in withheld.unknowns:
+            if unknown not in unknowns:
+                unknowns.append(unknown)
+        return withheld
 
     def _recent_work(
-        self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], pinned: Mapping[str, str],
-        titles: Mapping[str, str], withheld: frozenset[str] | None,
+        self, attempts: Sequence[Mapping[str, Any]], held: frozenset[str], past: PastWork, rule: CardText,
+        titles: Mapping[str, str],
     ) -> list[dict[str, Any]]:
         work: list[dict[str, Any]] = []
         for row in attempts[:RECENT_WORK_LIMIT]:
-            hidden = withheld is None or _exam_or_withheld(row, withheld)
+            # The shared protection, then the card's text rule: the pinned
+            # revision's question (never today's, review F6) and the answer.
+            shown = past_work_text(past, rule, row["id"], row["learning_object_id"], row.get("learner_answer_md"),
+                                   EXCERPT_LIMIT)
             status = row.get("reference_status")
             work.append({
                 "attempt_id": row["id"],
@@ -611,31 +555,16 @@ class CardGatherer:
                 "learning_object_id": row["learning_object_id"],
                 "topic": titles.get(row["learning_object_id"], row["learning_object_id"]),
                 "kind": row.get("practice_mode"),
-                "result": _result(row["correctness"], row["id"] in held),
+                "result": attempt_result(row["correctness"], row["id"] in held),
                 "hints_used": int(row.get("hints_used") or 0),
                 "assisted": bool(row.get("primed")),
                 "key_status": status if status in ("verified", "unverified") else None,
-                "withheld": _withheld_reason(hidden, withheld),
-                # The pinned revision's question, never today's (review F6).
-                "stem": None if hidden else pinned.get(str(row["id"])),
-                "stem_note": None if hidden or str(row["id"]) in pinned else "question revision not recorded",
-                "answer": None if hidden else (row.get("learner_answer_md") or None),
+                "withheld": shown.withheld,
+                "stem": shown.stem,
+                "stem_note": shown.stem_note,
+                "answer": shown.answer,
             })
         return work
 
 
-def _frozen_method(value: Any) -> Any:
-    """A contract's frozen ``required_method`` as ``json_extract`` returns it
-    (a JSON text for an object), or None."""
-
-    if isinstance(value, str):
-        import json
-
-        try:
-            value = json.loads(value)
-        except ValueError:
-            return None
-    return value if isinstance(value, Mapping) else None
-
-
-__all__ = ["CardGatherer", "RECENT_WORK_LIMIT"]
+__all__ = ["CardGatherer", "CardText", "RECENT_WORK_LIMIT"]

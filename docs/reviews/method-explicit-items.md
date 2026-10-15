@@ -76,6 +76,11 @@ to 199, head fixture `migration_head_199`).
 > `learnloop.vault.required_method.answered_prompt` (or read
 > `$.required_method` and use `presented_prompt`).
 > `learnloop.db.stores.answered_contracts` returns both fields.
+> **Applied at its landing (2026-10-15):** both readers now render the
+> pinned question through one function,
+> `learnloop.learner_protection.PinnedContract.question` (the frozen
+> statement, then the frozen method's sentence, whole within the limit by
+> `fit_presented_prompt`). See "Landing onto main" in `docs/reviews/mcp-c1a.md`.
 
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor

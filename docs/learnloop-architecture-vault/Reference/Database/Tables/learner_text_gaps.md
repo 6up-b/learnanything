@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 202
+schema_head: 203
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/field/signals.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
@@ -132,6 +133,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_decider_landing.py`
 - `tests/test_hypothesis_reference_contract.py`
 - `tests/test_learner_text_gaps.py`
@@ -139,6 +141,8 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps_flow.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_probability_cli.py`
 - `tests/test_tier1_decider.py`

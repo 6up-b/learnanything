@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/ingest/extractors/glm_ocr.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
+  - "tests/mcp_world.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_card_lineage.py"
   - "tests/test_causal_attribution_exhibit.py"
   - "tests/test_causal_factor_deferral.py"
-  - "tests/test_causal_probe_commissioning.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -73,6 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
+- `tests/mcp_world.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
@@ -82,7 +83,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_card_lineage.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_factor_deferral.py`
-- `tests/test_causal_probe_commissioning.py`
 
 ## Extension and modification guidance
 

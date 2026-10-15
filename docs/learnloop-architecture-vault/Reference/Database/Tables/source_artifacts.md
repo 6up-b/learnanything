@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 202
+schema_head: 203
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -121,6 +121,8 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
+- `src/learnloop/remote/sources.py`
+- `src/learnloop/remote/views.py`
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop_sidecar/handlers/first_run.py`
 - `src/learnloop_sidecar/handlers/ingest.py`

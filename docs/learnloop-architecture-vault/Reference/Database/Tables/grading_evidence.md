@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 202
+schema_head: 203
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,8 +25,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
-  - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -118,7 +118,6 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
-- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`
@@ -131,6 +130,7 @@ Indexes and uniqueness:
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/held_grades.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/substrate/canonical_projection.py`
 
@@ -166,6 +166,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
 - `tests/test_answer_signal_arms.py`
 - `tests/test_assumed_known.py`
@@ -179,13 +180,12 @@ Indexes and uniqueness:
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_field_split_outcomes.py`
 - `tests/test_learner_text_gaps.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_runtime.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_method_explicit_landing.py`
 - `tests/test_migrations.py`
-- `tests/test_mvp017_route_check_replay.py`
-- `tests/test_p0_projection_cutover.py`
-- `tests/test_pfc_unverified_unassessed.py`
-- `tests/test_probability_prep.py`
-- `tests/test_projection_evidence_polarity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

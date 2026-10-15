@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 202
+schema_head: 203
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
+  - "src/learnloop/learner_protection.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -126,6 +127,7 @@ Indexes and uniqueness:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
@@ -156,6 +158,7 @@ Indexes and uniqueness:
 
 - `tests/test_facet_outcome_view.py`
 - `tests/test_grade_resolution_pipeline.py`
+- `tests/test_mcp_c1a_landing.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probability_prep.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`

@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-202. Migration 167 adds the learner-field F1 read model
+203. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -123,14 +123,20 @@ the exact decision -> presentation -> attempt receipt) and
 `practice_attempts.plan_presentation_id` with its partial unique index; and
 adds `router_decision_payloads` (WORKFLOW: the learner-state card each
 decision stored).
-Built as a backup-API copy of `migration_head_201` (itself a backup-API copy
-of `migration_head_199` with only 200-201 applied, that of
-`migration_head_197` with only 198-199 applied, that of
-`migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 202 applied through
+Migration 203 comes from the chat frontend's C1a (`mcp/c1-read-context`, the
+MCP adapter; built there as 210, a placeholder number, and renumbered 203 at
+its landing after main's 202): it rebuilds `interaction_events` (same columns,
+rows and indexes) so its `kind` CHECK also accepts `chat_tool_call` (one row
+per MCP tool call a chat host made) and its `origin` CHECK also accepts
+`chat_host`.
+Built as a backup-API copy of `migration_head_202` (itself a backup-API copy
+of `migration_head_201` with only 202 applied, that of `migration_head_199`
+with only 200-201 applied, that of `migration_head_197` with only 198-199
+applied, that of `migration_head_195` with only 196-197 applied, and that of
+`migration_head_186` with 187-195 applied) with only 203 applied through
 `learnloop.db.migrate.apply_migrations` (checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean); `migration_head_201` was renamed to this
+`foreign_key_check` clean); `migration_head_202` was renamed to this
 directory. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.

@@ -40,6 +40,7 @@ from learnloop.cli.gaps import gaps_app
 from learnloop.cli.facets import facets_app
 from learnloop.cli.evsi import evsi_app
 from learnloop.cli.decider import decider_app
+from learnloop.cli.mcp import mcp_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(inbox_app, name="inbox")
@@ -81,6 +82,7 @@ app.add_typer(gaps_app, name="gaps")
 app.add_typer(decider_app, name="decider")
 app.add_typer(facets_app, name="facets")
 app.add_typer(evsi_app, name="evsi")
+app.add_typer(mcp_app, name="mcp")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

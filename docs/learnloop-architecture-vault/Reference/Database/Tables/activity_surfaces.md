@@ -3,13 +3,13 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
   - "table activity_surfaces"
-schema_head: 202
+schema_head: 203
 table_name: "activity_surfaces"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
-  - "src/learnloop/daily_plan/router_card.py"
+  - "src/learnloop/learner_protection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,8 +115,8 @@ Indexes and uniqueness:
 - `src/learnloop/cli/surfaces.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/curriculum/golden_path_assessment.py`
-- `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/staged_frame.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/substrate/activities.py`

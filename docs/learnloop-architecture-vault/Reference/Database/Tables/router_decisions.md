@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 202
+schema_head: 203
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -159,6 +159,7 @@ None found by exact static reference scan.
 - `tests/test_evsi_router_composition.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_learner_pick_proposal.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_mvp015_upgrade.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_mvp024_upgrade.py`
@@ -171,7 +172,6 @@ None found by exact static reference scan.
 - `tests/test_router_outcomes.py`
 - `tests/test_router_presentations.py`
 - `tests/test_router_probe_ties.py`
-- `tests/test_router_r1_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

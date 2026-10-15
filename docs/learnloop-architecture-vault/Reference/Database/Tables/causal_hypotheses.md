@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 202
+schema_head: 203
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -136,6 +136,8 @@ Database triggers:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/instructional/needs.py`
 - `src/learnloop/instructional/screen.py`
+- `src/learnloop/learner_context.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/recurrence_groups.py`
 
@@ -180,17 +182,17 @@ Database triggers:
 - `tests/test_diagnosis_history_modes.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_recurrence_benchmarks.py`
 - `tests/test_router_card.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/daily_plan_fakes.py`
+- `tests/mcp_world.py`
 - `tests/test_agent_runs.py`
-- `tests/test_attempt_ai_flow.py`
-- `tests/test_causal_attribution_p2.py`
-- `tests/test_causal_factor_deferral.py`
-- `tests/test_causal_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

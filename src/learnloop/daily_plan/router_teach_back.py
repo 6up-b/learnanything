@@ -42,6 +42,7 @@ import threading
 import time
 from typing import Any
 
+from learnloop import learner_protection as protection
 from learnloop.ai.schemas import WireModel
 
 LOG = logging.getLogger(__name__)
@@ -128,18 +129,20 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     """Summarize one graded teach-back attempt and store it; returns the stored summary.
 
     None (nothing sent) when the attempt is not a graded teach-back, its grade
-    is held for review (Codex review F2), it is exam or reserved material, or
-    its current grade is already summarized; a model failure is logged."""
+    is held for review (Codex review F2), it is protected work (the card's
+    protection, ``learner_protection``: exam or reserved material, a check
+    waiting, a probe, an item the vault cannot read; or protection that
+    cannot be read), or its current grade is already summarized; a model
+    failure is logged."""
 
     from learnloop.ai.transport import execute_structured_operation
-    from learnloop.daily_plan.router_card import CardGatherer
     from learnloop.daily_plan.router_runtime import LLM, SUMMARY_RECEIPT_OWNER, SpendRefused
     from learnloop.held_grades import attempt_grade_held
 
     with repository.connection() as connection:
         attempt = connection.execute(
-            "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, learner_answer_md, created_at "
-            "FROM practice_attempts WHERE id = ?", (attempt_id,),
+            "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, learner_answer_md, created_at, "
+            "probe_presentation_id FROM practice_attempts WHERE id = ?", (attempt_id,),
         ).fetchone()
         revision = grading_revision(connection, attempt_id)
     if attempt is None or attempt["attempt_type"] != "teach_back" or not (attempt["learner_answer_md"] or "").strip():
@@ -151,9 +154,11 @@ def summarize(vault: Any, repository: Any, attempt_id: str, *, runtime: Any) -> 
     key = f"{CACHE_PREFIX}{attempt_id}:{revision}"
     if repository.model_checkpoint(key) is not None:
         return None
-    unknowns: list[str] = []
-    withheld = CardGatherer(vault, repository)._withheld_items(unknowns)
-    if withheld is None or str(attempt["practice_item_id"]) in withheld:
+    # The card's protection, shared with the chat frontend (learner_protection):
+    # protected work, or protection that cannot be read, is never summarized.
+    withheld = protection.withheld_items(vault, repository)
+    if protection.attempt_protection(withheld, {"item": attempt["practice_item_id"], "type": attempt["attempt_type"],
+                                                "probe": attempt["probe_presentation_id"]}):
         return None
     learning_object = vault.learning_objects.get(attempt["learning_object_id"])
     topic = learning_object.title if learning_object is not None else str(attempt["learning_object_id"])
@@ -236,7 +241,7 @@ def schedule(vault: Any, sqlite_path: Any, attempt_id: str, *, runtime: Any = No
 
 
 def summaries_for(connection: Any, learning_object_ids: Sequence[str], *, before: str,
-                  withheld: frozenset[str] | None, titles: Mapping[str, str]) -> list[dict[str, Any]]:
+                  withheld: protection.Withheld, titles: Mapping[str, str]) -> list[dict[str, Any]]:
     """The card's typed evidence: summaries of teach-backs on these topics, made before ``before``.
 
     A summary is read only while its attempt's grade is not held for review
@@ -246,7 +251,7 @@ def summaries_for(connection: Any, learning_object_ids: Sequence[str], *, before
 
     from learnloop.held_grades import held_for_review_attempts
 
-    if not learning_object_ids or withheld is None:
+    if not learning_object_ids or not withheld.available:
         return []
     wanted = set(learning_object_ids)
     found = []
@@ -259,7 +264,7 @@ def summaries_for(connection: Any, learning_object_ids: Sequence[str], *, before
             continue
         if summary.get("learning_object_id") not in wanted or str(summary.get("at") or "") >= before:
             continue
-        if str(summary.get("practice_item_id")) in withheld:
+        if withheld.reason(str(summary.get("practice_item_id") or "")):
             continue
         found.append(summary)
     held = held_for_review_attempts(connection, [str(summary.get("attempt_id")) for summary in found])

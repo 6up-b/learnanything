@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 202
+schema_head: 203
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -102,6 +102,7 @@ Database triggers:
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/instructional/exposure.py`
+- `src/learnloop/learner_context.py`
 - `src/learnloop/practice_index/retrieval.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/substrate/intervention_outcomes.py`
@@ -129,6 +130,7 @@ Database triggers:
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_find_sources_intents.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_router_coldness_covariates.py`
@@ -142,7 +144,6 @@ Database triggers:
 - `tests/test_quick_check.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_scheduler.py`
-- `tests/test_sidecar_remediation_surfaces.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

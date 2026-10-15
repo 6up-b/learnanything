@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 202
+schema_head: 203
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/evsi_calibration/live_report.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
@@ -141,8 +142,11 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_c1a_review.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
@@ -158,9 +162,6 @@ Indexes and uniqueness:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_conjunctive_instruments.py`
-- `tests/test_daily_plan_owner_decisions.py`
-- `tests/test_diagnosis_async_router.py`
-- `tests/test_diagnosis_card.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

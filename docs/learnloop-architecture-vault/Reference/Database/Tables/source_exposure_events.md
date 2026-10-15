@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 202
+schema_head: 203
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/instructional/interventions.py"
-  - "src/learnloop/router/outcomes.py"
+  - "src/learnloop/remote/telemetry.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
 tags:
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/reader/span_view.py`
+- `src/learnloop/remote/telemetry.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -124,6 +125,8 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_restoration.py`
 - `tests/test_retrieval_interventions_write_points.py`

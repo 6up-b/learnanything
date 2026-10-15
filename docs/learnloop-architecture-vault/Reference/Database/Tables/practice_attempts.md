@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 202
+schema_head: 203
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -214,6 +214,8 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
 - `src/learnloop/instructional/valuation.py`
+- `src/learnloop/learner_context.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/ops/pf_reports.py`
@@ -221,6 +223,7 @@ Indexes and uniqueness:
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/practice_index/retrieval.py`
+- `src/learnloop/remote/views.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 - `src/learnloop/substrate/data_quality.py`
@@ -263,6 +266,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/daily_plan_fakes.py`
+- `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_answer_calibration_duel.py`
@@ -281,7 +285,6 @@ Indexes and uniqueness:
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_discriminating_search.py`
 - `tests/test_duration_estimates.py`
-- `tests/test_embedding_compare.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

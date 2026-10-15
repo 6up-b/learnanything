@@ -3,13 +3,13 @@ title: "scheduler_offer_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_offer_receipts"
   - "table scheduler_offer_receipts"
-schema_head: 202
+schema_head: 203
 table_name: "scheduler_offer_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -103,6 +103,7 @@ None found by exact static reference scan.
 - `tests/test_collection_dataset.py`
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_router_offer_log.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

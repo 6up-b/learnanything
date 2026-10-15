@@ -3,8 +3,8 @@ title: "Config - ai"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ai"
@@ -39,9 +39,9 @@ source_paths:
   - "tests/embedding_fakes.py"
   - "tests/facet_identity_fakes.py"
   - "tests/helpers.py"
+  - "tests/mcp_world.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
-  - "tests/pf_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ai"
@@ -305,9 +305,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/embedding_fakes.py`
 - `tests/facet_identity_fakes.py`
 - `tests/helpers.py`
+- `tests/mcp_world.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
-- `tests/pf_fakes.py`
 
 ## Extension and modification guidance
 

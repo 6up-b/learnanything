@@ -3,13 +3,13 @@ title: "diagnostic_augmentation_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_augmentation_receipts"
   - "table diagnostic_augmentation_receipts"
-schema_head: 202
+schema_head: 203
 table_name: "diagnostic_augmentation_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_diagnosis_pipeline.py`

@@ -3,13 +3,13 @@ title: "learner_text_gap_reversals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_reversals"
   - "table learner_text_gap_reversals"
-schema_head: 202
+schema_head: 203
 table_name: "learner_text_gap_reversals"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/stores/learner_gaps.py"
   - "src/learnloop/field/signals.py"
+  - "src/learnloop/learner_context.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -91,6 +92,7 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/stores/learner_gaps.py`
 - `src/learnloop/field/signals.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
@@ -105,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_mvp016_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

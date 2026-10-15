@@ -3,13 +3,13 @@ title: "misconception_disposition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_disposition_events"
   - "table misconception_disposition_events"
-schema_head: 202
+schema_head: 203
 table_name: "misconception_disposition_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
+  - "src/learnloop/learner_context.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
@@ -102,6 +103,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 

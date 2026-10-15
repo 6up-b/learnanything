@@ -3,13 +3,13 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
   - "table misconceptions"
-schema_head: 202
+schema_head: 203
 table_name: "misconceptions"
 table_role: "workflow"
 functionality_status: "active"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
@@ -154,6 +155,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
@@ -170,10 +172,9 @@ Indexes and uniqueness:
 - `tests/test_km4_taxonomy.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_matching.py`
-- `tests/test_migrations.py`
-- `tests/test_misconception_registry.py`
-- `tests/test_p2_acceptance.py`
-- `tests/test_prescription_passages.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_tools.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

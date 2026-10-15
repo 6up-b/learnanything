@@ -3,13 +3,13 @@ title: "hypothesis_recurrence_groups"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_recurrence_groups"
   - "table hypothesis_recurrence_groups"
-schema_head: 202
+schema_head: 203
 table_name: "hypothesis_recurrence_groups"
 table_role: "derived"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/176_recurrence_groups.sql"
   - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/learner_context.py"
   - "src/learnloop/scheduling/unresolved_cost.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
@@ -83,6 +84,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/learner_context.py`
 - `src/learnloop/scheduling/unresolved_cost.py`
 
 ### Direct SQL writers
@@ -98,6 +100,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
+- `tests/test_mcp_c1a_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recurrence_live.py`
 

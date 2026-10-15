@@ -3,13 +3,13 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
   - "table misconception_candidates"
-schema_head: 202
+schema_head: 203
 table_name: "misconception_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/text_gaps/candidates.py`
+- `src/learnloop/learner_context.py`
 
 ### Direct SQL writers
 
@@ -136,7 +137,11 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_mcp_c1a_narrow.py`
+- `tests/test_mcp_c1a_review.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`

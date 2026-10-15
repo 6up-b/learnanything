@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 202
+schema_head: 203
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/learner/session_learning_diff.py`
+- `src/learnloop/remote/views.py`
 - `src/learnloop/scheduling/reentry_adapter.py`
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop/scheduling/session_minutes.py`
@@ -142,13 +143,13 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_init.py`
+- `tests/test_mcp_tools.py`
 - `tests/test_mobile_doctor.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_plan_determinism_landing.py`
 - `tests/test_probability_prep.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_router_outcomes.py`
-- `tests/test_router_presentations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

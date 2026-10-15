@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 202
+schema_head: 203
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/instructional/policy.py`
+- `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/context.py`
@@ -147,8 +148,11 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_mcp_c1a_landing.py`
+- `tests/test_mcp_c1a_review.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_router_r2a_serving.py`
 - `tests/test_voi_forecasts.py`
@@ -164,8 +168,6 @@ Indexes and uniqueness:
 - `tests/test_pfc_unassessed_readers.py`
 - `tests/test_practice_index_admission.py`
 - `tests/test_quick_check.py`
-- `tests/test_reveal_ledger.py`
-- `tests/test_scheduler.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -10,6 +10,7 @@ only where the mixture serves.
 
 from __future__ import annotations
 
+from learnloop import learner_protection as protection
 from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.daily_plan import router_teach_back as tb
 from learnloop.daily_plan.router_card import CardGatherer
@@ -108,9 +109,12 @@ def test_exam_or_reserved_work_is_never_summarized(tmp_path, monkeypatch):
     calls: list = []
     runtime = fake_runtime(llm=_summary_llm(calls))
     env = mixture_env(tmp_path, runtime, items=_wide_items())
-    monkeypatch.setattr(CardGatherer, "_withheld_items", lambda self, unknowns: frozenset({"pi_m1a"}))
+    # The card's protection, shared with the chat frontend (learner_protection).
+    monkeypatch.setattr(protection, "withheld_items",
+                        lambda vault, repository: protection.Withheld(reasons={"pi_m1a": protection.WITHHELD_EXAM}))
     assert tb.summarize(env.vault, env.repository, _teach_back(env), runtime=runtime) is None
-    monkeypatch.setattr(CardGatherer, "_withheld_items", lambda self, unknowns: None)
+    monkeypatch.setattr(protection, "withheld_items",
+                        lambda vault, repository: protection.Withheld(available=False))
     assert tb.summarize(env.vault, env.repository, _teach_back(env, attempt_id="att_tb_2"), runtime=runtime) is None
     assert calls == []
 

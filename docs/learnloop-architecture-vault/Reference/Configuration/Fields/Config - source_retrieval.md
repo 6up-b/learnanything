@@ -3,8 +3,8 @@ title: "Config - source_retrieval"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_retrieval"
@@ -26,9 +26,11 @@ source_paths:
   - "src/learnloop/source_retrieval/tutor.py"
   - "src/learnloop/cli/sources.py"
   - "src/learnloop/source_retrieval/suggest.py"
+  - "src/learnloop/remote/sources.py"
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/source_retrieval/queries.py"
   - "src/learnloop/source_retrieval/verify.py"
+  - "tests/mcp_world.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -40,7 +42,6 @@ source_paths:
   - "tests/test_capture_domain.py"
   - "tests/test_capture_originals_race.py"
   - "tests/test_causal_probe_commissioning.py"
-  - "tests/test_certification_cold_probe.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -71,7 +72,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `source_retrieval.pool` | `"dense_plus_bm25"` | string | modeled default or validator seed | Controls pool in Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2309`; `src/learnloop/source_retrieval/search.py:396` |
 | `source_retrieval.pool_keyword_extras` | `4` | integer | modeled default or validator seed | Controls pool keyword extras in Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2310`; `src/learnloop/source_retrieval/evaluation.py:760`; `src/learnloop/source_retrieval/search.py:408` |
 | `source_retrieval.suggest_learning_objects` | `true` | boolean | modeled default or validator seed | Offer a nearest-LO suggestion, labelled as one, for a reader span with no provenance-linked learning object; it is never written as a candidate or promotion target. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2312`; `src/learnloop/source_retrieval/suggest.py:108` |
-| `source_retrieval.llm_price_per_million` | `null` | nullable | modeled default or validator seed | USD per million tokens for metered rewrite and rerank routes; without it those steps are skipped. Codex routes run on the subscription and need no price. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2315`; `src/learnloop/source_retrieval/find_sources.py:408`; `src/learnloop/source_retrieval/library.py:193` |
+| `source_retrieval.llm_price_per_million` | `null` | nullable | modeled default or validator seed | USD per million tokens for metered rewrite and rerank routes; without it those steps are skipped. Codex routes run on the subscription and need no price. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2315`; `src/learnloop/remote/sources.py:320`; `src/learnloop/source_retrieval/find_sources.py:486` |
 | `source_retrieval.rewrite_max_cost_usd` | `0.15` | number | modeled default or validator seed | Dollar cap for one live query rewrite (one call and one retry), checked before the request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2318`; `src/learnloop/source_retrieval/queries.py:110` |
 | `source_retrieval.rerank_max_cost_usd` | `0.3` | number | modeled default or validator seed | Dollar cap for one live tutor-span verification (one call and one retry), checked before sending. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2319`; `src/learnloop/source_retrieval/verify.py:226` |
 | `source_retrieval.query_embedding_price_per_million` | `null` | nullable | modeled default or validator seed | USD per million input tokens for query embeddings when embedding.model has no published estimate; without it dense retrieval is skipped. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2322`; `src/learnloop/source_retrieval/library.py:104`; `src/learnloop/source_retrieval/queries.py:212` |
@@ -88,6 +89,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/mcp_world.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -99,7 +101,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_capture_domain.py`
 - `tests/test_capture_originals_race.py`
 - `tests/test_causal_probe_commissioning.py`
-- `tests/test_certification_cold_probe.py`
 
 ## Extension and modification guidance
 

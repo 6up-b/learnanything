@@ -3,8 +3,8 @@ title: "Config - recall_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recall_coverage"
@@ -33,6 +33,7 @@ source_paths:
   - "tests/daily_plan_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
+  - "tests/mcp_world.py"
   - "tests/openai_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_activity_backfill.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_agent_run_tokens.py"
   - "tests/test_ai_config.py"
   - "tests/test_anchor_resolution.py"
-  - "tests/test_answer_calibration_duel.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recall-coverage"
@@ -164,6 +164,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/daily_plan_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
+- `tests/mcp_world.py`
 - `tests/openai_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_activity_backfill.py`
@@ -172,7 +173,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_agent_run_tokens.py`
 - `tests/test_ai_config.py`
 - `tests/test_anchor_resolution.py`
-- `tests/test_answer_calibration_duel.py`
 
 ## Extension and modification guidance
 

@@ -133,7 +133,7 @@ def test_g5_no_reference_reserved_stem_exam_text_or_held_score_reaches_the_card(
     assert OWN_ANSWER in text and work["att_ref"]["answer"] == OWN_ANSWER
     # Exam work keeps its result, with no question and no answer.
     assert work["att_exam"]["stem"] is None and work["att_exam"]["answer"] is None
-    assert work["att_exam"]["withheld"] == "exam or reserved material"
+    assert work["att_exam"]["withheld"] == "exam or held-out material"
     assert work["att_exam2"]["result"] == "correct" and work["att_exam2"]["answer"] is None
     # A held grade is "held for review", never a score.
     assert work["att_held"]["result"] == "held_for_review"
@@ -157,7 +157,8 @@ def test_the_exam_predicate_failing_withholds_every_question_and_answer(tmp_path
     _row, payload = _stored_card(env)
     card = json.loads(payload["content_json"])
     assert all(entry["stem"] is None and entry["answer"] is None for entry in card["recent_work"])
-    assert any("exam material could not be read" in unknown for unknown in card["unknowns"])
+    assert any("which material is protected could not be read" in unknown for unknown in card["unknowns"])
+    assert all(entry["withheld"] == "the protection rules could not be read" for entry in card["recent_work"])
     assert OWN_ANSWER not in payload["content_text"]
 
 

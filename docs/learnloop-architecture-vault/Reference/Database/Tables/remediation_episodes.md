@@ -3,13 +3,13 @@ title: "remediation_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite remediation_episodes"
   - "table remediation_episodes"
-schema_head: 202
+schema_head: 203
 table_name: "remediation_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,6 +22,8 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/learner_context.py"
+  - "src/learnloop/learner_protection.py"
   - "src/learnloop_sidecar/handlers/remediation.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -106,6 +108,8 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/learner_context.py`
+- `src/learnloop/learner_protection.py`
 
 ### Direct SQL writers
 
@@ -127,6 +131,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/mcp_world.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_common_repair_delivery.py`
