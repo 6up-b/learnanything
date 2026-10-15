@@ -3,8 +3,8 @@ title: "hypothesis_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "ae06ee39f8305ba7079e1585b9372f3029ef7edf"
+source_commit_timestamp: "2026-10-15T16:19:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_events"
@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_hypothesis_claim_dispatcher.py`
 - `tests/test_surfaced_belief_corrections.py`
+- `tests/test_ux_phase4_feedback.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

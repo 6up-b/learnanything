@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "ae06ee39f8305ba7079e1585b9372f3029ef7edf"
+source_commit_timestamp: "2026-10-15T16:19:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -172,6 +172,7 @@ Indexes and uniqueness:
 - `Repository.retention_label_rows()`
 - `Repository.review_session_rows()`
 - `Repository.session_attempt_counts()`
+- `Repository.session_attempt_rows()`
 - `Repository.session_learner_answers()`
 - `Repository.update_attempt_grade()`
 
