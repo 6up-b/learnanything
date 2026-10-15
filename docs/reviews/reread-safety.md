@@ -105,7 +105,7 @@ A pair of readings with nothing recorded (a re-read made by an older build) is c
 | Saved reading place (desktop `localStorage`) | stored as `{extractionId, spanId}`. A place saved on another reading, or a bare legacy span id once the book was read again, is translated by `reader.saved_place`. "This book was read again: you're near where you left off." when approximate; the reading history resumes when stale |
 | **Source conflicts** (`list_source_conflicts`, Maintenance "open in source") | **new in this round:** the screen opened the revision's latest reading with the locator's span id. Each side now resolves through `span_aliases.locator_key`, and the screen opens the span the sidecar names |
 | **Margin cues** (RW3a, `reader_cues`) | **new in this round:** only a passage whose cited words are there gets a margin mark. A flagged passage stays in the rail, flagged |
-| Exam material (`exam_material`) | unchanged, and already safe: marks are read on every reading, by label, failing closed |
+| Exam material (`exam_material`) | held-out marks are read on every reading, by label, failing closed. **Not safe as first claimed** (Codex review F1, F2; fixed in `reread-safety-codex-review.md`): a source-set exam scope's reused unit id and a held-out inventory signal's old span id resolved on the latest reading |
 
 Until all this was in, the card asked before re-reading. It still does for any book with study state: a confirmation names the pages, the cost and what moves to the new reading, with "Read it again" and "Not now". It also asks when z.ai would read the book with its OK already given, since then no OK line would show the cost.
 
@@ -210,9 +210,9 @@ None of these books holds held-out exam material (`exam_use_modes` `{}`), so the
 
 ## Residual and open questions
 
-1. **Old blocks in library search.** Both readings' blocks stay in `source_block_fts`, so library search can still hit the old reading. Search opens the hit on its own reading, which is the right text, but it is not the Reader's current reading. Should search scope to current readings? (Not in this stage's items.)
-2. **Exam-unit scopes on source sets.** A source-set member's `role_override: exam` scope names unit ids of its pinned revision's reading. After a re-read the pinned reading is the new one, so an old unit id doesn't resolve and the whole reading becomes exam material (fail closed, never released). It over-protects until the set is edited. The owner's books have no such scopes.
-3. **Links aren't given successor rows.** They resolve through the alias table (the report's alternative to successor rows) and are left pinned, YAML locators included. Doctor's `links_on_old_reading` counts what still needs placing. No action places them again yet, beyond annotations' own re-anchor and the Guide's flags.
+1. **Old blocks in library search.** Both readings' blocks stay in `source_block_fts`, but library search's scope (`corpus.library_scope`) is the books' current readings only, so it never hits an old reading (Codex review: the premise did not hold). What remained was a hit found before a re-read completed and opened after it; it now carries its reading (Codex review F8).
+2. **Exam-unit scopes on source sets.** Corrected by Codex review F1: a reused unit id resolved (to another unit) instead of failing, so the exam material was released. Every completed reading of the pinned revision is now a possible origin of the scope and each interpretation is withheld (`reread-safety-codex-review.md`). Over-protective until the scope records its reading.
+3. **Links aren't given successor rows.** They resolve through the alias table (the report's alternative to successor rows) and are left pinned, YAML locators included. Doctor's `links_on_old_reading` counts what still needs placing. Still open (Codex review confirmed): no action places them again; annotations have their re-anchor action, the Guide shows moved passages flagged, and stale links simply don't show.
 4. **Desktop reference.** `docs/learnloop-architecture-vault/_scripts/desktop_validate.py` fails on main too: `apps/learnloop-tauri/src/copy/denyList.ts`, from UX Phase 1, is unclassified. Not touched here.
 
 ## Gate
