@@ -3,8 +3,8 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7efb7664be3f2dd41be0568e28c27d8e3e3e3a32"
-source_commit_timestamp: "2026-10-14T15:55:29-04:00"
+source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
+source_commit_timestamp: "2026-10-14T20:18:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
@@ -97,6 +98,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/outcomes.py`
 
@@ -128,6 +130,7 @@ Database triggers:
 - `tests/test_predictive_eig.py`
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
+- `tests/test_required_method_round3_review.py`
 - `tests/test_tutor_promotion_service.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
