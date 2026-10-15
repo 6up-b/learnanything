@@ -151,7 +151,9 @@ def test_receipts_name_the_provider_model_and_answering_model(server):
 def test_capabilities_isolated_tool_free_and_bounded(server):
     client = _client(server)
     assert client.supports(ISOLATED_TURN) and client.supports(BOUNDED_STRUCTURED_COMPLETION)
-    assert not client.supports(READ_ONLY_WORKSPACE)
+    # A read-only workspace is served by LearnLoop (test_chatgpt_plan_workspace.py);
+    # every other request declares no tools.
+    assert client.supports(READ_ONLY_WORKSPACE)
     assert isolation_mode(client) == ("tool_free", None)
     server.replies.append(Reply(events=completed_events('{"ok": true, "note": "iso"}')))
     assert _ask(client, isolated=True).note == "iso"

@@ -10,9 +10,14 @@ contract the client must satisfy (developers.openai.com/siwc):
   ``resource``, issued client id; refresh tokens rotate and a reused one is
   ``invalid_grant``) and revocation;
 * **inference**: ``POST /v1/responses`` requires the current bearer token,
-  ``store: false``, ``stream: true``, no unsupported field, no tools and no
-  ``role: system`` item, and answers with a scripted SSE stream;
-  ``GET /v1/models`` lists models.
+  ``store: false``, ``stream: true``, no unsupported field and no ``role:
+  system`` item, and answers with a scripted SSE stream; ``GET /v1/models``
+  lists models. Tools must be function tools grouped in a namespace (no
+  hosted tool, no top-level function; preview-limitations, re-read
+  2026-10-15). A tool round's history must be self-contained with ``store:
+  false``: no input item carries a stored id, a reasoning item carries its
+  ``encrypted_content`` (asked for with ``include``), and every function call
+  has exactly one ``function_call_output`` after it, and every output a call.
 
 ``complete_browser_flow`` plays the browser: it opens the authorization URL
 and follows the redirect to the client's loopback listener. Nothing leaves
@@ -44,8 +49,14 @@ DOCUMENTED_UNSUPPORTED_FIELDS = frozenset({
     "multi_agent", "prompt", "prompt_cache_retention", "safety_identifier", "temperature",
     "top_logprobs", "top_p", "truncation", "user", "previous_response_id",
 })
-#: LearnLoop's own rule on top: its plan transport is tool-free.
-REFUSED_FIELDS = DOCUMENTED_UNSUPPORTED_FIELDS | {"tools", "tool_choice"}
+#: LearnLoop's own rule on top: it never sends ``tool_choice``. (``tools`` is
+#: checked separately: namespaced function tools only.)
+REFUSED_FIELDS = DOCUMENTED_UNSUPPORTED_FIELDS | {"tool_choice"}
+#: Hosted tool types the route does not support (preview-limitations).
+HOSTED_TOOL_TYPES = frozenset({
+    "image_generation", "file_search", "code_interpreter", "computer_use_preview", "computer", "mcp",
+    "tool_search", "web_search", "web_search_preview",
+})
 
 PLAN_SCOPES = "chatgpt.tokens.use.direct email offline_access openid profile resource.invoke"
 IDENTITY_SCOPES = "email openid profile"
@@ -161,6 +172,47 @@ def completed_events(text: str, *, model: str = "gpt-test-2026-10-01", usage: di
     return events
 
 
+def tool_call_events(calls: list[tuple[str, Any]], *, namespace: str | None = "workspace",
+                     response_id: str = "resp_tools", call_prefix: str = "call", encrypted: bool = True,
+                     usage: dict[str, Any] | None = None, model: str = "gpt-test-2026-10-01",
+                     in_terminal_output: bool = True) -> list[dict[str, Any]]:
+    """A response that calls functions: a reasoning item, then one ``function_call`` per entry.
+
+    ``calls`` holds ``(name, arguments)``; a dict is JSON-encoded, a string is
+    sent as is (so a test can send malformed arguments). Items are streamed as
+    ``response.output_item.done`` and, unless ``in_terminal_output`` is False,
+    repeated in the terminal response's ``output``.
+    """
+
+    usage = usage if usage is not None else {
+        "input_tokens": 400, "input_tokens_details": {"cached_tokens": 100},
+        "output_tokens": 60, "output_tokens_details": {"reasoning_tokens": 40}, "total_tokens": 460,
+    }
+    response = {"id": response_id, "object": "response", "status": "in_progress", "model": model}
+    reasoning: dict[str, Any] = {"type": "reasoning", "id": f"rs_{response_id}", "summary": []}
+    if encrypted:
+        reasoning["encrypted_content"] = f"enc-{response_id}"
+    output: list[dict[str, Any]] = [reasoning]
+    for index, (name, arguments) in enumerate(calls):
+        item: dict[str, Any] = {
+            "type": "function_call", "id": f"fc_{response_id}_{index}", "status": "completed",
+            "call_id": f"{call_prefix}_{response_id}_{index}", "name": name,
+            "arguments": arguments if isinstance(arguments, str) else json.dumps(arguments),
+        }
+        if namespace is not None:
+            item["namespace"] = namespace
+        output.append(item)
+    events: list[dict[str, Any]] = [{"type": "response.created", "response": response}]
+    for index, item in enumerate(output):
+        events.append({"type": "response.output_item.added", "output_index": index, "item": {**item, "arguments": ""}
+                       if item["type"] == "function_call" else item})
+        events.append({"type": "response.output_item.done", "output_index": index, "item": item})
+    events.append({"type": "response.completed", "response": {
+        **response, "status": "completed", "usage": usage, "output": output if in_terminal_output else [],
+    }})
+    return events
+
+
 def failed_events(code: str, message: str = "failed", *, after_deltas: str = "") -> list[dict[str, Any]]:
     response = {"id": "resp_failed", "status": "in_progress", "model": "gpt-test-2026-10-01"}
     events: list[dict[str, Any]] = [{"type": "response.created", "response": response}]
@@ -178,9 +230,12 @@ class Reply:
 
     def __init__(self, *, events: list[dict[str, Any]] | None = None, status: int = 200,
                  body: Any = None, delay: float = 0.0, stall: float = 0.0, truncate: bool = False,
-                 headers: dict[str, str] | None = None, chunked: bool = False) -> None:
+                 headers: dict[str, str] | None = None, chunked: bool = False,
+                 respond: Callable[[dict[str, Any]], list[dict[str, Any]]] | None = None) -> None:
         self.chunked = chunked
         self.events = events or []
+        #: Builds the events from the request body (a reply that depends on what was served).
+        self.respond = respond
         self.status = status
         self.body = body
         self.delay = delay
@@ -209,6 +264,8 @@ class FakeChatGPT:
         self.deny = False
         self.callback_error: str | None = None
         self.replies: deque[Reply] = deque()
+        #: Builds the reply from the request body when no scripted reply is queued.
+        self.default_reply: Callable[[dict[str, Any]], Reply] | None = None
         self.requests: list[dict[str, Any]] = []
         self.token_requests: list[dict[str, str]] = []
         self.authorize_requests: list[dict[str, str]] = []
@@ -379,7 +436,19 @@ class FakeChatGPT:
                 if any(isinstance(item, dict) and item.get("role") == "system" for item in body.get("input", [])):
                     self._json(400, {"error": {"code": "invalid_request", "message": "system items rejected"}})
                     return
-                reply = fake.replies.popleft() if fake.replies else Reply(events=completed_events('{"ok": true}'))
+                problem = _tool_problem(body)
+                if problem is not None:
+                    code, param, message = problem
+                    self._json(400, {"error": {"code": code, "message": message, "param": param}})
+                    return
+                if fake.replies:
+                    reply = fake.replies.popleft()
+                elif fake.default_reply is not None:
+                    reply = fake.default_reply(body)
+                else:
+                    reply = Reply(events=completed_events('{"ok": true}'))
+                if reply.respond is not None:
+                    reply.events = reply.respond(body)
                 if reply.delay:
                     time.sleep(reply.delay)
                 if reply.status != 200:
@@ -461,6 +530,66 @@ class FakeChatGPT:
     def close(self) -> None:
         self._server.shutdown()
         self._server.server_close()
+
+
+def _tool_problem(body: dict[str, Any]) -> tuple[str, str, str] | None:
+    """``(code, param, message)`` when the body breaks the plan route's tool contract."""
+
+    tools = body.get("tools")
+    if tools is not None:
+        if not isinstance(tools, list):
+            return "invalid_request", "tools", "tools must be a list"
+        for tool in tools:
+            kind = tool.get("type") if isinstance(tool, dict) else None
+            if kind in HOSTED_TOOL_TYPES:
+                return "subscription_sharing_unsupported_capability", "tools", f"hosted tool {kind} is unsupported"
+            if kind != "namespace":
+                return ("subscription_sharing_unsupported_capability", "tools",
+                        "group function tools in a namespace or supply them through additional_tools")
+            for function in tool.get("tools") or []:
+                if not isinstance(function, dict) or function.get("type") != "function":
+                    return "subscription_sharing_unsupported_capability", "tools", "namespaces hold function tools"
+                parameters = function.get("parameters") or {}
+                if function.get("strict") and (parameters.get("additionalProperties") is not False or
+                                               set(parameters.get("required") or []) != set(parameters.get("properties") or {})):
+                    return "invalid_request", "tools", "strict function schemas need every property required"
+        if "reasoning.encrypted_content" not in (body.get("include") or []):
+            return "invalid_request", "include", "a tool round with store=false must include reasoning.encrypted_content"
+    calls: dict[str, int] = {}
+    answered: dict[str, int] = {}
+    for item in body.get("input") or []:
+        if not isinstance(item, dict):
+            continue
+        if "id" in item:
+            return ("invalid_request", "input", f"Item with id {item['id']!r} not found. Items are not persisted "
+                    "when `store` is set to false.")
+        kind = item.get("type")
+        if kind == "reasoning" and not item.get("encrypted_content"):
+            return "invalid_request", "input", "a reasoning item needs encrypted_content when store is false"
+        if kind == "reasoning" and ("summary" not in item or "content" in item):
+            return "invalid_request", "input", "a reasoning input item takes summary and encrypted_content"
+        if kind == "function_call":
+            if tools is None:
+                return "invalid_request", "tools", "a function call in input needs its tool declared"
+            calls[str(item.get("call_id"))] = calls.get(str(item.get("call_id")), 0) + 1
+        elif kind == "function_call_output":
+            call_id = str(item.get("call_id"))
+            if call_id not in calls:
+                return "invalid_request", "input", f"No tool call found for function call output with call_id {call_id}."
+            answered[call_id] = answered.get(call_id, 0) + 1
+            if not isinstance(item.get("output"), str):
+                return "invalid_request", "input", "function_call_output.output must be a string"
+    missing = sorted(call_id for call_id in calls if answered.get(call_id) != 1)
+    if missing:
+        return "invalid_request", "input", f"No tool output found for function call {missing[0]}."
+    return None
+
+
+def served_outputs(body: dict[str, Any]) -> list[str]:
+    """The ``function_call_output`` texts a request carries, in order."""
+
+    return [item["output"] for item in body.get("input") or []
+            if isinstance(item, dict) and item.get("type") == "function_call_output"]
 
 
 @contextmanager
