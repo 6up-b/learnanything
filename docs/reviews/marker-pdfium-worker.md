@@ -138,7 +138,19 @@ Final numbers, after the shutdown fix:
 
 ## Gate
 
-To be filled in from the gate runs on the final commit.
+The code was gated at `9ad76b0f4`; the commit after it changes this file only. No network: `uv` ran `--offline`, and `uv run --no-sync` keeps the pypdfium2 that `uv pip install` added. `TMPDIR` was the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --offline --extra dev --extra mobile`, then `uv pip install --offline pypdfium2` | done (pypdfium2 5.14.0) |
+| `uv run --no-sync lint-imports --no-cache` | **17 kept, 0 broken** |
+| `tests/test_marker_pdfium_worker.py` | **9 passed**, 5 runs out of 5 |
+| Ingest and Reader files together (`test_glm_ocr`, `test_pdf_extraction`, `test_pdf_extractor_selection`, `test_source_layer`, `test_span_view`, `test_sidecar_span_view`, `test_sidecar_reader_pdf_view`, `test_reader_render_views`, the source-ingestion, ingest-runner, ingest-jobs and sidecar-reader files, `test_sqlite_file_copies`) | **353 passed** |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11,532 passed**, 0 failed, 0 skipped (797.6 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **100 passed**, 11,432 deselected (195.3 s) |
+| `db_generate_reference.py` then `db_validate_reference.py` | `errors: []`. The one note whose content changed is committed: `Config - ingest.md`, for the moved `pdf_extraction.py` line citations. Provenance-only churn, and two notes whose capped test lists now name `tests/marker_fakes.py`, are left for the landing. |
+| `validate_vault.py` | passed: 1,106 notes, all reachable |
+| Frontend, `src-tauri`, schema | unchanged: no npm, cargo or migration steps |
 
 ## Files
 
