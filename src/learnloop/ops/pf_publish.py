@@ -137,8 +137,10 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     publication judgment of the stem (:func:`variant_method_verdict`):
     ``contradicts`` refuses (:class:`VariantContradictsRequiredMethod`), a
     missing one refuses too (:class:`RequiredMethodUnjudged`), and only a
-    ``consistent`` stem gains the canonical sentence. The stem's phrasing is
-    never read here (redesign 2026-10-14).
+    ``consistent`` stem is published, inheriting the parent's required method
+    (its instruction is rendered from that field; the stem is stored as
+    generated, round 3). The stem's phrasing is never read here (redesign
+    2026-10-14).
     """
 
     payload = json.loads(row["payload_json"])
@@ -494,6 +496,14 @@ def judge_variant_stem(vault: LoadedVault, repository: Repository, row: Mapping[
     method = getattr(parent, "required_method", None)
     if method is None:
         return None
+    # Method-explicit-3 review F6: a verdict already ledgered is read before
+    # any judge is resolved, so recovering a job whose every verdict is
+    # recorded (a crash after the last judgment, before publication) never
+    # depends on a judge being available; only a missing verdict needs one.
+    with repository.connection() as connection:
+        known = variant_method_verdict(connection, row, parent)
+    if known is not None:
+        return known
     judge = as_lazy(method_judge).get()
     if judge is None:
         return None

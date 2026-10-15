@@ -44,6 +44,7 @@ from learnloop.diagnosis.split.history import (
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 PLANTED_PROMPT_VERSION = "planted-scenario-v1"
 SHAPES = ("changed_cause", "paraphrased_recurrence", "same_answer_different_cause")
@@ -323,7 +324,8 @@ def _item_payload(vault: LoadedVault, item: PracticeItem) -> dict[str, Any]:
     return {
         "practice_item_id": item.id,
         "learning_object_id": item.learning_object_id,
-        "prompt": item.prompt,
+        # The question as presented (method-explicit-3 review F4).
+        "prompt": presented_prompt(item.prompt, item.required_method),
         "expected_answer": expected if isinstance(expected, str) else json.dumps(expected, sort_keys=True),
         "rubric": [{"id": criterion.id, "points": criterion.points, "description": criterion.description} for criterion in rubric.criteria],
     }
@@ -402,7 +404,7 @@ def _history_attempt(vault: LoadedVault, attempt: PlantedAttempt) -> HistoryAtte
         practice_item_id=item.id,
         completed_at=attempt.completed_at,
         surface_group=surface_group_id(item),
-        item_prompt=item.prompt,
+        item_prompt=presented_prompt(item.prompt, item.required_method),
         learner_answer_md=attempt.learner_answer_md,
         attempt_type="independent_attempt",
         score=0.0 if attempt.failed else float(rubric.max_points),

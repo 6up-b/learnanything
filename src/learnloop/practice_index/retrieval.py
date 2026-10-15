@@ -83,6 +83,7 @@ from learnloop.vault.embedding_recipes import (
     EMBEDDING_RECIPES,
 )
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import fit_presented_prompt, presented_prompt
 
 
 DOC_TASK_PREFIX = "retrieval-document"
@@ -646,6 +647,11 @@ class RerankOutcome:
     usage: dict[str, Any] = field(default_factory=dict)
 
 
+def _candidate_clip(text: str, limit: int) -> str:
+    prompt = " ".join(text.split())
+    return prompt if len(prompt) <= limit else prompt[:limit - 1] + "…"
+
+
 def _candidate_context(vault: LoadedVault, pool: Sequence[str]) -> list[dict[str, Any]]:
     facets = vault.evidence_facets
     context = []
@@ -653,12 +659,12 @@ def _candidate_context(vault: LoadedVault, pool: Sequence[str]) -> list[dict[str
         item = vault.practice_items[item_id]
         learning_object = vault.learning_objects.get(item.learning_object_id)
         labels = sorted(facet_label(facets[f]) for f in item_facets(vault, item) if f in facets)
-        prompt = " ".join(item.prompt.split())
         context.append({
             "ref": f"c{index}", "practice_mode": item.practice_mode,
             "learning_object": learning_object.title if learning_object else item.learning_object_id,
             "facets": labels[:4],
-            "prompt": prompt if len(prompt) <= CANDIDATE_PROMPT_CHARS else prompt[:CANDIDATE_PROMPT_CHARS - 1] + "…",
+            # The question as presented, the instruction whole (method-explicit-3 F4/F5).
+            "prompt": fit_presented_prompt(item.prompt, item.required_method, CANDIDATE_PROMPT_CHARS, _candidate_clip),
         })
     return context
 
@@ -1404,7 +1410,9 @@ def find_practice(
             "rank": rank, "practice_item_id": item_id,
             "learning_object_id": item.learning_object_id,
             "learning_object_title": learning_object.title if learning_object else None,
-            "practice_mode": item.practice_mode, "prompt": item.prompt,
+            # The question as presented (method-explicit-3 review F4): the
+            # statement, then a required method's instruction.
+            "practice_mode": item.practice_mode, "prompt": presented_prompt(item.prompt, item.required_method),
             "facet_ids": sorted(snapshot.item_facets.get(item_id, set())),
             "relevance": judgment.get("relevance"), "rationale": judgment.get("rationale"),
             "retrieval_ranks": ranking.ranks.get(item_id, {}),

@@ -597,7 +597,7 @@ def _publish_regrade(
     connection = repository.connection()
     gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
     graded_contents, graded_revision = (
-        bind_frozen.graded_reference_contents(vault, item, connection)
+        bind_frozen.graded_reference_contents(vault, item, connection, attempt=attempt)
         if bind_frozen is not None and gated
         else (None, "current")
     )

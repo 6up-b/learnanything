@@ -18,6 +18,7 @@ from typing import Any, Mapping, Sequence
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 DEFAULT_ADMINISTRATION = {"tools": "none", "open_book": False, "time_minutes": 15}
 
@@ -58,7 +59,8 @@ def discover_exemplar_pool(
         entry["items"].append(
             {
                 "practice_item_id": item.id,
-                "prompt": item.prompt,
+                # The task as presented (method-explicit-3 review F4).
+                "prompt": presented_prompt(item.prompt, item.required_method),
                 "practice_mode": item.practice_mode,
                 "evidence_facets": list(item.evidence_facets),
                 "attempted": bool(state and state.last_attempt_at),

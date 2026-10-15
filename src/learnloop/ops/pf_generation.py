@@ -1694,8 +1694,18 @@ def _resumable_job(vault: LoadedVault, repository: Repository, family: ActivityF
             state = selection_state(rows)
             if state is None:
                 continue
-            missing = 0
             method = getattr(parent, "required_method", None)
+
+            def unjudged(row: Mapping[str, Any], stem: str) -> bool:
+                return method is not None and recorded_verdict(
+                    connection, question="variant", subject_kind="pf_candidate", subject_id=str(row["id"]),
+                    statement=stem, method=method.name) is None
+
+            # Review F7 (method-explicit-3): the persisted inputs of the
+            # unfinished work, so the plan estimates THEM, never the parent's
+            # stem in their place: the stems still to be judged and, for a
+            # selection to finish, the survivors the selection judge is shown.
+            missing_stems: list[str] = []
             if state["stage"] == "judgment" and method is not None:
                 by_id = {row["id"]: row for row in rows}
                 for candidate_id in state["order"]:
@@ -1703,11 +1713,18 @@ def _resumable_job(vault: LoadedVault, repository: Repository, family: ActivityF
                     if row is None or row["status"] != "selected":
                         continue  # published or refused meanwhile: no judgment left to ask
                     stem = str(json.loads(row["payload_json"]).get("stem") or "")
-                    if recorded_verdict(connection, question="variant", subject_kind="pf_candidate",
-                                        subject_id=candidate_id, statement=stem, method=method.name) is None:
-                        missing += 1
-            survivors = sum(1 for row in rows if row["status"] in ("survivor", "selected", "not_selected"))
-            return {**state, "mint_request_id": request_id, "survivors": survivors, "missing_judgments": missing}
+                    if unjudged(row, stem):
+                        missing_stems.append(stem)
+            survivors = []
+            for row in rows:
+                if row["status"] not in ("survivor", "selected", "not_selected"):
+                    continue
+                stem = str(json.loads(row["payload_json"]).get("stem") or "")
+                survivors.append({"stem": stem, "relation": row["final_relation"], "difficulty": row["difficulty"],
+                                  "verification": row["verification_check"], "unjudged": unjudged(row, stem)})
+            return {**state, "mint_request_id": request_id, "survivors": len(survivors),
+                    "survivor_inputs": survivors, "missing_judgments": len(missing_stems),
+                    "missing_stems": missing_stems}
     return None
 
 
@@ -1732,14 +1749,26 @@ def _plan_resume(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                    "selected": len(resume.get("order") or ()), "missing_judgments": resume["missing_judgments"]},
     }
     method = getattr(parent, "required_method", None)
-    judgments = resume["missing_judgments"]
+    # Review F7 (method-explicit-3): each estimate reads the persisted input
+    # it stands for (the stem still to be judged, the survivors the
+    # selection judge is shown), never the parent's stem in its place, so a
+    # long variant cannot pass admission and then exceed the token cap.
+    judged_stems = list(resume.get("missing_stems") or ())
     if resume["stage"] == "selection":
-        judgments = slots if method is not None else 0
+        survivors = list(resume.get("survivor_inputs") or ())
+        # Up to one judgment per slot, of the survivors not judged yet: the
+        # longest ones, an upper bound whichever the selection chooses.
+        judged_stems = sorted((entry["stem"] for entry in survivors if entry.get("unjudged")),
+                              key=len, reverse=True)[:slots] if method is not None else []
         if path == "ensemble":
             entries = roles["selection"]
-            survivors = max(1, int(resume.get("survivors") or 1))
-            prompt = C.selection_prompt(family=_family_context(family),
-                                        survivors=[{"ref": "c0", "stem": parent.prompt}] * survivors, slots=slots)
+            context = [{
+                "ref": f"c{index}", "stem": entry["stem"], "relation": entry.get("relation"),
+                "difficulty": entry.get("difficulty"), "verification": entry.get("verification"),
+                # The selection's own scores, as wide as the run writes them.
+                "mmr_score": 0.123456, "vendi_contribution": 0.123456,
+            } for index, entry in enumerate(survivors)] or [{"ref": "c0", "stem": parent.prompt}]
+            prompt = C.selection_prompt(family=_family_context(family), survivors=context, slots=slots)
             tokens = estimate_tokens(prompt, C.SelectionVerdict, output_budget(
                 vault.config, ROLE_TASKS["selection"], provider=entries[0].provider if entries else None))
             plan["roles"]["selection"] = {
@@ -1748,10 +1777,10 @@ def _plan_resume(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                 "subscription": [entry.subscription for entry in entries], "per_call_tokens": tokens,
                 "per_entry": 1,
             }
-    if method is not None and judgments:
-        per_call = planned_tokens("variant", parent.prompt, method.name)
+    if method is not None and judged_stems:
+        per_stem = [planned_tokens("variant", stem, method.name) for stem in judged_stems]
         plan["required_method_judgment"] = {
-            "calls": judgments, "tokens": per_call * judgments, "per_call_tokens": per_call,
+            "calls": len(per_stem), "tokens": sum(per_stem), "per_call_tokens": max(per_stem),
             "judge": "the Decider via ai.routing.rubric_phrasing_judge, else the LLM judge on it",
             "billing": "metered (upper bound)",
         }

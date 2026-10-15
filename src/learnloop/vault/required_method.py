@@ -177,6 +177,55 @@ def presented_prompt(prompt: Any, method: Any) -> str:
     return f"{body}\n\n{instruction}" if body else instruction
 
 
+def fit_presented_prompt(prompt: Any, method: Any, limit: int, clip: Callable[[str, int], str]) -> str:
+    """:func:`presented_prompt` on one line within ``limit`` characters, the
+    instruction always whole (method-explicit-3 review F5).
+
+    For a surface that shows or sends a shortened question (a model
+    context's character budget, a one-line preview). ``clip(text, limit)``
+    is the surface's own shortener (whitespace collapsed, an ellipsis or a
+    plain cut). Without a required method the result is ``clip(prompt,
+    limit)`` exactly; with one, only the STATEMENT is shortened, to leave
+    room for the sentence after it, so clipping the question never removes
+    the requirement (and a second clip at the same limit downstream is a
+    no-op).
+    """
+
+    text = prompt if isinstance(prompt, str) else str(prompt or "")
+    instruction = method_instruction(method)
+    if instruction is None:
+        return clip(text, limit)
+    room = limit - len(instruction) - 1
+    stem = " ".join(clip(text, room).split()) if room > 0 else ""
+    return f"{stem} {instruction}" if stem else instruction
+
+
+def answered_prompt(item: Any, contract: Mapping[str, Any] | None) -> str | None:
+    """The question an answer was given, as a reader of that answer is shown
+    it (method-explicit-3 review F3): exam review, adjudication, the
+    diagnoser and its history, review exports.
+
+    ``contract`` is the assessment contract the answer was graded under (its
+    frozen ``prompt`` and ``required_method``; None for an answer graded
+    before contracts). For a method-explicit answer (the contract froze a
+    required method, or the item has one now) the question is rendered from
+    the CONTRACT: its statement, then the instruction of the method it froze,
+    if any. That is the question the learner was shown and the grader read
+    (``build_grading_context``), whatever the item says now: a method cleared
+    or renamed since keeps the sentence the learner saw, and a method added
+    since shows none. Every other answer reads the item as it is now
+    (unchanged: an item without a required method is shown exactly as
+    before). None when there is neither an item nor a governing contract.
+    """
+
+    current = getattr(item, "required_method", None) if item is not None else None
+    if contract is not None and (_method_name(contract.get("required_method")) is not None or current is not None):
+        return presented_prompt(contract.get("prompt"), contract.get("required_method"))
+    if item is None:
+        return None
+    return presented_prompt(item.prompt, current)
+
+
 def is_source_statement(item: Any) -> bool:
     """Is ``item``'s prompt a source-authored statement that is never rewritten?
 
@@ -791,7 +840,9 @@ __all__ = [
     "SourceJudge",
     "SourceStatementDecision",
     "advisory_statement_flag",
+    "answered_prompt",
     "best_target",
+    "fit_presented_prompt",
     "inherit_required_method",
     "is_source_statement",
     "learning_object_method_targets",

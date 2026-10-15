@@ -33,7 +33,8 @@ from learnloop.diagnosis.diagnosis_adjudication import (
     diagnosis_adjudication_scoreboard,
     diagnosis_snapshot,
 )
-from learnloop.vault.required_method import presented_prompt
+from learnloop.db.stores.answered_contracts import answered_contracts
+from learnloop.vault.required_method import answered_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -163,6 +164,8 @@ def _case(vault, repository, entry) -> dict[str, Any]:
     learning_object = vault.learning_objects.get(str(entry.learning_object_id or ""))
     metadata = repository.fetch_attempt_feedback_metadata(entry.attempt_id) or {}
     shown = _learner_facing(vault, repository, entry.attempt_id) or {}
+    with repository.connection() as connection:
+        contract = answered_contracts(connection, [entry.attempt_id]).get(str(entry.attempt_id))
 
     return {
         "attempt_id": entry.attempt_id,
@@ -176,8 +179,9 @@ def _case(vault, repository, entry) -> dict[str, Any]:
         ),
         "practice_item_id": entry.practice_item_id,
         # The question as the learner was shown it (round 3: a required
-        # method's instruction rendered after the statement).
-        "prompt": presented_prompt(item.prompt, item.required_method) if item is not None else None,
+        # method's instruction rendered after the statement), from the
+        # contract the answer was graded under (method-explicit-3 F3).
+        "prompt": answered_prompt(item, contract),
         # The learner's work IS the trace the anchor points into; the anchor's
         # offsets are computed against this text, so both travel together.
         "learner_answer_md": attempt.get("learner_answer_md"),

@@ -37,10 +37,15 @@ from learnloop.practice_index.usage import USAGE_TASK, record_practice_usage
 from learnloop.source_retrieval.policy import CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import fit_presented_prompt
 
 #: Prompt characters an impression keeps of what was shown (a record of the
 #: glimpse, not a copy of the item).
 SHOWN_PROMPT_CHARS = 400
+
+
+def _shown(text: str, limit: int) -> str:
+    return " ".join(text.split())[:limit]
 
 
 def service_enabled(vault: LoadedVault) -> bool:
@@ -184,8 +189,10 @@ def record_proposal_impressions(vault: LoadedVault, repository: Repository, *, p
             impression_id = "imp_" + new_ulid()
             if wanted[0] == "item":
                 item = vault.practice_items.get(wanted[1])
-                prompt = " ".join((item.prompt if item is not None else "").split())
-                shown = {"prompt": prompt[:SHOWN_PROMPT_CHARS], "rationale": entry.get("rationale")}
+                # The question as the offer shows it (method-explicit-3 F4/F5).
+                prompt = (fit_presented_prompt(item.prompt, item.required_method, SHOWN_PROMPT_CHARS, _shown)
+                          if item is not None else "")
+                shown = {"prompt": prompt, "rationale": entry.get("rationale")}
                 insert_impression(
                     connection, id=impression_id, created_at=now, surface=surface,
                     caller_kind=found.get("caller"), caller_ref=found.get("caller_ref"),

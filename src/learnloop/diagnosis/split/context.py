@@ -54,7 +54,7 @@ from learnloop.diagnosis.split.settings import (
 )
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
-from learnloop.vault.required_method import presented_prompt
+from learnloop.vault.required_method import answered_prompt
 
 #: Rendering order (cache layout, §5.2): the stable part - neighbourhood,
 #: registry and the history, chronological in ``full`` - first; then the blocks
@@ -198,7 +198,13 @@ def current_attempt_from(
     completed_at: str,
     learner_answer_md: str,
     blind_grade: Mapping[str, Any],
+    contract: Mapping[str, Any] | None = None,
 ) -> CurrentAttempt:
+    """The attempt being diagnosed. ``contract`` (method-explicit-3 review
+    F3) is the assessment contract its answer was graded under: a
+    method-explicit answer is explained against the question it was given
+    (``answered_prompt``), never today's item."""
+
     rubric = resolved_rubric(vault, item)
     expected = item.expected_answer
     return CurrentAttempt(
@@ -207,7 +213,7 @@ def current_attempt_from(
         practice_item_id=item.id,
         completed_at=completed_at,
         surface_group=surface_group_id(item),
-        item_prompt=presented_prompt(item.prompt, item.required_method),
+        item_prompt=answered_prompt(item, contract) or "",
         reference_solution=expected if isinstance(expected, str) else canonical_json(expected),
         rubric=tuple(
             {

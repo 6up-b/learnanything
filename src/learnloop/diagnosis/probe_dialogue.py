@@ -54,6 +54,7 @@ from learnloop.diagnosis.probe_instance_generation import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.lifecycle import learning_object_servable
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 from learnloop.vault.writer import upsert_practice_item
 
 DIALOGUE_TURN_KINDS = ("commit", "reason", "counterfactual", "counterexample")
@@ -329,7 +330,9 @@ def next_dialogue_turn(
         presentation_id=presentation.id,
         # Read from the vault item: on a crash-resume the persisted instance
         # (possibly LLM-generated) wins over this call's freshly built payload.
-        prompt_md=str(vault.practice_items[payload["id"]].prompt),
+        # The question as presented (method-explicit-3 review F4).
+        prompt_md=presented_prompt(vault.practice_items[payload["id"]].prompt,
+                                   vault.practice_items[payload["id"]].required_method),
     )
     state.turns.append(turn)
     return state, {

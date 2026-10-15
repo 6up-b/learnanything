@@ -12,7 +12,7 @@ from textual.screen import Screen
 from learnloop.learner.mastery import sigmoid
 from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
-from learnloop.vault.required_method import presented_prompt
+from learnloop.vault.required_method import fit_presented_prompt
 from learnloop.tui.widgets import (
     KeyBar,
     TextStatic,
@@ -321,7 +321,9 @@ class TodayScreen(Screen):
         title_row.append("  ")
         title_row.append(pill(mode, mode_pill_color(mode)))
 
-        prompt_preview = _clip(presented_prompt(practice_item.prompt, practice_item.required_method), 200)
+        # The preview keeps a required method's instruction whole (method-
+        # explicit-3 review F5): only the statement is shortened.
+        prompt_preview = fit_presented_prompt(practice_item.prompt, practice_item.required_method, 200, _clip)
         return Content.assemble(
             Content.assemble(*title_row),
             "\n",

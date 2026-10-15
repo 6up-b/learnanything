@@ -773,7 +773,7 @@ def _diagnose(
         record = dict(record_row.get("record") or {})
     else:
         record = joint_grade_record(vault, repository, attempt)
-    current = current_attempt_for(vault, attempt, record) if item is not None else None
+    current = current_attempt_for(vault, attempt, record, repository) if item is not None else None
     base_values: dict[str, Any] = {
         "attempt_id": attempt_id,
         "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
@@ -1229,7 +1229,7 @@ def command_spend(
 def _plan_current(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> Any | None:
     record_row = repository.latest_blind_grade_record(str(attempt["id"]))
     record = dict(record_row.get("record") or {}) if record_row is not None else joint_grade_record(vault, repository, attempt)
-    return current_attempt_for(vault, attempt, record)
+    return current_attempt_for(vault, attempt, record, repository)
 
 
 def _estimated_prompt_tokens(vault: LoadedVault, current: Any, *, store: Any) -> int:

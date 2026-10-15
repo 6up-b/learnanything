@@ -41,6 +41,23 @@ def _plain(value: Any) -> Any:
     return value
 
 
+def required_method_key(method: Any) -> dict[str, Any] | None:
+    """The required method as the answer key names it: ``{"name",
+    "criterion_ids"}`` (the item's field, or the mapping an assessment
+    contract froze), or None without one."""
+
+    if method is None:
+        return None
+    if isinstance(method, Mapping):
+        name, criteria = method.get("name"), method.get("criterion_ids")
+    else:
+        name, criteria = getattr(method, "name", None), getattr(method, "criterion_ids", None)
+    name = " ".join(str(name or "").split())
+    if not name:
+        return None
+    return {"name": name, "criterion_ids": [str(value) for value in criteria or ()]}
+
+
 def reference_content_hash(item: Any) -> str:
     """What an answer-key check verified: the prompt, the expected answer and
     the grading rubric (canonical sources S1, §7.3a).
@@ -49,10 +66,26 @@ def reference_content_hash(item: Any) -> str:
     rewrites these in place under the same id. Hints are not part of the key,
     so a hints-only edit keeps a verification. ``vault.hashes`` re-exports this
     one definition (``db`` sits below ``vault`` and must not import it).
+
+    **The required method is part of the question** (method-explicit-3
+    review F1). The instruction "Use {name} in your answer." is rendered from
+    the item's ``required_method`` field, never stored in the prompt, so the
+    key names the requirement itself: the method's name and the criteria
+    graded on its use (:func:`required_method_key`). Changing only the
+    method (set, renamed, cleared, or its criteria changed) makes another
+    revision, which needs a fresh check: a check of the induction question
+    never verifies the generating-functions one, and a dispute of one never
+    reaches a contract frozen under the other. Who decided the requirement
+    and the target it is linked to are not the question, so they are not in
+    the key. Hashed only when present: every item without a required method
+    keeps its hash, and with it every check and every recorded binding.
     """
 
     fields = {"prompt": item.prompt, "expected_answer": item.expected_answer,
               "grading_rubric": item.grading_rubric}
+    method = required_method_key(getattr(item, "required_method", None))
+    if method is not None:
+        fields["required_method"] = method
     payload = json.dumps(_plain(fields), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

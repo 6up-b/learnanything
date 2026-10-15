@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import inspect
 import json
+from contextlib import closing
 from types import SimpleNamespace
 
 import pytest
@@ -755,6 +756,17 @@ def _verified_method_import(paths, repository, spans):
     data["required_method"] = {"name": "the characteristic polynomial", "criterion_ids": [criterion["id"]],
                                "statement": "source", "decided_by": "owner"}
     upsert_practice_item(paths.root, data)
+    # The required method is part of the answer key's identity (method-
+    # explicit-3 review F1): requiring a method makes another revision, whose
+    # key is checked like any other.
+    from learnloop.db.stores.source_service import insert_key_check, reference_content_hash
+
+    with closing(connect(repository.sqlite_path)) as connection:
+        with connection:
+            insert_key_check(connection, id="rkc_method_revision", practice_item_id=item_id,
+                             content_hash=reference_content_hash(loaded(paths).practice_items[item_id]),
+                             key_status="book_solution", rung="test", trigger="verify",
+                             started_at="2026-01-01T00:00:00Z", created_at="2026-01-01T00:00:00Z")
     return item_id, criterion["id"]
 
 

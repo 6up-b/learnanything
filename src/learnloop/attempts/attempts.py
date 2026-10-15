@@ -1529,6 +1529,70 @@ def _graded_required_method(item: PracticeItem, contract: dict[str, Any] | None)
     return {"name": method.name, "criterion_ids": list(method.criterion_ids)} if method is not None else None
 
 
+def _attempt_time_revision(connection: Any, attempt: Mapping[str, Any] | None,
+                           practice_item_id: str) -> dict[str, Any] | None:
+    """The item revision the attempt's selection recorded, or None
+    (method-explicit-3 review F8).
+
+    The attempt's scheduler candidate (the attempt row's, else its
+    submission intent's or probe presentation's) has a ``decision_features``
+    row written at or before the attempt whose ``content_hash`` addresses
+    the exact ``practice_item_snapshots`` serialization scored for it (the
+    same receipt chain field outcomes read as an ``exact`` revision). None
+    when any link is missing: the revision is then established from what
+    else is recorded.
+    """
+
+    import hashlib
+
+    if not attempt:
+        return None
+    created_at = attempt.get("created_at")
+    try:
+        candidates: list[str] = []
+        if attempt.get("scheduler_candidate_id"):
+            candidates.append(str(attempt["scheduler_candidate_id"]))
+        if attempt.get("submission_id"):
+            row = connection.execute(
+                "SELECT scheduler_candidate_id FROM submission_intents WHERE submission_id=? AND practice_item_id=?",
+                (attempt["submission_id"], practice_item_id),
+            ).fetchone()
+            if row is not None and row[0]:
+                candidates.insert(0, str(row[0]))
+        if attempt.get("probe_presentation_id"):
+            row = connection.execute(
+                "SELECT scheduler_candidate_id FROM probe_presentations WHERE id=? AND practice_item_id=?",
+                (attempt["probe_presentation_id"], practice_item_id),
+            ).fetchone()
+            if row is not None and row[0]:
+                candidates.insert(0, str(row[0]))
+        for candidate_id in dict.fromkeys(candidates):
+            demand = connection.execute(
+                "SELECT item_demand_vector_json FROM decision_features WHERE decision_type='selection' "
+                "AND decision_id=? AND created_at<=? ORDER BY created_at DESC LIMIT 1",
+                (candidate_id, created_at),
+            ).fetchone()
+            try:
+                digest = (json.loads(demand[0]) or {}).get("content_hash") if demand and demand[0] else None
+            except (TypeError, ValueError, AttributeError):
+                digest = None
+            if not digest:
+                continue
+            snapshot = connection.execute(
+                "SELECT item_json FROM practice_item_snapshots WHERE content_hash=? AND practice_item_id=? "
+                "AND created_at<=?",
+                (digest, practice_item_id, created_at),
+            ).fetchone()
+            if snapshot is None or hashlib.sha256(str(snapshot[0]).encode("utf-8")).hexdigest() != digest:
+                continue
+            data = json.loads(snapshot[0])
+            if isinstance(data, dict):
+                return data
+    except (sqlite3.Error, TypeError, ValueError):
+        return None
+    return None
+
+
 @dataclass(frozen=True)
 class GradedContract:
     """The assessment contract a recorded attempt was graded under (review F1)."""
@@ -1549,37 +1613,58 @@ class GradedContract:
 
     def graded_reference_contents(
         self, vault: LoadedVault, item: PracticeItem, connection: Any,
+        attempt: Mapping[str, Any] | None = None,
     ) -> tuple[list[str], str]:
         """The answer-key revision(s) a regrade under this contract graded (review F13, F19).
 
         A key check binds one revision of an item: its
-        ``reference_content_hash`` (statement, expected answer and the item's
-        OWN rubric, inline or inherited). A method-explicit contract records
+        ``reference_content_hash`` (statement, expected answer, the item's
+        OWN rubric, inline or inherited, and its required method:
+        method-explicit-3 review F1). A method-explicit contract records
         that hash when it is frozen (review F19), and the regrade binds
         exactly that revision: ``([hash], "frozen")``.
 
         A historical contract (frozen before it recorded the hash) froze the
-        statement and expected answer verbatim and the RESOLVED rubric only by
-        hash, so the revision is rebuilt from the frozen statement and answer
-        with each rubric the item is known to have had (its current one and
-        its recorded snapshots'). An inline rubric resolves to itself, so
+        statement, the expected answer and the required method verbatim and
+        the RESOLVED rubric only by hash, so the revision is rebuilt from
+        them with each rubric the item is known to have had (its current one
+        and its recorded snapshots'). An inline rubric resolves to itself, so
         whether it matches the frozen contract is exact. An INHERITED rubric
-        (``None``, when the item is known to have had one) resolved to the
-        vault's default at the time, which is not recorded: today's default
-        recovers it exactly only when it reproduces the frozen rubric hash.
+        (``None``) resolved to the vault's default at the time, which is not
+        recorded: today's default recovers it exactly only when it
+        reproduces the frozen rubric hash.
+
+        **Whether the revision graded may have inherited a default**
+        (method-explicit-3 review F8) is established from that revision's
+        own provenance, never from an unrelated one:
+
+        * the attempt-time revision, when the attempt's selection recorded it
+          (``attempt``: its scheduler candidate's ``decision_features``
+          snapshot, at or before the attempt, with the frozen statement and
+          answer; the receipt field outcomes read as ``exact``): its rubric
+          is the one graded. Inline and reproducing the contract:
+          ``([hash], "frozen")``; inherited and not reproducible today:
+          ``([hash], "ambiguous_default")``;
+        * otherwise, a revision recorded with the graded statement and answer
+          (the current item, a snapshot, or a key check of the inherited
+          rebuild) that inherited a default. A revision with another
+          question (a later edit, a snapshot of a different statement) is
+          never the one graded, so its rubric says nothing about it.
+
+        Then:
 
         * one revision matches (the inherited one recovered exactly, if it
           was possible): ``([hash], "frozen")``;
         * several do: the ones a key check recorded (a verified attempt's
           revision had one), else all of them: ``(hashes, "ambiguous")``,
           bound fail closed (any unverified one lowers the grade);
-        * the item is known to have inherited a default that today's default
-          does not reproduce (round 3, F13/F19 reopened): the default the
-          answer was graded under cannot be recovered, so the revision graded
-          may be the inherited one under a default nobody can check, whatever
-          else matches. ``(hashes, "ambiguous_default")``, the inherited
-          revision first, bound UNVERIFIED (never frozen, never verified from
-          today's default);
+        * the revision graded may have inherited a default that today's
+          default does not reproduce (round 3, F13/F19 reopened): the default
+          the answer was graded under cannot be recovered, so the revision
+          graded may be the inherited one under a default nobody can check,
+          whatever else matches. ``(hashes, "ambiguous_default")``, the
+          inherited revision first, bound UNVERIFIED (never frozen, never
+          verified from today's default);
         * none does (the rubric changed too and no snapshot recorded the old
           one): every revision a key check recorded may be it, the current
           one excepted when the frozen statement or answer differs from it:
@@ -1593,9 +1678,37 @@ class GradedContract:
         recorded = self.contract.get("reference_content_hash")
         if isinstance(recorded, str) and recorded:
             return [recorded], "frozen"
-        frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer")}
+        frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer"),
+                  # The method the learner was presented, not today's (F1).
+                  "required_method": self.required_method}
         base = item.model_dump(mode="json")
-        rubrics: list[Any] = [base.get("grading_rubric")]
+
+        def rebuild(rubric: Any) -> tuple[str | None, bool]:
+            """The revision with ``rubric``: its key hash, and whether it
+            reproduces the frozen contract."""
+
+            try:
+                view = PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
+            except Exception:  # noqa: BLE001 - not a revision this item can have had
+                return None, False
+            try:
+                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
+            except Exception:  # noqa: BLE001 - no rubric resolves (no default for the mode today)
+                compiled = None
+            return reference_content_hash(view), compiled is not None and self._froze(compiled)
+
+        def same_question(data: Mapping[str, Any]) -> bool:
+            return data.get("prompt") == frozen["prompt"] and data.get("expected_answer") == frozen["expected_answer"]
+
+        pinned = _attempt_time_revision(connection, attempt, item.id)
+        if pinned is not None and same_question(pinned):
+            content, matches = rebuild(pinned.get("grading_rubric"))
+            if content is not None and matches:
+                return [content], "frozen"
+            if content is not None and pinned.get("grading_rubric") is None:
+                return [content], AMBIGUOUS_DEFAULT_REVISION
+            # The rubric changed between the selection and the submission:
+            # rebuilt below from what else is known.
         try:
             stored = connection.execute(
                 "SELECT item_json FROM practice_item_snapshots WHERE practice_item_id = ? ORDER BY created_at DESC",
@@ -1603,14 +1716,24 @@ class GradedContract:
             ).fetchall()
         except Exception:  # noqa: BLE001 - a vault without snapshots rebuilds from the others
             stored = []
+        snapshots: list[Mapping[str, Any]] = []
         for (item_json,) in stored:
             try:
-                rubrics.append(json.loads(item_json).get("grading_rubric"))
-            except (TypeError, ValueError, AttributeError):
+                data = json.loads(item_json)
+            except (TypeError, ValueError):
                 continue
-        # The item is known to have inherited a default rubric (now, or in a
-        # recorded snapshot): the inherited revision may be the one graded.
-        inherited_known = any(rubric is None for rubric in rubrics)
+            if isinstance(data, Mapping):
+                snapshots.append(data)
+        rubrics: list[Any] = [base.get("grading_rubric"), *[data.get("grading_rubric") for data in snapshots]]
+        inherited, _matches = rebuild(None)
+        checked = set(checked_content_hashes(connection, item.id))
+        # A revision of the graded question is known to have inherited a
+        # default (the current item or a snapshot with the frozen statement
+        # and answer and no rubric of its own, or a key check of exactly that
+        # revision): the inherited revision may be the one graded (F8).
+        inheritance_possible = any(data.get("grading_rubric") is None
+                                   for data in (base, *snapshots) if same_question(data)) \
+            or (inherited is not None and inherited in checked)
         rubrics.append(None)
         tried: list[str] = []
         matched: list[str] = []
@@ -1620,19 +1743,13 @@ class GradedContract:
             if key in tried:
                 continue
             tried.append(key)
-            try:
-                view = PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
-            except Exception:  # noqa: BLE001 - not a revision this item can have had
+            content, matches = rebuild(rubric)
+            if content is None:
                 continue
-            try:
-                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
-            except Exception:  # noqa: BLE001 - no rubric resolves (no default for the mode today)
-                compiled = None
-            content = reference_content_hash(view)
-            if compiled is not None and self._froze(compiled):
+            if matches:
                 if content not in matched:
                     matched.append(content)
-            elif rubric is None and inherited_known:
+            elif rubric is None and inheritance_possible:
                 # Today's default does not reproduce the frozen rubric: the
                 # default the inherited revision was graded under is unknown.
                 unrecovered = content
@@ -1642,7 +1759,6 @@ class GradedContract:
         if len(matched) == 1:
             return matched, "frozen"
         if matched:
-            checked = set(checked_content_hashes(connection, item.id))
             return [content for content in matched if content in checked] or matched, "ambiguous"
         current = reference_content_hash(item)
         same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer

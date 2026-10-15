@@ -67,7 +67,8 @@ def practice_item_hash(practice_item: PracticeItem) -> str:
 
 def reference_content_hash(practice_item: PracticeItem) -> str:
     """What an answer-key check verified (canonical sources S1, §7.3a): the
-    prompt, the expected answer and the grading rubric. One definition, in the
+    prompt, the expected answer, the grading rubric and, when set, the
+    required method (method-explicit-3 review F1). One definition, in the
     store that binds checks to it; separate from :func:`practice_item_hash`,
     which is unchanged."""
     return _reference_hash(practice_item)

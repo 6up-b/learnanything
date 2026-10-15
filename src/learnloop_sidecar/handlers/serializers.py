@@ -299,6 +299,37 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
     return {"practice_item_id": item.id, "blocks": blocks}
 
 
+def answered_presentation(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """The presentation of the question a recorded answer was given
+    (method-explicit-3 review F3), for a screen that reviews that answer.
+
+    When the contract the answer was graded under governs (it froze a
+    required method, or the item has one now:
+    ``learnloop.vault.required_method.answered_prompt``), the item's
+    presentation with its ``prompt`` block the contract's statement and its
+    ``required_method_instruction`` block the contract's method (none when
+    the contract froze none). None otherwise: the screen shows the item's
+    own presentation, as before.
+    """
+
+    current = getattr(item, "required_method", None)
+    if contract is None or (current is None and method_instruction(contract.get("required_method")) is None):
+        return None
+    presentation = item_presentation(item)
+    instruction = method_instruction(contract.get("required_method"))
+    blocks: list[dict[str, Any]] = []
+    for block in presentation["blocks"]:
+        if block["kind"] == "required_method_instruction":
+            continue
+        if block["kind"] == "prompt":
+            blocks.append({**block, "markdown": str(contract.get("prompt") or "")})
+            if instruction is not None:
+                blocks.append({"kind": "required_method_instruction", "markdown": instruction, "label": None})
+            continue
+        blocks.append(block)
+    return {**presentation, "blocks": blocks}
+
+
 @pinned_repository_call
 def practice_item_detail(vault: LoadedVault, repository: Repository, practice_item_id: str) -> dict[str, Any]:
     item = _require_item(vault, practice_item_id)

@@ -76,6 +76,7 @@ from learnloop.attempts.grading import (
 )
 from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric, RubricCriterion
+from learnloop.vault.required_method import presented_prompt
 
 TEACH_BACK_ATTEMPT_TYPE = "teach_back"
 TEACH_BACK_PRACTICE_MODE = "teach_back"
@@ -407,7 +408,7 @@ def next_question(
     learning_object = vault.learning_object_for_item(item)
     context = TeachBackQuestionContext(
         practice_item_id=item.id,
-        practice_item_prompt=item.prompt,
+        practice_item_prompt=presented_prompt(item.prompt, item.required_method),
         criterion_id=criterion.id,
         criterion_description=criterion.description,
         criterion_tier=str(selection.get("tier") or "core"),
@@ -1022,7 +1023,10 @@ def _teach_back_authoring_context(
         )
     context = TeachBackAuthoringContext(
         source_practice_item_id=source_item.id,
-        source_prompt=source_item.prompt,
+        # The task as the learner was set it (method-explicit-3 review F4):
+        # only a source whose question requires a method may ask how that
+        # method establishes the result, so the instruction must be visible.
+        source_prompt=presented_prompt(source_item.prompt, source_item.required_method),
         source_expected_answer=source_item.expected_answer,
         source_criteria=source_criteria,
         source_trace_contract=(
@@ -1157,7 +1161,7 @@ def _fallback_teach_back_authoring(
     return TeachBackAuthoring(
         prompt_md=(
             "Teach a curious student how to reason through this completed task:\n\n"
-            f"{source_item.prompt}\n\n"
+            f"{presented_prompt(source_item.prompt, source_item.required_method)}\n\n"
             "Explain the method, the important decisions, and why the result follows. "
             "The student will ask follow-up questions."
         ),

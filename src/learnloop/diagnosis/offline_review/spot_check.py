@@ -49,6 +49,7 @@ from learnloop.diagnosis.offline_review.runner import MAIN_ARMS, RUN_FILE, SCRAT
 from learnloop.diagnosis.split.history import VaultHistoryStore
 from learnloop.diagnosis.split.legacy_view import stored_legacy_view
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 
 SPOT_CHECK_VERSION = "spot-check-v1"
 MAX_ITEMS = 10
@@ -129,7 +130,10 @@ def build_spot_check_plan(
     for target in chosen:
         item = vault.practice_items.get(target["practice_item_id"])
         answer = _answer(run_dir, target, planted)
-        prompt = item.prompt if item is not None else ""
+        # The question as presented (method-explicit-3 review F4): the
+        # statement, then a required method's instruction, as the review run
+        # blind-graded and diagnosed it (the item as it is now).
+        prompt = presented_prompt(item.prompt, item.required_method) if item is not None else ""
         options = list(diagnoses.get(target["id"], []))[:5]
         rng.shuffle(options)
         rendered = []
@@ -171,6 +175,8 @@ def build_spot_check_plan(
                 if cited in history:
                     earlier = history[cited]
                     earlier_item = vault.practice_items.get(earlier["practice_item_id"])
+                    earlier_prompt = (presented_prompt(earlier_item.prompt, earlier_item.required_method)
+                                      if earlier_item is not None else "")
                     earlier_answer = earlier["learner_answer_md"]
                 else:
                     if store is None:
@@ -178,12 +184,14 @@ def build_spot_check_plan(
                     attempt = store.attempt(cited)
                     if attempt is None:
                         continue
-                    earlier_item = vault.practice_items.get(attempt.practice_item_id)
+                    # The question the diagnoser's history showed for that
+                    # answer: the one it was given (method-explicit-3 F3/F4).
+                    earlier_prompt = attempt.item_prompt
                     earlier_answer = attempt.learner_answer_md
                 entries.append(
                     {
                         "cited_attempt_id": cited,
-                        "earlier_item_prompt": earlier_item.prompt if earlier_item is not None else "",
+                        "earlier_item_prompt": earlier_prompt,
                         "earlier_answer_md": earlier_answer,
                         "credited_diagnosis_ids": sorted(links[cited]),
                     }
