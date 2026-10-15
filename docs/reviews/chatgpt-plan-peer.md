@@ -368,4 +368,36 @@ tools.
 
 ## 10. Gate
 
-(recorded at the final commit; see below)
+Run on resume (2026-10-15, after a Claude Code restart stopped the earlier
+run before its gate was recorded) on tree `0b7f1b449`, which is the stage's
+code; the only later commit adds this section. `TMPDIR` was the worktree's
+`fixtures-local/tmp`, and both suite runs held `flock /tmp/learnloop-fullsuite.lock`
+and used `uv run --no-sync`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `pytest -n auto` (full suite) | **11,865 passed, 1 skipped**, 0 failed (12 min 35 s); the skip is `test_served_paths_map_to_export_entries_under_input_provenance` (`importorskip` until provenance reaches this branch) |
+| `pytest -m durability` | **106 passed**, 11,760 deselected (1 min 55 s) |
+| stage tests (`test_chatgpt_plan_workspace`, `test_ai_compare`, `test_chatgpt_plan_provider`) | 63 passed, 1 skipped (64) |
+| `tests/test_coordinated_migrations.py` | green (in the full suite) |
+| `db_validate_reference.py` | `errors: []` (schema unchanged at 204; the config reference citations were regenerated in `697809d75`) |
+| CLI help snapshot | updated in `a3522a1c1` for `ai compare`; green |
+| frontend / `src-tauri` | untouched: npm and cargo checks not required |
+| tracked fixtures | `git status` clean after both runs |
+
+Not gate items, both failing before this branch too: `module_validate.py` reports
+749 issues (module coverage 474/839, all wikilinks and source links resolve).
+The base, exported from `37a2a7e5f`, reports 765, and this branch's only
+additions are its two new modules (`ai/chatgpt_plan/workspace.py`,
+`cli/ai_compare.py`). `desktop_validate.py` stops on
+`apps/learnloop-tauri/src/copy/denyList.ts` (UX Phase 1, before the base).
+
+Fixed on resume: the compare command's working-vault check now fails closed
+(`0b7f1b449`, §5). Main has since moved to `2c23afe3f` (provenance,
+migration 205); this branch was not merged with it. Main's diagnoser reads
+`workspace_activity()` with `getattr` and passes it to
+`served_entries(manifest.entries, …)`, which is the call the skipped test
+makes, so the plan's served paths become the provenance record once the
+branch lands.
