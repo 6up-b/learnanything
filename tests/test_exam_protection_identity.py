@@ -350,6 +350,7 @@ def test_f13_a_changed_proposal_returns_a_fresh_confirmation(exam_book):
     assert repo.get_unit_selection("extXB") is None
 
 
+@pytest.mark.durability  # the marking's transaction and the backfill, under WAL too
 def test_f13_the_confirmed_proposal_is_applied_exactly_and_bound_to_its_reading(exam_book):
     from learnloop.content.pipeline import exam_marking
 
@@ -641,6 +642,7 @@ def test_a_textbook_with_held_out_signals_made_as_a_textbook_is_unaffected(exam_
 # --- migration 225: the ledger, backfilled exactly from the cache ------------------------
 
 
+@pytest.mark.durability  # the marking's transaction and the backfill, under WAL too
 def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank_book):
     """A cached row never rebound was written by the model run on its own
     extraction: its signals mark that reading. A rebound row (its usage names
