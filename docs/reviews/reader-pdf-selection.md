@@ -139,7 +139,11 @@ except in the `Alt` sweep.
 Commits: `0adf0253c` (this audit), `b1087be0a` (the pure model, the
 sidecar's placements and protection), `4073fbd50` (the pane, highlights,
 undo, protection in the rails), `b9899fbe6` (what the real-UI look found),
-and the commit that records the gate.
+`bc9f915ab` (this record; placements read block hashes without loading the
+reading), `e2108f0c3` (after the 2026-10-15 restart: `reader.pdf_view` loads
+the IR only when the original is stored; with none, protection's span ids
+come from the narrow block-hash query, in reading order, so the wire is
+unchanged), and the commit that records the gate.
 
 ### 2.1 One selection model
 
@@ -341,7 +345,36 @@ copy is kept beside it).
 
 ## 6. Gate
 
-*(recorded below once the lanes finish)*
+Run 2026-10-15 after a Claude Code restart, on the final tree `e2108f0c3`
+(branch `reader/pdf-selection`, base `37a2a7e5f`, main not merged in).
+Python 3.12.14, SQLite 3.53.1, Node 26.11.1, npm 12.2.0, cargo 1.99.0.
+`TMPDIR` = the worktree's `fixtures-local/tmp`. No paid call and no vault
+touched.
+
+| Lane | Command | Result |
+|---|---|---|
+| Install | `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| Import contracts | `uv run lint-imports --no-cache` | **22 kept, 0 broken** |
+| Full suite | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11858 passed**, 0 failed, 0 skipped (16 warnings), 12:57 |
+| Durability | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 11752 deselected, 1:52 |
+| Targeted (no lock) | `tests/test_reader_pdf_selection.py`, `test_mobile_allowlist.py`, `test_coordinated_migrations.py` | 173 passed; with `test_sidecar_reader_pdf_view.py` and the two UX Phase 1 pdf_view files after `e2108f0c3`: 187 passed |
+| Frontend | `npm install`; `npm run typecheck`; `npm test`; `npm run frontend:build` | typecheck clean; vitest **648 passed in 89 files**; build ok (Vite's usual chunk-size notice) |
+| Tauri | `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok |
+| DB references | — | not run: no schema change (head stays 204 on this base; no migration number taken) |
+
+`e2108f0c3` changed Python only, after the frontend and cargo lanes ran; the
+frontend tree they checked is the final one. The perf test's hand-over of a
+300-page selection measured 216 ms in this run under the other stages' load
+(117 ms in §4); it happens once, 150 ms after release, and the test asserts
+the drag-frame budget, not the hand-over.
+
+Not in this gate, noted: the generated desktop reference
+(`_scripts/desktop_validate.py`, last regenerated 2026-09-23) already refuses
+sources from `main`: with this branch's two test-only helpers
+(`pdfSelection/testing/*.ts`) left out, its activation audit still stops at
+`src/copy/denyList.ts` (UX Phase 1, 2026-10-13), and `src/testNodeShims.d.ts`
+(also 2026-10-13, test-only) has no rule either. The module reference
+(`module_validate.py`) passes.
 
 ## 7. Open questions (each with the default this branch takes)
 
@@ -368,3 +401,8 @@ copy is kept beside it).
 7. **Text-only readings (pypdf) still have no selection on the original**
    (no boxes to anchor to); the learner selects on the extracted text, as
    before. *Default: unchanged.*
+8. **The desktop reference generator needs a rule for test-only sources**
+   (`testNodeShims.d.ts` on `main`, `pdfSelection/testing/*.ts` here) and
+   main's unreached `copy/denyList.ts` classified, before its next
+   regeneration. *Default: left to that regeneration; nothing here changes
+   the generator.*
