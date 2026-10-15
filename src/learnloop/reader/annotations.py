@@ -685,7 +685,6 @@ def annotation_placements(repository: Repository, heads: list[Mapping[str, Any] 
     of the passage that took its place, or ``elsewhere``. Read-only: nothing is
     re-anchored or written from here."""
 
-    ir = repository.load_document_ir(extraction_id)
-    hashes = {block.span_id: block.content_hash for block in ir.blocks} if ir is not None else {}
+    hashes = repository.block_content_hashes(str(extraction_id))
     translator = SpanTranslator(repository, extraction_id)
     return [_placement(head, str(extraction_id), hashes, translator) for head in heads]

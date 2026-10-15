@@ -136,4 +136,235 @@ except in the `Alt` sweep.
 
 ## 2. Design (after)
 
-*(written with the code; see below)*
+Commits: `0adf0253c` (this audit), `b1087be0a` (the pure model, the
+sidecar's placements and protection), `4073fbd50` (the pane, highlights,
+undo, protection in the rails), `b9899fbe6` (what the real-UI look found),
+and the commit that records the gate.
+
+### 2.1 One selection model
+
+`apps/learnloop-tauri/src/components/pdfSelection/`:
+
+| File | What it is |
+|---|---|
+| `tokens.ts` | A block's units: maximal runs of non-space characters, an inline formula (`$…$`, `\(…\)`) one unit with the run it touches; NFKC comparison keys (ligatures fold); UTF-16 ↔ code points |
+| `geometry.ts` | Where a block's units sit on its page, in PDF points (top-left, the extraction's box space, zoom-free): from the page's text content when it has one (glyph words split by Helvetica advance widths, grouped into lines, aligned to the extraction's tokens by key with a short lookahead; a word hyphenated at a line end joined to its other half; units with no glyph laid over the glyph runs between matched neighbours); estimated lines inside the block's box when it has none (a scan read by GLM-OCR or OCR'd by Marker); one region (the block's box) for a formula, table or figure |
+| `model.ts` | `SelectionModel`: the extraction's selectable blocks in reading order (furniture and empty blocks left out, but their boxes kept so a running head's glyphs never land in a paragraph). Hit-testing (a figure with no text selects nothing, never its caption), word/line moves, `selectionNodes` (one exact slice per block, code-point offsets), `selectionText` (clean copy: one space for the extraction's line breaks, maths as LaTeX, a paragraph running on over a page or column break joined), `anchorRange` (an anchor's words), `rangeRects` (one box per line per block), `marqueeRanges`, and `exactNode` (the extracted-text view's node in the same shape) |
+| `usePdfSelection.ts` | The interaction: plain drag (rAF-throttled, auto-scroll at the edges, across columns, blocks and pages), click (caret on text; a formula, table or figure whole), double click (word), triple click (passage), Shift+click, Shift+←/→ (word), Shift+↑/↓ (line, keeping the column), Shift+Home/End, Ctrl+drag boxes (released Ctrl selects their union), Alt+drag (whole passages), Esc, Ctrl+C. A selection settles **150 ms** after the mouse is released or the last key (spec §4.2) and only then reaches the Reader; nothing in it moves focus except the learner's own click on a page |
+| `highlights.ts` | Highlights from placements: `here`/`moved` drawn on their words, `flagged` as a dashed outline on the passage that took their place, `elsewhere` not drawn; hit-testing; plain-word labels |
+| `PdfSelectionLayer.tsx` | One page's paint (selection, caret, highlights, boxes being drawn), a keyboard stop per highlight (`role="button"`, an accessible name with its kind, quote, state and note; Enter opens it, Delete removes it), and the open highlight's chip (*open note*, *remove*). Static: nothing animates |
+
+`PdfReaderPane.tsx` turns the browser's own selection off over the pages
+(the pdf.js text layer stays, transparent and inert, for find and screen
+readers), builds the model from `reader.pdf_view`'s blocks, gives it each
+page's text content as the page is drawn (the same content the text layer is
+drawn from), and mounts a layer only on pages near the view. A page more than
+1200 px from the view gives back its canvas pixels and its text-layer DOM
+(F19); its size stays, so nothing moves. Per-page box arrays keep their
+identity when unchanged, so a drag frame redraws only the pages it changes.
+
+**The text view shares the model's shape.** Its own selection stays native
+(it is real text), but `collectSelectionNodes` sends each block's part
+through `exactNode`: when the quote is found once in the block's text, the
+node carries the exact slice and code-point offsets the PDF view would send.
+Both views anchor, restore (the return stack) and paint a capture the same
+way; the PDF view paints a text-view capture word by word when its offsets
+are known, else its whole passage.
+
+### 2.2 From a selection to anchors (unchanged authority)
+
+Each node is `{spanId, quote, start, end}` with `quote ==
+block.text[start:end]` in code points, so `annotations.translate_selection`
+anchors it exactly on its first branch, without the whitespace, canonical
+maths or fuzzy tiers (F3, F6, F7 no longer reach them from the PDF). The
+sidecar stays the authority: offsets that no longer name the quote are
+relocated by the quote or fail visibly (`test_a_node_whose_offsets_drifted…`).
+A cross-language contract file (`fixtures/selection_contract.json`, written by
+`arxiv.test.ts`, anchored by `tests/test_reader_pdf_selection.py`) pins twelve
+selections — two columns, a hyphenated word, a page break with its footnote,
+a formula, a table, inline maths, letters outside the BMP on a scan, and five
+on the arXiv answer's GLM geometry — to exact anchors with the same offsets.
+Ask, the palette, checks, citations, notes, the tag menu and exercise import
+all send `selectionNodes(selection)`, so they receive these nodes unchanged.
+
+### 2.3 Highlights from anchors, through span_aliases
+
+`reader.source_annotations` takes the open reading (`extractionId`) and adds a
+`placement` to each head (`annotations.annotation_placements`, read-only):
+
+* made on this reading, its blocks unchanged → `here`;
+* made on this reading by a re-read's carry-over (`reanchored`) → `moved`
+  ("moved here when the book was read again", on the page and on the card);
+* made on another reading → resolved through `SpanTranslator` (span_aliases,
+  the one alias authority): the same text → `moved`, drawn on its words;
+* its words changed (an alias to changed text, a re-anchor below confidence,
+  a segment whose block hash no longer matches) → `flagged` at the passage
+  that took its place, never drawn as text;
+* nothing on this reading → `elsewhere` (rail only).
+
+The PDF draws a placement from the model's word boxes, never from stored
+screen or page coordinates, so it follows zoom, resize, reload and re-reads
+(F13, F14). `geometry_json` stays in the database for history but nothing
+paints from it. A capture made a moment ago is drawn at once from its own
+offsets until the sidecar's placement arrives.
+
+### 2.4 Remove and undo
+
+From the page: click a highlight (or Tab to its stop) → *remove* or Delete.
+From the rail: *delete* as before. Either way the Reader offers **undo** for
+ten seconds (a quiet line at the foot of the reading column, and Ctrl+Z
+outside text fields). Undo is `reader.restore_annotation`: a `disposition`
+event with `{"undo": "delete_intent", "event_id": …}` that withdraws the
+latest delete intent; the listing shows an annotation when the latest of its
+delete intents and undos is an undo. Deletion stays a tombstone event and so
+does its undo: anchor, versions and history are untouched. **No schema
+change**: `disposition` was already an allowed event type and no annotation
+event used it; no migration number is taken.
+
+### 2.5 Protection (exam_material decides)
+
+`reader.pdf_view` and `reader.render_view` carry `protection`
+(`reader_guidance.reading_protection`): the whole reading when rule 4 holds it
+back or it is held out whole, else its held-out passages, with the refusal the
+model paths give — the same held-out partition Ask, background requests,
+remember-later synthesis and exercise import refuse. A selection touching any
+of it offers no model action (`selectionProtected`): Notes hides exercise
+import, the four background requests and the three remember-later presets and
+says why in the sidecar's words ("You can still highlight it, mark it and keep
+notes."); Ask shows the same line instead of its composer. Highlight, the two
+local marks and notes stay. `checkOffer.ts` is untouched (no check offer
+changes), the render lock is untouched (nothing here renders with pdfium).
+
+### 2.6 RPC and wire changes
+
+| RPC | Change | Mobile |
+|---|---|---|
+| `reader.restore_annotation` | new (undo of a delete) | pinned desktop-only (`READER_PDF_SELECTION_RPCS`) |
+| `reader.source_annotations` | optional `extractionId` → `placement` per head; without it, unchanged | pinned (extended) |
+| `reader.pdf_view`, `reader.render_view` | `protection` | pinned (extended) |
+
+Tauri: one passthrough (`reader_restore_annotation`); `cargo check` clean.
+
+## 3. Friction audit, after (the original-PDF view)
+
+### 3.1 The failures of §1.3
+
+| # | Case | Now |
+|---|---|---|
+| F1 | Scanned page | Words, lines and passages select on a scan: estimated inside the layout boxes (GLM-OCR or Marker OCR). Approximate placement, exact text (the extraction's). |
+| F2 | Two columns | Reading order, not the content stream; a drag through the gutter keeps its head on the nearest line |
+| F3 | Formulas | Display formula: one click selects it, its LaTeX the text. Inline maths: one unit, quoted as LaTeX, drawn over its glyphs |
+| F4 | Tables | One click selects the table, its Markdown the text |
+| F5 | Footnotes | Read after the body, as the extraction reads them |
+| F6 | Hyphenation | Both halves select the whole word; it copies and anchors whole |
+| F7 | Ligatures, spacing | The quote is the extraction's own slice; NFKC keys align glyphs to it |
+| F8 | Glyphs outside every box | By design still left out (page numbers, a line no box holds): only the extraction's text can anchor. Box tolerance (2 pt across, 30 % of a line down) keeps a tight GLM box's edge words |
+| F9 | Spanning blocks | One exact node per block in reading order; the primary span is the node with the most text |
+| F10 | Spanning pages | Reading order across the page break, the pointer snapped to the nearest page across the gap; running heads and footers excluded |
+| F11 | Zoom, resize | The selection and highlights live in PDF points: they follow zoom and resize exactly (checked at 115 % in jsdom and 130 % in Chromium) |
+| F12 | Feedback | Live, word by word, per line; the active passage's frame steps back under a selection |
+| F13 | Highlights are whole blocks | Drawn on their words, one box per line |
+| F14 | After a re-read | Placed through span_aliases: drawn and labelled when moved, outlined when their words changed, never painted on another passage |
+| F15 | No interaction | Hover lights it; a click opens its chip (open note, remove); Tab reaches each, Enter opens, Delete removes; undo |
+| F16 | Keyboard | Shift+arrows by word and line, Shift+Home/End, from a click's caret or the top of the view; a formula is one step |
+| F17 | Copy | The extraction's clean text, maths as LaTeX, works on scans |
+| F18 | Flicker | Settles 150 ms after the mouse or the last key; a double then triple click hands over one selection |
+| F19 | Memory | Pages far from the view release their canvas and text layer |
+| F20 | Held-out material | No model action offered, with the reason |
+| F21 | Right-click | On the selection: its exact nodes; elsewhere in a passage (scans too): the passage |
+
+### 3.2 The workflows (spec §4.1 columns)
+
+| Workflow (on the original PDF) | Steps | Keyboard | Waits on a model | Focus / rail moves without the learner's act | Context lost |
+|---|---|---|---|---|---|
+| **Highlight a sentence** | 3: drag · (rail flips to Notes) · *highlight* | Yes: click once, Shift+arrows, Tab to *highlight* | None | Rail flips to Notes (unchanged; RW2's intent box takes this over behind `reader_intent`) | None: its words, kept through zoom, reload and re-reads |
+| **Ask about a selection and get back to reading** | 4–5: drag · *ask* tab · type · Ctrl+↵ · read | Yes (selection by Shift+arrows) | The tutor answer | Rail flips to Notes first (unchanged) | None: the quote is the extraction's text, LaTeX for maths, words on scans |
+| **Capture "test me later"** | 3: drag · (rail flips) · *test me later* | Yes | None (queued) | Rail flips | On held-out material it is not offered, and the rail says why |
+| **Select a formula or table** | 1: click it | Shift+arrows reach it as one unit | None | Rail flips | None: LaTeX / Markdown |
+| **Copy a passage with maths** | 2: drag · Ctrl+C | Yes | None | — | None |
+| **Remove a highlight** | 2: click it · *remove* (or Tab to it · Delete) | Yes | None | — | None: undo for ten seconds (button or Ctrl+Z) |
+
+The friction this phase adds: none of the six gained a step; two lost one
+(select a formula, remove a highlight), and every selection is now reachable
+from the keyboard. The rail still flips to Notes on a selection: that is the intent box's
+job (spec §4.2, `reader_intent`), not this stage's.
+
+## 4. Tests
+
+| Where | What |
+|---|---|
+| `pdfSelection/model.test.ts` (20, node) | The model on synthetic PDFs parsed by the real pdf.js: furniture and page numbers out; Helvetica advance widths; snapping; the hyphenated word; two columns with the footnote drawn between them; page break; display formula, table, inline maths; scan by estimate; code points outside the BMP; word/line moves; anchors to boxes; restore from nodes; marquee; `exactNode`; highlight placement; the recorded text content (`fixtures/synthetic_text_content.json`) is what pdf.js reads |
+| `pdfSelection/arxiv.test.ts` (6, node) | GLM-OCR geometry of the CC BY arXiv answer (no text layer): words inside boxes, two columns, the loss formula and the results table whole, a figure selects nothing, a page break past a figure; writes the selection contract |
+| `pdfSelection/perf.test.ts` (1, node) | A **600-page** synthetic PDF parsed by pdf.js (half of it scanned): model build, a page's words placed, 2,720 drag frames, the hand-over of a 300-page selection |
+| `PdfReaderPane.selection.test.tsx` (17, jsdom) | The pane driven like a learner: columns, page break, formula click, scan drag, double→triple click (one hand-over), Shift+arrows with the read-out, Shift+arrows and Shift+click after a click elsewhere, Ctrl+C, right-click, a click keeps the capture and Esc clears it, a restored capture never moves focus; highlights here/moved/flagged with their labels, zoom, chip, remove, Delete on a stop, a drag starting on a highlight; page release and redraw; **600 pages**: drag commits against a full redraw |
+| `ReaderScreen.pdfSelection.test.tsx` (5, jsdom) | The Reader: exact nodes reach `reader.capture`; highlights from placements (here, moved, flagged, elsewhere); held-out and rule-4 protection in Notes and Ask; remove and undo (button, Ctrl+Z, the offer ends) |
+| `tests/test_reader_pdf_selection.py` (25) | The contract anchors exactly (12); drifted offsets relocate; capture → placement round trip; placements before and after a re-read, with and without aliases; never-anchored and changed-block cases; protection on both views and for rule 4; remove → undo → listed again with the same placement, history `create, delete_intent, disposition`; delete after undo |
+| `tests/test_mobile_allowlist.py` | `reader.restore_annotation` and the three extended RPCs pinned desktop-only |
+
+Measured (this machine, under other stages' load):
+
+* model, 600 pages / 5,000 blocks: build 1.7 ms; a page's words placed 0.30 ms
+  mean (p95 0.48, max 3.3); a drag frame (hit-test + three pages' boxes)
+  0.016 ms mean, p95 0.024 ms, max 1.0 ms; the hand-over of a 300-page
+  selection 117 ms (once, 150 ms after release);
+* the pane, 600 pages with three drawn, jsdom: a drag frame's React commit
+  3.7 ms mean, p95 5.0 ms, against 21.3 ms for a zoom step that redraws
+  every page (the test asserts the ratio, which load does not change).
+
+## 5. A real-UI look (usability harness, fake AI, no paid call)
+
+Instance *a* (brand-new user) of the scratchpad harness, on the synthetic book
+(`buildPdf(SYNTHETIC_PAGES)`, invented text) added through the app; a second,
+completed reading with GLM-like boxes was then written into that scratch vault
+(the app had read it with pypdf, which has no geometry; Marker is not
+installed and GLM-OCR is paid). Driven in headless Chromium over CDP:
+
+* a drag from the left column's last word to the right column's first words:
+  two word-level boxes, the rail's capture `[1] "quietly." [2] "Right column
+  begins"`, and Ctrl+C gave `quietly.\n\nRight column begins`;
+* a click on the display formula: Ctrl+C gave `$$\nx^{2} + y^{2} = 1\n$$`;
+* a drag on the scanned page selected its words (`A scanned page has no text
+  layer at all, …`);
+* *highlight*, reload, the Reader again: the highlight is drawn on its two
+  lines from its placement; a click opens its chip; Delete removes it, the
+  undo line shows; Ctrl+Z brings it back;
+* at 130 % the selection and the highlight sit on their words.
+
+It found four things, fixed in `b9899fbe6` (with a test for the first):
+Shift+arrows after a click extended the kept capture instead of starting at
+the click; the capture card named the raw span id ("selected · s2", now "1
+passage"); a keyboard focus drew the browser's heavy outline round the whole
+pane (now a quiet dashed ring, only for keyboard focus); and the active
+passage's frame washed the paragraph a word selection sat in. The harness's
+command table was regenerated from this branch's `commands.rs` (its 13 Oct
+copy is kept beside it).
+
+## 6. Gate
+
+*(recorded below once the lanes finish)*
+
+## 7. Open questions (each with the default this branch takes)
+
+1. **Highlights in the extracted-text view stay passage-level** (now from the
+   same placements, so a moved or changed highlight no longer marks another
+   passage). Drawing them word by word there needs offsets mapped into the
+   rendered Markdown and KaTeX. *Default: passage-level there, word-level on
+   the original.*
+2. **A click keeps the capture** (as the extracted text always did), so
+   reading on never loses what was selected; Esc, *clear*, bare Alt or a new
+   selection replace it. *Default: keep.* The owner may prefer a browser's
+   click-to-deselect.
+3. **The rail still flips to Notes on a selection** — the intent box's job
+   behind `reader_intent` (RW2), not this stage's. *Default: unchanged.*
+4. **Estimated word positions on scans** come from the box's size (lines of
+   about 1.2 em); GLM-OCR gives block boxes, not lines. If a later GLM or
+   Marker answer records line or word boxes, `geometry.ts` should take them.
+   *Default: estimate, honestly approximate; the text is always exact.*
+5. **Undo as a `disposition` event** avoids a migration. A dedicated
+   `restore` event type would need migration 206 (the events table's CHECK).
+   *Default: no schema change.*
+6. **Triple click selects the passage**, not the line (Shift+Home/End
+   reach a line's ends). *Default: passage.*
+7. **Text-only readings (pypdf) still have no selection on the original**
+   (no boxes to anchor to); the learner selects on the extracted text, as
+   before. *Default: unchanged.*
