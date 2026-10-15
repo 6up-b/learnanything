@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "a3522a1c183c40ce8af55601ff925f86001d253b"
+source_commit_timestamp: "2026-10-15T16:01:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -28,11 +28,11 @@ source_paths:
   - "tests/source_retrieval_fakes.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ai_compare.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_cli.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_generate_practice.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -84,11 +84,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/source_retrieval_fakes.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ai_compare.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_cli.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_generate_practice.py`
 
 ## Extension and modification guidance
 

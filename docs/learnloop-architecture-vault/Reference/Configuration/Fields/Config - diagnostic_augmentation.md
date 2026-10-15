@@ -3,8 +3,8 @@ title: "Config - diagnostic_augmentation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "a3522a1c183c40ce8af55601ff925f86001d253b"
+source_commit_timestamp: "2026-10-15T16:01:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml diagnostic_augmentation"
@@ -45,9 +45,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `diagnostic_augmentation.sampling_enabled` | `true` | boolean | modeled default or validator seed | Turns sampling behavior on or off within multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1689`; `src/learnloop/attempts/attempts.py:1468` |
-| `diagnostic_augmentation.sample_count` | `1` | integer | modeled default or validator seed | Controls sample count in multi-sample diagnostic augmentation, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1690`; `src/learnloop/attempts/attempts.py:1468` |
-| `diagnostic_augmentation.history_limit` | `4` | integer | modeled default or validator seed | Caps history allowed by multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1691`; `src/learnloop/attempts/attempts.py:1468` |
+| `diagnostic_augmentation.sampling_enabled` | `true` | boolean | modeled default or validator seed | Turns sampling behavior on or off within multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1701`; `src/learnloop/attempts/attempts.py:1468` |
+| `diagnostic_augmentation.sample_count` | `1` | integer | modeled default or validator seed | Controls sample count in multi-sample diagnostic augmentation, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1702`; `src/learnloop/attempts/attempts.py:1468` |
+| `diagnostic_augmentation.history_limit` | `4` | integer | modeled default or validator seed | Caps history allowed by multi-sample diagnostic augmentation. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1703`; `src/learnloop/attempts/attempts.py:1468` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
