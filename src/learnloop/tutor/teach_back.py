@@ -1042,6 +1042,22 @@ def _teach_back_authoring_context(
     return context, source_criteria
 
 
+def teach_back_authoring_context(
+    vault: LoadedVault,
+    source_item: PracticeItem,
+    learning_object,
+    *,
+    quest_sentence: str | None = None,
+) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]:
+    """The teach-back authoring context exactly as the tutor builds it (and its source criteria).
+
+    Public for callers outside the tutor that run the same request without
+    writing anything, such as ``learnloop ai compare``.
+    """
+
+    return _teach_back_authoring_context(vault, source_item, learning_object, quest_sentence=quest_sentence)
+
+
 def _run_teach_back_authoring(
     client: Any | None,
     context: TeachBackAuthoringContext,

@@ -184,6 +184,32 @@ def observe_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
         _observer.reset(token)
 
 
+@contextmanager
+def tee_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
+    """Also observe model calls with ``observer``, keeping the context's own observer.
+
+    The existing observer (a command's receipt writer) runs first and its
+    failures propagate as before; ``observer`` only measures, so its own
+    failure never touches the call.
+    """
+
+    previous = _observer.get()
+
+    def both(action: str, event: dict[str, Any]) -> Any:
+        result = previous(action, event) if previous is not None else None
+        try:
+            observer(action, event)
+        except Exception:  # noqa: BLE001 - a measurement never fails the call it measures
+            logger.exception("A model-call observer failed on %s", action)
+        return result
+
+    token = _observer.set(both)
+    try:
+        yield
+    finally:
+        _observer.reset(token)
+
+
 class RequestGate(Protocol):
     """Admission for each physical model request made in a context.
 
