@@ -590,11 +590,18 @@ timeout_seconds = 180
 # input_modalities = ["audio", "pdf"]        # native media this model accepts ([ingest.native])
 
 # ChatGPT plan ("Continue with ChatGPT"): OpenAI models billed to your ChatGPT
-# plan, one HTTPS request per call (no Codex process, no tools). Sign in once
+# plan, one HTTPS request per call (no Codex process, no shell). Sign in once
 # per machine with `learnloop ai signin chatgpt`, pick a model from
 # `learnloop ai models chatgpt`, then point routes at the profile, e.g.
 # [ai.routing] source_query_rewrite = "chatgpt" and source_rerank = "chatgpt".
-# Unconfigured, nothing changes; enabled = false turns the profile off.
+# To run everything on it, set [ai] active_provider = "chatgpt" with
+# fallback_provider = "codex" (a route that is not pinned uses Codex while the
+# plan is signed out or paused), and point the [ai.routing] entries above that
+# name codex_low or codex_medium at "chatgpt" (ai.route_reasoning_effort can
+# keep "medium" for the codex_medium ones). Unconfigured, nothing changes;
+# enabled = false turns the profile off. A snapshot diagnosis's read-only workspace is served by
+# LearnLoop: "tools" lets the model list and read the files it needs (each
+# file served is recorded), "inline" sends every file in the request.
 # [ai.providers.chatgpt]
 # type = "chatgpt_plan"
 # model = "<a slug from learnloop ai models chatgpt>"
@@ -602,6 +609,10 @@ timeout_seconds = 180
 # response_format = "json_schema"            # or "json_object" (JSON mode + one repair)
 # usage_limit_pause_minutes = 15             # pause after a usage-limit error
 # timeout_seconds = 60
+# workspace_mode = "tools"                   # or "inline"
+# max_tool_rounds = 16                       # rounds of workspace calls per turn
+# max_entry_chars = 24000                    # characters one read returns at most
+# max_workspace_chars = 400000               # characters served per turn at most
 
 [codex]
 provider = "sdk"
