@@ -38,6 +38,23 @@ to 199, head fixture `migration_head_199`).
 > binds unverified. A PF job persists its selection whole, with a
 > completion marker, and a rerun plans only its unfinished work. See
 > "Round 3" in `docs/reviews/method-explicit-2-codex-review.md`.
+>
+> **Round-3 review (2026-10-14).** The answer key's identity now includes
+> the required method (name and graded criteria), so changing only the
+> method needs a fresh check. A recorded answer is shown, reviewed and
+> diagnosed with the question it was given (its graded contract). Every
+> reader of an item's question renders the sentence, and a clipped context
+> shortens only the statement. A resumed PF job reads ledgered verdicts
+> before any judge and is budgeted from its persisted inputs. An inherited
+> default is established from the graded revision's own provenance. See
+> `docs/reviews/method-explicit-3-codex-review.md`.
+>
+> **Merge note for `mcp/c1-read-context`.** Its `learner_context._pins`
+> reads only the pinned contract's `$.prompt`. When it lands after this
+> branch, it must render the pinned question with
+> `learnloop.vault.required_method.answered_prompt` (or read
+> `$.required_method` and use `presented_prompt`).
+> `learnloop.db.stores.answered_contracts` returns both fields.
 
 **Owner rule (2026-10-13).** Rubric criteria name the FACT a step establishes
 ("shows the determinant is zero"), not the METHOD used ("uses cofactor
