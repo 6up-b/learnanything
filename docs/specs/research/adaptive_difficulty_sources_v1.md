@@ -6,6 +6,8 @@
 
 **Extended** 2026-10-15 on branch `docs/adaptive-ad3-live` from main `2be98cc43`, for the spec's learned relatedness model (spec R13, §5.10): five sources in §3 (g), found and verified by the revising agent at their primary records, with no research worker and no paid call (§1.2).
 
+**Extended again** later on 2026-10-15, on branch `docs/adaptive-reading-kinds` from main `37a2a7e5f`, for the spec's reading kinds, dose curves and randomized dose offers (spec R14, §5.11–5.12, §10.4): nine sources in §3 (h), found and verified by the revising agent at their primary records, again with no research worker and no paid call (§1.2). One existing source, `[choffin2019]`, gained a checked claim (§1.3).
+
 ---
 
 ## 1. Method
@@ -47,6 +49,7 @@ Every source was opened at its primary bibliographic record and checked for **ti
 - **Two that workers flagged UNVERIFIED are verified here** through their Crossref records: `[lesmes2010]` (worker a) and `[bi2024]` (worker e).
 - **Dropped: none.** Every candidate resolved to a matching primary record.
 - **Added 2026-10-15: 5 of 5 verified** by the same method: `[adams1997]`, `[chen2015q]`, `[culpepper2019]` and `[hoeting1999]` at their Crossref records, `[capstick2024]` at its arXiv abstract page. Crossref carries no abstract for `[chen2015q]` and Semantic Scholar refused automated access (HTTP 429), so its abstract was read from its Europe PMC record. That makes 126 verified sources in all.
+- **Added later on 2026-10-15: 9 of 9 verified** at their Crossref records (title and first-author surname): `[klasnja2015]`, `[boruvka2018]`, `[angrist1996]`, `[robins2000]`, `[roediger2006]`, `[hamaker1986]`, `[sweller1985]`, `[kalyuga2003]` and `[chi1989]`. Crossref carries the abstracts of `[roediger2006]`, `[hamaker1986]` and `[chi1989]`. For the other six it carries none, so their abstracts were read from their OpenAlex records, looked up by DOI. One title was matched by hand: Crossref's `[chi1989]` title has a Unicode hyphen ("Self‐Explanations"). That makes 135 verified sources in all.
 - **The year column** is the primary record's date (online-first issue, or the first arXiv version), so it can differ from the year in a key. **The venue** is what the record shows. Later journal or conference publication claimed by a worker is not asserted unless the record carries it.
 
 ### 1.3 Quantitative claims checked against the source text
@@ -80,6 +83,16 @@ The spec leans on these numbers. Each was checked against the abstract (arXiv ci
 | A fully Bayesian Q-matrix estimate from an expert-knowledge prior, checking which expert attributes are supported and finding residual ones `[culpepper2019]` | Crossref abstract | Confirmed |
 | LLM-elicited priors reduce error with fewer labels than in-context learning `[capstick2024]` | arXiv abstract | Confirmed |
 | Bayesian model averaging accounts for model uncertainty; improved out-of-sample predictive performance in the examples reviewed `[hoeting1999]` | Crossref abstract | Confirmed |
+| DAS3H, following DASH, counts past practice per time window as `log(1 + count)`; "the use of log counts induces diminishing returns of practice inside a given time window" `[choffin2019]` | Full text (arXiv PDF), p. 4 | Confirmed (added 2026-10-15) |
+| Testing beat restudy on tests 2 days and 1 week later; restudy won at 5 minutes and raised confidence `[roediger2006]` | Crossref abstract | Confirmed |
+| Adjunct questions: strong effect on repeated test questions, weaker on related ones; effect sizes related to, among others, text length and the density of adjunct questions `[hamaker1986]` | Crossref abstract | Confirmed |
+| Worked examples took less time to process than problems and sped up later similar problems with fewer errors; both findings specific to problems identical in structure `[sweller1985]` | OpenAlex abstract | Confirmed |
+| Techniques highly effective with inexperienced learners "can lose their effectiveness and even have negative consequences" with more experienced ones `[kalyuga2003]` | OpenAlex abstract | Confirmed |
+| "Good" students generate many self-explanations while studying worked examples; "poor" students do not and rely heavily on examples `[chi1989]` | Crossref abstract | Confirmed |
+| Standard confounding adjustment is biased when time-dependent confounders are affected by previous treatment; inverse-probability-of-treatment weighted estimators `[robins2000]` | OpenAlex abstract | Confirmed |
+| Micro-randomized trials enable causal modelling of the proximal effects of randomized intervention components and of their time-varying moderation `[klasnja2015]` | OpenAlex abstract | Confirmed |
+| A potential-outcomes definition of moderated effects suited to numerous treatment occasions, unavailability and moderators influenced by past treatment; estimation methods developed and compared `[boruvka2018]` | OpenAlex abstract | Confirmed |
+| With ignorable assignment and imperfect compliance, the IV estimand is the average causal effect for compliers under stated assumptions, otherwise only a ratio of intention-to-treat estimands `[angrist1996]` | OpenAlex abstract | Confirmed |
 
 ---
 
@@ -92,6 +105,7 @@ The synthesis is in the spec (§4.1, R1–R12, and the item-by-item verdict on t
 - **The band and the limits.** Keep 70–80% as an engineering default to be tested on delayed outcomes (`[wilson2019]`, `[klinkenberg2011]`, `[papousek2016]`). Be explicit about what one learner's data cannot identify (`[chen2021]`, `[fu2016]`, `[bolsinova2025]`).
 - **Pooling.** Pool later with robust priors and learner-level privacy (`[schmidli2014]`, `[liu2020]`, `[steiner2018]`).
 - **Relatedness (added 2026-10-15).** Let an expert, here an LLM, propose which topics an item draws on and which are related, and learn from the data how far to trust it (`[culpepper2019]`, `[capstick2024]`, `[adams1997]`, `[chen2015q]`), averaging over hyperparameters rather than fixing them (`[hoeting1999]`).
+- **Active reading (added later on 2026-10-15).** Judge reading practices by delayed outcomes, not immediate ones (`[roediger2006]`). Give each kind its own saturating dose curve, since the research shows effects that depend on density and on the learner's expertise (`[hamaker1986]`, `[sweller1985]`, `[kalyuga2003]`, `[chi1989]`, `[choffin2019]`). Observed doses are confounded by struggle (`[robins2000]`), so identify "how many" with micro-randomized offers (`[klasnja2015]`, `[boruvka2018]`), keeping the offer's effect apart from the effect of taking it (`[angrist1996]`).
 
 Each worker's open questions are folded into the spec's §16 (deferrals with triggers) and §17 (open questions).
 
@@ -262,6 +276,20 @@ Verdicts: **Adopt** (use the method as is), **Adapt** (use with the change named
 | `capstick2024` | AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling | Alexander Capstick; Rahul G. Krishnan; Payam Barnaghi | arXiv | 2024 | <https://arxiv.org/abs/2411.17284> | LLM-elicited priors for simple interpretable predictive models; more informative than in-context learning, reducing error with fewer labels. | Supports an LLM supplying priors rather than predictions; not educational and not a relatedness structure. | Adapt: the LLM proposes prior means, never outcomes (spec §5.10). |
 | `hoeting1999` | Bayesian model averaging: a tutorial | Jennifer A. Hoeting; David Madigan; Adrian E. Raftery et al. | Statistical Science | 1999 | <https://doi.org/10.1214/ss/1009212519> | Bayesian model averaging: weight models by posterior probability rather than pick one; reviews implementations and examples where it improves out-of-sample prediction. | A finite grid of hyperparameter points is a small model space. | Adopt: the hyperparameter mixture (spec §5.6, §5.10). |
 
+### (h) Active reading, dose and randomized offers (added later on 2026-10-15)
+
+| Key | Title | Authors | Venue | Year | Primary record | What it offers | Fit to our constraints | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| `roediger2006` | Test-Enhanced Learning: Taking Memory Tests Improves Long-Term Retention | Henry L. Roediger; Jeffrey D. Karpicke | Psychological Science | 2006 | <https://doi.org/10.1111/j.1467-9280.2006.01693.x> | Testing beat restudying prose on tests 2 days and 1 week later; restudy won at 5 minutes and raised confidence. | Laboratory prose and free recall, not a Reader; the delayed-versus-immediate reversal is the point. | Adopt: reading kinds are judged by delayed cold outcomes (spec §10.4). |
+| `hamaker1986` | The Effects of Adjunct Questions on Prose Learning | Christiaan Hamaker | Review of Educational Research | 1986 | <https://doi.org/10.3102/00346543056002212> | Review: adjunct questions help repeated test questions strongly and related ones less; effect sizes depend on text length, question density and format. | Population effects, not this learner's; density is a dose. | Reference: an in-passage question kind with its own dose curve (spec §5.11). |
+| `sweller1985` | The Use of Worked Examples as a Substitute for Problem Solving in Learning Algebra | John Sweller; Graham A. Cooper | Cognition and Instruction | 1985 | <https://doi.org/10.1207/s1532690xci0201_3> | Worked examples took less time than problems and sped up later problems of the same structure, with fewer errors. | Novices, algebra, near transfer only. | Reference: worked examples as their own kind; no transferable magnitude, so the kinds are exchangeable a priori (spec §5.5). |
+| `kalyuga2003` | The Expertise Reversal Effect | Slava Kalyuga; Paul Ayres; Paul Chandler et al. | Educational Psychologist | 2003 | <https://doi.org/10.1207/s15326985ep3801_4> | Review: techniques effective for inexperienced learners can lose their effect or harm more experienced ones. | The effect depends on the learner's level, which a linear state cannot condition on without a product of latent terms. | Adapt: the slow coefficient may turn a curve down, the report moderates by level band, and a level-dependent state term is deferred (spec §5.11, §10.4, §16). |
+| `chi1989` | Self-Explanations: How Students Study and Use Examples in Learning to Solve Problems | Michelene T.H. Chi; Miriam Bassok; Matthew W. Lewis et al. | Cognitive Science | 1989 | <https://doi.org/10.1207/s15516709cog1302_1> | Students who learn well from worked examples generate many self-explanations while studying them. | Correlational protocol study. | Reference: "why does this step work" as an in-passage subkind the report moderates by (spec §10.4). |
+| `robins2000` | Marginal Structural Models and Causal Inference in Epidemiology | James M. Robins; Miguel Ángel Hernán; Babette Brumback | Epidemiology | 2000 | <https://doi.org/10.1097/00001648-200009000-00011> | Standard adjustment is biased when time-dependent confounders are affected by earlier treatment; inverse-probability-of-treatment weighting. | Reading chosen because of struggle is such a confounder; the weighting needs the propensity of reading, which is not logged. | Reference: the model's reading curves are labelled observational (spec §5.8, §10.4). |
+| `klasnja2015` | Microrandomized trials: An experimental design for developing just-in-time adaptive interventions. | Predrag Klasnja; Eric B. Hekler; Saul Shiffman et al. | Health Psychology | 2015 | <https://doi.org/10.1037/hea0000305> | Randomizing an intervention component at many decision points per person identifies its proximal causal effects and their time-varying moderation. | One learner, many sections: the design's own setting. | Adopt: the randomized dose arm (spec §5.12). |
+| `boruvka2018` | Assessing Time-Varying Causal Effect Moderation in Mobile Health | Audrey Boruvka; Daniel Almirall; Katie Witkiewitz et al. | Journal of the American Statistical Association | 2018 | <https://doi.org/10.1080/01621459.2017.1305274> | A potential-outcomes definition of moderated effects for numerous treatment occasions, unavailability and moderators influenced by past treatment; estimators. | The dose already taken is a moderator influenced by past offers. | Adopt: the effect of one more offer, moderated by the dose already taken (spec §5.12). |
+| `angrist1996` | Identification of Causal Effects Using Instrumental Variables | Joshua D. Angrist; Guido W. Imbens; Donald B. Rubin | Journal of the American Statistical Association | 1996 | <https://doi.org/10.1080/01621459.1996.10476902> | With randomized assignment and imperfect compliance, the IV estimand is the compliers' average effect under stated assumptions, otherwise a ratio of intention-to-treat effects. | An offer may be ignored; seeing an offer may matter by itself. | Adopt: the offer's effect is reported apart from the effect of taking it, with its assumption stated (spec §5.12). |
+
 ---
 
 ## 4. Local measurement (spec §3.3)
@@ -311,7 +339,7 @@ Verdicts: **Adopt** (use the method as is), **Adapt** (use with the change named
 |---|---|
 | Spec internally consistent | One author read-through, then three independent read-only Codex reviews (high effort). See the list below the table |
 | Code citations | 86 distinct `file:line` citations resolve to a unique tracked file in the worktree, with valid ranges, checked by script. Each range was printed and read. Continuation citations (`:NNN` after a named file) were checked by hand. The reviewers spot-checked more than 50 and then 15 |
-| External citations | 121 of 121 sources verified at the primary record (§1.2). All 98 keys the spec cites are rows in §3. On 2026-10-15, 5 more verified and added as §3 (g) |
+| External citations | 121 of 121 sources verified at the primary record (§1.2). All 98 keys the spec cites are rows in §3. On 2026-10-15, 5 more verified and added as §3 (g), and later that day 9 more as §3 (h); the spec then cites 112 keys, all rows here |
 | `git diff --cached --check` | Clean on both files |
 | Paid API calls | None |
 
