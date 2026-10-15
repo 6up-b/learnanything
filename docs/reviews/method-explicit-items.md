@@ -66,6 +66,10 @@ to 199, head fixture `migration_head_199`).
 > nothing). Only vaults that ran this branch have such contracts. See
 > "Final verify fixes" in `docs/reviews/method-explicit-2-codex-review.md`.
 >
+> **Landed on main (2026-10-15) as `mvp-0.25`.** The placeholder
+> `mvp-0.22-placeholder` was relabelled `mvp-0.25`, chained after router
+> R2b + R2c (`mvp-0.24`). See "Landing onto main" at the end.
+>
 > **Merge note for `mcp/c1-read-context`.** Its `learner_context._pins`
 > reads only the pinned contract's `$.prompt`. When it lands after this
 > branch, it must render the pinned question with
@@ -467,3 +471,138 @@ Run on the tree at `89da8a41e` (later commits are this record only), with
    names the version.
 7. **Haiku 5.5 invalid outputs** under `json_object` persist (1 of 20, and 1
    of 4 on the repeat), as in the route-rules runs.
+
+## Landing onto main
+
+**Branch:** `merge/method-explicit-onto-main` (worktree `learnanything-merge2`), from main `2f3c36d0a`. Main had, since this branch's base `1def803a1`:
+- VOI v2 (`mvp-0.21`), the Decider's Tier 1 (`mvp-0.22`), router R2a (`mvp-0.23`) and R2b + R2c (`mvp-0.24`, LATEST);
+- plan determinism (`plan.deterministic_staged_plans`);
+- exam protection (one predicate, `content/sources/exam_material.py`), reading hardening, RW3a (Reader hooks, margin cues), the tutor delivery fixes (`tutor/context_delivery.py`), GLM-OCR and its quality pass;
+- the storage and adaptive-difficulty specs (docs only);
+- migrations to 202 (head fixture `fixtures/migration_head_202`) and sixteen defaults snapshots.
+
+The merge is a real `--no-ff` merge of `grading/method-explicit-items` (`182983b5c`, unchanged). Not pushed. Single phase. The sections above, the redesign notes at the top and the two Codex review records describe the branch as built and keep its placeholder wording.
+
+**Paid calls:** none ($0.00); no network, no key read. **Migration:** none (head 202 is main's). **`src-tauri`:** unchanged by the branch, so no `cargo check`. The branch changed `apps/` (the presentation block, Today's queue detail, the exam review and the inspector), so the frontend gate ran.
+
+| Commit | What |
+|---|---|
+| `ddbdb51df` | the merge: the relabel, the compositions, the landing tests, the recomputed snapshots, the CLI help snapshot, the regenerated references and the Pipeline Map |
+| `fb2c453ac` | the statement judgment registered as unnamed content in the Decider agreement report (a composition found after the gate run; fail-first), with the references' source stamps |
+| `653febc99` | a landing test pinning the answer key's fresh-check label |
+| (this commit) | this section |
+
+### Relabelled: `mvp-0.22-placeholder` → `mvp-0.25`
+
+| On the branch | On main |
+|---|---|
+| `METHOD_EXPLICIT_ALGORITHM_VERSION = "mvp-0.22-placeholder"`, after `ROUTE_RULES_ALGORITHM_VERSION` | **`"mvp-0.25"`**, appended to `SUCCESSOR_CHAIN` after `ROUTER_MIXTURE_ALGORITHM_VERSION`; `LATEST_ALGORITHM_VERSION` is `mvp-0.25` and new vaults start there. `METHOD_EXPLICIT_VERSIONS` = {mvp-0.25}; every earlier set gains it |
+| `method_explicit_upgrade.upgrade_to_method_explicit`, chained from `route_rules_upgrade.upgrade_to_mvp020` | `upgrade_to_mvp025` (the old name kept as an alias), chained from `router_mixture_upgrade.upgrade_to_mvp024`: accepts mvp-0.24, or mvp-0.9 to mvp-0.23 through it; `chained_notes = list(chained.notes or [])`, passed through a refusal too (as main's mvp-0.24 does; the branch's did not); an earlier step's refusal unprefixed |
+| `learnloop upgrade --to mvp-0.22-placeholder` | `--to mvp-0.25`, the default; `--to mvp-0.10` .. `--to mvp-0.24` still reach those tags |
+| kill switch off "grades exactly as mvp-0.20" | "exactly as mvp-0.24" (the immediate predecessor; its grading is mvp-0.20's own-route rules) |
+| `tests/test_method_explicit_upgrade.py` on `migration_head_199` | on `migration_head_202`, set to mvp-0.24 |
+
+- **The T1 guard stays advisory.** The refusal test sets `config="[recurrence]\nrequire_guard = true"`: from mvp-0.10 every problem names the mvp-0.12 step through all later links and the vault stays at mvp-0.10; once the guard passes, the chain activates mvp-0.11 .. mvp-0.25 (15 activations). New: `test_chained_notes_pass_through_an_upgrade_and_a_refusal`.
+- **Tests that compare against the predecessor** (`tests/test_required_method_grading.py`: the kill switch's byte-exact prompt and grade, replay of a predecessor grade after the upgrade) now use mvp-0.24, not mvp-0.20. They pass unchanged otherwise: mvp-0.21 .. mvp-0.24 change nothing in a grade.
+- **Main's latest-version pins** move to mvp-0.25, and their negative `SUCCESSOR_CHAIN` indexes shift by one: `test_mvp011/013/014/015/016/017/018/020/021/022/023/024_upgrade.py`, `test_reading_step_switch.py`, `test_recurrence_commands.py`, `test_route_rules_in_grader.py` and `test_plan_determinism_landing.py` (which now pins mvp-0.24 as the mixture's tag and LATEST inside `ROUTER_MIXTURE_VERSIONS`).
+- **Placeholder comments.** `algorithm_versions.py`, `method_explicit_upgrade.py`, the template's snapshot notes, `RequiredMethodConfig`, the reference generator's descriptions and `docs/algorithm-change-playbook.md` say "built as mvp-0.22-placeholder and relabelled mvp-0.25 at its merge". The review records keep their wording.
+- **Docs.** `Algorithm Versions and Reproducibility.md`: an mvp-0.25 row; every version set through mvp-0.25 and `METHOD_EXPLICIT_VERSIONS`; LATEST and the default target mvp-0.25. `Version Registry.md`: algorithm `mvp-0.25`, the projection base through mvp-0.25. `Maps/LearnLoop Pipeline Map.md`: the version authority at mvp-0.25, a method-explicit paragraph (the field the one authority, the sentence rendered from it on every surface, `own-route-v2`, the one-time judgment and its switch, the key identity) and the review link; `validate_vault.py` passed (1,106 notes).
+- **Defaults, help, references.** All seventeen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (mvp-0.9 .. mvp-0.25) were recomputed from the composed defaults (`defaults_fingerprint_for_version`), the template `.pyc` deleted and the file touched before and after; a second pass changed nothing. Each moves only because the effective config gains `[required_method]`, `ai.routing.rubric_phrasing_judge` and `decider_routes.required_method_statement`. The CLI help snapshot was rewritten (`grading`, `grading hardcases`, `grading method-phrasing`, `grading required-method`, `upgrade`). `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors** once the prose counts read 857 effective leaves in 51 sections (main's 854 in 50, plus the three leaves and one section); schema head 202, 321 table notes. No new sidecar RPC, so `tests/test_mobile_allowlist.py` is unchanged.
+
+### Conflicts
+
+| File | Resolution |
+|---|---|
+| `algorithm_versions.py` | Main's mvp-0.21 .. mvp-0.24 blocks, chain entries and sets kept; the branch's block after them, relabelled |
+| `config/schema.py` | `voi_stopping` and `decider_routes` beside `required_method` |
+| `config/template.py` (12 hunks) | Main's notes in every snapshot entry, then a method-explicit line; the branch's mvp-0.9 note rewritten for the landing; mvp-0.24's "New vaults start here" became "started here ... until mvp-0.25 merged"; an mvp-0.25 entry; all hashes recomputed |
+| `cli/app.py` | Main's `--to mvp-0.21` .. `mvp-0.24` branches and help, then `--to mvp-0.25` (default) |
+| `source_retrieval/verify.py`, `find_sources.py`, `tutor.py` | Main's delivery fixes (complete passages, `judged_passage`, the input-sized token cap, `context_delivery` imports) with the branch's `practice_question` (`PRACTICE_QUESTION_CHARS = 700`, `fit_presented_prompt`). The branch's `PASSAGE_CHARS = 900` is dropped: main renamed it `PREDECESSOR_PASSAGE_CHARS` |
+| `_scripts/db_generate_reference.py` | Main's `voi_stopping`, `decider_routes` and Tier-1 descriptions beside the branch's, relabelled; new descriptions for the composed switch and route default |
+| `Algorithm Versions and Reproducibility.md`, `Version Registry.md` | Main's rows, then the mvp-0.25 row |
+| Eleven test files (latest pins) | Main's side, bumped (above) |
+| 369 notes under `Reference/`, `tests/cli_help_snapshot.json` | Main's side, then regenerated |
+
+### Compositions: every surface that shows an item's question
+
+Main gained surfaces since the base. A grep for `.prompt`, `["prompt"]`, `.get("prompt")` and `$.prompt` over `src/` and `apps/` (lines present on the merge but not on the branch, then every main-touched file) found these; each now renders through the branch's functions. For an item without a required method every output is byte-identical to main's.
+
+| Surface (landed on main) | Before | Now |
+|---|---|---|
+| R2a/R2b's `LearnerStateCardV1` (`daily_plan/router_card.py`), what both router models read and the stored card | the pinned contract's `$.prompt` only, clipped later to `STEM_LIMIT` = 200 | also reads the contract's frozen `$.required_method`; `fit_presented_prompt(statement, method, STEM_LIMIT, excerpt)`, so the card's own clip is a no-op and the sentence stays whole. A contract that froze no method shows no sentence, even if the item has one now. Today's prompt is still never substituted |
+| RW3a margin cues, "Open" (`reader/reader_cues._earlier_work`), shown in `MarginMark.tsx` | the item's current prompt, clipped to 220 | the question the cited answer was given: `answered_question(item, contract)` (a new helper behind `answered_prompt`, the pair it renders) with the attempt's graded contract (`db.stores.answered_contracts`), clipped by `fit_presented_prompt` |
+| RW3a "check me" (`learnloop_sidecar/handlers/reader.check_me_proposal`) | `find_practice`'s rendered prompt, cut at 219 + "…", which could cut the sentence | `fit_presented_prompt` on the found item, same clip |
+| The daily plan's item rows (`daily_plan/view._item_row`, `prompt_preview`, 140) and the Reader's video pause points (`prompt_preview`, 120) | a plain cut of the statement (both predate the base; the branch had not reached them) | `fit_presented_prompt` |
+| Exam protection's held-out leakage screen (`content/authoring/practice_leakage._payload_surfaces`) | the payload's statement | `presented_prompt(statement, payload required_method)`: the learner-visible question is what is screened (review F2's rule for withholding) |
+| Tutor context after the delivery fixes (`tutor_qa`, `teach_back`) | the branch's `presented_prompt`, whole | unchanged: `practice_item_prompt` is never clipped; `context_token_budget` governs source spans only. The source tutor's verifier context (`practice_question(item, ellipsis=True)`) and its span provider keep the sentence whole within 700, so `verify_prompt`'s clip is a no-op |
+| Exam sitting and review (`handlers/exams.py`) | the branch's `item_presentation` block and `answered_prompt` | unchanged; exam protection added no prompt read |
+| Router why copy (`router/why.py`), the R2b requests, R2c teach-back summaries (`daily_plan/router_teach_back.py`), retrieval | no item question (titles; the transcript; the card) | nothing to route. A teach-back item never has a required method |
+| Reader authored quick checks (`reader_guidance`, `question_md`) | not practice items | unchanged; placed items already use `presented_prompt` |
+
+Tests (`tests/test_method_explicit_landing.py`, 14): the card (a long stem shortened with the sentence whole within 200; a contract with no method shows none); "Open" (the frozen sentence whole within 220; unchanged without a method); "check me"; the plan row's preview; `answered_question` against `answered_prompt` over every case; the leakage screen; the statement judgment's registration, switch, route default and disclosure; the agreement report's label binding; the fresh-check label. **Fail-first:** with the composed source files restored to their pre-composition merge versions (an isolated copy run with its own `src/`), 8 of the first 11 failed (the three that passed pin behaviour without a method); the agreement test bound 1 label before its fix and 0 after.
+
+### Composition: the Decider
+
+The branch asks the Decider through its own route, `ai.routing.rubric_phrasing_judge`, a `DECIDER_ACCEPTING_TASKS` route like `facet_identity_judge` (a decider or a chat profile), defaulting to the code-default `openrouter_decider`. Main's Tier 1 added `tier1_decider` (decider-only) and one `[decider_routes]` switch per judgment, with content tasks (the facet span check) switched at every version. Main renamed nothing the branch uses (`DEFAULT_DECIDER_PROVIDER`, `ready_client_for_task`, `ChoiceQuestion`). Composed the way main registers its Decider judgments:
+
+- **The task.** `required_method_statement` is a Tier-1 content task (`decider_judgments.CONTENT_TASKS`) with its own switch, `decider_routes.required_method_statement = true` (every version). Off, `resolve_statement_judge` skips the Decider and the LLM judge decides; a statement is still judged once, ledgered.
+- **The profile.** An unset `ai.routing.rubric_phrasing_judge` now means the Tier-1 Decider: `ai.routing.tier1_decider`'s profile, else the code default, as main's contamination judge resolves it. So the Decider is configured in one place; a profile named on the judge's own route still wins. This also serves `learnloop grading method-phrasing`.
+- **Disclosure.** Settings' Tier-1 disclosure names it: a textbook exercise's statement with the method its import proposes, or a PF variant's stem with its parent's method (no learner text). The AI connection sheet's one-time note (`connection_note`) is unchanged: it lists learner text and the span check's book passages, and adding a sentence there for every library is a UX call left to the owner.
+- **Agreement.** `learnloop decider agreement` reads every ledger task. A statement judgment's entities (an item and a method name) do not name the statement or variant stem judged, so the task joins `UNNAMED_CONTENT_TASKS`: an owner verdict binds a Decider row only explicitly (its `supersedes_id`) or on the same input, never by the same question.
+
+### Gate
+
+At `ddbdb51df` (the merge), with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,521 passed**, 0 failed, 48 warnings (15 min 50 s). The learner_pick flake (RW3a's `check_me ... [planned]`) did not appear; nothing needed a rerun |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto` (at `fb2c453ac`) | **100 passed** (23 s) |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | ok · clean · **82 files, 578 tests passed** · built (the existing chunk-size notice) |
+| `cargo check` | not needed: `src-tauri` unchanged |
+| After the gate run | `fb2c453ac` (one frozenset and a test) and `653febc99` (a test): the landing file, the Decider agreement, landing and Tier-1 files and R2b's agreement file, 122 passed; the landing file again, 14 passed. The full suite again at `653febc99`: **11,523 passed**, 0 failed (21 min 13 s; the learner_pick flake did not appear) |
+
+### Parity
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (both `mvp-0.8`), in `fixtures-local/me25-parity`: one pristine copy each, then a copy per side and per check. Each was migrated by its own code (`migration_coordinator.migrate_vault`): main `2f3c36d0a`, exported with `git archive` and first on `PYTHONPATH` (the probe printed the archive's `learnloop/__init__.py`), and the merge's own. Both applied 47 migrations to 202. On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an empty directory. Shadows were compared structurally after setting aside ULIDs, timestamps, ids, hashes and paths; doctor reports as issue multisets (normalized the same way), so an inserted issue does not shift the rest.
+
+| Check | Fixture | Shadow (facet / mastery / schedule) | Shadow differences | Doctor main → merge | What differs in doctor |
+|---|---|---|---:|---|---|
+| own version (`mvp-0.8`) | linear algebra | 22 / 6 / 47 both sides | **0** | 106 → 107 issues (1 error both) | +1 `criterion:method_phrased` warning |
+| | probability | 2 / 1 / 1 both sides | **0** | 134 → 138 (49 errors both, 46 `criterion:unknown_dependency`) | +4 `criterion:method_phrased` warnings |
+| `mvp-0.24` (`upgrade --to mvp-0.9`, then `--to mvp-0.24`, each side by its own code, then `rebuild-derived-state` twice) | linear algebra | 0 / 0 / 0 both sides | **0** | 56 → 57 (1 error both) | the same +1 warning |
+| | probability | 0 / 0 / 0 both sides | **0** | 98 → 102 (49 errors both) | the same +4 warnings |
+
+- **Nothing removed, nothing else added.** The only doctor difference is the branch's own content check, doctor's advisory `criterion:method_phrased` (heuristic, every version; the stage record's §5 counted the same one on linear algebra): `pi_what_makes_log_transport_strategy` ("Uses the transport identity"), and on probability `pi_exercise_01kyn1xgvc7a6hbvw5s3e43f43` ("Uses the complement"), `pi_fixed_point_intersection_table_4` ("Applies alternating inclusion-exclusion"), `pi_inclusion_exclusion_committee_groups` and `pi_inclusion_exclusion_password_classes` ("Applies inclusion-exclusion"). They flag rubric wording for the owner's `learnloop grading method-phrasing` repairs; no grade, schedule or projection reads them. No `required_method:*` issue on either fixture.
+- `live_database.unchanged` is true on every shadow, and each copy's `state.sqlite` hash is identical before and after its shadow and doctor. Doctor exits 1 on both sides, as on main.
+
+**The `mvp-0.24` → `mvp-0.25` upgrade, shadowed** (playbook item 7). Backup-API copies of the merge's `mvp-0.24` copies were taken through `learnloop upgrade` (the default target: "Upgraded vault: mvp-0.24 -> mvp-0.25"; no chained notes from mvp-0.24), then shadowed and doctored.
+
+| Fixture | Shadow at mvp-0.24 | Shadow at mvp-0.25 | What differs | Doctor at mvp-0.25 |
+|---|---|---|---|---|
+| linear algebra | 0 / 0 / 0 | 0 / 21 / 0 | `algorithm_version` only (`mvp-0.24` → `mvp-0.25`), on all 21 mastery rows; no other column on any row | identical to mvp-0.24's (57 issues, 1 error) |
+| probability | 0 / 0 / 0 | 0 / 18 / 0 | `algorithm_version` only, on all 18 mastery rows | identical (102 issues, 49 errors) |
+
+Outside those rows the reports differ only in the version labels (`baseline_algorithm_version`, `candidate_algorithm_version`, `rebuild.algorithm_version`): label-only, as at the R2a and R2b + R2c landings (the same 21 and 18 rows). Main's vaults have no `required_method` item and no assessment contract that froze one (55 and 1 contracts, none with a method), so the successor has nothing else to change.
+
+**The fresh-check label.** `KEY_STATUS_LABELS["changed_since_check"]` reads "Needs a fresh check: the answer key changed since it was checked" (main: "Answer key changed since it was checked"). The wording is new in every vault, by design (the Codex verify of the final fix noted it; documented, not a regression). The label is a pure function of the status (the sidecar's import rows and item serializer, the intervention summary), so it shows exactly where an item's effective key status is `changed_since_check`. On every parity copy (own version, `mvp-0.24` and the upgraded `mvp-0.25`) a read-only probe of each item's `effective_key_status` and `reference_content_hash` under main's code and the merge's gives **0 status and 0 hash differences** (linear algebra 99 items: 96 `not_applicable`, 3 `model_answer`; probability 77: 69 and 8). No item reads `changed_since_check`: these vaults have no answer-key check yet. On a vault that has one, `test_a_check_recorded_on_main_still_verifies_and_the_fresh_check_label_needs_a_change` pins it: a check recorded as main records it (no key identity) still verifies an item without a method; the label appears after an edit of the key, goes when the checked revision is restored, and appears when only a required method is set (the method is part of the key's identity).
+
+The tracked fixtures were only copied: their `state.sqlite` hashes (`a3972c00…`, `0ac51001…`) were the same before and after, and `git status fixtures/linear_algebra fixtures/probability` is clean.
+
+### Merge note for `mcp/c1-read-context`
+
+Unchanged from the note at the top: when it lands, `learner_context._pins` must render the pinned question with `learnloop.vault.required_method.answered_prompt` (or `answered_question` with `fit_presented_prompt` where it shortens), not `$.prompt` alone; `learnloop.db.stores.answered_contracts` returns the frozen `prompt` and `required_method`. The R2a card's `_pinned_stems` (above) is the pattern: read `$.required_method` beside `$.prompt`.
+
+### Open questions (defaults applied)
+
+1. **Legacy statements show the sentence twice** (round 3, question 8). Default: **left as is**. Only vaults that ran this branch before round 3 have such statements; main's vaults have none, and nothing removes text from a statement.
+2. **The offline review harness grades against today's item** (round-3 review, "Not changed"). An **owner decision; left as is**. Its blind grade, diagnosis and judge read the item as it is now (rendered); grading its targets under their frozen contracts would change the harness's comparison design.
+3. **The connection sheet's Decider note** (above). Default: unchanged; Settings discloses the statement judgment.
+4. The branch's other open questions (§9 2-7, round 3's 9-10, the exam answer frozen at finish) are unchanged by the landing.
+
+### Safety
+
+- No paid call, no subscription call, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout and `grading/method-explicit-items` (worktree `learnanything-merge`) were not touched. This worktree's tracked `linear_algebra` and `probability` were opened only by the backup API (and hashed before and after: unchanged); `arxiv_v2` not at all. Nothing was pushed or stashed.
