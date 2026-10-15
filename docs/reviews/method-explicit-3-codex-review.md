@@ -559,6 +559,12 @@ that is what is versioned. The hash function is unchanged.
 - A legacy contract whose own rubric cannot be rebuilt (edited since, with
   no snapshot) is read as recorded. A check recorded since, of a question
   without a method that had exactly that rubric, would bind it.
+
+  > **Corrected by the final verify (F1 reopened again).** This limit, and
+  > a method contract without a recorded hash, are now fixed by one
+  > fail-closed rule: a method contract whose binding nothing establishes
+  > exactly is ambiguous and needs a fresh check. See "Final verify fixes"
+  > at the end of `docs/reviews/method-explicit-2-codex-review.md`.
 - Legacy checks of a cleared question recorded between `2d7c49483` and this
   fix carry no identity, so a legacy contract reads them as its own. If one
   is a dispute, the binding fails closed.

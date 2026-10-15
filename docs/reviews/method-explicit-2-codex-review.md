@@ -1019,3 +1019,237 @@ closed by the persisted order. New:
     this branch wrote before round 3 carry no completion marker, so their
     selection is redone, possibly with a fresh selection call when the
     survivors changed. That is honest, and planned under the caps.
+
+## Final verify fixes (stage `method-explicit-3`, final verify)
+
+The final verify of the round-3 re-review (Codex job
+`20261015-010744-fq1jgd`, read-only, `c391dd8b8..grading/method-explicit-items`
+at `bcff06523`, with the record in `method-explicit-3-codex-review.md`)
+returned **REOPENED**:
+
+- F9 (Medium) was confirmed closed.
+- F1 (High) was still open in two historical cases. Both reproduced in
+  memory, as the verify did, and both are fixed by one rule. No finding was
+  rejected.
+
+| Commit | What |
+|---|---|
+| `021f65890` | the fix and its tests |
+| `46be22d71` | regenerated architecture references (citations, capped source-path lists and source-commit stamps only) |
+| (this commit) | this section, a correction note under the re-review's remaining limits in `method-explicit-3-codex-review.md`, and the pointer in `method-explicit-items.md` |
+
+Counts (`git diff --numstat bcff06523..021f65890`): `src/` +116 / −50,
+`tests/` +230 / −12. No migration, no new table, no configuration key, no
+prompt version, no CLI help and nothing under `apps/` changed.
+
+### The two cases
+
+1. **An unrecoverable rubric.** A contract frozen under the induction
+   method before review F1 recorded the legacy hash (statement, expected
+   answer and rubric R1, no method). The method is cleared, and that
+   cleared revision is disputed by a check written after the fix. Then the
+   live rubric becomes R2, and no snapshot kept R1. No rebuild reproduced
+   the recorded hash, so `graded_reference_contents` fell back to it. The
+   cleared question has exactly that hash, so its dispute lowered the
+   induction answer (`key_status=disputed; graded_revision=frozen`).
+2. **A contract without a recorded hash.** A method contract frozen before
+   contracts recorded a hash (round 2, F19) was invisible to the collision
+   rule, which read only recorded hashes. With a legacy check of the
+   induction question, clearing the method still read `book_solution` (the
+   cleared question verified) with no fresh check.
+
+### One rule
+
+**A method contract binds its answer key only where that binding is
+established exactly. It is established by a hash recorded with its key
+identity, or by rebuilding the revision graded from a rubric the item is
+known to have had. Otherwise the binding is AMBIGUOUS.**
+
+An ambiguous binding is isolated, and it fails closed:
+
+- **No check of any revision decides it.** A check of another revision
+  never verifies it, and a dispute of another revision never lowers it.
+  Nothing tells its own checks from those of the question with its method
+  cleared, which may carry the same hash, so no check is read at all.
+- **It needs a fresh check.** Its key status is `changed_since_check`. A
+  regrade under it is lowered whatever any check says
+  (`key_status=changed_since_check; graded_revision=ambiguous_method`), and
+  the binding names only its own revision. The grade certifies nothing.
+- **It lends no credit.** A question without a method takes no credit from
+  a legacy check that an ambiguous method contract may own.
+
+Where verification is displayed, `changed_since_check` now reads "Needs a
+fresh check: the answer key changed since it was checked". That is the key
+label the desktop and the sidecar show for an item.
+
+**Scope.** Only vaults that ran this unmerged branch have such contracts:
+main has no `required_method`. An ambiguous contract is a method contract
+this branch froze before `021f65890`, since every method contract frozen
+from now on records its key identity. The collision rule reads only method
+contracts, so an item without one (every item on main) is unchanged.
+
+### Fix
+
+1. **A method contract records its key identity.** Next to
+   `reference_content_hash` it now records `key_identity: "method-aware"`.
+   This is the field and value every check has recorded since the
+   re-review (`KEY_IDENTITY_FIELD`, `KEY_IDENTITY`), not a new mechanism.
+   - Without the field, a contract frozen after the merge whose rubric
+     changed with no snapshot could not be told from a legacy one. The rule
+     would then fail it closed on main.
+   - With it, ambiguity is confined to this branch's earlier contracts.
+   - Only method contracts carry it, so only their contract hash changes.
+     Contracts are content-addressed, so a method item presented again gets
+     a new contract version. Every other contract is unchanged.
+2. **`GradedContract.graded_reference_contents`** (method contracts):
+   - With the identity, the recorded hash binds exactly (`frozen`), with
+     or without the rubric.
+   - Without it (this branch, before `021f65890`), the revision is rebuilt
+     with each known rubric: the current one, each snapshot's, and an
+     inherited one.
+     - A rebuild with the method reproduces the hash: it binds as recorded.
+     - A rebuild without the method reproduces it (the legacy identity): it
+       binds the method-aware revision with the legacy mapping, as the
+       re-review did.
+     - No rebuild reproduces it: `([recorded], "ambiguous_method")`.
+       This was verify case 1.
+   - A historical method contract (no hash) that no rebuild reproduces was
+     `unresolved` and bound to every checked revision. It is now
+     `(["unrebuilt:<item_content_hash>"], "ambiguous_method")`.
+   - Unchanged:
+     - `frozen`, an exact rebuild or the attempt-time revision;
+     - `ambiguous`, the round-2 F19 rubric provenance among method-aware
+       rebuilds of the same question;
+     - `ambiguous_default`;
+     - every outcome for a contract without a method.
+3. **`bind_replacement_grade`.** `ambiguous_method` and
+   `ambiguous_default` (`UNESTABLISHED_REVISIONS`) read no check. The
+   status of an exercise import is `changed_since_check`, and the grade is
+   lowered. `not_applicable` content is never gated, as before.
+   - For `ambiguous_default` the outcome is unchanged: it was already
+     lowered whatever the statuses.
+   - Only its rationale changes. It now shows `changed_since_check`
+     instead of whichever check came first.
+4. **The collision rule.** `legacy_method_identity(connection, item_id,
+   hash)` replaces `legacy_method_contents`. A legacy check of a question
+   without a method does not apply when either holds:
+   - a method contract recorded that hash (as before);
+   - a method contract recorded no hash at all. Its legacy identity cannot
+     be named, so this fails closed for every question without a method on
+     that item. This was verify case 2.
+
+   A check written now (with its identity) applies as before.
+
+| Case | Base (`bcff06523`) | Now |
+|---|---|---|
+| Legacy-hash contract, rubric lost, the cleared question disputed | lowered by that dispute (`key_status=disputed`, `frozen`) | needs a fresh check (`changed_since_check`, `ambiguous_method`); the dispute is not read |
+| The same, the cleared question freshly verified | verified | needs a fresh check |
+| The same, the cleared question left alone | verified (legacy checks) | needs a fresh check |
+| Historical contract, rubric lost (the same three) | `unresolved`: lowered by the cleared question's dispute, else verified | needs a fresh check |
+| Historical contract, the method cleared | the cleared question `book_solution` | `changed_since_check` until a check written now verifies it |
+| Historical contract rebuilt exactly, the cleared question disputed | verified, no binding | verified, no binding (unchanged) |
+| A contract frozen now, rubric lost | bound as recorded | bound as recorded, by its identity |
+| This branch's contract with a method-aware hash and no identity, rubric rebuilt | bound as recorded | bound as recorded |
+| The same, rubric lost | bound as recorded | needs a fresh check (fail closed) |
+| An item that never had a method (main) | unchanged | unchanged |
+
+**The cost of failing closed** (vaults that ran this branch only):
+
+- A regrade under an ambiguous method contract is lowered and stays
+  lowered, since statuses are never raised. That holds even where the
+  revision graded was in fact verified.
+- A contract this branch froze between review F1 (`2d7c49483`) and
+  `021f65890` recorded a hash that names the method, but not its
+  identity. When its rubric is lost it is ambiguous too: only a rebuild
+  can tell its hash from a legacy one.
+- With any method contract that recorded no hash, every question without a
+  method on that item needs a fresh check before a legacy check counts for
+  it, not only the cleared one.
+
+**Superseded.**
+
+- **Round-2 F13, `unresolved`.** Under F13 above, a historical method
+  contract that cannot be rebuilt stood when every checked revision was
+  verified, and was lowered (`unresolved`) when one was not. Those checked
+  revisions include the question before its method was set. Such a contract
+  is now ambiguous and needs a fresh check either way.
+  - Its test is renamed
+    `test_f13_when_the_graded_revision_cannot_be_rebuilt_it_needs_a_fresh_check`,
+    and both of its cases expect that.
+  - `unresolved` stays for a contract without a method, which a regrade
+    reads only when the item has a method now.
+- **The re-review's remaining limits** (`method-explicit-3-codex-review.md`).
+  - The third (a legacy contract whose rubric cannot be rebuilt is read as
+    recorded) is fixed. A note there points here.
+  - The first, second and fourth still stand.
+- **The `pre_fix` fixture.** It now also strips the identity from its
+  contract, since the code it emulates recorded none.
+
+### Tests (10)
+
+In `tests/test_required_method_round3_final_verify.py`:
+
+- The verify's first case (`recorded`, the legacy hash) and its historical
+  twin (no hash), each with the cleared question disputed, verified or left
+  alone by a check written now (6). Every case needs a fresh check and
+  names only its own revision.
+- The verify's second case (1). The cleared question reads
+  `changed_since_check` and `unverified`, and only a check written now
+  verifies it. The historical contract, rebuilt exactly, keeps its own
+  binding, so the cleared question's dispute does not reach it.
+- A contract frozen now (1). It records its identity, and with its rubric
+  lost it still binds exactly: verified by its revision's check, lowered by
+  that revision's dispute (`frozen`).
+- This branch's contract with a method-aware hash and no identity (2). It
+  binds exactly when rebuilt (the control), and needs a fresh check when
+  its rubric is lost.
+
+### Fail-first
+
+The base `bcff06523` was exported (`src`, `tests`, `pyproject.toml`) to
+`fixtures-local/tmp/base_bcff06523`, with `migrations` linked in. No tracked
+vault was linked. The final `tests/test_required_method_round3_final_verify.py`
+ran there with the worktree's interpreter, `pytest -o pythonpath=src`.
+Tracebacks and `source_service.__file__` confirm the export's modules.
+
+**9 failed, 1 passed.** Every failure is a behavioural `AssertionError`;
+none is an import, type or attribute error.
+
+| Test | What the base did |
+|---|---|
+| Case 1, legacy hash, cleared question disputed | lowered by that dispute: `key_status=disputed; graded_revision=frozen` |
+| Case 1, legacy hash, cleared question verified or left alone (2) | `verified` |
+| Case 1, historical, cleared question disputed | lowered by that dispute, bound `unresolved` to the cleared question's hash |
+| Case 1, historical, cleared question verified or left alone (2) | `verified` |
+| Case 2 | the cleared question `book_solution`, where `changed_since_check` was expected |
+| A contract frozen now | no `key_identity` in the contract |
+| This branch's contract, rubric lost | `verified` (bound as recorded) |
+
+The one that passes on the base is the intended control: a rebuilt
+contract of this branch binds exactly.
+
+### Gate (final verify)
+
+The gate ran on the tree at `46be22d71`. The only uncommitted changes were
+the three review records. `TMPDIR` was the worktree's `fixtures-local/tmp`.
+The full suite and the durability lane each ran under
+`/tmp/learnloop-fullsuite.lock`, one after the other. This completes the
+gate the re-review left unfinished.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | done |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| Targeted run while fixing (110 test files touching the changed modules, plus `test_architecture.py` and `test_instructional_layering.py`) | **1970 passed** |
+| The review test files after the last edits (`test_required_method_round3_final_verify.py`, `_round3_rereview`, `_round3_review`, `_rereview`, `_reopened`, `_round3`, `test_reference_gate_imports.py`, `test_source_exercise_import.py`) | **123 passed** |
+| Full suite: `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **10601 passed, 1 failed**, 0 skipped (48 warnings, 482.79s). That is 10592 + 10 new tests |
+| The one failure, rerun alone | `test_learner_pick_proposal.py::test_the_delivery_carries_r1s_decision_of_the_block_that_served_it`: **passed 3 of 3** alone, and its file **14 passed**. Under `-n auto` load, router R1's `plan_block` row was not yet visible. It touches none of the changed modules, and its items have no method |
+| Durability lane: `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **99 passed**, 10503 deselected, 0 failed (1 warning, 135.82s) |
+| Frontend and cargo | not applicable: nothing under `apps/` changed |
+| `db_generate_reference.py`, then `db_validate_reference.py` | **0 errors**: schema head 199, 318 table notes, schema unchanged. Only citations, capped source-path lists and source-commit stamps moved (`46be22d71`) |
+| `validate_vault.py` | passed (1,099 notes, 22,001 links) |
+| CLI help snapshot, defaults and template snapshots | unchanged: no command, option or configuration key changed. The template `.pyc` was cleared before the suite, and their tests pass in it |
+| Undefined names and unused imports in the changed files (`ruff --select F821,F401,F811,F841`) | none new: 16 in the three `src/` files before and after, all pre-existing. The test files are clean |
+
+There were no paid calls and no live check. No key, env file or vault
+database was read, and no tracked vault was opened. Main was not merged in.

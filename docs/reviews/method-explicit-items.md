@@ -57,6 +57,15 @@ to 199, head fixture `migration_head_199`).
 > selection is budgeted by its largest judgment estimates. See "Re-review"
 > in `docs/reviews/method-explicit-3-codex-review.md`.
 >
+> **Round-3 final verify (2026-10-15).** A method contract binds its answer
+> key only where that is established exactly: a hash recorded with its key
+> identity (contracts record it now, as checks do) or a rebuild of the
+> revision graded. Otherwise it is ambiguous: no check of any revision
+> verifies or disputes it, a question without a method takes no credit from
+> a check it may own, and it needs a fresh check (the regrade certifies
+> nothing). Only vaults that ran this branch have such contracts. See
+> "Final verify fixes" in `docs/reviews/method-explicit-2-codex-review.md`.
+>
 > **Merge note for `mcp/c1-read-context`.** Its `learner_context._pins`
 > reads only the pinned contract's `$.prompt`. When it lands after this
 > branch, it must render the pinned question with
