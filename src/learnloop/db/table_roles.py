@@ -193,6 +193,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # mvp-0.21 (migration 201): one immutable receipt per follow-up value
     # decision, keyed per decision with its source-attempt link.
     ("followup_value_decisions", TableRole.RECEIPT),
+    # Saved diagnosis forecasts (migration 230, a placeholder number): one
+    # append-only receipt per forecast, written in its decision's transaction
+    # before the outcome; resolutions are derived at read time, never replayed.
+    ("forecast_receipts", TableRole.RECEIPT),
     ("forecasts", TableRole.WORKFLOW),
     ("goal_contract_drafts", TableRole.WORKFLOW),
     ("goal_contract_heads", TableRole.WORKFLOW),

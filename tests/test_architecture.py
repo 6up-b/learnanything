@@ -91,6 +91,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/learner_gaps.py",
         # EVSI calibration Part B: the append-only voi_forecasts receipts.
         "src/learnloop/db/stores/voi_forecasts.py",
+        # Saved diagnosis forecasts: the append-only forecast_receipts family.
+        "src/learnloop/db/stores/forecast_receipts.py",
         # mvp-0.21 value-of-information stopping: the follow-up value
         # decisions' append-only receipts (one row per decision).
         "src/learnloop/db/stores/followup_value.py",

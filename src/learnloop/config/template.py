@@ -1195,7 +1195,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # thirteen were recomputed (defaults_fingerprint_for_version) on its
     # branch, and all seventeen again from the composed defaults when it
     # landed on main after router R2b + R2c and plan determinism.
-    "mvp-0.9": "180ee5748f5067fe9517729e1b049464babd38ea6a01568e2ae4cba43cfd93ba",
+    # Saved diagnosis forecasts (owner go-ahead 2026-10-15; docs/reviews/
+    # diagnosis-forecast-receipts.md) add diagnosis.forecast_receipts = true
+    # (modelled default, left out of the decision-only template), the kill
+    # switch of the forecast receipts a completed diagnosis and a scheduled
+    # repair cold check write (forecast_receipts, migration 230, a placeholder
+    # number). Logging only: no grading, scoring, scheduling, projection or
+    # serving change, replay never reads the receipts, so no successor; it
+    # acts at every version. Every snapshot moves only because the effective
+    # config gains the key; all seventeen were recomputed
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "e3028b987c0d437425aa2aa23e8b3274bc15391036839bace02e39e6efdf91c9",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1231,7 +1241,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.10": "b7c7fa212951c527b2f43b2bc15ce458324c9c73ba6c3e46e9716ba53830d3df",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.10": "7202eb785c5ffb185ecd0c0fab02c6d80c7cca7e9acf10dca2901cb7aafa3c7d",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1275,7 +1286,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.11": "5856d6d78e70db9fd81829c2bb06693060a9f45cca079de11ad87febbb50815f",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.11": "97487166ba92a1542f8752b4ea34934c10da1f32e2ae86d89282a8774af771d4",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1313,7 +1325,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.12": "e619db74ae69e2bcf2560b80134a09431e755038b2f45f62821cd1b40fb76f12",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.12": "f7b0ba760dddda0ff31d40a33128555028ec36d9ac06c9384fd1780b251f1891",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1346,7 +1359,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.13": "dbc9d9f9047f2b1a4049af7c0badddca615752b6b0ca48b869dd93c35e8f6fb0",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.13": "f55ea3e592d81c86b360454bea3936bf2c8d44c6af7a01295e1fb678efb25492",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1378,7 +1392,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.14": "dd04bdcb6982ea637e174d27c2e1e43add64bd8fe6903d0f76561363c985768c",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.14": "d05317cd1e81a731b179bd6dbf8ee93c6406daaf5d5f804b4986f0e7596f2ab6",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1408,7 +1423,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.15": "9023ea45308c135063b62564876b466142c54bc2ecb3d1f3dfb292a94c995be3",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.15": "383831be48686659337237df39ec598ec33ab6eb7e29db9648b67a75338a43a5",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1445,7 +1461,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.16": "6f972f65db8b7afbf5148e4e7b1e92bdf01f5544beb7173f6ae3364c82645cba",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.16": "594d2dcc054ad44420ce51c09e9437f1566093c9e9f67bb27bd94a1a317f88e9",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1478,7 +1495,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.17": "164b928e6225c6a7a0decbfd1a4cad2afa2583280c7056a12f9b9398230cad3c",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.17": "f908ba6c4ef8bd94ca5b18dc2412003bde0476fc4d78a1003858b37811314492",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1504,7 +1522,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.18": "cbfa991f4a6ecf6510448d0e406e0c68b2073764e5f82bb8e49aee4ef6415287",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.18": "8835ed5eaffa5d76914789638c2307e25b2dd5e788489dccb4d6e6fd3832c955",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1530,7 +1549,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.19": "c3facbb9efe2e21b1a8622d1d27c3b50d6fd4c5d1fee7b59c1a83c2d77ce66c6",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.19": "4bffbb0cfcf947d19e16c7bd5e8c5a5ea6b238ebc76e1f7b5e7b47adc46a1185",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1552,7 +1572,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.20": "0d3165f48fe4897bf9079696df0b3039054b68b1626c7e6576b38f625a2d6dc5",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.20": "9168f53a784be4233563606838f251784a0dd2f05ca545d50832f8aae863684e",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1583,7 +1604,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.21": "ad31876167e15564a675194216d53aaa5b5c4bd8a95bd6b164bb9cfef3a1d0bc",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.21": "590269954f410adbbca8dbf00b0ab6de9114b72e022792cbdc7e349eb654ca82",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1606,7 +1628,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.22": "05fb9ee5004ffb72a5c960ce4d621739eca38cf3b082ace857b366bc9431be2d",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.22": "f01adddcbeb6ed7f98e5a50c327859789f2eb61840101c399f143f7ceb8d84cb",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1624,7 +1647,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Router R2b + R2c's [router] keys move it too (see mvp-0.9; dormant below mvp-0.24).
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.23": "a7555dee7c59e168f645ea8180c39da2054f813a114750fe0f42629ef0e9b043",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.23": "9807c577d51efb462cf9660206ea8a731dedc834110b0a2f9b380de242efd8db",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1639,7 +1663,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # 2026-10-12) until mvp-0.25 merged.
     # Plan determinism's plan.deterministic_staged_plans moves it too (see mvp-0.9).
     # The method-explicit [required_method], route and Decider switch move it too (see mvp-0.9).
-    "mvp-0.24": "7efca331e3d5c5b67461c1e1cd2e1f654cc0a3ac3e37f22f65530b8e038b57ca",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.24": "cabfb50851b3c9c86258362e0f195418b71312544884ebb1fc00674051f03aca",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -1652,7 +1677,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # mvp-0.23 through the chain (under mvp-0.12's advisory guard). New vaults
     # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
-    "mvp-0.25": "2a21d60f793f6de8809817d4107b404a67f7ff025476bbc229a397a4ae447e26",
+    # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
+    "mvp-0.25": "8c252f6de986d53ba213dd0e374d15a991a76b432b1b334596293c0d5fb6c1d7",
 }
 
 

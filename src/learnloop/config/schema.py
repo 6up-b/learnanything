@@ -1747,6 +1747,13 @@ class DiagnosisConfig(BaseModel):
     # "keep_prior" admits it on the stored flag meanwhile. A failed or skipped
     # diagnosis never arrives, so its event is read as stored either way.
     probe_lane_pending: Literal["hold_out", "keep_prior"] = "hold_out"
+    # Saved diagnosis forecasts (owner go-ahead 2026-10-15; docs/reviews/
+    # diagnosis-forecast-receipts.md): a completed diagnosis and a scheduled
+    # repair cold check each write their forecast as a forecast_receipts row in
+    # the deciding transaction, scored later by `learnloop diagnosis
+    # calibration`. Logging only (no grading, scoring, scheduling or serving
+    # change, so no successor); off writes nothing and reads stay possible.
+    forecast_receipts: bool = True
 
 
 class RecurrenceBlockingCutoff(BaseModel):
