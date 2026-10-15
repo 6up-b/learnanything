@@ -34,6 +34,7 @@ from learnloop.db.stores.recurrence import RecurrenceStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
 from learnloop.db.stores.facet_identity import settled_merge_rows
+from learnloop.db.stores.held_out_signals import is_exam_role, qualify_unrecorded_signals
 from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
     load_canonical_observation_ledger,
@@ -19426,6 +19427,18 @@ class Repository(
     ) -> None:
         now = utc_now_iso(clock)
         with self.connection() as connection:
+            previous = connection.execute(
+                "SELECT s.role_override, COALESCE(s.source_id, revision.source_id) FROM source_unit_selections AS s "
+                "LEFT JOIN source_extraction_runs AS run ON run.id = s.extraction_id "
+                "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id WHERE s.extraction_id = ?",
+                (extraction_id,),
+            ).fetchone()
+            if previous is not None and is_exam_role(previous[0]) and not is_exam_role(role_override):
+                # An outline exam pick changed: the book's held-out signals
+                # whose role was not recorded are recorded as exam material
+                # first, so the change never releases them (exam protection
+                # by extraction identity, Codex review F3).
+                qualify_unrecorded_signals(connection, [previous[1], source_id], created_at=now)
             connection.execute(
                 """
                 INSERT INTO source_unit_selections(

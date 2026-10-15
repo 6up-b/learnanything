@@ -459,8 +459,11 @@ def _check_reread_state(
 
     for held in held_back_readings(vault, repository):
         older = held["older"]
+        ambiguous = set(held.get("ambiguous") or ())
         why = ("exam material was marked on it before LearnLoop recorded which reading it was marked on, so it "
-               "can't tell where that material is" if held.get("ambiguous") else
+               "can't tell where that material is" if ambiguous & {"scope", "selection"} else
+               "LearnLoop found exam questions in it before it recorded which reading it found them on, so it "
+               "can't tell where they are" if ambiguous else
                "exam material is marked on another reading of it and none on this one")
         issues.append(_issue(
             "warning",

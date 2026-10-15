@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +9,8 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
+from learnloop.db.connection import connect
+from learnloop.db.stores.held_out_signals import is_exam_role, qualify_unrecorded_signals, unqualified_signal_count
 from learnloop.vault.loader import load_practice_item_file, load_vault
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
@@ -443,6 +447,9 @@ def upsert_source_set(
         raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
     merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
     validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
+    ended = _exam_sources(existing.get("members")) - _exam_sources(validated.get("members"))
+    if ended:
+        _record_exam_qualification(paths.sqlite_path, ended, clock=clock)
     if index is None:
         source_sets.append(validated)
     else:
@@ -450,6 +457,44 @@ def upsert_source_set(
     paths.source_sets_path.parent.mkdir(parents=True, exist_ok=True)
     write_yaml(paths.source_sets_path, data)
     return paths.source_sets_path
+
+
+def _exam_sources(members: Any) -> set[str]:
+    """The books a set's members make exam material: an exam default role or
+    a scope entry overridden to an exam role."""
+
+    found: set[str] = set()
+    for member in members if isinstance(members, list) else []:
+        if not isinstance(member, dict) or not member.get("source_id"):
+            continue
+        scope = member.get("scope") if isinstance(member.get("scope"), list) else []
+        if is_exam_role(member.get("default_role")) or any(
+                isinstance(entry, dict) and is_exam_role(entry.get("role_override")) for entry in scope):
+            found.add(str(member["source_id"]))
+    return found
+
+
+def _record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock: Clock | None) -> None:
+    """Before a write ends these books' exam membership in the set, record
+    their held-out signals whose role was not recorded (signals migration 225
+    backfilled) as exam material, so the change never releases protection
+    they gave (``db.stores.held_out_signals``; Codex review of exam protection
+    by extraction identity, F3). A database that cannot record it refuses the
+    change (fail closed); a vault with no database, or one not migrated to
+    225, has nothing to record."""
+
+    if not sqlite_path.exists():
+        return
+    try:
+        with closing(connect(sqlite_path)) as connection:
+            if not unqualified_signal_count(connection, source_ids):
+                return
+            qualify_unrecorded_signals(connection, source_ids, created_at=utc_now_iso(clock))
+            connection.commit()
+    except sqlite3.Error as error:
+        raise VaultWriterError(
+            "Could not record the exam material of " + ", ".join(sorted(source_ids))
+            + f" before changing its collection, so the collection was not changed: {error}") from error
 
 
 #: The member fields naming the reading a scope's unit ids were chosen on

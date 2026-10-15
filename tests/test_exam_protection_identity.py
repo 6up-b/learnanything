@@ -651,7 +651,9 @@ def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank
     """A cached row never rebound was written by the model run on its own
     extraction: its signals mark that reading. A rebound row (its usage names
     the inventory it was rebound from) or one whose usage cannot be read
-    marks no reading, and still protects its book."""
+    marks no reading, still protects its book, and lets no other signal mark
+    a reading beside it (identity review F2). A row made under the exam
+    role's profile was made as exam material (identity review F3)."""
 
     import json
 
@@ -694,18 +696,32 @@ def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank
     assert (rows["inv_fresh"]["extraction_id"], rows["inv_fresh"]["span_ids"]) == ("extXA", ["x0", "x1"])
     assert rows["inv_null_usage"]["extraction_id"] == "extXA"
     assert rows["inv_rebound"]["extraction_id"] is None and rows["inv_unreadable"]["extraction_id"] is None
-    assert all(row["made_as_role"] is None and row["revision_id"] == "rev_x" for row in rows.values())
+    assert all(row["made_as_role"] == "exam" and row["revision_id"] == "rev_x" for row in rows.values()), (
+        "made under the exam role's own profile")
 
     sets = _exam_sets(default_role="exam", scope=())
+    # The rebound rows may be about any reading: no signal marks one beside them.
+    marks = EM.source_marks(sets, repo)["src_x"]
+    assert marks.marked == () and set(marks.unmarked) == {"extXA", "extXB"} and marks.ambiguous == ("signal",)
+    assert {"extXA", "extXB"} <= EM.held_out_material(sets, repo).extractions
+    with pytest.raises(Exception, match="append-only"), repo.connection() as connection:
+        connection.execute("UPDATE source_held_out_signal_marks SET extraction_id = 'extXB'")
+    with repo.connection() as connection:
+        unbound = [dict(row) for row in connection.execute(
+            "SELECT * FROM source_held_out_signal_marks WHERE extraction_id IS NULL")]
+        connection.execute("DELETE FROM source_held_out_signal_marks WHERE extraction_id IS NULL")
+        connection.commit()
+    # Without them, each signal marks the reading its model run read.
     marks = EM.source_marks(sets, repo)["src_x"]
     assert marks.marked == ("extXA",) and marks.unmarked == ("extXB",)
     held = EM.held_out_material(sets, repo)
     assert held.covers("extXA", "x1") and not held.covers("extXA", "x3") and "extXB" in held.extractions
-    with pytest.raises(Exception, match="append-only"), repo.connection() as connection:
-        connection.execute("UPDATE source_held_out_signal_marks SET extraction_id = 'extXB'")
     # A rebound row alone still protects its book: no reading is marked by it.
     with repo.connection() as connection:
-        connection.execute("DELETE FROM source_held_out_signal_marks WHERE extraction_id IS NOT NULL")
+        connection.execute("DELETE FROM source_held_out_signal_marks")
+        for row in unbound:
+            connection.execute(f"INSERT INTO source_held_out_signal_marks({', '.join(row)}) "
+                               f"VALUES ({', '.join('?' for _ in row)})", list(row.values()))
         connection.commit()
     marks = EM.source_marks(sets, repo)["src_x"]
     assert marks.marked == () and set(marks.unmarked) == {"extXA", "extXB"}
@@ -788,3 +804,377 @@ def test_a_scope_edited_outside_the_writer_names_no_reading(exam_book, edit):
     upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra",
                              "members": [vault.source_sets[0].members[0].model_dump(mode="json")]})
     assert "scope_seal" not in _yaml_member(root) and "scope_extraction_id" not in _yaml_member(root)
+
+
+# --- the Codex review of extraction identity (docs/reviews/exam-protection-identity-codex-review.md) ---
+
+
+def _mark_what_is_shown(vault, repo, clock) -> dict:
+    """The owner confirms the card's marking exactly as shown."""
+
+    from learnloop.content.pipeline import exam_marking
+
+    shown = exam_marking.mark_plan(vault, repo, "src_x")
+    assert shown is not None
+    exam_marking.mark_exam_material(vault, repo, "src_x", extraction_id=shown["extraction_id"],
+                                    proposal_hash=shown["proposal_hash"], clock=clock)
+    return shown
+
+
+def test_identity_review_f1_a_confirmation_never_covers_an_ambiguous_mark_made_after_it(exam_book):
+    """Identity review F1: the owner confirmed B's suggested ``u2``; later an
+    exam scope that names no reading (an older client, a hand edit) names
+    ``u1``, which on B is Theory. The old confirmation exempted B from every
+    ambiguity: B's ``u1`` was released and no fresh marking was offered. A
+    confirmation covers the marks it reviewed only: a new or changed one holds
+    B back again until the owner marks it again."""
+
+    from learnloop.content.pipeline import exam_marking
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    _owner_marks(repo, "extXA", ["u1"])
+    clock.advance()
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    plain = NS(source_sets=[])
+    _mark_what_is_shown(plain, repo, clock)
+    assert EM.source_marks(plain, repo)["src_x"].marked == ("extXA", "extXB")
+
+    later = NS(source_sets=_exam_sets(default_role="primary_textbook", scope=(("u1", "exam"),), reading=None))
+    material = EM.exam_material(later, repo)
+    assert material.covers("extXB", "y1"), "B's u1, named by the later mark, is never released"
+    assert "extXB" in material.held_out.extractions
+    plan = exam_marking.mark_plan(later, repo, "src_x")
+    assert plan is not None and plan["extraction_id"] == "extXB" and "u1" in plan["held_out_unit_ids"]
+
+    exam_marking.mark_exam_material(later, repo, "src_x", extraction_id="extXB", proposal_hash=plan["proposal_hash"],
+                                    clock=clock)
+    assert "extXB" in EM.source_marks(later, repo)["src_x"].marked, "reviewed: B is exact again"
+    material = EM.exam_material(later, repo)
+    assert material.is_held_out("extXB", "y1") and material.is_held_out("extXB", "y3")
+
+    changed = NS(source_sets=_exam_sets(default_role="primary_textbook", scope=(("u1", "exam"), ("u9", "exam")),
+                                        reading=None))
+    assert "extXB" in EM.exam_material(changed, repo).held_out.extractions, "a changed mark is reviewed again"
+    assert exam_marking.mark_plan(changed, repo, "src_x")["extraction_id"] == "extXB"
+    # A legacy mark removed takes nothing the owner reviewed away: B stays exact.
+    assert "extXB" in EM.source_marks(plain, repo)["src_x"].marked
+
+
+def _rerun_migration_225(repo: Repository, write_cache) -> None:
+    """Back to a database before migration 225 (the ledger dropped), let
+    ``write_cache(connection)`` change it as an older build would, then
+    migrate: the backfill runs on what is there."""
+
+    from learnloop.db.migrate import apply_migrations
+
+    with repo.connection() as connection:
+        connection.execute("DROP TRIGGER source_held_out_signal_marks_no_update")
+        connection.execute("DROP TABLE source_held_out_signal_marks")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 225")
+        connection.commit()
+    write_cache(repo)
+    assert [migration.version for migration in apply_migrations(repo.sqlite_path)] == [225]
+
+
+def _cached_inventory(repo: Repository, inventory_id: str, extraction_id: str, unit_id: str, spans, *,
+                      profile: str = "combined", semantic_hash: str | None = None, prompt_version: str = "p",
+                      model: str = "f", usage: str = '{"calls": 1}') -> None:
+    """A cache row a model run of an older build wrote (no ledger row beside it)."""
+
+    import json
+
+    with repo.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_unit_inventories(id, source_revision_id, extraction_id, unit_id, unit_semantic_hash, "
+            "inventory_profile, inventory_schema_version, prompt_version, provider, model, inventory_json, usage_json, "
+            "created_at) VALUES (?, 'rev_x', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, '2026-10-14T09:00:00Z')",
+            (inventory_id, extraction_id, unit_id, semantic_hash or f"sha256:{inventory_id}", profile, prompt_version,
+             model, model, json.dumps({"assessment_signals": [{"held_out": True, "span_ids": list(spans)}]}), usage))
+        connection.commit()
+
+
+_TWO_QUESTIONS = {"x0": ("SectionHeader", 1, ["Question 1"], "Question 1"), "x1": ("Text", 1, ["Question 1"], _Q1),
+                  "x2": ("SectionHeader", 2, ["Question 2"], "Question 2"), "x3": ("Text", 2, ["Question 2"], _Q2)}
+
+
+def test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin(blank_book):
+    """Identity review F2: before migration 225, A's inventories held out Q1
+    (u1) and Q2 (u2); a cache hit for B reused only Q2's, which moved that
+    cache row to B. The backfill keeps Q1 on A and records Q2's reading as
+    unknown; A then counted as marked by Q1 alone and A's Q2 was released
+    (the Reader's refusal ``[]``). An unbound signal may be about any reading:
+    no known signal marks a reading beside it."""
+
+    from learnloop.content.synthesis.ai_contracts import SOURCE_UNIT_INVENTORY_PROMPT_VERSION
+    from learnloop.content.synthesis.source_unit_inventory import prepare_unit_inventory
+
+    repo, clock = blank_book["repo"], blank_book["clock"]
+    a = _ir(_TWO_QUESTIONS, [("u1", "Question 1", "sha256:q1", ["x0", "x1"]),
+                             ("u2", "Question 2", "sha256:q2", ["x2", "x3"])], extractor="marker")
+    _persist(repo, a, revision_id="rev_x", extraction_id="extXA", clock=clock)
+    clock.advance()
+    a = repo.load_document_ir("extXA")
+    b = a.model_copy(deep=True)
+    b.extractor = "reread"
+    for block in b.blocks:
+        block.span_id = block.span_id.replace("x", "y")
+    for unit in b.units:
+        unit.span_ids = [span.replace("x", "y") for span in unit.span_ids]
+    _persist(repo, b, revision_id="rev_x", extraction_id="extXB", clock=clock)
+
+    def older_build(repo: Repository) -> None:
+        for unit, span in zip(a.units, ("x1", "x3"), strict=True):
+            _cached_inventory(repo, f"inv_{unit.unit_id}", "extXA", unit.unit_id, [span], profile="assessment",
+                              semantic_hash=unit.semantic_hash, prompt_version=SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
+                              model="fake")
+        hit = prepare_unit_inventory(repo, "extXB", "u2", role="exam", profile="assessment", provider="fake",
+                                     model="fake")
+        assert hit.cache_hit
+
+    _rerun_migration_225(repo, older_build)
+    rows = {row["inventory_id"]: row for row in repo.held_out_signal_marks()}
+    assert rows["inv_u1"]["extraction_id"] == "extXA" and rows["inv_u2"]["extraction_id"] is None
+
+    sets = _exam_sets(default_role="exam", scope=())
+    held = EM.held_out_material(sets, repo)
+    assert EM.held_out_among(held, "extXA", ["x1", "x3"]) == ["x1", "x3"], "the Reader refuses both of A's questions"
+    assert "extXB" in held.extractions
+    marks = EM.source_marks(sets, repo)["src_x"]
+    assert marks.marked == () and set(marks.unmarked) == {"extXA", "extXB"} and "signal" in marks.ambiguous
+
+
+def test_identity_review_a_signal_of_unknown_reading_is_named_plainly(exam_book):
+    """The card and doctor say why a book whose only unclear mark is a signal
+    of unknown reading is held back, in plain words (LearnLoop found the
+    questions; nobody marked them), and offer the marking."""
+
+    from learnloop.content.pipeline import exam_marking
+    from learnloop.ops.doctor import run_doctor
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.writer import upsert_source_set
+
+    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    _rerun_migration_225(repo, lambda repo: _cached_inventory(
+        repo, "inv_q", "extXB", "u2", ["y3"], profile="assessment",
+        usage='{"calls": 0, "rebound_from_inventory_id": "inv_old"}'))
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "Exam prep", "members": [
+        {"source_id": "src_x", "revision_id": "rev_x", "default_role": "exam", "scope": []}]})
+    vault = load_vault(root)
+    assert EM.source_marks(vault, repo)["src_x"].ambiguous == ("signal",)
+    assert exam_marking.held_back_details(vault, repo, "src_x") == exam_marking.FOUND_DETAILS
+    issues = [issue for issue in run_doctor(root).issues if issue.code == "source:reading_held_back"]
+    assert len(issues) == 1 and issues[0].details["ambiguous"] == ["signal"]
+    assert "found exam questions in it before it recorded which reading" in issues[0].message
+    plan = exam_marking.mark_plan(vault, repo, "src_x")
+    assert plan["extraction_id"] == "extXB" and "u2" in plan["held_out_unit_ids"], "suggested where it was found"
+
+
+@pytest.mark.parametrize("qualified_by", ["assessment_profile", "outline_pick", "outline_pick_after_upgrade"])
+def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_leaving(blank_book, qualified_by):
+    """Identity review F3 (the database side): a signal backfilled by 225
+    named no role, so it protected only while its book was exam material,
+    and it was released without any decision once that ended. An inventory
+    made under the exam role's own profile, or on a book with an outline exam
+    pick, is recorded as exam material by the upgrade; a pick removed after
+    the upgrade records it first."""
+
+    repo, clock = blank_book["repo"], blank_book["clock"]
+    _persist(repo, _exam_reading_a(), revision_id="rev_x", extraction_id="extXA", clock=clock)
+    clock.advance()
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+
+    def pick(repo: Repository, role: str | None) -> None:
+        repo.upsert_unit_selection(extraction_id="extXA", source_id="src_x", revision_id="rev_x",
+                                   selected_unit_ids=["u1", "u2"], role_override=role)
+
+    def older_build(repo: Repository) -> None:
+        _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"],
+                          profile="assessment" if qualified_by == "assessment_profile" else "combined")
+        if qualified_by == "outline_pick":
+            pick(repo, "exam")
+
+    _rerun_migration_225(repo, older_build)
+    if qualified_by == "outline_pick_after_upgrade":
+        pick(repo, "exam")
+        assert EM.held_out_material([], repo).covers("extXA", "x1")
+    if qualified_by != "assessment_profile":
+        pick(repo, "primary_textbook")  # the pick is changed: the book is no longer exam material
+
+    held = EM.held_out_material([], repo)
+    assert held.covers("extXA", "x1"), "the question stays held out"
+    assert "extXB" in held.extractions
+    assert EM.source_marks([], repo)["src_x"].unmarked == ("extXB",)
+
+
+@pytest.mark.parametrize("change", ["re_role", "remove", "scope_removed"])
+def test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changing(exam_book, change):
+    """Identity review F3 (the vault side): a backfilled signal on an exam
+    member (or a book with an exam scope) stopped counting once the member
+    left the set, was re-roled or lost its scope. The vault writer records
+    the book's role-unrecorded signals as exam material before it writes a
+    change that ends the book's exam membership in the set."""
+
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.writer import upsert_source_set
+
+    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    _rerun_migration_225(repo, lambda repo: _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"]))
+    assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+
+    member = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "exam", "scope": []}
+    if change == "scope_removed":
+        member = {**member, "default_role": "primary_textbook", "scope_extraction_id": "extXA",
+                  "scope_revision_id": "rev_x", "scope": [{"unit_id": "u1", "role_override": "exam"}]}
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "Exam prep", "members": [member]})
+    assert EM.held_out_material(load_vault(root), repo).covers("extXA", "x1")
+
+    after = {"re_role": [{**member, "default_role": "primary_textbook"}], "remove": [],
+             "scope_removed": [{**member, "scope": []}]}[change]
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "members": after})
+    vault = load_vault(root)
+    held = EM.held_out_material(vault, repo)
+    assert held.covers("extXA", "x1"), "the question stays held out after the membership change"
+    assert "extXB" in held.extractions
+    assert "src_x" in EM.source_marks(vault, repo)
+
+
+def test_identity_review_f3_an_unchanged_membership_records_nothing(exam_book):
+    """The writer records nothing while the book stays exam material (or was
+    never it): the owner's textbook signals keep protecting nothing."""
+
+    from learnloop.vault.writer import upsert_source_set
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    _rerun_migration_225(repo, lambda repo: _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"]))
+    textbook = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "primary_textbook", "scope": []}
+    for members in ([textbook], [], [{**textbook, "default_role": "exam"}], [{**textbook, "default_role": "exam"}]):
+        upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "T", "members": members})
+    assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+
+
+@pytest.mark.durability  # the verdict and the marking in one transaction, under WAL too
+def test_identity_review_f5_the_owners_marking_is_an_owner_verdict_in_the_judgment_ledger(exam_book, monkeypatch):
+    """Identity review F5: the owner's confirmed marking wrote only the
+    selection's mutable metadata; ``judgment_ledger`` had no row. It appends
+    one owner verdict in the marking's transaction (the reading, its
+    revision, the proposal, the units held out, when), once."""
+
+    import json
+
+    from learnloop.content.pipeline import exam_marking
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    _owner_marks(repo, "extXA", ["u1"])
+    clock.advance()
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    vault = NS(source_sets=[])
+    shown = exam_marking.mark_plan(vault, repo, "src_x")
+
+    def refused(*args, **kwargs):
+        raise RuntimeError("the ledger refused the verdict")
+
+    monkeypatch.setattr(exam_marking, "append_judgment", refused, raising=False)
+    with pytest.raises(RuntimeError, match="refused"):
+        exam_marking.mark_exam_material(vault, repo, "src_x", extraction_id=shown["extraction_id"],
+                                        proposal_hash=shown["proposal_hash"], clock=clock)
+    assert repo.get_unit_selection("extXB") is None, "no marking without its verdict"
+    monkeypatch.undo()
+
+    exam_marking.mark_exam_material(vault, repo, "src_x", extraction_id=shown["extraction_id"],
+                                    proposal_hash=shown["proposal_hash"], clock=clock)
+
+    def verdicts() -> list[dict]:
+        with repo.connection() as connection:
+            return [dict(row) for row in connection.execute(
+                "SELECT * FROM judgment_ledger WHERE task = ?", (exam_marking.MARK_JUDGMENT_TASK,))]
+
+    rows = verdicts()
+    assert len(rows) == 1
+    row = rows[0]
+    assert (row["judge"], row["verdict"], row["left_kind"], row["left_id"], row["right_kind"], row["right_id"]) == (
+        "owner", "marked", "extraction", "extXB", "source", "src_x")
+    assert row["input_hash"] == shown["proposal_hash"]
+    recorded = json.loads(row["rationale"])
+    assert recorded["extraction_id"] == "extXB" and recorded["revision_id"] == "rev_x"
+    assert recorded["proposal_hash"] == shown["proposal_hash"] and recorded["held_out_unit_ids"] == ["u2"]
+    assert recorded["at"] == row["created_at"]
+    with pytest.raises(exam_marking.StaleMarkConfirmation):  # a retry writes no second verdict
+        exam_marking.mark_exam_material(vault, repo, "src_x", extraction_id=shown["extraction_id"],
+                                        proposal_hash=shown["proposal_hash"], clock=clock)
+    assert len(verdicts()) == 1
+
+
+def _plan_with_a_held_out_contents(tmp_path, monkeypatch, toml: str | None, *, switch_off: bool):
+    import json
+    from datetime import UTC, datetime
+
+    import learnloop.clock as clock_module
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+    from learnloop_sidecar.context import SidecarContext
+    from tests.helpers import create_daily_plan_vault
+    from tests.test_exam_protection_review import _switch_off
+    from tests.test_reread_safety import call
+    from tests.test_ux_phase1_round2_review import _seed_book
+
+    paths = create_daily_plan_vault(tmp_path / "vault", plan_toml=toml)
+    if switch_off:
+        _switch_off(paths.root)
+    extraction_id = _seed_book(paths)
+    repo = Repository(paths.sqlite_path)
+    ir = repo.load_document_ir(extraction_id)
+    contents = next(unit.unit_id for unit in ir.units if "contents" in str(unit.label).lower())
+    save_unit_selection(repo, extraction_id, [unit.unit_id for unit in ir.units],
+                        exam_use_modes={contents: "held_out_evaluation"})
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: datetime(2026, 10, 12, 9, 0, tzinfo=UTC))
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    plan = call(ctx, "set_plan_minutes", {"minutes": 60})["plan"]
+    with repo.connection() as connection:
+        split = json.loads(connection.execute(
+            "SELECT split_json FROM daily_plans ORDER BY created_at DESC LIMIT 1").fetchone()[0])
+    return repo, plan, split
+
+
+@pytest.mark.parametrize("toml", [None, "[plan]\nreading_from_furthest = false\n"], ids=["u4", "dl1"])
+def test_identity_review_f6_the_kill_switch_restores_the_predecessors_reading_step(tmp_path, monkeypatch, toml):
+    """Identity review F6: protection in DL1's order changed the offered
+    reading (and the minutes admitted) with no switch restoring the
+    predecessor. ``goals.held_out_selection`` (the serving rules' kill
+    switch) now covers it: off, the reading step is the predecessor's exactly
+    (DL1's order unfiltered; U4's order kept its own filter), and each plan
+    records the rule that chose its step."""
+
+    from learnloop.daily_plan.reading import next_reading_target
+    from learnloop.source_retrieval.corpus import exam_exclusions
+    from learnloop.vault.loader import load_vault
+
+    dl1 = toml is not None
+    repo, plan, split = _plan_with_a_held_out_contents(tmp_path / "off", monkeypatch, toml, switch_off=True)
+    vault = load_vault(repo.sqlite_path.parent)
+    predecessor = next_reading_target(repo, from_furthest=not dl1, exam=None if dl1 else exam_exclusions(vault, repo))
+    steps = [row["readingTitle"] for row in plan["projected"] if row["readingTitle"]]
+    assert predecessor is not None and steps and steps[0] == predecessor.section_title
+    assert split["reading"]["section_id"] == predecessor.section_id
+    assert split["reading_rule"] == ("dl1" if dl1 else "furthest")
+
+    _repo, plan, split = _plan_with_a_held_out_contents(tmp_path / "on", monkeypatch, toml, switch_off=False)
+    steps = [row["readingTitle"] for row in plan["projected"] if row["readingTitle"]]
+    assert steps and "contents" not in [str(step).lower() for step in steps]
+    assert split["reading_rule"] == ("book_order" if dl1 else "furthest")
+
+
+def test_the_ledgers_exam_roles_are_the_role_authoritys():
+    """The infrastructure layer's copy of the exam roles (it may not import
+    the role authority) and the exam profile the 225 backfill reads stay the
+    role authority's."""
+
+    from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES, default_inventory_profile
+    from learnloop.db.stores.held_out_signals import EXAM_ROLES
+
+    assert EXAM_ROLES == ASSESSMENT_ONLY_ROLES
+    assert {default_inventory_profile(role) for role in ASSESSMENT_ONLY_ROLES} == {EM.EXAM_INVENTORY_PROFILE}
+    others = {"primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "notes"}
+    assert EM.EXAM_INVENTORY_PROFILE not in {default_inventory_profile(role) for role in others}

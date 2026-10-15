@@ -56,13 +56,19 @@ database's unit selections when it is built:
    held-out material: no Reader Ask, no teaching or tutor context, no
    generation or retrieval, no leakage-gate pass, no search hit, no margin
    cue, whatever the settings. A held-out signal marks the reading it was
-   made on only when the book carries no owner's mark at all. A legacy mark
-   that names no reading it can be on (a scope without
-   ``scope_extraction_id``, a selection without :data:`MARKS_MADE_ON_KEY`
-   or naming another reading) is *ambiguous*: it is an owner's mark that
-   places nothing, so every reading not marked exactly is withheld whole
-   (:data:`AMBIGUOUS_MARK`) until the owner marks it. A marked reading is
-   protected exactly as marked, by its own marks only.
+   made on only when the book carries no owner's mark at all and no signal
+   of unknown reading. A legacy mark that names no reading it can be on (a
+   scope without ``scope_extraction_id``, a selection without
+   :data:`MARKS_MADE_ON_KEY` or naming another reading) is *ambiguous*: it
+   is an owner's mark that places nothing, so every reading not marked
+   exactly is withheld whole (:data:`AMBIGUOUS_MARK`) until the owner marks
+   it. So is a held-out signal whose reading is not known (a cache row a
+   reuse had rebound before the ledger existed): it may be about any
+   reading, and no other signal marks a reading beside it (Codex review of
+   extraction identity, F2). The owner's marking records which of these
+   unplaced marks it reviewed (:data:`REVIEWED_UNPLACED`) and covers those
+   only: a new or changed one holds the reading back again (F1). A marked
+   reading is protected exactly as marked, by its own marks only.
 
 The **held-out partition** (§8.5: what the leakage gate fingerprints and an
 import or a generated item must never reproduce) is rule 3, rule 4 and the
@@ -140,6 +146,12 @@ PROTECTION_MARK_KEY = "protection_marked"
 #: identity). Written by every writer of marks (:func:`marks_made_on`);
 #: marks without it, or naming another reading, are ambiguous.
 MARKS_MADE_ON_KEY = "marks_made_on"
+#: The key, inside :data:`PROTECTION_MARK_KEY`'s value, listing the book's
+#: unplaced marks the owner reviewed when they marked the reading
+#: (:attr:`SourceMarks.unplaced`: a legacy exam scope's unit ids, a held-out
+#: signal of unknown reading). The marking covers those only (Codex review of
+#: extraction identity, F1).
+REVIEWED_UNPLACED = "reviewed_unplaced"
 
 SpanKey = tuple[str, str]
 
@@ -566,6 +578,15 @@ def selection_marks_exact(extraction_id: str, metadata: Mapping[str, Any] | None
     return not recorded or str(recorded) == str(run[0] or "")
 
 
+def _reviewed_unplaced(metadata: Mapping[str, Any] | None) -> frozenset[str]:
+    """The unplaced marks the owner's marking reviewed (:data:`REVIEWED_UNPLACED`);
+    none when it records none (a marking made before it was recorded)."""
+
+    marked = (metadata or {}).get(PROTECTION_MARK_KEY)
+    reviewed = marked.get(REVIEWED_UNPLACED) if isinstance(marked, Mapping) else None
+    return frozenset(str(value) for value in reviewed if value) if isinstance(reviewed, list) else frozenset()
+
+
 def _marked_selections(connection: Any) -> list[tuple[str, str | None, str | None, list[str], bool,
                                                     Mapping[str, Any]]]:
     """``(extraction id, source id, revision id, held-out unit ids, marked by
@@ -600,17 +621,27 @@ def _held_out_signal_spans(inventory: Any) -> list[str]:
     return sorted(spans)
 
 
+#: The inventory profile only the exam role asks for (``role_authority``'s
+#: role-to-profile map): migration 225 records a backfilled signal made under
+#: it as made under the exam role (Codex review of extraction identity, F3).
+EXAM_INVENTORY_PROFILE = "assessment"
+
+
 def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
     """The ledger migration 225's backfill would write, read from the
     inventory cache: for a database read before it is migrated (a dry run
     never migrates). A row whose usage names no inventory it was rebound from
     is on its own extraction; a rebound row, or one whose usage cannot be
-    read, names no reading."""
+    read, names no reading. A row made under the exam role's profile, or on a
+    book with an outline exam pick, was made as exam material."""
 
+    picked = {source_id for source_id, _revision, _extraction in _outline_exam_sources(connection) if source_id}
     found: list[dict[str, Any]] = []
-    for revision_id, extraction_id, unit_id, inventory_json, usage_json, source_id in connection.execute(
-            "SELECT inventory.source_revision_id, inventory.extraction_id, inventory.unit_id, inventory.inventory_json, "
-            "inventory.usage_json, revision.source_id FROM source_unit_inventories AS inventory "
+    for (inventory_id, revision_id, extraction_id, unit_id, inventory_json, usage_json, source_id,
+         profile) in connection.execute(
+            "SELECT inventory.id, inventory.source_revision_id, inventory.extraction_id, inventory.unit_id, "
+            "inventory.inventory_json, inventory.usage_json, revision.source_id, inventory.inventory_profile "
+            "FROM source_unit_inventories AS inventory "
             "LEFT JOIN source_revisions AS revision ON revision.id = inventory.source_revision_id "
             "WHERE inventory.inventory_json LIKE '%held_out%' ORDER BY inventory.created_at, inventory.id"):
         spans = _held_out_signal_spans(_json_value(inventory_json, {}))
@@ -624,10 +655,12 @@ def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 usage = None
             bound = isinstance(usage, dict) and usage.get("rebound_from_inventory_id") is None
+        exam = profile == EXAM_INVENTORY_PROFILE or (source_id is not None and str(source_id) in picked)
         found.append({"revision_id": None if revision_id is None else str(revision_id),
                       "extraction_id": str(extraction_id) if bound and extraction_id else None,
-                      "unit_id": str(unit_id), "made_as_role": None, "span_ids": frozenset(spans),
-                      "source_id": None if source_id is None else str(source_id)})
+                      "unit_id": str(unit_id), "made_as_role": EXAM_ROLE if exam else None,
+                      "span_ids": frozenset(spans), "source_id": None if source_id is None else str(source_id),
+                      "inventory_id": str(inventory_id)})
     return found
 
 
@@ -639,19 +672,33 @@ def _signal_ledger(connection: Any) -> list[dict[str, Any]]:
                           "AND name = 'source_held_out_signal_marks'").fetchone() is None:
         return _cache_signal_ledger(connection)
     rows = connection.execute(
-        "SELECT m.revision_id, m.extraction_id, m.unit_id, m.made_as_role, m.span_ids_json, r.source_id "
-        "FROM source_held_out_signal_marks AS m LEFT JOIN source_revisions AS r ON r.id = m.revision_id "
-        "ORDER BY m.created_at, m.id").fetchall()
+        "SELECT m.revision_id, m.extraction_id, m.unit_id, m.made_as_role, m.span_ids_json, r.source_id, "
+        "m.inventory_id FROM source_held_out_signal_marks AS m LEFT JOIN source_revisions AS r "
+        "ON r.id = m.revision_id ORDER BY m.created_at, m.id").fetchall()
     return [{"revision_id": None if row[0] is None else str(row[0]),
              "extraction_id": None if row[1] is None else str(row[1]), "unit_id": str(row[2]),
              "made_as_role": None if row[3] is None else str(row[3]),
              "span_ids": frozenset(str(span) for span in _json_value(row[4], []) if span),
-             "source_id": None if row[5] is None else str(row[5])} for row in rows]
+             "source_id": None if row[5] is None else str(row[5]), "inventory_id": str(row[6])} for row in rows]
 
 
-#: What kind of legacy mark makes a book's protection ambiguous (:attr:`SourceMarks.ambiguous`).
+#: What kind of mark makes a book's protection ambiguous (:attr:`SourceMarks.ambiguous`):
+#: a legacy exam scope, a legacy selection mark, a held-out signal of unknown reading.
 AMBIGUOUS_SCOPE = "scope"
 AMBIGUOUS_SELECTION = "selection"
+AMBIGUOUS_SIGNAL = "signal"
+
+
+def _unplaced_scope(unit_id: str) -> str:
+    """An unplaced legacy exam scope unit, as the owner's marking records it reviewed."""
+
+    return f"scope:{unit_id}"
+
+
+def _unplaced_signal(inventory_id: str) -> str:
+    """A held-out signal of unknown reading (by the inventory that made it), as reviewed."""
+
+    return f"signal:{inventory_id}"
 
 
 @dataclass
@@ -665,10 +712,10 @@ class _Marks:
     #: The readings an exact owner's mark is on: an exam scope naming it, a
     #: held-out mark of its own selection, the owner's marking action.
     owner: set[str] = field(default_factory=set)
-    #: The readings the owner's "Mark exam material on this reading" marked
-    #: exactly: the owner reviewed every mark of the book for them, legacy
-    #: ones included, so no ambiguity reaches them.
-    confirmed: set[str] = field(default_factory=set)
+    #: ``{reading: the unplaced marks the owner reviewed}`` for the readings
+    #: the owner's "Mark exam material on this reading" marked exactly
+    #: (:data:`REVIEWED_UNPLACED`): no ambiguity it reviewed reaches them.
+    confirmed: dict[str, frozenset[str]] = field(default_factory=dict)
     #: ``{reading: its exact exam scope's unit ids}`` (rule 2).
     scope_units: dict[str, set[str]] = field(default_factory=dict)
     #: ``{reading: the pinned revisions of the members whose scope names it}``.
@@ -677,39 +724,42 @@ class _Marks:
     held_units: dict[str, list[str]] = field(default_factory=dict)
     #: ``{reading: [(held-out signal spans, revision)]}``: signals a model run made on it.
     signals: dict[str, list[tuple[frozenset[str], str | None]]] = field(default_factory=dict)
-    #: Legacy marks that name no reading they can be on (:data:`AMBIGUOUS_SCOPE`, ...).
+    #: Marks that name no reading they can be on (:data:`AMBIGUOUS_SCOPE`, ...).
     ambiguous: set[str] = field(default_factory=set)
-    #: An exam scope names no reading it can be on: it may be about any reading.
-    ambiguous_everywhere: bool = False
+    #: The marks that may be about any reading: a legacy exam scope's units
+    #: and held-out signals of unknown reading (:func:`_unplaced_scope`,
+    #: :func:`_unplaced_signal`).
+    unplaced: set[str] = field(default_factory=set)
     #: Readings whose own selection carries marks that name no reading (or another one).
     ambiguous_on: set[str] = field(default_factory=set)
-    #: Held-out signals whose reading is not known (a cache row rebound before the ledger).
-    unbound: bool = False
     #: ``{reading: legacy held-out unit ids}``: placed nowhere, kept for the marking's suggestion.
     legacy_units: dict[str, list[str]] = field(default_factory=dict)
     #: The unit ids of the exam scopes that name no reading (the suggestion reads them).
     legacy_scope_units: set[str] = field(default_factory=set)
+    #: ``[(revision, unit id, spans)]`` of the held-out signals of unknown reading (the suggestion reads them).
+    unbound_signals: list[tuple[str | None, str, frozenset[str]]] = field(default_factory=list)
 
     @property
     def protected(self) -> bool:
         """Any mark or signal on any reading of the book (exact, ambiguous or unbound)."""
 
-        return bool(self.owner or self.scope_units or self.held_units or self.signals or self.ambiguous
-                    or self.unbound)
+        return bool(self.owner or self.scope_units or self.held_units or self.signals or self.ambiguous)
 
     @property
     def marked(self) -> set[str]:
         """The readings protection is marked on exactly: an owner's mark that
-        no ambiguous mark may also be about (a legacy exam scope may be about
-        any reading, a legacy selection mark about its own), unless the
-        owner's marking action marked it; or, where the book carries no
-        owner's mark at all (exact or ambiguous), the readings with held-out
-        signals of their own."""
+        no ambiguous mark may also be about (an unplaced mark, a legacy exam
+        scope or a signal of unknown reading, may be about any reading; a
+        legacy selection mark about its own), unless the owner's marking
+        action marked it after reviewing every unplaced mark there is now; or,
+        where the book carries no owner's mark at all and no ambiguous mark,
+        the readings with held-out signals of their own."""
 
         if not (self.owner or self.ambiguous):
             return set(self.signals)
-        return {reading for reading in self.owner if reading in self.confirmed or (
-            not self.ambiguous_everywhere and reading not in self.ambiguous_on)}
+        return {reading for reading in self.owner if (
+            reading in self.confirmed and self.unplaced <= self.confirmed[reading]) or (
+            not self.unplaced and reading not in self.ambiguous_on)}
 
     @property
     def unmarked(self) -> list[str]:
@@ -773,7 +823,7 @@ def _protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, st
             reading = _exact_scope_reading(reader, member)
             if reading is None:
                 marks.ambiguous.add(AMBIGUOUS_SCOPE)
-                marks.ambiguous_everywhere = True
+                marks.unplaced |= {_unplaced_scope(unit) for unit in units}
                 marks.legacy_scope_units |= units
                 continue
             marks.owner.add(reading)
@@ -794,7 +844,7 @@ def _protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, st
             continue
         marks.owner.add(extraction_id)
         if flagged:
-            marks.confirmed.add(extraction_id)
+            marks.confirmed[extraction_id] = _reviewed_unplaced(metadata)
         if held:
             marks.held_units[extraction_id] = held
     scope_spans: dict[str, set[str]] = {}
@@ -814,7 +864,10 @@ def _protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, st
             marks.signals.setdefault(extraction_id, []).append((row["span_ids"], row["revision_id"]))
             marks.extractions.append(extraction_id)
         else:
-            marks.unbound = True
+            # Its reading is not known: it may be about any reading (identity review F2).
+            marks.ambiguous.add(AMBIGUOUS_SIGNAL)
+            marks.unplaced.add(_unplaced_signal(row["inventory_id"]))
+            marks.unbound_signals.append((row["revision_id"], row["unit_id"], row["span_ids"]))
     for marks in found.values():
         everything = reader.source_extractions(marks.source_id, marks.revision_id) if (
             marks.source_id or marks.revision_id) else []
@@ -951,14 +1004,17 @@ def exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[s
 @dataclass(frozen=True)
 class SourceMarks:
     """One protected book's readings: where protection is marked exactly, the
-    extractions held back until it is marked on them (rule 4), and the
-    legacy marks that name no reading (``ambiguous``: :data:`AMBIGUOUS_SCOPE`,
-    :data:`AMBIGUOUS_SELECTION`)."""
+    extractions held back until it is marked on them (rule 4), the kinds of
+    mark that name no reading (``ambiguous``: :data:`AMBIGUOUS_SCOPE`,
+    :data:`AMBIGUOUS_SELECTION`, :data:`AMBIGUOUS_SIGNAL`), and the marks
+    that may be about any reading (``unplaced``), which the owner's marking
+    records it reviewed (:data:`REVIEWED_UNPLACED`)."""
 
     source_id: str
     marked: tuple[str, ...]
     unmarked: tuple[str, ...]
     ambiguous: tuple[str, ...] = ()
+    unplaced: tuple[str, ...] = ()
 
 
 def source_marks(vault_or_sets: Any, repository: Any) -> dict[str, SourceMarks]:
@@ -971,7 +1027,7 @@ def source_marks(vault_or_sets: Any, repository: Any) -> dict[str, SourceMarks]:
         found = _protection_marks(reader, vault_or_sets)
     return {str(marks.source_id): SourceMarks(
         str(marks.source_id), tuple(sorted(marks.marked & set(marks.extractions))), tuple(marks.unmarked),
-        tuple(sorted(marks.ambiguous)))
+        tuple(sorted(marks.ambiguous)), tuple(sorted(marks.unplaced)))
         for marks in found.values() if marks.source_id}
 
 
@@ -989,7 +1045,9 @@ def protected_spans_by_reading(vault_or_sets: Any, repository: Any, source_id: s
     suggestion's sources (never an authority). Exact marks and signals on the
     reading they name; a legacy held-out mark on the reading its selection
     sits on; a legacy exam scope (it names no reading) on every reading by
-    unit id. A unit id that does not resolve suggests nothing."""
+    unit id; a signal of unknown reading on every reading of its revision, by
+    its unit id and its span ids. A unit id that does not resolve suggests
+    nothing."""
 
     found: dict[str, set[str]] = {}
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -1020,6 +1078,14 @@ def protected_spans_by_reading(vault_or_sets: Any, repository: Any, source_id: s
         if marks.legacy_scope_units:
             for reading in marks.extractions:
                 place(reading, marks.legacy_scope_units)
+        for revision_id, unit_id, spans in marks.unbound_signals:
+            for reading in marks.extractions:
+                run = reader.run(reading)
+                if run is None or run[0] != revision_id:
+                    continue
+                place(reading, [unit_id])
+                there = {span for unit in reader.units(reading) for span in unit.span_ids}
+                found.setdefault(reading, set()).update(spans & there)
     return found
 
 
@@ -1266,9 +1332,12 @@ def held_out_selection_active(vault: Any) -> bool:
     review F6). On (the default): material the learner has been shown never
     becomes an exam item, a certification cold probe or a cold retry; an exam
     item shown after its reservation is withdrawn before the exam starts; an
-    item made from held-out material stays out of routine practice. Off, each
-    selection is the predecessor's. Live at every version: replay never reads
-    it. The model-context protections are not switched."""
+    item made from held-out material stays out of routine practice; the
+    plan's reading step in DL1's order never offers exam material
+    (``daily_plan.engine.reading_step_rule``; Codex review of extraction
+    identity, F6). Off, each selection is the predecessor's. Live at every
+    version: replay never reads it. The model-context protections are not
+    switched."""
 
     goals = getattr(getattr(vault, "config", None), "goals", None)
     return bool(getattr(goals, "held_out_selection", True))
@@ -1347,6 +1416,8 @@ __all__ = [
     "AMBIGUOUS_MARK",
     "AMBIGUOUS_SCOPE",
     "AMBIGUOUS_SELECTION",
+    "AMBIGUOUS_SIGNAL",
+    "EXAM_INVENTORY_PROFILE",
     "EXAM_MEMBER",
     "EXAM_RESERVED",
     "EXAM_ROLE",
@@ -1366,6 +1437,7 @@ __all__ = [
     "MARKS_MADE_ON_KEY",
     "Material",
     "PROTECTION_MARK_KEY",
+    "REVIEWED_UNPLACED",
     "SourceMarks",
     "UNMARKED_READING",
     "UNRESOLVED_UNIT",

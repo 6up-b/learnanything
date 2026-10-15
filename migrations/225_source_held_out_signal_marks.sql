@@ -15,10 +15,15 @@
 --
 -- extraction_id NULL: the reading is not known. Only the backfill writes it,
 -- for a cached row that a cache hit had already rebound (its usage names the
--- inventory it was rebound from): the book stays protected and the row marks
--- no reading. made_as_role NULL: not recorded (every backfilled row).
+-- inventory it was rebound from): the book stays protected, no reading is
+-- marked by any signal beside it, and the row marks no reading.
+-- made_as_role NULL: not recorded (a backfilled row made under neither the
+-- exam role's profile nor on a book with an outline exam pick).
 -- RAW_LEDGER: written by Repository.insert_unit_inventory, never updated
--- (trigger), deleted only with its book (source deletion).
+-- (trigger), deleted only with its book (source deletion). A row whose role
+-- was not recorded is recorded again as exam material, never rewritten, when
+-- its book stops being exam material (the vault writer, an outline pick
+-- changed: db.stores.held_out_signals); exam protection reads either.
 CREATE TABLE source_held_out_signal_marks (
   id TEXT PRIMARY KEY,
   revision_id TEXT NOT NULL REFERENCES source_revisions(id),
@@ -45,6 +50,10 @@ END;
 -- whose usage names no inventory it was rebound from was written by the model
 -- run on its own extraction (a rebind rewrites usage), so its reading is
 -- exact; a rebound row (or one whose usage cannot be read) marks no reading.
+-- Its role, where the database knows it (Codex review of extraction
+-- identity, F3): the exam role's own inventory profile ('assessment', asked
+-- for by no other role), or a book with an outline exam pick, was made as
+-- exam material, so it protects whatever its membership becomes.
 INSERT OR IGNORE INTO source_held_out_signal_marks(
   id, revision_id, extraction_id, unit_id, inventory_id, made_as_role, span_ids_json, created_at
 )
@@ -59,7 +68,18 @@ SELECT
   END,
   inventory.unit_id,
   inventory.id,
-  NULL,
+  CASE
+    WHEN inventory.inventory_profile = 'assessment' THEN 'exam'
+    WHEN EXISTS (
+      SELECT 1 FROM source_unit_selections AS pick
+      LEFT JOIN source_extraction_runs AS pick_run ON pick_run.id = pick.extraction_id
+      LEFT JOIN source_revisions AS pick_revision ON pick_revision.id = pick_run.revision_id
+      JOIN source_revisions AS own ON own.id = inventory.source_revision_id
+      WHERE pick.role_override = 'exam'
+        AND COALESCE(pick.source_id, pick_revision.source_id) = own.source_id
+    ) THEN 'exam'
+    ELSE NULL
+  END,
   (
     SELECT json_group_array(span_id) FROM (
       SELECT DISTINCT CAST(span.value AS TEXT) AS span_id

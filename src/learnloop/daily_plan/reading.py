@@ -10,7 +10,9 @@ change behind its kill switch, not a successor tag (the owner's ruling at the
 UX Phase 1 merge: replay never reads the selection). With
 ``plan.reading_from_furthest = false`` the order is DL1's, the first
 unfinished section in book order; either way exam and held-out material
-(the one exam predicate) is never the step. Its estimate is the section's words left
+(the one exam predicate) is never the step, and with the serving rules' kill
+switch ``goals.held_out_selection`` off too the step is DL1's selection
+exactly (``engine.reading_step_rule``). Its estimate is the section's words left
 over ``plan.read_words_per_minute``, where words left =
 section words x (1 - spans seen / span count) from ``reader_section_progress``.
 Section completion still triggers item generation as today, and those items
