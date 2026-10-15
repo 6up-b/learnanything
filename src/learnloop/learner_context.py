@@ -16,54 +16,53 @@ task in docs/reviews/mcp-c1a.md). The open-hypothesis predicate is the daily
 plan's own (``db.stores.daily_plans.open_learner_state_hypotheses``, the same
 function R2a reads).
 
-**Leakage rules (the card's G5, applied to every output):**
+**What leaves LearnLoop: one structural rule** (:class:`TextGuard`; owner
+decision 2026-10-14, "land narrow, then fix source"). A text is shown only
+when it is
+
+* **(a) authored vault text**: a topic's name or id that the learner or an
+  authored vault file wrote, and the question as it was graded (its pinned
+  contract's prompt);
+* **(b) the learner's own answer on a pinned attempt**, through the answer
+  guard: the answer's protection, exactly one pinned contract on its own item
+  (the revision it was graded against) and no key its item is known to have
+  had (:class:`KeyBook`);
+* **(c) a derived text with a recorded, complete write-time provenance whose
+  inputs are all safe** (:class:`WriteProvenance`, read through a
+  :data:`ProvenanceSource`): the hook for the follow-up desktop stage
+  ("diagnosis input provenance"). **No producer records one yet.**
+
+So everything a diagnosis, the grader's normalizer, the gap reader or the
+prerequisite drafter wrote, or that was derived from their output, is held
+back with one fixed reason (:data:`HELD_BACK`): misconception and candidate
+statements and corrections, hypothesis and recurrence-group statements,
+diagnosis summaries and their hypotheses, what a learner-text gap was matched
+to, the words of a question the learner asked (no pinned answer behind them),
+and every generated topic's name, id and seeded question. The entries keep
+their structure: ids (a generated topic's id as an opaque keyed alias,
+accepted back as a named id), statuses, counts, dates, evidence counts and
+held state; recurrence-group keys are keyed digests too (Q13).
+
+Why no output-side provenance: earlier rounds followed each text's provenance
+from the output back to the answers behind it, and five reviews in a row found
+inputs no record names (a snapshot diagnosis reads the whole-vault export
+without recording what it opened; the joint grader's C4 receipt is written
+outside the grading transaction). Provenance is now trusted only when it was
+recorded when the text was written.
+
+**Protection (unchanged):**
 
 * no answer key, reference solution, rubric or hint is ever read into the
   output;
-* **answer-derived text has one renderer** (:meth:`AnswerTextGuard.render`,
-  F4 round 3): every text drawn from an answer or an error event, directly or
-  through a diagnosis, a hypothesis, a recurrence group, a recorded
-  misconception (statement and correction), a candidate, or a learner-text
-  gap (its words and its target), is released only by it, as a
-  :class:`GuardedText`, and :data:`ANSWER_DERIVED_FIELDS` names every such
-  field of the output. It follows the text's provenance (:class:`Origin`: the
-  answers behind it, through error events, hypothesis episodes, promotions,
-  error hunts, gaps and a diagnosis's context receipt) and releases it only
-  when every answer behind it
-  passes the answers' own protection check (:meth:`AnswerTextGuard.attempt_reason`)
-  and was graded against exactly one pinned assessment contract on its own
-  item (the affirmative record of the question revision: an older answer may
-  restate a key nothing records any more, and the absence of a recorded
-  change does not establish the revision), and the text reproduces no key its
-  items or topics are known to have had (today's YAML, every
-  assessment-contract and practice-item snapshot: :class:`KeyBook`;
-  ``tutor_qa.span_leaks_expected``, the tutor's own filter). A link it cannot
-  follow (an id list with any member that is not an id, F4 round 4), or text
-  about an item with no graded answer behind it, is withheld too. A withheld
-  text keeps its entry, counts and status, and says why;
-* **provenance is followed transitively** (:meth:`AnswerTextGuard.closure`,
-  F4 round 4), cycles handled: a belief drawn from an answer's error events
-  follows that answer's grading, so every completed live diagnosis of it (the
-  overlay lays a diagnosis's causes on the answer's events) and its joint
-  grader's history, and each diagnosis follows everything its context receipt
-  says it was shown; a gap that read a diagnosis follows it;
-* **topic names and ids have one renderer too** (:meth:`AnswerTextGuard.topic`,
-  :meth:`AnswerTextGuard.lo_ref`, F4 round 4): the learner-text pipeline
-  drafts a missing prerequisite's titles from the learner's text and derives
-  its ids from them, so a generated topic's name is rendered like any other
-  answer-derived text; while it is withheld the entry shows a fixed label and
-  an opaque alias (accepted back as a named id), and a topic search does not
-  match its words;
 * exam and held-out material (``exam_material.item_exam_status``, every
   provenance form), items reserved for an assessment or a held-out exam,
   items held by an open cold check or a repair's cold retry, and diagnostic
   probes (:func:`withheld_items`) keep their result but never show a question
-  or an answer, and neither does a hypothesis or a recurrence group drawn
-  from one of their answers; nor does an item the vault cannot read (deleted,
-  or its file unreadable). When the predicates cannot be read, including a
-  source-sets file the loader could not read or a vault snapshot that changed
-  while it loaded (:func:`protection_issues`), no question or answer shows at
-  all (fail closed);
+  or an answer; nor does an item the vault cannot read (deleted, or its file
+  unreadable). When the predicates cannot be read, including a source-sets
+  file the loader could not read or a vault snapshot that changed while it
+  loaded (:func:`protection_issues`), no question or answer shows at all
+  (fail closed);
 * a grade held for review (THE predicate, ``held_grades``) is "held for
   review", never a score;
 * a question is the prompt of the attempt's pinned assessment contract (the
@@ -76,11 +75,13 @@ ledger that owns it.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import re
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+import secrets
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -97,6 +98,10 @@ STATEMENT_LIMIT = 300
 #: Retention: an item whose modelled recall now is below this is at risk.
 RETENTION_TARGET = 0.8
 
+#: THE reason a derived text is withheld: nothing recorded, when it was
+#: written, what it was written from (rule (c) has no record to check).
+HELD_BACK = "Held back until LearnLoop records what this was written from"
+
 WITHHELD_EXAM = "exam or held-out material"
 WITHHELD_RESERVED = "reserved for an assessment"
 WITHHELD_COLD = "a check waiting in the app"
@@ -107,14 +112,10 @@ KEY_WITHHELD = "withheld: it states the answer key"
 KEYS_UNREADABLE = "withheld: the answer keys could not be read"
 REVISION_UNKNOWN = "withheld: the question revision this answer was graded against is not recorded"
 REVISION_UNKNOWN_BEHIND = "withheld: the question revision an answer behind it was graded against is not recorded"
-REVISION_UNKNOWN_ASKED = ("withheld: it was written about a question with no graded answer behind it, so the "
-                          "question revision is not recorded")
-PROVENANCE_MISSING = ("withheld: a record it was drawn from (an answer, an error event or a diagnosis's context) "
-                      "is not on record")
-PROVENANCE_UNKNOWN = "withheld: what it was drawn from is not recorded"
+STEM_UNRECORDED = "question revision not recorded"
 ANSWER_UNRECORDED = "an answer it was drawn from is not on record"
-PINS_UNREADABLE = ("the question revisions past answers were graded against could not be read: no question, answer "
-                   "or statement drawn from one is shown")
+PINS_UNREADABLE = ("the question revisions past answers were graded against could not be read: no question or "
+                   "answer is shown")
 #: A loader issue the remote runtime adds when the vault's files changed while
 #: it read them, or a protection-bearing file was caught mid-write (empty):
 #: nothing read from that snapshot can say what is protected.
@@ -187,6 +188,10 @@ def _loads(value: Any, default: Any) -> Any:
         return json.loads(value)
     except (TypeError, ValueError):
         return default
+
+
+def _ids(values: Iterable[Any]) -> frozenset[str]:
+    return frozenset(str(value) for value in values if value)
 
 
 def _result(correctness: Any, held: bool) -> str:
@@ -369,7 +374,7 @@ def key_book(connection: Any, vault: Any, unknowns: list[str]) -> KeyBook:
                 add(item_id, lo_id, value)
     except Exception:  # noqa: BLE001 - fail closed: text that could quote a key is withheld
         _LOG.warning("learner context: contract answer keys not read", exc_info=True)
-        unknowns.append("past answer keys could not be read: answers and statements that could quote one are withheld")
+        unknowns.append("past answer keys could not be read: answers that could quote one are withheld")
         unreadable = True
     return KeyBook(
         by_item={item_id: list(keys.values()) for item_id, keys in by_item.items()},
@@ -426,7 +431,7 @@ def _pins(connection: Any, items: Mapping[str, Any], unknowns: list[str]) -> dic
                 f"FROM assessment_contract_versions WHERE id IN ({_marks(chunk)})", chunk,
             ):
                 prompts[str(row[0])] = (row[1], row[2])
-    except Exception:  # noqa: BLE001 - named as unknown; nothing drawn from an answer shows
+    except Exception:  # noqa: BLE001 - named as unknown; no answer shows
         _LOG.warning("learner context: pinned contracts not read", exc_info=True)
         if PINS_UNREADABLE not in unknowns:
             unknowns.append(PINS_UNREADABLE)
@@ -439,207 +444,217 @@ def _pins(connection: Any, items: Mapping[str, Any], unknowns: list[str]) -> dic
     return pinned
 
 
-# -- answer-derived text: the one guarded renderer (F4 rounds 3 and 4) ---------------
+# -- what may be released: the one rule ---------------------------------------------
 
 
 _RELEASE = object()
-#: Gap sources whose words are an answer itself (``learner_text_gaps.source_kind``).
-_ANSWER_SOURCES = frozenset({"diagnosis", "stuck_answer"})
-#: A record id as the diagnoser writes it (``diagnosis.split.card``'s ULID form).
-_RECORD_ID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
-_CHUNK = 500
-#: The id the learner-text pipeline gives a prerequisite it creates
-#: (``text_gaps.actions.creation_ids``: ``lo_ltg_<slug of its title>_<hash>``).
-_GENERATED_LO_PREFIX = "lo_ltg_"
-#: The shortest slug (with an underscore) a model's text is taken to name a
-#: generated topic by, without its prefix and hash (F4 round 5, F2).
-_SLUG_MIN = 12
-#: What stands for a generated topic's id while its name is withheld (F4 round 4).
-LO_ALIAS_PREFIX = "lo_withheld_"
-#: What stands for a generated topic's name while it is withheld; the note
-#: saying why follows it ("..., its name withheld: <why>").
-TOPIC_WITHHELD = "a topic named from the learner's own words, its name"
-TITLE_LIMIT = 200
-_ID_LIMIT = 512
 
 
 class GuardedText(str):
-    """Text :meth:`AnswerTextGuard.render` released, and only it: the
-    constructor takes a module-private token. Answer-derived text, and every
-    topic name and topic id (F4 round 4), is one of these in the output; the
-    output-schema test checks that every field in :data:`ANSWER_DERIVED_FIELDS`,
-    :data:`TOPIC_FIELDS` and :data:`TOPIC_ID_FIELDS` holds one (or nothing, or
-    a withheld name's fixed label or alias). Copies and pickles are plain
-    ``str``."""
+    """Text :class:`TextGuard` released, and only it: the constructor takes a
+    module-private token. Each rule has its own type, built in one method
+    only (a test pins it): :class:`AuthoredText` (a), :class:`AnswerText` (b),
+    :class:`RecordedText` (c). Copies and pickles are plain ``str``."""
 
     __slots__ = ()
 
     def __new__(cls, value: str, token: object) -> GuardedText:
-        if token is not _RELEASE:
-            raise TypeError("answer-derived text is released only by AnswerTextGuard.render")
+        if token is not _RELEASE or cls is GuardedText:
+            raise TypeError("text is released only by TextGuard, one rule per type")
         return super().__new__(cls, value)
 
     def __reduce__(self) -> tuple[Any, ...]:
         return (str, (str(self),))
 
 
+class AuthoredText(GuardedText):
+    """(a) Authored vault text: a topic's name or id the learner or an
+    authored vault file wrote, or the question as graded."""
+
+    __slots__ = ()
+
+
+class AnswerText(GuardedText):
+    """(b) The learner's own answer on a pinned attempt."""
+
+    __slots__ = ()
+
+
+class RecordedText(GuardedText):
+    """(c) A derived text whose recorded write-time provenance names only safe inputs."""
+
+    __slots__ = ()
+
+
 @dataclass(frozen=True)
-class Origin:
-    """What a piece of answer-derived text was drawn from: the closure of its
-    provenance (:meth:`AnswerTextGuard.closure`).
+class WriteProvenance:
+    """What one derived text was written from, recorded when it was written.
 
-    ``attempts``: the answers behind it (directly, or through an error event,
-    the grading and every diagnosis of an answer, a hypothesis episode, a
-    promotion, an error hunt, a gap, a diagnosis's context, a generated
-    topic's drafting); ``items``: items it is about, each needing a pinned
-    answer of its own behind it; ``los``: topics whose keys also filter it (a
-    statement's, or the topic of words tied to no item); ``missing``: a link
-    that could not be followed (an error event, answer, gap or diagnosis not
-    on record, an id list that cannot be read, a diagnosis with no context
-    receipt); ``unattached``: text about no item and no answer (a question
-    asked in the Reader or the library), to which no revision applies;
-    ``direct``: the text is the answer itself or its own diagnosis (the note
-    then names "this answer")."""
+    The hook for the follow-up desktop stage ("diagnosis input provenance"):
+    the writer (a diagnosis, the normalizer, the gap reader, the drafter)
+    records, in the transaction that writes the text, every input it read:
+    the answers (``answers``), the practice items whose question or key it
+    saw (``items``) and the topics whose names it saw (``topics``). The
+    record is closed: a writer that read another derived text records that
+    text's own inputs. ``complete`` is the writer's statement that nothing
+    else was read (a snapshot export it could not account for, a history it
+    did not record, makes it False). **No producer writes one yet**, so
+    :func:`no_write_provenance` is the only source in use."""
 
-    attempts: frozenset[str] = frozenset()
-    items: frozenset[str] = frozenset()
-    los: frozenset[str] = frozenset()
-    missing: bool = False
-    unattached: bool = False
-    direct: bool = False
+    complete: bool
+    answers: tuple[str, ...] = ()
+    items: tuple[str, ...] = ()
+    topics: tuple[str, ...] = ()
 
-    def __or__(self, other: Origin) -> Origin:
-        return Origin(self.attempts | other.attempts, self.items | other.items, self.los | other.los,
-                      self.missing or other.missing, self.unattached or other.unattached, False)
+    def readable(self) -> bool:
+        """Complete, every input an id, and at least one input."""
 
-    def about(self, *los: Any) -> Origin:
-        return replace(self, los=self.los | _ids(los))
+        lists = (self.answers, self.items, self.topics)
+        return (self.complete is True and all(isinstance(values, tuple) for values in lists)
+                and all(isinstance(value, str) and value.strip() for values in lists for value in values)
+                and any(lists))
 
 
-#: The origin of a name the vault authored (a topic title or id the learner
-#: text pipeline did not generate): released as it is, by identity, and only
-#: through :meth:`AnswerTextGuard.topic` and :meth:`AnswerTextGuard.lo_ref`.
-_AUTHORED = Origin()
+#: Where a derived text's write-time record is read from:
+#: ``(connection, kind, record id) -> WriteProvenance | None``. The kinds are
+#: :data:`DERIVED_KINDS`.
+ProvenanceSource = Callable[[Any, str, str], WriteProvenance | None]
 
-#: A provenance node: ``(kind, key)``. ``grading`` (an answer's grading as
-#: its grader wrote it), ``graded`` (that and the answer's diagnoses),
-#: ``diagnosis``, ``hypothesis``, ``episode``, ``event``, ``shown`` (a belief
-#: as a diagnosis's context showed it, with its topic id), ``misconception``,
-#: ``candidate``, ``gap`` (what a gap's reading drew on) and ``title`` (a
-#: generated topic).
-_Node = tuple[str, str]
-
-
-def _ids(values: Iterable[Any]) -> frozenset[str]:
-    return frozenset(str(value) for value in values if value)
-
-
-def _id_list(value: Any) -> list[str] | None:
-    """A stored JSON id list; ``[]`` when absent, None when it cannot be read:
-    not JSON, not a list, or any member that is not a nonempty string. One
-    readable link must not mask an unreadable one (F4 round 4, F3)."""
-
-    if value is None or (isinstance(value, str) and value == ""):
-        return []
-    try:
-        loaded = json.loads(value) if isinstance(value, str) else value
-    except (TypeError, ValueError):
-        return None
-    if not isinstance(loaded, list) or not all(isinstance(entry, str) and entry.strip() for entry in loaded):
-        return None
-    return list(loaded)
+#: The derived texts (c) covers, by record kind.
+DERIVED_KINDS: Mapping[str, str] = {
+    "misconception": "a recorded misconception's statement",
+    "misconception_correction": "a recorded misconception's correction",
+    "candidate": "a candidate belief's statement",
+    "hypothesis": "a hypothesis statement (and a recurrence group's, its root's)",
+    "diagnosis": "a diagnosis summary",
+    "learner_text_gap": "the words of a learner-text gap not drawn from a pinned answer (a question)",
+    "learning_object": "a generated topic's name and id",
+    "practice_item": "the question of an item seeded on a generated topic",
+}
 
 
-def _cited_answers(value: Any) -> list[str] | None:
-    """The answers a diagnosis's validated citations name; None when the list,
-    or any citation in it, cannot be read (every validated citation names an
-    answer: ``diagnosis.split.validation.ValidatedCitation``)."""
+def no_write_provenance(_connection: Any, _kind: str, _record_id: str) -> None:
+    """Today's source: nothing records a derived text's inputs when it is written."""
 
-    if value is None or (isinstance(value, str) and value == ""):
-        return []
-    loaded = _loads(value, None) if isinstance(value, str) else value
-    if not isinstance(loaded, list):
-        return None
-    answers: list[str] = []
-    for citation in loaded:
-        answer = citation.get("attempt_id") if isinstance(citation, Mapping) else None
-        if not isinstance(answer, str) or not answer.strip():
-            return None
-        answers.append(answer)
-    return answers
+    return None
 
 
-def lo_alias(lo_id: str) -> str:
+# -- aliases: opaque, keyed ---------------------------------------------------------
+
+
+#: What stands for a generated topic's id while its name is withheld.
+LO_ALIAS_PREFIX = "lo_withheld_"
+#: What stands for a recurrence group's stored key (Q13).
+GROUP_ALIAS_PREFIX = "rg_"
+#: What stands for a generated topic's name while it is withheld; the reason follows in brackets.
+TOPIC_WITHHELD = "a topic named from the learner's own words"
+_ALIAS_HEX = 20
+#: The key for a process with no vault key (``RemoteRuntime.alias_key``): aliases
+#: are stable for this process and cannot be recomputed by a client either way.
+_PROCESS_ALIAS_KEY = secrets.token_bytes(32)
+
+
+def _keyed(key: bytes | None, kind: str, value: str) -> str:
+    return hmac.new(key or _PROCESS_ALIAS_KEY, f"{kind}\x00{value}".encode("utf-8"),
+                    hashlib.sha256).hexdigest()[:_ALIAS_HEX]
+
+
+def lo_alias(lo_id: str, key: bytes | None = None) -> str:
     """The opaque id that stands for a generated topic while its name is
-    withheld: stable across reads, accepted back as a named id
-    (:func:`resolve_scope`), and not derived from the topic's words."""
+    withheld: a keyed digest (HMAC-SHA256 with the vault's alias key), stable
+    for one key, accepted back as a named id (:func:`resolve_scope`). An
+    unkeyed digest of the id would let a client that guessed the title (the
+    id's slug) confirm it."""
 
-    return LO_ALIAS_PREFIX + hashlib.sha256(str(lo_id).encode("utf-8")).hexdigest()[:16]
+    return LO_ALIAS_PREFIX + _keyed(key, "learning_object", str(lo_id))
 
 
-class AnswerTextGuard:
-    """THE renderer of answer-derived text (spec §4.7 rule 1; F4 rounds 3 and 4).
+def group_alias(group_key: str, key: bytes | None = None) -> str:
+    """A recurrence group's key as shown: a keyed digest of the stored key
+    (itself a digest of the root's statement, which a client that guessed the
+    statement could recompute: Q13)."""
 
-    One rule for every section: :meth:`render` follows the text's
-    :class:`Origin` and releases it (a :class:`GuardedText`) only when
+    return GROUP_ALIAS_PREFIX + _keyed(key, "recurrence_group", str(group_key))
 
-    1. every answer behind it passes the answers' own protection check
-       (:meth:`attempt_reason`: exam, reserved, cold-check and probe items, an
-       exam or probe attempt, an item the vault cannot read, protection
-       unreadable), and so does every item it is about;
-    2. the answer keys could be read and the text reproduces none its items
-       and topics are known to have had (:class:`KeyBook`);
-    3. every answer behind it was graded against exactly one pinned contract
-       on its own item (:func:`_pins`), and every item it is about has such an
-       answer behind it: the revision is established, not assumed;
-    4. every link to those answers could be followed, and there is at least
-       one (or the text is about no item at all).
 
-    Otherwise it returns None and the first reason, in that order.
+def _lowered(note: str) -> str:
+    return note[:1].lower() + note[1:]
 
-    **Provenance** is a graph (:meth:`closure`), followed transitively with
-    cycles (a diagnosis shown a hypothesis whose answer's diagnosis was shown
-    the first one) handled: text drawn from an answer's grading reaches every
-    live diagnosis of it and its joint grader's history; a diagnosis reaches
-    everything its context receipt says it was shown (the grading of every
-    answer in it, hypotheses and recorded beliefs with their topic ids,
-    generated topics in its neighbourhood or named in its text: F4 round 5);
-    a belief reaches its error events,
-    promotions, error hunts and the gaps that created it; a gap reaches the
-    diagnosis it read; a generated topic reaches the gaps that created it.
 
-    **Topic names and ids** (:meth:`topic`, :meth:`lo_ref`) are released here
-    too: a prerequisite the learner-text pipeline created has titles drafted
-    from the learner's text and ids derived from them, so its name is rendered
-    like any other answer-derived text, and while it is withheld its id is an
-    opaque alias. A name the vault authored is released as it is.
+# -- the guard ------------------------------------------------------------------------
 
-    Lookups are cached for one read; nothing is written."""
 
-    def __init__(self, connection: Any, withheld: Withheld, book: KeyBook, unknowns: list[str], *,
-                 vault: Any = None) -> None:
+#: Gap sources whose words are an answer itself (``learner_text_gaps.source_kind``).
+_ANSWER_SOURCES = frozenset({"diagnosis", "stuck_answer"})
+_CHUNK = 500
+#: The id the learner-text pipeline gives a prerequisite it creates
+#: (``text_gaps.actions.creation_ids``: ``lo_ltg_<slug of its title>_<hash>``).
+_GENERATED_LO_PREFIX = "lo_ltg_"
+TITLE_LIMIT = 200
+_ID_LIMIT = 512
+
+
+class TextGuard:
+    """THE renderer of every text the chat frontend shows (spec §4.7 rule 1).
+
+    One rule: a text is released only as
+
+    * (a) :meth:`_authored`: a topic's name or id that is not generated (the
+      learner-text pipeline's prerequisites are: by their provenance, their
+      id's form, or a gap recording their creation), and the question as
+      graded (:meth:`stem`);
+    * (b) :meth:`answer`: the learner's own answer, when the answer passes its
+      protection (:meth:`attempt_reason`), the keys could be read and it
+      reproduces none its item is known to have had, and it was graded against
+      exactly one pinned contract on its own item;
+    * (c) :meth:`derived`: anything else, only when its write-time record
+      (:class:`WriteProvenance`) is complete and every input is safe: each
+      answer passes (b)'s checks, each item its protection, each topic is
+      authored, the protection and keys could be read, and the text
+      reproduces no key of those items and topics. With no record (today,
+      always) the text is withheld with :data:`HELD_BACK`.
+
+    A generated topic's name is (c) text: while it is withheld the entry shows
+    :data:`TOPIC_WITHHELD` and its id an opaque keyed alias (:func:`lo_alias`),
+    and a topic search does not match its words.
+
+    ``withheld`` and the key book are read when first needed (the ``today`` and
+    ``progress`` views name topics only). Lookups are cached for one read;
+    nothing is written."""
+
+    def __init__(self, connection: Any, vault: Any, repository: Any = None, *, withheld: Withheld | None = None,
+                 book: KeyBook | None = None, unknowns: list[str] | None = None, alias_key: bytes | None = None,
+                 provenance: ProvenanceSource | None = None) -> None:
         self._connection = connection
-        self.withheld = withheld
-        self.book = book
-        self._unknowns = unknowns
         self._vault = vault
+        self._repository = repository
+        self._withheld = withheld
+        self._book = book
+        self._unknowns = unknowns if unknowns is not None else []
+        self._key = alias_key
+        self._provenance = provenance or no_write_provenance
         self._attempts: dict[str, dict[str, Any] | None] = {}
         self._pinned: dict[str, Any] = {}
-        self._events: dict[str, str | None] = {}
-        self._nodes: dict[_Node, tuple[Origin, tuple[_Node, ...]]] = {}
-        self._closed: dict[_Node, Origin] = {}
-        self._beliefs: dict[tuple[str | None, str], tuple[Any, Any, _Node] | None] = {}
         self._names: dict[str, tuple[GuardedText | None, str | None]] = {}
         self._generated: frozenset[str] | None = None
-        self._maps: dict[str, dict[str, Any]] = {}
-        self._tables: dict[str, bool] = {}
 
-    def _has(self, table: str) -> bool:
-        if table not in self._tables:
-            self._tables[table] = _table(self._connection, table)
-        return self._tables[table]
+    @property
+    def withheld(self) -> Withheld:
+        if self._withheld is None:
+            self._withheld = (withheld_items(self._vault, self._repository) if self._repository is not None
+                              else Withheld(available=False, unknowns=(PROTECTION_UNKNOWN,)))
+            for unknown in self._withheld.unknowns:
+                if unknown not in self._unknowns:
+                    self._unknowns.append(unknown)
+        return self._withheld
 
-    # -- answers ---------------------------------------------------------------
+    @property
+    def book(self) -> KeyBook:
+        if self._book is None:
+            self._book = key_book(self._connection, self._vault, self._unknowns)
+        return self._book
+
+    # -- (b) the learner's own answers -------------------------------------------------
 
     def _load(self, attempt_ids: Iterable[Any]) -> None:
         wanted = sorted(attempt for attempt in _ids(attempt_ids) if attempt not in self._attempts)
@@ -649,17 +664,18 @@ class AnswerTextGuard:
         for start in range(0, len(wanted), _CHUNK):
             chunk = wanted[start:start + _CHUNK]
             for row in self._connection.execute(
-                f"SELECT id, practice_item_id, attempt_type, probe_presentation_id, learning_object_id "
-                f"FROM practice_attempts WHERE id IN ({_marks(chunk)})", chunk,
+                f"SELECT id, practice_item_id, attempt_type, probe_presentation_id, learning_object_id, "
+                f"learner_answer_md FROM practice_attempts WHERE id IN ({_marks(chunk)})", chunk,
             ):
                 found[str(row[0])] = {"item": None if row[1] is None else str(row[1]), "type": row[2],
-                                      "probe": row[3], "lo": None if row[4] is None else str(row[4])}
+                                      "probe": row[3], "lo": None if row[4] is None else str(row[4]),
+                                      "answer": row[5]}
         self._attempts.update(found)
         self._pinned.update(_pins(self._connection, {attempt: row["item"] for attempt, row in found.items() if row},
                                   self._unknowns))
 
     def attempt_reason(self, attempt_id: Any) -> str | None:
-        """Why this answer, and everything drawn from it, is protected (the
+        """Why this answer, and everything about it, is protected (the
         answers' own check, for every section), or None."""
 
         if not self.withheld.available:
@@ -686,53 +702,134 @@ class AnswerTextGuard:
         self._load([attempt_id])
         return self._pinned.get(str(attempt_id))
 
-    # -- the renderer ----------------------------------------------------------
-
-    def render(self, text: Any, origin: Origin, limit: int) -> tuple[GuardedText | None, str | None]:
-        """``(text, None)`` released, or ``(None, why)``; ``(None, None)`` for no text."""
+    def answer(self, attempt_id: Any, text: Any, limit: int) -> tuple[AnswerText | None, str | None]:
+        """(b) THE renderer of the learner's own answer: ``(text, None)``
+        released, ``(None, why)``, or ``(None, None)`` for no text."""
 
         if text is None or not str(text).strip():
             return None, None
-        if origin is _AUTHORED:
-            # A topic name or id the vault authored (topic / lo_ref only).
-            return GuardedText(excerpt(text, limit), _RELEASE), None
-        self._load(origin.attempts)
-        for attempt_id in sorted(origin.attempts):
-            reason = self.attempt_reason(attempt_id)
-            if reason:
-                return None, f"withheld: {reason}"
-        for item_id in sorted(origin.items):
-            reason = self.withheld.reason(item_id)
-            if reason:
-                return None, f"withheld: {reason}"
-        if not self.withheld.available:
-            return None, f"withheld: {WITHHELD_UNREADABLE}"
+        reason = self.attempt_reason(attempt_id)
+        if reason:
+            return None, f"withheld: {reason}"
         if self.book.unreadable:
             return None, KEYS_UNREADABLE
-        if leaks_key(str(text), self._keys(origin)):
+        row = self._attempts[str(attempt_id)] or {}
+        if leaks_key(str(text), self.book.item(row.get("item"))):
             return None, KEY_WITHHELD
-        if any(attempt_id not in self._pinned for attempt_id in origin.attempts):
-            return None, REVISION_UNKNOWN if origin.direct else REVISION_UNKNOWN_BEHIND
-        graded = {self._attempts[attempt_id]["item"] for attempt_id in origin.attempts}
-        if origin.items - graded:
-            return None, REVISION_UNKNOWN_BEHIND if origin.attempts else REVISION_UNKNOWN_ASKED
-        if origin.missing:
-            return None, PROVENANCE_MISSING
-        if not (origin.attempts or origin.items or origin.unattached):
-            return None, PROVENANCE_UNKNOWN
-        return GuardedText(excerpt(text, limit), _RELEASE), None
+        if str(attempt_id) not in self._pinned:
+            return None, REVISION_UNKNOWN
+        return AnswerText(excerpt(text, limit), _RELEASE), None
 
-    def _keys(self, origin: Origin) -> list[Any]:
-        """Every key of every item behind the text (its answers' items and the
-        items it is about), and of every topic it is about: a statement may
-        restate any key of its topic, an answer (and the learner's own words
-        about one item) is checked against its item's keys, as before."""
+    def answer_of(self, attempt_id: Any, limit: int) -> tuple[AnswerText | None, str | None]:
+        """The answer as the attempt records it (a gap drawn from an answer
+        shows the answer itself, not the excerpt its reader chose)."""
 
-        rows = [row for attempt_id in sorted(origin.attempts) if (row := self._attempts.get(attempt_id))]
-        items = sorted(set(origin.items) | {row["item"] for row in rows if row["item"]})
-        return [key for item_id in items for key in self.book.item(item_id)] + self.book.los(sorted(origin.los))
+        self._load([attempt_id])
+        row = self._attempts.get(str(attempt_id))
+        if row is None:
+            return None, f"withheld: {ANSWER_UNRECORDED}"
+        return self.answer(attempt_id, row["answer"], limit)
 
-    # -- topic names and ids (F4 round 4) ----------------------------------------
+    # -- (a) authored vault text ---------------------------------------------------------
+
+    def _authored(self, text: Any, limit: int) -> AuthoredText | None:
+        if text is None or not str(text).strip():
+            return None
+        return AuthoredText(excerpt(text, limit), _RELEASE)
+
+    def stem(self, attempt_id: Any, lo_id: Any) -> tuple[GuardedText | None, str | None]:
+        """The question as graded: the prompt of the attempt's pinned
+        contract. An item on a generated topic was seeded from the learner's
+        question (``text_gaps.actions.seed_from_question``), so its prompt is
+        drafted text: (c)."""
+
+        prompt = self.pinned_prompt(attempt_id)
+        if not prompt:
+            return None, STEM_UNRECORDED
+        row = self._attempts.get(str(attempt_id)) or {}
+        item = (getattr(self._vault, "practice_items", None) or {}).get(str(row.get("item") or ""))
+        topics = {str(lo) for lo in (lo_id, row.get("lo"), getattr(item, "learning_object_id", None)) if lo}
+        if any(self.generated(lo) for lo in topics):
+            return self.derived("practice_item", str(row.get("item") or ""), prompt, STEM_LIMIT,
+                                answers=(attempt_id,), items=(row.get("item"),), los=topics)
+        return self._authored(prompt, STEM_LIMIT), None
+
+    # -- (c) derived text, by its write-time record --------------------------------------
+
+    def derived(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any] = (),
+                items: Iterable[Any] = (), los: Iterable[Any] = ()) -> tuple[RecordedText | None, str | None]:
+        """(c) THE renderer of a derived text: released only by a complete
+        write-time record whose inputs, with the entry's own ``answers``,
+        ``items`` and ``los``, are all safe. ``text`` may be a function, called
+        only once the record passes. Without a record: ``(None, HELD_BACK)``."""
+
+        if not callable(text) and (text is None or not str(text).strip()):
+            return None, None
+        # The entry's own answers and items first: a protected one is named as
+        # such (a check waiting in the app), whatever any record says.
+        reason = self._protected(sorted(_ids(answers)), sorted(_ids(items)))
+        if reason:
+            return None, reason
+        try:
+            record = self._provenance(self._connection, kind, str(record_id or ""))
+        except Exception:  # noqa: BLE001 - fail closed: an unreadable record is no record
+            _LOG.warning("learner context: write-time provenance not read (%s)", kind, exc_info=True)
+            record = None
+        if not isinstance(record, WriteProvenance) or not record.readable():
+            return None, HELD_BACK
+        answer_ids = sorted(_ids(record.answers) | _ids(answers))
+        item_ids = sorted(_ids(record.items) | _ids(items))
+        reason = self._unsafe(record, answer_ids, item_ids)
+        if reason:
+            return None, reason
+        value = text() if callable(text) else text
+        if value is None or not str(value).strip():
+            return None, None
+        rows = [row for answer in answer_ids if (row := self._attempts.get(answer))]
+        keys = [key for item in sorted(set(item_ids) | {row["item"] for row in rows if row["item"]})
+                for key in self.book.item(item)]
+        keys += self.book.los(sorted(_ids(record.topics) | _ids(los)))
+        if leaks_key(str(value), keys):
+            return None, KEY_WITHHELD
+        return RecordedText(excerpt(value, limit), _RELEASE), None
+
+    def _protected(self, answers: Sequence[str], items: Sequence[str]) -> str | None:
+        """Why any of these answers or items is protected (or protection is
+        unreadable), or None."""
+
+        if not (answers or items):
+            return None
+        if not self.withheld.available:
+            return f"withheld: {WITHHELD_UNREADABLE}"
+        self._load(answers)
+        for answer in answers:
+            reason = self.attempt_reason(answer)
+            if reason:
+                return f"withheld: {reason}"
+        for item in items:
+            reason = self.withheld.reason(item)
+            if reason:
+                return f"withheld: {reason}"
+        return None
+
+    def _unsafe(self, record: WriteProvenance, answers: Sequence[str], items: Sequence[str]) -> str | None:
+        """Why a record's inputs (with the entry's own) are not all safe, or None."""
+
+        if not self.withheld.available:
+            return f"withheld: {WITHHELD_UNREADABLE}"
+        reason = self._protected(answers, items)
+        if reason:
+            return reason
+        los = getattr(self._vault, "learning_objects", None) or {}
+        if any(topic not in los or self.generated(topic) for topic in record.topics):
+            return HELD_BACK
+        if self.book.unreadable:
+            return KEYS_UNREADABLE
+        if any(answer not in self._pinned for answer in answers):
+            return REVISION_UNKNOWN_BEHIND
+        return None
+
+    # -- topic names and ids -------------------------------------------------------------
 
     def _lo(self, lo_id: str) -> Any:
         return (getattr(self._vault, "learning_objects", None) or {}).get(lo_id)
@@ -748,7 +845,14 @@ class AnswerTextGuard:
             los = getattr(self._vault, "learning_objects", None) or {}
             found = {str(lo_id) for lo_id, lo in los.items()
                      if created_from_learner_text(lo) or str(lo_id).startswith(_GENERATED_LO_PREFIX)}
-            self._generated = frozenset(found | set(self._map("gaps_by_created_lo")))
+            if _table(self._connection, "learner_text_gaps"):
+                for created, target in self._connection.execute(
+                    "SELECT created_learning_object_id, CASE WHEN action = 'created_prerequisite' AND "
+                    "target_kind = 'learning_object' THEN target_id END FROM learner_text_gaps "
+                    "WHERE created_learning_object_id IS NOT NULL OR action = 'created_prerequisite'"
+                ):
+                    found |= {str(value) for value in (created, target) if value}
+            self._generated = frozenset(found)
         return self._generated
 
     def generated(self, lo_id: Any) -> bool:
@@ -757,50 +861,50 @@ class AnswerTextGuard:
 
     def _name(self, lo_id: str) -> tuple[GuardedText | None, str | None]:
         """A topic's name released, or why not. A generated topic's title (or,
-        when it has left the vault, its id) is answer-derived text with the
-        provenance of its drafting; its id carries a slug of that title, so
-        the id's words pass the same check."""
+        when it has left the vault, its id) is drafted text; its id carries a
+        slug of that title, so the id's words pass the same check."""
 
         if lo_id not in self._names:
             lo = self._lo(lo_id)
             title = lo.title if lo is not None and str(lo.title or "").strip() else lo_id
             if not self.generated(lo_id):
-                self._names[lo_id] = self.render(title, _AUTHORED, TITLE_LIMIT)
+                self._names[lo_id] = (self._authored(title, TITLE_LIMIT), None)
             else:
-                origin = self.closure(("title", lo_id))
-                shown, note = self.render(title, origin, TITLE_LIMIT)
+                shown, note = self.derived("learning_object", lo_id, title, TITLE_LIMIT, los=(lo_id,))
                 if shown is not None:
-                    words, note = self.render(lo_id.replace("_", " "), origin, _ID_LIMIT)
+                    words, note = self.derived("learning_object", lo_id, lo_id.replace("_", " "), _ID_LIMIT,
+                                               los=(lo_id,))
                     shown = shown if words is not None else None
                 self._names[lo_id] = (shown, note)
         return self._names[lo_id]
 
     def topic(self, lo_id: Any) -> str | None:
-        """THE renderer of a topic's name: released (a :class:`GuardedText`),
-        or :data:`TOPIC_WITHHELD` and why."""
+        """THE renderer of a topic's name: released, or
+        :data:`TOPIC_WITHHELD` and why."""
 
         if not lo_id:
             return None
         shown, note = self._name(str(lo_id))
-        return shown if shown is not None else f"{TOPIC_WITHHELD} {note or PROVENANCE_UNKNOWN}"
+        return shown if shown is not None else f"{TOPIC_WITHHELD} ({_lowered(note or HELD_BACK)})"
 
     def lo_ref(self, lo_id: Any) -> str | None:
-        """THE renderer of a topic's id: released (a :class:`GuardedText`), or
-        an opaque alias (:func:`lo_alias`) while a generated topic's name is
-        withheld."""
+        """THE renderer of a topic's id: released, or an opaque keyed alias
+        (:func:`lo_alias`) while a generated topic's name is withheld."""
 
         if not lo_id:
             return None
         key = str(lo_id)
-        if self.generated(key) and self._name(key)[0] is None:
-            return lo_alias(key)
-        return self.render(key, _AUTHORED, _ID_LIMIT)[0]
+        if not self.generated(key):
+            return self._authored(key, _ID_LIMIT)
+        if self._name(key)[0] is None:
+            return lo_alias(key, self._key)
+        return self.derived("learning_object", key, key, _ID_LIMIT, los=(key,))[0]
 
     def aliases(self) -> dict[str, str]:
         """``{alias: topic id}`` for every generated topic (a named id the
         frontend may send back)."""
 
-        return {lo_alias(lo_id): lo_id for lo_id in self._generated_ids()}
+        return {lo_alias(lo_id, self._key): lo_id for lo_id in self._generated_ids()}
 
     def searchable(self, lo_id: Any) -> bool:
         """Whether a topic search may match this topic's words: not while a
@@ -808,488 +912,26 @@ class AnswerTextGuard:
 
         return not self.generated(lo_id) or self._name(str(lo_id))[0] is not None
 
-    # -- provenance --------------------------------------------------------------
+    def group_ref(self, group_key: Any) -> str:
+        """A recurrence group's key as shown (:func:`group_alias`)."""
 
-    def answer(self, attempt_id: Any) -> Origin:
-        """An answer's own text."""
-
-        return Origin(attempts=_ids([attempt_id]), missing=not attempt_id, direct=True)
-
-    def gap_words(self, row: Mapping[str, Any]) -> Origin:
-        """A learner-text gap's words: the answer they are (a diagnosis or a
-        stuck answer) or were asked during, else the item they are about (no
-        graded answer behind them), else nothing (a Reader or library
-        question)."""
-
-        attempt_id, item_id = row.get("attempt_id"), row.get("practice_item_id")
-        answer = row.get("source_kind") in _ANSWER_SOURCES
-        if attempt_id:
-            return Origin(attempts=_ids([attempt_id]), items=_ids([item_id]), direct=answer)
-        if answer:
-            return Origin(items=_ids([item_id]), missing=True)
-        if item_id:
-            return Origin(items=_ids([item_id]))
-        # Words tied to no item: filtered by every key of their topic.
-        return Origin(unattached=True).about(row.get("anchor_learning_object_id"))
-
-    def diagnosis(self, attempt_id: Any, diagnosis_id: Any) -> Origin:
-        """A diagnosis summary of one answer: that answer and everything the
-        diagnosis was shown, followed transitively (its own text, the note
-        naming "this answer", when it was shown nothing else)."""
-
-        origin = self.closure(("diagnosis", str(diagnosis_id or ""))) | Origin(
-            attempts=_ids([attempt_id]), missing=not attempt_id)
-        if not (origin.attempts - _ids([attempt_id]) or origin.items):
-            return replace(origin, direct=True)
-        return origin
-
-    def registry(self, kind: str | None, record_id: Any) -> tuple[Any, Any, Origin] | None:
-        """A belief by id, ``(statement, its topic, origin)``: a recorded
-        misconception (``durable``), a candidate in the holding pen or a
-        hypothesis it projects as one (``candidate``), or any of them (None,
-        as a diagnosis's context lists them). None when it is not on record."""
-
-        found = self._belief(kind, record_id)
-        if found is None:
-            return None
-        statement, lo_id, node = found
-        return statement, lo_id, self.closure(node)
-
-    def closure(self, root: _Node) -> Origin:
-        """Everything ``root``'s text was drawn from: the union of the local
-        origins of every node it reaches. Cycles are handled (Tarjan's strongly
-        connected components, iteratively): every node of a component gets the
-        whole component's closure, so a closure is complete whichever node is
-        read first. Cached for this read."""
-
-        if root in self._closed:
-            return self._closed[root]
-        index: dict[_Node, int] = {}
-        low: dict[_Node, int] = {}
-        stack: list[_Node] = []
-        on_stack: set[_Node] = set()
-        work: list[tuple[_Node, Iterator[_Node]]] = []
-
-        def enter(node: _Node) -> None:
-            index[node] = low[node] = len(index)
-            stack.append(node)
-            on_stack.add(node)
-            work.append((node, iter(self._node(node)[1])))
-
-        enter(root)
-        while work:
-            node, successors = work[-1]
-            for successor in successors:
-                if successor in self._closed:
-                    continue
-                if successor not in index:
-                    enter(successor)
-                    break
-                if successor in on_stack:
-                    low[node] = min(low[node], index[successor])
-            else:
-                work.pop()
-                if work:
-                    parent = work[-1][0]
-                    low[parent] = min(low[parent], low[node])
-                if low[node] == index[node]:
-                    members: set[_Node] = set()
-                    while True:
-                        member = stack.pop()
-                        on_stack.discard(member)
-                        members.add(member)
-                        if member == node:
-                            break
-                    origin = Origin()
-                    for member in members:
-                        local, outgoing = self._node(member)
-                        origin = origin | local
-                        for successor in outgoing:
-                            if successor not in members:
-                                origin = origin | self._closed[successor]
-                    for member in members:
-                        self._closed[member] = origin
-        return self._closed[root]
-
-    def _node(self, node: _Node) -> tuple[Origin, tuple[_Node, ...]]:
-        """A node's own origin and the nodes it links to, read once."""
-
-        if node not in self._nodes:
-            kind, key = node
-            local, successors = getattr(self, f"_local_{kind}")(key)
-            self._nodes[node] = (local, tuple(dict.fromkeys(successors)))
-        return self._nodes[node]
-
-    def _local_grading(self, attempt_id: str) -> tuple[Origin, list[_Node]]:
-        """An answer's grading as its grader wrote it (its error events as
-        stored, its fatal errors, its blind grade): the answer, the prior
-        answers its joint grader was shown (the C4 history) and its topic's
-        name when that topic was generated (the grader was shown it). This is
-        what a diagnosis is shown of an answer in its history (F4 round 5,
-        F1): the history store reads the events as written, never a
-        diagnosis's overlay."""
-
-        history = self._map("c4_history").get(attempt_id, [])
-        origin = Origin(attempts=_ids([attempt_id]) | _ids(history or ()), missing=not attempt_id or history is None)
-        self._load([attempt_id])
-        lo_id = (self._attempts.get(attempt_id) or {}).get("lo")
-        return origin, [("title", lo_id)] if lo_id and self.generated(lo_id) else []
-
-    def _local_graded(self, attempt_id: str) -> tuple[Origin, list[_Node]]:
-        """Text drawn from an answer's grading or diagnosis (a cause on its
-        error events, a hypothesis, a belief normalized from them): its
-        grading, and everything each of its completed live diagnoses was
-        shown. The overlay lays a diagnosis's causes on the answer's events,
-        the factor projection, the normalizer and the gap pipeline read them,
-        and what an earlier diagnosis supplied stays in the beliefs drawn from
-        it, so a superseded diagnosis counts too."""
-
-        successors: list[_Node] = [("grading", attempt_id)]
-        successors += [("diagnosis", str(diagnosis)) for diagnosis in self._map(
-            "diagnoses_by_attempt").get(attempt_id, ())]
-        return Origin(missing=not attempt_id), successors
-
-    def _local_diagnosis(self, diagnosis_id: str) -> tuple[Origin, list[_Node]]:
-        """What one diagnosis was shown, from its context receipt: the
-        grading of its own answer and of every answer it saw, cited or names
-        (a history row carries its grader's error types, fatal errors and
-        first-divergence quotes: F4 round 5, F1), the hypotheses and recorded
-        beliefs it was given, each with its topic id (F4 round 5, F2), and the
-        generated topics in its neighbourhood or named in its text. No
-        receipt, or a list in it that cannot be read: what it saw is not
-        recorded (a missing link)."""
-
-        row = self._connection.execute(
-            "SELECT attempt_id, proposal_json FROM attempt_diagnoses WHERE id = ?", (diagnosis_id,),
-        ).fetchone() if diagnosis_id and self._has("attempt_diagnoses") else None
-        if row is None:
-            return Origin(missing=True), []
-        own = Origin(attempts=_ids([row[0]]), missing=not row[0])
-        receipt = self._connection.execute(
-            "SELECT failure_attempt_ids_json, success_attempt_ids_json, hypothesis_ids_json, "
-            "registry_candidate_ids_json, validated_citations_json, retrieval_json, prerequisite_refs_json "
-            "FROM diagnosis_context_receipts WHERE diagnosis_id = ?", (diagnosis_id,),
-        ).fetchone() if self._has("diagnosis_context_receipts") else None
-        if receipt is None:
-            return replace(own, missing=True), []
-        failures, successes, hypotheses, registry = (_id_list(receipt[index]) for index in range(4))
-        cited = _cited_answers(receipt[4])
-        retrieval = _loads(receipt[5], None)
-        shown = retrieval if isinstance(retrieval, Mapping) else {}
-        history = _id_list(shown.get("history_attempt_ids")) if isinstance(retrieval, Mapping) else None
-        neighbours = _id_list(shown.get("neighborhood_learning_object_ids"))
-        prerequisites = _id_list(receipt[6])
-        lists = (failures, successes, hypotheses, registry, cited, history, neighbours, prerequisites)
-        if any(listed is None for listed in lists):
-            return replace(own, missing=True), []
-        proposal = _loads(row[1], None)
-        analysis = proposal.get("analysis_md") if isinstance(proposal, Mapping) else None
-        text = analysis if isinstance(analysis, str) else ""
-        named = set(_RECORD_ID.findall(text))
-        self._load(named)
-        answers = [*([str(row[0])] if row[0] else []), *(failures or ()), *(successes or ()), *(history or ()),
-                   *(cited or ()), *(record for record in named if self._attempts.get(record) is not None)]
-        successors: list[_Node] = [("grading", answer) for answer in answers]
-        successors += [("shown", f"hypothesis:{hypothesis}") for hypothesis in hypotheses or ()]
-        successors += [("shown", f"registry:{record}") for record in registry or ()]
-        topics = [*(neighbours or ()), *(prerequisites or ()), *self._named_topics(text)]
-        successors += [("title", lo_id) for lo_id in topics if self.generated(lo_id)]
-        return own, successors
-
-    def _local_hypothesis(self, hypothesis_id: str) -> tuple[Origin, list[_Node]]:
-        """A hypothesis statement: its answer's grading, its own error event
-        when on record (a regrade replaces events with new ids; the event
-        belongs to its answer, so nothing is lost), and its whole episode."""
-
-        row = self._connection.execute(
-            "SELECT attempt_id, error_event_id, episode_key, learning_object_id FROM causal_hypotheses WHERE id = ?",
-            (hypothesis_id,),
-        ).fetchone() if hypothesis_id and self._has("causal_hypotheses") else None
-        if row is None:
-            return Origin(missing=True), []
-        attempt_id, event_id, episode_key, lo_id = row
-        successors: list[_Node] = [("graded", str(attempt_id))] if attempt_id else []
-        event_answer = self._event_answer(event_id) if event_id else None
-        if event_answer:
-            successors.append(("graded", event_answer))
-        successors.append(("episode", str(episode_key or "")))
-        return Origin(los=_ids([lo_id]), missing=not attempt_id), successors
-
-    def _local_episode(self, episode_key: str) -> tuple[Origin, list[_Node]]:
-        """Every answer of a hypothesis episode (every version), and the
-        answers of their error events that are on record."""
-
-        rows = list(self._connection.execute(
-            "SELECT attempt_id, error_event_id FROM causal_hypotheses WHERE episode_key = ?", (episode_key,),
-        )) if episode_key and self._has("causal_hypotheses") else []
-        successors: list[_Node] = [("graded", str(row[0])) for row in rows if row[0]]
-        self._event_answers(row[1] for row in rows if row[1])
-        successors += [("graded", answer) for row in rows if row[1] and (answer := self._events.get(str(row[1])))]
-        return Origin(missing=not rows or any(not row[0] for row in rows)), successors
-
-    def _local_event(self, event_id: str) -> tuple[Origin, list[_Node]]:
-        """An error event a belief lists: its answer's grading; an event not on
-        record, or naming no answer, is a missing link."""
-
-        answer = self._event_answer(event_id)
-        return (Origin(missing=True), []) if answer is None else (Origin(), [("graded", answer)])
-
-    def _local_shown(self, key: str) -> tuple[Origin, list[_Node]]:
-        """A belief as a diagnosis's context showed it (``hypothesis:<id>``, a
-        prior hypothesis; ``registry:<id>``, a registry record of any kind):
-        its statement's provenance, and its topic's name when that topic was
-        generated. The rendered context carries each belief's
-        ``learning_object_id``, and the whole-vault registry shortlist reaches
-        beyond the neighbourhood (F4 round 5, F2). Not on record: a missing
-        link."""
-
-        kind, _, record_id = key.partition(":")
-        found = self._belief("hypothesis" if kind == "hypothesis" else None, record_id)
-        if found is None:
-            return Origin(missing=True), []
-        _statement, lo_id, node = found
-        return Origin(), [node, *([("title", str(lo_id))] if lo_id and self.generated(lo_id) else [])]
-
-    def _named_topics(self, text: str) -> list[str]:
-        """The generated topics a model's text names by id (or by the slug of
-        its drafted title the id carries): it was shown each one."""
-
-        if not text:
-            return []
-        named: list[str] = []
-        for lo_id in sorted(self._generated_ids()):
-            core = lo_id[len(_GENERATED_LO_PREFIX):].rsplit("_", 1)[0] if lo_id.startswith(
-                _GENERATED_LO_PREFIX) else ""
-            if lo_id in text or ("_" in core and len(core) >= _SLUG_MIN and core in text):
-                named.append(lo_id)
-        return named
-
-    def _local_misconception(self, misconception_id: str) -> tuple[Origin, list[_Node]]:
-        """A recorded misconception (statement and correction): the error
-        events it was normalized from or linked to, and the candidates and
-        hypotheses promoted into it."""
-
-        row = self._connection.execute(
-            "SELECT learning_object_id, source_error_event_ids_json FROM misconceptions WHERE id = ?",
-            (misconception_id,),
-        ).fetchone() if misconception_id and self._has("misconceptions") else None
-        if row is None:
-            return Origin(missing=True), []
-        lo_id, listed = row[0], _id_list(row[1])
-        promotions = self._map("hypotheses_by_promotion")
-        successors: list[_Node] = [("event", event_id) for event_id in [
-            *(listed or ()), *self._map("events_by_misconception").get(misconception_id, ())]]
-        successors += [("candidate", candidate) for candidate in self._map("candidates_by_promotion").get(
-            misconception_id, ())]
-        successors += [("hypothesis", hypothesis) for hypothesis in promotions.get(misconception_id, ())]
-        # A promotion that cannot be read: any belief on its topic may be drawn from it.
-        return Origin(los=_ids([lo_id]), missing=listed is None or f"*{lo_id}" in promotions), successors
-
-    def _local_candidate(self, candidate_id: str) -> tuple[Origin, list[_Node]]:
-        """A candidate belief: its error events, the items it was seen on, the
-        error hunts that minted or counted it, the gaps that created it."""
-
-        row = self._connection.execute(
-            "SELECT learning_object_id, source_error_event_ids_json, item_ids_json FROM misconception_candidates "
-            "WHERE id = ?", (candidate_id,),
-        ).fetchone() if candidate_id and self._has("misconception_candidates") else None
-        if row is None:
-            return Origin(missing=True), []
-        events, items = _id_list(row[1]), _id_list(row[2])
-        hunts = self._map("hunts_by_candidate").get(candidate_id, ())
-        successors: list[_Node] = [("event", event_id) for event_id in events or ()]
-        successors += [("graded", str(attempt_id)) for attempt_id in hunts if attempt_id]
-        successors += [("gap", gap_id) for gap_id in self._map("gaps_by_candidate").get(candidate_id, ())]
-        missing = events is None or items is None or not all(hunts)
-        return Origin(items=_ids(items or ()), los=_ids([row[0]]), missing=missing), successors
-
-    def _local_gap(self, gap_id: str) -> tuple[Origin, list[_Node]]:
-        """What a gap's reading drew on (the belief it created, the topic it
-        drafted): its words (:meth:`gap_words`), the topic it is anchored on
-        when that topic was itself generated, and, when it read a diagnosis
-        (``source_id``), everything that diagnosis was shown."""
-
-        row = self._connection.execute(
-            "SELECT source_kind, source_id, attempt_id, practice_item_id, anchor_learning_object_id "
-            "FROM learner_text_gaps WHERE id = ?", (gap_id,),
-        ).fetchone() if gap_id and self._has("learner_text_gaps") else None
-        if row is None:
-            return Origin(missing=True), []
-        values = dict(zip(("source_kind", "source_id", "attempt_id", "practice_item_id",
-                           "anchor_learning_object_id"), row, strict=True))
-        words = replace(self.gap_words(values), direct=False)
-        # Its reader (and a drafter) was shown the topic it is anchored on.
-        anchor = values["anchor_learning_object_id"]
-        successors: list[_Node] = [("title", str(anchor))] if anchor and self.generated(anchor) else []
-        if values["source_kind"] != "diagnosis":
-            return words, successors
-        if not values["source_id"]:
-            return replace(words, missing=True), successors
-        return words, [*successors, ("diagnosis", str(values["source_id"]))]
-
-    def _local_title(self, lo_id: str) -> tuple[Origin, list[_Node]]:
-        """A generated topic's name (its concept's and LO's titles, and the ids
-        derived from them): the gaps that created it, and every generated
-        topic sharing a subject that was created no later (its drafter is
-        shown the subject's concepts). No gap behind it: what it was drafted
-        from is not recorded."""
-
-        lo = self._lo(lo_id)
-        gaps = list(self._map("gaps_by_created_lo").get(lo_id, ()))
-        extra = getattr(getattr(lo, "provenance", None), "model_extra", None) or {}
-        if extra.get("learner_text"):
-            gaps += self._map("gaps_by_source").get(str(extra["learner_text"]), ())
-        successors: list[_Node] = [("gap", str(gap_id)) for gap_id in gaps]
-        if lo is not None:
-            subjects = set(lo.subjects or ())
-            for other_id in sorted(self._generated_ids()):
-                other = self._lo(other_id)
-                if other_id == lo_id or other is None or not subjects & set(other.subjects or ()):
-                    continue
-                if lo.created_at and other.created_at and str(other.created_at) > str(lo.created_at):
-                    continue
-                successors.append(("title", other_id))
-        return Origin(missing=not gaps), successors
-
-    def _belief(self, kind: str | None, record_id: Any) -> tuple[Any, Any, _Node] | None:
-        key = (kind, str(record_id or ""))
-        if key in self._beliefs:
-            return self._beliefs[key]
-        connection = self._connection
-        found: tuple[Any, Any, _Node] | None = None
-        if key[1] and kind in ("durable", None) and self._has("misconceptions"):
-            row = connection.execute("SELECT statement, learning_object_id FROM misconceptions WHERE id = ?",
-                                     (key[1],)).fetchone()
-            if row is not None:
-                found = row[0], row[1], ("misconception", key[1])
-        if found is None and key[1] and kind in ("candidate", None) and self._has("misconception_candidates"):
-            row = connection.execute(
-                "SELECT statement, learning_object_id FROM misconception_candidates WHERE id = ?", (key[1],),
-            ).fetchone()
-            if row is not None:
-                found = row[0], row[1], ("candidate", key[1])
-        # A hypothesis: as a candidate projects it, or as a diagnosis's context listed it.
-        if found is None and key[1] and kind in ("candidate", "hypothesis", None) and self._has("causal_hypotheses"):
-            row = connection.execute("SELECT statement, learning_object_id FROM causal_hypotheses WHERE id = ?",
-                                     (key[1],)).fetchone()
-            if row is not None:
-                found = row[0], row[1], ("hypothesis", key[1])
-        self._beliefs[key] = found
-        return found
-
-    def _event_answers(self, event_ids: Iterable[Any]) -> None:
-        """Read the answers behind error events into the cache (None: not on
-        record, or naming no answer)."""
-
-        wanted = sorted(event_id for event_id in _ids(event_ids) if event_id not in self._events)
-        if not wanted:
-            return
-        found: dict[str, str | None] = dict.fromkeys(wanted)
-        if self._has("error_events"):
-            for start in range(0, len(wanted), _CHUNK):
-                chunk = wanted[start:start + _CHUNK]
-                for event_id, attempt_id in self._connection.execute(
-                    f"SELECT id, attempt_id FROM error_events WHERE id IN ({_marks(chunk)})", chunk,
-                ):
-                    found[str(event_id)] = str(attempt_id) if attempt_id else None
-        self._events.update(found)
-
-    def _event_answer(self, event_id: Any) -> str | None:
-        self._event_answers([event_id])
-        return self._events.get(str(event_id or ""))
-
-    def _map(self, name: str) -> dict[str, Any]:
-        """One-query links, read once: which error events, candidates and
-        hypotheses a misconception was promoted from or normalized out of,
-        which error hunts and gaps created a candidate, which gaps created a
-        topic, an answer's live diagnoses and its joint grader's history."""
-
-        if name in self._maps:
-            return self._maps[name]
-        found: dict[str, Any] = {}
-        connection = self._connection
-        if name == "events_by_misconception" and self._has("error_events"):
-            for misconception_id, event_id in connection.execute(
-                "SELECT misconception_id, id FROM error_events WHERE misconception_id IS NOT NULL"
-            ):
-                found.setdefault(str(misconception_id), []).append(str(event_id))
-        elif name == "candidates_by_promotion" and self._has("misconception_candidates"):
-            for candidate_id, promoted in connection.execute(
-                "SELECT id, promoted_misconception_id FROM misconception_candidates "
-                "WHERE promoted_misconception_id IS NOT NULL"
-            ):
-                found.setdefault(str(promoted), []).append(str(candidate_id))
-        elif name == "hypotheses_by_promotion" and self._has("causal_hypotheses"):
-            for hypothesis_id, lo_id, evidence in connection.execute(
-                "SELECT id, learning_object_id, evidence_json FROM causal_hypotheses "
-                "WHERE evidence_json LIKE '%promoted_misconception_id%'"
-            ):
-                promoted = _loads(evidence, None)
-                if not isinstance(promoted, Mapping):
-                    found.setdefault(f"*{lo_id}", []).append(str(hypothesis_id))
-                elif promoted.get("promoted_misconception_id"):
-                    found.setdefault(str(promoted["promoted_misconception_id"]), []).append(str(hypothesis_id))
-        elif name == "hunts_by_candidate" and self._has("error_hunt_outcomes"):
-            for candidate_id, attempt_id in connection.execute(
-                "SELECT misconception_candidate_id, attempt_id FROM error_hunt_outcomes "
-                "WHERE misconception_candidate_id IS NOT NULL"
-            ):
-                found.setdefault(str(candidate_id), []).append(attempt_id)
-        elif name == "gaps_by_candidate" and self._has("learner_text_gaps"):
-            for gap_id, target_id in connection.execute(
-                "SELECT id, target_id FROM learner_text_gaps WHERE target_kind = 'candidate' "
-                "AND action = 'belief_candidate'"
-            ):
-                found.setdefault(str(target_id), []).append(str(gap_id))
-        elif name == "gaps_by_created_lo" and self._has("learner_text_gaps"):
-            for gap_id, created, target_id in connection.execute(
-                "SELECT id, created_learning_object_id, CASE WHEN action = 'created_prerequisite' AND "
-                "target_kind = 'learning_object' THEN target_id END FROM learner_text_gaps "
-                "WHERE created_learning_object_id IS NOT NULL OR action = 'created_prerequisite'"
-            ):
-                for lo_id in {created, target_id} - {None, ""}:
-                    found.setdefault(str(lo_id), []).append(str(gap_id))
-        elif name == "gaps_by_source" and self._has("learner_text_gaps"):
-            for gap_id, kind, source_id in connection.execute(
-                "SELECT id, source_kind, source_id FROM learner_text_gaps"
-            ):
-                found.setdefault(f"{kind}:{source_id}", []).append(str(gap_id))
-        elif name == "diagnoses_by_attempt" and self._has("attempt_diagnoses"):
-            for diagnosis_id, attempt_id in connection.execute(
-                "SELECT id, attempt_id FROM attempt_diagnoses WHERE mode = 'live' "
-                "AND (status = 'completed' OR causal_view_json IS NOT NULL) ORDER BY created_at, id"
-            ):
-                found.setdefault(str(attempt_id), []).append(str(diagnosis_id))
-        elif name == "c4_history" and self._has("diagnostic_augmentation_receipts"):
-            for attempt_id, history in connection.execute(
-                "SELECT attempt_id, c4_history_attempt_ids_json FROM diagnostic_augmentation_receipts"
-            ):
-                found[str(attempt_id)] = _id_list(history)
-        self._maps[name] = found
-        return found
+        return group_alias(str(group_key), self._key)
 
 
-#: Every text field of ``learning_context``'s output (``ContextOut`` in
-#: ``learnloop_mcp.server``), by path: ``section[].field``, ``[]`` for a list,
-#: a union entry by its kind (``open_hypotheses[diagnosed_cause].statement``).
-#: These are drawn from an answer or an error event and are released only by
-#: :meth:`AnswerTextGuard.render` (a :class:`GuardedText` or None).
-ANSWER_DERIVED_FIELDS: frozenset[str] = frozenset({
-    "misconceptions[].statement",
-    "misconceptions[].correction",
-    "misconception_candidates[].statement",
-    "open_hypotheses[diagnosed_cause].statement",
-    "recurrence_groups[].statement",
-    "recent_answer_traces[].answer",
-    "recent_answer_traces[].diagnosis.summary",
-    "recent_answer_traces[].diagnosis.hypotheses[]",
-    "open_learner_text_gaps[].learner_text",
-    "open_learner_text_gaps[].target",
-})
-#: Every topic name (F4 round 4). The vault's titles, but the learner-text
-#: pipeline drafts a missing prerequisite's titles from the learner's text,
-#: so each is released only by :meth:`AnswerTextGuard.topic` (a
-#: :class:`GuardedText`), or is :data:`TOPIC_WITHHELD` and why.
+# -- the output's text fields, each classified ----------------------------------------
+#
+# Paths: ``section[].field``, ``[]`` for a list, a union entry by its kind
+# (``open_hypotheses[diagnosed_cause].statement``). A test checks these against
+# the output schema (``ContextOut`` in ``learnloop_mcp.server``) and against
+# the values each field holds.
+
+#: The rules, by the type each releases.
+AUTHORED, ANSWER, RECORDED = "authored", "answer", "recorded"
+RELEASE_TYPES: Mapping[str, type[GuardedText]] = {AUTHORED: AuthoredText, ANSWER: AnswerText,
+                                                  RECORDED: RecordedText}
+
+#: Every topic name: (a) the vault's title, or a generated topic's drafted
+#: one ((c); while withheld, :data:`TOPIC_WITHHELD` and why).
 TOPIC_FIELDS: frozenset[str] = frozenset({
     "misconceptions[].topic",
     "misconception_candidates[].topic",
@@ -1301,10 +943,8 @@ TOPIC_FIELDS: frozenset[str] = frozenset({
     "open_learner_text_gaps[].target_topic",
     "retention_risks[].topic",
 })
-#: Every topic id (F4 round 4): a generated prerequisite's id carries a slug of
-#: its drafted title (``lo_ltg_<slug>_<hash>``), so each is released only by
-#: :meth:`AnswerTextGuard.lo_ref` (a :class:`GuardedText`), or is an opaque
-#: :data:`LO_ALIAS_PREFIX` alias while the name is withheld.
+#: Every topic id: (a), or a generated topic's ((c); while withheld, an
+#: opaque :data:`LO_ALIAS_PREFIX` alias).
 TOPIC_ID_FIELDS: frozenset[str] = frozenset({
     "scope.learning_object_ids[]",
     "misconceptions[].learning_object_id",
@@ -1316,10 +956,30 @@ TOPIC_ID_FIELDS: frozenset[str] = frozenset({
     "open_learner_text_gaps[].learning_object_id",
     "retention_risks[].learning_object_id",
 })
-_ID, _TIME, _ENUM, _NOTE = ("a record id (a ULID, or a digest for a group key)", "a timestamp",
+#: Texts a model wrote, or that were derived from what one wrote: (c) only.
+DERIVED_FIELDS: frozenset[str] = frozenset({
+    "misconceptions[].statement",
+    "misconceptions[].correction",
+    "misconception_candidates[].statement",
+    "open_hypotheses[diagnosed_cause].statement",
+    "recurrence_groups[].statement",
+    "recent_answer_traces[].diagnosis.summary",
+    "recent_answer_traces[].diagnosis.hypotheses[]",
+    "open_learner_text_gaps[].target",
+})
+#: Every text field that carries content, and the rules that may release it.
+RELEASED_BY: Mapping[str, frozenset[str]] = {
+    **{path: frozenset({AUTHORED, RECORDED}) for path in TOPIC_FIELDS | TOPIC_ID_FIELDS},
+    "recent_answer_traces[].stem": frozenset({AUTHORED, RECORDED}),
+    "recent_answer_traces[].answer": frozenset({ANSWER}),
+    # A gap's words: the pinned answer they are (b), or a question asked (c).
+    "open_learner_text_gaps[].learner_text": frozenset({ANSWER, RECORDED}),
+    **{path: frozenset({RECORDED}) for path in DERIVED_FIELDS},
+}
+_ID, _TIME, _ENUM, _NOTE = ("a record id (a ULID; a group key is a keyed digest)", "a timestamp",
                             "a stored code (an enumeration)", "a fixed note")
-#: Every other text field, and why it is not answer-derived by construction.
-NON_ANSWER_FIELDS: Mapping[str, str] = {
+#: Every other text field: structure, never content, and why.
+STRUCTURAL_FIELDS: Mapping[str, str] = {
     "context_version": _NOTE, "as_of": _TIME, "unknowns[]": _NOTE,
     "scope.matched_by": _ENUM, "scope.unknown_ids[]": "the request's own ids",
     "scope.topic": "the request's own words",
@@ -1356,7 +1016,6 @@ NON_ANSWER_FIELDS: Mapping[str, str] = {
     "recent_answer_traces[].cold_check.lane": _ENUM, "recent_answer_traces[].entry_surface": _ENUM,
     "recent_answer_traces[].evidence_origin": _ENUM, "recent_answer_traces[].key_status": _ENUM,
     "recent_answer_traces[].withheld": _NOTE,
-    "recent_answer_traces[].stem": "the question as graded (its pinned contract's prompt), never an answer",
     "recent_answer_traces[].stem_note": _NOTE, "recent_answer_traces[].answer_note": _NOTE,
     "recent_answer_traces[].diagnosis.status": _ENUM, "recent_answer_traces[].diagnosis.summary_note": _NOTE,
     "recent_answer_traces[].diagnosis.hypotheses_note": _NOTE,
@@ -1392,10 +1051,10 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
                   searchable: Callable[[str], bool] | None = None) -> dict[str, Any]:
     """The LOs a context is about: named ids, a topic's matches, or every active LO.
 
-    ``aliases`` (:meth:`AnswerTextGuard.aliases`) resolve the opaque id a
-    generated topic is shown under while its name is withheld; ``searchable``
-    (:meth:`AnswerTextGuard.searchable`) keeps a topic search from matching
-    the words of a withheld name (a match would confirm them)."""
+    ``aliases`` (:meth:`TextGuard.aliases`) resolve the opaque id a generated
+    topic is shown under while its name is withheld; ``searchable``
+    (:meth:`TextGuard.searchable`) keeps a topic search from matching the
+    words of a withheld name (a match would confirm them)."""
 
     los = vault.learning_objects
     if learning_object_ids:
@@ -1429,7 +1088,7 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
 # -- sections ----------------------------------------------------------------------
 
 
-def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
                     unknowns: list[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     registry: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
@@ -1450,14 +1109,17 @@ def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard
                 if str(row["id"]) in demoted:
                     continue
                 values = dict(row)
-                origin = guard.closure(("misconception", str(values["id"])))
-                statement, note = guard.render(values["statement"], origin, STATEMENT_LIMIT)
-                correction, correction_note = guard.render(values.get("correction_statement"), origin, STATEMENT_LIMIT)
+                lo_id = values["learning_object_id"]
+                statement, note = guard.derived("misconception", values["id"], values["statement"],
+                                                STATEMENT_LIMIT, los=(lo_id,))
+                correction, correction_note = guard.derived("misconception_correction", values["id"],
+                                                            values.get("correction_statement"), STATEMENT_LIMIT,
+                                                            los=(lo_id,))
                 sightings = _loads(values["source_error_event_ids_json"], [])
                 registry.append({
                     "misconception_id": values["id"],
-                    "learning_object_id": guard.lo_ref(values["learning_object_id"]),
-                    "topic": guard.topic(values["learning_object_id"]),
+                    "learning_object_id": guard.lo_ref(lo_id),
+                    "topic": guard.topic(lo_id),
                     "status": values["status"], "statement": statement, "statement_note": note,
                     "correction": correction, "correction_note": correction_note,
                     "severity": round(float(values["severity"] or 0.0), 3),
@@ -1471,12 +1133,13 @@ def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard
                 scope,
             ):
                 values = dict(row)
-                statement, note = guard.render(values["statement"], guard.closure(("candidate", str(values["id"]))),
-                                               STATEMENT_LIMIT)
+                lo_id = values["learning_object_id"]
+                statement, note = guard.derived("candidate", values["id"], values["statement"], STATEMENT_LIMIT,
+                                                los=(lo_id,))
                 candidates.append({
                     "candidate_id": values["id"],
-                    "learning_object_id": guard.lo_ref(values["learning_object_id"]),
-                    "topic": guard.topic(values["learning_object_id"]),
+                    "learning_object_id": guard.lo_ref(lo_id),
+                    "topic": guard.topic(lo_id),
                     "status": "candidate", "statement": statement, "statement_note": note,
                     "evidence_count": int(values["occurrence_count"] or 0),
                     "note": "held until it recurs; not yet a recorded misconception",
@@ -1488,7 +1151,7 @@ def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard
     return registry[: limits.misconceptions], candidates[: limits.candidates]
 
 
-def _hypotheses(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _hypotheses(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
                 unknowns: list[str]) -> list[dict[str, Any]]:
     """Open hypotheses: the diagnosed causes, then the unresolved causes (each
     read on its own, so an LO with unresolved causes and no named hypothesis
@@ -1517,7 +1180,7 @@ def _share_limit(diagnosed: list[dict[str, Any]], unresolved: list[dict[str, Any
     return kept + [unresolved[index] for index in sorted(ranked[: limit - len(kept)])]
 
 
-def _diagnosed_causes(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _diagnosed_causes(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
                       unknowns: list[str]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     try:
@@ -1578,10 +1241,9 @@ def _diagnosed_causes(connection: Any, los: set[str], limits: ContextLimits, gua
             tried = (repairs.get(str(row["id"]), []) + repairs.get(episode, [])
                      + repairs.get(str(row.get("promoted_misconception_id") or ""), []))
             outcomes = verifications.get(str(row["id"]), [])
-            # Drawn from every answer of its episode (every version), their
-            # grading and diagnoses, and what those were shown.
-            origin = guard.closure(("hypothesis", str(row["id"])))
-            statement, note = guard.render(row["statement"], origin, STATEMENT_LIMIT)
+            statement, note = guard.derived("hypothesis", row["id"], row["statement"], STATEMENT_LIMIT,
+                                            answers=episode_attempts | _ids([row["attempt_id"]]),
+                                            los=(row["learning_object_id"],))
             entries.append({
                 "kind": "diagnosed_cause", "learning_object_id": guard.lo_ref(row["learning_object_id"]),
                 "topic": guard.topic(row["learning_object_id"]),
@@ -1609,7 +1271,7 @@ def _diagnosed_causes(connection: Any, los: set[str], limits: ContextLimits, gua
     return entries[: limits.hypotheses]
 
 
-def _unresolved_causes(connection: Any, los: set[str], guard: AnswerTextGuard,
+def _unresolved_causes(connection: Any, los: set[str], guard: TextGuard,
                        unknowns: list[str]) -> list[dict[str, Any]]:
     """Answers whose cause is not settled, per LO (a count; no answer text).
     One entry per LO in scope; :func:`_share_limit` cuts them with the
@@ -1639,12 +1301,13 @@ def _unresolved_causes(connection: Any, los: set[str], guard: AnswerTextGuard,
     return entries
 
 
-def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
                        unknowns: list[str]) -> list[dict[str, Any]]:
     """Groups touching the scope's LOs. An empty scope has none (a topic or
     ids that matched nothing is not a whole-learner request: that scope is
-    every active LO). A group's statement is its root's; it is drawn from
-    every answer behind every member episode."""
+    every active LO). A group's statement is its root's (a hypothesis
+    statement, (c)); every answer of every member episode is checked with it.
+    Its key is a keyed digest (Q13)."""
 
     groups: list[dict[str, Any]] = []
     if not los:
@@ -1655,7 +1318,7 @@ def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, gu
         members: dict[str, list[dict[str, Any]]] = {}
         for row in connection.execute(
             """SELECT g.group_key, g.episode_key, g.root_episode_key, g.class_count, g.joined_by,
-                      h.learning_object_id, h.statement
+                      h.id AS hypothesis_id, h.learning_object_id, h.statement
                  FROM hypothesis_recurrence_groups g
                  JOIN causal_hypotheses h ON h.episode_key = g.episode_key
                   AND h.version = (SELECT MAX(v.version) FROM causal_hypotheses v WHERE v.episode_key = g.episode_key)
@@ -1664,15 +1327,23 @@ def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, gu
             members.setdefault(str(row["group_key"]), []).append(dict(row))
         selected = {key: rows for key, rows in members.items()
                     if {str(row["learning_object_id"]) for row in rows} & los}
+        episodes = sorted({str(row["episode_key"]) for rows in selected.values() for row in rows})
+        answers: dict[str, set[str]] = {}
+        for start in range(0, len(episodes), _CHUNK):
+            chunk = episodes[start:start + _CHUNK]
+            for episode, attempt in connection.execute(
+                f"SELECT episode_key, attempt_id FROM causal_hypotheses WHERE episode_key IN ({_marks(chunk)})", chunk,
+            ):
+                if attempt:
+                    answers.setdefault(str(episode), set()).add(str(attempt))
         for group_key, rows in selected.items():
             lo_ids = sorted({str(row["learning_object_id"]) for row in rows})
             root = next((row for row in rows if row["episode_key"] == row["root_episode_key"]), rows[0])
-            origin = Origin()
-            for row in rows:
-                origin = origin | guard.closure(("episode", str(row["episode_key"])))
-            statement, note = guard.render(root["statement"], origin.about(*lo_ids), STATEMENT_LIMIT)
+            behind = {attempt for row in rows for attempt in answers.get(str(row["episode_key"]), ())}
+            statement, note = guard.derived("hypothesis", root["hypothesis_id"], root["statement"], STATEMENT_LIMIT,
+                                            answers=behind, los=lo_ids)
             groups.append({
-                "group_key": group_key, "statement": statement, "statement_note": note,
+                "group_key": guard.group_ref(group_key), "statement": statement, "statement_note": note,
                 "episodes": len(rows), "class_count": max(int(row["class_count"]) for row in rows),
                 "joined_by": sorted({str(row["joined_by"]) for row in rows}),
                 "learning_object_ids": [guard.lo_ref(lo) for lo in lo_ids],
@@ -1686,7 +1357,7 @@ def _recurrence_groups(connection: Any, los: set[str], limits: ContextLimits, gu
     return groups[: limits.groups]
 
 
-def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
             now_iso: str) -> list[dict[str, Any]]:
     from learnloop.held_grades import held_for_review_attempts
 
@@ -1742,20 +1413,21 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
     traces: list[dict[str, Any]] = []
     for row in rows:
         attempt_id = str(row["id"])
-        # The answers' protection check; the answer itself, like every text
-        # drawn from it, goes through the one renderer (pinned revision, keys).
+        lo_id = row["learning_object_id"]
+        # The answers' protection check; the answer itself is (b), the
+        # question as graded (a), the diagnosis (c).
         reason = guard.attempt_reason(attempt_id)
-        answer = answer_note = None
+        answer = answer_note = stem = stem_note = None
         if reason is None:
-            answer, answer_note = guard.render(row.get("learner_answer_md"), guard.answer(attempt_id), EXCERPT_LIMIT)
-        stem = None if reason else guard.pinned_prompt(attempt_id)
-        diagnosis = _diagnosis(repository, guard, attempt_id, hidden=reason is not None,
-                               hypotheses=hypotheses.get(attempt_id, []))
+            answer, answer_note = guard.answer(attempt_id, row.get("learner_answer_md"), EXCERPT_LIMIT)
+            stem, stem_note = guard.stem(attempt_id, lo_id)
+        diagnosis = _diagnosis(repository, guard, attempt_id, lo_id, row.get("practice_item_id"),
+                               hidden=reason is not None, hypotheses=hypotheses.get(attempt_id, []))
         status = row.get("reference_status")
         traces.append({
             "attempt_id": attempt_id, "at": row["created_at"],
-            "learning_object_id": guard.lo_ref(row["learning_object_id"]),
-            "topic": guard.topic(row["learning_object_id"]),
+            "learning_object_id": guard.lo_ref(lo_id),
+            "topic": guard.topic(lo_id),
             "kind": row.get("practice_mode"), "attempt_type": row.get("attempt_type"),
             "result": _result(row["correctness"], attempt_id in held),
             "graded_by": "blind_grader" if attempt_id in blind else "recorded",
@@ -1766,15 +1438,14 @@ def _traces(connection: Any, repository: Any, los: set[str], limits: ContextLimi
             "entry_surface": row.get("entry_surface"), "evidence_origin": row.get("evidence_origin"),
             "key_status": status if status in ("verified", "unverified") else None,
             "withheld": reason,
-            "stem": excerpt(stem, STEM_LIMIT) if stem else None,
-            "stem_note": None if reason or stem else "question revision not recorded",
+            "stem": stem, "stem_note": stem_note,
             "answer": answer, "answer_note": answer_note,
             "diagnosis": diagnosis,
         })
     return traces
 
 
-def _diagnosis(repository: Any, guard: AnswerTextGuard, attempt_id: str, *, hidden: bool,
+def _diagnosis(repository: Any, guard: TextGuard, attempt_id: str, lo_id: Any, item_id: Any, *, hidden: bool,
                hypotheses: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     from learnloop.diagnosis.split.card import plain_summary
     from learnloop.diagnosis.split.jobs import DONE, diagnosis_status
@@ -1791,14 +1462,14 @@ def _diagnosis(repository: Any, guard: AnswerTextGuard, attempt_id: str, *, hidd
         diagnosis_id = str(status["diagnosis_id"])
         diagnosis = repository.attempt_diagnosis(diagnosis_id) or {}
         analysis = str((diagnosis.get("proposal") or {}).get("analysis_md") or "")
-        if analysis:
-            summary, note = guard.render(plain_summary(repository, analysis), guard.diagnosis(attempt_id, diagnosis_id),
-                                         STATEMENT_LIMIT)
+        if analysis.strip():
+            summary, note = guard.derived("diagnosis", diagnosis_id, lambda: plain_summary(repository, analysis),
+                                          STATEMENT_LIMIT, answers=(attempt_id,), items=(item_id,), los=(lo_id,))
             if note:
                 entry["summary_note"] = note
     entry["summary"] = summary
-    rendered = [guard.render(row["statement"], guard.closure(("hypothesis", str(row["id"]))), STATEMENT_LIMIT)
-                for row in hypotheses]
+    rendered = [guard.derived("hypothesis", row["id"], row["statement"], STATEMENT_LIMIT, answers=(attempt_id,),
+                              los=(row["learning_object_id"],)) for row in hypotheses]
     entry["hypotheses"] = [text for text, _note in rendered if text]
     notes = [note for _text, note in rendered if note]
     if notes:
@@ -1806,7 +1477,7 @@ def _diagnosis(repository: Any, guard: AnswerTextGuard, attempt_id: str, *, hidd
     return entry
 
 
-def _gaps(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTextGuard,
+def _gaps(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
           unknowns: list[str]) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
     if not los:
@@ -1833,8 +1504,9 @@ def _gaps(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTe
             values = dict(row)
             lo = values["target_id"] if values["target_kind"] == "learning_object" and values["target_id"] in los \
                 else values["anchor_learning_object_id"]
-            text, note = guard.render(values["learner_text"], guard.gap_words(values), STATEMENT_LIMIT)
-            target, target_note, target_topic = _gap_target(guard, values["target_kind"], values["target_id"])
+            text, note = _gap_words(guard, values)
+            target, target_note, target_topic = _gap_target(connection, guard, values["target_kind"],
+                                                            values["target_id"])
             gaps.append({
                 "gap_id": values["id"], "kind": values["kind"], "action": values["action"],
                 "learning_object_id": guard.lo_ref(lo), "topic": guard.topic(lo),
@@ -1850,23 +1522,51 @@ def _gaps(connection: Any, los: set[str], limits: ContextLimits, guard: AnswerTe
     return gaps[: limits.gaps]
 
 
-def _gap_target(guard: AnswerTextGuard, kind: Any,
+def _gap_words(guard: TextGuard, row: Mapping[str, Any]) -> tuple[GuardedText | None, str | None]:
+    """A gap's words: the pinned answer they are (a diagnosis's or a stuck
+    answer's gap: (b), shown as the attempt records it), else a question the
+    learner asked ((c): what it was asked about is not recorded with it, Q10)."""
+
+    attempt_id = row.get("attempt_id")
+    if row.get("source_kind") in _ANSWER_SOURCES and attempt_id:
+        return guard.answer_of(attempt_id, STATEMENT_LIMIT)
+    return guard.derived("learner_text_gap", row.get("id"), row.get("learner_text"), STATEMENT_LIMIT,
+                         answers=_ids([attempt_id]), items=_ids([row.get("practice_item_id")]),
+                         los=_ids([row.get("anchor_learning_object_id")]))
+
+
+def _belief(connection: Any, kind: str, record_id: Any) -> tuple[str, Any, Any] | None:
+    """``(record kind, statement, topic)`` of the belief a gap was matched to:
+    a recorded misconception (``durable``), or a candidate in the holding pen
+    or the hypothesis it projects (``candidate``). None when not on record."""
+
+    tables = {"durable": (("misconception", "misconceptions"),),
+              "candidate": (("candidate", "misconception_candidates"), ("hypothesis", "causal_hypotheses"))}
+    for record_kind, table in tables.get(kind, ()):
+        if _table(connection, table):
+            row = connection.execute(f"SELECT statement, learning_object_id FROM {table} WHERE id = ?",
+                                     (str(record_id),)).fetchone()
+            if row is not None:
+                return record_kind, row[0], row[1]
+    return None
+
+
+def _gap_target(connection: Any, guard: TextGuard, kind: Any,
                 target_id: Any) -> tuple[GuardedText | None, str | None, str | None]:
     """What a gap was matched to: ``(statement, note, topic)``. A topic is its
-    name (:meth:`AnswerTextGuard.topic`: a prerequisite the gap created was
-    named from the learner's text); a recorded misconception or a candidate is
-    a statement, released by the same renderer as every other (its own
-    origin)."""
+    name (:meth:`TextGuard.topic`: a prerequisite the gap created was named
+    from the learner's text); a recorded misconception or a candidate is a
+    statement a model wrote, (c)."""
 
     if not kind or not target_id:
         return None, None, None
     if kind == "learning_object":
         return None, None, guard.topic(target_id)
-    found = guard.registry(str(kind), target_id) if kind in ("durable", "candidate") else None
+    found = _belief(connection, str(kind), target_id)
     if found is None:
         return None, "the belief it was matched to is not on record", None
-    statement, lo_id, origin = found
-    shown, note = guard.render(statement, origin, STATEMENT_LIMIT)
+    record_kind, statement, lo_id = found
+    shown, note = guard.derived(record_kind, target_id, statement, STATEMENT_LIMIT, los=(lo_id,))
     return shown, note, guard.topic(lo_id)
 
 
@@ -1877,9 +1577,9 @@ def retention_risks(vault: Any, repository: Any, los: Iterable[str], *, now: dat
 
     FSRS retrievability from each item's stored memory state: a model
     estimate, not a test. Lowest recall first. ``topic`` and ``ref`` name a
-    topic in the output (``learning_context`` passes its guard's
-    :meth:`AnswerTextGuard.topic` and :meth:`AnswerTextGuard.lo_ref`); by
-    default the vault's title and id."""
+    topic in the output (the chat frontend passes its guard's
+    :meth:`TextGuard.topic` and :meth:`TextGuard.lo_ref`); by default the
+    vault's title and id."""
 
     from learnloop.params.fitted_params import resolve_fsrs_weights
     from learnloop.scheduling.fsrs import forgetting_curve
@@ -1944,8 +1644,14 @@ def learning_context(
     now: datetime | None = None,
     limits: ContextLimits | None = None,
     withheld: Withheld | None = None,
+    alias_key: bytes | None = None,
+    provenance: ProvenanceSource | None = None,
 ) -> dict[str, Any]:
-    """The shared latent-state read model for one scope. Read-only."""
+    """The shared latent-state read model for one scope. Read-only.
+
+    ``alias_key`` keys the opaque aliases (the server passes the vault's,
+    ``RemoteRuntime.alias_key``; else this process's). ``provenance`` is where
+    write-time records are read from (rule (c)); none records one yet."""
 
     limits = limits or ContextLimits()
     moment = (now or datetime.now(UTC)).astimezone(UTC)
@@ -1954,9 +1660,10 @@ def learning_context(
     withheld = withheld if withheld is not None else withheld_items(vault, repository)
     unknowns.extend(withheld.unknowns)
     with repository.connection() as connection:
-        # Every answer-derived text below, and every topic name and id, is
-        # released by this one guard.
-        guard = AnswerTextGuard(connection, withheld, key_book(connection, vault, unknowns), unknowns, vault=vault)
+        # Every text below, every topic name and id included, is released by this one guard.
+        guard = TextGuard(connection, vault, repository, withheld=withheld,
+                          book=key_book(connection, vault, unknowns), unknowns=unknowns, alias_key=alias_key,
+                          provenance=provenance)
         scope = resolve_scope(vault, learning_object_ids=learning_object_ids, topic=topic, aliases=guard.aliases(),
                               searchable=guard.searchable)
         los = set(scope["learning_object_ids"])
@@ -1999,30 +1706,44 @@ def learning_context(
 
 
 __all__ = [
-    "ANSWER_DERIVED_FIELDS",
+    "ANSWER",
+    "AUTHORED",
     "CONTEXT_VERSION",
-    "AnswerTextGuard",
-    "ContextLimits",
-    "GuardedText",
+    "DERIVED_FIELDS",
+    "DERIVED_KINDS",
+    "GROUP_ALIAS_PREFIX",
+    "HELD_BACK",
     "KEY_WITHHELD",
-    "KeyBook",
     "LO_ALIAS_PREFIX",
-    "NON_ANSWER_FIELDS",
-    "Origin",
     "PROTECTION_UNKNOWN",
+    "RECORDED",
+    "RELEASED_BY",
+    "RELEASE_TYPES",
     "RETENTION_TARGET",
     "SNAPSHOT_UNSETTLED",
+    "STRUCTURAL_FIELDS",
     "TOPIC_FIELDS",
     "TOPIC_ID_FIELDS",
     "TOPIC_WITHHELD",
     "WITHHELD_UNKNOWN_ITEM",
     "WITHHELD_UNREADABLE",
+    "AnswerText",
+    "AuthoredText",
+    "ContextLimits",
+    "GuardedText",
+    "KeyBook",
+    "ProvenanceSource",
+    "RecordedText",
+    "TextGuard",
     "Withheld",
+    "WriteProvenance",
     "excerpt",
+    "group_alias",
     "key_book",
     "leaks_key",
     "learning_context",
     "lo_alias",
+    "no_write_provenance",
     "protection_issues",
     "resolve_scope",
     "retention_risks",

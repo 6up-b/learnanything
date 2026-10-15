@@ -9,6 +9,14 @@ built today, and says so when there is none yet.
 
 No view shows a question's text: plan blocks carry topics, minutes and why;
 practice happens in the app (chat practice is C2).
+
+**Topic names and ids** in ``today`` and ``progress`` go through the read
+model's one guard (``learner_context.TextGuard``, Q12): a topic the
+learner-text pipeline generated (its title drafted from the learner's words)
+shows a fixed label and an opaque keyed alias, as in ``learning_context``. A
+plan block's computed "why" embeds the titles it was built with, so a block on
+a generated topic, or with a why a model wrote, shows no why (the same
+"held back" reason).
 """
 
 from __future__ import annotations
@@ -20,6 +28,7 @@ from typing import Any
 
 from learnloop.clock import Clock, SystemClock
 from learnloop.db.migrate import applied_versions, discover_migrations
+from learnloop.learner_context import HELD_BACK, TextGuard
 from learnloop.remote.errors import NotFound
 
 #: The serving routes ``status`` reports, in the order a learner meets them.
@@ -34,6 +43,11 @@ FRONTEND_NOTE = ("Read-only chat frontend: LearnLoop's state is read here; pract
 
 def _now(clock: Clock | None) -> datetime:
     return (clock or SystemClock()).now().astimezone(UTC)
+
+
+def _alias_key(runtime: Any) -> bytes | None:
+    reader = getattr(runtime, "alias_key", None)
+    return reader() if callable(reader) else None
 
 
 # -- status ------------------------------------------------------------------------
@@ -151,8 +165,10 @@ def today(runtime: Any, *, clock: Clock | None = None) -> dict[str, Any]:
     else:
         view = plan_view(env, records[-1], context=None, next_step=None,
                          streak=repository.session_day_streak(clock=clock))
-        result.update(plan_enabled=True, plan=_plan_projection(view["plan"]), day=view.get("day"),
-                      streak=view.get("streak"))
+        with repository.connection() as connection:
+            guard = TextGuard(connection, vault, repository, alias_key=_alias_key(runtime))
+            plan = _plan_projection(view["plan"], records[-1], guard)
+        result.update(plan_enabled=True, plan=plan, day=view.get("day"), streak=view.get("streak"))
     try:
         gap = env.gap()
         result["since_last_study"] = {"days": gap.gap_days, "reentry": bool(gap.due)}
@@ -168,16 +184,29 @@ def today(runtime: Any, *, clock: Clock | None = None) -> dict[str, Any]:
     return result
 
 
-def _plan_projection(plan: dict[str, Any]) -> dict[str, Any]:
-    """The stored plan without any question text: topics, minutes, why."""
+def _plan_projection(plan: dict[str, Any], record: Any, guard: TextGuard) -> dict[str, Any]:
+    """The stored plan without any question text: topics, minutes, why.
 
+    Topics are named by the guard. The why is shown only when it was computed
+    (a template, the titles and section it was built with) and none of the
+    block's topics, displaced items included, is a generated one."""
+
+    stored = {block.id: block for block in getattr(record, "blocks", None) or ()}
     blocks = []
     for block in plan.get("blocks") or []:
         items = block.get("items") or []
+        planned = stored.get(block.get("id"))
+        every_lo = [item.learning_object_id for item in (planned.items if planned is not None else ())]
+        shown_los = [item.get("learning_object_id") for item in items if item.get("learning_object_id")]
+        computed = (planned.chosen.get("why_kind") if planned is not None else block.get("why_kind")) == "computed"
+        why = block.get("why") or None
+        why_note = None
+        if why and (planned is None or not computed or any(guard.generated(lo) for lo in [*every_lo, *shown_los])):
+            why, why_note = None, HELD_BACK
         blocks.append({
             "ordinal": block.get("ordinal"), "lane": block.get("lane"), "action": block.get("action"),
-            "status": block.get("status"), "minutes": block.get("est_minutes"), "why": block.get("why"),
-            "topics": block.get("learning_object_titles") or [],
+            "status": block.get("status"), "minutes": block.get("est_minutes"), "why": why, "why_note": why_note,
+            "topics": [guard.topic(lo) for lo in dict.fromkeys(shown_los)],
             "reading": (block.get("reading") or {}).get("section_title") if block.get("reading") else None,
             "items": len(items), "items_done": sum(1 for item in items if item.get("done_at")),
         })
@@ -209,16 +238,22 @@ def _due_now(vault: Any, repository: Any, now: datetime) -> int:
 def progress(runtime: Any, *, goal_id: str | None = None, clock: Clock | None = None) -> dict[str, Any]:
     """Per goal and topic: demonstrated vs assumed, certification, retention risks."""
 
-    from learnloop.daily_plan.headline import HEADLINE_CLASSES, classify_learning_objects
-    from learnloop.goals.goal_projection import goal_report
-    from learnloop.learner_context import retention_risks
-
     vault = runtime.vault()
     repository = runtime.read_repository()
     now = _now(clock)
     if goal_id is not None and not any(goal.id == goal_id for goal in vault.goals):
         raise NotFound(f"no goal {goal_id!r} in this vault")
-    titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
+    with repository.connection() as connection:
+        guard = TextGuard(connection, vault, repository, alias_key=_alias_key(runtime))
+        return _progress(vault, repository, guard, goal_id=goal_id, clock=clock, now=now)
+
+
+def _progress(vault: Any, repository: Any, guard: TextGuard, *, goal_id: str | None, clock: Clock | None,
+              now: datetime) -> dict[str, Any]:
+    from learnloop.daily_plan.headline import HEADLINE_CLASSES, classify_learning_objects
+    from learnloop.goals.goal_projection import goal_report
+    from learnloop.learner_context import retention_risks
+
     unknowns: list[str] = []
     try:
         classes = classify_learning_objects(vault, repository, now=now)
@@ -226,6 +261,7 @@ def progress(runtime: Any, *, goal_id: str | None = None, clock: Clock | None = 
         classes = {}
         unknowns.append("which topics are demonstrated could not be read: none is shown as demonstrated")
     goals = []
+    scope_los: set[str] = set()
     for goal in vault.goals:
         if goal_id is not None and goal.id != goal_id:
             continue
@@ -251,10 +287,11 @@ def progress(runtime: Any, *, goal_id: str | None = None, clock: Clock | None = 
             if facet.current_recall is not None:
                 row["recalls"].append(float(facet.current_recall))
         topics = []
+        scope_los.update(by_lo)
         for lo_id, row in sorted(by_lo.items()):
             recalls = row.pop("recalls")
             topics.append({
-                "learning_object_id": lo_id, "topic": titles.get(lo_id, lo_id),
+                "learning_object_id": guard.lo_ref(lo_id), "topic": guard.topic(lo_id),
                 "standing": classes.get(lo_id, "untested") if classes else "unknown",
                 **row, "recall_now": round(sum(recalls) / len(recalls), 3) if recalls else None,
             })
@@ -264,14 +301,14 @@ def progress(runtime: Any, *, goal_id: str | None = None, clock: Clock | None = 
         }
         goals.append(entry)
     counts = Counter(classes.values())
-    scope = {lo for goal in goals for lo in
-             [topic["learning_object_id"] for topic in ((goal.get("report") or {}).get("topics") or [])]}
+    scope = set(scope_los)
     risks = retention_risks(vault, repository, scope or {lo for lo, lo_obj in vault.learning_objects.items()
-                                                         if lo_obj.status == "active"}, now=now)
+                                                         if lo_obj.status == "active"}, now=now,
+                            topic=guard.topic, ref=guard.lo_ref)
     return {
         "as_of": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "standing_counts": {name: counts.get(name, 0) for name in HEADLINE_CLASSES},
-        "assumed": sorted(titles.get(lo, lo) for lo, value in classes.items() if value == "assumed"),
+        "assumed": sorted(str(guard.topic(lo)) for lo, value in classes.items() if value == "assumed"),
         "goals": goals,
         "retention_risks": risks,
         "unknowns": unknowns,

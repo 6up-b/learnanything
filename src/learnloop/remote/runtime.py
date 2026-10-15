@@ -40,6 +40,7 @@ from learnloop.config.loader import load_config
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.learner_context import SNAPSHOT_UNSETTLED
+from learnloop.remote.endpoint_token import read_alias_key
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import DoctorIssue, LoadedVault
 from learnloop.vault.paths import VaultPaths
@@ -126,6 +127,8 @@ class RemoteRuntime:
     _fingerprint: str | None = field(default=None, repr=False)
     _checked_at: float = field(default=float("-inf"), repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _alias_key: bytes | None = field(default=None, repr=False)
+    _alias_checked: bool = field(default=False, repr=False)
 
     @classmethod
     def attach(cls, vault_root: Path | str, *, load_environment: bool = True) -> "RemoteRuntime":
@@ -190,6 +193,17 @@ class RemoteRuntime:
         """A read-only attach: reads through it can never write."""
 
         return Repository.attach(self.sqlite_path, read_only=True)
+
+    def alias_key(self) -> bytes | None:
+        """The key chat's opaque aliases are made with: the vault's
+        (``.learnloop/mcp/alias-key``, made by ``learnloop mcp serve``), or
+        None, which keys them for this process (``learner_context``). Read
+        once; never written here (attaching and viewing write nothing)."""
+
+        if not self._alias_checked:
+            self._alias_key = read_alias_key(self.vault_root)
+            self._alias_checked = True
+        return self._alias_key
 
     def schema_ok(self) -> bool:
         try:

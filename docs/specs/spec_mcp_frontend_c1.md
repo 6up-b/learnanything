@@ -1,6 +1,7 @@
 # LearnLoop in ChatGPT and Claude, phase C1: read, ground and share the learner (v1)
 
-**Status:** C1a built on `mcp/c1-read-context` (base `9c5c62df9`, mvp-0.22); C1b specified here, not built.
+**Status:** C1a built on `mcp/c1-read-context` (base `9c5c62df9`, mvp-0.22), narrowed on 2026-10-14 by owner
+decision ("land narrow, then fix source", §4.7); C1b specified here, not built.
 **Written:** 2026-10-13. **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already
 works with both Claude chat and ChatGPT chat; latent learner state (misconceptions, hypotheses, answer
 traces) must be shared seamlessly between the local LearnLoop and the chat frontend, through the existing
@@ -137,7 +138,7 @@ exposure, a learner-model side effect, so it is not marked read-only (hosts may 
 | `progress` | per goal: facets on track, certified, at risk, examined; per topic: demonstrated / assumed / learning / untested (the Today headline's classes), recall now; retention risks | Demonstrated and assumed never blend |
 | `library` | sources: learner title, kind, readiness, sections, subject, status line, exam flag | Titles searchable; exam material listed by title only |
 | `find_sources` | verbatim passages with citations (learner title, section, page, revision, extraction, span, `span:` locator), full blocks within a character budget | §4.5 |
-| `learning_context` | the shared latent-state read model (§4.6) for a topic, named LOs, or the whole learner | Read-only |
+| `learning_context` | the shared latent-state read model (§4.6) for a topic, named LOs, or the whole learner | Read-only; wording a model wrote is held back (§4.7) |
 
 ### 4.5 `find_sources`
 
@@ -164,19 +165,33 @@ changes nothing (the prompt-injection test). Citations never carry a local `file
 ### 4.6 `learning_context`: one shared read model
 
 `learnloop.learner_context.learning_context(vault, repository, *, learning_object_ids | topic)`, read-only,
-no model call. Sections: recorded misconceptions (status, statement, correction, severity, evidence count)
-and candidates still in the holding pen; open hypotheses (the daily plan's own resolution predicate,
-`db.stores.daily_plans.open_learner_state_hypotheses`, identical to R2a's) with evidence for (answers in
-the episode, recurrence class count, learner confirmations, failed cold checks) and against (learner
-disputes, passed cold checks) and the repairs tried; recurrence groups; recent answer traces (the pinned
-question, the learner's answer excerpt, the blind grade class, the diagnosis status and summary, held,
-hints, primed, revealed-before, stuck, cold-check and entry-surface labels); open learner-text gaps (the
-learner's own words and what they were matched to, minus reversed ones); retention risks (FSRS recall now
-below 0.8, or due). The output schema types and closes every field (F4 round 3), so each text field is
-either answer-derived (`learner_context.ANSWER_DERIVED_FIELDS`, released only by the guarded renderer of
-§4.7 rule 1), a topic name or id (`TOPIC_FIELDS`, `TOPIC_ID_FIELDS`: released only by the guard's name
-renderers, F4 round 4) or not drawn from an answer by construction (`NON_ANSWER_FIELDS`), checked by a
-test.
+no model call. Sections: recorded misconceptions (status, severity, evidence count, dates) and candidates still
+in the holding pen; open hypotheses (the daily plan's own resolution predicate,
+`db.stores.daily_plans.open_learner_state_hypotheses`, identical to R2a's) with evidence for (answers in the
+episode, recurrence class count, learner confirmations, failed cold checks) and against (learner disputes,
+passed cold checks) and the repairs tried; recurrence groups; recent answer traces (the pinned question, the
+learner's answer excerpt, the blind grade class, the diagnosis status, held, hints, primed, revealed-before,
+stuck, cold-check and entry-surface labels); open learner-text gaps (what kind, which action, which topic, minus
+reversed ones); retention risks (FSRS recall now below 0.8, or due). Since the narrow stage (§4.7) the
+statements, corrections, summaries and gap targets in these sections are held back: the entries, ids,
+statuses, counts and dates show, the wording does not.
+
+**What chat shows now, and what it holds back (owner decision 2026-10-14):**
+
+| Shown | Held back (`Held back until LearnLoop records what this was written from`) |
+|---|---|
+| Every entry, with its id, status, severity, evidence and episode counts, dates, labels, held state, repairs tried | Misconception statements and corrections; candidate statements |
+| The learner's own answer on a pinned attempt, through the answer guard (its protection, its pinned contract, every key its item is known to have had) | Hypothesis statements (open hypotheses, a trace's diagnosis hypotheses) and recurrence-group statements |
+| The question as graded (the pinned contract's prompt) | Diagnosis summaries (the status still shows) |
+| Topic names and ids the learner or an authored vault file wrote | What a learner-text gap was matched to (a belief's statement); a generated topic it created or matched shows a fixed label |
+| A gap's words when they are a pinned answer (a diagnosis's or a stuck answer's gap: the answer as the attempt records it) | A gap's words when they are a question the learner asked (no pinned answer behind them, Q10) |
+| Retention risks, with authored topic names | Every generated topic's name (a fixed label) and id (an opaque keyed alias, accepted back as a named id; a topic search does not match its words), and the question of an item seeded on one |
+| Recurrence groups, each under an opaque keyed key (Q13) | |
+
+The output schema types and closes every field (F4 round 3), and every text field is classified
+(`learner_context.RELEASED_BY`, `STRUCTURAL_FIELDS`): released only by (a), (b) or (c) of §4.7, or structural
+(ids, codes, times, fixed notes); a test checks the classes against the advertised schema and the values each
+field holds, with and without write-time records.
 Diagnosed and unresolved causes share the one `open_hypotheses` limit; when they overflow it, the
 unresolved causes keep up to half of it (an LO with no diagnosed cause shown first), so an LO whose only
 open problem is unsettled stays visible (re-review F12).
@@ -184,48 +199,50 @@ open problem is unsettled stays visible (re-review F12).
 Router R2a's `LearnerStateCardV1` (on `router/r2a`, not on main) gathers the same sections; the field
 names of `open_hypotheses` and `recent_answer_traces` are a superset of the card's `open_hypotheses` and
 `recent_work` (pinned by a test). Convergence task (after R2a lands): the card's gatherer reads its
-sections from this module (one predicate set, one leakage rule set).
+sections from this module (one predicate set); whether the card, whose reader is the router's model and not a
+chat host, also takes the narrow text rule is an owner question (record, Q16).
 
 ### 4.7 Leakage rules (the card's G5, on every output)
 
-1. No answer key, rubric, hint or reference solution is read into any payload; free text that could quote
-   a key (a correction, a hypothesis or misconception statement, a diagnosis summary, the learner's own
-   answer) is dropped when it reproduces any key its item is known to have had: today's YAML, every
-   assessment-contract snapshot and every practice-item snapshot, so the key an attempt was graded against
-   counts after an edit (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`),
-   and says so. Answer and diagnosis text needs affirmative evidence of the revision it was graded against
-   (exactly one pinned contract on its own item): an answer with no pinned contract shows no answer,
-   diagnosis summary or hypothesis text, and a hypothesis or recurrence-group statement drawn from one is
-   withheld too, since a key nothing records any more cannot be filtered (re-review F4). **One renderer
-   (F4 round 3):** every text drawn from an answer or an error event (misconception statements and
-   corrections, candidate statements, a learner-text gap's words and the belief it was matched to,
-   hypothesis and recurrence-group statements, answers, diagnosis summaries) is released only by
-   `learner_context.AnswerTextGuard.render`. It follows the text's provenance to the answers behind it
-   (error events, hypothesis episodes, promotions, error hunts, the gaps that created a candidate, a
-   diagnosis's context receipt) and applies the answers' own protection and revision check to every one
-   of them; a link it cannot follow (an error event not on record, an id list that cannot be read, a
-   diagnosis with no context receipt, a belief with no provenance at all), or words about an item with no
-   graded answer behind them, withhold the text too. A withheld text keeps its entry, counts and status,
-   and says why. Chat adds this rule for the learner's own answer (a correct answer that states the key is
-   withheld); the card shows it. **Transitive provenance (F4 round 4):** the links are followed to the end,
-   cycles handled (`AnswerTextGuard.closure`): a belief drawn from an answer's error events follows that
-   answer's grading, so every completed live diagnosis of it (the diagnosis overlay lays its causes on the
-   answer's events; a superseded one counts too), the joint grader's C4 history and the answer's topic name
-   when that topic was generated; a diagnosis follows everything its context receipt says it was shown:
-   the grading of its own answer and of every answer it saw, cited or names (a history row carries that
-   answer's grader output, so its C4 history too, but not that answer's own diagnoses, which the history
-   store never reads; F4 round 5), the hypotheses and recorded beliefs it was given together with their
-   topic ids (a generated topic's name follows, wherever the whole-vault registry shortlist found the
-   belief; F4 round 5), and the generated topics in its neighbourhood or named in its text; a gap follows
-   the diagnosis it read (`source_id`) and a generated topic it is anchored on. An id list with any member that
-   is not a nonempty string, or a citation that names no answer, cannot be read as a whole. **Topic names
-   and ids (F4 round 4):** the learner-text pipeline drafts a missing prerequisite's titles from the
-   learner's text and derives its ids from them (`lo_ltg_<slug>_<hash>`), so every topic name and id in the
-   output is released by `AnswerTextGuard.topic` / `lo_ref`: a generated topic's name with the provenance
-   of its drafting (the gaps that created it, and earlier generated topics in its subject, whose concepts
-   its drafter was shown), any other name as the vault has it. While a generated name is withheld the entry
-   shows a fixed label with the reason and an opaque alias id (`lo_withheld_<digest>`, accepted back as a
-   named id), and a topic search does not match its words.
+1. **One structural rule for text (owner decision 2026-10-14, "land narrow, then fix source").** A text
+   leaves LearnLoop only when it is
+   - **(a) authored vault text**: a topic's name or id that the learner or an authored vault file wrote, and
+     the question as graded (its pinned contract's prompt);
+   - **(b) the learner's own answer on a pinned attempt**, through the answer guard: the answer passes its
+     protection (rule 2), it was graded against exactly one pinned contract on its own item (the revision;
+     the absence of a recorded change does not establish it, re-review F4), and it reproduces no key its
+     item is known to have had: today's YAML, every assessment-contract snapshot and every practice-item
+     snapshot (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`). Chat adds
+     one rule the card does not: a correct answer that states the key is withheld (Q2);
+   - **(c) a derived text with a recorded, complete write-time provenance whose inputs are all safe**
+     (`learner_context.WriteProvenance`, read through a `ProvenanceSource`): every answer it names passes
+     (b)'s checks, every item its protection, every topic is authored, and the text reproduces no key of
+     those items and topics. This is the hook for the follow-up stage (§4.8); **no producer writes a record
+     yet**, so (c) releases nothing today.
+
+   Everything else is held back with one plain reason, `Held back until LearnLoop records what this was
+   written from`; an entry whose own answer is protected names that instead ("a check waiting in the app").
+   `learner_context.TextGuard` is the one renderer: `_authored` (a), `answer` (b) and `derived` (c) each
+   build their own release type (`AuthoredText`, `AnswerText`, `RecordedText`) and nothing else does (a
+   test pins it). A **generated topic** (the learner-text pipeline's prerequisite: by its provenance, its
+   `lo_ltg_` id, or a gap recording its creation) has a name drafted from the learner's words and an id
+   carrying a slug of it, so both are (c): while held back the entry shows `a topic named from the learner's
+   own words (…)` and an opaque alias `lo_withheld_<HMAC>`. **Aliases are keyed** (HMAC-SHA256 under a
+   per-vault secret, `.learnloop/mcp/alias-key`, 0600 beside the endpoint token, made by `learnloop mcp
+   serve`, never printed; without it a process key): an unkeyed digest let a client that guessed a title or
+   a root statement confirm it (the old `sha256(id)` alias, Q13's group key). **`today` and `progress`**
+   name topics through the same guard (Q12): plan block topics, goal topics, the assumed list and retention
+   risks; a plan block's why, which embeds the titles it was built with, is shown only when it was computed
+   and touches no generated topic.
+
+   **Why no output-side provenance any more.** Rounds 3 to 5 of F4 followed each text's provenance from the
+   output back to the answers behind it (error events, episodes, promotions, gaps, a diagnosis's context
+   receipt). Each verify found an input no record names: a snapshot diagnosis reads the whole-vault export
+   without recording what it opened, so a key (or a generated title) it copied left no trace; a joint
+   grader's C4 receipt is written outside the grading transaction, so a missing receipt reads as "shown
+   nothing" (Q14); a regrade re-mints error-event ids (Q9); a tutor question records no item revision
+   (Q10). Output-side matching cannot replace input provenance, so it was removed; provenance is trusted only
+   when it is recorded as the text is written.
 2. Exam and held-out material (`exam_material.item_exam_status`: the canonical exercise and every
    provenance form, block locators and namespaced span ids included), items reserved for an assessment or
    a held-out exam, items held by an open cold check or a repair's cold retry, and diagnostic probes keep
@@ -239,6 +256,22 @@ sections from this module (one predicate set, one leakage rule set).
 3. A grade held for review (`held_grades`) is "held for review", never a score.
 4. A question is the attempt's pinned contract prompt, never today's edited prompt; only the prompt is
    read from a contract.
+
+### 4.8 Follow-up: "diagnosis input provenance" (desktop stage, unlocks the prose)
+
+Queued after method-explicit lands. Each writer records, in the transaction that writes the text, exactly
+what it read, as a `WriteProvenance` the read model's `ProvenanceSource` reads:
+
+- **Diagnoses** record which attempts, files and snapshot entries they read (the snapshot export's opened
+  files mapped back to attempts, items and topics; an export the diagnoser could not account for makes the
+  record incomplete), and the normalizer, the gap reader and the prerequisite drafter carry the union of
+  their inputs' records into what they write (a closed record).
+- **C4 receipts** are written inside the grading transaction (Q14), so a missing receipt means "not
+  augmented".
+- **Regrades keep event-id lineage** (Q9), so a belief that lists a replaced event can still be followed.
+- **`question_events` record the item contract** (or snapshot hash) a question was asked about (Q10).
+
+Until then (c) releases nothing and the table in §4.6 is what chat shows.
 
 ## 5. Telemetry: the chat side in the existing ledgers
 
@@ -260,7 +293,9 @@ reports calls by tool, host, status and day, the topics touched and the passages
 
 Tests with the SDK's in-process client, a loopback HTTP server and a real second process (no network, no
 model): tool schemas and annotations; the leakage rules on every tool against planted keys, contract keys,
-exam text, cold stems and passages, reserved and probe stems and a held score; fail-closed protection; the
+exam text, cold stems and passages, reserved and probe stems and a held score; the narrow rule (every text
+field classified and checked against the advertised schema, the last verify's reproductions held back,
+generated names never shown by `learning_context`, `today` or `progress`, keyed aliases); fail-closed protection; the
 token path, Host, Origin and size rules over HTTP; the token never in a log record; rotation without a
 restart; secondary attach refusal (exit 78) and no writes from attach or views; a `python -m learnloop_mcp`
 stdio process beside a loaded desktop sidecar, in the durability lane; telemetry rows and host labels;
@@ -307,7 +342,8 @@ the context pack (C4); a focused page for cold checks, probes and exams (C5).
   exact Origin/Host checks, no logging of paths, a read-only tool surface; OAuth before writes beyond C1b.
 - **R2: host training on tool results** (ChatGPT consumer plans, D16): return the minimum; no learner-model
   internals beyond what the read model shows.
-- **R3: answer leakage through teaching context:** the G5 rules above; the chat practice successor (§7)
+- **R3: answer leakage through teaching context:** the G5 rules above (since 2026-10-14 nothing a model
+  wrote is shown until its inputs are recorded at write time, §4.7–4.8); the chat practice successor (§7)
   is what makes chat attempts honest.
 - **R4: two processes, one vault:** SQLite serializes; C1a writes only append-only ledger rows.
 - **R5: drift from R2a's card:** one read model, field names pinned by a test, convergence task recorded.

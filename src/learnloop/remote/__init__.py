@@ -6,7 +6,8 @@ own. Mobile M2 can attach the same way later (``runtime``).
 
 * ``runtime``: secondary attach to a vault the desktop owns (no migration, no
   startup work), with content freshness;
-* ``endpoint_token``: the persistent secret endpoint path, machine-local;
+* ``endpoint_token``: the persistent secret endpoint path and the alias key
+  (chat's opaque aliases are keyed with it), machine-local;
 * ``views``: status, today, progress and the library, read-only;
 * ``sources``: grounded passages with citations, exposure recorded first;
 * ``telemetry``: every chat tool call in ``interaction_events``, and the

@@ -296,6 +296,207 @@ def payload_text(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
 
 
+# -- the reviews' reproductions (F4 rounds 3-5 and the narrow stage) ----------------------
+#
+# An unpinned historical answer (``att_legacy``) states a key no contract,
+# snapshot or YAML records any more; the reviews propagated it into every text
+# a model writes downstream. These builders plant those records.
+
+#: The key an item had when an older answer (graded before contracts were pinned)
+#: was graded: no contract, snapshot or YAML records it any more.
+LEGACY_KEY = "LEGACY KEY 8841 a row swap negates the volume"
+#: A prerequisite title the learner-text pipeline drafted from that answer.
+GENERATED_TITLE = f"Legacy key 8841: {LEGACY_KEY.split('8841 ')[1]}"
+#: A pinned answer with a record-id-shaped id, so a diagnosis's text can name it.
+PEER = "01JAPEER" + "0" * 18
+PEER_ANSWER = "PEER_WORDS_5521 the sign flips per swap"
+
+
+def legacy_answer(world: World) -> None:
+    """The unpinned historical answer ``att_legacy`` on a rewritten item."""
+
+    payload = _item("pi_rewritten", LO, "What does a row swap do to det (rewritten)?", ["facet_determinant"])
+    payload["expected_answer"] = "it multiplies the determinant by minus one"
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_rewritten"), payload)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_legacy', 'pi_rewritten', ?, 'short_answer', 'independent_attempt', ?, 0.0, 0, "
+            "'2026-09-19T09:00:00Z', 'old', 'human', 'desktop_practice')", (LO, f"I wrote: {LEGACY_KEY}"))
+        connection.commit()
+
+
+def pinned_answer(world: World, attempt_id: str, answer: str, at: str) -> None:
+    """Another answer on ``pi_own``, graded against its pinned contract."""
+
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES (?, 'pi_own', ?, 'short_answer', 'independent_attempt', ?, 0.0, 0, ?, 'old', 'human', "
+            "'desktop_practice')", (attempt_id, LO, answer, at))
+        connection.execute(
+            "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, "
+            "assessment_contract_version_id) VALUES (?, ?, 'correct', 0, 1, ?, 'acv_own')",
+            (f"ge_{attempt_id}", attempt_id, NOW_ISO))
+        connection.commit()
+
+
+def c4_receipt(connection: Any, attempt_id: str, history: list[str]) -> None:
+    """The joint grader's Phase-C receipt: the prior answers (C4 history) it was shown."""
+
+    connection.execute(
+        "INSERT INTO diagnostic_augmentation_receipts(id, attempt_id, grading_prompt_version, "
+        "c1_repair_before_structure, c2_verifier_observations_json, c3_sample_count, c3_agreement_support, "
+        "c3_disagreement_causes_json, c4_history_attempt_ids_json, hypotheses_json, revert_criteria_json, "
+        "created_at) VALUES (?, ?, 'test', 0, '[]', 1, 1.0, '[]', ?, '[]', '[]', ?)",
+        (f"dar_{attempt_id}", attempt_id, json.dumps(history), NOW_ISO))
+
+
+def error_event(connection: Any, event_id: str, attempt_id: str | None, statement: str | None,
+                misconception_id: str | None = None) -> None:
+    connection.execute(
+        "INSERT INTO error_events(id, attempt_id, learning_object_id, error_type, severity, is_misconception, status, "
+        "created_at, misconception_id, misconception_statement) VALUES (?, ?, ?, 'misconception', 0.6, 1, "
+        "'active', ?, ?, ?)", (event_id, attempt_id, LO, NOW_ISO, misconception_id, statement))
+
+
+def misconception_row(connection: Any, misconception_id: str, statement: str, events: str,
+                      correction: str | None, lo: str = LO) -> None:
+    connection.execute(
+        "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, source_error_event_ids_json, "
+        "correction_statement, created_at, updated_at) VALUES (?, ?, ?, 0.9, 'active', ?, ?, ?, ?)",
+        (misconception_id, lo, statement, events, correction, NOW_ISO, NOW_ISO))
+
+
+def candidate_row(connection: Any, candidate_id: str, statement: str, *, events: str = "[]", items: str = "[]",
+                  count: int = 1, status: str = "candidate", promoted: str | None = None, lo: str = LO) -> None:
+    connection.execute(
+        "INSERT INTO misconception_candidates(id, learning_object_id, statement, statement_normalized, "
+        "source_error_event_ids_json, item_ids_json, occurrence_count, status, promoted_misconception_id, created_at, "
+        "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (candidate_id, lo, statement, statement.lower(), events, items, count, status, promoted, NOW_ISO, NOW_ISO))
+
+
+def gap_row(connection: Any, gap_id: str, *, source_kind: str, source_id: str, attempt_id: str | None,
+            item_id: str | None, text: str, target_kind: str | None, target_id: str | None,
+            action: str = "belief_sighting", anchor: str | None = LO) -> None:
+    connection.execute(
+        "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
+        "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, target_id, "
+        "algorithm_version, pipeline_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'decider', ?, "
+        "'misconception', ?, ?, ?, 'test', 'test', ?)",
+        (gap_id, source_kind, source_id, attempt_id, item_id, anchor, text,
+         "tutor" if source_kind == "tutor_question" else "diagnoser" if source_kind == "diagnosis" else "gap_reader",
+         action, target_kind, target_id, NOW_ISO))
+
+
+def live_diagnosis(repository: Repository, attempt_id: str, analysis: str, *, view: dict | None = None,
+                   receipt: dict | None = None, history_mode: str = "exact") -> str:
+    """A completed live diagnosis; ``receipt`` None records no context receipt."""
+
+    return repository.insert_attempt_diagnosis(
+        attempt_id=attempt_id, diagnosis_prompt_version="test", mode="live", history_mode=history_mode,
+        status="completed", proposal={"analysis_md": analysis}, causal_view=view, validation_report=None,
+        receipt=receipt)
+
+
+def hypothesis_row(world: World, episode_key: str, attempt_id: str, statement: str, *, event_id: str | None = None,
+                   lo: str = LO) -> str:
+    return str(world.repository.append_causal_hypothesis(
+        episode_key=episode_key, attempt_id=attempt_id, error_event_id=event_id, learning_object_id=lo,
+        cause_scope="learner_state", statement=statement, statement_normalized=statement.lower(),
+        status="candidate")["id"])
+
+
+def group_row(connection: Any, group_key: str, episode_key: str, statement: str, *, root: str | None = None,
+              joined_by: str = "root") -> None:
+    connection.execute(
+        "INSERT INTO hypothesis_recurrence_groups(episode_key, statement_normalized, group_key, root_episode_key, "
+        "class_count, joined_by, builder_version) VALUES (?, ?, ?, ?, 2, ?, 'test')",
+        (episode_key, statement.lower(), group_key, root or episode_key, joined_by))
+
+
+def generated_prerequisite(world: World, *, title: str, gap_id: str, source_kind: str, source_id: str,
+                           attempt_id: str | None, item_id: str | None, text: str, created_at: str) -> str:
+    """A prerequisite the learner-text pipeline created from the learner's
+    text (``text_gaps.actions.write_created_prerequisite``'s shape): its
+    concept and LO titles were drafted from that text, and their ids carry a
+    slug of the titles. Returns the LO id."""
+
+    import hashlib
+
+    from learnloop.diagnosis.text_gaps.actions import slug
+    from learnloop.vault.writer import upsert_concept
+    from learnloop.vault.yaml_io import read_yaml
+
+    suffix = hashlib.sha256(f"{source_kind}:{source_id}".encode()).hexdigest()[:8]
+    lo_id, concept_id = f"lo_ltg_{slug(title)}_{suffix}", f"{slug(title)}_{suffix}"
+    upsert_concept(world.root, concept_id, {
+        "title": title, "type": "procedure", "aliases": [], "description": title,
+        "tags": ["learner_text_gap_v1"], "created_at": created_at, "updated_at": created_at})
+    lo = read_yaml(world.paths.learning_object_path("linear-algebra", LO))
+    lo.update(id=lo_id, title=title, concept=concept_id, summary=title, blueprints=[], tags=["learner_text_gap_v1"],
+              provenance={"origin": "codex_proposal", "source_refs": [], "mechanism": "learner_text_gap_v1",
+                          "learner_text": f"{source_kind}:{source_id}"},
+              created_at=created_at, updated_at=created_at)
+    write_yaml(world.paths.learning_object_path("linear-algebra", lo_id), lo)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO learner_text_gaps(id, source_kind, source_id, attempt_id, practice_item_id, "
+            "anchor_learning_object_id, learner_text, chooser, context_judge, kind, action, target_kind, target_id, "
+            "created_concept_id, created_learning_object_id, algorithm_version, pipeline_version, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, 'decider', ?, 'prerequisite', 'created_prerequisite', "
+            "'learning_object', ?, ?, ?, 'test', 'test', ?)",
+            (gap_id, source_kind, source_id, attempt_id, item_id, LO, text,
+             "tutor" if source_kind == "tutor_question" else "gap_reader", lo_id, concept_id, lo_id, created_at))
+        connection.commit()
+    return lo_id
+
+
+def generated_world(world: World) -> dict[str, str]:
+    """A prerequisite created from the unpinned historical stuck answer (its
+    title restates the key that answer was graded against), shown in every
+    section an LO appears in; a control created earlier from the pinned
+    answer; and one created later in the same subject."""
+
+    legacy_answer(world)
+    safe = generated_prerequisite(world, title="Permutation parity basics", gap_id="gap_gen_safe",
+                                  source_kind="stuck_answer", source_id="att_own", attempt_id="att_own",
+                                  item_id="pi_own", text=OWN_ANSWER, created_at="2026-09-19T08:00:00Z")
+    tainted = generated_prerequisite(world, title=GENERATED_TITLE, gap_id="gap_gen", source_kind="stuck_answer",
+                                     source_id="att_legacy", attempt_id="att_legacy", item_id="pi_rewritten",
+                                     text=f"I wrote: {LEGACY_KEY}", created_at="2026-09-19T10:00:00Z")
+    later = generated_prerequisite(world, title="Elementary matrix inverses", gap_id="gap_gen_later",
+                                   source_kind="stuck_answer", source_id="att_own_later", attempt_id="att_own",
+                                   item_id="pi_own", text=OWN_ANSWER, created_at="2026-09-19T11:00:00Z")
+    payload = _item("pi_gen", tainted, "Swap two rows of a 3x3 matrix and compare determinants.",
+                    ["facet_determinant"])
+    write_yaml(world.paths.practice_item_path("linear-algebra", "pi_gen"), payload)
+    with world.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "learner_answer_md, correctness, hints_used, created_at, session_id, evidence_origin, entry_surface) "
+            "VALUES ('att_gen', 'pi_gen', ?, 'short_answer', 'independent_attempt', 'the two values differ', 0.0, 0, "
+            "'2026-09-20T09:00:00Z', 'old', 'human', 'desktop_practice')", (tainted,))
+        connection.execute(
+            "INSERT INTO unresolved_cause_factors(id, attempt_id, candidate_causes_json, status, algorithm_version, "
+            "created_at, updated_at) VALUES ('ucf_gen', 'att_gen', '[]', 'open', 'test', ?, ?)", (NOW_ISO, NOW_ISO))
+        misconception_row(connection, "mc_gen", "Thinks a pivot may be zero", '["e1"]', None, lo=tainted)
+        candidate_row(connection, "mcand_gen", "Thinks pivots commute", events='["e1"]', items='["pi_own"]',
+                      lo=tainted)
+        connection.commit()
+    hypothesis_row(world, "ep_gen", "att_own", "Drops the sign when pivoting", lo=tainted)
+    with world.repository.connection() as connection:
+        group_row(connection, "grp_gen", "ep_gen", "Drops the sign when pivoting")
+        connection.commit()
+    world.repository.upsert_practice_item_state("pi_gen", difficulty=5.0, stability=1.0,
+                                                due_at="2026-09-21T09:00:00Z",
+                                                last_attempt_at="2026-09-20T09:00:00Z", active=True)
+    return {"safe": safe, "tainted": tainted, "later": later}
+
+
 def table_count(repository: Repository, table: str, where: str = "1 = 1", params: tuple = ()) -> int:
     with repository.connection() as connection:
         return int(connection.execute(f"SELECT COUNT(*) FROM {table} WHERE {where}", params).fetchone()[0])

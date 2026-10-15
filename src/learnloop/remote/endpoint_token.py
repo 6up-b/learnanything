@@ -9,6 +9,9 @@ The token lives in the vault's machine-local state,
 It is printed only by ``learnloop mcp token show`` and never logged.
 ``rotate`` replaces it; a running server reads the file again when it
 changes, so the old URL stops working without a restart.
+
+The same directory keeps the alias key (``alias-key``): the secret the chat
+frontend's opaque aliases are keyed with (see below).
 """
 
 from __future__ import annotations
@@ -100,6 +103,56 @@ def endpoint_path(token: str) -> str:
     return f"/{token}/mcp"
 
 
+# -- the alias key ------------------------------------------------------------------
+#
+# Chat shows a generated topic's id and a recurrence group's key as opaque
+# aliases (``learner_context.lo_alias`` / ``group_alias``): HMAC-SHA256 under a
+# per-vault secret kept beside the token, so a client cannot recompute one from
+# a guessed title or statement (Q13). Made by ``learnloop mcp serve`` (never by
+# a read), never printed; rotating the token leaves it alone (aliases stay
+# stable for the hosts that hold them).
+
+ALIAS_KEY_FILE = "alias-key"
+_ALIAS_KEY_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def alias_key_path(vault_root: Path) -> Path:
+    return token_directory(vault_root) / ALIAS_KEY_FILE
+
+
+def read_alias_key(vault_root: Path) -> bytes | None:
+    """The vault's alias key, None when none was made (or it cannot be read:
+    the caller then keys aliases for its own process)."""
+
+    try:
+        value = alias_key_path(vault_root).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return bytes.fromhex(value) if _ALIAS_KEY_RE.fullmatch(value) else None
+
+
+def ensure_alias_key(vault_root: Path) -> bytes:
+    """The vault's alias key, made on first use (0600, beside the token)."""
+
+    existing = read_alias_key(vault_root)
+    if existing is not None:
+        return existing
+    key = secrets.token_bytes(32)
+    directory = _prepare_directory(vault_root)
+    temporary = directory / f".{ALIAS_KEY_FILE}.{secrets.token_hex(4)}.tmp"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(key.hex() + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, alias_key_path(vault_root))
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+    return key
+
+
 class TokenStore:
     """The current token for a running server, reread when the file changes."""
 
@@ -136,11 +189,15 @@ class TokenStore:
 
 
 __all__ = [
+    "ALIAS_KEY_FILE",
     "TOKEN_FILE",
     "TokenError",
     "TokenStore",
+    "alias_key_path",
     "endpoint_path",
+    "ensure_alias_key",
     "ensure_token",
+    "read_alias_key",
     "read_token",
     "rotate_token",
     "token_path",

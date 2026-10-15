@@ -11,7 +11,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from learnloop.remote.endpoint_token import ensure_token
+from learnloop.remote.endpoint_token import ensure_alias_key, ensure_token
 from learnloop.remote.runtime import RemoteRuntime
 from learnloop_mcp import DEFAULT_PORT
 from learnloop_mcp.http_app import LOOPBACK, ConfigurationError, run_http, validate_origins, validate_public_hosts
@@ -35,6 +35,9 @@ def serve(vault_root: Path, *, transport: str = "http", port: int = DEFAULT_PORT
     validate_origins(public_origins)
     logging.basicConfig(stream=sys.stderr, level=getattr(logging, log_level.upper(), logging.WARNING))
     runtime = RemoteRuntime.attach(vault_root)
+    # The secret chat's opaque aliases are keyed with (machine-local, beside
+    # the token), made before the first read so aliases are stable per vault.
+    ensure_alias_key(runtime.vault_root)
     if transport == "stdio":
         from learnloop_mcp.server import build_server
 

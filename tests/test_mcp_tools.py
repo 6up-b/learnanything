@@ -11,7 +11,8 @@
   grade reads "held for review".
 * **Shared latent state**: ``learning_context`` returns the misconceptions,
   candidates, hypotheses (evidence for and against, repairs tried),
-  recurrence groups, answer traces, open gaps and retention risks the app has.
+  recurrence groups, answer traces, open gaps and retention risks the app has;
+  wording a model wrote is held back (the narrow stage, owner 2026-10-14).
 * **Grounding**: ``find_sources`` withholds exam material, reference solutions
   and passages held for a check, returns full blocks with citations, and
   records the shown passages as exposure first: an item built on a shown
@@ -28,6 +29,7 @@ import pytest
 from mcp import Client
 
 from learnloop.attempts.salience_firewall import SalienceEvidenceRejected, reject_salience
+from learnloop.learner_context import HELD_BACK
 from learnloop.remote.runtime import RemoteRuntime
 from learnloop_mcp.hosts import detect_host
 from learnloop_mcp.server import build_server
@@ -158,27 +160,31 @@ def test_no_protected_text_reaches_any_payload(world, server):
 
 
 def test_learning_context_is_the_apps_latent_state(world, server):
+    """The same learner the app has, narrowed (owner decision 2026-10-14):
+    every entry, count, status and label shows; the learner's own pinned
+    answers and the questions as graded show; wording a model wrote is held
+    back until LearnLoop records what it was written from."""
+
     (result,) = _call_all(server, [("learning_context", {"topic": "matrix"})])
     context = result.structured_content
     assert context["scope"]["matched_by"] == "topic" and "lo_matrices" in context["scope"]["learning_object_ids"]
     (misconception,) = context["misconceptions"]
-    assert misconception["statement"] == MISCONCEPTION and misconception["evidence_count"] == 2
-    # The correction states an item's answer key: withheld, and said so.
-    assert misconception["correction"] is None and "answer key" in misconception["correction_note"]
+    assert misconception["misconception_id"] == "mc_swap" and misconception["evidence_count"] == 2
+    assert misconception["status"] == "active" and misconception["topic"] == "Matrix computations"
+    assert misconception["statement"] is None and misconception["statement_note"] == HELD_BACK
+    assert misconception["correction"] is None and misconception["correction_note"] == HELD_BACK
     (candidate,) = context["misconception_candidates"]
-    assert candidate["statement"] == CANDIDATE and candidate["status"] == "candidate"
+    assert candidate["candidate_id"] == "mcand_row" and candidate["status"] == "candidate"
+    assert candidate["statement"] is None and candidate["statement_note"] == HELD_BACK
     hypotheses = [h for h in context["open_hypotheses"] if h["kind"] == "diagnosed_cause"]
     swap = next(h for h in hypotheses if h["hypothesis_id"] == world.hypothesis_id)
-    assert swap["statement"] == HYPOTHESIS and swap["label"] == "a hypothesis, not a finding"
+    assert swap["statement"] is None and swap["statement_note"] == HELD_BACK
+    assert swap["label"] == "a hypothesis, not a finding"
     assert swap["evidence_for"]["recurrence_class_count"] == 2
     assert [repair["episode_id"] for repair in swap["repairs_tried"]] == ["rem_swap"]
-    # The hypothesis on the cold check's own answer keeps no statement.
-    cold = next(h for h in hypotheses if h["attempt_id"] == "att_cold")
-    assert cold["statement"] is None and "check waiting in the app" in cold["statement_note"]
-    groups = {group["group_key"]: group for group in context["recurrence_groups"]}
-    assert groups["grp_swap"]["statement"] == HYPOTHESIS and groups["grp_swap"]["episodes"] == 2
-    # The group the cold check's hypothesis roots keeps no statement (Codex review F2).
-    assert groups["grp_cold"]["statement"] is None
+    groups = context["recurrence_groups"]
+    assert len(groups) == 2 and all(group["statement"] is None for group in groups)
+    assert sorted(group["episodes"] for group in groups) == [2, 2]
     traces = {trace["attempt_id"]: trace for trace in context["recent_answer_traces"]}
     own = traces["att_own"]
     assert own["stem"] == PINNED_STEM and own["answer"] == OWN_ANSWER and own["result"] == "incorrect"
@@ -191,9 +197,13 @@ def test_learning_context_is_the_apps_latent_state(world, server):
         assert trace["withheld"] == reason and trace["stem"] is None and trace["answer"] is None, attempt_id
     assert traces["att_held"]["hints_used"] == 1 and traces["att_held"]["result"] == "held_for_review"
     (gap,) = context["open_learner_text_gaps"]
-    assert gap["learner_text"] == GAP_TEXT and gap["target"] == CANDIDATE
+    assert gap["gap_id"] == "gap_open" and gap["source"] == "tutor_question"
+    assert gap["learner_text"] is None and gap["target"] is None and gap["target_topic"] == "Matrix computations"
     (risk,) = context["retention_risks"]
     assert risk["learning_object_id"] == "lo_matrices" and risk["items_due_now"] == 1
+    text = payload_text(context)
+    for planted in (MISCONCEPTION, CANDIDATE, HYPOTHESIS, GAP_TEXT):
+        assert planted not in text, planted
 
 
 def test_read_model_fields_match_the_router_card_for_convergence(world, server):
@@ -366,6 +376,8 @@ def test_today_shows_the_stored_plan_and_writes_nothing(tmp_path, monkeypatch):
     assert view["plan_enabled"] is True and view["plan"]["blocks"]
     block = view["plan"]["blocks"][0]
     assert {"minutes", "why", "topics", "lane", "items"} <= set(block)
+    # Authored topics only: the computed why and the titles show (Q12's control).
+    assert block["why"] and block["why_note"] is None and block["topics"] == ["M1"]
     assert "Question pi_m1" not in json.dumps(view)  # no question text in a plan view
     server = build_server(runtime, clock=clock)
     (result,) = _call_all(server, [("today", {})])
