@@ -186,6 +186,11 @@ def _legacy_file(workspace: Path) -> str:
      f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", REVISION_UNKNOWN_BEHIND),
     ("searched_the_whole_export", lambda root: ["grep -rn determinant ."],
      f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", REVISION_UNKNOWN_BEHIND),
+    # Codex review F1: a read run in the background beside a listing.
+    ("backgrounded_a_read", lambda root: [f"ls & cat {_legacy_file(root)}"],
+     f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", REVISION_UNKNOWN_BEHIND),
+    ("wrapped_a_backgrounded_read", lambda root: [f"bash -lc 'ls & cat {_legacy_file(root)}'"],
+     f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", REVISION_UNKNOWN_BEHIND),
     ("read_outside_the_export", lambda root: ["cat /etc/hostname"],
      f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", HELD_BACK),
     ("reported_nothing", None, f"Like an earlier answer, the learner wrote {LEGACY_KEY}.", HELD_BACK),
@@ -224,11 +229,13 @@ def test_a_snapshot_diagnosis_records_the_export_entries_it_opened(tmp_path, cas
         (retrieval,) = connection.execute("SELECT retrieval_json FROM diagnosis_context_receipts").fetchone()
     served = json.loads(retrieval)["snapshot"]["served"]
     assert served["how"] == {"opened_the_legacy_answer": "entries", "searched_the_whole_export": "whole",
+                             "backgrounded_a_read": "whole", "wrapped_a_backgrounded_read": "whole",
                              "read_outside_the_export": "outside", "reported_nothing": "unreported",
                              "read_only_the_index": "entries"}[case]
     if case == "read_only_the_index":
         assert served["paths"] == ["INDEX.md"]
-    if case in ("opened_the_legacy_answer", "searched_the_whole_export"):
+    if case in ("opened_the_legacy_answer", "searched_the_whole_export", "backgrounded_a_read",
+                "wrapped_a_backgrounded_read"):
         assert row["complete"] == 1 and inputs["answers"]["att_legacy"] == [None]
     if case == "read_outside_the_export":
         assert row["complete"] == 0 and reasons == [_dp().SNAPSHOT_OUTSIDE]
@@ -711,3 +718,460 @@ def test_the_solution_rule_is_the_retrieval_policy_s_window():
     from learnloop.learner_protection import WINDOW_CLOSING_CORRECTNESS
 
     assert WINDOW_CLOSING_CORRECTNESS == POLICY
+
+
+# == Codex review (docs/reviews/diagnosis-input-provenance-codex-review.md) ======================
+#
+# Each test below failed on 34d6b8abe (the stage before its review) and passes with the fix.
+
+
+# -- F1: shell control syntax around a plain read ----------------------------------------------
+
+
+def _f1_entries(root: Path) -> Any:
+    return _dp().SnapshotEntries(root=root, entries={
+        "INDEX.md": _dp().DiagnosisReads(topics=("lo_a",)),
+        "attempts/x_att_1.md": _dp().DiagnosisReads(attempts=(_dp().AttemptRead("att_1"),)),
+        "attempts/y_att_2.md": _dp().DiagnosisReads(attempts=(_dp().AttemptRead("att_2"),)),
+    })
+
+
+@pytest.mark.parametrize("report", [
+    # A background command: ``&`` runs the read beside a names-only listing.
+    "ls & cat attempts/x_att_1.md",
+    "ls &cat attempts/x_att_1.md",
+    "cd attempts & cat x_att_1.md",
+    "cat INDEX.md & cat attempts/x_att_1.md",
+    "cat INDEX.md &",
+    # ... inside a shell wrapper.
+    "bash -lc 'ls & cat attempts/x_att_1.md'",
+    "sh -c \"pwd & cat attempts/x_att_1.md\"",
+    "/bin/bash -lc 'ls & cat attempts/x_att_1.md'",
+    # Substitution, expansion, escapes and line breaks outside single quotes.
+    "cat INDEX.md $(cat attempts/x_att_1.md)",
+    "cat \"$(echo attempts/x_att_1.md)\"",
+    "cat `echo attempts/x_att_1.md`",
+    "ls $PWD/attempts",
+    "cat attempts/x_att_1\\.md",
+    "ls\ncat attempts/x_att_1.md",
+    "ls\rcat attempts/x_att_1.md",
+    "echo 'unterminated",
+    "(cat attempts/x_att_1.md)",
+    # A program that runs another, or a read option that names more files.
+    "env cat attempts/x_att_1.md",
+    "nohup cat attempts/x_att_1.md",
+    "timeout 5 cat attempts/x_att_1.md",
+    "command cat attempts/x_att_1.md",
+    "exec cat attempts/x_att_1.md",
+    "xargs cat",
+    "wc --files0-from=INDEX.md",
+    "less -o copy attempts/x_att_1.md",
+    "more +/key attempts/x_att_1.md",
+    # A sed script that is more than one print command.
+    "sed -n '1p\n2p' attempts/x_att_1.md",
+])
+def test_f1_shell_control_syntax_is_unaccountable(tmp_path, report):
+    """F1: only one strictly validated simple command is accounted for; any
+    shell control syntax around it (a single ``&`` included), a wrapper that
+    runs another program, or a read option that names more files counts as
+    reading the whole export."""
+
+    entries = _f1_entries(tmp_path / "history")
+    reads = _dp().snapshot_reads(entries, [report])
+    if reads.unaccounted:  # a path outside the export: the record is incomplete
+        assert reads.unaccounted == (_dp().SNAPSHOT_OUTSIDE,), report
+        return
+    assert sorted(read.attempt_id for read in reads.attempts) == ["att_1", "att_2"], report
+    assert _dp().served_entries(entries, [report])[0] == "whole", report
+
+
+def test_f1_a_plain_read_is_still_accounted_for(tmp_path):
+    """The strict rule keeps every plain read the transport reports: ``$`` in
+    a single-quoted sed print script is literal, and options that only shape
+    the output are allowed."""
+
+    entries = _f1_entries(tmp_path / "history")
+    for report, served in (
+        ("cat INDEX.md", ["INDEX.md"]),
+        ("sed -n '$p' attempts/x_att_1.md", ["attempts/x_att_1.md"]),
+        ("head -n 5 attempts/y_att_2.md", ["attempts/y_att_2.md"]),
+        ("tail -n +3 attempts/y_att_2.md", ["attempts/y_att_2.md"]),
+        ("cat -n attempts/x_att_1.md", ["attempts/x_att_1.md"]),
+        ("wc -l INDEX.md", ["INDEX.md"]),
+        ("bash -lc 'cat attempts/x_att_1.md'", ["attempts/x_att_1.md"]),
+        ("ls -la attempts", []),
+        ("cd attempts", []),
+    ):
+        assert _dp().served_entries(entries, [report]) == ("entries", tuple(served)), report
+
+
+# -- F2: a generated topic's name, as each writer was shown it ------------------------------------
+
+_F2_LO = "lo_ltg_orthogonal_factor_basics_0a1b2c3d"
+_F2_TITLE = "Orthogonal factor basics"
+
+
+def _f2_generated_topic(paths, repository, *, concept: str) -> None:
+    """A prerequisite the learner-text pipeline drafted (its id's form marks
+    it generated), with a complete drafter record covering its title."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    lo = read_yaml(paths.learning_object_path("linear-algebra", "lo_svd_compute"))
+    lo.update(id=_F2_LO, title=_F2_TITLE, summary=_F2_TITLE, concept=concept, tags=["learner_text_gap_v1"],
+              provenance={"origin": "codex_proposal", "source_refs": [], "mechanism": "learner_text_gap_v1"})
+    write_yaml(paths.learning_object_path("linear-algebra", _F2_LO), lo)
+    with repository.atomic():
+        _wp().record_text_write(repository.connection(), kind="learning_object", record_id=_F2_LO, text=_F2_TITLE,
+                                writer="prerequisite_drafter",
+                                record=_wp().WriteRecord(_wp().Inputs.of(topics=["lo_svd_compute"])))
+
+
+def _f2_rewrite_title(paths) -> None:
+    """A writer that records nothing renames the topic (its new name could be
+    drawn from anything)."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.learning_object_path("linear-algebra", _F2_LO)
+    lo = read_yaml(path)
+    lo["title"] = "Orthogonal factors, renamed by a writer that recorded nothing"
+    write_yaml(path, lo)
+
+
+@pytest.mark.parametrize("rewritten", [True, False], ids=["rewritten", "kept"])
+@pytest.mark.parametrize(("mode", "concept", "activity"), [
+    # The inline context shows the neighbourhood's titles (same concept).
+    ("full", "singular_value_decomposition", "unset"),
+    # Outside the neighbourhood, only the export's graph file shows it.
+    ("snapshot", "unrelated_topic", lambda root: ["cat graph/learning_objects.md"]),
+], ids=["inline", "snapshot_graph"])
+def test_f2_a_diagnosis_folds_a_generated_topic_only_under_the_name_it_was_shown(tmp_path, mode, concept,
+                                                                                 activity, rewritten):
+    """F2: a generated topic's record covers its drafted title. When a writer
+    that recorded nothing renames it, a diagnosis shown the new name must not
+    fold the old record as if it covered what it read: its summary stays held
+    back. Shown the recorded name, the summary is released as before."""
+
+    config = 'history_mode = "snapshot"' if mode == "snapshot" else 'history_mode = "full"'
+    paths, _vault, repository = split_vault(tmp_path, seed=False, config=f"[diagnosis]\n{config}")
+    _f2_generated_topic(paths, repository, concept=concept)
+    if rewritten:
+        _f2_rewrite_title(paths)
+    vault = load_vault(paths.root)
+    client = ProvenanceFake(activity=activity)
+    wrong = submit(vault, repository, client, answer=SVD_WRONG, when=at(1))
+    drain_jobs(vault, repository, client)
+    submit(vault, repository, client, answer=SVD_RIGHT, when=at(2))
+
+    trace = _trace(_context(paths.root, repository), wrong.attempt_id)
+    (row,) = _rows(repository, "diagnosis")
+    assert _F2_LO in json.loads(row["inputs_json"])["topics"]
+    if rewritten:
+        assert row["complete"] == 0
+        assert any(_F2_LO in reason for reason in json.loads(row["incomplete_reasons_json"]))
+        assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == HELD_BACK
+    else:
+        assert row["complete"] == 1
+        assert trace["diagnosis"]["summary"] == "The learner keeps the last factor untransposed."
+
+
+@pytest.mark.parametrize("rewritten", [True, False], ids=["rewritten", "kept"])
+def test_f2_the_drafter_folds_a_generated_topic_only_under_the_name_it_was_shown(world, rewritten):
+    """F2 at the prerequisite drafter: it is shown the subject's concept
+    titles. A generated topic whose name was rewritten by a writer that
+    recorded nothing is not covered by its record, so the draft's record is
+    incomplete; shown the recorded name, it folds the record as before."""
+
+    from learnloop.diagnosis.text_gaps.contract import LearnerText
+    from learnloop.diagnosis.text_gaps.provenance import drafter_record
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    safe = generated_world(world)["safe"]
+    _record_drafted(world, safe, "att_own", "pi_own")
+    if rewritten:
+        renamed = "Parity, renamed by a writer that recorded nothing"
+        concept = load_vault(world.root).learning_objects[safe].concept
+        lo = read_yaml(world.paths.learning_object_path("linear-algebra", safe))
+        lo["title"] = renamed
+        write_yaml(world.paths.learning_object_path("linear-algebra", safe), lo)
+        concepts = read_yaml(world.paths.concepts_path)
+        concepts["concepts"][concept]["title"] = renamed
+        write_yaml(world.paths.concepts_path, concepts)
+    vault = load_vault(world.root)
+    titles = sorted({vault.concepts[lo.concept].title for lo in vault.learning_objects.values()
+                     if "linear-algebra" in lo.subjects and lo.concept in vault.concepts})
+    text = LearnerText(source_kind="stuck_answer", source_id="att_own", text="stuck", context_judge="gap_reader",
+                       created_at=NOW_ISO, subject_id="linear-algebra", anchor_learning_object_ids=(LO,),
+                       practice_item_id="pi_own", attempt_id="att_own")
+    with world.repository.connection() as connection:
+        record = drafter_record(connection, vault, text, None, subject_id="linear-algebra",
+                                shown_concept_titles=titles)
+    assert safe in record.inputs.topics and ("learning_object", safe) in record.derived_from
+    assert record.complete is (not rewritten), record.missing
+
+
+# -- F3: what a diagnosis showed is frozen when its context is built -----------------------------
+
+
+def _f3_legacy_peer(vault, repository) -> None:
+    """A prior wrong answer on the diagnosed item, graded by a joint model
+    grader before write-time provenance (no C4 receipt, no record) and never
+    pinned to a contract: what the diagnoser is shown about it cannot be
+    accounted for."""
+
+    seed_attempt(vault, repository, attempt_id="att_peer", item_id=SVD_ITEM, answer="A = U Sigma, peer",
+                 when=at(0.5), points={"setup": 0, "result": 0},
+                 error={"error_type": "conceptual_slip", "severity": 0.5, "evidence": "peer",
+                        "resolution_status": "unresolved", "cause_scope": "learner_state",
+                        "first_divergence": {"anchor_kind": "span", "criterion_id": "result", "quote": "peer"}})
+    with repository.connection() as connection:
+        connection.execute("UPDATE grading_evidence SET agent_run_id = 'run_joint_peer', "
+                           "assessment_contract_version_id = NULL WHERE attempt_id = 'att_peer'")
+        connection.commit()
+
+
+def _f3_regrade_peer(repository, current_attempt_id: str) -> None:
+    """The peer is blind-regraded: pinned to its item's contract, its grading
+    recorded (``record_grading``, as the regrade's transaction does)."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        (contract,) = connection.execute(
+            "SELECT assessment_contract_version_id FROM grading_evidence WHERE attempt_id = ? "
+            "AND assessment_contract_version_id IS NOT NULL LIMIT 1", (current_attempt_id,)).fetchone()
+        connection.execute("UPDATE grading_evidence SET assessment_contract_version_id = ?, agent_run_id = NULL "
+                           "WHERE attempt_id = 'att_peer'", (contract,))
+        _wp().record_grading(connection, attempt_id="att_peer", writer="regrade")
+
+
+class RegradeWhileDiagnosing(ProvenanceFake):
+    """Runs ``during`` once, while the diagnoser's request is in flight."""
+
+    def __init__(self, during: Any, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.during = during
+
+    def _diagnosis(self, request, context):
+        during, self.during = self.during, None
+        if during is not None:
+            during()
+        return super()._diagnosis(request, context)
+
+
+def test_f3_a_regrade_while_the_diagnoser_runs_never_certifies_what_it_was_shown(tmp_path):
+    """F3: the diagnoser is shown a legacy joint grading it cannot account
+    for. While it runs, the peer is regraded with complete provenance. The
+    diagnosis records what its context showed (frozen when the context was
+    built), so it stays incomplete and its summary held back."""
+
+    paths, vault, repository = split_vault(tmp_path, seed=False, config='[diagnosis]\nhistory_mode = "full"')
+    _f3_legacy_peer(vault, repository)
+    vault = load_vault(paths.root)
+    with repository.connection() as connection:
+        assert _wp().grading_record(connection, "att_peer").complete is False
+    holder: dict[str, str] = {}
+    client = RegradeWhileDiagnosing(lambda: _f3_regrade_peer(repository, holder["current"]))
+    wrong = submit(vault, repository, client, answer=SVD_WRONG, when=at(1))
+    holder["current"] = wrong.attempt_id
+    drain_jobs(vault, repository, client)
+    assert client.during is None  # the regrade ran inside the diagnoser's call
+    with repository.connection() as connection:
+        assert _wp().grading_record(connection, "att_peer").complete is True
+    submit(vault, repository, client, answer=SVD_RIGHT, when=at(2))
+
+    (row,) = _rows(repository, "diagnosis")
+    inputs = json.loads(row["inputs_json"])
+    assert row["complete"] == 0 and inputs["answers"]["att_peer"] == [None]
+    assert any("att_peer" in reason for reason in json.loads(row["incomplete_reasons_json"]))
+    trace = _trace(_context(paths.root, repository), wrong.attempt_id)
+    assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == HELD_BACK
+
+
+@pytest.mark.parametrize("regraded", [True, False], ids=["regraded", "unchanged"])
+def test_f3_a_grading_replaced_after_the_history_was_read_is_unaccountable(tmp_path, regraded):
+    """F3, the window before the freeze: the history store reads the gradings
+    it shows; a regrade that commits before the record is frozen is caught by
+    the grading's identity (its current evidence and error events), so the
+    record names the change instead of certifying the new grading."""
+
+    from learnloop.diagnosis.split.history import AttemptRef
+    from learnloop.diagnosis.split.live import live_history_store
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    seed_attempt(vault, repository, attempt_id="att_peer", item_id=SVD_ITEM, answer="A = U Sigma, peer",
+                 when=at(0.5), points={"setup": 0, "result": 0})
+    store = live_history_store(load_vault(paths.root), repository)
+    assert [attempt.attempt_id for attempt in store.attempts_before(AttemptRef("zz", "2099-01-01T00:00:00Z"), None)]
+    if regraded:
+        with repository.atomic():
+            connection = repository.connection()
+            connection.execute("UPDATE grading_evidence SET superseded_at = ? WHERE attempt_id = 'att_peer'", (NOW_ISO,))
+            connection.execute(
+                "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, grader_tier, created_at) "
+                "VALUES ('ge_peer_regraded', 'att_peer', 'result', 2, 1, ?)", (NOW_ISO,))
+            _wp().record_grading(connection, attempt_id="att_peer", writer="regrade")
+    reads = _dp().DiagnosisReads(attempts=(_dp().AttemptRead("att_peer", True),))
+    record = _dp().frozen_record(store, reads)
+    replaced = [reason for reason in record.missing if reason.startswith(_dp().GRADING_REPLACED)]
+    assert record.complete is (not regraded) and bool(replaced) is regraded, record.missing
+
+
+# -- F4: a regrade that leaves no error ----------------------------------------------------------
+
+
+class GradesEverythingRight(ProvenanceFake):
+    def _grade_parts(self, context):
+        parts = super()._grade_parts(context)
+        evidence = [{**row, "points_awarded": float(criterion["points"])}
+                    for row, criterion in zip(parts["evidence"], parts["criteria"], strict=True)]
+        return {**parts, "correct": True, "evidence": evidence}
+
+
+def test_f4_a_regrade_to_no_errors_keeps_the_retired_events_answer(tmp_path):
+    """F4 (Q9): a regrade finds no error, so replay retires the attempt's
+    error events and mints none. The retirement is recorded, so a belief that
+    lists a retired event keeps its answer, and the event resolves explicitly
+    to "no current error"."""
+
+    from learnloop.attempts.regrade import regrade_attempt
+    from learnloop.diagnosis.split.history import AttemptRef
+    from learnloop.diagnosis.split.live import live_history_store
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    wrong = submit(vault, repository, ProvenanceFake(), answer=SVD_WRONG, when=at(1))
+    old_events = [str(event["id"]) for event in repository.raw_error_events_for_attempt(wrong.attempt_id)]
+    assert old_events
+    repository.insert_misconception(id="mc_listed", learning_object_id="lo_svd_compute",
+                                    statement="Thinks V needs no transpose", severity=0.8,
+                                    source_error_event_ids=old_events)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(wrong.attempt_id), runtime=ReadyRuntime(),
+                    client=GradesEverythingRight(), grading_source="ai", clock=None)
+    assert repository.raw_error_events_for_attempt(wrong.attempt_id) == []
+    with repository.connection() as connection:
+        lineage = connection.execute("SELECT error_event_id, replaces_error_event_id FROM error_event_lineage "
+                                     "WHERE attempt_id = ?", (wrong.attempt_id,)).fetchall()
+        resolved = _wp().current_error_event_ids(connection, old_events)
+        assert _wp().replaced_error_event_attempts(connection) == {old: wrong.attempt_id for old in old_events}
+        assert _wp().retired_error_event_ids(connection, [*old_events, "never_recorded"]) == frozenset(old_events)
+    assert sorted((row[0], row[1]) for row in lineage) == sorted((None, old) for old in old_events)
+    assert all(resolved[old] == () for old in old_events)
+    store = live_history_store(load_vault(paths.root), repository)
+    (belief,) = [record for record in store.registry_before(AttemptRef("zz_after", "2099-01-01T00:00:00Z"), None)
+                 if record.id == "mc_listed"]
+    assert belief.source_attempt_id == wrong.attempt_id
+
+
+def test_f4_retirements_are_idempotent_and_only_for_events_that_left():
+    """The writer itself: an event kept by the regrade is not retired, and
+    writing the same retirement twice writes it once."""
+
+    sql = (Path(__file__).resolve().parents[1] / "migrations" / "204_write_provenance.sql").read_text(encoding="utf-8")
+    lineage = sql.split("CREATE TABLE error_event_lineage", 1)[1].split("ALTER TABLE question_events", 1)[0]
+    connection = sqlite3.connect(":memory:")
+    connection.executescript("CREATE TABLE error_event_lineage" + lineage)
+    connection.execute("CREATE TABLE error_events (id TEXT PRIMARY KEY)")
+    connection.execute("INSERT INTO error_events(id) VALUES ('kept')")
+    assert _wp().record_error_event_lineage(connection, attempt_id="att", replaced=["gone", "kept"],
+                                            reminted=["kept"]) == 1
+    assert _wp().record_error_event_lineage(connection, attempt_id="att", replaced=["gone"], reminted=[]) == 0
+    assert connection.execute("SELECT error_event_id, replaces_error_event_id FROM error_event_lineage").fetchall() \
+        == [(None, "gone")]
+    assert _wp().current_error_event_ids(connection, ["gone", "kept"]) == {"gone": (), "kept": ("kept",)}
+
+
+# -- F5: the kill switch is the predecessor's serving, and replay never reads either -------------
+
+
+def test_f5_every_defaults_snapshot_records_the_switch_on():
+    """Each recorded snapshot moves only because the effective config gains
+    the switch (default on); none records it off."""
+
+    import tomllib
+
+    from learnloop.algorithm_versions import SUCCESSOR_CHAIN
+    from learnloop.config.schema import LearnLoopConfig
+    from learnloop.config.template import (
+        DEFAULTS_SNAPSHOT_BY_ALGORITHM,
+        default_config_text,
+        defaults_fingerprint_for_version,
+    )
+
+    for version in SUCCESSOR_CHAIN:
+        assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
+        config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
+        assert config.diagnosis.chat_shows_recorded_text is True, version
+
+
+def test_f5_the_switch_off_is_the_narrow_rule_exactly(world):
+    """Off, the read model is C1a's narrow rule field for field: the same
+    payload as reading with no write-time record at all (C1a's only source,
+    ``no_write_provenance``), although the records exist."""
+
+    from learnloop.learner_context import no_write_provenance
+
+    _diagnose(world, "dg_parity", "The learner drops the sign.", _own_reads())
+    _misconception_from(world, "mc_parity", "Thinks the sign never changes", attempt_id="att_own",
+                        diagnosis_id="dg_parity")
+    _solve_pi_own(world)
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+
+    moment = _datetime(2026, 10, 1, 12, 0, tzinfo=_UTC)
+    key = b"parity-alias-key"
+    shown = _context(world.root, world.repository, now=moment, alias_key=key)
+    assert _belief(shown, "mc_parity")["statement"] == "Thinks the sign never changes"
+    narrow = _context(world.root, world.repository, now=moment, alias_key=key, provenance=no_write_provenance)
+    config = world.root / "learnloop.toml"
+    config.write_text(config.read_text(encoding="utf-8") + "\n[diagnosis]\nchat_shows_recorded_text = false\n",
+                      encoding="utf-8")
+    off = _context(world.root, world.repository, now=moment, alias_key=key)
+    assert json.dumps(off, sort_keys=True, default=str) == json.dumps(narrow, sort_keys=True, default=str)
+    assert _belief(off, "mc_parity")["statement"] is None
+
+
+def test_f5_replay_never_reads_the_switch_or_the_records(tmp_path, monkeypatch):
+    """A rebuild with the switch on and one with it off leave every DERIVED
+    table the same; and an idempotent rebuild neither reads nor writes a
+    write-time record (a materialized cause's record is built only when a new
+    version is appended)."""
+
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+
+    import learnloop.db.stores.write_provenance as store_module
+    from learnloop.clock import FrozenClock
+    from learnloop.db.connection import connect
+    from learnloop.db.table_roles import TableRole, tables_for_role
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    client = ProvenanceFake()
+    submit(vault, repository, client, answer=SVD_WRONG, when=at(1))
+    drain_jobs(vault, repository, client)
+    submit(vault, repository, client, answer=SVD_RIGHT, when=at(2))
+    clock = FrozenClock(_datetime(2026, 10, 14, 12, 0, tzinfo=_UTC))
+    derived = sorted(tables_for_role(TableRole.DERIVED))
+
+    def snapshot():
+        with connect(repository.sqlite_path, read_only=True) as connection:
+            return {table: sorted(tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"'))
+                    for table in derived}
+
+    rebuild_all_derived_state(load_vault(paths.root), repository, clock=clock)
+    switched_on = snapshot()
+    records = _rows(repository)
+    assert records
+
+    def refuse(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("replay read a write-time record")
+
+    for name in ("stored_record", "closure", "grading_record", "fold_topic_records", "record_text_write"):
+        monkeypatch.setattr(store_module, name, refuse)
+    append = (paths.root / "learnloop.toml")
+    append.write_text(append.read_text(encoding="utf-8") + "\n[diagnosis]\nchat_shows_recorded_text = false\n",
+                      encoding="utf-8")
+    rebuild_all_derived_state(load_vault(paths.root), repository, clock=clock)
+    assert snapshot() == switched_on
+    monkeypatch.undo()
+    assert _rows(repository) == records

@@ -57,9 +57,13 @@ class DiagnosisOutcome:
     latency_seconds: float | None = None
     context_hash: str | None = None
     prompt_tokens: int | None = None
-    #: What the diagnoser read (``provenance.DiagnosisReads``), recorded with
-    #: the diagnosis (diagnosis input provenance); None when nothing was sent.
+    #: What the diagnoser read (``provenance.DiagnosisReads``); None when
+    #: nothing was sent.
     reads: Any = None
+    #: Its closed record (``write_provenance.WriteRecord``), frozen when the
+    #: context (and the snapshot export) was built, before the diagnoser ran
+    #: (codex review F3); the diagnosis records exactly this.
+    record: Any = None
 
     @property
     def unknown_id_count(self) -> int:
@@ -134,6 +138,10 @@ def run_diagnosis(
                 )
                 outcome.receipt = dict(assembled.receipt)
                 outcome.context_hash = assembled.context_hash
+                from learnloop.diagnosis.split.provenance import frozen_record, snapshot_reads, snapshot_record
+
+                # What the context shows, frozen before the diagnoser runs (F3).
+                frozen = frozen_record(store, assembled.reads)
                 proposal, outcome.prompt_tokens = _call(client, assembled, guard=guard, workspace=manifest.root)
                 activity = getattr(client, "workspace_activity", None)
                 opened = activity() if callable(activity) else None
@@ -143,8 +151,9 @@ def run_diagnosis(
                     "opened_reported": opened is not None,
                 }
                 # The export entries the reported reads served, recorded with
-                # the diagnosis (never inferred from what it wrote).
-                from learnloop.diagnosis.split.provenance import served_entries, snapshot_reads
+                # the diagnosis (never inferred from what it wrote): their
+                # records as frozen when the export was written.
+                from learnloop.diagnosis.split.provenance import served_entries
 
                 how, served = served_entries(manifest.entries, opened)
                 # "whole" and "outside" serve every entry: the count, not the
@@ -155,6 +164,7 @@ def run_diagnosis(
                     "paths": list(served) if how == "entries" else [],
                 }
                 outcome.reads = assembled.reads.join(snapshot_reads(manifest.entries, opened))
+                outcome.record = frozen.join(snapshot_record(manifest.entries, opened))
                 validated = validate_diagnosis_proposal(
                     proposal,
                     assembled=assembled,
@@ -179,6 +189,10 @@ def run_diagnosis(
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash
             outcome.reads = assembled.reads
+            from learnloop.diagnosis.split.provenance import frozen_record
+
+            # What the context shows, frozen before the diagnoser runs (F3).
+            outcome.record = frozen_record(store, assembled.reads)
             proposal, outcome.prompt_tokens = _call(client, assembled, guard=guard, workspace=None)
             validated = validate_diagnosis_proposal(
                 proposal,

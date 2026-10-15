@@ -2374,7 +2374,9 @@ def materialize_causal_episode(
             **{key: value for key, value in spec.items() if key != "provenance_refs"},
             generation_agent_run_id=generation_agent_run_id,
             model=model,
-            provenance=_statement_provenance(repository, attempt_id, spec.get("provenance_refs")),
+            # Built only when a new version is appended (an idempotent
+            # replay re-append reads no write-time record).
+            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),
             provenance_writer="causal_materialization",
             clock=clock,
         )

@@ -254,9 +254,11 @@ def export_snapshot(
         DiagnosisReads,
         SnapshotEntries,
         attempt_read,
+        freeze_entries,
         hypothesis_read,
         registry_read,
         repair_read,
+        shown_titles,
     )
 
     served: dict[str, DiagnosisReads] = {}
@@ -276,7 +278,7 @@ def export_snapshot(
     for attempt in attempts:
         relative = f"attempts/{_safe(attempt.completed_at)}_{_safe(attempt.attempt_id)}.md"
         write(relative, render_attempt(attempt, titles.get(attempt.learning_object_id, attempt.learning_object_id)))
-        served[relative] = attempt_read(attempt)
+        served[relative] = attempt_read(attempt, title=titles.get(attempt.learning_object_id))
         index_topics.add(attempt.learning_object_id)
         facets.update(attempt.facets())
         index_lines.append(
@@ -316,7 +318,8 @@ def export_snapshot(
     graph_text, graph_facets = _render_graph(vault)
     facets.update(graph_facets)
     write("graph/learning_objects.md", graph_text)
-    served["graph/learning_objects.md"] = DiagnosisReads(topics=tuple(sorted(vault.learning_objects)))
+    served["graph/learning_objects.md"] = DiagnosisReads(topics=tuple(sorted(vault.learning_objects)),
+                                                         titles=shown_titles(vault, sorted(vault.learning_objects)))
     index_lines += ["", "## Graph", "", "- graph/learning_objects.md", ""]
     write("INDEX.md", "\n".join(index_lines))
     served["INDEX.md"] = DiagnosisReads(topics=tuple(sorted(value for value in index_topics if value)))
@@ -339,7 +342,8 @@ def export_snapshot(
         known=known,
         as_of_attempt_id=before.attempt_id,
         attempt_count=len(attempts),
-        entries=SnapshotEntries(root=destination, entries=served),
+        # Each file's record frozen now, before the diagnoser opens any (F3).
+        entries=SnapshotEntries(root=destination, entries=served, records=freeze_entries(store, served)),
     )
 
 

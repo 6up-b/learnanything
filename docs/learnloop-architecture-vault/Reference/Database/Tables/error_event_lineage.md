@@ -3,8 +3,8 @@ title: "error_event_lineage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
-source_commit_timestamp: "2026-10-15T08:59:58-04:00"
+source_commit: "34d6b8abe8dab41be984e99c7d153bc1c7b0167e"
+source_commit_timestamp: "2026-10-15T11:06:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_event_lineage"
@@ -54,7 +54,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 |---|---|---:|---|---|---|
 | `id` | `TEXT` | no | — | PRIMARY KEY | Stored value |
 | `attempt_id` | `TEXT` | yes | — | — | Application-validated soft reference |
-| `error_event_id` | `TEXT` | yes | — | — | Application-validated soft reference |
+| `error_event_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `replaces_error_event_id` | `TEXT` | yes | — | — | Application-validated soft reference |
 | `reason` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
@@ -66,6 +66,7 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 Indexes and uniqueness:
 
 - `idx_error_event_lineage_attempt` on `attempt_id`, `created_at`.
+- `idx_error_event_lineage_retired` on `replaces_error_event_id` (unique).
 - `idx_error_event_lineage_replaced` on `replaces_error_event_id`.
 - `sqlite_autoindex_error_event_lineage_2` on `error_event_id`, `replaces_error_event_id` (unique).
 - `sqlite_autoindex_error_event_lineage_1` on `id` (unique).
@@ -118,7 +119,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE error_event_lineage (
   id TEXT PRIMARY KEY,
   attempt_id TEXT NOT NULL,
-  error_event_id TEXT NOT NULL,
+  error_event_id TEXT,
   replaces_error_event_id TEXT NOT NULL,
   reason TEXT NOT NULL CHECK (reason IN ('regrade')),
   created_at TEXT NOT NULL,

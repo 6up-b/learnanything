@@ -7,6 +7,9 @@ reference). **Migration:** 204. **Spec:** [spec_mcp_frontend_c1.md](../specs/spe
 §4.6, §4.7 rule 1 (c) and §4.8 (rewritten as built).
 **Earlier records:** [mcp-c1a-narrow.md](mcp-c1a-narrow.md) (the narrow rule and the queued follow-up),
 [mcp-c1a-narrow-codex-review.md](mcp-c1a-narrow-codex-review.md).
+**Codex review:** [diagnosis-input-provenance-codex-review.md](diagnosis-input-provenance-codex-review.md)
+(F1–F4 fixed, F5 fixed in part; this record is annotated in italics where the review showed a claim did
+not hold).
 
 ## Why: the owner's decision (2026-10-14, "land narrow, then fix source")
 
@@ -47,8 +50,8 @@ no longer matches the text as stored (a writer that recorded nothing rewrote it)
 | Blind grader (live, regrade) | `grading` | The answer under its pinned contract, the item (question, rubric, reference solution), its topic | `attempts/attempts.py` (`_complete_blind_graded_attempt`), `attempts/regrade.py` |
 | Joint grader | `grading` | The same plus the prior answers it was shown (C4). **Q14:** the grade, the Phase-C receipt and this record commit in one transaction | `attempts/attempts.py` (`_complete_joint_graded_attempt`, `_record_diagnostic_augmentation`) |
 | An older grading (no row) | — | Accounted for by its own ledger: a blind record (learner-blind by construction), a model-free grade (no grader text), a joint grade with a C4 receipt; a joint model grade without one is **incomplete** | `write_provenance.grading_record` |
-| Diagnoser | `diagnosis` | Every attempt its context showed (with the grading folded in, and the item's solution counted as read, when a grader's output about it was shown), the diagnosed item's rubric and reference solution, the neighbourhood's topics, every prior hypothesis, registry statement, repair and unresolved-cause factor read (their records folded in, each checked against the text it showed) | `diagnosis/split/provenance.py`, `context.py`, `diagnoser.py`, `jobs.py` (`_persist` → `record_diagnosis_reads`, in the diagnosis's transaction, built before the row) |
-| Diagnoser, snapshot mode | `diagnosis` | The export entries the transport's reported reads served: a plain read (`cat`, `head`, `tail`, `sed -n` with a print-only script, `nl`, `less`, `more`, `wc`) serves its file; `ls`/`cd`/`pwd` names only (export file names are opaque ids); any other report (a search, a glob, a pipe, a script, another `sed` script, a turn item the transport could not read) counts as the **whole export**; a path outside the export, or no report at all, makes the record **incomplete**. The receipt keeps what was served (`snapshot.served`) | `provenance.snapshot_reads`, `served_entries`; `snapshot.py` (each export file's entry) |
+| Diagnoser | `diagnosis` | Every attempt its context showed (with the grading folded in, and the item's solution counted as read, when a grader's output about it was shown), the diagnosed item's rubric and reference solution, the neighbourhood's topics, every prior hypothesis, registry statement, repair and unresolved-cause factor read (their records folded in, each checked against the text it showed). *Codex review F3: the record was closed at persistence, after the model ran, so a regrade meanwhile could certify a grading the diagnoser never saw. It is now frozen when the context is built (`provenance.frozen_record`), with each grading's mark checked against what the history store read. F2: a generated topic's record is folded only when it covers the title the context showed* | `diagnosis/split/provenance.py`, `context.py`, `diagnoser.py`, `jobs.py` (`_persist` → `record_diagnosis_reads`, in the diagnosis's transaction, the record frozen before the model call) |
+| Diagnoser, snapshot mode | `diagnosis` | The export entries the transport's reported reads served: a plain read (`cat`, `head`, `tail`, `sed -n` with a print-only script, `nl`, `less`, `more`, `wc`) serves its file; `ls`/`cd`/`pwd` names only (export file names are opaque ids); any other report (a search, a glob, a pipe, a script, another `sed` script, a turn item the transport could not read) counts as the **whole export**; a path outside the export, or no report at all, makes the record **incomplete**. The receipt keeps what was served (`snapshot.served`). *Codex review F1: a single `&` slipped through (`ls & cat <file>` counted as names only). Only one strictly validated simple command is accounted for now (`provenance.simple_command`: no shell syntax outside single quotes), with output-only options; anything else counts as the whole export* | `provenance.snapshot_reads`, `served_entries`, `snapshot_record`; `snapshot.py` (each export file's entry and its record, frozen when written) |
 | Hypothesis materialization | `hypothesis` | The attempt's grading and the diagnosis whose causal view lies over the event; a factor's candidate: every completed diagnosis of the attempt | `causal_attribution._statement_provenance` |
 | A hypothesis version keeping its head's statement | `hypothesis` | The head's record, carried forward | `Repository.append_causal_hypothesis` |
 | Candidates: error hunt, gap reader, a confirmed factor | `candidate` | The hunt's grading (the grading in progress, `grading_in_progress`), the reading's writer, the factor's attempt | `error_hunt.py`, `text_gaps/actions.py`, `causal_attribution.py` |
@@ -56,12 +59,14 @@ no longer matches the text as stored (a writer that recorded nothing rewrote it)
 | Correction frozen from facet claims | `misconception_correction` | The topic and the source refs the facets were authored from | `misconceptions._promotion_provenance` |
 | A rewritten statement or correction | same | Its own record when the caller passes one (`statement_provenance`); otherwise the hash check holds the text back | `Repository.update_misconception` |
 | Gap reader, a question's words | `learner_text_gap` | The question with its contract (Q10), its item, the attempt it was asked during, a Reader question's passage and, when the learner could have seen the solution first (a feedback question, or a reveal of the item before it), the solution and the grading | `text_gaps/provenance.question_record`, `pipeline._record_written_texts` |
-| Prerequisite drafter | `learning_object` | The reading's writer, the learner text and its context, the asking topic, and the concept titles of the subject it was shown (kept in the job's progress, so a resumed creation records the same) | `text_gaps/provenance.drafter_record`, `pipeline._create` |
+| Prerequisite drafter | `learning_object` | The reading's writer, the learner text and its context, the asking topic, and the concept titles of the subject it was shown (kept in the job's progress, so a resumed creation records the same). *Codex review F2: each generated topic's record is folded only when it covers the name the drafter was shown (a concept title, the asking topic's title, the named prerequisite); the record is built before the draft call* | `text_gaps/provenance.drafter_record`, `pipeline._create` |
 | Seeded item | `practice_item` | The drafter's record plus the tutor's (incomplete, below) | `pipeline._record_written_texts` |
 | A tutor question's reading (belief statement, prerequisite name) | — | **Incomplete:** the tutor's own inputs (thread, expected answer, feedback, passages) are not recorded yet | `text_gaps/provenance.reading_record` |
 
 **Q9:** `error_event_lineage` (RAW_LEDGER, append-only): a regrade's re-minted error events record every id they
-replace, in the regrade's transaction. `current_error_event_ids` resolves a listed id to the events that stand for
+replace, in the regrade's transaction. *Codex review F4: a regrade that found no error minted nothing, so
+nothing was recorded and the retired ids lost their answer. Each retired id is now recorded with no
+replacement (`error_event_id` NULL, "no current error"; `retired_error_event_ids`).* `current_error_event_ids` resolves a listed id to the events that stand for
 it now, and the diagnosis history (`VaultHistoryStore`) resolves a replaced id to its answer, so a belief listing
 it keeps its source attempt. **Q10:** `question_events.assessment_contract_version_id`: the tutor names the item as
 presented mid-attempt (`snapshot_for_presentation`, content-addressed); for a question about a graded attempt the
@@ -91,6 +96,12 @@ The kill switch `diagnosis.chat_shows_recorded_text` (on) puts back the narrow r
 `docs/algorithm-change-playbook.md` governs changes to persisted meaning (scoring, scheduling, projections).
 None changes here, so there is no algorithm successor:
 
+*Codex review F5: "only a read-model change" does not by itself answer handoff §0 rule 5 ("a change to what
+is served is an algorithm successor with a kill switch"). The successor is rejected under the owner's
+standing ruling (live changes behind kill switches, not successors, for serving changes replay never reads),
+as for plan determinism, exam protection and the reading step; the review step added the validation the
+ruling requires: switch-off parity with C1a's code, shadow rebuilds, and replay tests. See the review record.*
+
 - **Grading.** The graders' prompts, contexts and output handling are unchanged, and a successful grading
   writes the same rows as before, plus one `text_write_provenance` row. Q14 changes only a failure path. A
   Phase-C receipt that could not be written used to be swallowed after the grade had committed, leaving a
@@ -98,7 +109,11 @@ None changes here, so there is no algorithm successor:
   self-grade, as for any grading failure) commits instead. That boundary was `pragma: no cover`; no receipt
   failure is on record.
 - **Scoring, scheduling, replay.** Both new tables are RAW_LEDGER. Replay never reads or clears them (the
-  table-role tests pin this). `error_event_lineage` is written after the regrade's replay, in its
+  table-role tests pin this). *Codex review: not as built. Replay re-materializes causal episodes, and
+  `materialize_causal_episode` built each hypothesis's record before the identical-version check, so a
+  rebuild read the records (it wrote none). The record is now built only when a new version is appended:
+  an idempotent rebuild neither reads nor writes one (`test_f5_replay_never_reads_the_switch_or_the_records`);
+  a regrade's replay that appends a changed version records it, as any writer does.* `error_event_lineage` is written after the regrade's replay, in its
   transaction. Only the diagnosis history reads it, to name a belief's source attempt where a replaced id
   used to resolve to nothing. That changes what a later diagnosis context can name, not any score or
   schedule.

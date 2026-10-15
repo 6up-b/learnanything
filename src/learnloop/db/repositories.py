@@ -14693,7 +14693,9 @@ class Repository(
         a new version, exactly like a changed statement would.
 
         Diagnosis input provenance: ``provenance`` (a
-        ``db.stores.write_provenance.WriteRecord``) is what the statement was
+        ``db.stores.write_provenance.WriteRecord``, or a function returning
+        one, called only when a new version is appended, so an identical
+        re-append, as on replay, reads no record) is what the statement was
         written from, recorded with the version in its transaction. Without
         one, a version that keeps its head's statement carries the head's
         record forward (the statement was copied from it); any other version
@@ -14738,6 +14740,8 @@ class Repository(
             latest.get(key) == value for key, value in semantic.items()
         ):
             return latest
+        if callable(provenance):
+            provenance = provenance()
         version = int(latest.get("version") or 0) + 1 if latest is not None else 1
         hypothesis_id = hypothesis_id or new_ulid()
         with self.connection() as connection:

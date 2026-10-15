@@ -415,37 +415,41 @@ def _persist(
     diagnosis_id: str,
     values: dict[str, Any],
     clock: Clock | None,
-    reads: Any = None,
+    record: Any = None,
 ) -> str:
     """Write the diagnosis + receipt only while this worker still owns the job.
 
     A diagnosis with a summary records, in the same transaction, what its
-    context showed the diagnoser (``reads``: diagnosis input provenance,
-    ``provenance.diagnosis_record``); the record is built before the row is
-    written, so it never names the diagnosis it belongs to."""
+    context showed the diagnoser (``record``: diagnosis input provenance,
+    frozen when the context was built, ``provenance.frozen_record``); it
+    never names the diagnosis it belongs to."""
 
     with repository.atomic():
         if not repository.owns_post_attempt_job(str(job["id"]), epoch=int(job["lease_epoch"])):
             raise _LeaseLost(str(job["id"]))
         record_diagnosis_reads(repository, diagnosis_id=diagnosis_id, proposal=values.get("proposal"),
-                               reads=reads, clock=clock)
+                               record=record, clock=clock)
         return repository.insert_attempt_diagnosis(diagnosis_id=diagnosis_id, clock=clock, **values)
 
 
 def record_diagnosis_reads(repository: Repository, *, diagnosis_id: str, proposal: Mapping[str, Any] | None,
-                           reads: Any, clock: Clock | None = None) -> str | None:
+                           record: Any = None, reads: Any = None, clock: Clock | None = None) -> str | None:
     """Record what a diagnosis read (its write-time provenance), on the
     repository's current connection: inside the transaction that writes the
-    diagnosis. Nothing when it wrote no summary (no proposal)."""
+    diagnosis. ``record`` is the closed record frozen when its context was
+    built (codex review F3: a later regrade never replaces what was shown);
+    ``reads`` (``provenance.DiagnosisReads``) is closed now instead, for a
+    writer whose context was built just now. Nothing when it wrote no
+    summary (no proposal)."""
 
     if proposal is None:
         return None
     from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
-    from learnloop.diagnosis.split.provenance import diagnosis_record
+    from learnloop.diagnosis.split.provenance import NOT_FROZEN, diagnosis_record
 
     with repository.connection() as connection:
-        record = (diagnosis_record(connection, reads) if reads is not None
-                  else WriteRecord.incomplete("the diagnosis context's reads were not captured"))
+        if not isinstance(record, WriteRecord):
+            record = diagnosis_record(connection, reads) if reads is not None else WriteRecord.incomplete(NOT_FROZEN)
         row_id = record_text_write(connection, kind="diagnosis", record_id=diagnosis_id,
                                    text=str((proposal or {}).get("analysis_md") or ""), writer="diagnoser",
                                    record=record, clock=clock)
@@ -957,7 +961,7 @@ def _diagnose(
         "receipt": _receipt_for_storage(result) if result.receipt else None,
         "error": result.error,
         "latency_seconds": round(time.monotonic() - started, 3),
-    }, clock=clock, reads=result.reads)
+    }, clock=clock, record=result.record)
     return repository.attempt_diagnosis(row_id)
 
 

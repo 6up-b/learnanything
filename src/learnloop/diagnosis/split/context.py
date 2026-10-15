@@ -818,7 +818,7 @@ def assemble_diagnosis_context(
         hypothesis_ids=[record.id for record in hypothesis_rows],
         registry_candidate_ids=[record.id for record in registry_rows],
     )
-    from learnloop.diagnosis.split.provenance import reads_of_context
+    from learnloop.diagnosis.split.provenance import reads_of_context, shown_titles
 
     reads = reads_of_context(
         current_attempt_id=current.attempt_id,
@@ -829,6 +829,8 @@ def assemble_diagnosis_context(
         hypotheses=hypothesis_rows,
         registry=registry_rows,
         repairs=repairs,
+        # The neighbourhood block names each topic by its title (codex review F2).
+        titles=shown_titles(vault, [entry["learning_object_id"] for entry in neighborhood_block["learning_objects"]]),
     )
     return AssembledContext(
         mode=mode,

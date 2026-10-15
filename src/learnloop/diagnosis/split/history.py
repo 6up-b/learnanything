@@ -651,6 +651,9 @@ class VaultHistoryStore:
         self._by_id: dict[str, HistoryAttempt] = {}
         self._order: dict[str, tuple[str, str]] = {}
         self._error_event_attempt: dict[str, str] = {}
+        #: Each attempt's grading as this store read it (diagnosis input
+        #: provenance, codex review F3: ``write_provenance.grading_mark``).
+        self._grading_marks: dict[str, str] = {}
         #: Every hypothesis record (every causal-hypothesis VERSION) with the
         #: instant it was written; the as-of view is chosen per cutoff.
         self._hypotheses: list[_Written] = []
@@ -677,10 +680,13 @@ class VaultHistoryStore:
             #: Attempts with a PF-c unverified criterion row (review F4): those
             #: rows are neither failures nor passes in the history.
             unassessed_attempts: set[str] = set()
+            evidence_ids: dict[str, list[str]] = {}
+            event_ids: dict[str, list[str]] = {}
             for row in connection.execute(
-                "SELECT attempt_id, criterion_id, points_awarded, attribution_json FROM grading_evidence "
+                "SELECT attempt_id, criterion_id, points_awarded, attribution_json, id FROM grading_evidence "
                 "WHERE superseded_at IS NULL ORDER BY created_at, criterion_id"
             ):
+                evidence_ids.setdefault(str(row[0]), []).append(str(row[4]))
                 if row[3] and UNVERIFIED_CRITERION_BLOCK in str(row[3]) and unverified_evidence_row(row[3]):
                     unassessed_attempts.add(str(row[0]))
                     continue
@@ -693,12 +699,19 @@ class VaultHistoryStore:
                 if row[1] is None:
                     continue
                 self._error_event_attempt[str(row[0])] = str(row[1])
+                event_ids.setdefault(str(row[1]), []).append(str(row[0]))
                 events.setdefault(str(row[1]), []).append(
                     {"error_type": str(row[2]), "repair_plan": _decode_json(row[3], {}) or {}}
                 )
-            # Q9: an event a regrade re-minted still names its attempt, so a
-            # belief that lists it keeps its source answer.
-            from learnloop.db.stores.write_provenance import replaced_error_event_attempts
+            # What each grading shown here was, from the very rows read (F3).
+            from learnloop.db.stores.write_provenance import grading_mark, replaced_error_event_attempts
+
+            self._grading_marks = {
+                attempt: grading_mark(evidence_ids.get(attempt, ()), event_ids.get(attempt, ()))
+                for attempt in set(evidence_ids) | set(event_ids)
+            }
+            # Q9: an event a regrade retired (re-minted or not) still names
+            # its attempt, so a belief that lists it keeps its source answer.
 
             for replaced, attempt_id in replaced_error_event_attempts(connection).items():
                 self._error_event_attempt.setdefault(replaced, attempt_id)
@@ -1098,6 +1111,15 @@ class VaultHistoryStore:
     def all_attempts(self) -> list[HistoryAttempt]:
         self._load()
         return list(self._attempts)
+
+    def grading_marks(self) -> dict[str, str]:
+        """Each attempt's grading as this store read it (its current evidence
+        and error events, ``write_provenance.grading_mark``): what a context
+        built from this store showed, so a record frozen later can tell a
+        grading replaced since (diagnosis input provenance, codex review F3)."""
+
+        self._load()
+        return dict(self._grading_marks)
 
     def attempts_before(
         self, before: AttemptRef, learning_object_ids: Sequence[str] | None = None

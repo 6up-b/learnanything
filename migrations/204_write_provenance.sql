@@ -22,7 +22,10 @@
 --
 -- error_event_lineage (RAW_LEDGER, append-only; Q9): a regrade re-mints the
 -- attempt's error events; each re-minted event records the ids it replaces,
--- so a belief that lists a replaced event stays resolvable.
+-- so a belief that lists a replaced event stays resolvable. A regrade that
+-- leaves the answer with no error retires its events with no replacement:
+-- one row per retired id with error_event_id NULL (the explicit "no current
+-- error"), so the retired id still names its attempt.
 --
 -- question_events.assessment_contract_version_id (Q10): the item contract
 -- (revision) a learner question was asked about, recorded when the question
@@ -64,7 +67,7 @@ END;
 CREATE TABLE error_event_lineage (
   id TEXT PRIMARY KEY,
   attempt_id TEXT NOT NULL,
-  error_event_id TEXT NOT NULL,
+  error_event_id TEXT,
   replaces_error_event_id TEXT NOT NULL,
   reason TEXT NOT NULL CHECK (reason IN ('regrade')),
   created_at TEXT NOT NULL,
@@ -73,6 +76,8 @@ CREATE TABLE error_event_lineage (
 
 CREATE INDEX idx_error_event_lineage_replaced
   ON error_event_lineage(replaces_error_event_id);
+CREATE UNIQUE INDEX idx_error_event_lineage_retired
+  ON error_event_lineage(replaces_error_event_id) WHERE error_event_id IS NULL;
 CREATE INDEX idx_error_event_lineage_attempt
   ON error_event_lineage(attempt_id, created_at);
 

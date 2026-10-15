@@ -138,17 +138,28 @@ def drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subj
                    shown_concept_titles: Iterable[str] = ()) -> WriteRecord:
     """What the prerequisite drafter read: the reading, the learner text and
     its context, the asking topic, and the topics whose concept titles it was
-    shown (``shown_concept_titles``)."""
+    shown (``shown_concept_titles``). Each topic's record is folded only when
+    it covers the name the drafter was shown it by (codex review F2): the
+    asking topic's title, the named prerequisite (the reading's first ref,
+    by the reading's name for it), and each concept title of the subject."""
 
     titles = set(shown_concept_titles)
-    shown = sorted(
-        lo_id for lo_id, lo in (getattr(vault, "learning_objects", None) or {}).items()
-        if subject_id in (lo.subjects or ()) and lo.concept in vault.concepts
-        and vault.concepts[lo.concept].title in titles
-    )
+    los = getattr(vault, "learning_objects", None) or {}
+    shown_names: dict[str, list[str]] = {}
+    for lo_id, lo in los.items():
+        if subject_id in (lo.subjects or ()) and lo.concept in vault.concepts \
+                and vault.concepts[lo.concept].title in titles:
+            shown_names.setdefault(str(lo_id), []).append(str(vault.concepts[lo.concept].title))
+    anchor = los.get(str(getattr(text, "anchor", None) or ""))
+    if anchor is not None:
+        shown_names.setdefault(str(anchor.id), []).append(str(anchor.title))
+    refs = tuple(getattr(reading, "prerequisite_refs", ()) or ()) if reading is not None else ()
+    named = getattr(reading, "prerequisite_name", None) if reading is not None else None
+    if refs and named is not None:
+        shown_names.setdefault(str(refs[0]), []).append(str(named))
     record = reading_record(connection, text, reading).with_inputs(
-        Inputs.of(topics=[*(text.anchor_learning_object_ids or ()), *shown]))
-    return fold_topic_records(connection, record)
+        Inputs.of(topics=[*(text.anchor_learning_object_ids or ()), *sorted(shown_names)]))
+    return fold_topic_records(connection, record, titles=shown_names)
 
 
 __all__ = [

@@ -557,6 +557,14 @@ def _create(
                 if subject_id in lo.subjects and lo.concept in vault.concepts
             })[:40],
         }
+        from learnloop.diagnosis.text_gaps.provenance import drafter_record
+
+        # Diagnosis input provenance: what the drafter is shown, frozen before
+        # it runs (codex review F3) and kept with the draft, so a resumed
+        # creation records the same.
+        with repository.connection() as connection:
+            provenance = drafter_record(connection, vault, text, reading, subject_id=subject_id,
+                                        shown_concept_titles=context["concepts_in_subject"])
         try:
             draft = draft_prerequisite(budget, drafter, context)
         except (SpendLimitExceeded, AIInterrupted) as exc:
@@ -564,13 +572,6 @@ def _create(
         except Exception as exc:  # noqa: BLE001
             detail["reason"] = f"draft_failed: {type(exc).__name__}"
             return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
-        from learnloop.diagnosis.text_gaps.provenance import drafter_record
-
-        # Diagnosis input provenance: what the drafter was shown, recorded
-        # with the draft so a resumed creation records the same.
-        with repository.connection() as connection:
-            provenance = drafter_record(connection, vault, text, reading, subject_id=subject_id,
-                                        shown_concept_titles=context["concepts_in_subject"])
         # Recorded BEFORE anything is written: a retry reuses the draft and
         # the ids derived from it and this text (F3).
         created = {**actions.creation_ids(text, draft, dependent_lo=text.anchor), "subject_id": subject_id,

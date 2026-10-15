@@ -82,6 +82,9 @@ KINDS: tuple[str, ...] = (*TEXT_KINDS, GRADING)
 NO_RECORD = "no write-time record"
 TEXT_CHANGED = "the text was rewritten by a writer that recorded nothing"
 GRADING_UNRECORDED = "a grader's inputs were not recorded (graded before write-time provenance, no C4 receipt)"
+#: A generated topic's name as a writer was shown it is not the text its
+#: record covers (renamed since by a writer that recorded nothing; codex review F2).
+NAME_UNCOVERED = "the name the writer was shown is not the text its record covers"
 
 Ref = tuple[str, str]
 _CHUNK = 500
@@ -542,6 +545,41 @@ def record_grading(connection: Any, *, attempt_id: str, writer: str, shown_histo
     )
 
 
+# -- what a grading showed, as it stood (codex review F3) --------------------------------
+
+
+def grading_mark(evidence_ids: Iterable[Any], error_event_ids: Iterable[Any]) -> str:
+    """The identity of one attempt's grading as a reader saw it: its current
+    (unsuperseded) evidence rows and its error events. A regrade supersedes
+    the one and re-mints the other, so the mark changes with every grading."""
+
+    payload = json.dumps([sorted({str(value) for value in evidence_ids if value}),
+                          sorted({str(value) for value in error_event_ids if value})])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def grading_marks(connection: Any, attempt_ids: Iterable[Any]) -> dict[str, str]:
+    """``{attempt: grading_mark}`` for ``attempt_ids`` as they stand now."""
+
+    ids = sorted({str(value) for value in attempt_ids if value})
+    evidence: dict[str, list[str]] = {}
+    events: dict[str, list[str]] = {}
+    for start in range(0, len(ids), _CHUNK):
+        chunk = ids[start:start + _CHUNK]
+        if _table(connection, "grading_evidence"):
+            for attempt_id, row_id in connection.execute(
+                f"SELECT attempt_id, id FROM grading_evidence WHERE superseded_at IS NULL "
+                f"AND attempt_id IN ({_marks(chunk)})", chunk,
+            ):
+                evidence.setdefault(str(attempt_id), []).append(str(row_id))
+        if _table(connection, "error_events"):
+            for attempt_id, row_id in connection.execute(
+                f"SELECT attempt_id, id FROM error_events WHERE attempt_id IN ({_marks(chunk)})", chunk,
+            ):
+                events.setdefault(str(attempt_id), []).append(str(row_id))
+    return {attempt: grading_mark(evidence.get(attempt, ()), events.get(attempt, ())) for attempt in ids}
+
+
 # -- the closure -------------------------------------------------------------------------
 
 
@@ -594,12 +632,23 @@ def closure(connection: Any, refs: Iterable[Ref], *, texts: Mapping[Ref, Any] | 
     return joined
 
 
-def fold_topic_records(connection: Any, record: WriteRecord) -> WriteRecord:
+def fold_topic_records(connection: Any, record: WriteRecord, *,
+                       titles: Mapping[str, Iterable[Any]] | None = None) -> WriteRecord:
     """``record`` with the record of every topic it names that has one of its
     own folded in (a generated topic: its name was drafted, so a text that
     read it read what it was drafted from). A generated topic with no record
-    is left unfolded, and the chat read model holds back what read it."""
+    is left unfolded, and the chat read model holds back what read it.
 
+    ``titles`` (codex review F2): every name the writer was shown for a topic
+    (``{topic: (text, ...)}``, captured when its context was built). A
+    record covers one text, the name it was written for (the hash of the
+    latest row), so a topic shown under any other name (renamed since by a
+    writer that recorded nothing) folds in as incomplete. A topic the writer
+    read by id only has no entry and folds as it is: its id was minted from
+    the drafted name its record covers."""
+
+    shown = {str(topic): [str(text) for text in texts if text is not None]
+             for topic, texts in (titles or {}).items()}
     folded = {ref[1] for ref in record.derived_from if ref[0] == "learning_object"}
     while True:
         pending = sorted(topic for topic in record.inputs.topics if topic not in folded)
@@ -611,6 +660,8 @@ def fold_topic_records(connection: Any, record: WriteRecord) -> WriteRecord:
                 continue
             found = True
             part = stored.record
+            if any(text_sha256(text) != stored.text_sha256 for text in shown.get(topic, ())):
+                part = part.join(WriteRecord.incomplete(f"learning_object {topic}: {NAME_UNCOVERED}"))
             record = record.join(WriteRecord(part.inputs, part.complete, part.missing,
                                              (("learning_object", topic), *part.derived_from)))
         if not found:
@@ -622,17 +673,23 @@ def fold_topic_records(connection: Any, record: WriteRecord) -> WriteRecord:
 
 def record_error_event_lineage(connection: Any, *, attempt_id: str, replaced: Iterable[Any],
                                reminted: Iterable[Any], clock: Clock | None = None) -> int:
-    """Each event a regrade re-minted for ``attempt_id`` records every id it
-    replaces (the attempt's events before the regrade). Returns rows written."""
+    """Record what a regrade did to ``attempt_id``'s error events (Q9): every
+    event it retired (one of the attempt's events before the regrade that is
+    gone after it) is replaced by each event it minted, or, when it minted
+    none (codex review F4: the regrade found no error), by nothing: one row
+    with no ``error_event_id``, the explicit "no current error". Either way
+    the retired id keeps its attempt. Idempotent. Returns rows written."""
 
     if not _table(connection, "error_event_lineage"):
         return 0
-    old = sorted({str(value) for value in replaced if value})
-    new = sorted({str(value) for value in reminted if value} - set(old))
+    before = {str(value) for value in replaced if value}
+    after = {str(value) for value in reminted if value}
+    retired = sorted(before - after)
+    successors: list[str | None] = sorted(after - before) or [None]
     now = utc_now_iso(clock)
     written = 0
-    for event_id in new:
-        for replaced_id in old:
+    for replaced_id in retired:
+        for event_id in successors:
             cursor = connection.execute(
                 "INSERT OR IGNORE INTO error_event_lineage(id, attempt_id, error_event_id, replaces_error_event_id, "
                 "reason, created_at) VALUES (?, ?, ?, ?, 'regrade', ?)",
@@ -643,8 +700,9 @@ def record_error_event_lineage(connection: Any, *, attempt_id: str, replaced: It
 
 
 def replaced_error_event_attempts(connection: Any) -> dict[str, str]:
-    """``{replaced error-event id: its attempt}`` for every event a regrade
-    re-minted (Q9): a belief listing a replaced event still names its answer."""
+    """``{retired error-event id: its attempt}`` for every event a regrade
+    retired, re-minted or not (Q9): a belief listing one still names its
+    answer."""
 
     if not _table(connection, "error_event_lineage"):
         return {}
@@ -652,11 +710,28 @@ def replaced_error_event_attempts(connection: Any) -> dict[str, str]:
         "SELECT replaces_error_event_id, attempt_id FROM error_event_lineage ORDER BY created_at, id")}
 
 
+def retired_error_event_ids(connection: Any, event_ids: Iterable[Any]) -> frozenset[str]:
+    """The listed ids a regrade retired with no replacement: the answer they
+    belonged to has no error now (codex review F4)."""
+
+    ids = sorted({str(value) for value in event_ids if value})
+    if not ids or not _table(connection, "error_event_lineage"):
+        return frozenset()
+    found: set[str] = set()
+    for start in range(0, len(ids), _CHUNK):
+        chunk = ids[start:start + _CHUNK]
+        found.update(str(row[0]) for row in connection.execute(
+            f"SELECT replaces_error_event_id FROM error_event_lineage WHERE error_event_id IS NULL "
+            f"AND replaces_error_event_id IN ({_marks(chunk)})", chunk))
+    return frozenset(found)
+
+
 def current_error_event_ids(connection: Any, event_ids: Iterable[Any]) -> dict[str, tuple[str, ...]]:
     """``{listed id: the error events it stands for now}``: an event still on
     record stands for itself; a replaced one for the events that replaced it,
-    followed through every later regrade (Q9). An id nothing records maps to
-    ``()``."""
+    followed through every later regrade (Q9). An id retired with no
+    replacement (:func:`retired_error_event_ids`: no current error), and an
+    id nothing records, map to ``()``."""
 
     resolved: dict[str, tuple[str, ...]] = {}
     has_lineage = _table(connection, "error_event_lineage")
@@ -673,7 +748,7 @@ def current_error_event_ids(connection: Any, event_ids: Iterable[Any]) -> dict[s
             if has_lineage:
                 frontier.extend(str(row[0]) for row in connection.execute(
                     "SELECT error_event_id FROM error_event_lineage WHERE replaces_error_event_id = ? "
-                    "ORDER BY created_at, error_event_id", (current,)))
+                    "AND error_event_id IS NOT NULL ORDER BY created_at, error_event_id", (current,)))
         resolved[listed] = tuple(sorted(dict.fromkeys(found)))
     return resolved
 
@@ -682,6 +757,7 @@ __all__ = [
     "GRADING",
     "GRADING_UNRECORDED",
     "KINDS",
+    "NAME_UNCOVERED",
     "NO_RECORD",
     "PROVENANCE_VERSION",
     "TEXT_CHANGED",
@@ -698,12 +774,15 @@ __all__ = [
     "fold_topic_records",
     "grading_in_progress",
     "grading_inputs",
+    "grading_mark",
+    "grading_marks",
     "grading_record",
     "pinned_contract_ids",
     "record_error_event_lineage",
     "record_grading",
     "record_text_write",
     "replaced_error_event_attempts",
+    "retired_error_event_ids",
     "source_ref",
     "stored_record",
     "text_sha256",

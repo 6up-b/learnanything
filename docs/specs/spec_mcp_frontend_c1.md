@@ -285,11 +285,22 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
   contract; with its grading folded in when a grader's output about it was shown, and its item's rubric
   and reference solution counted as read), the diagnosed item's rubric and reference solution, the
   neighbourhood's topics, and every prior hypothesis, registry statement, repair and unresolved-cause
-  factor read (their records folded in). **The snapshot workspace:** the transport's reported reads are
-  mapped to the export entries they served (a plain read serves its file, `sed` only with a print script;
-  a listing names only; anything else, a turn item the transport could not read included, counts as the
-  whole export); no report, or a path outside the export, makes the record incomplete. The diagnosis's
-  context receipt keeps what was served (`snapshot.served`).
+  factor read (their records folded in). **Frozen when the context is built:** the record (contracts,
+  gradings, folded records) is closed when the context and the snapshot export are built, before the
+  diagnoser runs, and the diagnosis persists exactly that, so a regrade while it runs never replaces the
+  provenance of what it was shown; a grading replaced between the history's read and the freeze (its
+  evidence or error events changed) makes the record incomplete. **The snapshot workspace:** the
+  transport's reported reads are mapped to the export entries they served (one strictly validated simple
+  command of a plain reader with output-only options serves its file, `sed` only with one print command; a
+  listing names only; any shell control syntax, `&` included, any substitution, expansion, escape or line
+  break outside single quotes, a program that runs another, and anything else, a turn item the transport
+  could not read included, counts as the whole export); no report, or a path outside the export, makes
+  the record incomplete. The diagnosis's context receipt keeps what was served (`snapshot.served`).
+- **Generated topic names:** a generated topic's record covers the name it was drafted with. A writer that
+  was shown a topic's name (a diagnosis's neighbourhood titles, an exported attempt's topic, the export's
+  graph file, the drafter's concept titles, asking topic and named prerequisite) folds the topic's record
+  only when it covers that name; a name rewritten since by a writer that recorded nothing makes the record
+  incomplete. A topic read by id only folds as it is.
 - **Copy writers:** materialized hypotheses fold the attempt's grading and the diagnosis whose causal view
   lies over the event (a factor's candidate: every completed diagnosis of the attempt); a hypothesis
   version that keeps its head's statement carries the head's record; candidates (error hunts, the gap
@@ -301,8 +312,10 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
   drafter of a generated topic records the reading, the learner text and its context, the asking topic and
   the concept titles it was shown. A tutor question's reading is written by the tutor, whose inputs are not
   recorded yet: what it names (a belief, a drafted topic, a seeded item) is recorded incomplete.
-- **Q9:** a regrade's re-minted error events record the ids they replace (`error_event_lineage`), so a
-  belief listing a replaced event still resolves (`current_error_event_ids`; the diagnosis history reads it).
+- **Q9:** a regrade's re-minted error events record the ids they replace (`error_event_lineage`), and a
+  regrade that leaves no error records each retired id with no replacement (`error_event_id` NULL: "no
+  current error"), so a belief listing a retired event still names its answer (`current_error_event_ids`,
+  `retired_error_event_ids`; the diagnosis history reads it).
 - **Q10:** `question_events.assessment_contract_version_id`: the item as presented mid-attempt, or the
   graded attempt's pinned contract.
 - **What of an item a writer saw:** a rubric or reference solution read for an item the learner can still
