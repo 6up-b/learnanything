@@ -3,8 +3,8 @@ title: "source_unit_selections"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
-source_commit_timestamp: "2026-10-14T20:03:37-04:00"
+source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
+source_commit_timestamp: "2026-10-15T02:09:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_selections"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/facet_identity/authority.py"
+  - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/reread.py"
 tags:
@@ -108,6 +109,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/facet_identity/authority.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/exam_material.py`

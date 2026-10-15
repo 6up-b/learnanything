@@ -3,8 +3,8 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
-source_commit_timestamp: "2026-10-14T20:03:37-04:00"
+source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
+source_commit_timestamp: "2026-10-15T02:09:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
@@ -25,9 +25,9 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/reread.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +106,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
@@ -123,7 +124,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

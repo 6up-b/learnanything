@@ -3,8 +3,8 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
-source_commit_timestamp: "2026-10-14T20:03:37-04:00"
+source_commit: "5fb11639fbb87ef2602d4c347598b3eb3982aedf"
+source_commit_timestamp: "2026-10-15T02:09:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
@@ -28,9 +28,9 @@ source_paths:
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/reread.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -122,6 +122,7 @@ Database triggers:
 
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
@@ -139,7 +140,6 @@ Database triggers:
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -151,6 +151,7 @@ Database triggers:
 - `tests/test_exercise_arm.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_branches.py`
+- `tests/test_reread_safety.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_sources_merge_composition.py`
@@ -164,7 +165,6 @@ Database triggers:
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_reading_hardening_landing.py`
-- `tests/test_reread_safety.py`
 - `tests/test_sidecar_ingest_m3.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
