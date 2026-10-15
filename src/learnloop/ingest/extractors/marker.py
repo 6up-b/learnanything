@@ -11,6 +11,10 @@ ExtractionHealth. We do NOT re-derive structure from rendered markdown.
 
 ``chunk_output_to_ir`` is a pure function over plain dicts so adapter tests can
 hand-build FlatBlockOutput-shaped data without invoking marker inference.
+
+Marker itself runs in a worker process (``marker_worker``): it is inside
+pdfium all through a reading, and pdfium, which the Reader renders with in the
+sidecar's process, is not thread-safe.
 """
 
 from __future__ import annotations
@@ -18,7 +22,6 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import re
-from pathlib import Path
 from typing import Any
 
 from learnloop.ingest.block_roles import classify_block_role
@@ -384,40 +387,22 @@ class MarkerDocumentExtractor:
             raise MarkerUnavailableError(
                 "marker-pdf is not installed; use the pypdf fallback or install learnloop[pdf]"
             )
-        from learnloop.ingest.extractors.pypdf import read_embedded_outline
-
-        chunk_output = self._run_marker(raw_bytes, context)
-        return chunk_output_to_ir(
-            blocks=list(getattr(chunk_output, "blocks", [])),
-            metadata=dict(getattr(chunk_output, "metadata", {}) or {}),
-            page_info=dict(getattr(chunk_output, "page_info", {}) or {}),
-            extractor_version=self.version(),
-            embedded_outline=read_embedded_outline(raw_bytes),
-        )
-
-    def _run_marker(self, raw_bytes: bytes, context: ExtractionContext) -> Any:  # pragma: no cover - needs marker
-        import os
-        import tempfile
-
-        from marker.config.parser import ConfigParser
-        from marker.converters.pdf import PdfConverter
-        from marker.models import create_model_dict
+        # Marker enters pdfium all through a reading, and the Reader renders
+        # with pdfium in this process: so Marker reads in a worker process
+        # (marker_worker), which maps its chunks to the IR there.
+        from learnloop.ingest.extractors.marker_worker import run_marker
 
         options = _marker_runtime_options(self._config)
         if context.page_selection is not None:
             options["page_range"] = ",".join(str(page) for page in context.page_selection)
         torch_device = options.pop("torch_device", None)
-        if torch_device:
-            os.environ["TORCH_DEVICE"] = str(torch_device)
-        parser = ConfigParser(options)
-        converter = PdfConverter(
-            config=parser.generate_config_dict(),
-            artifact_dict=create_model_dict(),
-            processor_list=parser.get_processors(),
-            renderer=parser.get_renderer(),
-            llm_service=parser.get_llm_service(),
+        ir = run_marker(
+            "chunks",
+            raw_bytes,
+            options,
+            pages=len(context.page_selection) if context.page_selection is not None else None,
+            torch_device=torch_device,
+            extractor_version=self.version(),
+            interrupt=context.interrupt,
         )
-        with tempfile.TemporaryDirectory(prefix="learnloop-marker-") as tmp:
-            pdf_path = Path(tmp) / "source.pdf"
-            pdf_path.write_bytes(raw_bytes)
-            return converter(str(pdf_path))
+        return DocumentIR.model_validate(ir)

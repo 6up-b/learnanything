@@ -198,9 +198,11 @@ def extract_with_fallback(
             raise ExtractionFallbackFailed(
                 f"{extractor.name}: {exc}; {fallback.name} fallback: {fallback_exc}"
             ) from fallback_exc
-        flag = f"{extractor.name}_failed_{fallback.name}_fallback"
-        if flag not in ir.health.flags:
-            ir.health.flags.append(flag)
+        # The fallback, and what stopped the reading when it says so (Marker's
+        # worker crashed or ran out of time: marker_worker.MarkerWorkerError).
+        for flag in (f"{extractor.name}_failed_{fallback.name}_fallback", getattr(exc, "health_flag", None)):
+            if flag and flag not in ir.health.flags:
+                ir.health.flags.append(flag)
     # Why this extractor was chosen holds whichever read it in the end (a
     # local reading while the z.ai OK is missing stays offered an upgrade).
     reason = getattr(extractor, "selection_reason", None)

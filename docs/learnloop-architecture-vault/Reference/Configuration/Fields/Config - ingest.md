@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ddbdb51df610516f4ebd27b64b60505c8a0190ab"
-source_commit_timestamp: "2026-10-15T02:25:24-04:00"
+source_commit: "b9fcaf1212bd14cc71ad07193b427043d618cecf"
+source_commit_timestamp: "2026-10-15T05:55:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -36,12 +36,12 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/embedding_fakes.py"
   - "tests/helpers.py"
+  - "tests/marker_fakes.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
   - "tests/project_support.py"
   - "tests/recurrence_fakes.py"
   - "tests/router_mixture_helpers.py"
-  - "tests/router_model_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -82,13 +82,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `ingest.pdf.glm_ocr.max_pages_per_request` | `30` | integer | modeled default or validator seed | Largest page window per GLM-OCR request (1-30; the hosted service reads at most 30 pages). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:687`; `src/learnloop/params/parameter_registry.py:1408` |
 | `ingest.pdf.glm_ocr.price_per_million_tokens` | `0.03` | number | modeled default or validator seed | USD per million GLM-OCR tokens, input and output alike, for receipts, the automatic-build daily guard and import previews (3,500 tokens a page estimated); no per-file money cap. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:689`; `src/learnloop/params/parameter_registry.py:1408` |
 | `ingest.pdf.glm_ocr.base64_style` | `"data_uri"` | string | modeled default or validator seed | How the file is sent to the hosted API: a data URI (documented) or bare base64. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:691`; `src/learnloop/params/parameter_registry.py:1408` |
-| `ingest.pdf.torch_device` | `""` | string | modeled default or validator seed | Controls torch device in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:703`; `src/learnloop/content/sources/pdf_extraction.py:183` |
-| `ingest.pdf.force_ocr` | `false` | boolean | modeled default or validator seed | Turns force ocr behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:704`; `src/learnloop/content/sources/pdf_extraction.py:163` |
-| `ingest.pdf.use_llm` | `false` | boolean | modeled default or validator seed | Turns use language-model behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:705`; `src/learnloop/content/pipeline/acquisition_preview.py:201`; `src/learnloop/content/sources/pdf_extraction.py:165` |
+| `ingest.pdf.torch_device` | `""` | string | modeled default or validator seed | Controls torch device in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:703`; `src/learnloop/content/sources/pdf_extraction.py:186` |
+| `ingest.pdf.force_ocr` | `false` | boolean | modeled default or validator seed | Turns force ocr behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:704`; `src/learnloop/content/sources/pdf_extraction.py:161` |
+| `ingest.pdf.use_llm` | `false` | boolean | modeled default or validator seed | Turns use language-model behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:705`; `src/learnloop/content/pipeline/acquisition_preview.py:201`; `src/learnloop/content/sources/pdf_extraction.py:163` |
 | `ingest.pdf.llm_service` | `"marker.services.openai.OpenAIService"` | string | modeled default or validator seed | Controls language-model service in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:706`; `src/learnloop/cli/app.py:1235`; `src/learnloop/content/pipeline/acquisition_preview.py:205` |
-| `ingest.pdf.llm_base_url` | `""` | string | modeled default or validator seed | Controls language-model base url in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:707`; `src/learnloop/content/pipeline/acquisition_preview.py:206`; `src/learnloop/content/sources/pdf_extraction.py:169` |
-| `ingest.pdf.llm_model` | `""` | string | modeled default or validator seed | Selects the model implementation or model identifier used for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:708`; `src/learnloop/content/pipeline/acquisition_preview.py:207`; `src/learnloop/content/sources/pdf_extraction.py:171` |
-| `ingest.pdf.llm_api_key_env` | `"LEARNLOOP_PDF_LLM_API_KEY"` | string | modeled default or validator seed | Controls language-model API key env in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:709`; `src/learnloop/content/sources/pdf_extraction.py:173` |
+| `ingest.pdf.llm_base_url` | `""` | string | modeled default or validator seed | Controls language-model base url in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:707`; `src/learnloop/content/pipeline/acquisition_preview.py:206`; `src/learnloop/content/sources/pdf_extraction.py:167` |
+| `ingest.pdf.llm_model` | `""` | string | modeled default or validator seed | Selects the model implementation or model identifier used for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:708`; `src/learnloop/content/pipeline/acquisition_preview.py:207`; `src/learnloop/content/sources/pdf_extraction.py:169` |
+| `ingest.pdf.llm_api_key_env` | `"LEARNLOOP_PDF_LLM_API_KEY"` | string | modeled default or validator seed | Controls language-model API key env in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:709`; `src/learnloop/content/sources/pdf_extraction.py:171` |
 | `ingest.audio.provider` | `"openai_compatible"` | string | modeled default or validator seed | Controls provider in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **COMPAT** — Raw legacy selector retained for normalization; chat transcription routes through ai.routing.transcription. | `src/learnloop/config/schema.py:775`; `src/learnloop_sidecar/handlers/settings.py:180` |
 | `ingest.audio.mode` | `"transcription"` | string | modeled default or validator seed | Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the canonical_ingest chat provider, which must declare `audio` in its input modalities; other containers still take the transcription path). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:781`; `src/learnloop/ai/native_media.py:69`; `src/learnloop/content/pipeline/acquisition_preview.py:227` |
 | `ingest.audio.transcription_base_url` | `"https://api.openai.com/v1"` | string | modeled default or validator seed | Controls transcription base url in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:782`; `src/learnloop/content/pipeline/acquisition_preview.py:249`; `src/learnloop/ingest/transcription.py:80` |
@@ -138,12 +138,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/embedding_fakes.py`
 - `tests/helpers.py`
+- `tests/marker_fakes.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
 - `tests/project_support.py`
 - `tests/recurrence_fakes.py`
 - `tests/router_mixture_helpers.py`
-- `tests/router_model_fakes.py`
 
 ## Extension and modification guidance
 
