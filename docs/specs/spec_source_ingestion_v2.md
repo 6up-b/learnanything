@@ -272,9 +272,10 @@ but the import jobs that run GLM-OCR install neither) and its own
 input/output/cached tokens and cost at the configured price (an estimate
 labelled `estimated_usage_missing` when usage is absent; local runs cost 0).
 Provider errors keep the provider's code and message, never the key or the
-file. Redirects are refused. Import previews estimate **6,000 input+output
-tokens per page** (`ESTIMATED_TOKENS_PER_PAGE`); a link's page count is
-unknown until it is downloaded.
+file. Redirects are refused. Import previews estimate **3,500 input+output
+tokens per page** (`ESTIMATED_TOKENS_PER_PAGE`, from the live receipts of
+2026-10-14: books 2,765 and 3,052 a page, `docs/reviews/glm-ocr-quality.md`);
+a link's page count is unknown until it is downloaded.
 
 **Mapping.** Hosted regions (`label`, `native_label` when present, `content`,
 `bbox_2d` in pixels of z.ai's own page render, scaled by `data_info.pages` as
@@ -284,16 +285,44 @@ one `[[regions]]` per image) and the older flat/page-object shapes all map to
 the same IR. Boxes become **PDF points, top-left origin**, in the page's crop
 box after rotation — the space the Reader's PDF view draws in; images keep
 pixels. **IR pages stay zero-based** like Marker, pypdf, outlines and the
-Reader; API page ids are one-based. Titles (`doc_title`/`paragraph_title`, or
-a one-line `#` heading) become SectionHeader blocks and the section path;
-formulas keep or gain `$$` delimiters (`\tag{}` kept); HTML tables become GFM
-tables (spans repeated, pipes escaped) because the Reader renders no raw HTML;
-image regions are Figure blocks with no text (crop URLs are never fetched),
-`figure_title` a Caption block; algorithm regions are Code. Units come from the
-PDF's embedded outline when it has at least two entries (as for Marker), else
-from detected headings, split by block. An incomplete or unreadable layout
-fails rather than reading as empty. `version()` names backend, recognition
-model, layout model and mapping version, so caches re-extract when any moves;
+Reader; API page ids are one-based. HTML wrappers around titles and captions
+(`<div align="center">`) are unwrapped. Titles (`doc_title`/`paragraph_title`,
+or a one-line `#` heading) become SectionHeader blocks and the section path;
+the service marks every heading but the document title `##`, so the depth
+comes from the PDF outline when a bookmark names the heading (within two
+pages; a bookmark naming it whole, numbering and all, before one matching only
+without its numbering), else from its numbering ("2.1." under "2."), else one
+level under the last heading so placed; with an outline, numbering that would
+climb to the last bookmarked heading is a result's label and nests under it. A
+label number split by recognition ("1. 11 definition") is joined ("1.11") only
+where an environment word or the document's own numbering vouches for it (the
+label just before it numbered a little lower, the next one not at or below it,
+no list item beside it), so a list's "1. 5 people arrive." stays as read;
+currency dollars ("$1000", "$5 and $10", "$ 5 and $ 10", "$5 ($x$ each)") are
+escaped so they never pair as maths, real maths kept. Formulas keep or gain
+`$$` delimiters (`\tag{}` kept); HTML tables become GFM tables (spans repeated, pipes escaped)
+because the Reader renders no raw HTML; image regions are Figure blocks with no
+text (crop URLs are never fetched), `figure_title` a Caption block; algorithm
+regions are Code only when they hold code (otherwise the boxed result they are
+is Text). The service never returns footnote, page-furniture or
+equation-number regions: for a PDF with a text layer, footnotes (lines below
+their column's last region, set off from it, not page numbers or running lines
+(short lines in the top or bottom margin at the same height on two pages
+read), not already read) come back as Footnote blocks after the page's last
+block, and a display's "(n)" standing apart at its right becomes `\tag{n}`,
+never guessed between two (a formula of its own ending in brackets, "f(0)",
+still takes it; one whose recognised text ends with that number does not).
+pdfium is not thread-safe and the Reader renders with it in the sidecar, so
+the import's pdfium work (this text layer, a local server's page images) runs
+in a worker process. A scan (`glm_ocr_no_text_layer`, or
+`glm_ocr_text_layer_missing_on_some_pages`), a missing pypdfium2 or a worker
+that failed (`glm_ocr_text_layer_unavailable`) is recorded in health.
+Units come from the PDF's embedded outline when it has at least two entries
+(as for Marker), else from detected headings, split by block. An incomplete or
+unreadable layout fails rather than reading as empty. `version()` names
+backend, recognition model, layout model and mapping version (and
+`model_versions()` whether a text layer can be read), so caches re-extract
+when any moves;
 the endpoint, timeout, price and window settings are not part of the
 extraction request hash (they never change what is read). Under `auto`, a
 GLM-OCR failure (transport, a cut-off answer, an unrenderable page, an

@@ -11,8 +11,9 @@ recognition model:
 - ``local``: the open-source ``glmocr`` SDK's server (``python -m
   glmocr.server``, ``POST /glmocr/parse``) running its own layout model next to
   a vLLM / SGLang / Ollama recognition server. LearnLoop renders the selected
-  PDF pages to PNG (pypdfium2) because that server reads PDFs only from its own
-  filesystem.
+  PDF pages to PNG (pypdfium2, in a worker process: pdfium is not thread-safe
+  and the Reader uses it in this one) because that server reads PDFs only from
+  its own filesystem.
 
 No SDK is imported: both backends are plain HTTP (stdlib ``urllib``, like the
 Datalab adapter). Response shapes were taken from the glmocr 0.1.5 SDK source:
@@ -25,6 +26,17 @@ Both are mapped to the coordinates the Reader's PDF view uses: PDF points,
 top-left origin, the page's crop box after rotation. API page ids are
 one-based; IR pages stay zero-based like every other extractor. No remote
 image (crop URL) is ever fetched.
+
+The answers' content is cleaned on the way in (docs/reviews/glm-ocr-quality.md):
+HTML wrappers around titles and captions are unwrapped, heading depth comes
+from the PDF's outline or the headings' numbering, labels split by the
+recognition model ("1. 11") are joined where an environment word or the
+document's own numbering vouches for them, currency dollars are escaped so they
+never pair as maths, and an ``algorithm`` region is code only when it holds
+code. The service never returns footnotes, page furniture or equation numbers;
+footnotes and display numbers are recovered from the PDF's own text layer
+(``glm_text_layer``, read in a worker process), and a scan, which has none, is
+recorded as such.
 """
 
 from __future__ import annotations
@@ -50,8 +62,24 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import uuid4
 
 from learnloop.ai.execution import model_call
-from learnloop.ingest.block_roles import classify_block_role
+from learnloop.ingest.block_roles import classify_block_role, numbered_label
 from learnloop.ingest.extractors.base import ExtractionContext, units_from_toc_entries
+from learnloop.ingest.extractors.glm_text_layer import (
+    EQUATION_NUMBERS_RECOVERED,
+    FOOTNOTES_RECOVERED,
+    NO_TEXT_LAYER,
+    PARTIAL_TEXT_LAYER,
+    PageTextLayer,
+    PageTexts,
+    PdfiumWorkerError,
+    TextSegment,
+    equation_numbers,
+    footnotes,
+    pdfium_worker,
+    text_layer_engine,
+    with_equation_tag,
+)
+from learnloop.ingest.extractors.glm_text_layer import read_text_layer as _read_text_layer
 from learnloop.ingest.extractors.pypdf import read_embedded_outline
 from learnloop.ingest.hashing import semantic_hash
 from learnloop.ingest.ir import (
@@ -70,13 +98,23 @@ PDF_LIMIT = 50 * 1024 * 1024
 IMAGE_LIMIT = 10 * 1024 * 1024
 MAX_PAGES_PER_REQUEST = 30
 # Planning heuristic for previews and request admission, input plus output
-# combined; not a provider limit and not a money cap. A dense page is a page
-# image (~1-2k tokens per region crop) plus its recognised text.
-ESTIMATED_TOKENS_PER_PAGE = 6000
+# combined; not a provider limit and not a money cap. From the live receipts
+# (2026-10-14, docs/reviews/glm-ocr-quality.md): a book page is about
+# 2,000-2,300 input and 750-800 output tokens (Axler 2,765 and Blitzstein
+# 3,052 a page, highest 30-page window 3,336), small PDFs 1,652 and 2,104, a
+# scanned page 1,376; only a dense two-column paper went above (5,411). Over
+# an estimate is recorded as usage, never refused (SpendBudget.reconcile).
+ESTIMATED_TOKENS_PER_PAGE = 3500
 # Page images sent to the self-hosted server: 2x PDF points = 144 dpi.
 LOCAL_RENDER_SCALE = 2.0
 # Mapping version, part of version() and so of every extraction request hash.
-MAP_VERSION = 1
+# map2: the content-quality fixes (docs/reviews/glm-ocr-quality.md): HTML
+# wrappers unwrapped, heading depth from the outline or the numbering, split
+# labels ("1. 11") joined, currency dollars escaped, `algorithm` regions read
+# as code only when they hold code, footnotes and equation numbers from the
+# PDF's own text layer. Its Codex review's fixes (glm-ocr-quality-codex-review.md)
+# landed before map2 left the branch, so they share it.
+MAP_VERSION = 2
 LAYOUT_MODEL = "PP-DocLayout-V3"
 RECOGNITION_MODEL = "glm-ocr-0.9B"
 UNAVAILABLE_MESSAGE = "Text recognition needs a z.ai API key or a running local GLM-OCR service."
@@ -259,7 +297,10 @@ class GlmOcrDocumentExtractor:
         return f"{RECOGNITION_MODEL}+{LAYOUT_MODEL}+{self.backend}+map{MAP_VERSION}"
 
     def model_versions(self) -> dict[str, str]:
-        return {"backend": self.backend, "recognition": RECOGNITION_MODEL, "layout": LAYOUT_MODEL}
+        # Whether the PDF's own text layer can be read decides the reading
+        # too (footnotes and equation numbers), so it is part of the identity.
+        return {"backend": self.backend, "recognition": RECOGNITION_MODEL, "layout": LAYOUT_MODEL,
+                "text_layer": text_layer_engine()}
 
     def leaves_this_computer(self) -> bool:
         """Whether reading sends the document off this computer: always for
@@ -298,14 +339,19 @@ class GlmOcrDocumentExtractor:
                 self._window(raw_bytes, mime, reader, window, total_pages=len(sizes), context=context, asset=asset)
             )
         outline = read_embedded_outline(raw_bytes) if reader is not None else []
+        # Footnotes and equation numbers the answers never carry come from
+        # the PDF's own text layer, read in a worker process; an image has none.
+        layer, layer_flag = _read_text_layer(raw_bytes, pages) if reader is not None else (None, NO_TEXT_LAYER)
         try:
-            ir = responses_to_ir(results, sizes=sizes, outline=outline, version=self.version())
+            ir = responses_to_ir(results, sizes=sizes, outline=outline, version=self.version(), text_layer=layer)
         except GlmOcrExtractionError:
             raise
         except (ValueError, TypeError, KeyError, AttributeError, IndexError) as exc:
             raise GlmOcrExtractionError(
                 f"GLM-OCR returned layout details LearnLoop can't read ({type(exc).__name__})"
             ) from None
+        if layer_flag:
+            ir.health.flags.append(layer_flag)
         ir.health.flags.append(self.selection_reason)
         return ir
 
@@ -574,38 +620,24 @@ def _pdf_subset(reader: Any, pages: list[int]) -> bytes:
 
 
 def _render_pages(raw: bytes, pages: list[int]) -> list[str]:
-    """PNG data URIs of the selected pages for the self-hosted server."""
+    """PNG data URIs of the selected pages for the self-hosted server,
+    rendered in a pdfium worker process (pdfium is not thread-safe, and the
+    Reader renders with it in this one)."""
 
-    try:
-        import pypdfium2 as pdfium
-    except ImportError:
+    if text_layer_engine() == "none":
         raise GlmOcrExtractionError(
             "Local GLM-OCR needs pypdfium2 to show it PDF pages (uv sync --extra glm-ocr)"
-        ) from None
-    # pdfium's own errors (PdfiumError) are failures to read the document, so
-    # under "auto" they fall back like any other GLM-OCR failure.
+        )
+    # A failure to read or render the document (or a crashed worker) falls
+    # back under "auto" like any other GLM-OCR failure.
     try:
-        document = pdfium.PdfDocument(raw)
-    except Exception as exc:  # noqa: BLE001
+        images = pdfium_worker("render", raw, pages, scale=LOCAL_RENDER_SCALE)
+    except PdfiumWorkerError as exc:
         raise GlmOcrExtractionError("Could not render the PDF's pages for local GLM-OCR") from exc
-    images: list[str] = []
-    try:
-        for index in pages:
-            page = document[index]
-            try:
-                bitmap = page.render(scale=LOCAL_RENDER_SCALE)
-                try:
-                    out = io.BytesIO()
-                    bitmap.to_pil().save(out, format="PNG")
-                finally:
-                    bitmap.close()
-            finally:
-                page.close()
-            images.append(_data_uri("image/png", out.getvalue()))
-    except Exception as exc:  # noqa: BLE001
-        raise GlmOcrExtractionError("Could not render the PDF's pages for local GLM-OCR") from exc
-    finally:
-        document.close()
+    if not isinstance(images, list) or len(images) != len(pages) or not all(
+        isinstance(image, str) and image.startswith("data:image/png;base64,") for image in images
+    ):
+        raise GlmOcrExtractionError("Could not render the PDF's pages for local GLM-OCR")
     return images
 
 
@@ -784,7 +816,10 @@ def _labels(region: dict) -> tuple[str, str]:
 
 
 def _block_type_and_heading(region: dict, text: str) -> tuple[str, int | None, str]:
-    """(IR block type, heading level or None, text) for one region."""
+    """(IR block type, heading level as the answer marks it or None, text)
+    for one region's unwrapped text. The level is the Markdown one the
+    service sends ("#" for a document title, "##" for every other heading);
+    ``_Headings`` decides the real depth."""
 
     label, native = _labels(region)
     for name in (native, label):
@@ -793,11 +828,390 @@ def _block_type_and_heading(region: dict, text: str) -> tuple[str, int | None, s
             level = len(match[1]) if match else int(region.get("level") or _TITLE_LEVELS[name])
             return "SectionHeader", max(1, min(level, 6)), (match[2].strip() if match else text.lstrip("# ").strip())
     block_type = _BLOCK_TYPES.get(native) or _BLOCK_TYPES.get(label) or "Text"
+    if block_type == "Code" and "algorithm" in (native, label) and not _holds_code(text):
+        # The layout model's `algorithm` also covers boxed definitions and
+        # results (297 in Axler against 83 R listings): code only when it is.
+        block_type = "Text"
     if block_type == "Text" and "\n" not in text:
         match = _MARKDOWN_HEADING.match(text)
         if match:
             return "SectionHeader", len(match[1]), match[2].strip()
     return block_type, None, text
+
+
+# -- content clean-up (docs/reviews/glm-ocr-quality.md) ------------------------------
+
+_WRAPPER_TAGS = "div|center|p|span"
+_WRAPPER_OPEN = re.compile(
+    rf"^\s*<(?P<tag>{_WRAPPER_TAGS})(?:\s+[\w:-]+(?:\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s\"'>]+))?)*\s*/?>",
+    re.IGNORECASE,
+)
+_WRAPPER_CLOSE_END = re.compile(rf"\s*</(?:{_WRAPPER_TAGS})\s*>\s*$", re.IGNORECASE)
+
+
+def _unwrap_html(text: str) -> str:
+    """The text inside the HTML wrappers the hosted service puts around
+    titles and captions (``<div align="center">...</div>``, on every
+    doc_title and figure_title seen). A wrapper whose closing tag is missing,
+    or a closing tag left on its own, goes too; a "<" that opens no such tag
+    ("<P(B|C)") is text."""
+
+    while True:
+        opened = _WRAPPER_OPEN.match(text)
+        if not opened:
+            break
+        text = text[opened.end():]
+        closed = re.search(rf"</{opened['tag']}\s*>\s*$", text, re.IGNORECASE)
+        if closed:
+            text = text[:closed.start()]
+        text = text.strip()
+    return _WRAPPER_CLOSE_END.sub("", text).strip()
+
+
+_ENVIRONMENT_WORDS = (
+    "definition|theorem|lemma|proposition|corollary|claim|proof|example|exercise|problem|solution|remark|notation"
+)
+# "1. 11 definition:", "1. 39", "3. 6 $...$", "1. 4.11 (Name ...)", "2. 4.1. When":
+# the recognition model reads Axler's "1.11" with a space after the first dot.
+# Only the shapes a label takes: then a lower-case word or a kind, a colon, a
+# name in parentheses, maths, the end, or a full stop and a new sentence.
+_SPLIT_LABEL = re.compile(
+    r"^(?P<lead>[\s#>*_★☆]*(?:\$\s*\\bigstar\s*\$\s*)?[*_]*)(?P<major>\d{1,2})\. (?P<minor>\d{1,3}(?:\.\d{1,3})*)"
+    rf"(?=\.?\s*$|\s*[:(]|\s+[a-z$\\]|\.?\s+(?i:{_ENVIRONMENT_WORDS})\b|\.\s+[A-Z])"
+)
+_KIND_AFTER = re.compile(rf"\.?\s+(?i:{_ENVIRONMENT_WORDS})\b")
+# A list's item: "2. ", "3) ".
+_ENUMERATOR = re.compile(r"^[\s#>*_]*(?P<n>\d{1,3})[.)]\s")
+# How far a label's last number may run ahead of the label before it: one,
+# or a little more where a label went unread (at most 3 in the live books).
+_LABEL_STEP = 3
+
+
+def _number(text: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in text.split("."))
+
+
+def _join_split_labels(blocks: list[tuple[str, str]]) -> list[str]:
+    """The texts of the Text and SectionHeader blocks, (type, text) in
+    reading order, with each label's number the recognition model split
+    ("1. 11" -> "1.11") joined, so ``block_roles.numbered_label`` finds it.
+
+    A list's items have the same shape ("1. 5 people arrive.", "2. 3 is
+    prime"), so a split number is joined only with something vouching for
+    it: an environment word after it ("1. 11 definition:"), or the
+    document's own numbering, when the label read just before it numbers the
+    same way a little lower ("1.37 example" then "1. 39"; the section "1.4"
+    or the label "1.4.10" then "1. 4.11 (...)"), the next label that is not a
+    heading is not at or below it, and no neighbour opens the item before or
+    after it ("2. " beside "1. 5 ..."). Anything else stays as read."""
+
+    texts = [text for _, text in blocks]
+    splits = [_SPLIT_LABEL.match(text) for text in texts]
+    # Each block's label number, where it has one for sure: a whole one, or a
+    # split one an environment word vouches for.
+    numbers: list[tuple[int, ...] | None] = []
+    for (block_type, text), split in zip(blocks, splits):
+        if split:
+            vouched = _KIND_AFTER.match(text, split.end())
+            numbers.append(_number(f"{split['major']}.{split['minor']}") if vouched else None)
+        else:
+            label = numbered_label(text, block_type)
+            numbers.append(_number(label.number) if label and "." in label.number else None)
+    # The next such number of a block that is not a heading (a section's
+    # own counter, "7.1.2 Continuous", runs apart from its labels').
+    following: list[tuple[int, ...] | None] = [None] * len(blocks)
+    for index in range(len(blocks) - 2, -1, -1):
+        later = index + 1
+        heading = blocks[later][0] == "SectionHeader"
+        following[index] = numbers[later] if numbers[later] is not None and not heading else following[later]
+    out = list(texts)
+    previous: tuple[int, ...] | None = None
+    for index, split in enumerate(splits):
+        if split and numbers[index] is None:
+            number = _number(f"{split['major']}.{split['minor']}")
+            neighbours = [texts[near] for near in (index - 1, index + 1) if 0 <= near < len(texts)]
+            listed = any((item := _ENUMERATOR.match(near)) and abs(int(item["n"]) - number[0]) == 1
+                         for near in neighbours)
+            follows = previous is not None and (
+                (previous[:-1] == number[:-1] and previous[-1] < number[-1] <= previous[-1] + _LABEL_STEP)
+                or (previous == number[:-1] and number[-1] <= _LABEL_STEP)
+            )
+            after = following[index]
+            overtaken = after is not None and after[:-1] == number[:-1] and after[-1] <= number[-1]
+            if follows and not overtaken and not listed:
+                numbers[index] = number
+        if numbers[index] is not None:
+            previous = numbers[index]
+            if split:
+                out[index] = _SPLIT_LABEL.sub(lambda match: f"{match['lead']}{match['major']}.{match['minor']}",
+                                              texts[index], count=1)
+    return out
+
+
+_TEXT_COMMANDS = re.compile(
+    r"\\(?:text\w*|mathrm|mathit|mathbf|mathsf|mathtt|mathcal|mathbb|mathfrak|operatorname|mbox|hbox|emph|begin|end)"
+    r"\s*\{[^{}]*\}"
+)
+_LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
+_SPAN_WORD = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]+(?![A-Za-z0-9])")
+_MATHS_WORDS = frozenset(
+    "sin cos tan cot sec csc log ln lg exp max min lim sup inf det dim ker deg gcd lcm mod arg var cov sgn "
+    "sinh cosh tanh arcsin arccos arctan argmax argmin rank span diag range null trace adj card proj sign".split()
+)
+# Short English words that never stand alone in maths ("a" does: "$1 + a$").
+_PROSE_SHORT = frozenset("an and as at be by do if in is it no of on or so to up we".split())
+
+
+def _prose_words(span: str) -> int:
+    """How many ordinary words a would-be inline maths span holds ("1, one
+    worth", "5 and pays", "10 if "): words outside \\text{...} and
+    environment names, other than the usual operator names."""
+
+    plain = _LATEX_COMMAND.sub(" ", _TEXT_COMMANDS.sub(" ", span))
+    return sum(
+        1 for word in _SPAN_WORD.findall(plain)
+        if (len(word) >= 3 and word.lower() not in _MATHS_WORDS) or word.lower() in _PROSE_SHORT
+    )
+
+
+# An amount: a dollar, then a digit ("$1000") or, more rarely, a space and
+# a digit ("$ 18,000"). The service pads maths with spaces ("$ 0 \\in ...$"),
+# so a spaced one needs more prose to be judged an amount.
+_AMOUNT = re.compile(r"( ?)\d")
+
+
+def _closing_dollars(text: str, start: int, size: int) -> int | None:
+    """Where the run of ``size`` unescaped dollars closing the maths opened
+    before ``start`` begins, or None. Inline maths (one dollar) never crosses
+    a blank line."""
+
+    index = start
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if size == 1 and char == "\n" and text[index + 1:].lstrip(" \t").startswith("\n"):
+            return None
+        if char == "$":
+            end = index
+            while end < len(text) and text[end] == "$":
+                end += 1
+            if end - index == size:
+                return index
+            index = end
+            continue
+        index += 1
+    return None
+
+
+def _is_amount(text: str, end: int, closer: int | None, spaced: bool, paired: bool) -> bool:
+    """Whether the dollar ending at ``end``, before a number, is an amount
+    rather than maths it would open, closed at ``closer`` (None: nothing
+    closes it). ``spaced``: "$ 18,000"; ``paired``: the amount before it
+    showed this dollar to open another amount ("$ 5 and $ 10")."""
+
+    if closer is None:
+        return not spaced or paired
+    after = text[closer + 1:closer + 2]
+    prose = _prose_words(text[end:closer])
+    if after.isdigit():
+        return True  # the would-be closer opens the next amount: "$18-$7"
+    if prose and _AMOUNT.match(text, closer + 1):
+        return True  # ... a spaced one, prose between: "$ 5 and $ 10"
+    if text[closer - 1].isspace() and after.isalnum():
+        return True  # ... or opens something, spaced before and touching a word: "$2, ..., $n"
+    if text[:closer].rstrip()[-1:] in ("(", "[", "{") and _closing_dollars(text, closer + 1, 1) is not None:
+        return True  # ... or opens whole maths after a bracket: "$5 ($x$ each)"; maths never ends on "("
+    return prose >= (2 if spaced else 1)
+
+
+def _escape_currency(text: str) -> str:
+    """Escape the dollars of amounts ("$1000", "$5 and $10", "$ 18,000") so
+    remark-math never pairs them as maths, and keep real maths, padded or not
+    ("$ \\infty $", "$10^{100}$", "$1/(j^2 + k)$", "$2^{n}$", "$ 2 \\leq j $").
+
+    A dollar before a number opens maths only when the span it would close
+    holds no prose and its closing dollar does not itself open something
+    ("$18-$7", "$ 5 and $ 10", "$2, ..., $n", "$5 ($x$ each)"); every span is
+    judged where remark-math would pair it."""
+
+    if "$" not in text:
+        return text
+    out: list[str] = []
+    index = 0
+    # A dollar the amount before it showed to open another amount.
+    expected: int | None = None
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            out.append(text[index:index + 2])
+            index += 2
+            continue
+        if char != "$":
+            out.append(char)
+            index += 1
+            continue
+        end = index
+        while end < len(text) and text[end] == "$":
+            end += 1
+        size = end - index
+        closer = _closing_dollars(text, end, size)
+        amount = _AMOUNT.match(text, end) if size == 1 else None
+        if amount and _is_amount(text, end, closer, bool(amount[1]), expected == index):
+            if closer is not None and _AMOUNT.match(text, closer + 1):
+                expected = closer
+            out.append("\\$")
+            index = end
+            continue
+        if closer is None:
+            out.append(text[index:end])
+            index = end
+            continue
+        out.append(text[index:closer + size])
+        index = closer + size
+    return "".join(out)
+
+
+_MATHS_MARK = re.compile(r"\$\s|\s\$|\$\\|\$\$|\\\(|\\\[")
+_CODE_TOKENS = re.compile(r"^[\w.\[\]()+\-*/^%:,<>=!&|~]+$")
+_CODE_CALL = re.compile(r"[A-Za-z_][\w.]*\(|\w\[")
+_PROSE_PAIR = re.compile(r"\b[A-Za-z]{2,}\s+[A-Za-z]{2,}\b")
+_CODE_LINES = (
+    re.compile(r"<<?-|->>?|%%|%in%|%>%|\|>|[=!<>]="),  # assignment, pipes, comparisons
+    re.compile(r"^\s*[A-Za-z_][\w.]*\(\S.*\)\s*;?\s*$"),  # a call on a line of its own
+    re.compile(r"^\s*(?:for|while|if)\s*\(.*\)\s*\{?\s*$"),
+    re.compile(r"^\s*(?:def\s+\w+\s*\(|import\s+\w|library\s*\(|function\s*\()"),
+    re.compile(r"^\s*[{}]\s*$|\{\s*$"),
+)
+
+
+def _holds_code(text: str) -> bool:
+    """Whether an ``algorithm`` region holds code (Blitzstein's R) rather
+    than a boxed definition or result ("1.6 notation: ...").
+    Maths in dollars is never code."""
+
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        return True
+    if _MATHS_MARK.search(stripped):
+        return False
+    lines = [line for line in stripped.splitlines() if line.strip()]
+    if len(lines) > 1 and lines[0].lstrip().startswith("#"):
+        return True  # a comment line heads it
+    for line in lines:
+        if any(pattern.search(line) for pattern in _CODE_LINES):
+            return True
+        token = line.strip()
+        if _CODE_TOKENS.match(token) and re.search(r"[()\[\]]", token) and re.search(r"[+\-*/^%:<>=!&|~]", token):
+            return True
+        if _CODE_CALL.search(token) and not _PROSE_PAIR.search(token):
+            return True  # "mean(v[b > (2/3)*v])-b": calls and indexing, no run of words
+    return False
+
+
+# -- heading depth ----------------------------------------------------------------------
+
+_TITLE_PREFIX = re.compile(
+    r"^(?:(?:chapter|part|section|appendix)\s+(?:\d+(?:\.\d+)*|[ivxlc]+|[a-z])\b[.:]?\s*"
+    r"|\d{1,3}(?:\.\d{1,3})*[a-z]?\.?\s+|[a-z]\.\d{1,3}(?:\.\d{1,3})*\.?\s+|[ivxlc]+\.\s+)",
+    re.IGNORECASE,
+)
+_TITLE_MARKUP = re.compile(r"\\[A-Za-z]+|[$^_{}*]")
+_NON_ALNUM = re.compile(r"[^0-9a-z]+")
+
+
+def _title_keys(title: str) -> tuple[str, str]:
+    """A heading's or bookmark's text for matching: letters and digits only,
+    with and without its numbering ("2.1. Medical ..." and "Medical ...")."""
+
+    plain = _TITLE_MARKUP.sub(" ", title).strip()
+    return _NON_ALNUM.sub("", plain.lower()), _NON_ALNUM.sub("", _TITLE_PREFIX.sub("", plain, count=1).lower())
+
+
+def _numbering_depth(title: str) -> int | None:
+    """How deep a heading's own numbering puts it: "2." 1, "2.1." 2,
+    "2.1.1" 3, "1A" 2, "A.1" 2, "Chapter 3" 1; None when unnumbered."""
+
+    text = title.strip()
+    word = re.match(r"(?i)(chapter|part|appendix|section)\s+(\d+(?:\.\d+)*|[IVXLC]+|[A-Z])\b", text)
+    if word:
+        return word[2].count(".") + 1 if word[1].lower() == "section" and word[2][0].isdigit() else 1
+    number = re.match(r"(\d{1,3}(?:\.\d{1,3})*)([A-Z])?\.?(?=\s|$)", text)
+    if number:
+        return number[1].count(".") + 1 + (1 if number[2] else 0)
+    appendix = re.match(r"[A-Z]\.(\d{1,3}(?:\.\d{1,3})*)\.?(?=\s|$)", text)
+    if appendix:
+        return appendix[1].count(".") + 2
+    return None
+
+
+class _Headings:
+    """Each heading's depth, since the service marks every heading but the
+    document title "##": the PDF's outline when a bookmark names it (within
+    two pages), else its numbering ("2.1." under "2."), else one level under
+    the last heading so placed. The document title ("#") is the root. With an
+    outline, numbering that would climb to or above the last bookmarked
+    heading is a result's label ("1.4 example: ..." under a subsection), not a
+    section, so it nests instead."""
+
+    def __init__(self, outline: list[dict]):
+        self._entries: list[tuple[tuple[str, str], int, int | None]] = []
+        if len(outline) >= 2:  # a lone bookmark is no structure (as for the units)
+            for entry in outline:
+                keys = _title_keys(str(entry.get("title") or ""))
+                page = entry.get("page_id")
+                if any(keys):
+                    self._entries.append((keys, max(1, int(entry.get("heading_level") or 1)),
+                                          page if isinstance(page, int) else None))
+        self._stack: list[tuple[int, str]] = []
+        # The last heading placed by the outline, the title or numbering, and
+        # the last one placed by the outline or the title alone.
+        self._anchor: int | None = None
+        self._outline_anchor: int | None = None
+
+    def _outline_level(self, title: str, page: int) -> int | None:
+        """The level of the bookmark naming ``title`` within two pages: one
+        naming it whole, numbering and all, before one that matches only
+        without its numbering ("1.1 Matrices" is the bookmark "1.1 Matrices",
+        not "1 Matrices" on the same page); then the nearest; then the first."""
+
+        full, stripped = _title_keys(title)
+        keys = {key for key in (full, stripped) if key}
+        best: tuple[int, int, int] | None = None
+        for (entry_full, entry_stripped), level, entry_page in self._entries:
+            if full and full == entry_full:
+                exact = 0
+            elif keys & {key for key in (entry_full, entry_stripped) if key}:
+                exact = 1
+            else:
+                continue
+            distance = 0 if entry_page is None else abs(entry_page - page)
+            if distance <= 2 and (best is None or (exact, distance) < best[:2]):
+                best = (exact, distance, level)
+        return best[2] if best else None
+
+    def place(self, title: str, marked_level: int, page: int) -> tuple[list[str], int]:
+        """The section path a heading opens, and its level (1 = the root)."""
+
+        rank = self._outline_level(title, page)
+        depth = _numbering_depth(title)
+        if rank is not None:
+            self._anchor = self._outline_anchor = rank
+        elif marked_level <= 1:
+            rank = self._anchor = self._outline_anchor = 0
+        elif depth is not None and (not self._entries or self._outline_anchor is None or depth > self._outline_anchor):
+            # Numbering below what the outline placed ("1.4.2" under the
+            # bookmarked section "1.4") or with no outline at all.
+            rank = self._anchor = depth
+        elif self._anchor is not None:
+            rank = self._anchor + 1
+        else:
+            rank = marked_level - 1
+        while self._stack and self._stack[-1][0] >= rank:
+            self._stack.pop()
+        self._stack.append((rank, title))
+        return [heading for _, heading in self._stack], rank + 1
 
 
 def _equation_text(text: str) -> str:
@@ -914,18 +1328,36 @@ def _region_order(region: dict) -> tuple[int, int]:
         return (1, 0)
 
 
+# Block types whose text is prose: labels are joined and amounts escaped.
+_LABEL_TYPES = frozenset({"Text", "SectionHeader"})
+_PROSE_TYPES = frozenset({"Text", "SectionHeader", "Caption", "Footnote"})
+
+
 def responses_to_ir(
     results: list[tuple[dict, list[int]]],
     *,
     sizes: list[tuple[float, float]],
     outline: list[dict],
     version: str,
+    text_layer: PageTextLayer | None = None,
 ) -> DocumentIR:
-    """Map GLM-OCR responses (each with the zero-based pages it covers) to the IR."""
+    """Map GLM-OCR responses (each with the zero-based pages it covers) to the IR.
+
+    ``text_layer``: the PDF's own text runs by page (``glm_text_layer``), for
+    the footnotes and display-equation numbers the answers never carry; None
+    reads the answers alone and records nothing about them."""
 
     ir = DocumentIR(ir_schema_version=IR_SCHEMA_VERSION, extractor=EXTRACTOR_NAME, extractor_version=version)
     headings: list[dict[str, Any]] = []
+    placer = _Headings(outline)
     sections: list[str] = []
+    pages_read = [page for _, page_ids in results for page in page_ids]
+    texts = PageTexts(text_layer, pages_read, lambda page: sizes[page][1]) if text_layer else None
+    recovered = tagged = pages_with_text = pages_without_layer = 0
+    # Every page's regions first, (page, [region, box, type, level, text]) in
+    # reading order: a split label is judged against the whole document's
+    # numbering, the labels after it too.
+    layout: list[tuple[int, list[list[Any]]]] = []
     for result, page_ids in results:
         page_regions, shape = _page_regions(result, len(page_ids), page_ids)
         flag = f"glm_ocr_response_{shape}"
@@ -934,50 +1366,102 @@ def responses_to_ir(
         dimensions = _page_dimensions(result)
         for offset, (page, regions) in enumerate(zip(page_ids, page_regions)):
             dims = dimensions[offset] if offset < len(dimensions) else {}
-            health = PageHealth(page=page, text_extraction_method=EXTRACTOR_NAME)
-            ir.health.pages.append(health)
-            if not regions:
-                health.flags.append("no_detected_regions")
+            items = []
             for region in sorted(regions, key=_region_order):
                 content = region.get("content", region.get("text"))
-                text = str(content).strip() if content is not None else ""
-                block_type, level, text = _block_type_and_heading(region, text)
-                if block_type == "SectionHeader":
-                    if not text:
-                        continue
-                    sections = sections[: level - 1] + [text]
-                    headings.append({"title": text, "heading_level": level, "page_id": page,
-                                     "ordinal": len(ir.blocks) + 1})
-                elif block_type == "Equation":
-                    text = _equation_text(text)
-                elif block_type == "Table":
-                    if not text and region.get("cells"):
-                        text = _table_cells(region["cells"])
-                    text = _table_markdown(text)
-                elif block_type == "Figure":
-                    # Hosted image regions carry a crop URL or a Markdown image
-                    # reference, never prose: keep only a caption.
-                    caption = str(region.get("caption") or "").strip()
-                    if not caption and not (text.startswith(("http:", "https:", "data:")) or _MARKDOWN_IMAGE.match(text)):
-                        caption = text
-                    text = caption
-                if not text and block_type != "Figure":
+                text = _unwrap_html(str(content).strip()) if content is not None else ""
+                items.append([region, _bbox(region, sizes[page], dims), *_block_type_and_heading(region, text)])
+            layout.append((page, items))
+    labelled = [item for _, items in layout for item in items if item[2] in _LABEL_TYPES]
+    for item, text in zip(labelled, _join_split_labels([(item[2], item[4]) for item in labelled])):
+        item[4] = text
+    for page, items in layout:
+        health = PageHealth(page=page, text_extraction_method=EXTRACTOR_NAME)
+        ir.health.pages.append(health)
+        if not items:
+            health.flags.append("no_detected_regions")
+        runs = texts.runs(page) if texts is not None else None
+        boxes = [item[1] for item in items]
+        numbers = equation_numbers(
+            texts.segments(page) if texts is not None else None,
+            {position: item[1] for position, item in enumerate(items) if item[2] == "Equation" and item[1]},
+            boxes,
+        )
+        first = len(ir.blocks)
+        for position, (region, bbox, block_type, level, text) in enumerate(items):
+            if block_type in _PROSE_TYPES:
+                text = _escape_currency(text)
+            if block_type == "SectionHeader":
+                if not text:
                     continue
-                ordinal = len(ir.blocks) + 1
-                index = region.get("index", ordinal - 1)
-                ir.blocks.append(DocumentBlock.build(
-                    span_id=f"s{ordinal}", ordinal=ordinal,
-                    extractor_block_id=f"glm/page/{page}/region/{index}",
-                    block_type=block_type,
-                    role_hint=classify_block_role(block_type, sections, text),
-                    page=page,
-                    bbox=_bbox(region, sizes[page], dims),
-                    section_path=sections,
-                    text=text,
-                ))
-                health.block_counts[block_type] = health.block_counts.get(block_type, 0) + 1
+                sections, depth = placer.place(text, int(level or 2), page)
+                headings.append({"title": text, "heading_level": depth, "page_id": page,
+                                 "ordinal": len(ir.blocks) + 1})
+            elif block_type == "Equation":
+                text = _equation_text(text)
+                numbered = with_equation_tag(text, numbers[position]) if position in numbers else None
+                if numbered:
+                    text, tagged = numbered, tagged + 1
+            elif block_type == "Table":
+                if not text and region.get("cells"):
+                    text = _table_cells(region["cells"])
+                text = _table_markdown(text)
+            elif block_type == "Figure":
+                # Hosted image regions carry a crop URL or a Markdown image
+                # reference, never prose: keep only a caption.
+                caption = str(region.get("caption") or "").strip()
+                if not caption and not (text.startswith(("http:", "https:", "data:")) or _MARKDOWN_IMAGE.match(text)):
+                    caption = text
+                text = caption
+            if not text and block_type != "Figure":
+                continue
+            ordinal = len(ir.blocks) + 1
+            index = region.get("index", ordinal - 1)
+            ir.blocks.append(DocumentBlock.build(
+                span_id=f"s{ordinal}", ordinal=ordinal,
+                extractor_block_id=f"glm/page/{page}/region/{index}",
+                block_type=block_type,
+                role_hint=classify_block_role(block_type, sections, text),
+                page=page,
+                bbox=bbox,
+                section_path=sections,
+                text=text,
+            ))
+            health.block_counts[block_type] = health.block_counts.get(block_type, 0) + 1
+        if texts is None:
+            continue
+        read = ir.blocks[first:]
+        if any(block.block_type != "Figure" for block in read):
+            pages_with_text += 1
+            pages_without_layer += runs is None
+        # The page's footnotes, after its last block and under its heading.
+        for number, (box, text) in enumerate(footnotes(
+            runs, boxes, sizes[page], "\n".join(block.text for block in read), is_furniture=texts.is_furniture,
+        )):
+            ordinal = len(ir.blocks) + 1
+            ir.blocks.append(DocumentBlock.build(
+                span_id=f"s{ordinal}", ordinal=ordinal,
+                extractor_block_id=f"glm/page/{page}/text_layer/{number}",
+                block_type="Footnote",
+                role_hint=classify_block_role("Footnote", sections, text),
+                page=page,
+                bbox=box,
+                section_path=sections,
+                text=text,
+            ))
+            health.block_counts["Footnote"] = health.block_counts.get("Footnote", 0) + 1
+            recovered += 1
     if not ir.blocks:
         raise GlmOcrExtractionError("GLM-OCR found no text in this document")
+    if texts is not None:
+        if recovered:
+            ir.health.flags.append(FOOTNOTES_RECOVERED)
+        if tagged:
+            ir.health.flags.append(EQUATION_NUMBERS_RECOVERED)
+        if pages_without_layer:
+            # A scan (or scanned pages): nothing to recover footnotes or
+            # equation numbers from. Not a difficult page, so no page flag.
+            ir.health.flags.append(NO_TEXT_LAYER if pages_without_layer == pages_with_text else PARTIAL_TEXT_LAYER)
     units: list[DocumentUnit] = []
     if len(outline) >= 2:
         # An author's bookmarks beat detected headings; a lone bookmark is no
@@ -1027,6 +1511,8 @@ __all__ = [
     "GlmOcrDocumentExtractor",
     "GlmOcrExtractionError",
     "LOCAL_URL",
+    "MAP_VERSION",
+    "TextSegment",
     "UNAVAILABLE_MESSAGE",
     "estimate",
     "glm_api_key",
