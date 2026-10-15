@@ -547,37 +547,86 @@ def record_grading(connection: Any, *, attempt_id: str, writer: str, shown_histo
 
 # -- what a grading showed, as it stood (codex review F3) --------------------------------
 
+#: What one attempt's grading identity covers (codex re-review F3), as
+#: ``(part, table, attempt column, columns, filter)``: the payload a reader is
+#: shown (its latest blind record, its current evidence rows, its error
+#: events), the contract each current evidence row pins and whether a model
+#: wrote it, and its provenance (its recorded gradings and C4 receipts). A
+#: regrade changes every part, and so does anything that would change what
+#: :func:`grading_record` says about the grading.
+_IDENTITY: tuple[tuple[str, str, str, tuple[str, ...], str | None], ...] = (
+    ("evidence", "grading_evidence", "attempt_id", ("id", "assessment_contract_version_id", "agent_run_id"),
+     "superseded_at IS NULL"),
+    ("events", "error_events", "attempt_id", ("id",), None),
+    ("blind", "blind_grade_records", "attempt_id", ("id",), None),
+    ("records", "text_write_provenance", "record_id", ("id",), f"kind = '{GRADING}'"),
+    ("receipts", "diagnostic_augmentation_receipts", "attempt_id", ("id",), None),
+)
+#: The mark of a grading supplied by a reader's caller (an overlay no
+#: database row identifies): it never matches a grading as it stands.
+UNIDENTIFIED_GRADING = "unidentified"
 
-def grading_mark(evidence_ids: Iterable[Any], error_event_ids: Iterable[Any]) -> str:
-    """The identity of one attempt's grading as a reader saw it: its current
-    (unsuperseded) evidence rows and its error events. A regrade supersedes
-    the one and re-mints the other, so the mark changes with every grading."""
 
-    payload = json.dumps([sorted({str(value) for value in evidence_ids if value}),
-                          sorted({str(value) for value in error_event_ids if value})])
+def grading_mark(identity: Mapping[str, Iterable[Any]] | None = None) -> str:
+    """The identity of one attempt's grading as a reader saw it (``{part:
+    values}``, :data:`_IDENTITY`); no rows at all is the ungraded mark."""
+
+    parts = identity or {}
+    payload = json.dumps({part: sorted({str(value) for value in parts.get(part, ()) if value is not None})
+                          for part, *_rest in _IDENTITY}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def grading_marks(connection: Any, attempt_ids: Iterable[Any]) -> dict[str, str]:
-    """``{attempt: grading_mark}`` for ``attempt_ids`` as they stand now."""
+def _columns(connection: Any, table: str) -> set[str]:
+    return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})")}
 
-    ids = sorted({str(value) for value in attempt_ids if value})
-    evidence: dict[str, list[str]] = {}
-    events: dict[str, list[str]] = {}
-    for start in range(0, len(ids), _CHUNK):
-        chunk = ids[start:start + _CHUNK]
-        if _table(connection, "grading_evidence"):
-            for attempt_id, row_id in connection.execute(
-                f"SELECT attempt_id, id FROM grading_evidence WHERE superseded_at IS NULL "
-                f"AND attempt_id IN ({_marks(chunk)})", chunk,
-            ):
-                evidence.setdefault(str(attempt_id), []).append(str(row_id))
-        if _table(connection, "error_events"):
-            for attempt_id, row_id in connection.execute(
-                f"SELECT attempt_id, id FROM error_events WHERE attempt_id IN ({_marks(chunk)})", chunk,
-            ):
-                events.setdefault(str(attempt_id), []).append(str(row_id))
-    return {attempt: grading_mark(evidence.get(attempt, ()), events.get(attempt, ())) for attempt in ids}
+
+def grading_marks(connection: Any, attempt_ids: Iterable[Any] | None = None) -> dict[str, str]:
+    """``{attempt: grading_mark}`` as they stand now: for ``attempt_ids``
+    (every one, the ungraded mark when it has no grading), or with None for
+    every attempt that has any grading row. Read in one snapshot by a caller
+    that needs it to match what it read (:func:`read_snapshot`)."""
+
+    ids = None if attempt_ids is None else sorted({str(value) for value in attempt_ids if value})
+    found: dict[str, dict[str, list[str]]] = {}
+    for part, table, key, wanted, where in _IDENTITY:
+        present = _columns(connection, table)
+        columns = [column for column in wanted if column in present]
+        if key not in present or not columns:
+            continue
+        select = f"SELECT {key}, {', '.join(columns)} FROM {table}"
+        batches: list[tuple[str, list[str]]] = (
+            [(select + (f" WHERE {where}" if where else ""), [])] if ids is None else [
+                (select + f" WHERE {(where + ' AND ') if where else ''}{key} IN ({_marks(chunk)})", chunk)
+                for chunk in (ids[start:start + _CHUNK] for start in range(0, len(ids), _CHUNK))
+            ]
+        )
+        for sql, parameters in batches:
+            for row in connection.execute(sql, parameters):
+                value = "|".join("" if cell is None else str(cell) for cell in row[1:])
+                found.setdefault(str(row[0]), {}).setdefault(part, []).append(value)
+    attempts = ids if ids is not None else sorted(found)
+    return {attempt: grading_mark(found.get(attempt)) for attempt in attempts}
+
+
+@contextmanager
+def read_snapshot(connection: Any) -> Iterator[Any]:
+    """One read transaction across the block, so every read in it sees one
+    state of the database (codex re-review F3: a grading's payload and its
+    identity are read together). A connection already in a transaction is
+    used as it is; one this opened is released, as it was found."""
+
+    began = not connection.in_transaction
+    if began:
+        connection.execute("BEGIN")
+    try:
+        yield connection
+    except BaseException:
+        if began and connection.in_transaction:
+            connection.rollback()
+        raise
+    if began and connection.in_transaction:
+        connection.commit()
 
 
 # -- the closure -------------------------------------------------------------------------
@@ -645,23 +694,41 @@ def fold_topic_records(connection: Any, record: WriteRecord, *,
     latest row), so a topic shown under any other name (renamed since by a
     writer that recorded nothing) folds in as incomplete. A topic the writer
     read by id only has no entry and folds as it is: its id was minted from
-    the drafted name its record covers."""
+    the drafted name its record covers.
+
+    Every name in ``titles`` is checked on its own (codex re-review F2),
+    whether or not the topic's record was already folded in: a derived text
+    the writer read (``derived_from``), or a reading folded before the
+    writer's names were known, folded it under the name THAT writer was
+    shown, which says nothing about the name this one was shown."""
 
     shown = {str(topic): [str(text) for text in texts if text is not None]
              for topic, texts in (titles or {}).items()}
+    stored_by_topic: dict[str, StoredRecord | None] = {}
+
+    def topic_record(topic: str) -> StoredRecord | None:
+        if topic not in stored_by_topic:
+            stored_by_topic[topic] = stored_record(connection, "learning_object", topic)
+        return stored_by_topic[topic]
+
+    if shown:
+        # A topic shown by name was read, whatever else read it.
+        record = record.with_inputs(Inputs.of(topics=shown))
+    for topic in sorted(shown):
+        stored = topic_record(topic)
+        if stored is not None and any(text_sha256(text) != stored.text_sha256 for text in shown[topic]):
+            record = record.join(WriteRecord.incomplete(f"learning_object {topic}: {NAME_UNCOVERED}"))
     folded = {ref[1] for ref in record.derived_from if ref[0] == "learning_object"}
     while True:
         pending = sorted(topic for topic in record.inputs.topics if topic not in folded)
         found = False
         for topic in pending:
             folded.add(topic)
-            stored = stored_record(connection, "learning_object", topic)
+            stored = topic_record(topic)
             if stored is None:
                 continue
             found = True
             part = stored.record
-            if any(text_sha256(text) != stored.text_sha256 for text in shown.get(topic, ())):
-                part = part.join(WriteRecord.incomplete(f"learning_object {topic}: {NAME_UNCOVERED}"))
             record = record.join(WriteRecord(part.inputs, part.complete, part.missing,
                                              (("learning_object", topic), *part.derived_from)))
         if not found:
@@ -762,6 +829,7 @@ __all__ = [
     "PROVENANCE_VERSION",
     "TEXT_CHANGED",
     "TEXT_KINDS",
+    "UNIDENTIFIED_GRADING",
     "Inputs",
     "Ref",
     "StoredRecord",
@@ -778,6 +846,7 @@ __all__ = [
     "grading_marks",
     "grading_record",
     "pinned_contract_ids",
+    "read_snapshot",
     "record_error_event_lineage",
     "record_grading",
     "record_text_write",

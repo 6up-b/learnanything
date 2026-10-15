@@ -801,11 +801,15 @@ def _diagnose(
     settings = settings_from_config(vault)
     config = getattr(vault.config, "diagnosis", None)
     item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
-    record_row = repository.latest_blind_grade_record(attempt_id)
-    if record_row is not None:
-        record = dict(record_row.get("record") or {})
-    else:
-        record = joint_grade_record(vault, repository, attempt)
+    # The history store first: it reads every blind grade in one snapshot
+    # with every grading's identity, and the diagnosed attempt's grade is
+    # the one it read, so the freeze checks the grade shown against the
+    # identity it was read with (diagnosis input provenance, codex re-review
+    # F3). A joint grade is read after that identity, so a regrade in between
+    # is caught the same way.
+    store = live_history_store(vault, repository)
+    blind = store.blind_grade(attempt_id)
+    record = dict(blind) if blind is not None else joint_grade_record(vault, repository, attempt)
     current = current_attempt_for(vault, attempt, record, repository) if item is not None else None
     base_values: dict[str, Any] = {
         "attempt_id": attempt_id,
@@ -822,7 +826,6 @@ def _diagnose(
         }, clock=clock)
         return repository.attempt_diagnosis(row_id)
     rubric = resolved_rubric(vault, item)
-    store = live_history_store(vault, repository)
     job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled, config=vault.config)
     # Billed as the client actually built (a provider override included).
     job_spend.register(DIAGNOSIS_ROUTE, client)

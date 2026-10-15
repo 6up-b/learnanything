@@ -288,8 +288,13 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
   factor read (their records folded in). **Frozen when the context is built:** the record (contracts,
   gradings, folded records) is closed when the context and the snapshot export are built, before the
   diagnoser runs, and the diagnosis persists exactly that, so a regrade while it runs never replaces the
-  provenance of what it was shown; a grading replaced between the history's read and the freeze (its
-  evidence or error events changed) makes the record incomplete. **The snapshot workspace:** the
+  provenance of what it was shown; a grading replaced between the history's read and the freeze makes the
+  record incomplete. Each grading shown is checked by its identity (its latest blind record, its current
+  evidence rows with the contracts they pin and whether a model wrote them, its error events, its recorded
+  gradings and C4 receipts), read in one snapshot with the payload shown: the history store reads it with
+  its blind overlay, the diagnosed attempt's own grade is the one that overlay read, and the freeze reads
+  the record and the identity it is checked against in one snapshot. A payload the store's caller
+  supplied, which no row identifies, makes the record incomplete. **The snapshot workspace:** the
   transport's reported reads are mapped to the export entries they served (one strictly validated simple
   command of a plain reader with output-only options serves its file, `sed` only with one print command; a
   listing names only; any shell control syntax, `&` included, any substitution, expansion, escape or line
@@ -300,7 +305,8 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
   was shown a topic's name (a diagnosis's neighbourhood titles, an exported attempt's topic, the export's
   graph file, the drafter's concept titles, asking topic and named prerequisite) folds the topic's record
   only when it covers that name; a name rewritten since by a writer that recorded nothing makes the record
-  incomplete. A topic read by id only folds as it is.
+  incomplete. Every name shown is checked on its own, even when the topic's record was already folded in
+  (through a derived text read, or a reading folded first). A topic read by id only folds as it is.
 - **Copy writers:** materialized hypotheses fold the attempt's grading and the diagnosis whose causal view
   lies over the event (a factor's candidate: every completed diagnosis of the attempt); a hypothesis
   version that keeps its head's statement carries the head's record; candidates (error hunts, the gap

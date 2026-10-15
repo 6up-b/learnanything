@@ -84,13 +84,23 @@ def settings_from_config(vault: LoadedVault) -> DiagnosisSettings:
 
 
 def live_history_store(vault: LoadedVault, repository: Repository) -> VaultHistoryStore:
-    """M1's store with every persisted blind grade as the overlay."""
+    """M1's store with every persisted blind grade as the overlay.
 
-    blind = {
-        attempt_id: dict(row.get("record") or {})
-        for attempt_id, row in repository.latest_blind_grade_records().items()
-    }
-    return VaultHistoryStore(vault, repository, blind_grades=blind)
+    The overlay's payloads are read in one snapshot with every grading's
+    identity (diagnosis input provenance, codex re-review F3:
+    ``write_provenance.grading_marks``, which covers the payload, the
+    contract and the provenance), so what the store shows is checked at the
+    freeze against the identity it was read with, never against rows read
+    later."""
+
+    from learnloop.db.stores.diagnoses import latest_blind_grade_rows
+    from learnloop.db.stores.write_provenance import grading_marks, read_snapshot
+
+    with repository.connection() as connection, read_snapshot(connection):
+        marks = grading_marks(connection)
+        rows = latest_blind_grade_rows(connection)
+    blind = {attempt_id: dict(row.get("record") or {}) for attempt_id, row in rows.items()}
+    return VaultHistoryStore(vault, repository, blind_grades=blind, grading_marks=marks)
 
 
 def joint_grade_record(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> dict[str, Any]:

@@ -642,6 +642,7 @@ class VaultHistoryStore:
         repository: Repository,
         *,
         blind_grades: Mapping[str, Mapping[str, Any]] | None = None,
+        grading_marks: Mapping[str, str] | None = None,
     ) -> None:
         self.vault = vault
         self.repository = repository
@@ -651,8 +652,15 @@ class VaultHistoryStore:
         self._by_id: dict[str, HistoryAttempt] = {}
         self._order: dict[str, tuple[str, str]] = {}
         self._error_event_attempt: dict[str, str] = {}
-        #: Each attempt's grading as this store read it (diagnosis input
-        #: provenance, codex review F3: ``write_provenance.grading_mark``).
+        #: Each attempt's grading identity as this store read it (diagnosis
+        #: input provenance, codex re-review F3: ``write_provenance.grading_marks``):
+        #: ``grading_marks`` when the caller read them in one snapshot with
+        #: the overlay (``live.live_history_store``), else read in one
+        #: snapshot with the rows when the store loads. An overlay payload
+        #: the caller supplied with no identity (``_unidentified``) matches
+        #: no grading as it stands.
+        self._captured_marks = dict(grading_marks) if grading_marks is not None else None
+        self._unidentified: set[str] = set() if grading_marks is not None else set(self._blind)
         self._grading_marks: dict[str, str] = {}
         #: Every hypothesis record (every causal-hypothesis VERSION) with the
         #: instant it was written; the as-of view is chosen per cutoff.
@@ -662,7 +670,17 @@ class VaultHistoryStore:
 
     def with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> "VaultHistoryStore":
         merged = {**self._blind, **dict(blind_grades)}
-        return VaultHistoryStore(self.vault, self.repository, blind_grades=merged)
+        store = VaultHistoryStore(self.vault, self.repository, blind_grades=merged,
+                                  grading_marks=self._captured_marks)
+        # The caller's payloads carry no identity (codex re-review F3).
+        store._unidentified = set(merged) if self._captured_marks is None else {*self._unidentified, *blind_grades}
+        return store
+
+    def blind_grade(self, attempt_id: str) -> Mapping[str, Any] | None:
+        """The overlay's blind record of ``attempt_id`` (read with its
+        grading's identity by ``live.live_history_store``), or None."""
+
+        return self._blind.get(str(attempt_id))
 
     # -- loading ------------------------------------------------------------
 
@@ -670,7 +688,18 @@ class VaultHistoryStore:
         if self._loaded:
             return
         vault = self.vault
-        with self.repository.connection() as connection:
+        from learnloop.db.stores.write_provenance import (
+            UNIDENTIFIED_GRADING,
+            grading_marks,
+            read_snapshot,
+            replaced_error_event_attempts,
+        )
+
+        # One snapshot: the rows shown and (unless the caller read them with
+        # its overlay) every grading's identity (codex re-review F3).
+        with self.repository.connection() as connection, read_snapshot(connection):
+            marks = self._captured_marks if self._captured_marks is not None else grading_marks(connection)
+            self._grading_marks = {**marks, **{attempt: UNIDENTIFIED_GRADING for attempt in self._unidentified}}
             attempts = [dict(row) for row in connection.execute(
                 "SELECT id, practice_item_id, learning_object_id, attempt_type, "
                 "learner_answer_md, rubric_score, correctness, hints_used, primed, "
@@ -680,13 +709,10 @@ class VaultHistoryStore:
             #: Attempts with a PF-c unverified criterion row (review F4): those
             #: rows are neither failures nor passes in the history.
             unassessed_attempts: set[str] = set()
-            evidence_ids: dict[str, list[str]] = {}
-            event_ids: dict[str, list[str]] = {}
             for row in connection.execute(
-                "SELECT attempt_id, criterion_id, points_awarded, attribution_json, id FROM grading_evidence "
+                "SELECT attempt_id, criterion_id, points_awarded, attribution_json FROM grading_evidence "
                 "WHERE superseded_at IS NULL ORDER BY created_at, criterion_id"
             ):
-                evidence_ids.setdefault(str(row[0]), []).append(str(row[4]))
                 if row[3] and UNVERIFIED_CRITERION_BLOCK in str(row[3]) and unverified_evidence_row(row[3]):
                     unassessed_attempts.add(str(row[0]))
                     continue
@@ -699,20 +725,11 @@ class VaultHistoryStore:
                 if row[1] is None:
                     continue
                 self._error_event_attempt[str(row[0])] = str(row[1])
-                event_ids.setdefault(str(row[1]), []).append(str(row[0]))
                 events.setdefault(str(row[1]), []).append(
                     {"error_type": str(row[2]), "repair_plan": _decode_json(row[3], {}) or {}}
                 )
-            # What each grading shown here was, from the very rows read (F3).
-            from learnloop.db.stores.write_provenance import grading_mark, replaced_error_event_attempts
-
-            self._grading_marks = {
-                attempt: grading_mark(evidence_ids.get(attempt, ()), event_ids.get(attempt, ()))
-                for attempt in set(evidence_ids) | set(event_ids)
-            }
             # Q9: an event a regrade retired (re-minted or not) still names
             # its attempt, so a belief that lists it keeps its source answer.
-
             for replaced, attempt_id in replaced_error_event_attempts(connection).items():
                 self._error_event_attempt.setdefault(replaced, attempt_id)
             fatal: dict[str, list[str]] = {
@@ -1113,10 +1130,11 @@ class VaultHistoryStore:
         return list(self._attempts)
 
     def grading_marks(self) -> dict[str, str]:
-        """Each attempt's grading as this store read it (its current evidence
-        and error events, ``write_provenance.grading_mark``): what a context
-        built from this store showed, so a record frozen later can tell a
-        grading replaced since (diagnosis input provenance, codex review F3)."""
+        """Each attempt's grading identity as this store read it, in one
+        snapshot with what it shows (``write_provenance.grading_marks``: the
+        payload, the contract and the provenance): a record frozen later
+        names every grading replaced since (diagnosis input provenance, codex
+        review F3 and re-review F3)."""
 
         self._load()
         return dict(self._grading_marks)

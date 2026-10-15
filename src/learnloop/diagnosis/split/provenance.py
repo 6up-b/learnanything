@@ -25,8 +25,13 @@ built, before the diagnoser runs (:func:`frozen_record`,
 :func:`freeze_entries`), and the diagnosis persists exactly that record: a
 regrade while the diagnoser runs never replaces the provenance of what it
 was shown. A grading replaced between the history store's read and the
-freeze is caught by its mark (its current evidence and error events,
-``write_provenance.grading_mark``) and makes the record incomplete.
+freeze is caught by its identity (``write_provenance.grading_marks``: its
+latest blind record, current evidence rows with their contracts, error
+events, recorded gradings and C4 receipts). The store reads that identity
+in one snapshot with the payloads it shows (codex re-review F3:
+``live.live_history_store`` reads it with the blind overlay, and the job
+takes the diagnosed attempt's own grade from that overlay); the freeze reads
+the record and the identity it is checked against in one snapshot too.
 
 **Topic names** (codex review F2). A generated topic's record covers the
 name it was drafted with; it is folded in only when it covers every name
@@ -66,6 +71,9 @@ SNAPSHOT_UNREPORTED = "the snapshot workspace did not report what the diagnoser 
 #: Why a record is incomplete when a grading it showed was replaced before
 #: the record was frozen (codex review F3).
 GRADING_REPLACED = "a grading the diagnoser was shown was replaced before its record was frozen"
+#: Why a record is incomplete when a grading was shown from a payload the
+#: store's caller supplied, which no database row identifies (codex re-review F3).
+GRADING_UNIDENTIFIED = "a grading the diagnoser was shown was supplied with no identity to check it against"
 #: Why a diagnosis's record is incomplete when nothing froze it when its context was built.
 NOT_FROZEN = "what the diagnosis context showed was not frozen when it was built"
 
@@ -516,50 +524,63 @@ def _read_attempts(reads: DiagnosisReads) -> list[str]:
 
 def _replaced(shown: Mapping[str, str], now: Mapping[str, str], attempts: Iterable[str]) -> Any:
     """Incomplete for every attempt whose grading changed since the history
-    showed it (``shown``: :meth:`VaultHistoryStore.grading_marks`; ``now``:
-    ``write_provenance.grading_marks`` after the record was built)."""
+    read what it showed (``shown``: :meth:`VaultHistoryStore.grading_marks`,
+    read in one snapshot with the payloads shown; ``now``:
+    ``write_provenance.grading_marks``, read in one snapshot with the record),
+    and for every grading shown from a payload no database row identifies
+    (codex re-review F3)."""
 
-    from learnloop.db.stores.write_provenance import WriteRecord, grading_mark
+    from learnloop.db.stores.write_provenance import UNIDENTIFIED_GRADING, WriteRecord, grading_mark
 
-    ungraded = grading_mark((), ())
-    changed = sorted(attempt for attempt in dict.fromkeys(str(value) for value in attempts if value)
-                     if shown.get(attempt, ungraded) != now.get(attempt, ungraded))
-    return WriteRecord.incomplete(f"{GRADING_REPLACED} ({', '.join(changed)})") if changed else WriteRecord()
+    ungraded = grading_mark()
+    read = list(dict.fromkeys(str(value) for value in attempts if value))
+    unidentified = sorted(attempt for attempt in read if shown.get(attempt) == UNIDENTIFIED_GRADING)
+    changed = sorted(attempt for attempt in read if attempt not in unidentified
+                     and shown.get(attempt, ungraded) != now.get(attempt, ungraded))
+    record = WriteRecord()
+    if unidentified:
+        record = record.join(WriteRecord.incomplete(f"{GRADING_UNIDENTIFIED} ({', '.join(unidentified)})"))
+    if changed:
+        record = record.join(WriteRecord.incomplete(f"{GRADING_REPLACED} ({', '.join(changed)})"))
+    return record
 
 
 def frozen_record(store: Any, reads: DiagnosisReads) -> Any:
     """THE record of what a diagnosis context showed, frozen when the context
     is built (codex review F3): every contract, grading and derived text's
     record as it stands now, before the diagnoser runs, so a regrade while
-    it runs never replaces the provenance of what it was shown. A grading
-    replaced since the history store read it (its mark changed) is named,
-    and a store that cannot say what it showed makes the record incomplete."""
+    it runs never replaces the provenance of what it was shown. Each grading
+    shown (a history attempt's, and the diagnosed attempt's own) is checked
+    against the identity the store read with its payload (codex re-review
+    F3): one replaced since is named, and a store that cannot say what it
+    showed makes the record incomplete."""
 
-    from learnloop.db.stores.write_provenance import WriteRecord, grading_marks
+    from learnloop.db.stores.write_provenance import WriteRecord, grading_marks, read_snapshot
 
     repository = getattr(store, "repository", None)
     marks = getattr(store, "grading_marks", None)
     if repository is None or not callable(marks):
         return WriteRecord.incomplete(NOT_FROZEN)
-    with repository.connection() as connection:
+    shown = marks()
+    attempts = _read_attempts(reads)
+    # The record and the identities it is checked against, in one snapshot.
+    with repository.connection() as connection, read_snapshot(connection):
         record = diagnosis_record(connection, reads)
-        # After the record: a regrade that commits between the history's read
-        # and here changes the mark; one that commits later changes nothing frozen.
-        attempts = _read_attempts(reads)
-        return record.join(_replaced(marks(), grading_marks(connection, attempts), attempts))
+        now = grading_marks(connection, attempts)
+    return record.join(_replaced(shown, now, attempts))
 
 
 def freeze_entries(store: Any, entries: Mapping[str, DiagnosisReads]) -> dict[str, Any]:
     """Each export file's closed record, frozen when the export is written
     (codex review F3); :func:`snapshot_record` joins the ones served."""
 
-    from learnloop.db.stores.write_provenance import WriteRecord, grading_marks
+    from learnloop.db.stores.write_provenance import WriteRecord, grading_marks, read_snapshot
 
     repository = getattr(store, "repository", None)
     marks = getattr(store, "grading_marks", None)
     if repository is None or not callable(marks):
         return {path: WriteRecord.incomplete(NOT_FROZEN) for path in entries}
-    with repository.connection() as connection:
+    with repository.connection() as connection, read_snapshot(connection):
         frozen = {path: diagnosis_record(connection, reads) for path, reads in entries.items()}
         attempts = {path: _read_attempts(reads) for path, reads in entries.items()}
         now = grading_marks(connection, [attempt for ids in attempts.values() for attempt in ids])
@@ -569,6 +590,7 @@ def freeze_entries(store: Any, entries: Mapping[str, DiagnosisReads]) -> dict[st
 
 __all__ = [
     "GRADING_REPLACED",
+    "GRADING_UNIDENTIFIED",
     "NOT_FROZEN",
     "SNAPSHOT_OUTSIDE",
     "SNAPSHOT_UNREPORTED",

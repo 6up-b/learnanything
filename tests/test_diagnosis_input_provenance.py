@@ -1175,3 +1175,281 @@ def test_f5_replay_never_reads_the_switch_or_the_records(tmp_path, monkeypatch):
     assert snapshot() == switched_on
     monkeypatch.undo()
     assert _rows(repository) == records
+
+
+# -- Codex re-review (job 20261015-122305-KfcF1c): F2 and F3 reopened ---------------------------
+
+
+def _diagnosis_rows(repository: Any, attempt_id: str) -> list[dict[str, Any]]:
+    """The write-time rows of every diagnosis of ``attempt_id``, in order."""
+
+    with repository.connection() as connection:
+        ids = [str(row[0]) for row in connection.execute(
+            "SELECT id FROM attempt_diagnoses WHERE attempt_id = ? ORDER BY created_at, id", (attempt_id,))]
+    return [row for row in _rows(repository, "diagnosis") if row["record_id"] in ids]
+
+
+def _missing(row: dict[str, Any]) -> list[str]:
+    return list(json.loads(row["incomplete_reasons_json"]))
+
+
+@pytest.mark.parametrize("rewritten", [True, False], ids=["rewritten", "kept"])
+def test_rereview_f2_a_name_is_checked_although_a_text_read_already_folded_its_topic(tmp_path, rewritten):
+    """Re-review F2, the reproduction: the first diagnosis was shown the
+    generated topic under its recorded name, so its causes' records fold the
+    topic. A writer that records nothing renames it. The second diagnosis is
+    shown the new name AND those causes: their records already carry the
+    topic, which must not exempt the new name from the check (its summary
+    is held back, not released as a ``RecordedText``)."""
+
+    from learnloop.clock import FrozenClock
+
+    paths, _vault, repository = split_vault(tmp_path, seed=False, config='[diagnosis]\nhistory_mode = "full"')
+    _f2_generated_topic(paths, repository, concept="singular_value_decomposition")
+    vault = load_vault(paths.root)
+    client = ProvenanceFake()
+    first = submit(vault, repository, client, answer=SVD_WRONG, when=at(1))
+    # Diagnosed before the next answer, so its causes are history then.
+    drain_jobs(vault, repository, client, clock=FrozenClock(at(1.5)))
+    (first_row,) = _diagnosis_rows(repository, first.attempt_id)
+    assert first_row["complete"] == 1
+    folded = [tuple(ref) for ref in json.loads(first_row["derived_from_json"])]
+    assert ("learning_object", _F2_LO) in folded
+    with repository.connection() as connection:
+        hypotheses = [str(row[0]) for row in connection.execute(
+            "SELECT id FROM causal_hypotheses WHERE attempt_id = ?", (first.attempt_id,))]
+    assert hypotheses
+    if rewritten:
+        _f2_rewrite_title(paths)
+    vault = load_vault(paths.root)
+    second = submit(vault, repository, client, answer="A = U Sigma V, wrong again", when=at(2))
+    drain_jobs(vault, repository, client, clock=FrozenClock(at(2.5)))
+    submit(vault, repository, client, answer=SVD_RIGHT, when=at(3))
+
+    (row,) = _diagnosis_rows(repository, second.attempt_id)
+    read = {tuple(ref) for ref in json.loads(row["derived_from_json"])}
+    assert any(("hypothesis", hypothesis) in read for hypothesis in hypotheses)
+    trace = _trace(_context(paths.root, repository), second.attempt_id)
+    if rewritten:
+        assert row["complete"] == 0
+        assert any(_F2_LO in reason and _wp().NAME_UNCOVERED in reason for reason in _missing(row)), _missing(row)
+        assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == HELD_BACK
+    else:
+        assert row["complete"] == 1, _missing(row)
+        assert trace["diagnosis"]["summary"] == "The learner keeps the last factor untransposed."
+
+
+@pytest.mark.parametrize("rewritten", [True, False], ids=["rewritten", "kept"])
+def test_rereview_f2_a_prior_fold_never_exempts_a_name_from_the_check(world, rewritten):
+    """Re-review F2 at the function: a derived text whose record already
+    folded the topic (``derived_from``) is read, and the writer was shown the
+    topic under a name. The name is checked on its own."""
+
+    safe = generated_world(world)["safe"]
+    _record_drafted(world, safe, "att_own", "pi_own")
+    recorded = load_vault(world.root).learning_objects[safe].title
+    with world.repository.atomic():
+        connection = world.repository.connection()
+        _wp().record_text_write(connection, kind="hypothesis", record_id="hyp_folded", text="Drops a sign",
+                                writer="test", record=_wp().closure(connection, [("learning_object", safe)]))
+    name = "Parity, renamed by a writer that recorded nothing" if rewritten else recorded
+    reads = _dp().DiagnosisReads(records=(("hypothesis", "hyp_folded", "Drops a sign"),), topics=(safe,),
+                                 titles=((safe, name),))
+    with world.repository.connection() as connection:
+        assert ("learning_object", safe) in _wp().stored_record(connection, "hypothesis", "hyp_folded").record.derived_from
+        record = _dp().diagnosis_record(connection, reads)
+    assert record.complete is (not rewritten), record.missing
+    assert any(_wp().NAME_UNCOVERED in reason for reason in record.missing) is rewritten
+
+
+@pytest.mark.parametrize("rewritten", [True, False], ids=["rewritten", "kept"])
+@pytest.mark.parametrize("shown_as", ["anchor", "named_prerequisite"])
+def test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names(world, shown_as, rewritten):
+    """Re-review F2 at the prerequisite drafter: ``reading_record`` folds the
+    anchor and the reading's prerequisite before ``drafter_record`` checks
+    the names it was shown them by. A renamed generated topic, shown as the
+    asking topic or named as the prerequisite, still makes the draft's
+    record incomplete."""
+
+    from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
+    from learnloop.diagnosis.text_gaps.provenance import drafter_record
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    safe = generated_world(world)["safe"]
+    _record_drafted(world, safe, "att_own", "pi_own")
+    name = load_vault(world.root).learning_objects[safe].title
+    if rewritten:
+        name = "Parity, renamed by a writer that recorded nothing"
+        lo = read_yaml(world.paths.learning_object_path("linear-algebra", safe))
+        lo["title"] = name
+        write_yaml(world.paths.learning_object_path("linear-algebra", safe), lo)
+    vault = load_vault(world.root)
+    anchors = (safe,) if shown_as == "anchor" else (LO,)
+    text = LearnerText(source_kind="stuck_answer", source_id="att_own", text="stuck", context_judge="gap_reader",
+                       created_at=NOW_ISO, subject_id="linear-algebra", anchor_learning_object_ids=anchors,
+                       practice_item_id="pi_own", attempt_id="att_own")
+    reading = None
+    if shown_as == "named_prerequisite":
+        reading = GapReading(kind="prerequisite", prerequisite_name=name, prerequisite_refs=(safe,))
+    with world.repository.connection() as connection:
+        record = drafter_record(connection, vault, text, reading, subject_id="linear-algebra",
+                                shown_concept_titles=())
+    assert ("learning_object", safe) in record.derived_from
+    assert record.complete is (not rewritten), record.missing
+    assert any(safe in reason and _wp().NAME_UNCOVERED in reason for reason in record.missing) is rewritten
+
+
+class _RegradesToCorrect(GradesEverythingRight):
+    """A regrade whose grader finds the answer right: a new blind payload
+    ("Correct."), new evidence rows, no error events."""
+
+
+def _regrade(vault, repository, attempt_id: str) -> None:
+    from learnloop.attempts.regrade import regrade_attempt
+
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(attempt_id), runtime=ReadyRuntime(),
+                    client=_RegradesToCorrect(), grading_source="ai", clock=None)
+    record = repository.latest_blind_grade_record(attempt_id)
+    assert record is not None and record["record"]["local_analysis_md"] == "Correct."
+
+
+@pytest.mark.parametrize("regraded", [True, False], ids=["regraded", "unchanged"])
+def test_rereview_f3_the_overlay_s_payload_is_validated_by_the_identity_captured_with_it(tmp_path, regraded):
+    """Re-review F3, the reproduction: ``live_history_store`` captures the
+    blind payloads; a regrade commits before the store reads its rows. The
+    history shows the payload it captured (the old grader text), so the
+    identity validated at the freeze must be the one captured with that
+    payload, not one computed from the rows read later."""
+
+    from learnloop.diagnosis.split.history import AttemptRef
+    from learnloop.diagnosis.split.live import live_history_store
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    peer = submit(vault, repository, ProvenanceFake(), answer=SVD_WRONG, when=at(1), pipeline=False)
+    old_text = repository.latest_blind_grade_record(peer.attempt_id)["record"]["local_analysis_md"]
+    assert old_text != "Correct."
+    store = live_history_store(load_vault(paths.root), repository)
+    if regraded:
+        _regrade(vault, repository, peer.attempt_id)
+    (shown,) = store.attempts_before(AttemptRef("zz_after", "2099-01-01T00:00:00Z"), None)
+    assert shown.local_analysis_md == old_text and shown.failed_criteria
+    record = _dp().frozen_record(store, _dp().DiagnosisReads(attempts=(_dp().AttemptRead(peer.attempt_id, True),)))
+    replaced = [reason for reason in record.missing if reason.startswith(_dp().GRADING_REPLACED)]
+    assert record.complete is (not regraded), record.missing
+    assert bool(replaced) is regraded and all(peer.attempt_id in reason for reason in replaced)
+
+
+@pytest.mark.parametrize("regraded", ["history_attempt", "current_attempt", "nothing"])
+def test_rereview_f3_a_regrade_after_the_job_captured_its_gradings_is_unaccountable(tmp_path, monkeypatch, regraded):
+    """Re-review F3 through the job: a regrade commits right after the job
+    built its history store, before the store read its rows and before the
+    freeze. Whether it regrades a history attempt (shown by its captured
+    blind payload) or the diagnosed attempt (whose grade the job loads for
+    the context), the diagnosis's record names the replaced grading instead
+    of certifying the new one."""
+
+    import learnloop.diagnosis.split.jobs as jobs_module
+
+    paths, vault, repository = split_vault(tmp_path, seed=False, config='[diagnosis]\nhistory_mode = "full"')
+    client = ProvenanceFake()
+    peer = submit(vault, repository, client, answer="A = U Sigma, peer", when=at(0.5), pipeline=False)
+    current = submit(vault, repository, client, answer=SVD_WRONG, when=at(1))
+    target = {"history_attempt": peer.attempt_id, "current_attempt": current.attempt_id}.get(regraded)
+    original = jobs_module.live_history_store
+    pending = {"target": target}
+
+    def capture_then_regrade(vault_: Any, repository_: Any) -> Any:
+        store = original(vault_, repository_)
+        attempt_id, pending["target"] = pending["target"], None
+        if attempt_id is not None:
+            _regrade(load_vault(paths.root), repository_, attempt_id)
+        return store
+
+    monkeypatch.setattr(jobs_module, "live_history_store", capture_then_regrade)
+    drain_jobs(vault, repository, client)
+    assert pending["target"] is None
+
+    row = _diagnosis_rows(repository, current.attempt_id)[0]
+    assert peer.attempt_id in json.loads(row["inputs_json"])["answers"]
+    replaced = [reason for reason in _missing(row) if reason.startswith(_dp().GRADING_REPLACED)]
+    if target is None:
+        assert row["complete"] == 1 and not replaced, _missing(row)
+        return
+    assert row["complete"] == 0, _missing(row)
+    assert replaced and all(target in reason for reason in replaced), _missing(row)
+    if regraded == "history_attempt":
+        submit(load_vault(paths.root), repository, client, answer=SVD_RIGHT, when=at(2))
+        trace = _trace(_context(paths.root, repository), current.attempt_id)
+        assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == HELD_BACK
+
+
+def test_rereview_f3_a_grading_s_identity_covers_its_payload_contract_and_provenance(tmp_path):
+    """The identity a store reads with its payloads changes with each thing
+    the frozen record says about a grading: its blind payload, the contract
+    its evidence pins (even changed in place), whether a model wrote it, and
+    its recorded gradings and C4 receipts. ``read_snapshot`` leaves a
+    connection as it found it."""
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    peer = submit(vault, repository, ProvenanceFake(), answer=SVD_WRONG, when=at(1), pipeline=False).attempt_id
+    changes = [
+        "UPDATE grading_evidence SET assessment_contract_version_id = NULL WHERE attempt_id = :a",
+        "UPDATE grading_evidence SET agent_run_id = 'run_other' WHERE attempt_id = :a",
+        "INSERT INTO blind_grade_records(id, attempt_id, agent_run_id, grading_prompt_version, output_schema_version, "
+        "context_hash, record_json, created_at) VALUES ('bg_new', :a, NULL, 'v', 'v', 'h', '{}', '2099-01-01T00:00:00Z')",
+        None,  # a recorded grading
+        "DELETE FROM error_events WHERE attempt_id = :a",
+    ]
+    with repository.connection() as connection:
+        marks = [_wp().grading_marks(connection, [peer])[peer]]
+        assert _wp().grading_marks(connection)[peer] == marks[0]
+    for change in changes:
+        with repository.atomic():
+            connection = repository.connection()
+            if change is None:
+                _wp().record_grading(connection, attempt_id=peer, writer="test")
+            else:
+                connection.execute(change, {"a": peer})
+        with repository.connection() as connection:
+            marks.append(_wp().grading_marks(connection, [peer])[peer])
+    assert len(set(marks)) == len(marks)
+    # A joint grading gains its C4 receipt (receipts are append-only, one per attempt).
+    seed_attempt(vault, repository, attempt_id="att_joint", item_id=SVD_ITEM, answer="A = U Sigma, joint",
+                 when=at(0.5), points={"setup": 0, "result": 0})
+    with repository.connection() as connection:
+        before = _wp().grading_marks(connection, ["att_joint"])["att_joint"]
+        c4_receipt(connection, "att_joint", [])
+        connection.commit()
+        assert _wp().grading_marks(connection, ["att_joint"])["att_joint"] not in (before, *marks)
+    with repository.connection() as connection:
+        assert _wp().grading_marks(connection, ["never_graded"]) == {"never_graded": _wp().grading_mark()}
+        with _wp().read_snapshot(connection):
+            assert connection.in_transaction
+        assert not connection.in_transaction
+        connection.execute("BEGIN")
+        with _wp().read_snapshot(connection):
+            pass
+        assert connection.in_transaction
+        connection.rollback()
+
+
+def test_rereview_f3_a_payload_its_caller_supplied_is_never_certified(tmp_path):
+    """A store whose overlay its caller supplied (an offline review's fresh
+    blind grades) cannot say which grading the payload is: the record names
+    it instead of checking it against the database's identity."""
+
+    from learnloop.diagnosis.split.history import VaultHistoryStore
+    from learnloop.diagnosis.split.live import live_history_store
+
+    paths, vault, repository = split_vault(tmp_path, seed=False)
+    peer = submit(vault, repository, ProvenanceFake(), answer=SVD_WRONG, when=at(1), pipeline=False).attempt_id
+    payload = dict(repository.latest_blind_grade_record(peer)["record"])
+    reads = _dp().DiagnosisReads(attempts=(_dp().AttemptRead(peer, True),))
+    vault = load_vault(paths.root)
+    for store in (VaultHistoryStore(vault, repository, blind_grades={peer: payload}),
+                  live_history_store(vault, repository).with_blind_grades({peer: payload})):
+        record = _dp().frozen_record(store, reads)
+        assert record.complete is False
+        assert any(reason.startswith(_dp().GRADING_UNIDENTIFIED) and peer in reason for reason in record.missing)
+    assert _dp().frozen_record(live_history_store(vault, repository), reads).complete is True
+    assert _dp().frozen_record(VaultHistoryStore(vault, repository), reads).complete is True
