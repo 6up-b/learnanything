@@ -621,26 +621,20 @@ def _held_out_signal_spans(inventory: Any) -> list[str]:
     return sorted(spans)
 
 
-#: The inventory profile only the exam role asks for (``role_authority``'s
-#: role-to-profile map): migration 225 records a backfilled signal made under
-#: it as made under the exam role (Codex review of extraction identity, F3).
-EXAM_INVENTORY_PROFILE = "assessment"
-
-
 def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
     """The ledger migration 225's backfill would write, read from the
     inventory cache: for a database read before it is migrated (a dry run
     never migrates). A row whose usage names no inventory it was rebound from
     is on its own extraction; a rebound row, or one whose usage cannot be
-    read, names no reading. A row made under the exam role's profile, or on a
-    book with an outline exam pick, was made as exam material."""
+    read, names no reading. A row on a book with an outline exam pick was made
+    as exam material; the inventory profile is no role (re-review F7)."""
 
     picked = {source_id for source_id, _revision, _extraction in _outline_exam_sources(connection) if source_id}
     found: list[dict[str, Any]] = []
-    for (inventory_id, revision_id, extraction_id, unit_id, inventory_json, usage_json, source_id,
-         profile) in connection.execute(
+    for (inventory_id, revision_id, extraction_id, unit_id, inventory_json, usage_json,
+         source_id) in connection.execute(
             "SELECT inventory.id, inventory.source_revision_id, inventory.extraction_id, inventory.unit_id, "
-            "inventory.inventory_json, inventory.usage_json, revision.source_id, inventory.inventory_profile "
+            "inventory.inventory_json, inventory.usage_json, revision.source_id "
             "FROM source_unit_inventories AS inventory "
             "LEFT JOIN source_revisions AS revision ON revision.id = inventory.source_revision_id "
             "WHERE inventory.inventory_json LIKE '%held_out%' ORDER BY inventory.created_at, inventory.id"):
@@ -655,7 +649,7 @@ def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
             except (TypeError, ValueError):
                 usage = None
             bound = isinstance(usage, dict) and usage.get("rebound_from_inventory_id") is None
-        exam = profile == EXAM_INVENTORY_PROFILE or (source_id is not None and str(source_id) in picked)
+        exam = source_id is not None and str(source_id) in picked
         found.append({"revision_id": None if revision_id is None else str(revision_id),
                       "extraction_id": str(extraction_id) if bound and extraction_id else None,
                       "unit_id": str(unit_id), "made_as_role": EXAM_ROLE if exam else None,
@@ -1417,7 +1411,6 @@ __all__ = [
     "AMBIGUOUS_SCOPE",
     "AMBIGUOUS_SELECTION",
     "AMBIGUOUS_SIGNAL",
-    "EXAM_INVENTORY_PROFILE",
     "EXAM_MEMBER",
     "EXAM_RESERVED",
     "EXAM_ROLE",

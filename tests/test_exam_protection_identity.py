@@ -652,8 +652,9 @@ def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank
     extraction: its signals mark that reading. A rebound row (its usage names
     the inventory it was rebound from) or one whose usage cannot be read
     marks no reading, still protects its book, and lets no other signal mark
-    a reading beside it (identity review F2). A row made under the exam
-    role's profile was made as exam material (identity review F3)."""
+    a reading beside it (identity review F2). The inventory profile is no
+    role: an ``assessment`` row records none (re-review F7); its exam
+    membership qualifies it here."""
 
     import json
 
@@ -696,8 +697,8 @@ def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank
     assert (rows["inv_fresh"]["extraction_id"], rows["inv_fresh"]["span_ids"]) == ("extXA", ["x0", "x1"])
     assert rows["inv_null_usage"]["extraction_id"] == "extXA"
     assert rows["inv_rebound"]["extraction_id"] is None and rows["inv_unreadable"]["extraction_id"] is None
-    assert all(row["made_as_role"] == "exam" and row["revision_id"] == "rev_x" for row in rows.values()), (
-        "made under the exam role's own profile")
+    assert all(row["made_as_role"] is None and row["revision_id"] == "rev_x" for row in rows.values()), (
+        "the profile is no role")
 
     sets = _exam_sets(default_role="exam", scope=())
     # The rebound rows may be about any reading: no signal marks one beside them.
@@ -970,14 +971,15 @@ def test_identity_review_a_signal_of_unknown_reading_is_named_plainly(exam_book)
     assert plan["extraction_id"] == "extXB" and "u2" in plan["held_out_unit_ids"], "suggested where it was found"
 
 
-@pytest.mark.parametrize("qualified_by", ["assessment_profile", "outline_pick", "outline_pick_after_upgrade"])
+@pytest.mark.parametrize("qualified_by", ["outline_pick", "outline_pick_after_upgrade"])
 def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_leaving(blank_book, qualified_by):
     """Identity review F3 (the database side): a signal backfilled by 225
     named no role, so it protected only while its book was exam material,
     and it was released without any decision once that ended. An inventory
-    made under the exam role's own profile, or on a book with an outline exam
-    pick, is recorded as exam material by the upgrade; a pick removed after
-    the upgrade records it first."""
+    on a book with an outline exam pick is recorded as exam material by the
+    upgrade; a pick removed after the upgrade records it first. (Its
+    ``assessment_profile`` case is gone: the profile is no role, re-review
+    F7.)"""
 
     repo, clock = blank_book["repo"], blank_book["clock"]
     _persist(repo, _exam_reading_a(), revision_id="rev_x", extraction_id="extXA", clock=clock)
@@ -989,8 +991,7 @@ def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_l
                                    selected_unit_ids=["u1", "u2"], role_override=role)
 
     def older_build(repo: Repository) -> None:
-        _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"],
-                          profile="assessment" if qualified_by == "assessment_profile" else "combined")
+        _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"])
         if qualified_by == "outline_pick":
             pick(repo, "exam")
 
@@ -998,8 +999,7 @@ def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_l
     if qualified_by == "outline_pick_after_upgrade":
         pick(repo, "exam")
         assert EM.held_out_material([], repo).covers("extXA", "x1")
-    if qualified_by != "assessment_profile":
-        pick(repo, "primary_textbook")  # the pick is changed: the book is no longer exam material
+    pick(repo, "primary_textbook")  # the pick is changed: the book is no longer exam material
 
     held = EM.held_out_material([], repo)
     assert held.covers("extXA", "x1"), "the question stays held out"
@@ -1166,15 +1166,139 @@ def test_identity_review_f6_the_kill_switch_restores_the_predecessors_reading_st
     assert split["reading_rule"] == ("book_order" if dl1 else "furthest")
 
 
-def test_the_ledgers_exam_roles_are_the_role_authoritys():
+def test_the_ledgers_exam_roles_are_the_role_authoritys(tmp_path):
     """The infrastructure layer's copy of the exam roles (it may not import
-    the role authority) and the exam profile the 225 backfill reads stay the
-    role authority's."""
+    the role authority) stays the role authority's, and the migration
+    coordinator's source sets path (it may not import the vault) the vault's."""
 
-    from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES, default_inventory_profile
+    from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES
     from learnloop.db.stores.held_out_signals import EXAM_ROLES
+    from learnloop.migration_coordinator import SOURCE_SETS_PATH
+    from tests.helpers import create_basic_vault
 
     assert EXAM_ROLES == ASSESSMENT_ONLY_ROLES
-    assert {default_inventory_profile(role) for role in ASSESSMENT_ONLY_ROLES} == {EM.EXAM_INVENTORY_PROFILE}
-    others = {"primary_textbook", "lecture", "paper", "reference", "alternate_explanation", "problem_set", "notes"}
-    assert EM.EXAM_INVENTORY_PROFILE not in {default_inventory_profile(role) for role in others}
+    paths = create_basic_vault(tmp_path / "vault")
+    assert paths.source_sets_path == paths.root / SOURCE_SETS_PATH
+
+
+# --- Codex re-review of extraction identity ------------------------------------------------
+
+
+def _older_build_with_membership(exam_book, member, *, profile: str = "combined") -> None:
+    """A vault an older build wrote: no ledger (migration 225 not applied), a
+    cache row with a held-out signal on A's Exam unit, and B read; the book's
+    membership in ``source_sets.yaml`` is ``member`` (None: no set)."""
+
+    from learnloop.vault.writer import upsert_source_set
+
+    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    with repo.connection() as connection:
+        connection.execute("DROP TRIGGER source_held_out_signal_marks_no_update")
+        connection.execute("DROP TABLE source_held_out_signal_marks")
+        connection.execute("DELETE FROM schema_migrations WHERE version = 225")
+        connection.commit()
+    _cached_inventory(repo, "inv_q", "extXA", "u1", ["x1"], profile=profile)
+    if member is not None:
+        upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "Exam prep",
+                                 "members": [member]})
+
+
+def _hand_edit_members(root: Path, members) -> None:
+    """The owner edits ``sources/source_sets.yaml`` in a text editor: no vault writer runs."""
+
+    import yaml
+
+    path = root / "sources" / "source_sets.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["source_sets"][0]["members"] = members
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
+_EXAM_MEMBER = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "exam", "scope": []}
+_SCOPED_MEMBER = {"source_id": "src_x", "revision_id": "rev_x", "default_role": "primary_textbook",
+                  "scope_extraction_id": "extXA", "scope_revision_id": "rev_x",
+                  "scope": [{"unit_id": "u1", "role_override": "exam"}]}
+
+
+@pytest.mark.parametrize("upgrade", ["by_the_app", "path_only_then_opened"])
+@pytest.mark.parametrize("change", ["re_role", "remove", "scope_removed"])
+def test_identity_rereview_f3_a_hand_edit_never_releases_a_signal_its_membership_qualified(exam_book, upgrade,
+                                                                                           change):
+    """Codex re-review F3: a ``combined``-profile signal backfilled by 225
+    names no role, so it protected A's question only while its book was exam
+    material in ``source_sets.yaml``. The vault writer recorded it before a
+    write that ended that membership, but a hand edit of the file bypasses the
+    writer, and A's question, B and the book's marks were all released. The
+    app records the signals its vault's exam membership qualifies whenever it
+    migrates or opens the vault (the upgrade first), while that membership is
+    known."""
+
+    from learnloop.db.migrate import apply_migrations
+    from learnloop.migration_coordinator import migrate_vault
+    from learnloop.vault.loader import load_vault
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    member = _SCOPED_MEMBER if change == "scope_removed" else _EXAM_MEMBER
+    _older_build_with_membership(exam_book, member)
+    if upgrade == "by_the_app":
+        assert [migration.version for migration in migrate_vault(root, repo.sqlite_path)] == [225]
+    else:
+        assert [migration.version for migration in apply_migrations(repo.sqlite_path)] == [225]
+        assert migrate_vault(root, repo.sqlite_path) == []  # the app opens the vault: nothing left to migrate
+    assert EM.held_out_material(load_vault(root), repo).covers("extXA", "x1")
+
+    after = {"re_role": [{**member, "default_role": "primary_textbook"}], "remove": [],
+             "scope_removed": [{**member, "scope": []}]}[change]
+    _hand_edit_members(root, after)
+    vault = load_vault(root)
+    held = EM.held_out_material(vault, repo)
+    assert held.covers("extXA", "x1"), "A's question stays held out after the hand edit"
+    assert "extXB" in held.extractions, "B stays withheld until protection is marked on it"
+    assert "src_x" in EM.source_marks(vault, repo)
+    assert {row["made_as_role"] for row in repo.held_out_signal_marks()} == {None, "exam"}, "an appended copy"
+
+
+def test_identity_rereview_f3_opening_records_only_what_membership_qualifies(exam_book):
+    """Opening records nothing for a book its membership does not make exam
+    material (the owner's textbook signals keep protecting nothing), and an
+    exam book's signal once, however often the vault opens."""
+
+    from learnloop.migration_coordinator import migrate_vault
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
+    _older_build_with_membership(exam_book, textbook)
+    assert [migration.version for migration in migrate_vault(root, repo.sqlite_path)] == [225]
+    migrate_vault(root, repo.sqlite_path)
+    assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+    _hand_edit_members(root, [_EXAM_MEMBER])
+    for _ in range(3):
+        migrate_vault(root, repo.sqlite_path)
+    assert sorted(row["made_as_role"] or "" for row in repo.held_out_signal_marks()) == ["", "exam"]
+
+
+@pytest.mark.parametrize("read", ["migrated", "not_yet_migrated"])
+def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_book, read):
+    """Codex re-review F7: the inventory profile is configurable apart from
+    the role (``learnloop source inventory --role primary_textbook --profile
+    assessment``). The 225 backfill took an ``assessment`` profile for the
+    exam role: a textbook's held-out signal protected it, and its other
+    reading was withheld whole, theory included. Only role evidence (an exam
+    membership, an outline exam pick) qualifies a backfilled signal."""
+
+    from learnloop.db.migrate import apply_migrations
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
+    _older_build_with_membership(exam_book, textbook, profile="assessment")
+    if read == "migrated":
+        assert [migration.version for migration in apply_migrations(repo.sqlite_path)] == [225]
+        assert [row["made_as_role"] for row in repo.held_out_signal_marks()] == [None]
+    sets = _exam_sets(default_role="primary_textbook", scope=())
+    assert EM.source_marks(sets, repo) == {}
+    material = EM.exam_material(sets, repo)
+    assert not material.held_out.extractions and material.material.empty
+    assert not EM.held_out_material(sets, repo).covers("extXA", "x1")
+    # With exam role evidence, the same row protects (membership; an outline pick).
+    assert EM.held_out_material(_exam_sets(default_role="exam", scope=()), repo).covers("extXA", "x1")

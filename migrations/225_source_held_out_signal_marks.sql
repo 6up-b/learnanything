@@ -17,12 +17,13 @@
 -- for a cached row that a cache hit had already rebound (its usage names the
 -- inventory it was rebound from): the book stays protected, no reading is
 -- marked by any signal beside it, and the row marks no reading.
--- made_as_role NULL: not recorded (a backfilled row made under neither the
--- exam role's profile nor on a book with an outline exam pick).
+-- made_as_role NULL: not recorded (a backfilled row on a book with no outline
+-- exam pick: the cache never recorded the role an inventory was made under).
 -- RAW_LEDGER: written by Repository.insert_unit_inventory, never updated
 -- (trigger), deleted only with its book (source deletion). A row whose role
 -- was not recorded is recorded again as exam material, never rewritten, when
--- its book stops being exam material (the vault writer, an outline pick
+-- its book is exam material in the vault when the app migrates or opens it,
+-- or before it stops being exam material (the vault writer, an outline pick
 -- changed: db.stores.held_out_signals); exam protection reads either.
 CREATE TABLE source_held_out_signal_marks (
   id TEXT PRIMARY KEY,
@@ -51,9 +52,12 @@ END;
 -- run on its own extraction (a rebind rewrites usage), so its reading is
 -- exact; a rebound row (or one whose usage cannot be read) marks no reading.
 -- Its role, where the database knows it (Codex review of extraction
--- identity, F3): the exam role's own inventory profile ('assessment', asked
--- for by no other role), or a book with an outline exam pick, was made as
--- exam material, so it protects whatever its membership becomes.
+-- identity, F3): a book with an outline exam pick is exam material by its
+-- role, so its signals protect whatever its membership becomes. The inventory
+-- profile is no role: it is chosen apart from the role ('--role
+-- primary_textbook --profile assessment'), so it qualifies nothing (re-review
+-- F7). Only the vault knows the source sets' roles: the app records the
+-- signals they qualify after migrating (learnloop.migration_coordinator).
 INSERT OR IGNORE INTO source_held_out_signal_marks(
   id, revision_id, extraction_id, unit_id, inventory_id, made_as_role, span_ids_json, created_at
 )
@@ -69,7 +73,6 @@ SELECT
   inventory.unit_id,
   inventory.id,
   CASE
-    WHEN inventory.inventory_profile = 'assessment' THEN 'exam'
     WHEN EXISTS (
       SELECT 1 FROM source_unit_selections AS pick
       LEFT JOIN source_extraction_runs AS pick_run ON pick_run.id = pick.extraction_id

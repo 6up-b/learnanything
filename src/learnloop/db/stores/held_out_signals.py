@@ -3,16 +3,22 @@ of exam protection by extraction identity, F3).
 
 A held-out signal counts as exam protection when it was made under an exam
 role (``made_as_role``), or, for a row whose role was not recorded (a signal
-backfilled by migration 225 from an inventory made under neither the exam
-role's profile nor on a book with an outline exam pick), while its book is
-exam material (``content.sources.exam_material._signal_counts``). Such a row
-would stop protecting once its book stopped being exam material, with no
-decision to release it. So whatever ends a book's exam membership records its
-role-unrecorded rows as exam material first: an appended copy
-(``hos_q_<row id>``, ``made_as_role = 'exam'``), never an update of the
-append-only ledger. The vault writer calls it before it writes a source set
-that ends a book's exam membership in that set, and the repository before an
-outline exam pick is changed.
+migration 225 backfilled on a book with no outline exam pick: the cache never
+recorded the role an inventory was made under, and its profile is not one,
+Codex re-review F7), while its book is exam material
+(``content.sources.exam_material._signal_counts``). Such a row would stop
+protecting once its book stopped being exam material, with no decision to
+release it. So the role-unrecorded rows of a book that is exam material are
+recorded as exam material: an appended copy (``hos_q_<row id>``,
+``made_as_role = 'exam'``), never an update of the append-only ledger.
+
+* The app records them whenever it migrates or opens the vault
+  (``learnloop.migration_coordinator``; the upgrade to 225 first), for the
+  books ``source_sets.yaml`` makes exam material then, so a later hand edit of
+  that file releases nothing (Codex re-review F3).
+* The vault writer records them before it writes a source set that ends a
+  book's exam membership in that set, and the repository before an outline
+  exam pick is changed.
 """
 
 from __future__ import annotations
@@ -37,6 +43,35 @@ def is_exam_role(role: object) -> bool:
 def _has_ledger(connection: sqlite3.Connection) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (_LEDGER,)).fetchone() is not None
+
+
+def exam_member_sources(members: Iterable[object]) -> set[str]:
+    """The books a source set's members (``source_sets.yaml`` entries, as
+    read) make exam material: an exam default role, or a scope entry
+    overridden to an exam role (``content.sources.exam_material``'s rule 1 and
+    rule 2, read the same way)."""
+
+    found: set[str] = set()
+    for member in members if isinstance(members, (list, tuple)) else ():
+        if not isinstance(member, dict) or not member.get("source_id"):
+            continue
+        scope = member.get("scope") if isinstance(member.get("scope"), list) else []
+        if is_exam_role(member.get("default_role")) or any(
+                isinstance(entry, dict) and is_exam_role(entry.get("role_override")) for entry in scope):
+            found.add(str(member["source_id"]))
+    return found
+
+
+def pending_unrecorded_sources(connection: sqlite3.Connection) -> set[str]:
+    """The books with a role-unrecorded held-out signal not yet recorded as
+    exam material (none before migration 225)."""
+
+    if not _has_ledger(connection):
+        return set()
+    return {str(row[0]) for row in connection.execute(
+        f"SELECT DISTINCT r.source_id FROM {_LEDGER} AS m JOIN source_revisions AS r ON r.id = m.revision_id "
+        f"WHERE m.made_as_role IS NULL AND r.source_id IS NOT NULL AND NOT EXISTS ("
+        f"SELECT 1 FROM {_LEDGER} AS q WHERE q.id = 'hos_q_' || m.id)")}
 
 
 def unqualified_signal_count(connection: sqlite3.Connection, source_ids: Iterable[str]) -> int:
@@ -71,4 +106,12 @@ def qualify_unrecorded_signals(connection: sqlite3.Connection, source_ids: Itera
     return max(int(cursor.rowcount or 0), 0)
 
 
-__all__ = ["EXAM_ROLES", "QUALIFIED_ROLE", "is_exam_role", "qualify_unrecorded_signals", "unqualified_signal_count"]
+__all__ = [
+    "EXAM_ROLES",
+    "QUALIFIED_ROLE",
+    "exam_member_sources",
+    "is_exam_role",
+    "pending_unrecorded_sources",
+    "qualify_unrecorded_signals",
+    "unqualified_signal_count",
+]
