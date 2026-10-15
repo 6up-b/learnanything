@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2d7c4948399efdc96c3c60d7379da37bc90a9e3d"
-source_commit_timestamp: "2026-10-14T20:18:37-04:00"
+source_commit: "03a846787549677b06565c69f422c42114f7fc3d"
+source_commit_timestamp: "2026-10-15T01:00:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/answered_contracts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
@@ -125,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`
+- `tests/test_required_method_round3_rereview.py`
 - `tests/test_sidecar_contract.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
