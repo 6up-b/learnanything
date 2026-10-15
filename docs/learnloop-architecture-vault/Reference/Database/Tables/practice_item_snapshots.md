@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "03a846787549677b06565c69f422c42114f7fc3d"
-source_commit_timestamp: "2026-10-15T01:00:29-04:00"
+source_commit: "021f65890a2258a170e403ccf300aa7ec86a2ef7"
+source_commit_timestamp: "2026-10-15T01:33:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`
 - `tests/test_required_method_round3.py`
+- `tests/test_required_method_round3_final_verify.py`
 - `tests/test_required_method_round3_review.py`
 - `tests/test_success_head_cli.py`
 - `tests/test_probe_episodes.py`
