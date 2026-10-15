@@ -19,6 +19,9 @@ from __future__ import annotations
 
 import base64
 import io
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -197,24 +200,54 @@ def _original_pdf_path(
     return None
 
 
+# pdfium is not thread-safe, and the Reader's renders here are the only place
+# the sidecar's own process enters it: imports read PDFs in worker processes
+# (Marker: ingest/extractors/marker_worker.py; GLM-OCR's text layer and page
+# images: glm_text_layer.pdfium_worker). This lock keeps the Reader's own
+# renders one at a time whichever thread asks (a request, a view built in the
+# background), and every pdfium object is closed inside it rather than
+# whenever the garbage collector gets to it (docs/reviews/marker-pdfium-worker.md).
+_PDFIUM_LOCK = threading.Lock()
+
+
+@contextmanager
+def _pdf_page(path: Path, page: int) -> Iterator[Any]:
+    """The PDF's zero-based ``page`` (None when out of range), opened and
+    closed under the pdfium lock."""
+
+    import pypdfium2 as pdfium
+
+    with _PDFIUM_LOCK:
+        document = pdfium.PdfDocument(str(path))
+        try:
+            if page < 0 or page >= len(document):
+                yield None
+                return
+            pdf_page = document[page]
+            try:
+                yield pdf_page
+            finally:
+                pdf_page.close()
+        finally:
+            document.close()
+
+
 def _local_pdf_page_render(
     path: Path | None, page: int | None
 ) -> tuple[str | None, list[float] | None]:
     if path is None or page is None:
         return None, None
     try:
-        import pypdfium2 as pdfium
-
-        document = pdfium.PdfDocument(str(path))
-        page_index = int(page)
-        if page_index < 0 or page_index >= len(document):
-            return None, None
-        pdf_page = document[page_index]
-        page_size = [float(value) for value in pdf_page.get_size()]
-        bitmap = pdf_page.render(scale=1.4)
-        image = bitmap.to_pil()
-        output = io.BytesIO()
-        image.save(output, format="PNG", optimize=True)
+        with _pdf_page(path, int(page)) as pdf_page:
+            if pdf_page is None:
+                return None, None
+            page_size = [float(value) for value in pdf_page.get_size()]
+            bitmap = pdf_page.render(scale=1.4)
+            try:
+                output = io.BytesIO()
+                bitmap.to_pil().save(output, format="PNG", optimize=True)
+            finally:
+                bitmap.close()
         encoded = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
         return encoded, page_size
     except Exception:
@@ -235,28 +268,26 @@ def _local_pdf_block_crop(
     if path is None or page is None or not bbox or len(bbox) != 4:
         return None, None
     try:
-        import pypdfium2 as pdfium
-
-        document = pdfium.PdfDocument(str(path))
-        page_index = int(page)
-        if page_index < 0 or page_index >= len(document):
-            return None, None
-        pdf_page = document[page_index]
-        page_size = [float(value) for value in pdf_page.get_size()]
-        bitmap = pdf_page.render(scale=_CROP_SCALE)
-        image = bitmap.to_pil()
-        x0, y0, x1, y1 = (float(v) * _CROP_SCALE for v in bbox)
-        left, right = sorted((x0, x1))
-        top, bottom = sorted((y0, y1))
-        left = max(0, int(left))
-        top = max(0, int(top))
-        right = min(image.width, int(round(right)))
-        bottom = min(image.height, int(round(bottom)))
-        if right <= left or bottom <= top:
-            return None, None
-        crop = image.crop((left, top, right, bottom))
-        output = io.BytesIO()
-        crop.save(output, format="PNG", optimize=True)
+        with _pdf_page(path, int(page)) as pdf_page:
+            if pdf_page is None:
+                return None, None
+            page_size = [float(value) for value in pdf_page.get_size()]
+            bitmap = pdf_page.render(scale=_CROP_SCALE)
+            try:
+                image = bitmap.to_pil()
+                x0, y0, x1, y1 = (float(v) * _CROP_SCALE for v in bbox)
+                left, right = sorted((x0, x1))
+                top, bottom = sorted((y0, y1))
+                left = max(0, int(left))
+                top = max(0, int(top))
+                right = min(image.width, int(round(right)))
+                bottom = min(image.height, int(round(bottom)))
+                if right <= left or bottom <= top:
+                    return None, None
+                output = io.BytesIO()
+                image.crop((left, top, right, bottom)).save(output, format="PNG", optimize=True)
+            finally:
+                bitmap.close()
         encoded = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
         return encoded, page_size
     except Exception:

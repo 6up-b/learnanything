@@ -19,8 +19,11 @@ Engines:
 
 Marker conversion is model inference and slow (seconds to minutes per
 chapter), so results are cached in ``cache_dir`` keyed by the PDF bytes and
-the extraction configuration (secrets excluded). Page images extracted by
-marker are dropped: canonical sources are Markdown-only.
+the extraction configuration (secrets excluded). Marker runs in a worker
+process of its own (``learnloop.ingest.extractors.marker_worker``: pdfium is
+not thread-safe, and the Reader renders with it in the sidecar's process),
+which loads its models for each conversion. Page images extracted by marker
+are dropped: canonical sources are Markdown-only.
 """
 
 from __future__ import annotations
@@ -30,7 +33,6 @@ import importlib.util
 import io
 import json
 import os
-import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -51,10 +53,6 @@ class PdfExtraction:
     from_cache: bool = False
     #: Why ``auto`` passed over GLM-OCR, or that GLM-OCR fell back; None otherwise.
     selection_reason: str | None = None
-
-
-# One converter per marker config; marker model weights load once per process.
-_MARKER_CONVERTERS: dict[str, Any] = {}
 
 
 def extract_pdf_markdown(
@@ -178,47 +176,20 @@ def _marker_options(config: PdfIngestConfig) -> dict[str, Any]:
 
 
 def _extract_with_marker(raw_bytes: bytes, config: PdfIngestConfig, options: dict[str, Any]) -> PdfExtraction:
-    # surya (marker's model layer) reads TORCH_DEVICE when its settings module
-    # first loads, so this must be set before the first marker import.
-    if config.torch_device:
-        os.environ["TORCH_DEVICE"] = config.torch_device
+    # Marker runs in a worker process (pdfium is not thread-safe, and the
+    # Reader renders with it in the sidecar's process; marker_worker). surya
+    # reads TORCH_DEVICE when its settings module first loads: the worker
+    # gets it in its environment, and this process's is left alone.
+    from learnloop.ingest.extractors.marker_worker import MarkerWorkerError, run_marker
 
-    from marker.output import text_from_rendered
-
-    converter = _marker_converter(options)
-    with tempfile.TemporaryDirectory(prefix="learnloop-pdf-") as tmp:
-        pdf_path = Path(tmp) / "source.pdf"
-        pdf_path.write_bytes(raw_bytes)
-        try:
-            rendered = converter(str(pdf_path))
-        except Exception as exc:
-            raise PdfExtractionError(f"marker failed to convert PDF: {exc}") from exc
-    text, _, _images = text_from_rendered(rendered)
+    try:
+        text = run_marker("markdown", raw_bytes, options, torch_device=config.torch_device)
+    except MarkerWorkerError as exc:
+        raise PdfExtractionError(f"marker failed to convert PDF: {exc}") from exc
     markdown = (text or "").strip()
     if not markdown:
         raise PdfExtractionError("PDF produced no extractable content")
     return PdfExtraction(markdown=markdown + "\n", engine="marker", used_llm=bool(config.use_llm))
-
-
-def _marker_converter(options: dict[str, Any]) -> Any:
-    key = json.dumps(options, sort_keys=True, default=str)
-    converter = _MARKER_CONVERTERS.get(key)
-    if converter is not None:
-        return converter
-    from marker.config.parser import ConfigParser
-    from marker.converters.pdf import PdfConverter
-    from marker.models import create_model_dict
-
-    parser = ConfigParser(options)
-    converter = PdfConverter(
-        config=parser.generate_config_dict(),
-        artifact_dict=create_model_dict(),
-        processor_list=parser.get_processors(),
-        renderer=parser.get_renderer(),
-        llm_service=parser.get_llm_service(),
-    )
-    _MARKER_CONVERTERS[key] = converter
-    return converter
 
 
 def _extract_with_pypdf(raw_bytes: bytes) -> PdfExtraction:

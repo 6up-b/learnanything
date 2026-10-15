@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "499bd3ebdf624b413c166a685c89692f9b7b6815"
+source_commit_timestamp: "2026-10-15T08:06:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -30,12 +30,12 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/facet_identity_fakes.py"
   - "tests/helpers.py"
+  - "tests/marker_fakes.py"
   - "tests/mcp_world.py"
   - "tests/media_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/recurrence_fakes.py"
-  - "tests/router_model_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -92,12 +92,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/facet_identity_fakes.py`
 - `tests/helpers.py`
+- `tests/marker_fakes.py`
 - `tests/mcp_world.py`
 - `tests/media_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/recurrence_fakes.py`
-- `tests/router_model_fakes.py`
 
 ## Extension and modification guidance
 
