@@ -6,6 +6,8 @@
 **Spec:** [spec_mcp_frontend_c1.md](../specs/spec_mcp_frontend_c1.md) §4.6, §4.7 rule 1 and §4.8 (new).
 **Earlier records:** [mcp-c1a.md](mcp-c1a.md), [mcp-c1a-codex-review.md](mcp-c1a-codex-review.md),
 [mcp-c1a-f4-codex-review.md](mcp-c1a-f4-codex-review.md). This stage's gate supersedes theirs.
+**Review:** Codex job `20261015-013013-6suEC4` found F1 to F3 (two Medium, one Low), all fixed in `b603273bd`;
+see [mcp-c1a-narrow-codex-review.md](mcp-c1a-narrow-codex-review.md), whose gate supersedes the one below.
 
 ## Why: the owner's decision (2026-10-14)
 
