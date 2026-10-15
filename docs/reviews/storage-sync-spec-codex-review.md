@@ -204,3 +204,27 @@ Severity is the reviewer's for F1–F14 and mine for A13–A16, which came from 
 - **D7:** when re-pointing Funnel, confirm both chat connectors accept port 8443; otherwise use the swap.
 - **D8:** if an hour of loss is too much, a shorter snapshot interval (down to 15 minutes); continuous database replication waits for its §11 trigger.
 - **D18:** decided at S9's checkpoint.
+
+---
+
+## Owner decision: S0 deferred (2026-10-14)
+
+**Decision:** "we can defer S0 for the keep-public decision later after we finish all these big changes." S0 keeps its content (what it removes from the public tip, the sanitization of `migration_head_202`, the owner-only history options) and becomes **deferred by the owner**: it starts only when the owner triggers it, after the current round of big implementation stages has landed. This supersedes "an early phase that cleans the public tip within days" in the first fix pass above. D1 stays decided (public).
+**Commit:** the commit that adds this section (the spec, the stage record and this record). Documentation only.
+
+**What changed in the spec, and why each dependency moved:**
+- **Timing:** the status line, a fourth "owner decision in force", summary item 8, the S0 row ("deferred by the owner; on the owner's trigger", with "Triggers S0" in its owner column), the order paragraph, D1 and a new §9 risk ("The tip stays exposed while S0 waits").
+- **Exposure:** §3.3 and §7.4 now say the exposure remains until the owner triggers S0, by the owner's choice. From S1 the live vaults are outside the checkout, so the tracked databases stop growing.
+- **S3 no longer depends on S0.** It used to restore "the default-lane coverage S0 moved to the owner lane". S0 and S3 may now land in either order. If S3 lands first, its builders and dumps replace what the tests read while the private fixtures are still tracked, it runs `migration_head_202`'s sanitization before dumping it, and S0 later moves no test to the owner lane. The guard tests' final allowlist lands with S0, because the guards would fail on an uncleaned tip, and the fixture walkers and WAL guard stay until no tracked database remains. The S3 row, its gate (G13's sanitizer sweep when S3 runs it), §7.2's new "S0 and S3 in either order" paragraph, the head-fixture paragraph, §2.4, §3.5's transcript row, G6, G13 and D6 agree.
+- **S1 never needed S0.** The order paragraph now says so. §7.1 step 5 adds that a retired directory still tracked by git leaves only through step 6 when the owner lands S0, and stays a frozen test fixture until then. §7.1 step 6 already covered both orders.
+- **Unchanged:** S4 still follows S0, H1–H3 are still owner-only, and S1–S3 still land before mobile PR-1..PR-7.
+
+**Gate:**
+
+| Check | Result |
+|---|---|
+| Internal consistency | D1–D19: 19, R1–R14: 14, G1–G14: 14, S0–S9: 10, H1–H3 once each; 0 duplicates, 0 used but undefined; 40 reference tags, all used and defined; 224 `§` references, all resolving except the same 7 that name another document. No "within days", "S0 now" or "(days)" remains in the spec |
+| Code citations | None touched; the same script still resolves 142 distinct ranges in 75 files with 0 out of range |
+| `git diff --check` | Clean |
+
+**Open for the owner:** the list in "Final verify fixes" stands. Its "S0's checkpoint" and "S0's preconditions" items apply when you trigger S0. If S3 lands first, approving the sanitized `migration_head_202` moves to S3's checkpoint.
