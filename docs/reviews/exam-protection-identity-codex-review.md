@@ -222,7 +222,9 @@ moved.
   membership was never read after the upgrade. This is the same as a hand edit made before upgrading, which no
   upgrade can see. It stays open because recording needs the vault, and the db layer may not read it (the
   "Persistence and AI stay below domain policy" import contract). The app, the CLI runtime and doctor all open
-  through the coordinator. The owner's vaults have no such row.
+  through the coordinator. The owner's vaults have no such row. *(Reopened by the final verify as F3 and closed:
+  `Repository(path)` no longer upgrades an existing database, and every upgrade goes through the coordinator. See
+  "F3 final" in `exam-protection-identity.md`.)*
 - The other residuals above stand.
 
 ### Gate

@@ -221,3 +221,169 @@ Run on the final code tree (`3a099b4eb`; only this record follows). `TMPDIR` was
 | `cargo check` | not required: nothing under `src-tauri` changed |
 | `db_generate_reference.py` / `db_validate_reference.py` | regenerated (`132e4cd78`, with the new table's purpose; `daedc8b77` after the seal; `3a099b4eb` after the fallback); validation passes with no errors (schema head 225, 322 table notes); `validate_vault.py` passes |
 | CLI help / snapshots / RPC pins | `test_cli_help_snapshot.py` regenerated (`source-set add`); `test_sidecar_serializer_snapshot.py`, `test_controller_snapshot.py`, `test_mobile_allowlist.py` pass |
+
+## F3 final
+
+**Codex final verify** (`codex-job 20261015-111001-WfBzlL`, `64fbd3f2c..bbe340ce9`): F1, F2, F5 and F7 confirmed fixed,
+F4 and F6 fixed by inspection, no new defect. It reopened **F3 [High]**. Migration 225's qualification records the
+held-out signals the vault's exam membership qualifies, and it ran only in `migration_coordinator.migrate_vault`.
+Vault-aware entry points such as `learnloop facets actions` built a bare `Repository(path)`, which applied 225
+without it. A later hand edit that removed the exam membership then released the protection, and the next normal
+open appended zero rows. Main was not merged here.
+
+**Commits:** `86f17850a` (the rule, its tests, ADR-008, ADR-015 and State and Persistence), `b39de2894` (the
+references: provenance and source-line anchors the new imports shifted), and this record.
+
+**Reproduction, fail first on `bbe340ce9`.**
+`test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit[facets_actions, families_undo,
+proposals]` follows the verify's steps. Before 225, a legacy `combined` inventory holds A's question out, the book is
+an exam member in `source_sets.yaml`, and B is read. The CLI command upgrades the vault, the membership is removed by
+hand, and the vault is opened normally (`open_vault_repository`). It covers three kinds of command: one that built the
+repository itself (`facets actions`), one whose library call built it (`proposals`, through `list_proposals`), and one
+that reads the ledger first (`families undo`). On `bbe340ce9` all three failed on behaviour:
+`held_out_among(…, 'extXA', ['x1'])` was `[]`. A probe of the same steps reproduced the verify's table:
+
+| | after the CLI upgrade | after the hand edit and the open |
+|---|---|---|
+| A's question (`extXA`/`x1`) | protected | released |
+| B's question (`extXB`/`y3`) | protected | released |
+| `source_marks` | `['src_x']` | `{}` |
+| post-attempt scope admits A's question | no | yes |
+| ledger `made_as_role` | `[None]` | `[None]`: nothing appended |
+
+### The rule: only the coordinator upgrades a vault's database
+
+Chosen: **`Repository` refuses to upgrade**, and the entry points open through the coordinator. A guard test pins
+both.
+
+- **The database layer.** `Repository(path)` creates a missing database, or one with no migration applied yet. It also
+  attaches to a database that is already current. It raises `UncoordinatedMigrationError` for an existing database
+  with migrations pending, and leaves that database byte for byte as it was (`db.migrate.create_or_attach_current`).
+  Creating a database upgrades nothing, because an empty database has no signal to qualify. The message says how to
+  upgrade: the desktop app, or `learnloop doctor --fix-state --vault <vault>`.
+- **Entry points open with `open_vault_repository`.** Every open takes the lock, migrates and records. Converted here
+  (28 sites):
+  - every CLI path that built a repository itself: `facets actions`, `facets undo`, `facets confirm`, `facets keep`,
+    `families undo`, the field question classification, the probability arms' prepare and live check, and the
+    `sources` commands' `_open`;
+  - every `upgrade_to_mvp0xx` step, the ones in `ops/vault_upgrade.py` and those in each `*_upgrade.py` module;
+  - the scripts `gen_goldenpath_fixtures.py` and `voi_cap_report.py`.
+
+  The sidecar (`SidecarContext.load` and every reload), the TUI, the CLI runtime's `_repository`, doctor
+  `--fix-state`, vault init, `bootstrap` and `benchmark_sqlite_concurrency.py` already opened this way.
+- **Code below an entry point** that has the vault uses the new `vault_repository(VaultPaths)` (49 sites). These are
+  proposals, practice generation, rung variants, animations, ingestion, revision refresh, append, synthesis, graph
+  edits, concepts, dedupe, the golden-path fixture, sim, embeddings, PF, contamination, families, recurrence
+  benchmarks, recall calibration, source vectors, tutor promotions and the practice index's `planning_repository`.
+  - A current database is attached exactly as before, without the lock and without a record. The sidecar is always
+    current, so its requests are unchanged.
+  - A missing or older database is opened through the coordinator. A CLI command that first reaches a library after
+    LearnLoop is upgraded (`learnloop proposals`) upgrades and records instead of refusing.
+- **Scratch copies.** An offline review upgrades its own scratch copy directly (`apply_migrations`, then
+  `Repository.attach`). It never upgrades the vault.
+- **Read-only and replay paths** are unchanged, because `Repository.attach` never migrated. The mobile host attaches
+  only to a schema that is exactly this code's. Otherwise it refuses and points to the desktop app or doctor.
+  `learnloop.remote`, the MCP runtime, is on main and not on this branch. Its source on main does the same: it checks
+  `applied_versions(path) == expected` and refuses on a mismatch, then attaches without migrating, with its read side
+  `read_only=True`. It stays attach-only and needs no change.
+
+**Why this option.**
+- **It removes the unsafe capability.** A guard-only rule would keep it: `Repository(path)` upgraded without the
+  qualification and without the vault lock. A scan would have to keep about 70 callers away from it, and it would
+  catch a new caller only if the scan saw it.
+- **It fails closed.** Refusing at the one constructor that could upgrade makes the rule structural. Any path that
+  reaches it fails closed on an older vault, whether it exists now, is added later, or is a library call a CLI command
+  reaches.
+- **It breaks no read-only or test use.** It changes nothing for a current database. The test template is at head,
+  and creating a database still works.
+- **Few tests needed changing.** The only tests that changed are those that upgraded an older database through
+  `Repository(path)`, listed below. Each now says how it upgrades.
+
+The guard test is kept as well, so a new direct construction fails in review instead of on an older vault.
+
+**Retroactive qualification is not possible.** The database never stored the membership. A vault that a stray path
+upgraded, and that was hand-edited before its next coordinated open, cannot be qualified from a membership nothing
+recorded.
+- **The qualification is already idempotent.** It runs again on every coordinated open (`record_member_exam_signals`:
+  `INSERT OR IGNORE` of deterministic `hos_q_` ids, and `pending_unrecorded_sources` skips recorded rows). It runs
+  before the open returns a repository, so before any protection decision reads one. Two tests pin it:
+  `test_identity_rereview_f3_opening_records_only_what_membership_qualifies` and the `path_only_then_opened` cases.
+- **No path can create such a vault any more.** None exists now. The owner's vaults are on main, without 225. The
+  copies in this worktree were upgraded by the coordinator.
+- **A fail-closed alternative was rejected.** It would record every unrecorded row of a vault the coordinator did not
+  upgrade as exam material. That would hold back the owner's YouTube video, whose `combined` inventory flagged spans
+  held out.
+
+### Tests
+
+- **Fail first:** the three cases above.
+- **Controls:** `test_f3_final_a_cli_open_changes_nothing_else[upgraded_by_the_app, a_textbook_upgraded_by_the_cli]`.
+  A vault the app upgraded gains no row from any of the three commands. A textbook member that a CLI command upgrades
+  records nothing and protects nothing, which is the shape of the owner's vaults.
+- **Guard:** `tests/test_coordinated_migrations.py` (6 tests).
+  - An AST scan of `src/` and `scripts/`. `Repository(...)` is constructed only in `learnloop/vault/repository.py`.
+    `apply_migrations` is called only by the coordinator and by the offline review on its scratch copy.
+    `create_or_attach_current` is called only by `Repository`. No import renames them.
+  - `Repository(path)` refuses an older database and leaves it byte-identical, in both lanes (the test is
+    durability-marked).
+  - `Repository(path)` still creates a database and attaches to a current one.
+  - `vault_repository` attaches a current vault without the coordinator, and upgrades an older one through it.
+- **Earlier tests updated to the rule:**
+  - `test_migrations.py`: `test_repository_applies_pending_migrations_on_open` became
+    `test_opening_the_vault_applies_pending_migrations_a_bare_repository_refuses`.
+  - Five tests prove that something does not migrate by patching the constructor's migration entry. They now patch
+    `create_or_attach_current` instead of `apply_migrations`: `test_persistence_open.py` (2), `test_goal_series.py`,
+    `test_scoreboard.py` and `test_facet_identity_ingest.py`.
+  - Copies of tracked fixture vaults (at migrations 109 to 186) open through the coordinator. Affected:
+    `test_activity_backfill.py`, `test_daily_loop_start_minutes.py`, `test_goal_decay_projection.py`,
+    `test_goal_scope_material.py`, `test_placement_fixture_copies.py`, `test_receipt_derivation.py`,
+    `test_receipt_exactness.py`, `test_mvp017_route_check_replay.py` and `test_route_rules_in_grader.py`.
+  - Databases outside any vault upgrade with `apply_migrations`: `test_source_service_spend_accounting.py` and the
+    scratch copies in `test_today_surfaces.py`.
+
+### The owner's vaults
+
+New backup-API copies (`copy_tree_with_databases`) were made of the main checkout's `fixtures/linear_algebra` and
+`fixtures/probability`, under `fixtures-local/epif3-*`. Each copy was upgraded by `learnloop facets actions --json`,
+which now goes through the coordinator. `LEARNLOOP_CONFIG_DIR` pointed at an empty directory.
+
+| | linear_algebra | probability |
+|---|---|---|
+| CLI status | `complete` | `complete` |
+| schema before / after | 165 / 225 | 165 / 225 |
+| ledger rows | 1 (`hos_legacy_…`, `made_as_role` NULL: the video) | 0 |
+| qualified copies (`hos_q_`) | 0 | 0 |
+| protected books, held-out readings | none | none |
+| exam material | empty | empty |
+
+Nothing changes for them. In the main checkout, `git status --short fixtures/` was identical before and after. The
+databases' size and mtime are unchanged, and each `-wal` is still empty. Only the gitignored `-shm` mtime moved.
+
+### Landing on main
+
+Main has three `Repository(path)` sites this branch does not: `router_mixture_upgrade.py`,
+`method_explicit_upgrade.py` and `content/proposals/method_phrasing.py`. The guard fails on them until the merge
+converts them: the two upgrade steps to `open_vault_repository`, the library one to `vault_repository`. That failure is
+the rule working. `learnloop.remote` needs nothing. Migration 225 still needs its renumbering.
+
+### Persisted meaning, RPCs, CLI
+
+There is no schema, config, scoring, scheduling or projection change, so there is no algorithm successor. No RPC,
+CLI option or help text changed. The CLI help snapshot passes unchanged. `planning_repository` now takes the vault's
+`VaultPaths` instead of the database path, an internal signature with four callers, all updated.
+
+### Gate
+
+Run on `86f17850a`; only the references and this record follow. `TMPDIR` was the worktree's `fixtures-local/tmp`. No
+paid calls ($0.00); every test uses fakes.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 17 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | First run: 11,051 passed, 50 failed. Every failure was an `UncoordinatedMigrationError` from a test that upgraded a copied fixture vault or a scratch database through `Repository(path)`: the rule working. Those tests were updated as listed above, and the 97 tests in their files passed. Final run: **11,101 passed**, 0 failed (13 min 13 s). That is 11,090 before, plus 11 new tests. |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **104 passed**, 10,997 deselected (103 before, plus the refusal test) |
+| `apps/learnloop-tauri` | not required: nothing under `apps/` changed |
+| `cargo check` | not required: nothing under `src-tauri` changed |
+| `db_generate_reference.py` / `db_validate_reference.py` | Before regenerating, validation failed on stale source-line anchors (the new imports moved config consumers by one line). Regenerated in `b39de2894` (375 notes); validation passes with no errors (schema head 225). `validate_vault.py` passes (1106 notes). |
+| CLI help / snapshots / RPC pins | Nothing changed. `test_cli_help_snapshot.py`, `test_sidecar_serializer_snapshot.py`, `test_controller_snapshot.py` and `test_mobile_allowlist.py` pass in the full run. |
