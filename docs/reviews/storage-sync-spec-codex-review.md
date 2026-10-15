@@ -228,3 +228,31 @@ Severity is the reviewer's for F1–F14 and mine for A13–A16, which came from 
 | `git diff --check` | Clean |
 
 **Open for the owner:** the list in "Final verify fixes" stands. Its "S0's checkpoint" and "S0's preconditions" items apply when you trigger S0. If S3 lands first, approving the sanitized `migration_head_202` moves to S3's checkpoint.
+
+---
+
+## Third verify fixes (Codex job `20261014-202440-Kp2cto`)
+
+**Reviewed:** `0abe2f23a..feb20097c`. **Verdict:** REOPENED: F12 (Medium) and F14 (High) reopened, F15 (Medium) reopened, F16 (Medium) new.
+**Fix commit:** the commit that adds this section (the spec and this record). Each fix uses the simplest standard mechanism and adds no new machinery.
+**Date:** 2026-10-14. Documentation only: no code, test, fixture, file move, git-LFS object, remote or history changed.
+
+| Id | Severity | Title | Verdict | Reproduction, test or reason |
+|---|---|---|---|---|
+| F12 | Medium | Re-hashing each file can authenticate a snapshot that mixes two moments | Fixed | **Confirmed** against the spec at `feb20097c`. An external editor saves `concepts.yaml` (C1) and then a note referring to it (N1) after C0 was copied and before N was; each file re-hashed alone matched its copy, so the snapshot held C0 with N1, a state that never existed. **Fix:** optimistic consistency for the whole snapshot. Under the vault lock the snapshot records every authored file's path, size, modification time and SHA-256 before copying and again after the whole copy. The attempt counts only if both records and the staged copies agree for every file. Otherwise it is discarded and retried from step 2, three attempts in all, after which it is published marked incomplete and never counted as complete. This replaces the per-file re-hash. When the records agree, every file was unchanged over an interval containing the moment between the two passes, so the snapshot is the vault's text at that moment. The lock covers LearnLoop's own writes; the retry covers external edits. The originals race uses the same retry count. G11 gains the two-file interleaving and the three-attempt exhaustion |
+| F14 | High | The deployment lock was released before the checkout changed | Fixed | **Confirmed**: in step 3 the upgrade took and released the exclusive lock, so a desktop launched before step 4 could load the old code, wait on the mark, and later attach with it after an upgrade with no schema change. **Fix:** the upgrade holds the deployment's lock exclusively from quiescence until the new code and environment are complete: stop units, take the lock (waiting, never killing), write the marks and wait out development builds, change the checkout, then release. Every entry point (units, the desktop app's launcher, the `learnloop` command) starts through util-linux `flock --shared --no-fork <lock> <program>`, which takes the lock before any application code is loaded and hands it to the program [flock-1]. A launch during the change therefore blocks before loading anything and starts on the new code. A process started without the launcher takes the lock without waiting and exits if it cannot. The marks still keep new attaches out until every vault has migrated. G10 gains the launch interleaving, including an upgrade with no schema change. §6.2, §6.9 (PR-8), §6.10 (C1a's unit), §6.11 S5 and §12 agree |
+| F15 | Medium | Abort validated the restored snapshot with the failed upgrade's code | Fixed | **Confirmed** against the code: doctor's `_check_sqlite` reports every migration the code knows but the database lacks as `sqlite:migrations_missing` (`src/learnloop/ops/doctor.py:966-974`), so the failed tag's doctor fails a restored schema-202 snapshot, and its replay may expect tables the snapshot lacks. **Fix:** the abort runs in this order, with every mark in place: (1) stop the units and take the deployment's lock; (2) return the checkout and environment to the previous tag; (3) with that code, restore and validate each changed vault's pre-upgrade snapshot (a failed validation stops the abort with the barrier up); (4) switch pins; (5) lift the barrier and start the units. The by-hand path before S5 uses the same order. G10 states the order |
+| F16 | Medium | With S3 first, the WAL guard fails on a tip with no tracked database | Fixed | **Confirmed**: `tests/test_tracked_fixture_databases.py:24-25` asserts at least one `fixtures/**/*.sqlite`. Once S3 has turned the historical databases into dumps, a fresh clone without S0's paths (G6) has none. The other walkers parametrize over what exists (`tests/test_migrations.py:88-90`; `tests/test_receipt_exactness.py:41-44`; `tests/test_receipt_derivation.py:34-37`), and the session guard compares dictionaries, so only this assertion fails. **Fix:** from S3 the WAL guard accepts an empty set while still checking every remaining database for un-checkpointed companions and tracked companion files (`:26-32`, `:35-41`). G8's guards, which assume a cleaned tip, stay deferred to S0. §7.2's either-order paragraph and the S3 row say so |
+
+**Rejected:** none.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| Internal consistency | D1–D19: 19, R1–R14: 14, G1–G14: 14, S0–S9: 10, H1–H3 once each; 0 duplicates, 0 used but undefined. 41 reference tags (`flock-1` added, used in §6.2), all used and defined. 225 `§` references, all resolving except the same 7 that name another document. No stale per-file re-hash, single retry or take-and-release lock wording remains |
+| Code citations re-checked in the worktree | 145 distinct ranges in 75 files: 139 in this worktree, 6 on `mcp/c1-read-context` at `c06f73aae` (untouched); 0 out of range, 0 mismatches. New ranges read in full: `src/learnloop/ops/doctor.py:966-974`, `tests/test_tracked_fixture_databases.py:24-25`, `:26-32` (`:35-41` was already cited) |
+| External facts | `flock(1)` re-read on man7.org: the command form, waiting by default, `--shared`, and `--no-fork` ("the flock process is replaced by command which continues to hold the lock") |
+| `git diff --check` | Clean on the fix commit |
+| Tests | None run: no code changed |
+| Safety | No `tailscale`, `git lfs`, history or remote mutation; no fixture or owner vault opened; no `~/.config/learnloop`, `.env`, `settings.env` or credential file read |
