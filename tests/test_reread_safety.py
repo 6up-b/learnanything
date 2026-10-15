@@ -245,18 +245,23 @@ def test_section_progress_and_the_unit_selection_carry_to_the_new_reading(studie
 
     selection = repo.get_unit_selection("extB")
     assert selection["selected_unit_ids"] == ["h1", "h2", "h3"]
-    # Held-out exam material is never released by a re-read.
-    assert selection["exam_use_modes"] == {"h3": "held_out_evaluation"}
+    # Exam marks never move to another reading (protection redesign): the
+    # re-read is held back whole until the owner marks it.
+    assert selection["exam_use_modes"] == {}
 
 
 def test_held_out_material_stays_withheld_on_the_new_reading(studied):
-    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.content.sources.exam_material import UNMARKED_READING, exam_material
 
     repo = studied["repo"]
     _reread(studied)
     exam = exam_material(studied["vault"], repo)
-    assert exam.is_held_out("extB", "b8") and exam.is_held_out("extA", "a7")
-    assert not exam.is_held_out("extB", "b1")
+    # The reading the mark was made on: exactly as marked.
+    assert exam.is_held_out("extA", "a7") and not exam.covers("extA", "a1")
+    # The re-read has no mark of its own (protection redesign): held back
+    # whole until the owner marks its exam material.
+    assert "extB" in exam.held_out.extractions and exam.is_held_out("extB", "b1")
+    assert UNMARKED_READING in exam.verdict("extB", "b1").reasons
 
 
 def test_unit_map_keeps_outline_unit_ids_that_name_the_same_sections():
@@ -300,7 +305,7 @@ def test_progress_on_a_coarser_reading_is_read_through_only_where_every_part_was
     assert progress["c2"]["completed_at"] is None and progress["c2"]["spans_seen"] < progress["c2"]["span_count"]
     selection = repo.get_unit_selection("extP")
     assert selection["selected_unit_ids"] == ["c1", "c2", "c3"]
-    assert selection["exam_use_modes"] == {"c3": "held_out_evaluation"}
+    assert selection["exam_use_modes"] == {}  # never carried: the owner marks each reading
 
 
 def test_the_guide_and_lo_highlights_survive_with_moved_passages_flagged(studied):
@@ -334,12 +339,20 @@ def test_a_margin_cue_marks_only_a_passage_whose_cited_words_are_there(studied):
     from learnloop.reader.reader_guidance import build_guide_plan
     from tests.test_reader_cues import _active_error
 
+    from learnloop.content.pipeline.exam_marking import mark_exam_material
+
     repo, vault = studied["repo"], studied["vault"]
     _active_error(repo)  # a recent misunderstanding on the item's learning object
     _reread(studied)
     plan = build_guide_plan(vault, repo, extraction_id="extB")
     rail = {p["span_id"]: p for s in plan["sections"] for p in s["suggested_passages"]}
     assert rail["b2"]["anchor"] == "needs_reanchor" and rail["b2"]["learner_signal"] == "recent_misunderstanding"
+    # The book has a held-out mark on its first reading, so the re-read is
+    # held back whole until the owner marks it (protection redesign): no cue.
+    candidates, _held = RCU.cue_candidates(vault, repo, extraction_id="extB", plan=plan)
+    assert candidates == []
+    mark_exam_material(vault, repo, "src1", clock=studied["clock"])
+    plan = build_guide_plan(vault, repo, extraction_id="extB")
     candidates, _held = RCU.cue_candidates(vault, repo, extraction_id="extB", plan=plan)
     assert [cue["span_id"] for cue in candidates] == ["b1"]
 
@@ -768,8 +781,33 @@ def test_the_reread_keeps_the_page_scope_and_carries_the_selection(card_book):
     assert new != first and ctx.repository.get_extraction_run(new)["page_selection"] == list(range(13, 39))
     selection = ctx.repository.get_unit_selection(new)
     assert selection["selected_unit_ids"] == ["h1", "h2", "h3"]
-    assert selection["exam_use_modes"] == {"h3": "held_out_evaluation"}
     assert [row["section_id"] for row in ctx.repository.reader_section_progress_for(new) if row["completed_at"]] == ["h1"]
+
+    # Protection redesign: the held-out mark stays on the reading it was made
+    # on and never moves; the confirmation said so, and the card now asks the
+    # owner to mark the new reading, which is held back whole until then.
+    from learnloop.content.pipeline.reread import HELD_BACK_PLAN_LINE
+    from learnloop.content.sources.exam_material import exam_material
+
+    assert HELD_BACK_PLAN_LINE in confirmation["lines"]
+    assert selection["exam_use_modes"] == {}
+    line = core.source_status_line(ctx.repository, ctx.vault, source_id)
+    assert line["text"] == "This reading is held back until you mark its exam material" and line["tone"] == "problem"
+    assert line["action"] == {"kind": "mark_exam_material", "label": "Mark exam material on this reading"}
+    assert new in exam_material(ctx.vault, ctx.repository).held_out.extractions
+    asked = call(ctx, "source_action", {"sourceId": source_id, "action": "mark_exam_material"})
+    assert asked["needsConfirmation"] is True
+    assert asked["confirmation"]["lines"][0] == "Held out as exam material: 3 Exam review."
+    assert asked["confirmation"]["confirmLabel"] == "Mark them" and asked["confirmation"]["cancelLabel"] == "Not now"
+    assert new in exam_material(ctx.vault, ctx.repository).held_out.extractions  # nothing written yet
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "mark_exam_material", "confirmed": True})
+    assert out["marked"]["heldOutUnitIds"] == ["h3"]
+    exam = exam_material(ctx.vault, ctx.repository)
+    assert new not in exam.held_out.extractions
+    assert exam.is_held_out(new, "b8") and not exam.covers(new, "b1")
+    assert exam.is_held_out(first, "a7") and not exam.covers(first, "a1"), "the first reading exactly as marked"
+    after = core.source_status_line(ctx.repository, ctx.vault, source_id)
+    assert after is None or after["action"] is None or after["action"]["kind"] != "mark_exam_material"
 
 
 def test_a_book_without_study_state_is_read_again_without_asking(card_book):
@@ -1169,7 +1207,8 @@ def test_f7_a_carry_over_that_fails_is_finished_later_never_lost(card_book, monk
     monkeypatch.setattr(*target, original)
     call(ctx, "source_action", {"sourceId": source_id, "action": "retry"})
     assert [row["section_id"] for row in repo.reader_section_progress_for(new) if row["completed_at"]] == ["h1"]
-    assert repo.get_unit_selection(new)["exam_use_modes"] == {"h3": "held_out_evaluation"}
+    assert repo.get_unit_selection(new)["selected_unit_ids"] == ["h1", "h2", "h3"]
+    assert repo.get_unit_selection(new)["exam_use_modes"] == {}  # marks never move (protection redesign)
     assert {head["anchor"]["extraction_id"] for head in repo.annotations_for_source(source_id)} == {new}
     assert repo.span_reanchors_between(first, new)
     after = core.source_status_line(repo, ctx.vault, source_id)
@@ -1268,10 +1307,13 @@ def test_rereview_f1_a_reused_unit_id_with_the_question_moved_out_keeps_it_withh
 @pytest.mark.parametrize("carried", [True, False], ids=["carried", "not_carried"])
 def test_rereview_f1_a_held_out_mark_follows_its_question_not_its_label(exam_book, carried):
     """The same re-read against a held-out mark (rule 3): A marks ``u1`` (Exam)
-    held out. The carry-over moves the mark to B's "Exam" unit by its label,
-    which holds only the heading; without the carry-over the label is all
-    there is. Either way the question itself stays held out on B."""
+    held out; B keeps an "Exam" heading and moves the question into a unit of
+    its own. The mark never moves to B, carried over or not (protection
+    redesign): B is held back whole until the owner marks it, and the
+    owner's marking, pre-filled, holds out the unit the question moved to
+    while B's Theory becomes usable."""
 
+    from learnloop.content.pipeline.exam_marking import mark_exam_material
     from learnloop.content.pipeline.reread import carry_over
     from learnloop.content.sources.exam_material import exam_material
 
@@ -1281,11 +1323,15 @@ def test_rereview_f1_a_held_out_mark_follows_its_question_not_its_label(exam_boo
     _persist(repo, _exam_reading_split_units(), revision_id="rev_x", extraction_id="extXB", clock=clock)
     if carried:
         carry_over(repo, "extXB", clock=clock)
-        assert repo.get_unit_selection("extXB")["exam_use_modes"] == {"u2": "held_out_evaluation"}
+        assert repo.get_unit_selection("extXB")["exam_use_modes"] == {}
     exam = exam_material([], repo)
-    assert exam.is_held_out("extXA", "x1")
-    assert exam.is_held_out("extXB", "y4"), "the held-out question on the re-read"
-    assert not exam.is_held_out("extXB", "y1"), "A's Theory text is not held out on B"
+    assert exam.is_held_out("extXA", "x1") and not exam.covers("extXA", "x3")
+    assert "extXB" in exam.held_out.extractions, "the re-read is held back whole until it is marked"
+    marked = mark_exam_material([], repo, "src_x", clock=clock)
+    assert marked is not None and "u3" in marked["held_out_unit_ids"]
+    exam = exam_material([], repo)
+    assert exam.is_held_out("extXB", "y4"), "the held-out question, in the unit it moved to"
+    assert not exam.covers("extXB", "y1"), "B's Theory is usable once B is marked"
 
 
 @pytest.fixture
@@ -1403,11 +1449,14 @@ def test_rereview_f1_a_scope_whose_question_the_reread_reworded_withholds_the_re
 def test_rereview_f2_a_held_out_unit_split_across_units_protects_both_halves(paper_book, carried):
     """F2 (re-review), rule 3: A marks its unit held out; B splits the unit's
     two-question passage and puts the second question in a unit of its own.
-    The carry-over moves the mark to B's "Exam" unit by its label (the first
-    half only); the second half stays held out too."""
+    The mark never moves (protection redesign): B is held back whole until
+    the owner marks it, and the pre-filled marking holds out both halves
+    while B's appendix becomes usable."""
 
     from learnloop.content.pipeline.reread import carry_over
     from learnloop.content.sources.exam_material import exam_material
+
+    from learnloop.content.pipeline.exam_marking import mark_exam_material
 
     repo, clock = paper_book["repo"], paper_book["clock"]
     _persist(repo, _ir({"x0": ("SectionHeader", 1, ["Exam"], "Exam"), "x1": ("Text", 1, ["Exam"], f"{_Q1} {_Q2}"),
@@ -1429,10 +1478,13 @@ def test_rereview_f2_a_held_out_unit_split_across_units_protects_both_halves(pap
     _persist(repo, split, revision_id="rev_x", extraction_id="extPB", clock=clock)
     if carried:
         carry_over(repo, "extPB", clock=clock)
-        assert repo.get_unit_selection("extPB")["exam_use_modes"] == {"u1": "held_out_evaluation"}
+        assert repo.get_unit_selection("extPB")["exam_use_modes"] == {}  # marks never move
+    exam = exam_material([], repo)
+    assert "extPB" in exam.held_out.extractions, "the re-read is held back whole until it is marked"
+    mark_exam_material([], repo, "src_x", clock=clock)
     exam = exam_material([], repo)
     assert exam.is_held_out("extPB", "y1") and exam.is_held_out("extPB", "y3"), "both questions on the re-read"
-    assert not exam.is_held_out("extPB", "y5"), "the appendix is not held out"
+    assert not exam.is_held_out("extPB", "y5"), "the appendix is usable once B is marked"
 
 
 def test_rereview_f2_a_long_block_between_the_parts_of_a_split_withholds_the_reading(paper_book):
@@ -1457,7 +1509,8 @@ def test_rereview_f2_a_long_block_between_the_parts_of_a_split_withholds_the_rea
 
 def test_rereview_f2_a_held_out_passage_merged_with_its_neighbour_holds_out_the_merged_block(paper_book):
     """A merge: B joins A's held-out question and the unprotected line after
-    it into one block. That block holds the question's words: held out."""
+    it into one block. That block holds the question's words: held out, with
+    the rest of B, until the owner marks B (protection redesign)."""
 
     from learnloop.content.sources.exam_material import exam_material
 
@@ -1478,5 +1531,402 @@ def test_rereview_f2_a_held_out_passage_merged_with_its_neighbour_holds_out_the_
                        extractor="glm_ocr"),
              revision_id="rev_x", extraction_id="extPB", clock=clock)
     exam = exam_material([], repo)
-    assert exam.is_held_out("extPB", "y1"), "the merged block holds the held-out question"
-    assert not exam.is_held_out("extPB", "y3")
+    assert "extPB" in exam.held_out.extractions, "the re-read is held back whole until it is marked"
+    assert not exam.is_held_out("extPA", "x4"), "A exactly as marked"
+
+
+# --- Protection redesign (2026-10-15): the final verify's reproductions, fail first -----
+#
+# Exam and held-out protection never carries to another reading by content,
+# alias or label matching. Each scenario below reproduces one of the final
+# Codex verify's findings (F1 reopened, F2 reopened, F11); on the carrier
+# design (``9b933cc21``) each left an unprotected copy of protected text.
+# Now every reading of a protected book with no protection marked on it is
+# withheld whole, so no copy anywhere is left unprotected, and the reading
+# the protection was marked on stays protected exactly as marked. Only APIs
+# both designs have are used here, so the same tests ran against both.
+
+
+def _unprotected_copies(repo: Repository, material, *needles: str) -> list[tuple[str, str]]:
+    """Every block of every extraction holding any of ``needles`` that ``material`` leaves uncovered."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    found: list[tuple[str, str]] = []
+    with closing(connect(repo.sqlite_path, read_only=True)) as connection:
+        for extraction_id, span_id, text in connection.execute(
+                "SELECT extraction_id, span_id, text FROM source_document_blocks ORDER BY extraction_id, ordinal"):
+            if any(needle in str(text or "") for needle in needles) and not material.covers(str(extraction_id),
+                                                                                             str(span_id)):
+                found.append((str(extraction_id), str(span_id)))
+    return found
+
+
+def _second_revision(repo: Repository, *, source_id: str = "src_x", revision_id: str = "rev_x2") -> str:
+    with repo.connection() as connection:
+        connection.execute("INSERT INTO source_revisions(id, source_id, asset_hash, created_at) VALUES (?,?,?,?)",
+                           (revision_id, source_id, f"sha256:{revision_id}", "2026-10-14T10:00:00Z"))
+        connection.commit()
+    return revision_id
+
+
+def _r2_readings(repo: Repository, clock) -> None:
+    """Revision R2 of the exam book: its first reading B1 keeps the question
+    under "Exam"; its re-read B2 keeps the "Exam" heading and moves the
+    question into a "Questions" unit of its own (final verify, F1)."""
+
+    _second_revision(repo)
+    _persist(repo, _ir({"y0": ("SectionHeader", 1, ["Exam"], "Exam"), "y1": ("Text", 1, ["Exam"], _EXAM_Q),
+                        "y2": ("SectionHeader", 2, ["Theory"], "Theory"), "y3": ("Text", 2, ["Theory"], _THEORY)},
+                       [("u1", "Exam", "sha256:b1-exam", ["y0", "y1"]),
+                        ("u2", "Theory", "sha256:b1-theory", ["y2", "y3"])], extractor="marker"),
+             revision_id="rev_x2", extraction_id="extR2B1", clock=clock)
+    clock.advance()
+    _persist(repo, _ir({"z0": ("SectionHeader", 1, ["Exam"], "Exam"),
+                        "z1": ("SectionHeader", 1, ["Exam", "Questions"], "Questions"),
+                        "z2": ("Text", 1, ["Exam", "Questions"], _EXAM_Q),
+                        "z3": ("SectionHeader", 2, ["Theory"], "Theory"), "z4": ("Text", 2, ["Theory"], _THEORY)},
+                       [("u1", "Exam", "sha256:b2-exam", ["z0"]), ("u2", "Questions", "sha256:b2-q", ["z1", "z2"]),
+                        ("u3", "Theory", "sha256:b2-theory", ["z3", "z4"])], extractor="glm_ocr"),
+             revision_id="rev_x2", extraction_id="extR2B2", clock=clock)
+
+
+def test_redesign_f1_a_moved_question_on_a_new_revisions_reread_is_never_unprotected(exam_book):
+    """Final verify F1 (source-set scope): the scope pins R1 and names A's
+    Exam unit. R2's B1 keeps the question under "Exam"; B2 moves it into a
+    Questions unit. The carrier protected B2's heading only. Now no copy of
+    the question is unprotected anywhere, and A is protected exactly as
+    marked (its Theory stays usable)."""
+
+    from learnloop.content.sources.exam_material import exam_material
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    _r2_readings(repo, clock)
+    material = exam_material(_exam_sets(), repo)
+    assert _unprotected_copies(repo, material.material, _EXAM_Q) == []
+    assert {"extR2B1", "extR2B2"} <= material.held_out.extractions, "R2's readings are withheld whole"
+    assert material.covers("extXA", "x1") and not material.covers("extXA", "x3"), "A exactly as marked"
+
+
+def test_redesign_f1_a_moved_question_under_a_held_out_mark_is_never_unprotected(exam_book):
+    """Final verify F1, the held-out variant: A marks its Exam unit held out.
+    The carrier held out B2's "Exam" heading only. Now no copy of the question
+    is outside the held-out partition, and A's Theory is not held out."""
+
+    from learnloop.content.sources.exam_material import exam_material, held_out_partition
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    repo.upsert_unit_selection(extraction_id="extXA", source_id="src_x", revision_id="rev_x",
+                               selected_unit_ids=["u1", "u2"], exam_use_modes={"u1": "held_out_evaluation"})
+    _r2_readings(repo, clock)
+    held = held_out_partition([], repo)
+    assert _unprotected_copies(repo, held, _EXAM_Q) == []
+    assert _unprotected_copies(repo, exam_material([], repo).held_out, _EXAM_Q) == []
+    assert held.covers("extXA", "x1") and not held.covers("extXA", "x3"), "A exactly as marked"
+
+
+def _paper_a(repo: Repository, clock) -> None:
+    """Reading A of the exam paper: unit u1 "Exam" holds both questions in one
+    block (x1); u2 is an appendix."""
+
+    _persist(repo, _ir({"x0": ("SectionHeader", 1, ["Exam"], "Exam"), "x1": ("Text", 1, ["Exam"], f"{_Q1} {_Q2}"),
+                        "x2": ("SectionHeader", 2, ["Appendix"], "Appendix"),
+                        "x3": ("Text", 2, ["Appendix"], "Appendix: a table of determinants.")},
+                       [("u1", "Exam", "sha256:a-exam", ["x0", "x1"]),
+                        ("u2", "Appendix", "sha256:a-app", ["x2", "x3"])], extractor="marker"),
+             revision_id="rev_x", extraction_id="extPA", clock=clock)
+    clock.advance()
+
+
+def _paper_b_with_duplicates(repo: Repository, clock) -> None:
+    """The re-read B: an exact copy of A's question block (y1) and, as
+    duplicated extraction output can produce, split copies of the same two
+    questions (y3, y4) after a page heading (final verify, F2)."""
+
+    _persist(repo, _ir({"y0": ("SectionHeader", 1, ["Exam"], "Exam"), "y1": ("Text", 1, ["Exam"], f"{_Q1} {_Q2}"),
+                        "y2": ("SectionHeader", 1, ["Exam (continued)"], "Exam (continued)"),
+                        "y3": ("Text", 1, ["Exam (continued)"], _Q1), "y4": ("Text", 1, ["Exam (continued)"], _Q2),
+                        "y5": ("SectionHeader", 2, ["Appendix"], "Appendix"),
+                        "y6": ("Text", 2, ["Appendix"], "Appendix: a table of determinants.")},
+                       [("u1", "Exam", "sha256:b-exam", ["y0", "y1"]),
+                        ("u2", "Exam (continued)", "sha256:b-cont", ["y2", "y3", "y4"]),
+                        ("u3", "Appendix", "sha256:b-app", ["y5", "y6"])], extractor="glm_ocr"),
+             revision_id="rev_x", extraction_id="extPB", clock=clock)
+
+
+@pytest.mark.parametrize("protection", ["held_out_mark", "exam_scope"])
+def test_redesign_f2_duplicate_and_fragment_copies_are_never_unprotected(paper_book, protection):
+    """Final verify F2: one exact alias (A's x1 to B's y1) counted as complete
+    protection, so the split copies y3 and y4 were released, under a held-out
+    mark and under a source-set exam scope alike. Now B is withheld whole."""
+
+    from learnloop.content.sources.exam_material import exam_material, held_out_partition
+
+    repo, clock = paper_book["repo"], paper_book["clock"]
+    _paper_a(repo, clock)
+    sets: list = []
+    if protection == "held_out_mark":
+        repo.upsert_unit_selection(extraction_id="extPA", source_id="src_x", revision_id="rev_x",
+                                   selected_unit_ids=["u1", "u2"], exam_use_modes={"u1": "held_out_evaluation"})
+    else:
+        sets = _exam_sets()
+    _paper_b_with_duplicates(repo, clock)
+    material = exam_material(sets, repo)
+    protected = material.held_out if protection == "held_out_mark" else material.material
+    assert _unprotected_copies(repo, protected, _Q1, _Q2) == []
+    if protection == "held_out_mark":
+        assert _unprotected_copies(repo, held_out_partition(sets, repo), _Q1, _Q2) == []
+    assert not material.covers("extPA", "x3"), "A's appendix stays usable: A exactly as marked"
+
+
+_PLUS, _MINUS, _TIMES = "Solve x+1=2.", "Solve x-1=2.", "Solve x*1=2."
+_NOTES = "Notes: show every step of your working, and state each rule you use."
+
+
+def test_redesign_f11_operators_are_never_erased_into_a_release(paper_book):
+    """Final verify F11: A holds out "Solve x+1=2. Solve x-1=2."; its "Solve
+    x*1=2." is not held out. B re-segments: "Solve x+1=2. Solve x*1=2.", the
+    unchanged notes, then "Solve x-1=2.". Both combined passages normalised
+    to the same letters and digits, so the carrier verified b1 and released
+    b3: the Reader's refusal predicate returned nothing for it and an item
+    made from it was not held out. Now B is withheld whole."""
+
+    from types import SimpleNamespace
+
+    from learnloop.content.sources.exam_material import (
+        held_out_among,
+        held_out_items,
+        held_out_material,
+        held_out_partition,
+    )
+
+    repo, clock = paper_book["repo"], paper_book["clock"]
+    _persist(repo, _ir({"a1": ("Text", 1, ["Problems"], f"{_PLUS} {_MINUS}"), "a2": ("Text", 1, ["Notes"], _NOTES),
+                        "a3": ("Text", 1, ["More"], _TIMES)},
+                       [("u1", "Problems", "sha256:a-p", ["a1"]), ("u2", "Notes", "sha256:a-n", ["a2"]),
+                        ("u3", "More", "sha256:a-m", ["a3"])], extractor="marker"),
+             revision_id="rev_x", extraction_id="extPA", clock=clock)
+    clock.advance()
+    repo.upsert_unit_selection(extraction_id="extPA", source_id="src_x", revision_id="rev_x",
+                               selected_unit_ids=["u1", "u2", "u3"], exam_use_modes={"u1": "held_out_evaluation"})
+    _persist(repo, _ir({"b1": ("Text", 1, ["Problems"], f"{_PLUS} {_TIMES}"), "b2": ("Text", 1, ["Notes"], _NOTES),
+                        "b3": ("Text", 1, ["More"], _MINUS)},
+                       [("u1", "Problems", "sha256:b-p", ["b1"]), ("u2", "Notes", "sha256:b-n", ["b2"]),
+                        ("u3", "More", "sha256:b-m", ["b3"])], extractor="glm_ocr"),
+             revision_id="rev_x", extraction_id="extPB", clock=clock)
+
+    held = held_out_partition([], repo)
+    assert _unprotected_copies(repo, held, _PLUS, _MINUS) == []
+    assert held_out_among(held_out_material([], repo), "extPB", ["b3"]) == ["b3"], "the Reader refuses b3"
+    item = SimpleNamespace(id="pi_from_b3", provenance=None,
+                           canonical_exercise=SimpleNamespace(extraction_id="extPB", span_ids=["b3"]))
+    vault = SimpleNamespace(source_sets=[], practice_items={"pi_from_b3": item})
+    assert held_out_items(vault, repo) == frozenset({"pi_from_b3"}), "an item made from b3 is held out"
+    assert not held.covers("extPA", "a3"), "A's unprotected question stays usable: A exactly as marked"
+
+
+# --- Protection redesign: marking a reading, and what is left alone ---------------------
+
+
+def test_redesign_marking_the_new_reading_makes_it_usable(studied):
+    """The held-back re-read becomes usable only once the owner marks it:
+    the card says why in plain words and offers the one action, doctor
+    names the reading, the marking holds out what the suggestion found (the
+    exam review section) and nothing else, and the first reading keeps its
+    own mark exactly."""
+
+    from learnloop.content.pipeline import exam_marking
+    from learnloop.content.sources.exam_material import (
+        HELD_BACK_REFUSAL,
+        HELD_OUT_REFUSAL,
+        PROTECTION_MARK_KEY,
+        exam_material,
+        held_out_refusal,
+        source_marks,
+    )
+
+    repo, vault, root, clock = studied["repo"], studied["vault"], studied["root"], studied["clock"]
+    assert source_marks(vault, repo)["src1"].unmarked == ()  # read once: its reading is the marked one
+    _reread(studied)
+    assert exam_marking.held_back_reading(vault, repo, "src1") == "extB"
+    line = core.source_status_line(repo, vault, "src1")
+    assert line == {"text": exam_marking.HELD_BACK_LINE, "tone": "problem",
+                    "action": {"kind": "mark_exam_material", "label": "Mark exam material on this reading"},
+                    "details": exam_marking.HELD_BACK_DETAILS}
+    (issue,) = _codes(root)["source:reading_held_back"]
+    assert issue.severity == "warning" and issue.details["extraction_id"] == "extB"
+    assert "Mark exam material on this reading" in issue.message
+    material = exam_material(vault, repo)
+    assert held_out_refusal(material.held_out, "extB") == HELD_BACK_REFUSAL
+    assert held_out_refusal(material.held_out, "extA") == HELD_OUT_REFUSAL
+
+    plan = exam_marking.mark_plan(vault, repo, "src1")
+    assert plan["extraction_id"] == "extB" and plan["held_out_unit_ids"] == ["h3"]
+    assert plan["lines"][0] == "Held out as exam material: 3 Exam review."
+    assert exam_material(vault, repo).held_out.covers("extB")  # the plan wrote nothing
+
+    marked = exam_marking.mark_exam_material(vault, repo, "src1", clock=clock)
+    assert marked == {"extraction_id": "extB", "held_out_unit_ids": ["h3"], "from_extraction_ids": ["extA"]}
+    selection = repo.get_unit_selection("extB")
+    assert selection["exam_use_modes"] == {"h3": "held_out_evaluation"}
+    assert selection["selected_unit_ids"] == ["h1", "h2", "h3"]  # the carried study map is kept
+    assert selection["exam_paper_metadata"][PROTECTION_MARK_KEY]["from"] == ["extA"]
+    material = exam_material(vault, repo)
+    assert "extB" not in material.material.extractions
+    assert material.is_held_out("extB", "b7") and material.is_held_out("extB", "b8")
+    assert not material.covers("extB", "b1") and not material.covers("extB", "b5")
+    assert material.is_held_out("extA", "a7") and not material.covers("extA", "a1"), "A exactly as marked"
+    assert exam_marking.held_back_reading(vault, repo, "src1") is None
+    assert "source:reading_held_back" not in _codes(root)
+    after = core.source_status_line(repo, vault, "src1")
+    assert after is None or after["text"] != exam_marking.HELD_BACK_LINE
+    assert exam_marking.mark_exam_material(vault, repo, "src1", clock=clock) is None  # nothing left to mark
+
+
+def test_redesign_a_study_map_save_keeps_the_owners_marks(studied):
+    """A study-map save that names no exam use modes (the desktop's, the CLI's)
+    keeps a reading's marks: it never releases a held-out unit or holds a
+    marked reading back again."""
+
+    from learnloop.content.pipeline.exam_marking import held_back_reading, mark_exam_material
+    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+
+    repo, vault, clock = studied["repo"], studied["vault"], studied["clock"]
+    save_unit_selection(repo, "extA", ["u1", "u2"])
+    assert exam_material(vault, repo).is_held_out("extA", "a7"), "A's mark survives a study-map save"
+    _reread(studied)
+    mark_exam_material(vault, repo, "src1", clock=clock)
+    save_unit_selection(repo, "extB", ["h1"])
+    assert held_back_reading(vault, repo, "src1") is None
+    assert exam_material(vault, repo).is_held_out("extB", "b8")
+    save_unit_selection(repo, "extB", ["h1"], exam_use_modes={})  # an explicit change is the owner's
+    assert held_back_reading(vault, repo, "src1") is None  # the owner's mark still marks it
+    assert not exam_material(vault, repo).covers("extB", "b8")
+
+
+def test_redesign_an_unprotected_book_is_unaffected(exam_book):
+    """A book with no exam scope, held-out mark or held-out signal is read
+    again with nothing withheld, and a protected book beside it changes
+    nothing for it."""
+
+    from learnloop.content.pipeline import exam_marking
+    from learnloop.content.sources.exam_material import exam_material, held_out_partition, source_marks
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    assert source_marks([], repo) == {}
+    material = exam_material([], repo)
+    assert material.material.empty and held_out_partition([], repo).empty
+    assert exam_marking.held_back_reading([], repo, "src_x") is None
+    assert exam_marking.mark_plan([], repo, "src_x") is None
+
+    # Another book with a held-out mark and a re-read: only it is held back.
+    from tests.test_source_inventory import _register_revision
+
+    _register_revision(repo, source_id="src_p", revision_id="rev_p")
+    repo.set_source_current_revision("src_p", "rev_p")
+    _persist(repo, _paper({"p0": ("SectionHeader", 1, ["Exam"], "Exam"), "p1": ("Text", 1, ["Exam"], _Q1)}, "marker"),
+             revision_id="rev_p", extraction_id="extP1", clock=clock)
+    clock.advance()
+    repo.upsert_unit_selection(extraction_id="extP1", source_id="src_p", revision_id="rev_p",
+                               selected_unit_ids=["u1"], exam_use_modes={"u1": "held_out_evaluation"})
+    _persist(repo, _paper({"q0": ("SectionHeader", 1, ["Exam"], "Exam"), "q1": ("Text", 1, ["Exam"], _Q1)}, "glm_ocr"),
+             revision_id="rev_p", extraction_id="extP2", clock=clock)
+    material = exam_material([], repo)
+    assert material.held_out.extractions == {"extP2"} and material.is_held_out("extP1", "p1")
+    assert not {"extXA", "extXB"} & material.material.touched
+    assert set(source_marks([], repo)) == {"src_p"}
+
+
+def test_redesign_a_reading_of_a_new_revision_is_held_back_until_marked(exam_book):
+    """Revisions: the scope pins R1; R2's readings are held back whole. Once
+    R2 is the book's current revision, the card marks its current reading,
+    from the scope's reading's exam unit; R2's older reading stays held back
+    (doctor counts it)."""
+
+    from learnloop.content.pipeline import exam_marking
+    from learnloop.content.sources.exam_material import exam_material
+
+    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
+    sets = _exam_sets()
+    _r2_readings(repo, clock)
+    assert exam_marking.held_back_reading(sets, repo, "src_x") is None  # the Reader opens R1's reading
+    repo.set_source_current_revision("src_x", "rev_x2")
+    assert exam_marking.held_back_reading(sets, repo, "src_x") == "extR2B2"
+    assert exam_marking.held_back_readings(sets, repo) == [
+        {"source_id": "src_x", "extraction_id": "extR2B2", "older": ["extR2B1"]}]
+    marked = exam_marking.mark_exam_material(sets, repo, "src_x", clock=clock)
+    assert marked["from_extraction_ids"] == ["extXA"] and "u2" in marked["held_out_unit_ids"]
+    material = exam_material(sets, repo)
+    assert material.is_held_out("extR2B2", "z2"), "the moved question, held out on the marked reading"
+    assert not material.covers("extR2B2", "z4"), "R2's Theory is usable once marked"
+    assert "extR2B1" in material.held_out.extractions, "R2's other reading is still held back"
+    assert material.covers("extXA", "x1") and not material.covers("extXA", "x3"), "A exactly as marked"
+    assert _unprotected_copies(repo, material.material, _EXAM_Q) == []
+    del root
+
+
+def test_redesign_a_signal_a_build_makes_on_a_held_back_reading_never_releases_it(exam_book):
+    """An exam paper whose first reading carries the owner's held-out mark:
+    an inventory a build makes on the held-back re-read does not mark it
+    (only the owner's mark does), so the re-read stays held back whole. A
+    paper with signals and no owner's mark is marked where its signals were
+    made."""
+
+    from learnloop.content.sources.exam_material import exam_material
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    sets = _exam_sets(default_role="exam", scope=())
+    _held_out_inventory(repo, extraction_id="extXA", unit_id="u1", span_ids=["x1"])
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    material = exam_material(sets, repo)
+    assert material.is_held_out("extXA", "x1") and not material.is_held_out("extXA", "x3")
+    assert "extXB" in material.held_out.extractions
+    # The re-read gets an inventory of its own (a build ran on it): with no
+    # owner's mark anywhere, its own signals mark it.
+    _held_out_inventory(repo, extraction_id="extXB", unit_id="u2", span_ids=["y3"])
+    material = exam_material(sets, repo)
+    assert "extXB" not in material.held_out.extractions and material.is_held_out("extXB", "y3")
+    # With the owner's held-out mark on the first reading, a signal never marks the re-read.
+    repo.upsert_unit_selection(extraction_id="extXA", source_id="src_x", revision_id="rev_x",
+                               selected_unit_ids=["u1", "u2"], exam_use_modes={"u1": "held_out_evaluation"})
+    material = exam_material(sets, repo)
+    assert "extXB" in material.held_out.extractions
+    assert material.is_held_out("extXA", "x1") and not material.is_held_out("extXA", "x3")
+
+
+def test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision(tmp_path):
+    """Revision refresh: a member whose scope names exam units by unit id is
+    never advanced to the new revision (its unit ids would name other units
+    there); the new revision's reading is held back until it is marked."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.clock import FrozenClock
+    from learnloop.content.pipeline.revision_refresh import refresh_revision
+    from learnloop.content.sources.exam_material import exam_material
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.writer import upsert_source_set
+    from tests.test_revision_refresh import _member_revision, _register_new_revision
+    from tests.test_source_set_synthesis import _setup
+
+    clock = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
+    root, repo = _setup(tmp_path, with_exam=False)
+    source_set = next(s for s in load_vault(root).source_sets if s.id == "set_la")
+    members = [member.model_dump(mode="json") for member in source_set.members]
+    for member in members:
+        if member["source_id"] == "src_text":
+            member["scope"] = [{"unit_id": "chapter_symmetry", "role_override": "exam"}]
+    upsert_source_set(root, {"id": source_set.id, "subject_id": source_set.subject_id, "title": source_set.title,
+                             "members": members}, clock=clock)
+    _register_new_revision(repo, changed=False)
+    result = refresh_revision(root, "set_la", source_id="src_text", old_revision_id="rev_text",
+                              new_revision_id="rev_text_v2", new_extraction_id="ext_text_v2",
+                              confirm=True, run_append=False, repository=repo, clock=clock)
+    assert result.membership_advanced is False and result.kept_pinned == ["src_text"]
+    assert result.as_dict()["kept_pinned"] == ["src_text"]
+    assert _member_revision(root, "src_text") == "rev_text"
+    assert "ext_text_v2" in exam_material(load_vault(root), repo).held_out.extractions

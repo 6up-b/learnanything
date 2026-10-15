@@ -234,7 +234,10 @@ GLM_OCR_EXTENDED_RPCS = ("update_ingest_settings", "start_ingest", "start_import
 # source_action (the re-read's confirmation, its page scope and the one-tap
 # restore_reading, pinned above), get_source_library (the E1 line and the z.ai
 # OK line's pages and cost, pinned above), reader.render_view (aliased_from)
-# and reader.guide_plan (a flagged passage's anchor). Desktop only.
+# and reader.guide_plan (a flagged passage's anchor). The protection redesign
+# adds source_action's mark_exam_material (a held-back reading's one action,
+# pinned above with source_action) and get_source_library's held-back line.
+# Desktop only.
 REREAD_SAFETY_RPCS = ("reader.saved_place",)
 REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
 

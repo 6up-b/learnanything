@@ -2394,6 +2394,15 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         refused = _reread_refused(repo, source_id)
         if refused is not None:
             return refused
+        if vault is not None:
+            from learnloop.content.pipeline import exam_marking
+
+            if exam_marking.held_back_reading(vault, repo, source_id) is not None:
+                # Exam material marked on another reading of this book never
+                # carries to this one (protection redesign): it is held back,
+                # whole, until the owner marks it here.
+                return _line(exam_marking.HELD_BACK_LINE, "problem",
+                             (exam_marking.MARK_ACTION, exam_marking.MARK_LABEL), exam_marking.HELD_BACK_DETAILS)
     if not has_text:
         imports = import_jobs(repo, source_id)
         latest_import = imports[0] if imports else None

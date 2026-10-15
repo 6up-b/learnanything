@@ -19,7 +19,7 @@ const NO_SPANS = new Set<string>();
 // The actions a status line can offer that run on the book itself; the ones
 // that open another place (connect, settings, changes) stay on its card.
 const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([
-  "retry", "text_recognition", "allow_upload", "build_now", "restore_reading"
+  "retry", "text_recognition", "allow_upload", "build_now", "restore_reading", "mark_exam_material"
 ]);
 
 export function PreparingView({

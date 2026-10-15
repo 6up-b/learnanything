@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL
+from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_guidance as RG
 from learnloop.source_retrieval.suggest import suggested_learning_objects
@@ -1504,7 +1504,8 @@ def reader_author_section_question(
     section_rows = [row for row in (RG.extraction_sections(ir)[0] if ir is not None else [])
                     if row["id"] == params.section_id]
     if RG.held_out_sections(vault, repository, resolved, section_rows):
-        raise SidecarError("exam_material", HELD_OUT_REFUSAL,
+        refusal = HELD_BACK_REFUSAL if reading_held_back(vault, repository, resolved) else HELD_OUT_REFUSAL
+        raise SidecarError("exam_material", refusal,
                            details={"extraction_id": resolved, "section_id": params.section_id})
 
     existing = repository.latest_reader_authored_question(

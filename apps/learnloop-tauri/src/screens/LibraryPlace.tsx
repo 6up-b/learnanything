@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type ComponentProps } from "react";
 import { api } from "../api/client";
-import type { AiConnectionDto, PendingAddDto, SourceActionKind, SourceLibraryCard, SourceRereadConfirmationDto } from "../api/dto";
+import type { AiConnectionDto, PendingAddDto, SourceActionConfirmationDto, SourceActionKind, SourceLibraryCard } from "../api/dto";
 import { TAG } from "../api/queryTags";
 import { useCachedQuery } from "../api/useCachedQuery";
 import type { AddOptions } from "../components/AddSource";
@@ -123,11 +123,12 @@ export function LibraryPlace({
 
   // Re-read safety: reading a book again that has study state (or that z.ai
   // would read at a cost no OK line shows) asks first, naming the pages, the
-  // cost and what moves to the new reading.
+  // cost and what moves to the new reading. Marking exam material on a
+  // held-back reading asks the same way, naming what it will hold out.
   const [confirming, setConfirming] = useState<{
     sourceId: string;
     action: SourceActionKind;
-    confirmation: SourceRereadConfirmationDto;
+    confirmation: SourceActionConfirmationDto;
   } | null>(null);
 
   const run = useCallback(async (input: {

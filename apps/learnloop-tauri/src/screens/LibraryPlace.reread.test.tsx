@@ -129,3 +129,48 @@ it("a book whose file changed after it was read is repaired with one tap", async
   fireEvent.click(await screen.findByRole("button", { name: "Open the reading you had" }));
   await waitFor(() => expect(api.sourceAction).toHaveBeenCalledWith({ sourceId: "src_axler", action: "restore_reading" }));
 });
+
+it("protection redesign: a held-back reading says why and is marked by the owner after naming what is held out", async () => {
+  const MARK = {
+    sourceId: "src_axler",
+    extractionId: "ext_new",
+    heldOutUnitIds: ["h3"],
+    needsConfirmation: true,
+    title: "Mark exam material on this reading of “Linear Algebra Done Right”?",
+    lines: [
+      "Held out as exam material: 3 Exam review.",
+      "These are suggested from what you marked in the other reading: check them. The rest of this reading becomes available for explanations, questions and search."
+    ],
+    confirmLabel: "Mark them",
+    cancelLabel: "Not now"
+  };
+  api.sourceAction
+    .mockResolvedValueOnce({ version: 1, sourceId: "src_axler", action: "mark_exam_material", needsConfirmation: true, confirmation: MARK })
+    .mockResolvedValueOnce({
+      version: 1,
+      sourceId: "src_axler",
+      action: "mark_exam_material",
+      marked: { extractionId: "ext_new", heldOutUnitIds: ["h3"], fromExtractionIds: ["ext_old"] }
+    });
+  place({
+    ...CARD,
+    statusLine: {
+      text: "This reading is held back until you mark its exam material",
+      tone: "problem",
+      action: { kind: "mark_exam_material", label: "Mark exam material on this reading" },
+      details: null
+    }
+  });
+  expect(await screen.findByText("This reading is held back until you mark its exam material")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: "Mark exam material on this reading" }));
+  const dialog = await screen.findByRole("alertdialog", { name: MARK.title });
+  for (const line of MARK.lines) expect(within(dialog).getByText(line)).toBeTruthy();
+  expect(api.sourceAction).toHaveBeenLastCalledWith({ sourceId: "src_axler", action: "mark_exam_material" });
+
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark them" }));
+  });
+  await waitFor(() => expect(api.sourceAction).toHaveBeenCalledTimes(2));
+  expect(api.sourceAction).toHaveBeenLastCalledWith({ sourceId: "src_axler", action: "mark_exam_material", confirmed: true });
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});

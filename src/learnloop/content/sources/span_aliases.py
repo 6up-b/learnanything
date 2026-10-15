@@ -18,11 +18,14 @@ module and nowhere else:
   ``needs_reanchor``, shown flagged, never as if it were the cited text;
 * no alias at all: ``stale``, with no span. Never "the current reading + the
   old span id" (the GLM-OCR live check found 7/7 and 13/13 citations resolving
-  to other blocks that way);
-* protection (exam and held-out material) never takes an approximate alias
-  as the whole answer: :class:`SpanCarrier` carries a protected span to every
-  block that may hold its words, verified, or to nothing (the caller then
-  protects the whole reading; Codex re-review F1, F2).
+  to other blocks that way).
+
+Aliases serve references only: progress, citations, notes, links and the
+saved reading place. Exam and held-out protection never travels through them
+(protection redesign, 2026-10-15): a reading of a protected source with no
+protection marked on it is withheld whole (``exam_material``, rule 4), and an
+alias at most pre-fills the owner's "Mark exam material on this reading"
+(``content.pipeline.exam_marking``), never decides it.
 
 A reference is resolved against the reading it was made on first: a link's
 locator names its extraction; a source-object citation names a revision and is
@@ -277,154 +280,6 @@ class SpanTranslator:
 
 def resolve_span(repository: Any, from_extraction_id: str, span_id: str, to_extraction_id: str) -> SpanResolution:
     return SpanTranslator(repository, to_extraction_id).resolve(from_extraction_id, span_id)
-
-
-# --- protection: where protected words may lie on another reading -----------------------
-
-_NOT_WORD = re.compile(r"[\W_]+")
-#: A block with at most this many letters and digits is a heading, a page
-#: number or a running head: what a re-read may put between the parts of a
-#: split passage (a passage that runs over a page). Verification may skip it.
-_FURNITURE_WORDS = 40
-
-
-def _words(text: Any) -> str:
-    """A block's letters and digits, case-folded: what a split, a merge or
-    another segmentation of the same words keeps."""
-
-    return _NOT_WORD.sub("", str(text or "").casefold())
-
-
-@dataclass(frozen=True)
-class _Layout:
-    """One reading's blocks in reading order, with their words."""
-
-    order: tuple[str, ...]
-    index: Mapping[str, int]
-    words: tuple[str, ...]
-
-
-class SpanCarrier:
-    """Carries protected spans (exam and held-out material) from one reading
-    of a book onto another (Codex re-review F1, F2).
-
-    :class:`SpanTranslator` answers one span for one span, for display; a
-    split, a merge or a re-segmentation can put a protected passage's words in
-    several blocks, so protection asks for *every* block of the other reading
-    that may hold them, or ``None`` when that can't be verified (the caller
-    then protects the whole reading):
-
-    * a same-text alias carries a span to its block (the same words);
-    * any other span (the same place with other words, a split, a merge, no
-      alias at all) lies in the stretch of the other reading between the
-      images of the nearest same-text anchors around it. The whole stretch is
-      carried, with the span's own alias, when it is verified: the anchors
-      keep their order there, and the stretch holds the span's words (its
-      letters and digits, running on in order: every part of a split, the
-      whole of a merge), with or without the stretch's short blocks (a
-      heading, a page number or a running head the re-read put between the
-      parts; a long block never). A span whose words changed, or moved past
-      an anchor, or with no anchor on either side (it could be anywhere),
-      can't be followed: ``None``.
-
-    For a scope's unit or a held-out mark's spans, every span is carried this
-    way, so a unit whose re-read words changed anywhere withholds the whole
-    reading: over-protective, never released (open question 2's default).
-    """
-
-    def __init__(self, repository: Any) -> None:
-        self.repository = repository
-        self._layouts: dict[str, _Layout | None] = {}
-        self._maps: dict[tuple[str, str], dict[str, _Alias]] = {}
-        self._bounds: dict[tuple[str, str], tuple[list[int], list[int]]] = {}
-        self._stretches: dict[tuple[str, int, int], tuple[str, str]] = {}
-
-    def _layout(self, extraction_id: str) -> _Layout | None:
-        if extraction_id not in self._layouts:
-            ir = self.repository.load_document_ir(extraction_id)
-            if ir is None:
-                self._layouts[extraction_id] = None
-            else:
-                blocks = sorted(ir.blocks, key=lambda block: (block.ordinal, block.span_id))
-                order = tuple(str(block.span_id) for block in blocks)
-                self._layouts[extraction_id] = _Layout(
-                    order, {span: position for position, span in enumerate(order)},
-                    tuple(_words(block.text) for block in blocks))
-        return self._layouts[extraction_id]
-
-    def _aliases(self, from_extraction_id: str, to_extraction_id: str) -> dict[str, _Alias]:
-        key = (from_extraction_id, to_extraction_id)
-        if key not in self._maps:
-            self._maps[key] = alias_map(self.repository, from_extraction_id, to_extraction_id)
-        return self._maps[key]
-
-    def _anchors(self, key: tuple[str, str], source: _Layout, target: _Layout,
-                 same: Mapping[str, str]) -> tuple[list[int], list[int]]:
-        """For each source position, the target positions of the nearest
-        same-text anchors before and after it (-1 and the end when none)."""
-
-        if key not in self._bounds:
-            image = [target.index.get(same[span]) if span in same else None for span in source.order]
-            before, after = [-1] * len(image), [len(target.order)] * len(image)
-            last = -1
-            for position, landed in enumerate(image):
-                before[position] = last
-                if landed is not None:
-                    last = landed
-            last = len(target.order)
-            for position in range(len(image) - 1, -1, -1):
-                after[position] = last
-                if image[position] is not None:
-                    last = image[position]
-            self._bounds[key] = (before, after)
-        return self._bounds[key]
-
-    def _stretch(self, to_extraction_id: str, target: _Layout, low: int, high: int) -> tuple[str, str]:
-        """The words of the target's blocks strictly between ``low`` and
-        ``high``: all of them, and the long ones only (short blocks skipped)."""
-
-        key = (to_extraction_id, low, high)
-        if key not in self._stretches:
-            words = target.words[low + 1:high]
-            self._stretches[key] = ("".join(words),
-                                    "".join(word for word in words if len(word) > _FURNITURE_WORDS))
-        return self._stretches[key]
-
-    def carry(self, from_extraction_id: str, span_ids: Any, to_extraction_id: str) -> frozenset[str] | None:
-        """Every span of ``to`` that may hold the words of ``span_ids`` of
-        ``from``; ``None`` when that can't be verified."""
-
-        source_id, target_id = str(from_extraction_id), str(to_extraction_id)
-        wanted = {str(span) for span in span_ids if span}
-        if source_id == target_id or not wanted:
-            return frozenset(wanted)
-        aliases = self._aliases(source_id, target_id)
-        same = {span: hit[0] for span, hit in aliases.items() if hit[1] in SAME_TEXT_KINDS}
-        landed = {same[span] for span in wanted if span in same}
-        rest = wanted - same.keys()
-        if not rest:
-            return frozenset(landed)
-        source, target = self._layout(source_id), self._layout(target_id)
-        if source is None or target is None:
-            return None
-        bounds = self._anchors((source_id, target_id), source, target, same)
-        for span in sorted(rest):
-            position = source.index.get(span)
-            if position is None:
-                return None  # not a block of that reading: nothing places it
-            before, after = bounds[0][position], bounds[1][position]
-            if before >= after:
-                return None  # the anchors around it are out of order there
-            if before < 0 and after >= len(target.order):
-                return None  # no anchor at all: anywhere in the reading
-            words = source.words[position]
-            if not any(words in stretch for stretch in self._stretch(target_id, target, before, after)):
-                return None  # its words changed, or a part moved past an anchor
-            landed.update(target.order[before + 1:after])
-            hit = aliases.get(span)
-            if hit is not None:
-                landed.add(hit[0])
-        return frozenset(landed)
 
 
 class CurrentKeys:

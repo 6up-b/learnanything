@@ -367,7 +367,13 @@ def save_unit_selection(
     ``role_override`` records the role the learner picked in the outline flow.
     Authority still lives on source-set membership (§4.2) — this is a UI-round-trip
     hint for the import-batch path, which has no collection yet. Must be a known
-    role (role_authority.KNOWN_ROLES) when set; ``None`` means "no override"."""
+    role (role_authority.KNOWN_ROLES) when set; ``None`` means "no override".
+
+    ``exam_use_modes`` and ``exam_paper_metadata`` left ``None`` keep what the
+    extraction's selection already holds (protection redesign, 2026-10-15): a
+    study-map save that does not name them (the desktop's, the CLI's) never
+    erases a held-out mark or the owner's "Mark exam material on this reading",
+    which would release held-out material or hold the reading back again."""
 
     ir = repo.load_document_ir(extraction_id)
     if ir is None:
@@ -383,6 +389,7 @@ def save_unit_selection(
     revision_id = run["revision_id"] if run else None
     revision = repo.get_source_revision(revision_id) if revision_id else None
     source_id = revision["source_id"] if revision else None
+    stored = repo.get_unit_selection(extraction_id) or {}
     repo.upsert_unit_selection(
         extraction_id=extraction_id,
         source_id=source_id,
@@ -390,8 +397,9 @@ def save_unit_selection(
         selected_unit_ids=list(selected_unit_ids),
         boundary_overrides=normalize_overrides(boundary_overrides),
         needs_review=[],
-        exam_use_modes=dict(exam_use_modes or {}),
-        exam_paper_metadata=dict(exam_paper_metadata or {}),
+        exam_use_modes=dict(stored.get("exam_use_modes") or {}) if exam_use_modes is None else dict(exam_use_modes),
+        exam_paper_metadata=(dict(stored.get("exam_paper_metadata") or {}) if exam_paper_metadata is None
+                             else dict(exam_paper_metadata)),
         role_override=normalized_role,
         clock=clock,
     )

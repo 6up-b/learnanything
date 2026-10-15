@@ -53,7 +53,7 @@ from datetime import timedelta
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
     TUTOR_QA_PROMPT_VERSION,
@@ -429,7 +429,7 @@ def ask_question(
         # of the manifest (``_reader_source_spans``).
         reader_held_out = held_out_material(vault, repository)
         if held_out_among(reader_held_out, extraction_id, [span_id, *selection_span_ids]):
-            raise HeldOutMaterialRefused(HELD_OUT_REFUSAL)
+            raise HeldOutMaterialRefused(held_out_refusal(reader_held_out, extraction_id))
         note_id = reader_span_key(extraction_id, span_id)
 
     used, limit = question_usage(

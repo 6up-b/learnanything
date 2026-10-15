@@ -24,8 +24,10 @@ This module holds the import side of the fix:
 * :func:`carry_over`: after a completed reading on a revision that already had
   one, the aliases are recorded (``content.sources.span_aliases``, the one
   authority every reader of old span ids routes through), and section
-  progress, the unit selection (exam use modes included) and annotations
-  move to the new reading;
+  progress, the unit selection and annotations move to the new reading. Exam
+  and held-out marks never move (protection redesign, 2026-10-15): a reading
+  of a protected book is withheld whole until the owner marks its exam
+  material on it (``exam_material`` rule 4, ``exam_marking``);
 * :func:`unread_current_revision` / :func:`restore_readable_revision`: the E1
   state and its one-tap repair;
 * :func:`reread_plan`: what a re-read will read, cost and carry, for the
@@ -46,6 +48,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.sources import span_aliases
+from learnloop.content.sources.exam_material import PROTECTION_MARK_KEY, source_marks
 from learnloop.ingest.hashing import asset_hash
 from learnloop.reader.annotations import AnnotationError, reanchor_annotation
 from learnloop.reader.reader_guidance import extraction_sections
@@ -315,13 +318,18 @@ def carry_progress(repository: Any, old_extraction_id: str, new_extraction_id: s
 
 def carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: str,
                     units: Mapping[str, str | None], *, clock: Clock | None = None) -> dict[str, Any] | None:
-    """The study-map unit selection, its exam use modes included, onto the new
-    reading. A unit that does not resolve is flagged ``needs_review``; a
-    held-out mark on it stays in force through the old selection, which
-    ``exam_material`` reads for every reading of the book (by label, and the
-    whole reading when the label does not resolve: fail closed)."""
+    """The study-map unit selection onto the new reading: its chapters and
+    boundary overrides (a unit that does not resolve is flagged
+    ``needs_review``) and the paper's metadata. Never its exam use modes or
+    the owner's protection mark (protection redesign, 2026-10-15): protection
+    is marked on each reading by the owner, and until it is, a reading of a
+    protected book is withheld whole (``exam_material`` rule 4). A selection
+    the owner's marking already made on the new reading (no chapters yet)
+    keeps its marks and takes the chapters; one with chapters is left as it
+    is (idempotent)."""
 
-    if repository.get_unit_selection(new_extraction_id) is not None:
+    existing = repository.get_unit_selection(new_extraction_id)
+    if existing is not None and (existing.get("selected_unit_ids") or existing.get("boundary_overrides")):
         return None
     stored = repository.get_unit_selection(old_extraction_id)
     if stored is None:
@@ -343,24 +351,20 @@ def carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: 
         moved = {key: value for key, value in dict(override).items() if key != "at_span_id"}
         moved["unit_id"] = target
         overrides.append(moved)
-    modes: dict[str, str] = {}
-    for unit_id, mode in (stored.get("exam_use_modes") or {}).items():
-        target = units.get(str(unit_id))
-        if target is None:
-            needs_review.append(str(unit_id))
-            continue
-        # Two old units landing in one new unit: the more protective mode wins.
-        if modes.get(target) != "held_out_evaluation":
-            modes[target] = mode
+    # The paper's metadata moves; the old reading's protection mark never does.
+    metadata = {key: value for key, value in dict(stored.get("exam_paper_metadata") or {}).items()
+                if key != PROTECTION_MARK_KEY}
+    kept = existing or {}
+    metadata.update(dict(kept.get("exam_paper_metadata") or {}))
     run = repository.get_extraction_run(new_extraction_id) or {}
     revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
     repository.upsert_unit_selection(
         extraction_id=new_extraction_id, source_id=revision.get("source_id"), revision_id=run.get("revision_id"),
         selected_unit_ids=selected, boundary_overrides=overrides, needs_review=list(dict.fromkeys(needs_review)),
-        exam_use_modes=modes, exam_paper_metadata=stored.get("exam_paper_metadata") or {},
-        role_override=stored.get("role_override"), clock=clock,
+        exam_use_modes=dict(kept.get("exam_use_modes") or {}), exam_paper_metadata=metadata,
+        role_override=kept.get("role_override") or stored.get("role_override"), clock=clock,
     )
-    return {"selected": len(selected), "exam_use_modes": len(modes), "needs_review": len(set(needs_review))}
+    return {"selected": len(selected), "needs_review": len(set(needs_review))}
 
 
 def carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *,
@@ -497,6 +501,10 @@ def finish_carry_over(repository: Any, source_id: str, *, clock: Clock | None = 
 
 # --- the card's confirmation -----------------------------------------------------------
 
+#: The re-read confirmation's line for a book with exam material marked on it.
+HELD_BACK_PLAN_LINE = ("Your exam material isn't moved: the new reading stays out of explanations, questions "
+                       "and search until you mark its exam material on the book's card.")
+
 
 def page_label(pages: Sequence[int]) -> str:
     """0-based page indices as the learner counts them: "pages 14–39"."""
@@ -628,11 +636,16 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
     if state["links"] or state["citations"]:
         kept.append("the passages your questions and notes cite")
     if state["selected_units"]:
-        kept.append("your study-map chapters" + (" and held-out exam parts" if state["held_out_units"] else ""))
+        kept.append("your study-map chapters")
     if kept:
         joined = kept[0] if len(kept) == 1 else ", ".join(kept[:-1]) + " and " + kept[-1]
         lines.append(f"{joined[0].upper()}{joined[1:]} move to the new reading. "
                      "Anything that can't be matched is marked so you can place it again.")
+    # Exam material never moves to another reading (protection redesign): the
+    # new reading waits for the owner to mark it.
+    protected = source_id in source_marks(vault, repository)
+    if protected:
+        lines.append(HELD_BACK_PLAN_LINE)
     name = title or "this book"
     return {
         "source_id": source_id,
@@ -643,7 +656,7 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | N
         "estimate": priced,
         "engine": engine,
         "study_state": state,
-        "needs_confirmation": has_state or (backend == "api" and upload_ok),
+        "needs_confirmation": has_state or protected or (backend == "api" and upload_ok),
         "title": f"Read {name} again with text recognition?",
         "lines": lines,
         "confirm_label": "Read it again",

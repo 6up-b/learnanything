@@ -24,6 +24,7 @@ from learnloop.content.facet_identity.actions import (
     interrupted_registry_saves,
     recover_interrupted_actions,
 )
+from learnloop.content.pipeline.exam_marking import MARK_LABEL, held_back_readings
 from learnloop.content.pipeline.reread import (
     carry_owed,
     finish_carry_over,
@@ -412,7 +413,11 @@ def _check_reread_state(
       no longer current and that do not resolve to the same text on it;
     * a warning for a re-read whose carry-over (progress, study map, notes)
       failed or was interrupted (Codex review F7), finished by
-      ``--fix-state`` (the card's "Finish moving them" does the same).
+      ``--fix-state`` (the card's "Finish moving them" does the same);
+    * a warning naming each book whose reading is held back whole until the
+      owner marks its exam material on it (``exam_material`` rule 4,
+      protection redesign): only the owner can mark it (the card's "Mark exam
+      material on this reading"), so ``--fix-state`` never does.
     The citation and link warnings read through the one alias authority
     (``span_aliases``)."""
 
@@ -450,6 +455,20 @@ def _check_reread_state(
             "them' on its card in the Library. Nothing is lost: they are still on the earlier reading.",
             entity_id=source_id,
             details={**owed, "fix": "doctor --fix-state"},
+        ))
+
+    for held in held_back_readings(vault, repository):
+        older = held["older"]
+        issues.append(_issue(
+            "warning",
+            "source:reading_held_back",
+            f"'{_book_title(repository, held['source_id'])}': its reading {held['extraction_id']} is held back "
+            "whole (no explanations, questions, search or Ask) because exam material is marked on another reading "
+            "of it and none on this one. Fix: the owner taps "
+            f"'{MARK_LABEL}' on its card in the Library."
+            + (f" {len(older)} older reading(s) of it stay held back too." if older else ""),
+            entity_id=held["source_id"],
+            details={**held, "fix": "the card's mark_exam_material action (owner only)"},
         ))
 
     current = CurrentKeys(repository)

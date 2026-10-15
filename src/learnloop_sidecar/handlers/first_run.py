@@ -238,12 +238,14 @@ class SourceActionInput(ParamsModel):
     batch_id: str | None = None
     action: Literal[
         "undo_questions", "build_now", "build_whole_book", "retry", "text_recognition",
-        "allow_upload", "restore_reading",
+        "allow_upload", "restore_reading", "mark_exam_material",
     ]
     # Re-read safety: reading a book again that the learner already studies
     # (or that z.ai would read at a cost no OK line shows) first returns the
     # confirmation (pages, cost, what moves to the new reading); the card
-    # calls again with ``confirmed`` once the learner says so.
+    # calls again with ``confirmed`` once the learner says so. Marking exam
+    # material on a held-back reading (protection redesign) asks the same way,
+    # naming what it will hold out.
     confirmed: bool = False
 
 
@@ -350,6 +352,20 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
         from learnloop.content.pipeline.reread import restore_readable_revision
 
         result["restored_revision_id"] = restore_readable_revision(repository, params.source_id)
+    elif params.action == "mark_exam_material":
+        # Protection redesign: a reading of a book with exam material marked
+        # on another reading is held back until the owner marks it. First the
+        # confirmation (what will be held out, suggested), then the marking.
+        from learnloop.content.pipeline import exam_marking
+
+        revision = repository.get_source_revision(str(artifact.get("current_revision_id") or "")) or None
+        plan = exam_marking.mark_plan(vault, repository, params.source_id,
+                                      title=f"“{core.learner_title(artifact, revision)}”")
+        if plan is None:
+            raise SidecarError("nothing_to_mark", "This book's reading isn't held back, so there's nothing to mark.")
+        if not params.confirmed:
+            return versioned({**result, "needs_confirmation": True, "confirmation": plan})
+        result["marked"] = exam_marking.mark_exam_material(vault, repository, params.source_id)
     else:  # text_recognition: read again with OCR; questions already built stay.
         if not core.text_recognition_available(config=vault.config):
             # Plain words and how to get it (usability round 2); the shelf

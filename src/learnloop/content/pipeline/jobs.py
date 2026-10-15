@@ -2793,11 +2793,12 @@ def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_i
     before any model call, and before a check authored before the mark is
     handed back (code ``exam_material``)."""
 
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+    from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 
-    held = held_out_among(held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo), extraction_id, span_ids)
+    material = held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo)
+    held = held_out_among(material, extraction_id, span_ids)
     if held:
-        raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
+        raise IngestRunnerError(held_out_refusal(material, extraction_id), code="exam_material",
                                 details={"extraction_id": extraction_id, "span_ids": held})
 
 

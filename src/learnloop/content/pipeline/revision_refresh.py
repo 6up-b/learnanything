@@ -24,6 +24,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ingest.reanchor import EXACT_HASH, reanchor_spans
+from learnloop.content.sources.exam_material import is_exam_role
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
@@ -42,6 +43,9 @@ class RefreshResult:
     needs_reanchor_links: list[str] = field(default_factory=list)
     affected_entities: list[dict[str, str]] = field(default_factory=list)
     append_result: dict[str, Any] | None = None
+    #: Members kept on the old revision: their scope names exam units of its
+    #: reading, which no unit id of the new revision's reading identifies.
+    kept_pinned: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -55,6 +59,7 @@ class RefreshResult:
             "needs_reanchor_links": list(self.needs_reanchor_links),
             "affected_entities": list(self.affected_entities),
             "append_result": self.append_result,
+            "kept_pinned": list(self.kept_pinned),
         }
 
 
@@ -144,8 +149,9 @@ def _refresh(root, vault, repository, source_set_id, source_id, old_revision_id,
 
     # Pinned membership advances ONLY on explicit confirmation (§10.4/§14).
     if confirm:
-        _advance_membership(root, vault, source_set_id, source_id, old_revision_id, new_revision_id, clock)
-        result.membership_advanced = True
+        result.kept_pinned = _advance_membership(root, vault, source_set_id, source_id, old_revision_id,
+                                                 new_revision_id, clock)
+        result.membership_advanced = not result.kept_pinned
 
     # Append runs with change_kind=source_revision_changed over the new revision.
     if run_append and confirm and client is not None:
@@ -190,13 +196,26 @@ _EVENTABLE = frozenset(
 )
 
 
-def _advance_membership(root, vault, source_set_id, source_id, old_revision_id, new_revision_id, clock) -> None:
+def _advance_membership(root, vault, source_set_id, source_id, old_revision_id, new_revision_id, clock) -> list[str]:
+    """Advance the set's members of ``source_id`` to the new revision; returns
+    the members kept on the old one. A scope that overrides units to an exam
+    role names units of the old revision's reading by id, and unit ids are
+    positional: on the new revision's reading they would name other units, so
+    exam protection would move by position (protection redesign, 2026-10-15).
+    Such a member stays pinned; the new revision's readings are held back
+    until the owner marks exam material on them (``exam_material`` rule 4)."""
+
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
-        return
+        return []
+    kept: list[str] = []
     members: list[dict[str, Any]] = []
     for member in source_set.members:
-        revision_id = new_revision_id if (member.source_id == source_id and member.revision_id == old_revision_id) else member.revision_id
+        advancing = member.source_id == source_id and member.revision_id == old_revision_id
+        if advancing and any(s.role_override and is_exam_role(s.role_override) for s in member.scope):
+            kept.append(member.source_id)
+            advancing = False
+        revision_id = new_revision_id if advancing else member.revision_id
         members.append(
             {
                 "source_id": member.source_id,
@@ -211,3 +230,4 @@ def _advance_membership(root, vault, source_set_id, source_id, old_revision_id, 
         {"id": source_set.id, "subject_id": source_set.subject_id, "title": source_set.title, "members": members},
         clock=clock,
     )
+    return kept

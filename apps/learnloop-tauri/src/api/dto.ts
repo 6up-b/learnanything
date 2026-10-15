@@ -3320,6 +3320,9 @@ export type SourceActionKind =
   | "allow_upload"
   /** Re-read safety E1: make the reading the book had current again. */
   | "restore_reading"
+  /** Protection redesign: the owner marks exam material on a reading held
+   *  back because exam material is marked on another reading of the book. */
+  | "mark_exam_material"
   | "connect_ai"
   | "open_changes"
   | "open_settings";
@@ -3407,29 +3410,41 @@ export interface SourceActionResultDto {
   batchId?: string;
   reverted?: number;
   /** text_recognition on a book with study state (or one z.ai would read at
-   *  a cost no OK line shows): nothing ran yet; ask, then call again with
-   *  `confirmed` (re-read safety). */
+   *  a cost no OK line shows), or mark_exam_material: nothing ran yet; ask,
+   *  then call again with `confirmed` (re-read safety). */
   needsConfirmation?: boolean;
-  confirmation?: SourceRereadConfirmationDto;
+  confirmation?: SourceRereadConfirmationDto | SourceMarkConfirmationDto;
   /** restore_reading: the revision made current again, or null. */
   restoredRevisionId?: string | null;
+  /** mark_exam_material, confirmed: the reading marked and the units held out on it. */
+  marked?: { extractionId: string; heldOutUnitIds: string[]; fromExtractionIds: string[] } | null;
+}
+
+/** What a card's action asks before it runs, in plain words. */
+export interface SourceActionConfirmationDto {
+  sourceId: string;
+  extractionId: string | null;
+  needsConfirmation: boolean;
+  title: string;
+  lines: string[];
+  confirmLabel: string;
+  cancelLabel: string;
+}
+
+/** Protection redesign: what marking exam material on a held-back reading
+ *  will hold out (suggested from the reading marked before). */
+export interface SourceMarkConfirmationDto extends SourceActionConfirmationDto {
+  heldOutUnitIds: string[];
 }
 
 /** What reading a book again reads, costs and carries, in plain words. */
-export interface SourceRereadConfirmationDto {
-  sourceId: string;
-  extractionId: string | null;
+export interface SourceRereadConfirmationDto extends SourceActionConfirmationDto {
   /** 0-based PDF pages of the reading it replaces; null: the whole file. */
   pageSelection: number[] | null;
   pages: number | null;
   estimatedUsd: number | null;
   /** glm_ocr: z.ai; glm_ocr_local: the owner's own GLM-OCR server; local: this computer. */
   engine: "glm_ocr" | "glm_ocr_local" | "local";
-  needsConfirmation: boolean;
-  title: string;
-  lines: string[];
-  confirmLabel: string;
-  cancelLabel: string;
 }
 
 // ── Source deletion (§4.1) ───────────────────────────────────────────────
