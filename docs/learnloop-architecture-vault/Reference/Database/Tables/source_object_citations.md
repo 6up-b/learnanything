@@ -3,8 +3,8 @@ title: "source_object_citations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "59093b2b1e29d1dc69c92b8f71827edf3128218f"
-source_commit_timestamp: "2026-10-14T16:42:57-04:00"
+source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
+source_commit_timestamp: "2026-10-14T20:03:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_citations"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
   - "src/learnloop/content/pipeline/reread.py"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/source_retrieval/corpus.py"
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/content/pipeline/reread.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/source_retrieval/corpus.py`

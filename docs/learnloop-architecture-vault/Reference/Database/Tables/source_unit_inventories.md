@@ -3,8 +3,8 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "59093b2b1e29d1dc69c92b8f71827edf3128218f"
-source_commit_timestamp: "2026-10-14T16:42:57-04:00"
+source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
+source_commit_timestamp: "2026-10-14T20:03:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`
+- `tests/test_reread_safety.py`
 - `tests/test_source_inventory.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

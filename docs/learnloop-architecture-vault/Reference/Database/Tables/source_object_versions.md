@@ -3,8 +3,8 @@ title: "source_object_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "59093b2b1e29d1dc69c92b8f71827edf3128218f"
-source_commit_timestamp: "2026-10-14T16:42:57-04:00"
+source_commit: "0eacfc61d71cd41a55913483b978e76a109fd4b0"
+source_commit_timestamp: "2026-10-14T20:03:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_versions"
@@ -19,7 +19,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/source_retrieval/corpus.py"
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -93,7 +95,9 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/doctor.py`
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop/source_retrieval/find_sources.py`
 
@@ -112,6 +116,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reread_safety.py`
 - `tests/test_source_objects.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
