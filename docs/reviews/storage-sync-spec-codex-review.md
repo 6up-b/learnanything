@@ -150,3 +150,57 @@ Severity is the reviewer's for F1–F14 and mine for A13–A16, which came from 
 - **D7:** when re-pointing Funnel, confirm both chat connectors accept port 8443; otherwise use the swap.
 - **D8:** if an hour of loss is too much, a 15-minute interval first; Litestream only with coordinated file protection.
 - **D18:** decided at S9's checkpoint.
+
+---
+
+## Final verify fixes (Codex job `20261014-200527-T3pFwf`)
+
+**Reviewed:** `42ebd40c8..0abe2f23a`. **Verdict:** REOPENED: F12 (Medium) and F14 (High) reopened, F15 (Medium) new; F1–F6 and F13 confirmed fixed and left as they were.
+**Fix commit:** the commit that adds this section (the spec, the stage record's summary lines and this record).
+**Date:** 2026-10-14. Documentation only: no code, test, fixture, file move, git-LFS object, remote or history changed.
+
+### Findings
+
+| Id | Severity | Title | Verdict | Reproduction, test or reason |
+|---|---|---|---|---|
+| F12 | Medium | A Litestream restore can pair an older database with newer captured files, and intent recovery then overwrites a captured manual edit | Fixed | **Reproduced** (`scratchpad/finalfix/repro_f12_f15.py`, scratch files only): a target written with a hand edit after its intent (neither `pre_hash` nor `post_hash`) was replaced by the intent's content when passed to `materialize_targets`, which skips only a file at `post_hash` (`apply_protocol.py:335-363`, `:347`); `recover_apply_intents` calls it for every pending intent (`:575-596`). Litestream's restore page re-read: with `-timestamp` "a file must have been created strictly before the requested timestamp", and "not every replicated transaction is a valid restore point". **Fix:** a whole-vault snapshot is the only restore unit in v1. It copies the databases and the text files under one hold of the vault mutation lock, which acceptance holds from its intent's commit to its applied mark (`patches.py:92-93`, `:204-217`), writes a manifest (every file's SHA-256, each database's applied migrations), re-hashes each text file after copying it to catch an edit made outside LearnLoop, and restore verifies the manifest before anything else. Apply-intent recovery, after a restore or under `doctor --fix-state`, compares each target with the intent's recorded hashes (`apply_protocol.py:228-253`) and, on any other content, writes nothing, performs no database effect, leaves the intent pending and reports `apply_intents:conflict`; the owner keeps the file and can mark the intent rolled back (the existing status, `migrations/044_provenance_manifests_apply_intents.sql:159`). Litestream and any continuous database-only replication are deferred to §11 with a trigger (less loss than a 15-minute interval gives); a shorter snapshot interval is D8's lever. G11 is now S1's gate and combines a proposal application, a later hand edit of the same file and a delayed snapshot in one scenario, with crash variants. Summary, R7, §5.3, §5.7, §6.7, §6.11 S1, G2, G11, §9, D8, §11 and §12 agree |
+| F14 | High | The upgrade barrier is per vault, but the deployment checkout is shared by every vault | Fixed | **Confirmed** against the spec at `0abe2f23a` (steps 2–3 named one vault's attach lock and mark) and the code: units run from one checkout's environment (`deploy/learnloop-mobile.service:7-9`). **Fix:** one barrier for the deployment. Every LearnLoop process holds a shared lock on `.learnloop/deploy.lock` in the checkout its code runs from (`migrate.py:40-41` already resolves that root; `.learnloop/` is ignored at any depth, `.gitignore:197`) and checks the deployment's mark before every attach; each vault keeps its attach lock and mark for development builds. `learnloop hub upgrade` writes the deployment's mark and every vault's mark first, stops every unit of the deployment, waits for every process of the deployment and on its vaults (never killing one), changes the checkout, starts every vault's hub service, each of which snapshots, migrates and then idles holding the primary role, and removes the marks only when every vault has migrated. Before S5 the upgrade also stops units already moved to the deployment checkout and opens each vault once. G10 gains the two-vault case (a desktop opened on B before and after the upgrade starts; nothing attaches to A until B has migrated). §6.2, §6.8, §6.9 (PR-8), §6.10 (C1a), §6.11 S5, §9 and D13 agree |
+| F15 | Medium | Upgrade abort assumed the migration sequence rolls back | Fixed | **Reproduced** with the same script: a scratch database at 202, migrations 203 (valid) and 204 (fails) applied with `apply_migrations`: `OperationalError no such table: missing_table`, applied versions `[202, 203]`, 203's table present. `apply_migrations` commits each migration before the next (`migrate.py:84-88`; `BEGIN IMMEDIATE` at `:189`, `commit()` at `:209`); ADR-008's atomicity is per migration. **Fix:** a failure stops that vault's service and keeps the whole barrier; doctor names the vault, the failed migration and the last committed one. Abort (`learnloop hub upgrade --abort`) restores the verified pre-upgrade snapshot of every vault whose migrations changed, the already-migrated ones included, into a new directory and switches the pins, then returns the checkout; nothing restores over the partly migrated directories, and no work is lost because the services ran no duty after their snapshots. Repair forward is an upgrade to a fixed tag, which applies from the first unapplied migration. The pre-migration snapshot must be complete and verified, or the vault does not migrate. Before S5 the same two choices apply by hand. G10 tests a failure after one migration has committed, on one vault and on B after A has migrated, with abort and with repair forward. §6.2, §6.7, §6.8, §9 and D13 agree |
+| A17 | Medium | A development build reads only the vault's mark, so removing it per vault would let one attach before the other vaults finish | Fixed | Found while designing F14: services no longer remove their vault's mark; the upgrade removes every vault's mark, then the deployment's, once every vault's applied migrations are the tag's |
+| A18 | Low | An abort or a restore must not lose work done between the snapshot and the switch | Fixed | A hub service that ran its duties after migrating while another vault was still migrating would write to a vault that an abort then restores from its earlier snapshot. Services now hold the role and run no duty until the marks are gone |
+| A19 | Low | Read-only inspection during the barrier | Fixed | `learnloop hub doctor` must report a failed upgrade while every attach is blocked; read-only inspection (ADR-008's read-only open) is exempt from the deployment's mark |
+| A20 | Low | `restore` switched pins but not project hooks | Fixed | The restore row now re-points enrolled hooks on confirmation, as `vault move` does (§7.1 step 4), which an abort's restore relies on |
+
+**Rejected:** none. Each reopened or new finding reproduced (F12, F15) or was confirmed against the spec and the code (F14).
+
+### The adversarial review, once more
+
+- **(a) Right-sized for one learner?** Yes, and smaller than before: the Litestream lane, coordinated file capture and recovery-point search are gone from v1. What remains is one restore unit (a snapshot) and one upgrade command with two flock files and two marks.
+- **(b) Replication tools.** Litestream's restore semantics re-read; it moves to §11 with a trigger and a precondition (a database boundary the file manifest names).
+- **(c) Invariants and safety.** ADR-007: restores still create new directories, an abort never restores over a vault, and recovery now never overwrites authored content it cannot place. ADR-008: per-migration atomicity is stated as it is, with a defined abort. No step is destructive for an agent, and no step kills a process.
+- **(d) Exposure and decisions.** Unchanged. D8 now names the shorter interval as the only v1 lever; D13 names the deployment-wide upgrade.
+- **(e) Conflicts.** Mobile PR-8 and C1a's attach gain the deployment's lock and mark beside the vault's. The mobile host's existing exit status 78 (`RestartPreventExitStatus=78` in its unit) still keeps the supervisor from looping on a refused vault.
+
+### Gate
+
+| Check | Result |
+|---|---|
+| Internal consistency | D1–D19: 19 defined, 0 duplicates, 0 used but undefined. R1–R14: 14. G1–G14: 14 (G11 redefined, still one row). S0–S9: 10 phases, 0 undefined uses. H1–H3 defined once each. 40 reference tags in §12, every one used and every used tag defined. 211 `§` references: all resolve to a heading here except the same 7 that name another document. Stale text removed: every mention of coordinated file protection, a verified common recovery point and "a migration is atomic" as a sequence |
+| Code citations re-checked in the worktree | 142 distinct cited ranges in 75 files, by the same script: 136 in this worktree, 6 on `mcp/c1-read-context` at `c06f73aae` (untouched by this pass); 0 out of range, 0 mismatches. The 12 ranges new or changed in this pass were read in full: `apply_protocol.py:228-253`, `:335-363`, `:347`, `:575-596` (was `:575`); `patches.py:92-93`, `:204-217`; `migrate.py:40-41`, `:84-88`, `:189`, `:209`; `deploy/learnloop-mobile.service:7-9`; `migrations/044_provenance_manifests_apply_intents.sql:159`; `.gitignore:197` re-cited |
+| External facts | Litestream's restore reference re-read on 2026-10-14; §12's entry quotes it |
+| `git diff --check` | Clean on the fix commit |
+| Reproductions | F12 and F15 reproduced by one script on scratch files under the session scratchpad; F14 confirmed against the spec and the unit file |
+| Tests | None run: no code changed |
+| Paid calls | None |
+| Safety | No `tailscale`, `git lfs`, history or remote mutation; no fixture or owner vault opened; no `~/.config/learnloop`, `.env`, `settings.env` or credential file read |
+
+### Open for the owner (replaces the list above)
+
+- **S0's checkpoint:** approve the sanitized `migration_head_202`'s remaining shape, or have it untracked with its tests in the owner lane until S3 (D6).
+- **D2:** H1 (recommended, by blob id), H2 or H3, run by the owner from a fresh mirror clone.
+- **S0's preconditions:** copies of the affected vaults and the textbooks outside every checkout; then land S0 by §7.1 step 6.
+- **D17:** confirm Apache-2.0 (or AGPL-3.0) before a `LICENSE` lands.
+- **D19:** keep the screenshots (recommended), with book pages attributed or replaced.
+- **D7:** when re-pointing Funnel, confirm both chat connectors accept port 8443; otherwise use the swap.
+- **D8:** if an hour of loss is too much, a shorter snapshot interval (down to 15 minutes); continuous database replication waits for its §11 trigger.
+- **D18:** decided at S9's checkpoint.
