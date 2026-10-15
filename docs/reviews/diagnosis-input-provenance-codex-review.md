@@ -2,7 +2,8 @@
 
 **Status:** all five findings reproduced. F1 to F4 are fixed. F5 is fixed in part (the replay boundary, switch-off
 parity with C1a's code, shadow rebuilds and replay tests) and rejected in part (the algorithm successor), under the
-owner's standing ruling.
+owner's standing ruling. **Re-review** (job `20261015-122305-KfcF1c`, below): F1 confirmed fixed; F2 and F3
+reopened, reproduced and fixed in `79e939595`.
 **Review:** Codex job `20261015-110722-OSobP4`, of `499bd3ebd..34d6b8abe` (branch `diagnosis/input-provenance`).
 **Fix commit:** `4d83dc264`. **Stage record:** [diagnosis-input-provenance.md](diagnosis-input-provenance.md),
 annotated in italics where the review showed a claim did not hold. **Spec:**
@@ -206,3 +207,141 @@ The stage record's questions 1 to 3 stand. Added:
    affected drafts are held back in chat.
 5. **The successor.** It was rejected under the standing ruling. If the owner wants a tag at the checkpoint, it would
    be the next free tag after main's at landing, with `diagnosis.chat_shows_recorded_text` as its kill switch.
+
+
+## Re-review (Codex job `20261015-122305-KfcF1c`)
+
+**Verdict received:** REOPENED. F1 confirmed fixed; F2 and F3 reopened; no new defects.
+**Fix commit:** `79e939595`. **Status:** F2 and F3 reproduced and fixed; nothing rejected.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Background shell commands bypass snapshot provenance | **confirmed fixed** (no change) | `4d83dc264` | Codex re-checked `ls & cat …` and its `bash -lc` wrapper: both hold the legacy entry back |
+| F2 | High | A topic already in `derived_from` skips the name check; the drafter pre-folds its anchor and prerequisite | **fixed** | `79e939595` | `test_rereview_f2_a_name_is_checked_although_a_text_read_already_folded_its_topic[rewritten, kept]` (the real job: the first diagnosis's causes fold the topic, a writer that records nothing renames it, and the second diagnosis is shown both the causes and the new name; its summary is held back, not released as a `RecordedText`); `test_rereview_f2_a_prior_fold_never_exempts_a_name_from_the_check[rewritten, kept]`; `test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names[anchor, named_prerequisite] × [rewritten, kept]` |
+| F3 | High | Grading marks identify rows read lazily, not the blind payload captured earlier; the current grade is read on its own | **fixed** | `79e939595` | `test_rereview_f3_the_overlay_s_payload_is_validated_by_the_identity_captured_with_it[regraded, unchanged]` (Codex's reproduction: the history shows the old grader text, and the record now names the replaced grading); `test_rereview_f3_a_regrade_after_the_job_captured_its_gradings_is_unaccountable[history_attempt, current_attempt, nothing]` (a real `regrade_attempt` right after the job built its store); `test_rereview_f3_a_grading_s_identity_covers_its_payload_contract_and_provenance`; `test_rereview_f3_a_payload_its_caller_supplied_is_never_certified` |
+
+### What changed
+
+**F2: every shown name is checked on its own.** `fold_topic_records` checked a name only when it folded a topic
+for the first time. A topic already in `derived_from` was skipped, and so was its name. That covered two cases: a
+prior hypothesis whose record folded the topic under its old name, and the drafter's `reading_record`, which
+folds the anchor and the reading's prerequisite before `drafter_record` passes the names it showed. Now each topic
+in `titles` is added to the inputs and its name is compared with the hash its record covers, before folding and
+whatever is already in `derived_from`. A record folded earlier covers the name that writer was shown, not the one
+this writer was shown. Folding itself is unchanged; a per-call cache keeps it to one `stored_record` read per
+topic.
+
+**F3: the identity is read with the payload, and checked for every grading shown.**
+
+- **What the identity covers.** `write_provenance.grading_marks` covers each part of a grading that the shown
+  payload or the frozen record depends on:
+  - the latest blind record (the payload's own id);
+  - the current evidence rows, each with the contract it pins and its `agent_run_id`;
+  - the error events;
+  - the recorded gradings (`text_write_provenance`, kind `grading`);
+  - the C4 receipts.
+
+  A contract changed in place, or a grading recorded later, changes the mark, as a regrade does. With no ids it
+  reads every attempt.
+- **Read in one snapshot.** `write_provenance.read_snapshot` holds one read transaction, or uses the caller's
+  open one, and leaves the connection as it found it.
+  - `live_history_store` reads the marks and the blind overlay (`diagnoses.latest_blind_grade_rows`) in one
+    snapshot and passes both to the store.
+  - A store built without marks reads them in `_load`, in one snapshot with the rows it shows.
+  - The lazy marks that `_load` used to compute from its own later read are gone.
+- **The diagnosed attempt's grade.** `jobs._diagnose` now builds the store first and takes the attempt's blind
+  grade from the store's overlay (`VaultHistoryStore.blind_grade`). Before, it read the grade on its own with
+  `latest_blind_grade_record`. A joint grade is still read through the repository, but after the identity was
+  captured, so any regrade in between changes the mark. The current attempt is among the reads, so the freeze
+  checks its grade like any other.
+- **The freeze.** `frozen_record` and `freeze_entries` read the record and the current marks in one snapshot. The
+  marks shown (captured with the payload) differ from the current marks for every grading replaced since, and each
+  one is named (`GRADING_REPLACED`).
+- **A payload the caller supplied.** An overlay passed to `VaultHistoryStore`, or added by `with_blind_grades`, has
+  no row identity (offline review's fresh blind grades). It is marked `UNIDENTIFIED_GRADING`, and the record names
+  it (`GRADING_UNIDENTIFIED`). Only the live job persists records, so this is the fail-closed default for a path
+  nothing persists today.
+
+**Why the order is sound.** The store's marks are read with the payloads, or before anything else it shows. The
+freeze reads the record and the current marks together. If the two mark sets are equal, no grading shown changed
+between the moment its payload was read and the moment its record was built. Each mark part names rows with fresh
+ids, so a regrade cannot restore an old mark. Contracts edited in place in an A→B→A pattern are the only exception,
+and even then the frozen state equals the state the payload was read in. A regrade after the freeze changes nothing
+frozen (`test_f3_a_regrade_while_the_diagnoser_runs_never_certifies_what_it_was_shown`, unchanged).
+
+### Fail first
+
+The pre-fix tree (`git archive 9aec4d46c src migrations` into `fixtures-local/rereview-base`) was run with this
+branch's tests and `-o pythonpath=fixtures-local/rereview-base/src`. **9 of the 15 re-review cases fail there:**
+
+- F2: all four "rewritten" cases (the job, the function, the drafter's anchor and its named prerequisite);
+- F3: three reproductions (Codex's overlay case, and the job's history-attempt and current-attempt cases);
+- F3: the two tests that pin the new mechanism (`grading_mark` covers the new parts; `GRADING_UNIDENTIFIED`).
+
+The six controls pass on both trees: the "kept" cases, F3 "unchanged" and F3 "nothing". All 82 cases in
+`tests/test_diagnosis_input_provenance.py` pass on `79e939595`.
+
+### Spec and stage record
+
+- [spec_mcp_frontend_c1.md](../specs/spec_mcp_frontend_c1.md) §4.8 now states what a grading's identity covers,
+  and that the store and the freeze each read in one snapshot. It also says every name shown is checked even when
+  the topic was already folded.
+- The stage record's diagnoser row is annotated in italics with both re-review findings.
+
+### Manual run (backup-API copies, fake diagnoser, no network)
+
+The setup is the first review's:
+
+- fresh copies at `fixtures-local/dip-rereview/{linear_algebra,probability}`, made with
+  `learnloop.db.copies.copy_tree_with_databases` from the worktree's tracked fixtures;
+- `algorithm_version = "mvp-0.25"`, with probability in the snapshot mode;
+- an empty `LEARNLOOP_CONFIG_DIR`, `*_API_KEY` blank, and the routing client builders replaced by a refusal;
+- `tests.diagnosis_fakes.ReviewFakeClient` as the diagnoser;
+- the same `dip_review_run.py`.
+
+The reports (`fixtures-local/dip-rereview/*.json`) match the first review's run field for field (fake calls,
+records, incomplete reasons, chat tallies before and after, each re-diagnosis's record and receipt):
+
+- **linear_algebra:** 4 diagnoses and 12 hypotheses recorded, all incomplete. The reasons are the old joint
+  gradings with no C4 receipt and one unrecorded prior hypothesis. Chat releases nothing.
+- **probability:** snapshot `served: entries [INDEX.md]`; 1 diagnosis and 2 hypotheses, all complete; 3 texts
+  released.
+- **The new checks.** No `GRADING_REPLACED`, `GRADING_UNIDENTIFIED` or `NAME_UNCOVERED` reason appears on real data,
+  so they hold nothing back that was not held back before.
+
+The worktree's tracked vaults were opened only to make the copies, and once to read their `learnloop.toml`
+(`algorithm_version`), with no database read. `git status` shows them clean. The owner's checkout was never touched.
+
+**Paid calls: 0. Cost: $0.**
+
+### Gate (re-review)
+
+Run on the tree of `79e939595`, with `TMPDIR` set to the worktree's `fixtures-local/tmp`.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,741 passed**, 0 failed, 0 skipped, 16 warnings, in 13 min 03 s (queued 12:47:00, lock 12:52:48, done 13:05:51; `fixtures-local/dip-rereview-fullsuite.log`) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **101 passed**, 11,640 deselected, in 107 s (queued 13:06:01, lock 13:20:43, done 13:22:32; `fixtures-local/dip-rereview-durability.log`) |
+| Targeted, WAL and production pragmas: `pytest --durable-sqlite tests/test_diagnosis_input_provenance.py tests/test_diagnosis_history_modes.py` (`read_snapshot` under WAL) | **97 passed** in 110 s |
+| Targeted, before the full suite: 80 related test files (diagnosis, embeddings, field, learner-text gaps, MCP, causal, misconceptions, regrades, placement, architecture) | **1,160 passed** in 182 s |
+| DB reference scripts, head fixture | not applicable: no schema change |
+| Defaults snapshots, CLI help, RPC pins (`tests/test_mobile_allowlist.py`) | unchanged (no config, CLI or RPC change) |
+| Frontend (npm) and `cargo check` | not applicable: nothing under `apps/` changed |
+| `git diff --check` | clean |
+
+### Decisions taken (defaults; the owner may override)
+
+- **A caller-supplied overlay is never certified.** No row identifies it, so a diagnosis shown one is incomplete
+  (`GRADING_UNIDENTIFIED`). Only the live job persists records, and its overlay is read from the database.
+- **The identity is strict.** It covers the contract pins, the model flag, recorded gradings and receipts, as well
+  as rows a regrade mints. Any of them changing between the store's read and the freeze holds the diagnosis back,
+  even when no regrade happened. The manual run shows no such case on real data.
+- **The drafter's names are checked as written.** Checking every shown name also applies open question 4 (a
+  drafted concept's title is not a covered name) to an anchor or prerequisite that was folded first.
+  - The drafter drafts a concept title and a topic title separately (`text_gaps/actions.py`), and only the topic
+    title is covered.
+  - So a generated anchor whose concept title differs from its topic title now holds its draft back, as the
+    subject's other generated topics already did.
+  - The open question and its recommended default stand: record the drafted concept title as a covered name.
