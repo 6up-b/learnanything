@@ -987,12 +987,13 @@ def _exam_sets(*, default_role: str = "textbook", scope=(("u1", "exam"),), readi
     """The exam book's source set; its scope names the reading it was made on
     (``reading``; None: a legacy scope that names none)."""
 
-    from learnloop.vault.models import SourceSet, SourceSetMember, SourceSetScope
+    from learnloop.vault.models import SourceSet, SourceSetMember, SourceSetScope, scope_seal
 
     named = {"scope_extraction_id": reading, "scope_revision_id": "rev_x"} if scope and reading else {}
-    return [SourceSet(id="set_x", subject_id="linear_algebra", title="Exam prep", members=[SourceSetMember(
-        source_id="src_x", revision_id="rev_x", default_role=default_role,
-        scope=[SourceSetScope(unit_id=unit, role_override=role) for unit, role in scope], **named)])]
+    member = SourceSetMember(source_id="src_x", revision_id="rev_x", default_role=default_role,
+                             scope=[SourceSetScope(unit_id=unit, role_override=role) for unit, role in scope], **named)
+    member.scope_seal = scope_seal(member)  # as the vault writer seals it
+    return [SourceSet(id="set_x", subject_id="linear_algebra", title="Exam prep", members=[member])]
 
 
 def test_f1_reused_unit_ids_never_release_a_source_set_exam_scope(exam_book):

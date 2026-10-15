@@ -55,12 +55,14 @@ def _exact_sets(extraction_id: str, *, default_role: str = "primary_textbook", s
                 revision_id: str = "rev_x", scope_revision_id: str | None = "rev_x"):
     """A source set whose exam scope names the reading it was made on."""
 
-    from learnloop.vault.models import SourceSet, SourceSetMember, SourceSetScope
+    from learnloop.vault.models import SourceSet, SourceSetMember, SourceSetScope, scope_seal
 
-    return [SourceSet(id="set_x", subject_id="linear_algebra", title="Exam prep", members=[SourceSetMember(
+    member = SourceSetMember(
         source_id="src_x", revision_id=revision_id, default_role=default_role,
         scope_extraction_id=extraction_id, scope_revision_id=scope_revision_id,
-        scope=[SourceSetScope(unit_id=unit, role_override=role) for unit, role in scope])])]
+        scope=[SourceSetScope(unit_id=unit, role_override=role) for unit, role in scope])
+    member.scope_seal = scope_seal(member)  # as the vault writer seals it
+    return [SourceSet(id="set_x", subject_id="linear_algebra", title="Exam prep", members=[member])]
 
 
 def _owner_marks(repo: Repository, extraction_id: str, unit_ids, *, selected=None) -> None:
@@ -571,6 +573,7 @@ def test_the_scopes_reading_round_trips_through_the_writers(exam_book):
     assert _yaml_member(root)["scope_extraction_id"] == "extXA"
     loaded = load_vault(root).source_sets[0].members[0]
     assert (loaded.scope_extraction_id, loaded.scope_revision_id) == ("extXA", "rev_x")
+    assert loaded.scope_seal and loaded.scope_seal == _yaml_member(root)["scope_seal"]
 
     # A writer that re-sends the member without the field (an older desktop)
     # keeps it for the same scope; a changed scope names no reading.
@@ -613,10 +616,11 @@ def test_the_scopes_reading_round_trips_through_the_sidecar(exam_book):
             "scope": [{"unitId": "u1", "roleOverride": "exam"}]}]})
     upsert_source_set_rpc(ctx, params)
     shown = get_source_set(ctx, SourceSetRefInput(source_set_id="set_x"))["sourceSet"]["members"][0]
-    assert shown["scopeExtractionId"] == "extXA" and shown["scopeRevisionId"] == "rev_x"
+    assert shown["scopeExtractionId"] == "extXA" and shown["scopeRevisionId"] == "rev_x" and shown["scopeSeal"]
     # The desktop re-sends what it was shown (camelCase), and it round-trips.
     again = UpsertSourceSetInput.model_validate({"id": "set_x", "subjectId": "linear-algebra", "members": [shown]})
     upsert_source_set_rpc(ctx, again)
+    assert _yaml_member(root)["scope_seal"] == shown["scopeSeal"]
     assert _yaml_member(root)["scope_extraction_id"] == "extXA"
 
 
@@ -740,3 +744,42 @@ def test_an_exact_held_out_mark_under_a_legacy_scope_waits_for_the_owners_markin
                                     clock=clock)
     assert EM.source_marks(sets, repo)["src_x"].marked == ("extXA",)
     assert EM.exam_material(sets, repo).is_held_out("extXA", "x3")
+
+
+@pytest.mark.parametrize("edit", ["units", "reading"])
+def test_a_scope_edited_outside_the_writer_names_no_reading(exam_book, edit):
+    """The writer seals a scope to the reading it names. A hand edit of
+    ``source_sets.yaml`` that changes the scope's units (B's ``u2`` typed over
+    A's ``u1``) or its reading under the old seal never moves protection by
+    position: the scope names no reading, and every reading is withheld."""
+
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.writer import upsert_source_set
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    repo, clock, root = exam_book["repo"], exam_book["clock"], exam_book["root"]
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra", "title": "Exam prep", "members": [
+        {"source_id": "src_x", "revision_id": "rev_x", "default_role": "primary_textbook",
+         "scope_extraction_id": "extXA", "scope_revision_id": "rev_x",
+         "scope": [{"unit_id": "u1", "role_override": "exam"}]}]})
+    material = EM.exam_material(load_vault(root), repo)
+    assert material.covers("extXA", "x1") and not material.covers("extXA", "x3"), "sealed: exact"
+
+    path = root / "sources" / "source_sets.yaml"
+    data = read_yaml(path)
+    member = data["source_sets"][0]["members"][0]
+    if edit == "units":
+        member["scope"] = [{"unit_id": "u2", "role_override": "exam"}]
+    else:
+        member["scope_extraction_id"] = "extXB"
+    write_yaml(path, data)
+    vault = load_vault(root)
+    material = EM.exam_material(vault, repo)
+    assert _unprotected_copies(repo, material.material, _EXAM_Q) == []
+    assert {"extXA", "extXB"} <= material.held_out.extractions
+    assert EM.source_marks(vault, repo)["src_x"].ambiguous == ("scope",)
+    # A writer re-sending the edited member under its stale seal does not re-seal it.
+    upsert_source_set(root, {"id": "set_x", "subject_id": "linear-algebra",
+                             "members": [vault.source_sets[0].members[0].model_dump(mode="json")]})
+    assert "scope_seal" not in _yaml_member(root) and "scope_extraction_id" not in _yaml_member(root)

@@ -21,7 +21,8 @@ const EXAM_MEMBER = {
   scope: [{ unitId: "u2", roleOverride: "exam" }],
   priority: 1,
   scopeExtractionId: "ext_exam_b",
-  scopeRevisionId: "rev_exam"
+  scopeRevisionId: "rev_exam",
+  scopeSeal: "sha256:sealed-by-the-vault-writer"
 };
 
 beforeEach(() => {

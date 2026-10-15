@@ -109,6 +109,7 @@ from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_block_fts import UnitRow, extraction_units, source_extraction_ids
 from learnloop.db.stores.source_service import shown_items
+from learnloop.vault.scope_seal import scope_seal
 
 #: The exam use mode of a protected, held-out evaluation unit (spec_source_ingestion_v2 §4.2).
 HELD_OUT_EVALUATION = "held_out_evaluation"
@@ -418,10 +419,14 @@ def _origin_units(reader: _Reader, origin: str, narrowing: set[str]) -> tuple[se
 
 def scope_reading_of(member: Any, run: tuple[str | None, str | None] | None) -> bool:
     """Whether a member's ``scope_extraction_id`` names a reading its scope can
-    be on: an extraction of the member's own book, of the revision the
-    member records for it (``scope_revision_id``, when recorded)."""
+    be on: sealed with its entries by the writer (``scope_seal``; an edit
+    made outside the writer breaks it), an extraction of the member's own
+    book, of the revision the member records for it (``scope_revision_id``,
+    when recorded)."""
 
     if not getattr(member, "scope_extraction_id", None) or run is None:
+        return False
+    if getattr(member, "scope_seal", None) != scope_seal(member):
         return False
     revision_id, source_id = run
     recorded_revision = getattr(member, "scope_revision_id", None)

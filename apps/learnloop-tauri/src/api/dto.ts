@@ -3598,11 +3598,13 @@ export interface SourceSetMemberDto {
   defaultRole: string;
   scope: SourceSetScopeDto[];
   priority: number;
-  /** The reading (extraction) the scope's unit ids were chosen on, and its
-   *  revision (exam protection by extraction identity). Absent when not
-   *  recorded; re-sent as received. */
+  /** The reading (extraction) the scope's unit ids were chosen on, its
+   *  revision, and the vault writer's seal binding them to the scope's
+   *  entries (exam protection by extraction identity). Absent when not
+   *  recorded; re-sent exactly as received. */
   scopeExtractionId?: string | null;
   scopeRevisionId?: string | null;
+  scopeSeal?: string | null;
 }
 
 export interface SourceSetDto {

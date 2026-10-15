@@ -241,7 +241,7 @@ GLM_OCR_EXTENDED_RPCS = ("update_ingest_settings", "start_ingest", "start_import
 # source_action (confirmedExtractionId and confirmedProposalHash, the
 # marking's confirmation bound to what it showed, and the confirmation's
 # proposalHash) and the source-set members of upsert_source_set and
-# get_source_set (scopeExtractionId, scopeRevisionId). Desktop only.
+# get_source_set (scopeExtractionId, scopeRevisionId, scopeSeal). Desktop only.
 REREAD_SAFETY_RPCS = ("reader.saved_place",)
 REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
 

@@ -21,6 +21,7 @@ from learnloop.vault.models import (
     SourceSet,
 )
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.scope_seal import scope_seal
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop.vault_lock import vault_mutation_lock
 
@@ -453,7 +454,7 @@ def upsert_source_set(
 
 #: The member fields naming the reading a scope's unit ids were chosen on
 #: (``SourceSetMember.scope_extraction_id``; exam protection by extraction identity).
-_SCOPE_READING_FIELDS = ("scope_extraction_id", "scope_revision_id")
+_SCOPE_READING_FIELDS = ("scope_extraction_id", "scope_revision_id", "scope_seal")
 
 
 def _scope_key(member: Any) -> tuple[Any, ...] | None:
@@ -467,24 +468,46 @@ def _scope_key(member: Any) -> tuple[Any, ...] | None:
     return (str(member.get("source_id") or ""), str(member.get("revision_id") or ""), tuple(scope))
 
 
+def _without_reading(member: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in member.items() if key not in _SCOPE_READING_FIELDS}
+
+
 def _keep_scope_readings(existing: Any, incoming: list[Any]) -> list[Any]:
-    """Each incoming member that re-sends an unchanged scope (same source,
+    """Seal and keep the reading each member's scope names (exam protection
+    by extraction identity).
+
+    A member that names its reading is sealed (``scope_seal``): the book, the
+    reading and the scope's entries, so an edit made outside the writer is
+    seen. A member that arrives with a seal its content no longer matches
+    (its units or reading changed under it) names no reading: the change
+    named none. A member that re-sends an unchanged scope (same source,
     pinned revision, unit ids and role overrides) without naming its reading
-    keeps the reading the stored member names: a writer that does not know
-    the field (an older desktop, a hand-built payload) never erases it. A
-    changed scope is a new choice and keeps nothing: a writer that changes
-    a scope names the reading it chose on, or the scope names none."""
+    keeps the stored member's sealed reading: a writer that does not know the
+    fields (an older desktop, a hand-built payload) never erases them. A
+    changed scope keeps nothing."""
 
     recorded: dict[tuple[Any, ...], dict[str, Any]] = {}
     for member in existing if isinstance(existing, list) else []:
         key = _scope_key(member)
-        if key is not None and key[2] and member.get("scope_extraction_id"):
+        if key is not None and key[2] and member.get("scope_extraction_id") \
+                and member.get("scope_seal") == scope_seal(member):
             recorded.setdefault(key, {field: member.get(field) for field in _SCOPE_READING_FIELDS})
     kept: list[Any] = []
     for member in incoming:
         key = _scope_key(member)
-        if (key is not None and key[2] and not member.get("scope_extraction_id") and key in recorded):
-            member = {**member, **{field: value for field, value in recorded[key].items() if value}}
+        if key is None:
+            kept.append(member)
+            continue
+        if not key[2]:
+            member = _without_reading(member)
+        elif member.get("scope_extraction_id"):
+            seal = scope_seal(member)
+            member = _without_reading(member) if member.get("scope_seal") not in (None, seal) \
+                else {**member, "scope_seal": seal}
+        elif key in recorded:
+            member = {**member, **recorded[key]}
+        else:
+            member = _without_reading(member)
         kept.append(member)
     return kept
 

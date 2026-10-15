@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_valid
 
 from learnloop.attempt_types import AttemptType
 from learnloop.config import LearnLoopConfig
+from learnloop.vault.scope_seal import scope_seal  # noqa: F401 -- re-exported for the writer and readers
 
 
 class VaultModel(BaseModel):
@@ -133,8 +134,11 @@ class SourceSetMember(VaultModel):
     the field existed) is ambiguous, and its book's readings are withheld
     whole until the owner marks one (``content.sources.exam_material``).
     Every writer of a scope records the reading it chose units on; the vault
-    writer keeps the recorded reading of an unchanged scope that a writer
-    re-sends without it. Omitted from the YAML when not recorded."""
+    writer seals the binding (``scope_seal``: :func:`scope_seal` of the book,
+    the reading and the scope's entries) and keeps the recorded reading of an
+    unchanged scope that a writer re-sends without it. A scope edited outside
+    the writer (its units or its reading changed under the old seal) names
+    no reading any more. Omitted from the YAML when not recorded."""
 
     source_id: str
     revision_id: str
@@ -143,12 +147,13 @@ class SourceSetMember(VaultModel):
     priority: int = 1
     scope_extraction_id: str | None = None
     scope_revision_id: str | None = None
+    scope_seal: str | None = None
 
     @model_serializer(mode="wrap")
     def _omit_unrecorded_scope_reading(self, handler: Any) -> Any:
         data = handler(self)
         if isinstance(data, dict):
-            for key in ("scope_extraction_id", "scope_revision_id"):
+            for key in ("scope_extraction_id", "scope_revision_id", "scope_seal"):
                 if data.get(key) is None:
                     data.pop(key, None)
         return data

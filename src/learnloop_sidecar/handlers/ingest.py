@@ -858,6 +858,7 @@ class SourceSetMemberParams(ParamsModel):
     # one when its scope is unchanged (vault.writer.upsert_source_set).
     scope_extraction_id: str | None = None
     scope_revision_id: str | None = None
+    scope_seal: str | None = None
 
 
 class UpsertSourceSetInput(ParamsModel):
