@@ -3,8 +3,8 @@ title: "Config - plan"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eb049b50eb292be0266f58e204b2c60e1ddebafa"
-source_commit_timestamp: "2026-10-15T11:06:49-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml plan"
@@ -68,8 +68,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `plan.new_item_reviews_14d` | `4` | integer | modeled default or validator seed | Reviews assumed for a new item in its first two weeks when costing its admission (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2434` |
 | `plan.max_new_items_per_day` | `10` | integer | modeled default or validator seed | Most new items planned a day across the day's plans; learner requests are exempt (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2435` |
 | `plan.min_new_items_per_day` | `1` | integer | modeled default or validator seed | Fewest new items a day when new material exists and the plan is not re-entry (Q11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2436` |
-| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2438`; `src/learnloop/cli/app.py:2773`; `src/learnloop/cli/sources.py:337` |
-| `plan.read_words_per_minute` | `120` | integer | modeled default or validator seed | Reading pace that turns a section's words left into a reading block's estimate. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2440`; `src/learnloop/cli/sources.py:338`; `src/learnloop_sidecar/handlers/practice_index.py:115` |
+| `plan.latency_cap_minutes` | `15.0` | number | modeled default or validator seed | Winsorizing cap on an answer latency in the duration estimate (Q12). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2438`; `src/learnloop/cli/app.py:2773`; `src/learnloop/cli/sources.py:340` |
+| `plan.read_words_per_minute` | `120` | integer | modeled default or validator seed | Reading pace that turns a section's words left into a reading block's estimate. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2440`; `src/learnloop/cli/sources.py:341`; `src/learnloop_sidecar/handlers/practice_index.py:115` |
 | `plan.pre_questions` | `3` | integer | modeled default or validator seed | Pre-questions a reading block may open with (DL4; DL1 serves none). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2442` |
 | `plan.reentry_minutes` | `15` | integer | modeled default or validator seed | Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2444` |
 | `plan.reentry_max_items` | `8` | integer | modeled default or validator seed | Most items a re-entry plan serves after a break, whatever its minutes allow (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2445` |

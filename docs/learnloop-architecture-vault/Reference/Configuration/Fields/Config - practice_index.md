@@ -3,8 +3,8 @@ title: "Config - practice_index"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eb049b50eb292be0266f58e204b2c60e1ddebafa"
-source_commit_timestamp: "2026-10-15T11:06:49-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml practice_index"
@@ -67,9 +67,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `practice_index.proposals` | `5` | integer | modeled default or validator seed | Default number of proposals find_practice returns when the request gives no limit. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2222`; `src/learnloop/practice_index/retrieval.py:906` |
 | `practice_index.rrf_k` | `60` | integer | modeled default or validator seed | Reciprocal-rank-fusion constant for combining keyword and embedding rankings; ranks are fused, so no score threshold is set by hand. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2224`; `src/learnloop/practice_index/retrieval.py:476` |
 | `practice_index.coverage_min_eligible` | `3` | integer | modeled default or validator seed | Facets with fewer admissible items than this are listed as targets for generating more practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2226`; `src/learnloop/practice_index/coverage.py:51` |
-| `practice_index.usage_window_hours` | `72` | integer | modeled default or validator seed | A proposed item attempted within this many hours of the proposal is logged as practised (judgment_ledger task practice_usage, judge exact_key). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2228`; `src/learnloop/practice_index/evaluation.py:643` |
-| `practice_index.dossiers_enabled` | `false` | boolean | modeled default or validator seed | Consent for paid `learnloop practice-index dossiers` runs; dry-run estimates work without it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2230`; `src/learnloop/practice_index/dossiers.py:475` |
-| `practice_index.evaluation_enabled` | `false` | boolean | modeled default or validator seed | Consent for paid `learnloop eval practice-index` runs (query writing and relevance labels); dry-run estimates work without it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2231`; `src/learnloop/practice_index/evaluation.py:519` |
+| `practice_index.usage_window_hours` | `72` | integer | modeled default or validator seed | A proposed item attempted within this many hours of the proposal is logged as practised (judgment_ledger task practice_usage, judge exact_key). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2228`; `src/learnloop/practice_index/evaluation.py:644` |
+| `practice_index.dossiers_enabled` | `false` | boolean | modeled default or validator seed | Consent for paid `learnloop practice-index dossiers` runs; dry-run estimates work without it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2230`; `src/learnloop/practice_index/dossiers.py:476` |
+| `practice_index.evaluation_enabled` | `false` | boolean | modeled default or validator seed | Consent for paid `learnloop eval practice-index` runs (query writing and relevance labels); dry-run estimates work without it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2231`; `src/learnloop/practice_index/evaluation.py:520` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

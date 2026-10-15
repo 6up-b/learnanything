@@ -3,8 +3,8 @@ title: "Config - recurrence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "eb049b50eb292be0266f58e204b2c60e1ddebafa"
-source_commit_timestamp: "2026-10-15T11:06:49-04:00"
+source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
+source_commit_timestamp: "2026-10-15T12:20:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recurrence"
@@ -57,7 +57,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `recurrence.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for recurrence groups at mvp-0.12: off, grouping sites use exact statements again from the next normalization, vault open or rebuild; recorded verdicts are kept. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1789`; `src/learnloop/diagnosis/recurrence/report.py:223`; `src/learnloop/substrate/recurrence_groups.py:86` |
-| `recurrence.require_guard` | `false` | boolean | modeled default or validator seed | Turns require guard behavior on or off within Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1794`; `src/learnloop/diagnosis/recurrence/upgrade.py:97` |
+| `recurrence.require_guard` | `false` | boolean | modeled default or validator seed | Turns require guard behavior on or off within Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1794`; `src/learnloop/diagnosis/recurrence/upgrade.py:98` |
 | `recurrence.judge_enabled` | `true` | boolean | modeled default or validator seed | Runs the live same-cause judge inside each diagnose job (the backlog command and the guard are explicit owner commands and run regardless). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1797`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1321` |
 | `recurrence.top_k` | `3` | integer | modeled default or validator seed | Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1798`; `src/learnloop/diagnosis/recurrence/judging.py:134` |
 | `recurrence.judge_max_pairs_per_attempt` | `4` | integer | modeled default or validator seed | Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1801`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1321` |
