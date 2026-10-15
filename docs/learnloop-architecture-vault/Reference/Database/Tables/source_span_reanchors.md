@@ -3,13 +3,13 @@ title: "source_span_reanchors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_span_reanchors"
   - "table source_span_reanchors"
-schema_head: 203
+schema_head: 204
 table_name: "source_span_reanchors"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,9 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ingest/reanchor.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -79,6 +81,9 @@ Indexes and uniqueness:
 
 - `Repository.delete_source_artifact()`
 - `Repository.insert_span_reanchor()`
+- `Repository.record_span_reanchors()`
+- `Repository.span_reanchor_origins()`
+- `Repository.span_reanchors_between()`
 - `Repository.span_reanchors_from()`
 
 ### Direct SQL readers
@@ -92,6 +97,8 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/sources/span_aliases.py`
+- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -99,6 +106,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_migrations.py`
+- `tests/test_reread_safety.py`
 - `tests/test_span_reanchor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

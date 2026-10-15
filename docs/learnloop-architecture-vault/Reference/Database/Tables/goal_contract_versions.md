@@ -3,13 +3,13 @@ title: "goal_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite goal_contract_versions"
   - "table goal_contract_versions"
-schema_head: 203
+schema_head: 204
 table_name: "goal_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

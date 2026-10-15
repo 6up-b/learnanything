@@ -3,13 +3,13 @@ title: "source_annotations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotations"
   - "table source_annotations"
-schema_head: 203
+schema_head: 204
 table_name: "source_annotations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,10 +21,10 @@ source_paths:
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop_sidecar/handlers/reader.py"
+  - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
-  - "src/learnloop/reader/reader_requests.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -90,6 +90,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/annotations.py`
@@ -108,6 +109,7 @@ Indexes and uniqueness:
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_annotations.py`
 - `tests/test_p3_journeys.py`
+- `tests/test_reread_safety.py`
 - `tests/test_source_deletion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

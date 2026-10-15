@@ -3,13 +3,13 @@ title: "daily_plans"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite daily_plans"
   - "table daily_plans"
-schema_head: 203
+schema_head: 204
 table_name: "daily_plans"
 table_role: "workflow"
 functionality_status: "active"
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_daily_plan_replay.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp014_upgrade.py`
 - `tests/test_plan_determinism.py`

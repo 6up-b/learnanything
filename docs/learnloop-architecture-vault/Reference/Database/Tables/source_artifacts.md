@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 203
+schema_head: 204
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_library.py`
@@ -126,7 +127,6 @@ Indexes and uniqueness:
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop_sidecar/handlers/first_run.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
-- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
 - `tests/test_reading_hardening_landing.py`
+- `tests/test_reread_safety.py`
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
@@ -151,8 +152,7 @@ Indexes and uniqueness:
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/test_ux_phase1_landing.py`
-- `tests/test_sidecar_reader.py`
-- `tests/test_source_layer.py`
+- `tests/test_exam_protection_identity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

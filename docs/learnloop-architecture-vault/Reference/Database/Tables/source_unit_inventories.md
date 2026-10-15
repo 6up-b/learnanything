@@ -3,13 +3,13 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
   - "table source_unit_inventories"
-schema_head: 203
+schema_head: 204
 table_name: "source_unit_inventories"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/041_source_unit_inventories.sql"
+  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
   - "src/learnloop/content/synthesis/source_coverage.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
+  - "src/learnloop/content/synthesis/source_unit_inventory.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +50,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/041_source_unit_inventories.sql`.
-- **Schema touched by:** `041_source_unit_inventories.sql`.
+- **Schema touched by:** `041_source_unit_inventories.sql`, `204_source_held_out_signal_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 
 ### Direct SQL writers
@@ -109,7 +111,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/synthesis/facet_candidates.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
@@ -122,9 +123,11 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_exam_protection_identity.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`
+- `tests/test_reread_safety.py`
 - `tests/test_source_inventory.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

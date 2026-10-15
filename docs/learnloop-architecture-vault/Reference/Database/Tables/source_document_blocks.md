@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 203
+schema_head: 204
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,16 +21,16 @@ source_paths:
   - "migrations/032_source_layer.sql"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/sources/exam_material.py"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/source_retrieval/evaluation.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
+  - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
-  - "src/learnloop/content/pipeline/revision_refresh.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -108,6 +108,7 @@ Database triggers:
 
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/sources/exam_material.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -121,12 +122,15 @@ Database triggers:
 
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/content/synthesis/source_coverage.py`
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
@@ -136,9 +140,6 @@ Database triggers:
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_quick_check.py`
-- `src/learnloop/reader/reader_requests.py`
-- `src/learnloop/reader/source_render_views.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -150,12 +151,14 @@ Database triggers:
 - `tests/test_exercise_arm.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_branches.py`
+- `tests/test_reread_safety.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_sources_merge_composition.py`
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_ingest_m3.py`
@@ -163,8 +166,6 @@ Database triggers:
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_reading_hardening_landing.py`
-- `tests/test_sidecar_ingest_m3.py`
-- `tests/test_sidecar_quick_add.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

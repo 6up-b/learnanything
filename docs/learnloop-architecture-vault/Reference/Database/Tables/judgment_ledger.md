@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 203
+schema_head: 204
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/content/facet_identity/span_support.py`
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/proposals/method_statement_judge.py`
 - `src/learnloop/content/proposals/required_method_override.py`
 - `src/learnloop/db/stores/families.py`
@@ -168,6 +169,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
 - `tests/test_exam_protection.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_identity.py`
@@ -175,7 +177,6 @@ None found by exact static reference scan.
 - `tests/test_facet_identity_ingest.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_facet_reword_paths.py`
-- `tests/test_family_proposals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

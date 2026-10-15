@@ -3,22 +3,22 @@ title: "source_held_out_signal_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "86f17850ae44f63d89602534064feb6c21c5f776"
-source_commit_timestamp: "2026-10-15T12:20:59-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_held_out_signal_marks"
   - "table source_held_out_signal_marks"
-schema_head: 225
+schema_head: 204
 table_name: "source_held_out_signal_marks"
 table_role: "raw_ledger"
 functionality_status: "active"
 domain_family: "sources-and-ingest"
-introduced_in: "225_source_held_out_signal_marks.sql"
+introduced_in: "204_source_held_out_signal_marks.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/225_source_held_out_signal_marks.sql"
+  - "migrations/204_source_held_out_signal_marks.sql"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
@@ -38,7 +38,7 @@ tags:
 
 ## Why it exists
 
-Keeps each held-out assessment signal on the reading its model run read (exam protection by extraction identity, migration 225): one row per fresh inventory that held anything out, with the extraction and revision it read, the unit, the role it ran under and the sorted span ids. `content.sources.exam_material` reads protection from it, never from `source_unit_inventories`, whose cache rows a reuse rebinds to another reading. A reuse writes no row. Backfilled rows from rebound cache rows name no reading (`extraction_id` NULL): their book stays protected and they mark no reading. Append-only (an update aborts); deleted only with its book. It supplies replay-stable input rather than a disposable cache. Rows bind `revision_id`, `extraction_id`, `unit_id`, making the operational relationship explicit. ^table-purpose
+Keeps each held-out assessment signal on the reading its model run read (exam protection by extraction identity, migration 204): one row per fresh inventory that held anything out, with the extraction and revision it read, the unit, the role it ran under and the sorted span ids. `content.sources.exam_material` reads protection from it, never from `source_unit_inventories`, whose cache rows a reuse rebinds to another reading. A reuse writes no row. Backfilled rows from rebound cache rows name no reading (`extraction_id` NULL): their book stays protected and they mark no reading. Append-only (an update aborts); deleted only with its book. It supplies replay-stable input rather than a disposable cache. Rows bind `revision_id`, `extraction_id`, `unit_id`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 
@@ -46,8 +46,8 @@ It belongs to the **sources and ingest** navigation family. The family context l
 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/225_source_held_out_signal_marks.sql`.
-- **Schema touched by:** `225_source_held_out_signal_marks.sql`.
+- **Introduced by:** `migrations/204_source_held_out_signal_marks.sql`.
+- **Schema touched by:** `204_source_held_out_signal_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

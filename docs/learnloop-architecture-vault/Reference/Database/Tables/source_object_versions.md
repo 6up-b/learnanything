@@ -3,13 +3,13 @@ title: "source_object_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_object_versions"
   - "table source_object_versions"
-schema_head: 203
+schema_head: 204
 table_name: "source_object_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,7 +19,9 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
+  - "src/learnloop/content/sources/span_aliases.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/source_retrieval/corpus.py"
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/content/sources/source_deletion.py"
@@ -93,7 +95,9 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/doctor.py`
 - `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop/source_retrieval/find_sources.py`
 
@@ -112,6 +116,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reread_safety.py`
 - `tests/test_source_objects.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

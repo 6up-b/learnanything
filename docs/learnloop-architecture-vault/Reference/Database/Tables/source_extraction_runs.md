@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d3ccf383611c4935b9dc6a4e10ce5be82caae093"
-source_commit_timestamp: "2026-10-15T08:34:25-04:00"
+source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
+source_commit_timestamp: "2026-10-15T12:49:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 203
+schema_head: 204
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,11 +22,12 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/content/facet_identity/authority.py"
   - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/content/pipeline/build_plan.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/exam_marking.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -50,7 +51,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/032_source_layer.sql`.
-- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `041_source_unit_inventories.sql`, `054_extraction_health.sql`, `088_source_render_views.sql`, `089_source_block_health.sql`.
+- **Schema touched by:** `032_source_layer.sql`, `040_source_unit_selections.sql`, `041_source_unit_inventories.sql`, `054_extraction_health.sql`, `088_source_render_views.sql`, `089_source_block_health.sql`, `204_source_held_out_signal_marks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 - `Repository.insert_extraction_run()`
 - `Repository.persist_document_ir()`
 - `Repository.reading_request_unsettled()`
+- `Repository.upsert_unit_selection()`
 
 ### Direct SQL readers
 
@@ -118,22 +120,22 @@ Indexes and uniqueness:
 - `src/learnloop/content/facet_identity/authority.py`
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/build_plan.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/sources/source_library.py`
 - `src/learnloop/content/sources/source_outline.py`
+- `src/learnloop/content/sources/span_aliases.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/instructional/exercises.py`
 - `src/learnloop/instructional/interventions.py`
-- `src/learnloop/reader/annotations.py`
-- `src/learnloop/reader/reader_authoring.py`
-- `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/ops/doctor.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -145,10 +147,13 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_landing.py`
 - `tests/helpers.py`
 - `tests/test_daily_plan_reading.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
+- `tests/test_reread_safety.py`
+- `tests/test_reread_safety_landing.py`
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
@@ -157,7 +162,6 @@ Indexes and uniqueness:
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`
 - `tests/test_span_reanchor.py`
-- `tests/test_ux_phase1_round2_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
