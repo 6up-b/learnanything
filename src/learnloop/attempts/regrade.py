@@ -451,7 +451,9 @@ def regrade_attempt(
         # the replayed projection commit together or not at all. The blind
         # record goes in BEFORE replay, so replay already reads the new grade
         # and no stale explanation is in force while it runs.
-        with repository.atomic():
+        from learnloop.db.stores.write_provenance import grading_in_progress
+
+        with repository.atomic(), grading_in_progress(attempt["id"]):
             _publish_regrade(
                 vault,
                 repository,
@@ -637,6 +639,9 @@ def _publish_regrade(
             queue_diagnosis=True,
             clock=clock,
         )
+    # Q9 (diagnosis input provenance): the replay below re-mints this
+    # attempt's error events; the new ones record the ids they replace.
+    replaced_event_ids = [str(event["id"]) for event in repository.raw_error_events_for_attempt(attempt["id"])]
     replay_learning_object(
         vault,
         repository,
@@ -655,6 +660,18 @@ def _publish_regrade(
         },
         grader_identity_overrides=grader_identity_overrides,
     )
+    from learnloop.db.stores.write_provenance import record_error_event_lineage, record_grading
+
+    connection = repository.connection()
+    record_error_event_lineage(
+        connection,
+        attempt_id=attempt["id"],
+        replaced=replaced_event_ids,
+        reminted=[str(event["id"]) for event in repository.raw_error_events_for_attempt(attempt["id"])],
+        clock=clock,
+    )
+    # What this regrade's grader read (a regrade is never C4-augmented).
+    record_grading(connection, attempt_id=attempt["id"], writer="regrade", clock=clock)
     persist_unknown_error_type_proposals(
         vault,
         repository,

@@ -8,7 +8,7 @@ import time
 import pytest
 
 from learnloop.ai.runtime import AIRuntimeReport
-from learnloop.attempts import attempts, completion_lock, post_attempt
+from learnloop.attempts import completion_lock, post_attempt
 from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptResult,
@@ -29,7 +29,11 @@ from learnloop.vault.loader import load_vault
 
 from tests import test_probe_block_end as block_setup
 from tests.helpers import create_basic_vault, set_algorithm_version
-from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+from tests.test_diagnostic_augmentation import (
+    _proposal,
+    _SequenceDiagnostician,
+    fail_after_the_joint_grade_commits,
+)
 
 ITEM_ID = "pi_svd_define_001"
 READY = AIRuntimeReport(
@@ -131,11 +135,8 @@ def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_
 def test_committed_model_grade_keeps_its_provenance_through_recovery(tmp_path, monkeypatch):
     _paths, vault, repository = _vault(tmp_path)
 
-    def fail(*args, **kwargs):
-        raise ValueError("interrupted augmentation receipt")
-
-    monkeypatch.setattr(attempts, "_record_diagnostic_augmentation", fail)
-    with pytest.raises(ValueError, match="augmentation receipt"):
+    fail_after_the_joint_grade_commits(monkeypatch)
+    with pytest.raises(ValueError, match="after the grade committed"):
         complete_attempt_with_ai_fallback(
             vault, repository,
             AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="A = U Sigma", submission_id="sub-1"),

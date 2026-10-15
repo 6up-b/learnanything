@@ -187,16 +187,8 @@ class DiagnosisStoreMixin:
     def latest_blind_grade_records(self) -> dict[str, dict[str, Any]]:
         """attempt id -> its latest blind record (one ordered scan)."""
 
-        latest: dict[str, dict[str, Any]] = {}
         with self.connection() as connection:
-            if not _has_table(connection, "blind_grade_records"):
-                return latest
-            rows = connection.execute(
-                "SELECT * FROM blind_grade_records ORDER BY attempt_id, created_at, id"
-            ).fetchall()
-        for row in rows:
-            latest[str(row["attempt_id"])] = self._decode_blind_record(row)
-        return latest
+            return latest_blind_grade_rows(connection)
 
     # -- diagnoses -------------------------------------------------------------
 
@@ -946,8 +938,24 @@ def _has_table(connection: Any, name: str) -> bool:
     ).fetchone() is not None
 
 
+def latest_blind_grade_rows(connection: Any) -> dict[str, dict[str, Any]]:
+    """attempt id -> its latest blind record, on the caller's connection (one
+    ordered scan; a caller can read it in the same snapshot as other rows)."""
+
+    latest: dict[str, dict[str, Any]] = {}
+    if not _has_table(connection, "blind_grade_records"):
+        return latest
+    rows = connection.execute(
+        "SELECT * FROM blind_grade_records ORDER BY attempt_id, created_at, id"
+    ).fetchall()
+    for row in rows:
+        latest[str(row["attempt_id"])] = DiagnosisStoreMixin._decode_blind_record(row)
+    return latest
+
+
 __all__ = [
     "DiagnosisStoreMixin",
+    "latest_blind_grade_rows",
     "merge_causal_view_into_events",
     "merge_causal_view_into_feedback",
 ]

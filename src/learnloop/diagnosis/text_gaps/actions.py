@@ -78,6 +78,10 @@ class ActionOutcome:
     detail: dict[str, Any] = field(default_factory=dict)
     #: Database writes that commit in the ledger row's transaction (F3).
     writes: list[Callable[[], Any]] = field(default_factory=list)
+    #: What the drafter of a created prerequisite read (diagnosis input
+    #: provenance; a ``WriteRecord`` in JSON form, kept in the job's progress
+    #: so a resumed creation records it too).
+    created_provenance: dict[str, Any] | None = None
 
 
 def _iso(value) -> str:
@@ -412,6 +416,12 @@ def record_belief(
     candidate_id = new_ulid()
 
     def candidate() -> None:
+        from learnloop.diagnosis.text_gaps.provenance import reading_record
+
+        # Diagnosis input provenance: the statement is the reading's, so it
+        # records what the reading's writer read.
+        with repository.connection() as connection:
+            provenance = reading_record(connection, text)
         repository.insert_misconception_candidate(
             id=candidate_id,
             learning_object_id=anchor,
@@ -421,6 +431,8 @@ def record_belief(
             occurrence_count=1,
             severity=0.0,
             mechanism=None,
+            provenance=provenance,
+            provenance_writer="gap_reader",
             clock=clock,
         )
 

@@ -489,6 +489,11 @@ def record_error_hunt_outcome(
                 signature=report.claim_md.strip() or None,
                 mechanism="clean_solution_false_positive",
                 item_ids=[hunt.practice_item_id],
+                # Diagnosis input provenance: written from the grader's report
+                # of the hunt (the grading being written, with the worked
+                # solution the hunt showed: its item's).
+                provenance=_hunt_provenance(repository, attempt_id),
+                provenance_writer="error_hunt",
                 clock=clock,
             )
     promoted_misconception_id: str | None = None
@@ -524,6 +529,13 @@ def record_error_hunt_outcome(
         "promoted_misconception_id": promoted_misconception_id,
         **hunt.as_dict(),
     }
+
+
+def _hunt_provenance(repository: Repository, attempt_id: str) -> Any:
+    from learnloop.db.stores.write_provenance import GRADING, closure
+
+    with repository.connection() as connection:
+        return closure(connection, [(GRADING, str(attempt_id))])
 
 
 def _candidate_statement(report: FalsePositiveReport) -> str:

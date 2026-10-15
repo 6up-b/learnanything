@@ -33,26 +33,38 @@ when it is
   had (:class:`KeyBook`);
 * **(c) a derived text with a recorded, complete write-time provenance whose
   inputs are all safe** (:class:`WriteProvenance`, read through a
-  :data:`ProvenanceSource`): the hook for the follow-up desktop stage
-  ("diagnosis input provenance"). **No producer records one yet.**
+  :data:`ProvenanceSource`; by default :func:`recorded_write_provenance`,
+  the records every writer keeps since migration 205,
+  ``db.stores.write_provenance``).
 
 So everything a diagnosis, the grader's normalizer, the gap reader or the
-prerequisite drafter wrote, or that was derived from their output, is held
-back with one fixed reason (:data:`HELD_BACK`): misconception and candidate
-statements and corrections, hypothesis and recurrence-group statements,
-diagnosis summaries and their hypotheses, what a learner-text gap was matched
-to, the words of a question the learner asked (no pinned answer behind them),
-and every generated topic's name, id and seeded question. The entries keep
-their structure: ids (a generated topic's id as an opaque keyed alias,
-accepted back as a named id; its raw id is answered as unknown), statuses,
-counts, dates, evidence counts and held state; recurrence-group keys are
-keyed digests too (Q13).
+prerequisite drafter wrote, or that was derived from their output, is shown
+only when its writer recorded what it read and every recorded input passes
+the shared protection (``learnloop.learner_protection``): the answers are
+the learner's own pinned answers that pass the answer guard, under the
+revision they were read with; no item is exam, held-out, reserved, cold or a
+probe; no item whose rubric or reference solution the writer read can still
+be answered cold; no source ref is exam material; every question records its
+contract; every topic is authored or carries its own record; and the text
+reproduces no key of any of them. Otherwise it is held back with one fixed
+reason (:data:`HELD_BACK`) or the protection that applies: misconception and
+candidate statements and corrections, hypothesis and recurrence-group
+statements, diagnosis summaries and their hypotheses, what a learner-text gap
+was matched to, the words of a question the learner asked, and every
+generated topic's name, id and seeded question. Old rows have no record and
+stay held back (a re-diagnosis writes new, recorded ones). The entries keep
+their structure: ids (a generated topic's id as an opaque keyed alias while
+its name is held back, accepted back as a named id; its raw id is answered
+as unknown), statuses, counts, dates, evidence counts and held state;
+recurrence-group keys are keyed digests too (Q13). The kill switch
+``diagnosis.chat_shows_recorded_text`` (on by default) puts back the narrow
+rule (nothing derived is shown).
 
 Why no output-side provenance: earlier rounds followed each text's provenance
 from the output back to the answers behind it, and five reviews in a row found
 inputs no record names (a snapshot diagnosis reads the whole-vault export
-without recording what it opened; the joint grader's C4 receipt is written
-outside the grading transaction). Provenance is now trusted only when it was
+without recording what it opened; the joint grader's C4 receipt was written
+outside the grading transaction). Provenance is trusted only when it was
 recorded when the text was written.
 
 **Protection** (``learnloop.learner_protection``, shared with the card):
@@ -97,12 +109,14 @@ from learnloop.learner_protection import (
     ANSWER_UNRECORDED,
     PINS_UNREADABLE,
     PROTECTION_UNKNOWN,
+    QUESTION_UNRECORDED,
     SNAPSHOT_UNSETTLED,
     STEM_UNRECORDED,
     WITHHELD_COLD,
     WITHHELD_EXAM,
     WITHHELD_PROBE,
     WITHHELD_RESERVED,
+    WITHHELD_SOLUTION_OPEN,
     WITHHELD_UNKNOWN_ITEM,
     WITHHELD_UNREADABLE,
     PastWork,
@@ -133,6 +147,8 @@ KEY_WITHHELD = "withheld: it states the answer key"
 KEYS_UNREADABLE = "withheld: the answer keys could not be read"
 REVISION_UNKNOWN = "withheld: the question revision this answer was graded against is not recorded"
 REVISION_UNKNOWN_BEHIND = "withheld: the question revision an answer behind it was graded against is not recorded"
+#: A recorded answer read under a revision other than the one it is pinned to now.
+REVISION_CHANGED_BEHIND = "withheld: an answer it was written from was read under another question revision"
 KEY_WITHHELD_BEHIND = "withheld: an answer it was written from states the answer key"
 #: (b)'s reasons for an answer shown, as named for a text written from that answer.
 _BEHIND = {REVISION_UNKNOWN: REVISION_UNKNOWN_BEHIND, KEY_WITHHELD: KEY_WITHHELD_BEHIND}
@@ -320,29 +336,52 @@ class RecordedText(GuardedText):
 class WriteProvenance:
     """What one derived text was written from, recorded when it was written.
 
-    The hook for the follow-up desktop stage ("diagnosis input provenance"):
-    the writer (a diagnosis, the normalizer, the gap reader, the drafter)
-    records, in the transaction that writes the text, every input it read:
-    the answers (``answers``), the practice items whose question or key it
-    saw (``items``) and the topics whose names it saw (``topics``). The
-    record is closed: a writer that read another derived text records that
-    text's own inputs. ``complete`` is the writer's statement that nothing
-    else was read (a snapshot export it could not account for, a history it
-    did not record, makes it False). **No producer writes one yet**, so
-    :func:`no_write_provenance` is the only source in use."""
+    Read through a :data:`ProvenanceSource` (by default
+    :func:`recorded_write_provenance`, the ``text_write_provenance`` records
+    every writer keeps since migration 205). The writer records, in the
+    transaction that writes the text, every input it read (a closed record:
+    a writer that read another derived text folds that text's own record in):
+
+    * ``answers`` (ids), with ``answer_contracts`` the contract revision(s)
+      each was read under (when recorded, each must be the revision the
+      answer is pinned to now);
+    * ``items`` whose question or key it saw, and ``solution_items`` whose
+      rubric or reference solution it read (directly or through a grader's
+      output);
+    * ``topics`` whose names it saw (a generated one only with its own
+      record folded in: ``("learning_object", id)`` in ``derived_from``);
+    * ``sources`` (source refs) whose text it read;
+    * ``questions``: learner questions with the contract each was asked
+      about (Q10).
+
+    ``complete`` is the writer's statement that nothing else was read;
+    ``text_sha256`` (when the source has it) is the hash of the text the
+    latest record covers, so a text an unrecorded writer rewrote is held
+    back."""
 
     complete: bool
     answers: tuple[str, ...] = ()
     items: tuple[str, ...] = ()
     topics: tuple[str, ...] = ()
+    solution_items: tuple[str, ...] = ()
+    sources: tuple[Mapping[str, Any], ...] = ()
+    questions: tuple[tuple[str, tuple[str | None, ...]], ...] = ()
+    answer_contracts: tuple[tuple[str, tuple[str | None, ...]], ...] = ()
+    derived_from: tuple[tuple[str, str], ...] = ()
+    text_sha256: str | None = None
+    missing: tuple[str, ...] = ()
 
     def readable(self) -> bool:
         """Complete, every input an id, and at least one input."""
 
-        lists = (self.answers, self.items, self.topics)
-        return (self.complete is True and all(isinstance(values, tuple) for values in lists)
+        lists = (self.answers, self.items, self.topics, self.solution_items)
+        keyed = (self.questions, self.answer_contracts)
+        return (self.complete is True and all(isinstance(values, tuple) for values in (*lists, *keyed))
                 and all(isinstance(value, str) and value.strip() for values in lists for value in values)
-                and any(lists))
+                and all(isinstance(pair, tuple) and len(pair) == 2 and isinstance(pair[0], str) and pair[0].strip()
+                        for values in keyed for pair in values)
+                and isinstance(self.sources, tuple)
+                and any((*lists, *keyed, self.sources)))
 
 
 #: Where a derived text's write-time record is read from:
@@ -364,9 +403,46 @@ DERIVED_KINDS: Mapping[str, str] = {
 
 
 def no_write_provenance(_connection: Any, _kind: str, _record_id: str) -> None:
-    """Today's source: nothing records a derived text's inputs when it is written."""
+    """No record for any text: the narrow rule (the kill switch's state)."""
 
     return None
+
+
+def recorded_write_provenance(connection: Any, kind: str, record_id: str) -> WriteProvenance | None:
+    """THE source: the records writers keep (``db.stores.write_provenance``),
+    every row for the text joined (each writer of a text recorded what it
+    read). None when no writer recorded one."""
+
+    from learnloop.db.stores.write_provenance import stored_record
+
+    if kind not in DERIVED_KINDS:
+        return None
+    stored = stored_record(connection, kind, str(record_id or ""))
+    if stored is None:
+        return None
+    record, inputs = stored.record, stored.record.inputs
+    return WriteProvenance(
+        complete=bool(record.complete),
+        answers=tuple(sorted(inputs.answers)),
+        items=tuple(sorted(inputs.items)),
+        topics=tuple(sorted(inputs.topics)),
+        solution_items=tuple(sorted(inputs.solution_items)),
+        sources=tuple(dict(ref) for ref in inputs.sources),
+        questions=tuple((key, tuple(inputs.questions[key])) for key in sorted(inputs.questions)),
+        answer_contracts=tuple((key, tuple(inputs.answers[key])) for key in sorted(inputs.answers)),
+        derived_from=tuple(record.derived_from),
+        text_sha256=stored.text_sha256,
+        missing=tuple(record.missing),
+    )
+
+
+def default_provenance(vault: Any) -> ProvenanceSource:
+    """The vault's source: the recorded one, unless the kill switch
+    ``diagnosis.chat_shows_recorded_text`` is off (the narrow rule)."""
+
+    diagnosis = getattr(getattr(vault, "config", None), "diagnosis", None)
+    return recorded_write_provenance if bool(getattr(diagnosis, "chat_shows_recorded_text", True)) \
+        else no_write_provenance
 
 
 # -- aliases: opaque, keyed ---------------------------------------------------------
@@ -438,11 +514,15 @@ class TextGuard:
       reproduces none its item is known to have had, and it was graded against
       exactly one pinned contract on its own item;
     * (c) :meth:`derived`: anything else, only when its write-time record
-      (:class:`WriteProvenance`) is complete and every input is safe: each
-      answer passes (b)'s checks, each item its protection, each topic is
-      authored, the protection and keys could be read, and the text
-      reproduces no key of those items and topics. With no record (today,
-      always) the text is withheld with :data:`HELD_BACK`.
+      (:class:`WriteProvenance`) is complete, covers the text as stored, and
+      every input is safe: each answer passes (b)'s checks under the
+      revision it was read with, each item its protection, each item whose
+      rubric or reference solution was read can no longer be answered cold,
+      each source ref is not exam material, each question records its
+      contract, each topic is authored (or carries its own record), the
+      protection and keys could be read, and the text reproduces no key of
+      those items and topics. With no record the text is withheld with
+      :data:`HELD_BACK`.
 
     A generated topic's name is (c) text: while it is withheld the entry shows
     :data:`TOPIC_WITHHELD` and its id an opaque keyed alias (:func:`lo_alias`),
@@ -466,7 +546,7 @@ class TextGuard:
         self._unknowns = unknowns if unknowns is not None else []
         self.past = PastWork(connection, vault, repository, withheld=withheld, unknowns=self._unknowns)
         self._key = alias_key
-        self._provenance = provenance or no_write_provenance
+        self._provenance = provenance or default_provenance(vault)
         self._names: dict[str, tuple[GuardedText | None, str | None]] = {}
         self._generated: frozenset[str] | None = None
 
@@ -550,7 +630,8 @@ class TextGuard:
         topics = {str(lo) for lo in (lo_id, row.get("lo"), getattr(item, "learning_object_id", None)) if lo}
         if any(self.generated(lo) for lo in topics):
             return self.derived("practice_item", str(row.get("item") or ""), question, STEM_LIMIT,
-                                answers=(attempt_id,), items=(row.get("item"),), los=topics)
+                                answers=(attempt_id,), items=(row.get("item"),), los=topics,
+                                source_text=pin.prompt if pin is not None else None)
         return self._authored(question, STEM_LIMIT), None
 
     # -- the text rule (``learner_protection.TextRule``) ------------------------------------
@@ -561,19 +642,25 @@ class TextGuard:
         return self.stem(attempt_id, lo_id)
 
     def statement(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any] = (),
-                  items: Iterable[Any] = (), los: Iterable[Any] = ()) -> tuple[RecordedText | None, str | None]:
+                  items: Iterable[Any] = (), los: Iterable[Any] = (),
+                  source_text: Any = None) -> tuple[RecordedText | None, str | None]:
         """The chat's text rule for a statement: :meth:`derived` ((c) only)."""
 
-        return self.derived(kind, record_id, text, limit, answers=answers, items=items, los=los)
+        return self.derived(kind, record_id, text, limit, answers=answers, items=items, los=los,
+                            source_text=source_text)
 
     # -- (c) derived text, by its write-time record --------------------------------------
 
     def derived(self, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any] = (),
-                items: Iterable[Any] = (), los: Iterable[Any] = ()) -> tuple[RecordedText | None, str | None]:
+                items: Iterable[Any] = (), los: Iterable[Any] = (),
+                source_text: Any = None) -> tuple[RecordedText | None, str | None]:
         """(c) THE renderer of a derived text: released only by a complete
-        write-time record whose inputs, with the entry's own ``answers``,
-        ``items`` and ``los``, are all safe. ``text`` may be a function, called
-        only once the record passes. Without a record: ``(None, HELD_BACK)``."""
+        write-time record that covers the text as stored (``source_text``,
+        else ``text``: its hash is the one the latest record keeps) and whose
+        inputs, with the entry's own ``answers``, ``items`` and ``los``, are
+        all safe. ``text`` may be a function, called only once the record
+        passes (then ``source_text`` is the stored text it renders). Without
+        a record: ``(None, HELD_BACK)``."""
 
         if not callable(text) and (text is None or not str(text).strip()):
             return None, None
@@ -589,6 +676,13 @@ class TextGuard:
             record = None
         if not isinstance(record, WriteProvenance) or not record.readable():
             return None, HELD_BACK
+        if record.text_sha256 is not None:
+            from learnloop.db.stores.write_provenance import text_sha256
+
+            stored = source_text if source_text is not None else (None if callable(text) else text)
+            if stored is None or text_sha256(stored) != record.text_sha256:
+                # Rewritten since by a writer that recorded nothing.
+                return None, HELD_BACK
         answer_ids = sorted(_ids(record.answers) | _ids(answers))
         item_ids = sorted(_ids(record.items) | _ids(items))
         reason = self._unsafe(record, answer_ids, item_ids)
@@ -598,8 +692,10 @@ class TextGuard:
         if value is None or not str(value).strip():
             return None, None
         rows = [row for answer in answer_ids if (row := self.past.attempt(answer))]
-        keys = [key for item in sorted(set(item_ids) | {row["item"] for row in rows if row["item"]})
-                for key in self.book.item(item)]
+        asked = [question["item"] for event, _contracts in record.questions
+                 if (question := self.past.question(event)) and question["item"]]
+        keyed = set(item_ids) | _ids(record.solution_items) | _ids(asked) | {row["item"] for row in rows if row["item"]}
+        keys = [key for item in sorted(keyed) for key in self.book.item(item)]
         keys += self.book.los(sorted(_ids(record.topics) | _ids(los)))
         if leaks_key(str(value), keys):
             return None, KEY_WITHHELD
@@ -613,7 +709,8 @@ class TextGuard:
         return f"withheld: {reason}" if reason else None
 
     def _unsafe(self, record: WriteProvenance, answers: Sequence[str], items: Sequence[str]) -> str | None:
-        """Why a record's inputs (with the entry's own) are not all safe, or None."""
+        """Why a record's inputs (with the entry's own) are not all safe, or
+        None. Every check is the shared protection's (``learner_protection``)."""
 
         if not self.withheld.available:
             return f"withheld: {WITHHELD_UNREADABLE}"
@@ -621,7 +718,8 @@ class TextGuard:
         if reason:
             return reason
         los = getattr(self._vault, "learning_objects", None) or {}
-        if any(topic not in los or self.generated(topic) for topic in record.topics):
+        folded = {str(ref[1]) for ref in record.derived_from if len(ref) == 2 and ref[0] == "learning_object"}
+        if any(topic not in los or (self.generated(topic) and topic not in folded) for topic in record.topics):
             return HELD_BACK
         if self.book.unreadable:
             return KEYS_UNREADABLE
@@ -632,6 +730,23 @@ class TextGuard:
             reason = self._answer_reason(answer, (self.past.attempt(answer) or {}).get("answer"))
             if reason:
                 return _BEHIND.get(reason, reason)
+        # ... and under the revision it was read with (pinned revisions).
+        for answer, contracts in record.answer_contracts:
+            pin = self.past.pinned(answer)
+            if pin is None or set(contracts) != {pin.contract_id}:
+                return REVISION_CHANGED_BEHIND if pin is not None else REVISION_UNKNOWN_BEHIND
+        for event, contracts in record.questions:
+            reason = self.past.question_reason(event, contracts)
+            if reason:
+                return f"withheld: {reason}"
+        reason = self.past.source_reason(record.sources)
+        if reason:
+            return f"withheld: {reason}"
+        # Last, as it lifts on its own: a solution read for a question the
+        # learner can still answer cold.
+        reason = self.past.solution_reason(record.solution_items)
+        if reason:
+            return f"withheld: {reason}"
         return None
 
     # -- topic names and ids -------------------------------------------------------------
@@ -675,13 +790,19 @@ class TextGuard:
             if not self.generated(lo_id):
                 self._names[lo_id] = (self._authored(title, TITLE_LIMIT), None)
             else:
-                shown, note = self.derived("learning_object", lo_id, title, TITLE_LIMIT, los=(lo_id,))
+                # The record covers the drafted title (the id is built from it).
+                shown, note = self.derived("learning_object", lo_id, title, TITLE_LIMIT, los=(lo_id,),
+                                           source_text=title)
                 if shown is not None:
                     words, note = self.derived("learning_object", lo_id, lo_id.replace("_", " "), _ID_LIMIT,
-                                               los=(lo_id,))
+                                               los=(lo_id,), source_text=title)
                     shown = shown if words is not None else None
                 self._names[lo_id] = (shown, note)
         return self._names[lo_id]
+
+    def _title(self, lo_id: str) -> str:
+        lo = self._lo(lo_id)
+        return lo.title if lo is not None and str(lo.title or "").strip() else lo_id
 
     def topic(self, lo_id: Any) -> str | None:
         """THE renderer of a topic's name: released, or
@@ -703,7 +824,7 @@ class TextGuard:
             return self._authored(key, _ID_LIMIT)
         if self._name(key)[0] is None:
             return lo_alias(key, self._key)
-        return self.derived("learning_object", key, key, _ID_LIMIT, los=(key,))[0]
+        return self.derived("learning_object", key, key, _ID_LIMIT, los=(key,), source_text=self._title(key))[0]
 
     def aliases(self) -> dict[str, str]:
         """``{alias: topic id}`` for every generated topic (a named id the
@@ -904,16 +1025,24 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
 
 
 def _statement(guard: TextGuard, kind: str, record_id: Any, text: Any, limit: int, *, answers: Iterable[Any] = (),
-               items: Iterable[Any] = (), los: Iterable[Any] = ()) -> tuple[GuardedText | None, str | None]:
+               items: Iterable[Any] = (), los: Iterable[Any] = (),
+               source_text: Any = None) -> tuple[GuardedText | None, str | None]:
     """A statement through the shared leakage rule
     (``learner_protection.statement_text``: protected answers or items withhold
-    it, naming why), then this module's text rule (:meth:`TextGuard.statement`)."""
+    it, naming why), then this module's text rule (:meth:`TextGuard.statement`).
+    ``source_text`` is the stored text a callable ``text`` renders."""
 
     if not callable(text) and (text is None or not str(text).strip()):
         return None, None
-    shown, note, reason = statement_text(guard.past, guard, kind, record_id, text, limit, answers=answers,
-                                         items=items, los=los)
-    return shown, (f"withheld: {reason}" if reason else note)
+    if source_text is None:
+        shown, note, reason = statement_text(guard.past, guard, kind, record_id, text, limit, answers=answers,
+                                             items=items, los=los)
+        return shown, (f"withheld: {reason}" if reason else note)
+    reason = guard.past.evidence_reason(tuple(answers), tuple(items))
+    if reason:
+        return None, f"withheld: {reason}"
+    return guard.statement(kind, record_id, text, limit, answers=answers, items=items, los=los,
+                           source_text=source_text)
 
 
 def _misconceptions(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuard,
@@ -1282,8 +1411,10 @@ def _diagnosis(repository: Any, guard: TextGuard, attempt_id: str, lo_id: Any, i
         diagnosis = repository.attempt_diagnosis(diagnosis_id) or {}
         analysis = str((diagnosis.get("proposal") or {}).get("analysis_md") or "")
         if analysis.strip():
+            stored = str((diagnosis.get("proposal") or {}).get("analysis_md") or "")
             summary, note = _statement(guard, "diagnosis", diagnosis_id, lambda: plain_summary(repository, analysis),
-                                          STATEMENT_LIMIT, answers=(attempt_id,), items=(item_id,), los=(lo_id,))
+                                          STATEMENT_LIMIT, answers=(attempt_id,), items=(item_id,), los=(lo_id,),
+                                          source_text=stored)
             if note:
                 entry["summary_note"] = note
     entry["summary"] = summary
@@ -1344,7 +1475,9 @@ def _gaps(connection: Any, los: set[str], limits: ContextLimits, guard: TextGuar
 def _gap_words(guard: TextGuard, row: Mapping[str, Any]) -> tuple[GuardedText | None, str | None]:
     """A gap's words: the pinned answer they are (a diagnosis's or a stuck
     answer's gap: (b), shown as the attempt records it), else a question the
-    learner asked ((c): what it was asked about is not recorded with it, Q10)."""
+    learner asked ((c): the gap's record names the question and the item
+    contract it was asked about, Q10, and the question's item must pass the
+    protection like any other input)."""
 
     attempt_id = row.get("attempt_id")
     if row.get("source_kind") in _ANSWER_SOURCES and attempt_id:
@@ -1470,7 +1603,9 @@ def learning_context(
 
     ``alias_key`` keys the opaque aliases (the server passes the vault's,
     ``RemoteRuntime.alias_key``; else this process's). ``provenance`` is where
-    write-time records are read from (rule (c)); none records one yet."""
+    write-time records are read from (rule (c)); by default the vault's
+    (:func:`default_provenance`: the recorded ones, or none with the kill
+    switch off)."""
 
     limits = limits or ContextLimits()
     moment = (now or datetime.now(UTC)).astimezone(UTC)
@@ -1545,8 +1680,10 @@ __all__ = [
     "KEY_WITHHELD_BEHIND",
     "LO_ALIAS_PREFIX",
     "PROTECTION_UNKNOWN",
+    "QUESTION_UNRECORDED",
     "RECORDED",
     "RELEASED_BY",
+    "REVISION_CHANGED_BEHIND",
     "RELEASE_TYPES",
     "RETENTION_TARGET",
     "SNAPSHOT_UNSETTLED",
@@ -1554,6 +1691,7 @@ __all__ = [
     "TOPIC_FIELDS",
     "TOPIC_ID_FIELDS",
     "TOPIC_WITHHELD",
+    "WITHHELD_SOLUTION_OPEN",
     "WITHHELD_UNKNOWN_ITEM",
     "WITHHELD_UNREADABLE",
     "AnswerText",
@@ -1570,9 +1708,11 @@ __all__ = [
     "group_alias",
     "key_book",
     "leaks_key",
+    "default_provenance",
     "learning_context",
     "lo_alias",
     "no_write_provenance",
+    "recorded_write_provenance",
     "protection_issues",
     "resolve_scope",
     "retention_risks",

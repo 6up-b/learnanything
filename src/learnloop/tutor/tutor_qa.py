@@ -85,6 +85,7 @@ from learnloop.tutor.context_delivery import (
     predecessor_cut,
     predecessor_window,
 )
+from learnloop.learner.assessment_contracts import snapshot_for_presentation
 from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
@@ -478,6 +479,8 @@ def ask_question(
         "session_id": session_id,
         "question_md": question_md,
         "answer_status": "pending",
+        # Q10: the item contract the question is asked about.
+        "assessment_contract_version_id": _question_contract(vault, repository, item, attempt_id),
         "seconds_into_attempt": seconds_into_attempt,
         "provider": getattr(client, "provider_name", None),
         # §13.4 generating-process context, persisted for later contextual
@@ -770,6 +773,23 @@ def ask_question(
         # (absent when there are none, so the kill switch changes nothing).
         result["suggested_learning_objects"] = list(suggested)
     return result
+
+
+def _question_contract(vault: LoadedVault, repository: Repository, item: Any, attempt_id: str | None) -> str | None:
+    """The contract (revision) of the item a question is asked about (Q10):
+    for a question about a graded attempt the repository records the
+    attempt's pinned contract; mid-attempt it is the item as presented
+    (``assessment_contracts.snapshot_for_presentation``, content-addressed).
+    None on no item, or when it cannot be compiled (the question is then
+    held back from chat, never mislabelled)."""
+
+    if item is None or attempt_id:
+        return None
+    try:
+        return snapshot_for_presentation(repository, vault, item)
+    except Exception:  # noqa: BLE001 - recorded as unknown; the question still lands
+        logger.warning("question contract not recorded for %s", getattr(item, "id", None), exc_info=True)
+        return None
 
 
 def _learner_gap_reading(answer: Any, *, model: Any = None) -> dict[str, Any] | None:

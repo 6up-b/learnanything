@@ -415,13 +415,46 @@ def _persist(
     diagnosis_id: str,
     values: dict[str, Any],
     clock: Clock | None,
+    record: Any = None,
 ) -> str:
-    """Write the diagnosis + receipt only while this worker still owns the job."""
+    """Write the diagnosis + receipt only while this worker still owns the job.
+
+    A diagnosis with a summary records, in the same transaction, what its
+    context showed the diagnoser (``record``: diagnosis input provenance,
+    frozen when the context was built, ``provenance.frozen_record``); it
+    never names the diagnosis it belongs to."""
 
     with repository.atomic():
         if not repository.owns_post_attempt_job(str(job["id"]), epoch=int(job["lease_epoch"])):
             raise _LeaseLost(str(job["id"]))
+        record_diagnosis_reads(repository, diagnosis_id=diagnosis_id, proposal=values.get("proposal"),
+                               record=record, clock=clock)
         return repository.insert_attempt_diagnosis(diagnosis_id=diagnosis_id, clock=clock, **values)
+
+
+def record_diagnosis_reads(repository: Repository, *, diagnosis_id: str, proposal: Mapping[str, Any] | None,
+                           record: Any = None, reads: Any = None, clock: Clock | None = None) -> str | None:
+    """Record what a diagnosis read (its write-time provenance), on the
+    repository's current connection: inside the transaction that writes the
+    diagnosis. ``record`` is the closed record frozen when its context was
+    built (codex review F3: a later regrade never replaces what was shown);
+    ``reads`` (``provenance.DiagnosisReads``) is closed now instead, for a
+    writer whose context was built just now. Nothing when it wrote no
+    summary (no proposal)."""
+
+    if proposal is None:
+        return None
+    from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
+    from learnloop.diagnosis.split.provenance import NOT_FROZEN, diagnosis_record
+
+    with repository.connection() as connection:
+        if not isinstance(record, WriteRecord):
+            record = diagnosis_record(connection, reads) if reads is not None else WriteRecord.incomplete(NOT_FROZEN)
+        row_id = record_text_write(connection, kind="diagnosis", record_id=diagnosis_id,
+                                   text=str((proposal or {}).get("analysis_md") or ""), writer="diagnoser",
+                                   record=record, clock=clock)
+        connection.commit()
+    return row_id
 
 
 def _receipt_for_storage(outcome: DiagnosisOutcome) -> dict[str, Any]:
@@ -768,11 +801,15 @@ def _diagnose(
     settings = settings_from_config(vault)
     config = getattr(vault.config, "diagnosis", None)
     item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
-    record_row = repository.latest_blind_grade_record(attempt_id)
-    if record_row is not None:
-        record = dict(record_row.get("record") or {})
-    else:
-        record = joint_grade_record(vault, repository, attempt)
+    # The history store first: it reads every blind grade in one snapshot
+    # with every grading's identity, and the diagnosed attempt's grade is
+    # the one it read, so the freeze checks the grade shown against the
+    # identity it was read with (diagnosis input provenance, codex re-review
+    # F3). A joint grade is read after that identity, so a regrade in between
+    # is caught the same way.
+    store = live_history_store(vault, repository)
+    blind = store.blind_grade(attempt_id)
+    record = dict(blind) if blind is not None else joint_grade_record(vault, repository, attempt)
     current = current_attempt_for(vault, attempt, record, repository) if item is not None else None
     base_values: dict[str, Any] = {
         "attempt_id": attempt_id,
@@ -789,7 +826,6 @@ def _diagnose(
         }, clock=clock)
         return repository.attempt_diagnosis(row_id)
     rubric = resolved_rubric(vault, item)
-    store = live_history_store(vault, repository)
     job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled, config=vault.config)
     # Billed as the client actually built (a provider override included).
     job_spend.register(DIAGNOSIS_ROUTE, client)
@@ -928,7 +964,7 @@ def _diagnose(
         "receipt": _receipt_for_storage(result) if result.receipt else None,
         "error": result.error,
         "latency_seconds": round(time.monotonic() - started, 3),
-    }, clock=clock)
+    }, clock=clock, record=result.record)
     return repository.attempt_diagnosis(row_id)
 
 
@@ -1597,6 +1633,7 @@ __all__ = [
     "NOT_NEEDED",
     "PENDING",
     "apply_diagnosis",
+    "record_diagnosis_reads",
     "default_diagnosis_client",
     "default_embedding_client",
     "diagnosis_status",

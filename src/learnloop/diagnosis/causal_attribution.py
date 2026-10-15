@@ -1693,6 +1693,12 @@ def _hypothesis_specs(
                 "episode_key": (
                     f"{attempt_id}:event:{event['id']}:{candidate_key}"
                 ),
+                # Diagnosis input provenance: where this statement was
+                # written (the diagnosis whose causal view lies over the
+                # event, and the attempt's grading); popped before the write.
+                "provenance_refs": (
+                    "event", str(event.get("diagnosis_id") or "") or None,
+                ),
                 "attempt_id": attempt_id,
                 "error_event_id": str(event["id"]),
                 "learning_object_id": learning_object_id,
@@ -1838,6 +1844,9 @@ def _hypothesis_specs(
                 "episode_key": (
                     f"{attempt_id}:factor:{factor['id']}:{candidate_key}"
                 ),
+                # A factor's candidate set was drawn from whichever diagnosis
+                # was in force when it was refreshed: every one is folded in.
+                "provenance_refs": ("factor", None),
                 "attempt_id": attempt_id,
                 "error_event_id": None,
                 "learning_object_id": learning_object_id,
@@ -1886,6 +1895,23 @@ def _hypothesis_specs(
             refs.append(spec)
         factor_specs[str(factor["id"])] = refs
     return specs, factor_specs
+
+
+def _statement_provenance(repository: Repository, attempt_id: str, refs: Any) -> Any:
+    """What a materialized hypothesis's statement was written from (diagnosis
+    input provenance): the attempt's grading and the diagnosis whose causal
+    view lies over its event, or, for an unresolved-cause factor's candidate,
+    every completed live diagnosis of the attempt. The closed record of those
+    writers, read on the repository's connection."""
+
+    from learnloop.db.stores.write_provenance import attempt_statement_refs, closure, fold_topic_records
+
+    source, diagnosis_id = refs if isinstance(refs, tuple) and len(refs) == 2 else ("factor", None)
+    with repository.connection() as connection:
+        record = closure(connection, attempt_statement_refs(
+            connection, attempt_id, diagnosis_id=diagnosis_id, every_diagnosis=source == "factor",
+        ))
+        return fold_topic_records(connection, record)
 
 
 def _anchors(
@@ -2345,9 +2371,13 @@ def materialize_causal_episode(
     by_episode: dict[str, dict[str, Any]] = {}
     for spec in specs:
         hypothesis = repository.append_causal_hypothesis(
-            **spec,
+            **{key: value for key, value in spec.items() if key != "provenance_refs"},
             generation_agent_run_id=generation_agent_run_id,
             model=model,
+            # Built only when a new version is appended (an idempotent
+            # replay re-append reads no write-time record).
+            provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),
+            provenance_writer="causal_materialization",
             clock=clock,
         )
         by_episode[str(spec["episode_key"])] = hypothesis
@@ -3619,6 +3649,12 @@ def record_unresolved_cause_self_report(
                                 ),
                                 default=0.7,
                             ),
+                            # The factor's candidate cause, copied: what its
+                            # attempt's writers recorded.
+                            provenance=_statement_provenance(
+                                repository, attempt_id, ("factor", None)
+                            ),
+                            provenance_writer="unresolved_cause_confirmation",
                             clock=clock,
                         )
                     )

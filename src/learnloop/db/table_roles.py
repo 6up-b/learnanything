@@ -157,6 +157,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("elicitation_events", TableRole.COMPAT),
     ("embedding_vectors", TableRole.WORKFLOW),
     ("entity_source_links", TableRole.RAW_LEDGER),
+    # Q9 (migration 205): each event a regrade re-mints records the ids it
+    # replaces, so a belief listing a replaced event stays resolvable.
+    # Append-only; replay never reads or clears it.
+    ("error_event_lineage", TableRole.RAW_LEDGER),
     # Normalized per-attempt evidence; replay consumes the structured
     # attribution stored here because older grading rows do not contain it.
     ("error_events", TableRole.RAW_LEDGER),
@@ -445,6 +449,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("task_blueprint_versions", TableRole.RAW_LEDGER),
     ("task_blueprints", TableRole.RAW_LEDGER),
     ("task_feature_schema_versions", TableRole.RAW_LEDGER),
+    # Diagnosis input provenance (migration 205, spec_mcp_frontend_c1 §4.8):
+    # what each model-written text was written from, recorded by its writer
+    # in the transaction that wrote it. Append-only captured state with no
+    # external lossless source; replay never reads or clears it.
+    ("text_write_provenance", TableRole.RAW_LEDGER),
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
     ("vault_epigraphs", TableRole.RAW_LEDGER),

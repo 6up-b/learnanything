@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-204. Migration 167 adds the learner-field F1 read model
+205. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -136,18 +136,30 @@ Migration 204 comes from exam protection by extraction identity
 trigger: the held-out signals each fresh inventory marked on the reading its
 model run read, with its revision and the role it was made under) and
 backfills it from `source_unit_inventories` (none here).
-Built as a backup-API copy of `migration_head_203` (itself a backup-API copy
-of `migration_head_202` with only 203 applied, that of `migration_head_201`
-with only 202 applied, that of `migration_head_199` with only 200-201
-applied, that of `migration_head_197` with only 198-199 applied, that of
-`migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 204 applied through
-`learnloop.db.migrate.apply_migrations` (checkpointed with
-`wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean, no companion files); `migration_head_203` was
-renamed to this directory. It pins
-current-head schema coverage while the original populated fixture and the
-other vaults remain at historical versions for upgrade-path tests.
+Migration 205 comes from diagnosis input provenance
+(`diagnosis/input-provenance`, spec_mcp_frontend_c1 §4.8,
+docs/reviews/diagnosis-input-provenance.md; built there as 204, a placeholder
+number, and renumbered 205 at its landing after re-read safety's 204): it adds
+`text_write_provenance` (RAW_LEDGER, append-only by trigger: one row per write
+of a model-written text, or per grading, naming what it was written from),
+`error_event_lineage` (RAW_LEDGER, append-only by trigger: the error events a
+regrade re-minted and the ids they replace, or a retired id with no
+replacement, Q9) and `question_events.assessment_contract_version_id` (the
+item contract a learner question was asked about, Q10; NULL on every row this
+fixture already had). Both tables are empty here.
+Built as a backup-API copy of `migration_head_204` (itself a backup-API copy
+of `migration_head_203` with only 204 applied, that of `migration_head_202`
+with only 203 applied, that of `migration_head_201` with only 202 applied,
+that of `migration_head_199` with only 200-201 applied, that of
+`migration_head_197` with only 198-199 applied, that of `migration_head_195`
+with only 196-197 applied, and that of `migration_head_186` with 187-195
+applied) with only 205 applied through `learnloop.db.migrate.apply_migrations`
+under the test suite's upgrade allowance (`UPGRADE_TEST_HELPER`; checkpointed
+with `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
+`foreign_key_check` clean), then copied into place with the backup API, with
+no companion files; `migration_head_204` was renamed to this directory. It
+pins current-head schema coverage while the original populated fixture and
+the other vaults remain at historical versions for upgrade-path tests.
 
 The database is kept in rollback mode (`PRAGMA journal_mode=DELETE`) so the
 tracked file is self-contained, with no committed data in a WAL companion.
