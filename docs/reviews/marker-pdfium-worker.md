@@ -162,3 +162,126 @@ The code was gated at `9ad76b0f4`; the commit after it changes this file only. N
 - `src/learnloop/reader/span_view.py`: `_PDFIUM_LOCK`, `_pdf_page`, and explicit closes.
 - `tests/marker_fakes.py`, `tests/test_marker_pdfium_worker.py`: new. `tests/test_pdf_extraction.py` is moved onto the on-disk fake.
 - `docs/learnloop-architecture-vault/Maps/LearnLoop Pipeline Map.md`: Marker's worker and the Reader as the one pdfium user. `Reference/Configuration/Fields/Config - ingest.md`: the moved `pdf_extraction.py` line citations. Provenance-only churn is left for the landing.
+
+## Landing onto main
+
+**Branch:** `merge/marker-worker-onto-main` (worktree `learnanything-merge2`), from main `499bd3ebd`. Since this
+branch's base `b9fcaf121`, main had gained the chat frontend's MCP C1a:
+- `src/learnloop_mcp`, `learnloop.remote` and `learnloop.learner_protection`;
+- migration 203 and the head fixture `fixtures/migration_head_203`;
+- 22 import-linter contracts;
+- the `glm-ocr` and `mcp` extras in `pyproject.toml` and `uv.lock`.
+
+This is a real `--no-ff` merge of `fix/marker-pdfium-worker` (`dd60888ce`, unchanged). It was not pushed, and it
+ran as a single phase. The sections above and the [Codex review](marker-pdfium-worker-codex-review.md) describe the
+branch as built.
+
+**What the landing does not change:**
+- **No migration, no successor, no algorithm version, no config change.** The worker changes where Marker runs, not
+  what a reading produces (the IR is byte-identical; see Timings), and the lock changes no render.
+- **Paid calls:** none ($0.00). No network, and no key was read.
+- **`apps/`:** unchanged, so there is no frontend or `cargo` gate.
+
+| Commit | What |
+|---|---|
+| `d3ccf3836` | the merge: the branch's code, tests and records; the regenerated references; the Pipeline Map's one-line change |
+| (this commit) | this section, and the references' source stamps on the merge commit (stamps only, 374 notes) |
+
+### Compositions
+
+There was one textual conflict, and nothing needed composing by hand.
+- **Main's side of the code.** Since `b9fcaf121`, main changed none of the branch's source or test files (`marker.py`,
+  `extractors/__init__.py`, `pdf_extraction.py`, `span_view.py`, `test_pdf_extraction.py`, `conftest.py`). The
+  branch changed neither `pyproject.toml` nor `uv.lock`, so main's extras and contracts stand.
+- **No new pdfium user.** None of main's new code (`learnloop_mcp`, `remote`, `learner_protection`) imports
+  pypdfium2, `span_view` or a Marker path. The pdfium table above still holds: the Reader is the only pdfium user in
+  the sidecar's process, and B4 is the only other in-process user, in its own CLI process.
+- **Contracts.** `marker_worker.py` keeps all 22 contracts, the 5 that C1a added among them.
+
+| File | Resolution |
+|---|---|
+| `Reference/Configuration/Fields/Config - ingest.md` (generated) | main's side, then regenerated on the merged tree (below) |
+
+### Generated files
+
+- **References.** I ran `db_generate_reference.py` on the merged tree, then `db_validate_reference.py`: `errors: []`,
+  schema head 203, 321 table notes. Besides the source stamps, the content changes are:
+  - `Config - ingest.md`: the moved `pdf_extraction.py` line citations (`torch_device` 186, `force_ocr` 161,
+    `use_llm` 163, `llm_base_url` 167, `llm_model` 169, `llm_api_key_env` 171);
+  - the capped test lists of `Config - animation`, `ingest`, `router` and `source_retrieval`, which now name
+    `tests/marker_fakes.py`. This was the provenance churn the branch left uncommitted.
+
+  The merge stamped `499bd3ebd`. This commit restamps the notes to the merge commit `d3ccf3836`: stamps only, with 0
+  other lines changed.
+- **Defaults snapshots:** not recomputed. No config, schema or defaults file changed.
+- **CLI help snapshot:** unchanged. No command changed.
+- **Mobile allowlist:** unchanged. No sidecar RPC changed.
+- **Pipeline Map.** The branch's sentence is kept, with one change: Marker reads "in a worker process started for
+  each reading, which ends with it". It already said the Reader's renders run one at a time under a lock.
+  `validate_vault.py` passed: 1,106 notes, 22,144 links, 1,104 of 1,104 reachable.
+
+### Gate
+
+All runs were at `d3ccf3836` (the merge), with `TMPDIR=<worktree>/fixtures-local/tmp`. Every command ran as
+`uv run --no-sync`, because a plain `uv run` syncs away the pypdfium2 that `uv pip install` added (it is not in the
+lock). Logs are in `fixtures-local/`, each headed by the commit:
+- `marker-landing-fullsuite.log`;
+- `marker-landing-durability.log`;
+- `marker-landing-worker5x.log`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **22 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,674 passed**, 0 failed, 0 skipped, 16 warnings (800.5 s). That is main's 11,658 plus the branch's 16 worker tests. Nothing needed a rerun |
+| `flock ... uv run pytest -m durability -n auto` | **101 passed** (27.6 s), main's count. The branch adds no durability test |
+| `tests/test_marker_pdfium_worker.py` alone, 5 times | **16 passed** in each run (8.3–9.1 s, load 1.7–5.2). Afterwards no `marker_worker` process was running, and no `learnloop-marker-*` directory was left in `TMPDIR` |
+| Before the commit | the worker, `test_pdf_extraction` and `test_span_view` files: 32 passed. A wider 19-file selection (the ingest, Reader and MCP files) reached 98% with no failure shown, then hit my 20-minute timeout under machine load. The full suite covers all of it |
+| npm / cargo | not applicable: nothing under `apps/` changed |
+
+### Parity
+
+**Setup.**
+- **Copies.** I made backup-API copies (`copy_tree_with_databases`) of this worktree's tracked
+  `fixtures/linear_algebra` and `fixtures/probability`, in `fixtures-local/marker-parity`.
+- **Migration.** Each copy was migrated by its own side's code (`migration_coordinator.migrate_vault`):
+  - main's side: `499bd3ebd`, exported with `git archive` (`src`, `migrations`) and put first on `PYTHONPATH`. The
+    probe printed the archive's `learnloop/__init__.py`. It applied 48 migrations, to 203.
+  - the merge's side: 48, to 203.
+- **Runs.** On each copy: `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with
+  `LEARNLOOP_CONFIG_DIR` set to an empty directory.
+- **Comparison.** Shadows were compared structurally, with ULIDs, timestamps, ids, hashes and paths set aside. Doctor
+  reports were compared both positionally and as issue multisets.
+
+| Fixture | Shadow (facet / mastery / schedule) | Shadow differences | Doctor main → merge |
+|---|---|---:|---|
+| linear algebra | 22 / 6 / 47 on both sides | **0** | 107 → 107 issues (1 error on both sides); multisets identical |
+| probability | 2 / 1 / 1 on both sides | **0** | 138 → 138 (49 errors on both sides, 46 of them `criterion:unknown_dependency`); identical |
+
+**Checks on the copies and fixtures:**
+- `live_database.unchanged` is true on every shadow.
+- Each copy's `state.sqlite` hash is the same before and after its shadow and doctor.
+- Doctor exits 1 on both sides, as it does on main.
+- The tracked fixtures were only copied. Their hashes (`a3972c00…`, `0ac51001…`) are the same before and after, and
+  `git status fixtures/` is clean. `arxiv_v2` was not opened.
+
+### Open questions for the owner (defaults as landed)
+
+1. **Worker time limit: fixed.** It is the larger of 30 minutes and 2 minutes a page, and it is not configurable
+   (open question 1 above). It only stops a worker that hangs, and a cancel always works. Making it configurable is a
+   one-line change if a CPU-only machine ever needs one.
+2. **No warm worker.** Each reading starts a fresh worker and frees its models when it ends (open question 2). A
+   repeat import in a warm sidecar pays about 4 s more than the old in-process path; a first import pays the same. In
+   exchange, a crash costs only that reading, and the sidecar never holds torch, CUDA or Marker's models.
+3. **Windows containment has not been tested on Windows.** On Windows the worker puts itself in a kill-on-close job
+   object. Only the ctypes structure's layout is tested, on Linux, and Windows checks only the structure's size, so a
+   wrong field would silently move the flag. If the job cannot be set up, the worker logs that and the reading goes
+   on. In that case a cancelled reading still stops the worker but may leave pdftext's pool running
+   (`pdftext_workers` above 1). The check to run before relying on it there: on a Windows machine, cancel a reading
+   with `pdftext_workers = 2`, then confirm that no Python process from it remains.
+4. **The B4 benchmark CLI is left in-process.** `learnloop embeddings compare` (`source_retrieval/b4.py`) still
+   renders with pdfium in its own CLI process (open question 3). That process has one thread and no Reader, so there
+   is nothing to race.
+
+Also still open from the Codex review: the fixes were not exercised with real Marker and `pdftext_workers = 2`, only
+with the fake's pool of the same shape.
