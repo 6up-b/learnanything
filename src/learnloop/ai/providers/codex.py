@@ -701,20 +701,46 @@ def _sdk_accepts(config_type: Any, field_name: str) -> bool:
     )
 
 
+#: Turn items that carry text only (no tool ran, nothing was read), by their
+#: type with case, ``_`` and ``-`` dropped.
+_TEXT_ONLY_TURN_ITEMS = frozenset(
+    {"agentmessage", "reasoning", "usermessage", "plan", "todolist", "error", "contextcompaction"}
+)
+#: Reported for a turn item that names no command or path and is not text
+#: only: a tool this extractor cannot read. A snapshot diagnosis's record
+#: counts it as reading the whole workspace (diagnosis input provenance).
+UNACCOUNTED_TURN_ITEM = "unaccounted turn item"
+
+
 def _workspace_activity(result: Any) -> list[str] | None:
-    """Commands or paths the agent's tool items reported, when exposed."""
+    """Commands or paths the agent's tool items reported, when exposed.
+
+    Fail closed (diagnosis input provenance): an item that names no command
+    or path and is not text only is reported as :data:`UNACCOUNTED_TURN_ITEM`
+    with its type, never dropped, so what it read is never recorded as
+    nothing."""
 
     items = getattr(result, "items", None)
     if not isinstance(items, (list, tuple)):
         return None
     activity: list[str] = []
     for item in items:
+        # A typed SDK item may arrive wrapped (a pydantic root model).
+        item = getattr(item, "root", item)
+        named = False
         for key in ("command", "path", "file_path"):
             value = item.get(key) if isinstance(item, dict) else getattr(item, key, None)
             if isinstance(value, (list, tuple)):
                 value = " ".join(str(part) for part in value)
             if isinstance(value, str) and value.strip():
                 activity.append(value.strip())
+                named = True
+        if named:
+            continue
+        kind = item.get("type") if isinstance(item, dict) else getattr(item, "type", None)
+        label = str(kind or type(item).__name__)
+        if label.replace("_", "").replace("-", "").lower() not in _TEXT_ONLY_TURN_ITEMS:
+            activity.append(f"{UNACCOUNTED_TURN_ITEM}: {label}")
     return activity
 
 

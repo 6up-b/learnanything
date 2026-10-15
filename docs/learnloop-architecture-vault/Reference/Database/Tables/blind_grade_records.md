@@ -3,13 +3,13 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
   - "table blind_grade_records"
-schema_head: 203
+schema_head: 204
 table_name: "blind_grade_records"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/split/reports.py"
-  - "src/learnloop/held_grades.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/held_grades.py`
 - `src/learnloop/learner_context.py`

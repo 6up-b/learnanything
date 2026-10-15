@@ -3,13 +3,13 @@ title: "diagnosis_context_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_context_receipts"
   - "table diagnosis_context_receipts"
-schema_head: 203
+schema_head: 204
 table_name: "diagnosis_context_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -113,7 +113,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_diagnosis_input_provenance.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

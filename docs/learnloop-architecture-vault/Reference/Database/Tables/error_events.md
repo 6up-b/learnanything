@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 203
+schema_head: 204
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,9 @@ source_paths:
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/diagnoses.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
+  - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/cli/app.py"
 tags:
   - "learnloop/database/table"
@@ -105,6 +106,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/split/history.py`
@@ -119,6 +121,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
+- `src/learnloop/attempts/regrade.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`

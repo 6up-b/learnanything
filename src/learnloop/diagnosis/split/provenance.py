@@ -22,15 +22,17 @@ on the writer's connection.
 export itself; the transport reports what it opened
 (``workspace_activity``). Each report is mapped to the export entries it
 served (:func:`snapshot_reads`): a file read by path or by a plain read
-command (``cat``, ``head``, ``tail``, ``sed -n``, ``nl``, ``less``,
-``more``, ``wc``) serves that file; a listing (``ls``) or ``cd`` serves
-names only. Anything else (a search, a glob, a pipe, a script, a path
-outside the export) is counted as reading the WHOLE export. No report at
-all leaves the record incomplete.
+command (``cat``, ``head``, ``tail``, ``sed -n`` with a print-only script,
+``nl``, ``less``, ``more``, ``wc``) serves that file; a listing (``ls``) or
+``cd`` serves names only (export file names are opaque ids). Anything else
+(a search, a glob, a pipe, a script, a tool item the transport could not
+read) is counted as reading the WHOLE export. No report at all, or a path
+outside the export, leaves the record incomplete.
 """
 
 from __future__ import annotations
 
+import re
 import shlex
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -48,6 +50,8 @@ _NAME_COMMANDS = frozenset({"ls", "cd", "pwd", "echo", "true"})
 _SHELLS = frozenset({"bash", "sh", "zsh", "dash"})
 _SHELL_OPERATORS = ("|", "&&", "||", ";", ">", "<", "`", "$(", "\n")
 _GLOB = frozenset("*?[]{}~")
+#: The only ``sed`` script accounted for: print a line or a line range.
+_SED_PRINT = re.compile(r"^(\d+|\$)(,(\d+|\$|\+\d+))?p$")
 
 
 @dataclass(frozen=True)
@@ -278,21 +282,22 @@ def _command_files(entries: SnapshotEntries, command: str, depth: int = 0) -> se
         if named is not None and named[0] == "file":
             files |= named[1]
             continue
-        if script_pending:
+        if script_pending and _SED_PRINT.match(token):
+            # Only a plain print script (``1,40p``): any other (an ``e``
+            # command runs a program, ``w`` writes) counts as the whole export.
             script_pending = False
             continue
         return _WHOLE
     return files
 
 
-def snapshot_reads(entries: SnapshotEntries, opened: Sequence[str] | None) -> DiagnosisReads:
-    """The export entries the diagnoser's reported activity served (see the
-    module doc). ``opened`` None (the transport reported nothing), or a
-    report naming a path outside the export, makes the record incomplete; a
-    report that cannot be accounted for counts as reading the whole export."""
+def served_entries(entries: SnapshotEntries, opened: Sequence[str] | None) -> tuple[str, tuple[str, ...]]:
+    """What the reported activity served: ``("unreported", ())``,
+    ``("outside", every path)``, ``("whole", every path)`` or ``("entries",
+    the paths)`` (see the module doc). The diagnosis receipt keeps it."""
 
     if opened is None:
-        return DiagnosisReads(unaccounted=(SNAPSHOT_UNREPORTED,))
+        return "unreported", ()
     files: set[str] = set()
     whole = False
     for report in opened:
@@ -305,14 +310,30 @@ def snapshot_reads(entries: SnapshotEntries, opened: Sequence[str] | None) -> Di
             continue
         found = _command_files(entries, report)
         if found == _OUTSIDE:
-            return entries.whole().join(DiagnosisReads(unaccounted=(SNAPSHOT_OUTSIDE,)))
+            return "outside", tuple(sorted(entries.entries))
         if found == _WHOLE:
             whole = True
             continue
         files |= set(found)
     if whole:
-        return entries.whole()
-    return DiagnosisReads().join(*(entries.entries[path] for path in sorted(files)))
+        return "whole", tuple(sorted(entries.entries))
+    return "entries", tuple(sorted(files))
+
+
+def snapshot_reads(entries: SnapshotEntries, opened: Sequence[str] | None) -> DiagnosisReads:
+    """The export entries the diagnoser's reported activity served
+    (:func:`served_entries`). ``opened`` None (the transport reported
+    nothing), or a report naming a path outside the export, makes the record
+    incomplete; a report that cannot be accounted for counts as reading the
+    whole export."""
+
+    how, paths = served_entries(entries, opened)
+    if how == "unreported":
+        return DiagnosisReads(unaccounted=(SNAPSHOT_UNREPORTED,))
+    reads = DiagnosisReads().join(*(entries.entries[path] for path in paths))
+    if how == "outside":
+        reads = reads.join(DiagnosisReads(unaccounted=(SNAPSHOT_OUTSIDE,)))
+    return reads
 
 
 # -- the record ------------------------------------------------------------------------
@@ -368,5 +389,6 @@ __all__ = [
     "reads_of_context",
     "registry_read",
     "repair_read",
+    "served_entries",
     "snapshot_reads",
 ]

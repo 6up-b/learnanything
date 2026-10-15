@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 203
+schema_head: 204
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/offline_review/spot_check.py`
@@ -280,11 +281,11 @@ Indexes and uniqueness:
 - `tests/test_daily_plan_composition.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_diagnose_review.py`
+- `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_discriminating_search.py`
-- `tests/test_duration_estimates.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

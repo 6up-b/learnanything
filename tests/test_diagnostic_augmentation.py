@@ -125,6 +125,23 @@ class _SequenceDiagnostician(StructuredClientFake):
         return proposal(context) if callable(proposal) else proposal
 
 
+def fail_after_the_joint_grade_commits(patch) -> None:
+    """Make a joint grading raise once its grade (with its receipt and grading
+    record) has committed: a later step that fails. Before Q14 a failing
+    Phase-C receipt stood in for this; the receipt is now written in the
+    grading transaction, so it rolls the grade back instead."""
+
+    from learnloop.attempts import attempts
+
+    original = attempts._complete_joint_graded_attempt
+
+    def committed_then_failed(*args, **kwargs):
+        original(*args, **kwargs)
+        raise ValueError("interrupted after the grade committed")
+
+    patch.setattr(attempts, "_complete_joint_graded_attempt", committed_then_failed)
+
+
 class _Generator(StructuredClientFake):
     provider_name = "generator"
     model = "gpt-5"

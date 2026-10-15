@@ -286,8 +286,10 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
   and reference solution counted as read), the diagnosed item's rubric and reference solution, the
   neighbourhood's topics, and every prior hypothesis, registry statement, repair and unresolved-cause
   factor read (their records folded in). **The snapshot workspace:** the transport's reported reads are
-  mapped to the export entries they served (a plain read serves its file; a listing names only; anything
-  else counts as the whole export); no report, or a path outside the export, makes the record incomplete.
+  mapped to the export entries they served (a plain read serves its file, `sed` only with a print script;
+  a listing names only; anything else, a turn item the transport could not read included, counts as the
+  whole export); no report, or a path outside the export, makes the record incomplete. The diagnosis's
+  context receipt keeps what was served (`snapshot.served`).
 - **Copy writers:** materialized hypotheses fold the attempt's grading and the diagnosis whose causal view
   lies over the event (a factor's candidate: every completed diagnosis of the attempt); a hypothesis
   version that keeps its head's statement carries the head's record; candidates (error hunts, the gap

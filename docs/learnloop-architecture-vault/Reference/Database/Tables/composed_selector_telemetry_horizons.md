@@ -3,13 +3,13 @@ title: "composed_selector_telemetry_horizons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite composed_selector_telemetry_horizons"
   - "table composed_selector_telemetry_horizons"
-schema_head: 203
+schema_head: 204
 table_name: "composed_selector_telemetry_horizons"
 table_role: "workflow"
 functionality_status: "active"

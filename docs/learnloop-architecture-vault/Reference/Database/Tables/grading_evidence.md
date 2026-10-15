@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 203
+schema_head: 204
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
@@ -130,7 +131,6 @@ Indexes and uniqueness:
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/held_grades.py`
-- `src/learnloop/learner_protection.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/substrate/canonical_projection.py`
 
@@ -174,6 +174,8 @@ Indexes and uniqueness:
 - `tests/test_cli_attempt.py`
 - `tests/test_cli_json.py`
 - `tests/test_diagnosis_context.py`
+- `tests/test_diagnosis_input_provenance.py`
+- `tests/test_diagnostic_augmentation.py`
 - `tests/test_e2e_local.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_family_memory_projection.py`
@@ -184,8 +186,6 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
 - `tests/test_mcp_tools.py`
-- `tests/test_method_explicit_landing.py`
-- `tests/test_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

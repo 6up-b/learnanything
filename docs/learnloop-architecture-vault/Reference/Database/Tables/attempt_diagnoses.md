@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 203
+schema_head: 204
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/diagnosis/split/diagnoser.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
-  - "src/learnloop/placement/state.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`

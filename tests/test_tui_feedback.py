@@ -204,17 +204,16 @@ class _GradingServer:
 
 def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path, monkeypatch):
     from learnloop.ai.runtime import AIRuntimeReport
-    from learnloop.attempts import attempts
-    from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+    from tests.test_diagnostic_augmentation import (
+        _proposal,
+        _SequenceDiagnostician,
+        fail_after_the_joint_grade_commits,
+    )
 
     client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)] * 2)
     runtime = AIRuntimeReport(status="ready", active_provider="diagnostician", provider_type="openai_chat", model="claude-4")
     monkeypatch.setattr(FeedbackScreen, "_grading_provider", lambda self: ("diagnostician", runtime, client))
-
-    def fail(*args, **kwargs):
-        raise ValueError("interrupted augmentation receipt")
-
-    monkeypatch.setattr(attempts, "_record_diagnostic_augmentation", fail)
+    fail_after_the_joint_grade_commits(monkeypatch)
 
     async def scenario():
         vault_root = tmp_path / "vault"
@@ -250,15 +249,12 @@ def _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch):
     Stands in for an earlier grading call whose screen state was lost.
     """
 
-    from learnloop.attempts import attempts
     from learnloop.attempts.attempts import complete_attempt_with_ai_required
-
-    def fail(*args, **kwargs):
-        raise ValueError("interrupted augmentation receipt")
+    from tests.test_diagnostic_augmentation import fail_after_the_joint_grade_commits
 
     with monkeypatch.context() as patch:
-        patch.setattr(attempts, "_record_diagnostic_augmentation", fail)
-        with pytest.raises(ValueError):
+        fail_after_the_joint_grade_commits(patch)
+        with pytest.raises(ValueError, match="after the grade committed"):
             complete_attempt_with_ai_required(
                 practice.state.vault, practice.state.repository, practice._draft(),
                 runtime=runtime, ai_client=client,

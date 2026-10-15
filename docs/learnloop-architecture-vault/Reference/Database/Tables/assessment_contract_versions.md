@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "024b1d9eab85a4dee0696c584e67af1e20403618"
-source_commit_timestamp: "2026-10-15T06:30:02-04:00"
+source_commit: "1e36c399c45e551e585038a4fdabcecc6d12561a"
+source_commit_timestamp: "2026-10-15T08:59:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 203
+schema_head: 204
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/stores/answered_contracts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/db/stores/write_provenance.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`

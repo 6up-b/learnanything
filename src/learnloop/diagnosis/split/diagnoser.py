@@ -144,8 +144,16 @@ def run_diagnosis(
                 }
                 # The export entries the reported reads served, recorded with
                 # the diagnosis (never inferred from what it wrote).
-                from learnloop.diagnosis.split.provenance import snapshot_reads
+                from learnloop.diagnosis.split.provenance import served_entries, snapshot_reads
 
+                how, served = served_entries(manifest.entries, opened)
+                # "whole" and "outside" serve every entry: the count, not the
+                # paths, keeps the receipt small on a large vault.
+                outcome.receipt["snapshot"]["served"] = {
+                    "how": how,
+                    "entry_count": len(served),
+                    "paths": list(served) if how == "entries" else [],
+                }
                 outcome.reads = assembled.reads.join(snapshot_reads(manifest.entries, opened))
                 validated = validate_diagnosis_proposal(
                     proposal,

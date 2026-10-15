@@ -85,6 +85,7 @@ from learnloop.tutor.context_delivery import (
     predecessor_cut,
     predecessor_window,
 )
+from learnloop.learner.assessment_contracts import snapshot_for_presentation
 from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
@@ -785,8 +786,6 @@ def _question_contract(vault: LoadedVault, repository: Repository, item: Any, at
     if item is None or attempt_id:
         return None
     try:
-        from learnloop.learner.assessment_contracts import snapshot_for_presentation
-
         return snapshot_for_presentation(repository, vault, item)
     except Exception:  # noqa: BLE001 - recorded as unknown; the question still lands
         logger.warning("question contract not recorded for %s", getattr(item, "id", None), exc_info=True)

@@ -78,6 +78,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/source_block_fts.py",
         # Daily-loop DL1: the finite plan's workflow rows and block receipts.
         "src/learnloop/db/stores/daily_plans.py",
+        # Diagnosis input provenance (migration 204): append-only write-time
+        # records of model-written text and the regrade error-event lineage.
+        "src/learnloop/db/stores/write_provenance.py",
         # Router R1: append-only decision rows and the DERIVED outcome cache;
         # R2a: the decision payloads (the stored learner-state card).
         "src/learnloop/db/stores/router.py",

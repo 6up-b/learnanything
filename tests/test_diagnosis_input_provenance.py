@@ -219,6 +219,15 @@ def test_a_snapshot_diagnosis_records_the_export_entries_it_opened(tmp_path, cas
     inputs = json.loads(row["inputs_json"])
     if note is None:
         assert row["complete"] == 1 and "att_legacy" not in inputs["answers"]
+    # The receipt says what the reported reads served.
+    with repository.connection() as connection:
+        (retrieval,) = connection.execute("SELECT retrieval_json FROM diagnosis_context_receipts").fetchone()
+    served = json.loads(retrieval)["snapshot"]["served"]
+    assert served["how"] == {"opened_the_legacy_answer": "entries", "searched_the_whole_export": "whole",
+                             "read_outside_the_export": "outside", "reported_nothing": "unreported",
+                             "read_only_the_index": "entries"}[case]
+    if case == "read_only_the_index":
+        assert served["paths"] == ["INDEX.md"]
     if case in ("opened_the_legacy_answer", "searched_the_whole_export"):
         assert row["complete"] == 1 and inputs["answers"]["att_legacy"] == [None]
     if case == "read_outside_the_export":
@@ -248,11 +257,41 @@ def test_the_export_s_entries_map_to_what_they_serve(tmp_path):
     assert answers(["sed -n '1,40p' attempts/x_att_1.md", "head -n 5 INDEX.md"]) == ["att_1"]
     assert answers(["bash -lc 'cat attempts/y_att_2.md'"]) == ["att_2"]
     assert answers(["ls attempts", "cd registry", "pwd"]) == []
-    for whole in (["cat attempts/*.md"], ["grep -r x ."], ["cat INDEX.md | head"], ["python3 -c 'print(1)'"]):
+    assert answers(["sed -n '$p' INDEX.md", "sed -n 3p attempts/y_att_2.md"]) == ["att_2"]
+    from learnloop.ai.providers.codex import UNACCOUNTED_TURN_ITEM
+
+    for whole in (["cat attempts/*.md"], ["grep -r x ."], ["cat INDEX.md | head"], ["python3 -c 'print(1)'"],
+                  # A sed script other than a print: ``e`` runs a program, ``w`` writes.
+                  ["sed -n '1e grep -r x .' INDEX.md"], ["sed -n 'w copy' attempts/x_att_1.md"],
+                  # A tool item the transport could not read.
+                  [f"{UNACCOUNTED_TURN_ITEM}: mcpToolCall"]):
         assert answers(whole) == ["att_1", "att_2"], whole
     outside = _dp().snapshot_reads(entries, ["cat ../../state.sqlite"])
     assert outside.unaccounted == (_dp().SNAPSHOT_OUTSIDE,)
     assert _dp().snapshot_reads(entries, None).unaccounted == (_dp().SNAPSHOT_UNREPORTED,)
+
+
+def test_the_transport_reports_every_tool_item_it_cannot_read():
+    """The snapshot record is only as good as the transport's report: a turn
+    item that names no command or path and is not text only (a tool this
+    extractor cannot read) is reported, never dropped, so the record counts it
+    as reading the whole export; a wrapped SDK item is unwrapped."""
+
+    from types import SimpleNamespace
+
+    from learnloop.ai.providers.codex import UNACCOUNTED_TURN_ITEM, _workspace_activity
+
+    result = SimpleNamespace(items=[
+        {"type": "agentMessage", "text": "done"},
+        SimpleNamespace(type="reasoning", text="thinking"),
+        SimpleNamespace(root=SimpleNamespace(type="commandExecution", command=["cat", "INDEX.md"])),
+        {"type": "mcpToolCall", "server": "s", "tool": "read"},
+        SimpleNamespace(type="web_search", query="x"),
+    ])
+    assert _workspace_activity(result) == [
+        "cat INDEX.md", f"{UNACCOUNTED_TURN_ITEM}: mcpToolCall", f"{UNACCOUNTED_TURN_ITEM}: web_search",
+    ]
+    assert _workspace_activity(SimpleNamespace(items=None)) is None
 
 
 # -- the chat world (mcp_world): the other reproductions ------------------------------------
