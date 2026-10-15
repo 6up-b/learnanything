@@ -168,3 +168,146 @@ after it. `TMPDIR` was the worktree's `fixtures-local/tmp`. No paid calls ($0.00
 **Tests added:**
 - Python: 13 in `tests/test_reread_safety.py` (one parametrized four ways), so 16 cases. The file now collects 45.
 - Desktop: 4 vitest cases in `ReaderScreen.guide.test.tsx`.
+
+## Re-review
+
+Codex job `20261014-205916-cK3SUy` re-reviewed `bffe086ec..d97237136`. Its verdict was REOPENED: F1 and F2 reopened,
+F3 confirmed fixed, and one new finding, F10. All three open findings reproduced and are fixed in `9f1023b49`. None
+was rejected. Main was not merged here.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | Matching labels still count as the same exam material (reopened) | fixed | `9f1023b49` | `test_rereview_f1_a_reused_unit_id_with_the_question_moved_out_keeps_it_withheld`, `test_rereview_f1_a_held_out_mark_follows_its_question_not_its_label[carried, not_carried]`, `test_rereview_f1_a_scope_whose_question_the_reread_reworded_withholds_the_reread` |
+| F2 | High | Approximate aliases count as complete protection (reopened) | fixed | `9f1023b49` | `test_rereview_f2_a_held_out_passage_split_in_two_protects_both_halves`, `test_rereview_f2_a_half_moved_past_another_passage_withholds_the_reading`, `test_rereview_f2_a_held_out_unit_split_across_units_protects_both_halves[carried, not_carried]`, `test_rereview_f2_a_held_out_passage_merged_with_its_neighbour_holds_out_the_merged_block`, `test_rereview_f2_a_long_block_between_the_parts_of_a_split_withholds_the_reading` |
+| F3 | High | Reviewing a legacy citation silently changes what it cites | confirmed fixed by the re-review; no change | `0eacfc61d` | the first round's F3 tests |
+| F10 | Medium | Search translation discards the destination reading | fixed | `9f1023b49` | `test_rereview_f10_a_place_is_translated_onto_the_reading_the_reader_has_open`; `readerHooks.parity.test.tsx`: "(re-read F10): a hit's place answered on a reading other than the open one is never applied", "(re-read F10): a hit's place answered on the open reading lands there"; `ReaderScreen.guide.test.tsx`: "F10: a translation that lands on a reading other than the open one is never applied to it" |
+| — | (same class as F10) | The original's PDF geometry is asked by source id, so it can be another reading's | fixed (not a finding) | `9f1023b49` | `ReaderScreen.guide.test.tsx`: "F10 (same class): the original's page geometry is asked for the reading the Reader rendered, never the book's latest" |
+
+**Reproduction first.** Each test ran against the reviewed code (`d97237136`) and failed for the finding's reason:
+- **F1:** `covers('extXB', 'y4')` was False. The scope's `u1` named A's Exam unit; B reused `u1` for Theory and moved
+  the question out of its "Exam" unit, and the label carried protection to the heading alone. The held-out mark
+  failed the same way, with or without the carry-over (`is_held_out('extXB', 'y4')` False). With the question
+  reworded, the reviewed code released B (`extractions` was empty).
+- **F2:** with `x1` split into `y1` and `y2`, only `y1` (the approximate alias) was held out, so `y2` was released.
+  With a half moved past an exactly matched passage, nothing withheld B. A rule-3 held-out unit whose second question
+  went into a unit of its own released that question (`y3`). A merged block holding the held-out question was not
+  held out.
+- **F10:** the sidecar rejected `toExtractionId` (`extra_forbidden`). In the hook test, an answer on C's span ids
+  (status `current`, the reviewer's case) was applied to render B with no approximation line (`setActiveSpan('s2')`).
+  On the screen, the approximate line showed for an answer on another reading.
+- **PDF geometry:** `reader_pdf_view` was asked with the source id.
+
+The two "lands there" vitest cases are controls and pass both before and after. The long-block F2 case guards the
+new rule's fail-closed edge and is not a reproduction.
+
+### What changed
+
+- **One verified carry: `span_aliases.SpanCarrier`.** Protection never takes one alias as the whole answer. It asks
+  where a protected span's words can lie on the other reading:
+  - A same-text alias (an exact content hash) carries a span to its block.
+  - Any other span carries to the whole stretch between the images of the nearest same-text anchors around it, plus
+    its own alias. That holds only when the stretch is verified:
+    - the anchors keep their order;
+    - the span's letters and digits run on, in order, through the stretch (both parts of a split, the whole of a
+      merge);
+    - the run may skip the stretch's short blocks (40 letters and digits or fewer: a heading, a page number or a
+      running head the re-read put between the parts), never a long one.
+  - A span whose words changed, or moved past an anchor, or that has no anchor on either side returns `None`. The
+    caller then withholds that whole reading (fail closed).
+  - Order inside the stretch doesn't matter for safety, because the whole stretch is protected. The words check only
+    rules out a part that lies outside it.
+- **F1** (`exam_material._member_units`, `_held_out_units`). Each origin's interpretation of a source-set scope, and
+  each held-out mark, now reaches every other completed reading of its revision through the carry, never by label.
+  A carry that can't be verified withholds the whole reading. Another revision's readings and page-repair children
+  still resolve by label, as the exam-protection stage designed:
+  - a re-read never registers a new revision (E1);
+  - the Reader, library search and the MCP branch open only top-level readings, so a repair child is never served.
+
+  The finding's two options are both taken: the scope is bound to verified material, and an ambiguous reading is
+  withheld. Recording a scope's own reading in `source_sets.yaml` (first round, open question A) is still not done.
+- **F2** (`exam_material._add_signals`, and the marks above). Signals and marks reach every block that may hold their
+  words, never only the block an approximate alias names.
+- **F10** (`reader.saved_place`, `useReadingProgress`).
+  - The RPC takes `to_extraction_id`, the reading the Reader has open. An unknown reading is `extraction_not_found`;
+    another book's is `validation_error`. Without it, the RPC uses the book's current reading, as before.
+  - The Reader sends `toExtractionId: reading.extractionId`. It applies an answer only when `landed.extractionId` is
+    that reading; any other answer falls back to the reading history.
+  - A bare place on B, with C completed, has two other readings, so `legacy_place_origin` stays unknown (`stale`).
+- **Same class as F10** (`ReaderScreen`). The PDF view is asked for, and cached under, `view.extractionId`. Before,
+  a source id resolved to the latest reading, whose block geometry (highlights, selection to span) could be another
+  reading's.
+
+**Nothing persisted changes meaning.** There is no migration, schema change, algorithm successor or config change.
+- The carry reads the readings' IR and their aliases (persisted, or computed in memory as before) and writes nothing.
+- `reader.saved_place` only reads.
+- Replay reads none of it.
+- `to_extraction_id` is an additive, optional RPC field. No RPC was added, so the pins in `test_mobile_allowlist.py`
+  are unchanged; only its comment now says where the place is translated.
+- The DB reference regenerated with provenance-only changes (the source commit hash). They were not committed, and
+  validation passes.
+
+**Cost.** The carry loads both readings' IR only when a protected span has no same-text alias, once per build. Only a
+book read again that has exam or held-out material pays it.
+
+### The stage notes' focus items, re-assessed
+
+1. **E1.** Unchanged in this step, and the re-review raised nothing.
+2. **The alias authority.** F10 closes the search path's last silent case, and the PDF geometry was the same class.
+   The MCP branch `mcp/c1-read-context` (`34527fa13`) was read here:
+   - `remote/sources.py` reads each `find_sources` hit's block by the hit's own extraction id;
+   - `learner_context.withheld_items` asks `exam_material`, `held_out_items` and `item_exam_status`;
+   - it resolves no span of its own, so it inherits the verified carry when it lands.
+3. **Exam safety.** A re-read can no longer release a held-out mark, a held-out signal or a source-set exam scope.
+   Every unverifiable carry withholds the whole reading (tests above), so open question 2's over-protective default
+   holds.
+4. **Replay and the live database.** Unaffected (above). No read path writes.
+5. **Saved-place migration.** The `{extractionId, spanId}` encoding is unchanged. A translation now names the reading
+   it is for.
+
+### Open questions
+
+- **B (new, owner): the cost of failing closed.** A re-read whose words differ inside a protected unit withholds that
+  whole reading. Examples are an exam-scoped unit, a held-out mark or a held-out signal after a GLM-OCR re-read whose
+  math or hyphenation came out differently. In that case:
+  - the Reader refuses its model contexts on the whole book (held-out);
+  - the leakage gate fingerprints every block;
+  - teaching contexts withhold the reading (exam material).
+
+  Nothing tells the learner why yet. The owner's vault copies (backup copies from 2026-10-13, read-only) have no exam
+  member, exam scope, held-out mark or outline exam pick, so nothing changes for them today. The options:
+  - keep it (the default);
+  - fuzzy verification, which is narrower but could release a fragment that moved;
+  - a "mark it again on this reading" action that confirms the new reading's own units.
+- **Open question 1 (search covering old readings).** Unchanged: `corpus.library_scope` searches current readings
+  only. A hit opened after a re-read is translated onto the reading the Reader opened (F8, F10).
+- **Open question 3 (re-placing links).** Still open. A `needs_reanchor` or `stale` LO, facet or item link has no
+  "place it again" action.
+
+### Gate
+
+Run on `9f1023b49`, the final code tree; only this record was committed after it. `TMPDIR` was the worktree's
+`fixtures-local/tmp`. No paid calls were made ($0.00), and every test uses fakes. The owner's vault copies were read
+only, through backup copies already under `fixtures-local/`, to count exam roles and marks.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 17 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,024 passed**, 0 failed (13 min 7 s, after waiting for another worktree's run) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,924 deselected |
+| `apps/learnloop-tauri`: `npm install`, `npm run typecheck` | ok, no errors |
+| `npm test` (vitest) | **590 passed** in 82 files (586 before, plus 4 new) |
+| `npm run frontend:build` | built |
+| `cargo check` | not required: nothing under `src-tauri` changed |
+| `db_validate_reference.py`, `module_validate.py`, `validate_vault.py` | pass. No schema change, so the regenerated DB reference (provenance only) was not committed. `desktop_validate.py` fails on `src/copy/denyList.ts` ("unclassified desktop source"), a file from UX Phase 1 that this stage never touched. It is not part of this gate. |
+| CLI help / snapshots / RPC pins | unchanged: no option, no RPC and no snapshot changed. `to_extraction_id` is an additive field. |
+
+During a parallel screen run, `FeedbackScreen.test.tsx` "falls back to the list when the queue is empty…" failed once
+under load. Rerun alone it passed (11/11), and it passed in the full `npm test` above.
+
+**Tests added:**
+- Python: 9 in `tests/test_reread_safety.py` (two parametrized two ways), so 11 cases. The file now collects 56.
+- Desktop: 4 vitest cases, 2 in `ReaderScreen.guide.test.tsx` and 2 in `readerHooks.parity.test.tsx`. Four existing
+  saved-place expectations now include `toExtractionId`.
