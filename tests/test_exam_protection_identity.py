@@ -1287,7 +1287,7 @@ def test_identity_rereview_f3_opening_records_only_what_membership_qualifies(exa
 @pytest.mark.parametrize("read", ["migrated", "not_yet_migrated"])
 def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_book, read):
     """Codex re-review F7: the inventory profile is configurable apart from
-    the role (``learnloop source inventory --role primary_textbook --profile
+    the role (``learnloop inventory --role primary_textbook --profile
     assessment``). The 225 backfill took an ``assessment`` profile for the
     exam role: a textbook's held-out signal protected it, and its other
     reading was withheld whole, theory included. Only role evidence (an exam
