@@ -6,6 +6,11 @@
 `67e5f8a5f` (two tests in the durability lane), `535210d03` (scopes sealed to their reading), `daedc8b77`
 (references again, the Pipeline Map), `90f203c4b` (signals read from the cache on a database not yet migrated, found
 by the first full-suite run), `3a099b4eb` (references), and this record.
+**Codex review:** six findings (F1-F6), all reproduced and fixed, with F6's successor requirement rejected under
+the owner's ruling. See `exam-protection-identity-codex-review.md`. It amends the rule below: a confirmation
+covers only the unplaced marks it reviewed, and a signal of unknown reading is ambiguous. Exam qualification of
+backfilled signals now survives membership changes, the owner's marking is an owner verdict in `judgment_ledger`,
+and the reading step's DL1-order protection sits behind `goals.held_out_selection`.
 **Why:** the Codex verify of the protection redesign (`9b933cc21..808dc9c01`) confirmed F1 and F11 fixed, reopened
 F2 and found F12-F15 (all but F15 High). Each one came from a mark whose place was inferred: a scope read on "the
 first completed reading", a cached inventory's mutable binding, a confirmation that named no reading, signals read
