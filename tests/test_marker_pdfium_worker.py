@@ -9,11 +9,14 @@ GLM-OCR's text layer does; the Reader's own renders take one lock.
 
 from __future__ import annotations
 
+import json
 import os
+import signal
 import subprocess
 import sys
 import threading
 import time
+import uuid
 
 import pytest
 
@@ -31,13 +34,23 @@ def _context(**kwargs):
 
 
 def _alive(pid: int) -> bool:
+    """Running: a process that was killed but not yet reaped (a zombie,
+    waiting on whoever inherited it) has stopped."""
+
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
     except PermissionError:  # pragma: no cover - someone else's process took the pid
         return False
-    return True
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as handle:
+            state = handle.read().rsplit(")", 1)[1].split()[0]
+    except FileNotFoundError:
+        return False
+    except OSError:  # pragma: no cover - no /proc: kill(pid, 0) is all there is
+        return True
+    return state not in ("Z", "X")
 
 
 def _gone(pid: int, seconds: float = 10.0) -> bool:
@@ -47,6 +60,54 @@ def _gone(pid: int, seconds: float = 10.0) -> bool:
             return True
         time.sleep(0.05)
     return False
+
+
+def _kill_leftovers(fake_marker) -> None:
+    """A failing test never leaves its processes asleep for ten minutes."""
+
+    for entry in [*fake_marker.calls(), *fake_marker.descendants()]:
+        if _alive(entry["pid"]):
+            try:
+                os.kill(entry["pid"], signal.SIGKILL)
+            except OSError:
+                pass
+
+
+def _wait_for(condition, seconds: float = 60.0) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition() and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+
+def _start_reading_in_a_parent(tmp_path, options):
+    """A process that reads a PDF with Marker's worker, as the sidecar does:
+    the test kills it mid-reading. Its temporary directories go under
+    ``tmp_path / "temp"``, where the test can see what a killed process left."""
+
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(_make_pdf_bytes(LINES))
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    parent = subprocess.Popen(
+        [sys.executable, "-c",
+         "import json, sys; from pathlib import Path; from learnloop.ingest.extractors import marker_worker; "
+         "marker_worker.run_marker('markdown', Path(sys.argv[1]).read_bytes(), json.loads(sys.argv[2]))",
+         str(pdf), json.dumps(options)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        env={**os.environ, "TMPDIR": str(temp), "TEMP": str(temp), "TMP": str(temp)},
+    )
+    return parent, temp
+
+
+def _files_holding(root, needle: str) -> list[str]:
+    found = []
+    for path in root.rglob("*"):
+        try:
+            if path.is_file() and needle.encode() in path.read_bytes():
+                found.append(str(path.relative_to(root)))
+        except OSError:
+            continue
+    return found
 
 
 def test_marker_never_enters_pdfium_in_this_process_while_the_reader_renders(fake_marker, monkeypatch, tmp_path):
@@ -198,40 +259,125 @@ def test_the_worker_carries_the_page_selection_and_torch_device_without_touching
     assert "torch_device" not in call["config"]
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
-def test_a_marker_worker_stops_when_the_process_that_started_it_dies(fake_marker, monkeypatch, tmp_path):
-    """The sidecar quitting (or killed) never leaves Marker reading on its own."""
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups")
+@pytest.mark.parametrize("ending", ["timeout", "cancel", "crash", "error", "answer"])
+def test_every_process_the_marker_worker_started_ends_with_its_reading(fake_marker, monkeypatch, ending):
+    """With ``pdftext_workers`` above 1, pdftext starts a pool of processes
+    under the worker. However the reading ends (out of time, cancelled, the
+    worker crashed, Marker raised, or it answered), none of them is left
+    running (Codex review F1)."""
 
-    import signal
+    from learnloop.ai.spend import SpendCancelled
+    from learnloop.ingest.extractors import MarkerDocumentExtractor, extract_with_fallback, marker_worker
+
+    mode = {"timeout": "hang", "cancel": "hang", "crash": "crash", "error": "raise", "answer": "ok"}[ending]
+    monkeypatch.setenv("FAKE_MARKER_MODE", mode)
+    if ending == "timeout":
+        monkeypatch.setattr(marker_worker, "_WORKER_MIN_SECONDS", 1.0)
+        monkeypatch.setattr(marker_worker, "_WORKER_SECONDS_PER_PAGE", 0.0)
+
+    def interrupt():
+        if ending == "timeout":  # the time limit runs out only once the pool is up
+            _wait_for(lambda: len(fake_marker.descendants()) >= 2)
+        if ending == "cancel" and len(fake_marker.descendants()) >= 2:
+            raise SpendCancelled("The import was cancelled")
+
+    extractor = MarkerDocumentExtractor(config={"pdftext_workers": 2})
+    try:
+        if ending == "cancel":
+            with pytest.raises(SpendCancelled):
+                extract_with_fallback(_make_pdf_bytes(LINES), extractor, {"engine": "auto"},
+                                      _context(interrupt=interrupt))
+        else:
+            ir = extract_with_fallback(_make_pdf_bytes(LINES), extractor, {"engine": "auto"},
+                                       _context(interrupt=interrupt))
+            if ending == "answer":
+                assert ir.extractor == "marker" and [b.text for b in ir.blocks] == [" ".join(LINES)]
+            else:
+                assert ir.extractor == "pypdf"
+                flag = {"timeout": "marker_worker_timed_out", "crash": "marker_worker_crashed"}.get(ending)
+                assert flag is None or flag in ir.health.flags
+        (call,) = fake_marker.calls()
+        pool = fake_marker.descendants()
+        assert len(pool) == 2 and {entry["parent"] for entry in pool} == {call["pid"]}
+        assert _gone(call["pid"])
+        left = [entry["pid"] for entry in pool if not _gone(entry["pid"])]
+        assert left == [], f"the worker's pool outlived its reading: {left}"
+    finally:
+        _kill_leftovers(fake_marker)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+def test_a_marker_worker_and_its_pool_stop_when_the_process_that_started_it_dies(fake_marker, monkeypatch, tmp_path):
+    """The sidecar quitting (or killed) never leaves Marker reading on its
+    own, nor any process Marker started (Codex review F1)."""
 
     monkeypatch.setenv("FAKE_MARKER_MODE", "hang")
-    pdf = tmp_path / "book.pdf"
-    pdf.write_bytes(_make_pdf_bytes(LINES))
-    parent = subprocess.Popen(
-        [sys.executable, "-c",
-         "import sys; from pathlib import Path; from learnloop.ingest.extractors import marker_worker; "
-         "marker_worker.run_marker('markdown', Path(sys.argv[1]).read_bytes(), {'output_format': 'markdown'})",
-         str(pdf)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        # A killed process never removes its temporary directory: keep it here.
-        env={**os.environ, "TMPDIR": str(tmp_path), "TEMP": str(tmp_path), "TMP": str(tmp_path)},
-    )
+    parent, temp = _start_reading_in_a_parent(tmp_path, {"output_format": "markdown", "pdftext_workers": 2})
     try:
-        deadline = time.monotonic() + 60
-        while not fake_marker.calls() and time.monotonic() < deadline:
-            time.sleep(0.05)
+        _wait_for(lambda: len(fake_marker.descendants()) >= 2)
         (call,) = fake_marker.calls()
-        assert _alive(call["pid"])
+        pool = fake_marker.descendants()
+        assert _alive(call["pid"]) and len(pool) == 2 and all(_alive(entry["pid"]) for entry in pool)
         parent.send_signal(signal.SIGKILL)
         parent.wait()
         assert _gone(call["pid"]), "the worker outlived the process that started it"
+        left = [entry["pid"] for entry in pool if not _gone(entry["pid"])]
+        assert left == [], f"the worker's pool outlived the process that started it: {left}"
+        assert list(temp.iterdir()) == [], "the worker left its private directory behind"
     finally:
         if parent.poll() is None:
             parent.kill()
             parent.wait()
-        for call in fake_marker.calls():
-            if _alive(call["pid"]):
-                os.kill(call["pid"], 9)
+        _kill_leftovers(fake_marker)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
+def test_a_marker_readings_api_key_never_reaches_the_disk_even_when_its_parent_dies(
+    fake_marker, monkeypatch, tmp_path
+):
+    """The legacy path's ``use_llm`` puts an API key in Marker's options: the
+    worker gets them through its stdin, never a file, so a sidecar killed
+    mid-reading leaves no credential behind (Codex review F2)."""
+
+    secret = f"sk-synthetic-{uuid.uuid4().hex}"
+    monkeypatch.setenv("FAKE_MARKER_MODE", "hang")
+    options = {"output_format": "markdown", "use_llm": True, "openai_api_key": secret}
+    parent, temp = _start_reading_in_a_parent(tmp_path, options)
+    try:
+        _wait_for(lambda: bool(fake_marker.calls()))
+        (call,) = fake_marker.calls()
+        assert call["config"]["openai_api_key"] == secret  # the worker has it
+        assert [path.name.startswith("learnloop-marker-") for path in temp.iterdir()] == [True]  # mid-reading
+        assert _files_holding(temp, secret) == []
+        parent.send_signal(signal.SIGKILL)
+        parent.wait()
+        assert _gone(call["pid"])
+        assert _files_holding(temp, secret) == [], "a killed reading left its API key on disk"
+    finally:
+        if parent.poll() is None:
+            parent.kill()
+            parent.wait()
+        _kill_leftovers(fake_marker)
+
+
+def test_the_windows_job_limit_structure_has_its_documented_layout():
+    """The job object that contains a Windows worker's processes is set
+    through ``JOBOBJECT_EXTENDED_LIMIT_INFORMATION``; Windows only checks its
+    size, so a wrong field shifts the kill-on-close flag silently."""
+
+    import ctypes
+
+    from learnloop.ingest.extractors import marker_worker
+
+    if ctypes.sizeof(ctypes.c_void_p) != 8:  # pragma: no cover - 32-bit
+        pytest.skip("the documented sizes are for 64-bit Windows")
+    extended = marker_worker._job_limit_information()
+    assert ctypes.sizeof(extended) == 144
+    assert extended.IoInfo.offset == 64
+    assert extended.BasicLimitInformation.offset == 0
+    basic = extended._fields_[0][1]
+    assert basic.LimitFlags.offset == 16 and ctypes.sizeof(basic) == 64
 
 
 def test_the_readers_own_renders_enter_pdfium_one_at_a_time(monkeypatch, tmp_path):

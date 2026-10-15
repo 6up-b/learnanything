@@ -34,13 +34,14 @@ I chose option (a).
   - it starts `sys.executable -P -c …`, so it inherits the environment and the sidecar's `PYTHONPATH`, and `-P` only drops the working directory;
   - one worker runs per reading.
 - **How it differs from the GLM worker.** Marker runs for minutes, and it can print anything, so:
-  - **Private directory.** The PDF and the request go in a private (0700) temporary directory, never on the command line, because the legacy path's options can carry an OpenAI-compatible API key.
+  - **Private directory.** The PDF goes in a private (0700) temporary directory. The request goes to the worker as one JSON line on its stdin, never a file or the command line, because the legacy path's options can carry an OpenAI-compatible API key ([Codex review](marker-pdfium-worker-codex-review.md) F2).
   - **Answer and log.** The worker writes `answer.json`. Marker's own output (progress bars, warnings, prints) goes to `worker.log` in that directory, never to the sidecar's stdout, which carries JSON-RPC. The last 2,000 characters of that log are logged when the worker fails.
   - **The chunks task maps in the worker.** It runs `chunk_output_to_ir` and `read_embedded_outline` there and returns the IR's JSON. Figure images are hashed there and never cross the process boundary. The mapping code is unchanged, so `CHUNK_MAP_VERSION` stays 3. The IR is byte-identical to the in-process reading (same sha over 7,773 blocks; see Timings).
   - **The markdown task** returns `text_from_rendered`'s text, for the legacy one-shot `extract_pdf_markdown`.
   - **Time limit.** The larger of 30 minutes and 2 minutes a page. Pages come from the page selection, or are counted with pypdf (pure Python, 57–108 ms for 300 pages). If pypdf can't count them, the budget is 1,000 pages. The limit is there for a worker that hangs, not to cut a slow CPU or OCR reading short.
   - **Cancel.** The import's `interrupt` hook is checked every 0.5 s while the worker reads. A cancelled import now kills Marker mid-reading. Before, it ran in-process to the end. `SpendCancelled` propagates and never falls back.
-  - **A parent that dies.** The worker reads its stdin file descriptor on a daemon thread. Only the parent holds the other end, so when the sidecar quits or is killed, the read sees EOF and the worker exits with status 70.
+  - **A parent that dies.** The worker reads its stdin file descriptor on a daemon thread. Only the parent holds the other end, so when the sidecar quits or is killed, the read sees EOF. The worker then removes its own files from the private directory, which the dead parent can no longer clean up, and kills its process group: itself and everything it started.
+  - **Processes the worker starts.** pdftext starts a pool of processes when `pdftext_workers` is above 1. On POSIX the worker leads a session and process group of its own, and `run_marker` kills that whole group when a reading ends, however it ends. An exited worker is left unreaped until then (`os.waitid(..., WNOWAIT)`), so its group id cannot be reused. On Windows the worker puts itself in a kill-on-close job object, so what it started ends with it ([Codex review](marker-pdfium-worker-codex-review.md) F1).
   - **Exit.** Once the answer is written, the worker leaves with `os._exit(0)` after flushing its streams, so there is no torch teardown and no wait on threads that libraries left behind.
 - **`TORCH_DEVICE`** goes into the worker's environment only. The old code set `os.environ["TORCH_DEVICE"]` in the sidecar for the rest of its life, from both Marker paths.
 - **Failures.** A crash or a timeout raises `MarkerWorkerError` with `health_flag`, either `marker_worker_crashed` or `marker_worker_timed_out`.
@@ -74,7 +75,7 @@ These read PDFs without pdfium:
 
 ## Tests
 
-`tests/test_marker_pdfium_worker.py` has 9 tests. `tests/marker_fakes.py` holds the on-disk fake `marker` package and the `fake_marker` fixture. A fake held in `sys.modules` cannot reach a worker process.
+`tests/test_marker_pdfium_worker.py` had 9 tests at this commit; the Codex review fixes bring it to 16 (see [that review](marker-pdfium-worker-codex-review.md)). `tests/marker_fakes.py` holds the on-disk fake `marker` package and the `fake_marker` fixture. A fake held in `sys.modules` cannot reach a worker process.
 
 | Test | Shows | On `b9fcaf121` |
 |---|---|---|
