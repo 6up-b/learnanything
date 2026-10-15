@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { FeedbackBundle, QueueInput, QueueSnapshot, ScheduledItemDto } from "../api/dto";
 import { clear, invalidate } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
+import { setAlgoConfig } from "../app/algoConfig";
 import { FeedbackScreen } from "./FeedbackScreen";
 
 // Every api method this screen does not exercise here resolves to nothing it
@@ -129,7 +130,14 @@ beforeEach(() => {
   api.getAttemptTraceEvidence.mockRejectedValue(new Error("no evidence"));
   api.getGradingClarification.mockRejectedValue(new Error("no clarification"));
 });
-afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); setAlgoConfig(undefined); });
+
+// The tests below name the classic screen's key bar and cards; UX Phase 4's
+// default surface has its own tests (FeedbackScreen.phase4.test.tsx). The
+// Next and back behaviour above holds in both presentations.
+function classic() {
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
+}
 
 // Daily-loop P2 (spec §6.5): Next on feedback opens the next item directly.
 it("opens the head of the live queue on Next, with the candidate of the slate that ranked it", async () => {
@@ -251,6 +259,7 @@ it("drops a pending advance when the learner goes back to the list first", async
 });
 
 it("keeps the old Next where no live queue applies (no session, or a calibration round)", async () => {
+  classic();
   const callbacks = props({ nextQueue: null });
   render(<FeedbackScreen {...callbacks} />);
   await screen.findByText("Eigenvalues");
@@ -264,6 +273,7 @@ it("keeps the old Next where no live queue applies (no session, or a calibration
 // on screen. The view shows a placeholder, polls, fills the card in place and
 // re-reads the bundle (repairs, guided redo) without counting another open.
 it("polls a pending diagnosis and fills the card in place", async () => {
+  classic();
   api.getFeedback.mockResolvedValue({ ...FEEDBACK, diagnosisStatus: "pending" });
   api.getTodayQueue.mockResolvedValue(queue([]));
   api.refreshFeedback.mockResolvedValue({ ...FEEDBACK, diagnosisStatus: "done" });
@@ -288,6 +298,7 @@ it("polls a pending diagnosis and fills the card in place", async () => {
 // never exercised is not assessed. It shows as such, never as lost points, and
 // the gate's review reason is informational, not a review to do.
 it("shows an unverified criterion as not assessed and the PF-c flag as information", async () => {
+  classic();
   api.getFeedback.mockResolvedValue({
     ...FEEDBACK,
     rubricScore: 4,

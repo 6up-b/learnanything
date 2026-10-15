@@ -117,6 +117,7 @@ it("the practice card, its stuck prompt and its self-grade", async () => {
   expectPlain();
   fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
   expectPlain();
+  fireEvent.click(screen.getByRole("button", { name: "never mind" }));
   fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
   await screen.findByRole("button", { name: "Got it" });
   fireEvent.click(screen.getByRole("button", { name: "Partly" }));

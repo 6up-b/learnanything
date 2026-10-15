@@ -33,6 +33,7 @@ export function ProbeBlockResult({
   onOpenRepair,
   onGuidedRedo,
   onError,
+  simple = false,
 }: {
   status: string;
   completionReason: string | null;
@@ -45,6 +46,10 @@ export function ProbeBlockResult({
   /** "Redo the part you missed" on a released entry — App's openGuidedRedo. */
   onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onError?: (message: string) => void;
+  /** UX Phase 4.3: rendered under the plain results' details. The raw status,
+   *  the route slug and "Feedback withheld…" go; entries are "question N"; a
+   *  grade held for review says so and never shows its score. */
+  simple?: boolean;
 }) {
   const [entries, setEntries] = useState(releasedFeedback);
   const [reportingAttemptId, setReportingAttemptId] = useState<string | null>(null);
@@ -101,6 +106,7 @@ export function ProbeBlockResult({
 
   return (
     <>
+      {simple ? null : (
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Pill tone={status === "complete" ? "cyan" : "slate"}>{status}</Pill>
         {completionReason ? <Faint>{completionReason}</Faint> : null}
@@ -110,15 +116,19 @@ export function ProbeBlockResult({
           </span>
         ) : null}
       </div>
+      )}
       {entries.length > 0 ? (
         <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-          <Faint>Feedback withheld during the block, released now:</Faint>
+          {simple ? null : <Faint>Feedback withheld during the block, released now:</Faint>}
           {entries.map((feedback, index) => (
             <div
               key={feedback.attemptId}
               style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, fontSize: 13 }}
             >
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {simple && feedback.heldForReview ? (
+                  <Pill tone="slate">held for review</Pill>
+                ) : (
                 <Pill
                   tone={
                     (feedback.rubricScore ?? 0) / Math.max(feedback.maxPoints, 1) >= 0.75
@@ -128,7 +138,8 @@ export function ProbeBlockResult({
                 >
                   {feedback.rubricScore ?? "—"}/{feedback.maxPoints}
                 </Pill>
-                <Faint>{labelForIndex ? labelForIndex(index) : `observation ${index + 1}`}</Faint>
+                )}
+                <Faint>{labelForIndex ? labelForIndex(index) : simple ? `question ${index + 1}` : `observation ${index + 1}`}</Faint>
                 {feedback.fatalErrors.length > 0 ? (
                   <span style={{ color: COLOR.red, fontFamily: FONT_MONO, fontSize: 11 }}>
                     {feedback.fatalErrors.join(", ")}

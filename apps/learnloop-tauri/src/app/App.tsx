@@ -54,6 +54,7 @@ import {
 import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft";
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
+import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
 import { errorMessage } from "../errors";
 
 type OpenSourceTarget = {
@@ -1215,18 +1216,24 @@ export function App() {
         );
       }
       if (todayStage === "feedback" && attemptId) {
+        // UX Phase 4 (§7.5): Next returns to where the attempt started; an
+        // attempt opened from the Reader goes back to its passage. Classic
+        // keeps Next on the plan or the queue, as before.
+        const fromReader = simplePracticeFeedback() && returnsToReader(readerReturn, practiceItemId);
+        const planNext = Boolean(session && !calibrationSessionId && planServing);
         return (
           <FeedbackScreen
             attemptId={attemptId}
             sessionId={session?.sessionId ?? null}
             onOpenRepair={openRepair}
+            origin={feedbackOrigin({ fromReader, planServing: planNext })}
             // Daily-loop P2: Next opens the head of the live queue. A calibration
             // round returns to its own screen, which names the next target.
-            nextQueue={session && !calibrationSessionId ? todayQueueInput(session) : null}
+            nextQueue={session && !calibrationSessionId && !fromReader ? todayQueueInput(session) : null}
             onOpenNext={openPractice}
-            nextPlan={session && !calibrationSessionId && planServing ? { sessionId: session.sessionId } : null}
+            nextPlan={session && planNext && !fromReader ? { sessionId: session.sessionId } : null}
             onPlanStep={routePlanStep}
-            onNext={() => setTodayStage("queue")}
+            onNext={fromReader ? backFromPractice : () => setTodayStage("queue")}
             onBack={backFromPractice}
             onOpenNotes={() => gotoTab("library")}
             onPrimedRetry={openPrimedRetry}
@@ -1430,6 +1437,8 @@ export function App() {
       ) : null}
       <InspectorOverlay
         entityId={inspectorId}
+        // UX Phase 4.1: the question being answered keeps its answer to itself.
+        answeringItemId={tab === "today" && todayStage === "practice" ? practiceItemId : null}
         onClose={() => setInspectorId(null)}
         onInspect={setInspectorId}
         onError={onError}

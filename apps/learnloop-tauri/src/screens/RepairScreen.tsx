@@ -22,7 +22,7 @@
 // (relapse) — rendered plainly, never hidden. All actions are keyboard-reachable
 // and state is never encoded by color alone (§4.13).
 
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type { CausalRepairStatusDto, StartRemediationDto, SpanViewDto } from "../api/dto";
 import {
@@ -31,6 +31,8 @@ import {
 } from "../components/CausalAttribution";
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill } from "../components/term";
+import { FIX_MIX_UP_LABEL, plainSlug, simplePracticeFeedback } from "../app/practiceFeedback";
+import { DetailsToggle, PrimaryAction, quietLine } from "../components/PlainParts";
 
 const shortFacet = (facetId: string): string => facetId.replace(/^facet_/, "");
 
@@ -138,6 +140,11 @@ export function RepairScreen({
   const [treated, setTreated] = useState(false);
   const [busy, setBusy] = useState(false);
   const [openSpan, setOpenSpan] = useState<{ extractionId: string; spanId: string } | null>(null);
+  // UX Phase 4.3 (§7.5): repair is one timed step, unless the library's
+  // `[ui] practice_feedback = "classic"` restores the four-click flow.
+  const simple = simplePracticeFeedback();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [nothingToTry, setNothingToTry] = useState(false);
 
   const report = useCallback(
     (e: unknown) => onError(e instanceof Error ? e.message : String(e)),
@@ -211,18 +218,30 @@ export function RepairScreen({
     }
   };
 
-  const treat = async () => {
-    if (!episodeId) return;
+  const treat = async (): Promise<StartRemediationDto | null> => {
+    if (!episodeId) return null;
     setBusy(true);
     try {
       const r = await api.startRemediationTreatment(episodeId);
       setRemediation(r);
       setTreated(true);
+      return r;
     } catch (e) {
       report(e);
+      return null;
     } finally {
       setBusy(false);
     }
+  };
+
+  // The plain step's last move: prime the related question and open it at
+  // once (classic shows "practice this ▸" as a further click).
+  const tryOne = async () => {
+    const r = await treat();
+    if (!r) return;
+    const itemId = r.primedItemId ?? r.episode?.primedItemId ?? null;
+    if (itemId) onPractice(itemId);
+    else setNothingToTry(true);
   };
 
   const kase = remediation?.case ?? null;
@@ -231,6 +250,70 @@ export function RepairScreen({
   const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null;
   const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null;
   const returned = kase?.history.some((h) => h.label === "returned") ?? false;
+
+  if (simple) {
+    // One primary action at a time: read both passages, then try one.
+    const primary = !episodeId || nothingToTry
+      ? null
+      : !prescribed
+        ? { label: "Read both passages", run: () => void prescribe() }
+        : { label: "Try one now", run: () => void tryOne() };
+    return (
+      <SimpleRepairStep
+        onClose={onClose}
+        busy={busy}
+        primary={primary}
+        openSpan={openSpan}
+        onOpenSpan={setOpenSpan}
+        misconceptionId={misconceptionId}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => setDetailsOpen((open) => !open)}
+        loading={!remediation}
+        holdPanel={
+          repairStatus ? (
+            <CausalRepairStatusPanel
+              status={repairStatus}
+              pendingActionId={repairPendingActionId}
+              note={repairNote}
+              onAction={runRepairAction}
+            />
+          ) : null
+        }
+        compare={
+          kase ? (
+            <>
+              <div style={{ lineHeight: 1.6 }}>
+                {kase.targetFacet && kase.confusedWithFacet
+                  ? `Some answers mixed up ${plainSlug(kase.targetFacet)} and ${plainSlug(kase.confusedWithFacet)}.`
+                  : kase.statement}
+              </div>
+              {kase.correctionStatement ? (
+                <div style={{ marginTop: 6, color: COLOR.green, lineHeight: 1.6 }}>
+                  The distinction to use here: {kase.correctionStatement}
+                </div>
+              ) : null}
+              {returned ? <div style={{ ...quietLine, marginTop: 6 }}>This came back after it was fixed before.</div> : null}
+            </>
+          ) : null
+        }
+        passages={prescribed ? passages : null}
+        nothingToTry={nothingToTry}
+        details={
+          kase ? (
+            <div style={{ ...quietLine, display: "grid", gap: 3 }}>
+              {kase.mechanism ? <div>How it happens: {kase.mechanism}</div> : null}
+              <div>state: {kase.status}</div>
+              {kase.history.map((h) => (
+                <div key={h.id}>{h.label} · {fmtDate(h.at)}</div>
+              ))}
+              {treated && !coldItemId ? <div>No check on your own could be planned for this one yet.</div> : null}
+              {treated && coldItemId ? <div>A check on your own comes back on another day.</div> : null}
+            </div>
+          ) : null
+        }
+      />
+    );
+  }
 
   return (
     <div style={backdrop} onClick={onClose}>
@@ -414,6 +497,129 @@ export function RepairScreen({
           entityType="misconception"
           entityId={misconceptionId}
           onClose={() => setOpenSpan(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ── UX Phase 4.3: the plain repair step ─────────────────────────────────────
+function SimpleRepairStep({
+  onClose,
+  busy,
+  primary,
+  openSpan,
+  onOpenSpan,
+  misconceptionId,
+  detailsOpen,
+  onToggleDetails,
+  loading,
+  holdPanel,
+  compare,
+  passages,
+  nothingToTry,
+  details
+}: {
+  onClose: () => void;
+  busy: boolean;
+  primary: { label: string; run: () => void } | null;
+  openSpan: { extractionId: string; spanId: string } | null;
+  onOpenSpan: (span: { extractionId: string; spanId: string } | null) => void;
+  misconceptionId: string;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
+  loading: boolean;
+  holdPanel: ReactNode;
+  compare: ReactNode;
+  passages: { role: string; facetId: string; spanView: SpanViewDto }[] | null;
+  nothingToTry: boolean;
+  details: ReactNode;
+}) {
+  // ↵ takes the step's one primary action; Esc closes (not while the book
+  // passage is open over it).
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (openSpan) return;
+      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (event.key === "Enter" && primary && !busy) {
+        event.preventDefault();
+        primary.run();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [busy, openSpan, primary]);
+
+  return (
+    <div style={backdrop} onClick={onClose}>
+      <div style={{ ...panel, fontFamily: "inherit" }} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={FIX_MIX_UP_LABEL}>
+        <div style={header}>
+          <span style={{ fontSize: 14, color: COLOR.text }}>{FIX_MIX_UP_LABEL}</span>
+          <span style={{ marginLeft: "auto", cursor: "pointer", color: COLOR.textFaint, fontSize: 12 }} onClick={onClose}>
+            esc ✕
+          </span>
+        </div>
+        <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 18px", fontSize: 13 }}>
+          {loading ? <div style={quietLine}>One moment…</div> : null}
+          {holdPanel ? <div style={{ marginBottom: 14 }}>{holdPanel}</div> : null}
+          {compare ? (
+            <div>
+              <div style={{ ...quietLine, marginBottom: 4 }}>Compare the two ideas</div>
+              {compare}
+            </div>
+          ) : null}
+          {passages ? (
+            passages.length === 0 ? (
+              <div style={{ ...quietLine, marginTop: 12 }}>There are no passages in your books for this one.</div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginTop: 12 }}>
+                {passages.map((passage, index) => (
+                  <div key={`${passage.facetId}:${index}`} style={{ border: `1px solid ${COLOR.border}`, padding: "8px 10px" }}>
+                    <div style={quietLine}>
+                      {passage.role.includes("confused") ? "What it gets mixed up with" : "The idea to use"}
+                      {passage.spanView.sectionPath.length > 0 ? ` · ${passage.spanView.sectionPath.join(" › ")}` : ""}
+                    </div>
+                    <div style={{ marginTop: 6, lineHeight: 1.6, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>
+                      {passage.spanView.text}
+                    </div>
+                    <button
+                      type="button"
+                      style={{ ...btnDim, fontSize: 11, padding: "2px 10px", marginTop: 6 }}
+                      onClick={() => onOpenSpan({ extractionId: passage.spanView.extractionId, spanId: passage.spanView.spanId })}
+                    >
+                      see it in the book ▸
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : null}
+          {nothingToTry ? (
+            <div style={{ ...quietLine, marginTop: 12 }}>There's no question to try for this one yet.</div>
+          ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
+            {primary ? (
+              <PrimaryAction hotkey="↵" onClick={primary.run} disabled={busy}>
+                {busy ? "One moment…" : primary.label}
+              </PrimaryAction>
+            ) : nothingToTry ? (
+              <PrimaryAction onClick={onClose}>Close</PrimaryAction>
+            ) : null}
+            <span style={{ flex: 1 }} />
+            {details ? <DetailsToggle open={detailsOpen} onToggle={onToggleDetails} /> : null}
+          </div>
+          {detailsOpen && details ? <div style={{ marginTop: 10 }}>{details}</div> : null}
+        </div>
+      </div>
+      {openSpan ? (
+        <OpenInSource
+          extractionId={openSpan.extractionId}
+          spanId={openSpan.spanId}
+          context="remediation"
+          entityType="misconception"
+          entityId={misconceptionId}
+          onClose={() => onOpenSpan(null)}
         />
       ) : null}
     </div>

@@ -293,8 +293,9 @@ it("offers the guided redo when the grader kept the learner's correct work", asy
   api.startGuidedRedo.mockResolvedValue({ practiceItemId: "pi_cond_001", learnerWorkPrefix: "Setup" });
   const callbacks = props();
   render(<FeedbackScreen {...callbacks} />);
+  const redo = await screen.findByRole("button", { name: "Redo the part you missed" });
   await act(async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "Redo the part you missed" }));
+    fireEvent.click(redo);
   });
   expect(callbacks.onGuidedRedo).toHaveBeenCalled();
 });

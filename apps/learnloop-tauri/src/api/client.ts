@@ -559,7 +559,16 @@ export const api = {
     mutating(ATTEMPT_TAGS, call<AnswerGradingClarificationResultDto>("answer_grading_clarification", {
       input: { attemptId, answerMd }
     })),
-  triggerRegrade: (attemptId: string) => mutating(ATTEMPT_TAGS, call<FeedbackBundle>("trigger_regrade", { input: { attemptId } })),
+  // UX Phase 4 "I think I was right": the learner's one-line reason is kept
+  // before the regrade (the grader never sees it); without one, the plain
+  // regrade exactly as before.
+  triggerRegrade: (attemptId: string, learnerReason?: string) =>
+    mutating(
+      ATTEMPT_TAGS,
+      call<FeedbackBundle>("trigger_regrade", {
+        input: learnerReason === undefined ? { attemptId } : { attemptId, learnerReason }
+      })
+    ),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     mutating([TAG.review, TAG.maintenance, TAG.errors], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
   // A forced follow-up queues a diagnostic item ahead of the rest, so Today's

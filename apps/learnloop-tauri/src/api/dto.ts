@@ -712,6 +712,16 @@ export interface SessionEndSummary {
   predictionsMoved: { up: number; down: number };
   corrections: number;
   misconceptionsTouched: { resolved: number; returned: number };
+  /** UX Phase 4: the topics the session practised, in the well's words
+   *  (● on your own, ◌ with help); a topic only tried, missed, skipped or
+   *  held is not named. Absent from an older sidecar. */
+  topics?: SessionTopicDto[];
+}
+
+export interface SessionTopicDto {
+  learningObjectId: string;
+  title: string;
+  evidence: "on_your_own" | "with_help";
 }
 
 export interface SessionCheckpoint {
@@ -1185,6 +1195,9 @@ export interface ProbeBlockEndDto {
     /** Server truth for "redo the part you missed" — same rule
      *  `start_guided_redo` enforces (the SELECTED repair preserves a prefix). */
     guidedRedoAvailable?: boolean;
+    /** UX Phase 4: the grade is held for review (THE held predicate); its
+     *  score is the grader's provisional one and is never shown. */
+    heldForReview?: boolean;
   }[];
   normalizedMisconceptionIds: string[];
   openSet: Record<string, unknown> | null;
@@ -1445,6 +1458,18 @@ export interface FeedbackBundle {
    * RegradeLedgerCard renders on a fresh load, not only after an in-screen
    * trigger_regrade. Null/absent when the attempt was never regraded. */
   regrade?: PersistedRegradeDto | null;
+  /** UX Phase 4 (display only): the grade is held for review (THE held
+   *  predicate, `learnloop.held_grades`): the surface says "held for review"
+   *  and never shows its score. Absent from an older sidecar. */
+  heldForReview?: boolean;
+  /** The learner's own answer and volunteered line, apart (feedback shows
+   *  "You wrote" beside a full answer). */
+  learnerAnswerMd?: string;
+  learnerExplanationMd?: string | null;
+  /** The question as it was given when it differs from the item's own
+   *  presentation (a method-explicit answer's frozen statement and rendered
+   *  instruction); null otherwise. */
+  answeredPresentation?: ItemPresentationDto | null;
 }
 
 /** What the cold check this attempt spent turned out to say.

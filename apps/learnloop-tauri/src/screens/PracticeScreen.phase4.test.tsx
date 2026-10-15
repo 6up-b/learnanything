@@ -70,7 +70,7 @@ function bodyText(): string {
 }
 
 beforeEach(() => {
-  setAlgoConfig({ ui: { practiceFeedback: "simple" } });
+  setAlgoConfig({ ui: { practiceFeedback: "simple" }, practice: { stuckPrompt: true } });
   for (const mock of Object.values(api)) mock.mockReset();
   api.getPracticeItem.mockResolvedValue(item());
   api.getProbeContract.mockResolvedValue({ version: 1, active: false });

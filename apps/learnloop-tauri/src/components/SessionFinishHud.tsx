@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SessionEndSummary } from "../api/dto";
+import { simplePracticeFeedback } from "../app/practiceFeedback";
+import { PrimaryAction, quietLine } from "./PlainParts";
+import { COLOR } from "./term";
 
 // Full-screen "session complete" overlay rendered as ASCII/unicode art, in
 // LearnLoop's terminal/CLI language. The whole HUD — concentric rings, a
@@ -58,7 +61,95 @@ const COLOR_CLASS: Record<ColorId, string> = {
 const NEEDS_ESCAPE_RE = /[&<>]/;
 const HTML_ESCAPE_RE = /[&<>]/g;
 
+/**
+ * The session finish. UX Phase 4.4 (docs/specs/ux_learnloop_v1.md §7.5): one
+ * calm, dismissible summary in the well's ○ ◌ ● words, never a full-screen
+ * HUD and none of its decorative telemetry; `[ui] practice_feedback =
+ * "classic"` restores the HUD below exactly.
+ */
 export function SessionFinishHud({
+  summary,
+  onDismiss
+}: {
+  summary: SessionEndSummary | null;
+  onDismiss: () => void;
+}) {
+  if (!simplePracticeFeedback()) return <ClassicSessionFinishHud summary={summary} onDismiss={onDismiss} />;
+  return summary ? <SessionFinishCard summary={summary} onDismiss={onDismiss} /> : null;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+/** "26 minutes · 9 questions", from the session's own window. */
+export function sessionLengthLine(summary: SessionEndSummary): string {
+  const ms = new Date(summary.endedAt).getTime() - new Date(summary.startedAt).getTime();
+  const minutes = Number.isFinite(ms) && ms > 0 ? Math.max(1, Math.round(ms / 60000)) : 1;
+  return `${plural(minutes, "minute", "minutes")} · ${plural(summary.itemsReviewed, "question", "questions")}`;
+}
+
+function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary; onDismiss: () => void }) {
+  // Enter or Escape dismisses it; nothing else is captured, so the screen
+  // beneath stays usable (it is a card, not a modal).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" && event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      onDismiss();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onDismiss]);
+  const topics = summary.topics ?? [];
+  return (
+    <div
+      role="status"
+      aria-label="Session done"
+      style={{
+        position: "fixed",
+        left: "50%",
+        bottom: 56,
+        transform: "translateX(-50%)",
+        zIndex: 190,
+        width: "min(640px, calc(100vw - 32px))",
+        background: COLOR.bgElev,
+        border: `1px solid ${COLOR.borderStrong}`,
+        boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
+        padding: "14px 18px",
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: COLOR.text
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, alignItems: "baseline" }}>
+        <div style={{ flex: 1 }}>
+          <div>{sessionLengthLine(summary)}</div>
+          {topics.length > 0 ? (
+            <div data-testid="session-moved" style={{ marginTop: 2 }}>
+              <span style={{ color: COLOR.textDim }}>Since last time: </span>
+              {topics.map((topic, index) => (
+                <span key={topic.learningObjectId}>
+                  {index > 0 ? <span style={{ color: COLOR.textDim }}> · </span> : null}
+                  {topic.evidence === "on_your_own"
+                    ? `● ${topic.title} (on your own)`
+                    : `◌ ${topic.title} (with help)`}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {summary.streak.current > 1 ? (
+            <div style={{ ...quietLine, marginTop: 2 }}>{summary.streak.current} days in a row</div>
+          ) : null}
+        </div>
+        <PrimaryAction hotkey="↵" onClick={onDismiss}>Done</PrimaryAction>
+      </div>
+    </div>
+  );
+}
+
+function ClassicSessionFinishHud({
   summary,
   onDismiss
 }: {

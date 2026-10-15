@@ -16,6 +16,7 @@ vi.mock("../components/CardControls", () => ({ CardControls: () => null, ProbeRe
 vi.mock("../components/RepairTrace", () => ({ RepairTraceBlocks: () => null }));
 vi.mock("../components/RepairAffordances", () => ({ CommonRepairCard: () => null, GuidedRedoAffordance: () => null }));
 
+import { setAlgoConfig } from "../app/algoConfig";
 import { FeedbackScreen } from "./FeedbackScreen";
 
 const FEEDBACK = {
@@ -104,6 +105,9 @@ let serverHead: { id: string; title: string };
 let followup: ReturnType<typeof deferred<void>> | null;
 let queueReads: number;
 beforeEach(() => {
+  // These name the classic key bar's ⇧D labels; the queue-write tracking they
+  // pin is shared by UX Phase 4's default surface, where ⇧D stays a key.
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
   serverHead = { id: "pi_before", title: "Before the follow-up" };
   followup = null;
   queueReads = 0;
@@ -125,7 +129,7 @@ beforeEach(() => {
     }
   });
 });
-afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); setAlgoConfig(undefined); });
 
 it("opens the forced follow-up after Shift+D, not the head the queue had before it", async () => {
   const callbacks = props();

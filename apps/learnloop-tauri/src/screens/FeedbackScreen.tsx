@@ -45,8 +45,16 @@ import {
   useCausalRepairActions,
 } from "../components/CausalAttribution";
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
-import { DiagnosisCard } from "../components/DiagnosisCard";
+import { DiagnosisCard, useDiagnosisCard } from "../components/DiagnosisCard";
 import { errorMessage } from "../errors";
+import {
+  FIX_MIX_UP_LABEL,
+  type FeedbackOrigin,
+  simplePracticeFeedback,
+  VERDICT_TEXT,
+  verdictOf
+} from "../app/practiceFeedback";
+import { FeedbackSurface, type FeedbackNextStep } from "./feedback/FeedbackSurface";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -1406,6 +1414,7 @@ export function FeedbackScreen({
   onPaletteEntities,
   onAsk,
   onError,
+  origin = "today",
 }: {
   attemptId: string;
   /** Active session, when known — lets claim exposure attribute to the session
@@ -1444,7 +1453,13 @@ export function FeedbackScreen({
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
   onAsk: (target: { context: "feedback"; attemptId: string; practiceItemId?: string }) => void;
   onError: (message: string) => void;
+  /** UX Phase 4: where the attempt started, so Next returns there (the
+   *  plan's next step, Today, or the book's passage) and the header says so. */
+  origin?: FeedbackOrigin;
 }) {
+  // UX Phase 4 (§7.5): the plain surface with details on demand, unless the
+  // library's `[ui] practice_feedback = "classic"` restores the screen exactly.
+  const simple = simplePracticeFeedback();
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [trace, setTrace] = useState<AttemptTraceDto | null>(null);
@@ -1549,6 +1564,25 @@ export function FeedbackScreen({
       .refreshFeedback(attemptId)
       .then((bundle) => setFeedback(bundle))
       .catch(() => { /* the card itself already shows the diagnosis */ });
+  }, [attemptId]);
+  // The diagnosis is polled here once (Phase 4's surface reads it as its one
+  // sentence) and the card under details reuses this state; classic leaves
+  // the card to poll for itself, exactly as before.
+  const diagnosis = useDiagnosisCard(attemptId, simple ? feedback?.diagnosisStatus : null, refreshAfterDiagnosis, onError);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
+  const [contestOpen, setContestOpen] = useState(false);
+  const [contestReason, setContestReason] = useState("");
+  const [contesting, setContesting] = useState(false);
+  const [contestNote, setContestNote] = useState<string | null>(null);
+  const [causalNotRight, setCausalNotRight] = useState(false);
+  useEffect(() => {
+    setDetailsOpen(false);
+    setWhyOpen(false);
+    setContestOpen(false);
+    setContestReason("");
+    setContestNote(null);
+    setCausalNotRight(false);
   }, [attemptId]);
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
@@ -1779,6 +1813,58 @@ export function FeedbackScreen({
     }
   };
 
+  // UX Phase 4 "I think I was right" (§7.5): the learner's one line is kept on
+  // the claim ledger before the existing regrade runs (the grader never sees
+  // it), and the regrade happens in place. A grader that cannot run leaves the
+  // note kept and says so plainly; it is never a red error.
+  const handleContest = async () => {
+    if (!feedback || contesting) return;
+    setContesting(true);
+    const before = verdictOf({
+      score: feedback.rubricScore, max: feedback.maxPoints, correctness: feedback.correctness, held: feedback.heldForReview === true
+    });
+    const prior = { score: feedback.rubricScore, max: feedback.maxPoints };
+    try {
+      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, contestReason.trim()));
+      setFeedback(updated);
+      setRegradeReceipt({ before: prior, after: { score: updated.rubricScore, max: updated.maxPoints } });
+      const after = verdictOf({
+        score: updated.rubricScore, max: updated.maxPoints, correctness: updated.correctness, held: updated.heldForReview === true
+      });
+      setContestNote(
+        after === before
+          ? `Looked at it again: still ${VERDICT_TEXT[after]}. Your note is kept.`
+          : `Looked at it again: now ${VERDICT_TEXT[after]}.`
+      );
+    } catch {
+      setContestNote("Your note is kept. The grader can't look again right now.");
+    } finally {
+      setContestOpen(false);
+      setContestReason("");
+      setContesting(false);
+    }
+  };
+
+  // The causal overlay's contest (the panel under details and "this doesn't
+  // sound right" on the surface share it).
+  const contestCausal = (reason: UnresolvedCauseSelfReportResponse, factorId: string | null | undefined) => {
+    if (!feedback) return;
+    if (factorId) {
+      void handleUnresolvedCauseReport(factorId, reason);
+      return;
+    }
+    setReportingFactorId(`receipt:${feedback.attemptId}`);
+    api
+      .contestCausalDiagnosis(
+        feedback.attemptId,
+        reason as Exclude<UnresolvedCauseSelfReportResponse, "believed_candidate">,
+      )
+      .then(() => api.getFeedback(feedback.attemptId))
+      .then(setFeedback)
+      .catch((error) => onError(errorMessage(error)))
+      .finally(() => setReportingFactorId(null));
+  };
+
   // Manually force a diagnostic follow-up even when the automatic intervention
   // gate did not fire. The backend bypasses the gates, queues the best-fit
   // diagnostic item (or records an intervention need), and logs the surprise /
@@ -1980,6 +2066,13 @@ export function FeedbackScreen({
       }
       if (event.key === "n" || event.key === "Enter") { event.preventDefault(); void advance(); }
       else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); goBack(); }
+      else if (simple && event.key === ".") { event.preventDefault(); setDetailsOpen((open) => !open); }
+      // Phase 4: `r` opens "I think I was right" (a regrade with the learner's
+      // note) instead of a silent regrade (usability round 1, M-b).
+      else if (simple && event.key === "r") {
+        event.preventDefault();
+        if (feedback.gradingSource !== "self") setContestOpen(true);
+      }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
       else if (event.key === "D") { event.preventDefault(); void handleTriggerFollowup(); }
       else if (event.key === "a") { event.preventDefault(); setAddingError(true); }
@@ -1995,7 +2088,344 @@ export function FeedbackScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry]);
+  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry, simple]);
+
+  // ── UX Phase 4: the plain surface, with details on demand (§7.5) ─────────
+  function simpleScreen(
+    f: FeedbackBundle,
+    matchedMisconception: FeedbackBundle["matchedMisconception"] | null,
+    elicitingIndex: number,
+    elicitingSuggestion: FeedbackBundle["repairSuggestions"][number] | null,
+    errorPanel: ReactNode,
+    notePanel: ReactNode,
+  ) {
+    const held = f.heldForReview === true;
+    const verdict = verdictOf({ score: f.rubricScore, max: f.maxPoints, correctness: f.correctness, held });
+    const contestAvailable = f.gradingSource !== "self";
+    // ONE next step besides Next (§7.5), the one the system recommends: fix a
+    // named mix-up, else redo the part missed, else a similar question. A
+    // right answer, or one held for review, needs none.
+    const fixId =
+      matchedMisconception?.id ??
+      (!repairStatus ? f.causalFeedback?.commonRepair?.misconceptionId ?? null : null);
+    let step: FeedbackNextStep | null = null;
+    let stepIsRetry = false;
+    if (verdict === "partly" || verdict === "not_yet") {
+      if (fixId && onOpenRepair) {
+        step = { label: FIX_MIX_UP_LABEL, onRun: () => onOpenRepair(fixId) };
+      } else if (onGuidedRedo && f.guidedRedoAvailable && f.rubricScore < f.maxPoints) {
+        step = { label: "Redo the part you missed", busy: startingRedo, onRun: () => void handleGuidedRedo() };
+      } else {
+        step = { label: "Try a similar one (t)", busy: startingRetry, onRun: () => void handlePrimedRetry() };
+        stepIsRetry = true;
+      }
+    }
+    // why? ▸ on the one sentence: the possible causes, what was already
+    // shown, the mix-up's mechanism, the dated quotes, and the single
+    // diagnosis verdict, "this doesn't sound right".
+    const card = diagnosis.status === "done" ? diagnosis.card : null;
+    const causal = f.causalFeedback ?? null;
+    const canSayNotRight = Boolean(card?.diagnosisId && card.responses.some((option) => option.response === "diagnosis_wrong"));
+    const causalNotRightOk = Boolean(causal?.contestAction?.available && causal.contestAction.reasons.includes("diagnosis_wrong"));
+    const why = {
+      open: whyOpen,
+      onToggle: () => setWhyOpen((open) => !open),
+      causes: (causal?.causalHypotheses ?? [])
+        .map((hypothesis) => hypothesis.statement?.trim() || hypothesis.label)
+        .filter((line): line is string => Boolean(line))
+        .slice(0, 3),
+      showed: (causal?.demonstratedCriteria ?? [])
+        .map((criterion) => criterion.criterionLabel ?? "")
+        .filter(Boolean),
+      mechanism: matchedMisconception?.mechanism ?? null,
+      madeBefore: (card?.madeBefore ?? []).map((citation) => ({
+        attemptId: citation.attemptId,
+        date: citation.date ?? null,
+        quote: citation.quote ?? null,
+      })),
+      onNotRight: canSayNotRight
+        ? () => void diagnosis.record("diagnosis_wrong")
+        : causalNotRightOk
+          ? () => {
+              setCausalNotRight(true);
+              contestCausal("diagnosis_wrong", causal?.contestAction.factorId ?? null);
+            }
+          : null,
+      notRightRecorded: canSayNotRight ? card?.recordedResponse === "diagnosis_wrong" : causalNotRight,
+    };
+    const nextLabel =
+      origin === "reader"
+        ? "back to the book"
+        : planMode
+          ? nextPlanKeyLabel(advancing, nextPlanStep.step)
+          : autoAdvance
+            ? nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty)
+            : "";
+    const regradeHistory = regradeReceipt ?? (f.regrade
+      ? { before: { score: f.regrade.oldScore, max: f.regrade.maxPoints }, after: { score: f.regrade.newScore, max: f.regrade.maxPoints } }
+      : null);
+    const showTier = f.criterionEvidence.some((row) => row.tier === "transfer");
+    return (
+      <div className="screen">
+        <div className="screen-scroll" style={{ padding: "14px 24px 20px" }}>
+          <FeedbackSurface
+            feedback={f}
+            item={item}
+            verdict={verdict}
+            origin={origin}
+            diagnosis={diagnosis}
+            matchedCorrection={matchedMisconception?.correctionStatement?.trim() || null}
+            onBack={goBack}
+            nextLabel={nextLabel}
+            advancing={advancing}
+            onNext={() => void advance()}
+            step={step}
+            contest={{
+              available: contestAvailable,
+              open: contestOpen,
+              reason: contestReason,
+              busy: contesting,
+              note: contestNote,
+              onOpen: () => {
+                setContestNote(null);
+                setContestOpen(true);
+              },
+              onCancel: () => {
+                setContestOpen(false);
+                setContestReason("");
+              },
+              onReason: setContestReason,
+              onSend: () => void handleContest(),
+            }}
+            why={why}
+            provisional={f.manualReviewReason === PROVISIONAL_PENDING_CLARIFICATION}
+            onShowProvisional={() => setDetailsOpen(true)}
+            detailsOpen={detailsOpen}
+            onToggleDetails={() => setDetailsOpen((open) => !open)}
+          />
+
+          {detailsOpen ? (
+            <div style={{ marginTop: 22, maxWidth: 900 }} data-testid="feedback-details">
+              {/* The grade in numbers, who graded it and how sure it was. A
+                  grade held for review is the grader's provisional score and
+                  is never shown, here either. */}
+              <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+                {held ? (
+                  <div data-testid="details-score" style={{ color: C.text }}>
+                    Held for review: the grader's score doesn't count until this answer is reviewed.
+                  </div>
+                ) : (
+                  <div data-testid="details-score" style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>{`${f.rubricScore} / ${f.maxPoints}`}</span>
+                    <Dim>{f.gradingSource === "self" ? "graded by you" : "graded by AI"}</Dim>
+                    {f.gradingSource !== "self" ? (
+                      <Faint>how sure the grader was: {f.graderConfidence.toFixed(2)}</Faint>
+                    ) : null}
+                  </div>
+                )}
+                {f.gradingSource === "self" && f.fallbackReason ? (
+                  <div><Faint>AI grading wasn't available, so you graded this one.</Faint></div>
+                ) : null}
+                {(f.questionHintEquivalents ?? 0) > 0 ? (
+                  <div>
+                    <Faint>
+                      {f.questionHintEquivalents} question{(f.questionHintEquivalents ?? 0) === 1 ? "" : "s"} to the tutor counted as
+                      {(f.questionHintEquivalents ?? 0) === 1 ? " a hint" : " hints"} here
+                    </Faint>
+                  </div>
+                ) : null}
+              </div>
+              {f.coldCheckResult ? <ColdCheckBanner result={f.coldCheckResult} /> : null}
+              {f.autoPrimed ? <AutoPrimedNote f={f} /> : null}
+              {traceEvidence?.reward ? (
+                <div style={{
+                  marginTop: 14, padding: "9px 12px",
+                  background: C.bgElev, borderLeft: `3px solid ${C.green}`,
+                  fontSize: 12, lineHeight: 1.6, color: C.text,
+                }}>
+                  {traceEvidence.reward}
+                </div>
+              ) : null}
+
+              {/* What the grader looked for, with the points. */}
+              {f.criterionEvidence.length > 0 ? (
+                <div style={{ marginTop: 18 }}>
+                  <EvidenceHeader>What the grader looked for</EvidenceHeader>
+                  {f.criterionEvidence.map((row) => (
+                    <CriterionRow key={row.criterionId} row={held ? { ...row, assessed: false } : row} showTier={showTier} />
+                  ))}
+                  <div style={{ borderTop: `1px solid ${C.border}` }} />
+                </div>
+              ) : null}
+              {f.fatalErrors.length > 0 && !held ? (
+                <div style={{ marginTop: 10, fontSize: 13, color: C.text }}>
+                  <Faint>Errors that cap the grade: </Faint>{f.fatalErrors.join(", ")}
+                </div>
+              ) : null}
+
+              {/* The regrade history, in plain words. */}
+              {regradeHistory ? (
+                <div style={{ marginTop: 12, fontSize: 12, color: C.textDim }} data-testid="regrade-history">
+                  {held || f.heldForReview
+                    ? "Looked at again."
+                    : `Looked at again: ${regradeHistory.before.score} / ${regradeHistory.before.max} → ${regradeHistory.after.score} / ${regradeHistory.after.max}.`}
+                </div>
+              ) : null}
+
+              {/* The one question that can still move a provisional grade. */}
+              {clarification ? (
+                <ClarificationCard
+                  clarification={clarification}
+                  answer={clarificationAnswer}
+                  setAnswer={setClarificationAnswer}
+                  submitting={answeringClarification}
+                  onSubmit={() => void handleAnswerClarification()}
+                  onSkip={handleSkipClarification}
+                />
+              ) : clarificationNote ? (
+                <div style={{ marginTop: 14, fontSize: 12, color: C.textDim }}>{clarificationNote}</div>
+              ) : null}
+
+              {/* One question, unaided (an eliciting repair asks, never shows). */}
+              {elicitingSuggestion ? (
+                <>
+                  <FbHeader>One question, unaided</FbHeader>
+                  <ElicitingRepairCard
+                    suggestion={elicitingSuggestion}
+                    submitting={elicitingSubmitting}
+                    outcome={elicitingOutcome}
+                    onSubmit={(responseMd) => void handleElicitingResponse(elicitingIndex, responseMd)}
+                  />
+                </>
+              ) : null}
+
+              {/* Why it went wrong: the diagnosis, the causal attribution and
+                  the one-tap question about an unsettled cause. */}
+              {f.causalFeedback ? (
+                <>
+                  <FbHeader>Why it went wrong</FbHeader>
+                  <CausalFeedbackPanel
+                    feedback={f.causalFeedback}
+                    suppressRepairedTrace={elicitingSuggestion != null && elicitingOutcome == null}
+                    contestPending={reportingFactorId != null}
+                    repairStatus={repairStatus}
+                    repairPendingActionId={repairPendingActionId}
+                    repairNote={repairNote}
+                    onRepairAction={runRepairAction}
+                    onContest={(reason, factorId) => contestCausal(reason, factorId)}
+                  />
+                </>
+              ) : null}
+              {!matchedMisconception && (f.unresolvedCauses?.length ?? 0) > 0 ? (
+                <div style={{ marginTop: 16 }}>
+                  <UnresolvedCauseCard
+                    causes={f.unresolvedCauses ?? []}
+                    onRunDiagnostic={() => void handleTriggerFollowup()}
+                    onSelfReport={(factorId, response, candidateIndex) => {
+                      void handleUnresolvedCauseReport(factorId, response, candidateIndex);
+                    }}
+                    reportingFactorId={reportingFactorId}
+                  />
+                </div>
+              ) : null}
+              <DiagnosisCard
+                attemptId={f.attemptId}
+                initialStatus={f.diagnosisStatus}
+                onOpenAttempt={onInspect}
+                onError={onError}
+                state={diagnosis}
+              />
+
+              {/* Where the question came from. */}
+              <SourceReviewPanel
+                f={f}
+                onPrimedRetry={() => void handlePrimedRetry()}
+                onOpenLibraryFile={onOpenLibraryFile}
+                onNoteCapture={openNoteCapture}
+                startingRetry={startingRetry}
+                onError={onError}
+              />
+
+              {/* This question's own controls, and the owner's way in. */}
+              {item ? (
+                <div style={{ marginTop: 18 }}>
+                  <CardControls
+                    key={`${item.id}:${item.prompt}`}
+                    practiceItemId={item.id}
+                    prompt={item.prompt}
+                    expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
+                    onError={onError}
+                    onChanged={() => {
+                      api.getPracticeItem(item.id).then(setItem).catch((error) => {
+                        onError(errorMessage(error, "The card changed, but its updated feedback view could not be loaded."));
+                      });
+                    }}
+                    onRetired={() => {}}
+                    onTeachBack={onOpenPractice}
+                  />
+                  {item.practiceMode === "diagnostic_probe" ? (
+                    <ProbeRemintAction
+                      attemptId={f.attemptId}
+                      practiceItemId={item.id}
+                      practiceMode={item.practiceMode}
+                      onError={onError}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+              <div style={{ marginTop: 14, fontSize: 12 }}>
+                <EntityLink id={f.attemptId} onInspect={onInspect}>open in inspector</EntityLink>
+              </div>
+            </div>
+          ) : null}
+          <div style={{ height: 24 }} />
+        </div>
+
+        {errorPanel}
+        {notePanel}
+
+        <KeyBar
+          keys={[
+            { key: "n / ↵", label: "next" },
+            ...(stepIsRetry ? [{ key: "t", label: "try a similar one" }] : []),
+            ...(contestAvailable ? [{ key: "r", label: "I think I was right" }] : []),
+            { key: ".", label: detailsOpen ? "hide details" : "details" },
+            { key: "?", label: "ask" },
+            { key: "esc", label: "back" },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  if (!feedback && simple) {
+    // §7.5 states: the verdict area's outline while loading; one plain line
+    // and one action on an error (the raw message stays in the log).
+    return (
+      <div className="screen">
+        <div className="screen-scroll" style={{ padding: "18px 24px", fontSize: 13 }}>
+          {feedbackLoadError ? (
+            <div style={{ maxWidth: 720 }} role="alert">
+              <div style={{ color: C.text, marginBottom: 12 }}>Couldn't load the feedback.</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="queue-row focused" onClick={() => setFeedbackLoadRevision((value) => value + 1)}>
+                  <span className="queue-title">Try again</span>
+                </button>
+                <button type="button" className="queue-row" onClick={() => void advance()}>
+                  <span className="queue-title">Next question</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: C.textDim }} aria-busy="true">
+              <div style={{ height: 30, width: 160, border: `1px dashed ${C.border}` }} />
+            </div>
+          )}
+        </div>
+        <KeyBar keys={[{ key: "esc", label: "back" }]} />
+      </div>
+    );
+  }
 
   if (!feedback) {
     if (feedbackLoadError) {
@@ -2049,6 +2479,163 @@ export function FeedbackScreen({
     f.matchedMisconception && f.matchedMisconception.correctionStatement?.trim()
       ? f.matchedMisconception
       : null;
+
+  // The add-error and note panels open at the screen's foot in both
+  // presentations (`a` and `j`).
+  const errorPanel = addingError ? (
+        <div style={{ borderTop: `1px solid ${C.borderStrong}`, background: C.bgElev }}>
+          {suggestions.length > 0 && (
+            <div className="error-suggestions" style={{ maxHeight: 180, overflowY: "auto", borderBottom: `1px solid ${C.border}` }}>
+              {suggestions.map((s, i) => (
+                <div
+                  key={s.id}
+                  onMouseDown={(e) => { e.preventDefault(); void doAddError(s.id, s.severityDefault); }}
+                  style={{
+                    padding: "5px 24px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    cursor: "pointer",
+                    background: i === selectedSuggestionIdx ? C.borderStrong : "transparent",
+                    fontFamily: MONO,
+                    fontSize: 12,
+                  }}
+                >
+                  <span style={{ color: s.relevant ? C.amber : C.textFaint, flexShrink: 0, fontSize: 10 }}>
+                    {s.relevant ? "◆" : "◇"}
+                  </span>
+                  <span style={{ color: i === selectedSuggestionIdx ? C.text : C.textDim, flex: 1 }}>{s.title}</span>
+                  <span style={{ color: C.textFaint, fontSize: 10 }}>{s.id}</span>
+                  {s.isMisconception && (
+                    <span style={{ color: C.red, fontSize: 10, flexShrink: 0 }}>misconception</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ padding: "10px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: C.amber, whiteSpace: "nowrap" }}>add error type</span>
+            <input
+              ref={errorInputRef}
+              type="text"
+              value={errorTypeInput}
+              onChange={(e) => setErrorTypeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSelectedSuggestionIdx((i) => Math.min(i + 1, suggestions.length - 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSelectedSuggestionIdx((i) => Math.max(i - 1, -1));
+                } else if (e.key === "Tab") {
+                  e.preventDefault();
+                  const s = suggestions[selectedSuggestionIdx];
+                  if (s) { setErrorTypeInput(s.id); setSelectedSuggestionIdx(-1); }
+                } else if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddError();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setAddingError(false);
+                  setErrorTypeInput("");
+                  setSelectedSuggestionIdx(-1);
+                }
+              }}
+              placeholder="error type id or label…"
+              style={{
+                flex: 1,
+                background: C.bg,
+                border: `1px solid ${C.amber}`,
+                color: C.text,
+                fontFamily: MONO,
+                fontSize: 13,
+                padding: "6px 10px",
+                outline: "none",
+              }}
+            />
+            <span style={{ fontSize: 11, color: C.textFaint, whiteSpace: "nowrap" }}>↑↓ select · tab fill · ↵ confirm · esc cancel</span>
+          </div>
+        </div>
+      ) : null;
+  const notePanel = addingNote ? (
+        <div style={{ borderTop: `1px solid ${C.borderStrong}`, background: C.bgElev }}>
+          <div style={{ padding: "10px 24px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontFamily: MONO, fontSize: 11, color: C.cyan, whiteSpace: "nowrap" }}>note title</span>
+              <input
+                ref={noteTitleRef}
+                type="text"
+                value={noteTitle}
+                onChange={(e) => setNoteTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    noteBodyRef.current?.focus();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    resetNote();
+                  }
+                }}
+                placeholder="note title…"
+                style={{
+                  flex: 1,
+                  background: C.bg,
+                  border: `1px solid ${C.cyan}`,
+                  color: C.text,
+                  fontFamily: MONO,
+                  fontSize: 13,
+                  padding: "6px 10px",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <textarea
+              ref={noteBodyRef}
+              value={noteBody}
+              onChange={(e) => setNoteBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  void doSaveNote();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  resetNote();
+                }
+              }}
+              placeholder="write your note… (markdown, math ok)"
+              rows={4}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                background: C.bg,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                fontFamily: MONO,
+                fontSize: 13,
+                lineHeight: 1.5,
+                padding: "8px 10px",
+                outline: "none",
+              }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Faint>
+                files a learner_note in{" "}
+                <span style={{ color: C.cyan }}>{subject ?? "—"}</span>
+                {" · linked to "}
+                <span style={{ color: C.cyan }}>{f.learningObjectId}</span>
+              </Faint>
+              <span style={{ flex: 1 }} />
+              <span style={{ fontSize: 11, color: C.textFaint, whiteSpace: "nowrap" }}>
+                {savingNote ? "saving…" : "⌘/⌃ ↵ save · esc cancel"}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null;
+
+  if (simple) {
+    return simpleScreen(f, matchedMisconception, elicitingIndex, elicitingSuggestion, errorPanel, notePanel);
+  }
 
   return (
     <div className="screen">
@@ -2591,157 +3178,8 @@ export function FeedbackScreen({
         <div style={{ height: 24 }} />
       </div>
 
-      {addingError && (
-        <div style={{ borderTop: `1px solid ${C.borderStrong}`, background: C.bgElev }}>
-          {suggestions.length > 0 && (
-            <div className="error-suggestions" style={{ maxHeight: 180, overflowY: "auto", borderBottom: `1px solid ${C.border}` }}>
-              {suggestions.map((s, i) => (
-                <div
-                  key={s.id}
-                  onMouseDown={(e) => { e.preventDefault(); void doAddError(s.id, s.severityDefault); }}
-                  style={{
-                    padding: "5px 24px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    cursor: "pointer",
-                    background: i === selectedSuggestionIdx ? C.borderStrong : "transparent",
-                    fontFamily: MONO,
-                    fontSize: 12,
-                  }}
-                >
-                  <span style={{ color: s.relevant ? C.amber : C.textFaint, flexShrink: 0, fontSize: 10 }}>
-                    {s.relevant ? "◆" : "◇"}
-                  </span>
-                  <span style={{ color: i === selectedSuggestionIdx ? C.text : C.textDim, flex: 1 }}>{s.title}</span>
-                  <span style={{ color: C.textFaint, fontSize: 10 }}>{s.id}</span>
-                  {s.isMisconception && (
-                    <span style={{ color: C.red, fontSize: 10, flexShrink: 0 }}>misconception</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <div style={{ padding: "10px 24px", display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: C.amber, whiteSpace: "nowrap" }}>add error type</span>
-            <input
-              ref={errorInputRef}
-              type="text"
-              value={errorTypeInput}
-              onChange={(e) => setErrorTypeInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSelectedSuggestionIdx((i) => Math.min(i + 1, suggestions.length - 1));
-                } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSelectedSuggestionIdx((i) => Math.max(i - 1, -1));
-                } else if (e.key === "Tab") {
-                  e.preventDefault();
-                  const s = suggestions[selectedSuggestionIdx];
-                  if (s) { setErrorTypeInput(s.id); setSelectedSuggestionIdx(-1); }
-                } else if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAddError();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  setAddingError(false);
-                  setErrorTypeInput("");
-                  setSelectedSuggestionIdx(-1);
-                }
-              }}
-              placeholder="error type id or label…"
-              style={{
-                flex: 1,
-                background: C.bg,
-                border: `1px solid ${C.amber}`,
-                color: C.text,
-                fontFamily: MONO,
-                fontSize: 13,
-                padding: "6px 10px",
-                outline: "none",
-              }}
-            />
-            <span style={{ fontSize: 11, color: C.textFaint, whiteSpace: "nowrap" }}>↑↓ select · tab fill · ↵ confirm · esc cancel</span>
-          </div>
-        </div>
-      )}
-
-      {addingNote && (
-        <div style={{ borderTop: `1px solid ${C.borderStrong}`, background: C.bgElev }}>
-          <div style={{ padding: "10px 24px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: C.cyan, whiteSpace: "nowrap" }}>note title</span>
-              <input
-                ref={noteTitleRef}
-                type="text"
-                value={noteTitle}
-                onChange={(e) => setNoteTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    noteBodyRef.current?.focus();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    resetNote();
-                  }
-                }}
-                placeholder="note title…"
-                style={{
-                  flex: 1,
-                  background: C.bg,
-                  border: `1px solid ${C.cyan}`,
-                  color: C.text,
-                  fontFamily: MONO,
-                  fontSize: 13,
-                  padding: "6px 10px",
-                  outline: "none",
-                }}
-              />
-            </div>
-            <textarea
-              ref={noteBodyRef}
-              value={noteBody}
-              onChange={(e) => setNoteBody(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  void doSaveNote();
-                } else if (e.key === "Escape") {
-                  e.preventDefault();
-                  resetNote();
-                }
-              }}
-              placeholder="write your note… (markdown, math ok)"
-              rows={4}
-              style={{
-                width: "100%",
-                resize: "vertical",
-                background: C.bg,
-                border: `1px solid ${C.border}`,
-                color: C.text,
-                fontFamily: MONO,
-                fontSize: 13,
-                lineHeight: 1.5,
-                padding: "8px 10px",
-                outline: "none",
-              }}
-            />
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Faint>
-                files a learner_note in{" "}
-                <span style={{ color: C.cyan }}>{subject ?? "—"}</span>
-                {" · linked to "}
-                <span style={{ color: C.cyan }}>{f.learningObjectId}</span>
-              </Faint>
-              <span style={{ flex: 1 }} />
-              <span style={{ fontSize: 11, color: C.textFaint, whiteSpace: "nowrap" }}>
-                {savingNote ? "saving…" : "⌘/⌃ ↵ save · esc cancel"}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      {errorPanel}
+      {notePanel}
 
       <KeyBar
         keys={[
