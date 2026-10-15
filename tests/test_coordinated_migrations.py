@@ -358,7 +358,10 @@ def test_f8_the_coordinator_upgrades_under_its_allowance_and_qualifies(exam_book
 
     repo, root = exam_book["repo"], exam_book["root"]
     _older_build_with_membership(exam_book, _EXAM_MEMBER)
-    newest = discover_migrations()[-1].version
+    # The ledger migration the older build lacks (no longer the newest since
+    # saved diagnosis forecasts' 230, a placeholder number).
+    newest = 204
+    assert newest not in applied_versions(repo.sqlite_path)
     sealed = _sealed(repo.sqlite_path)
     with pytest.raises(UncoordinatedMigrationError):
         _alias(repo.sqlite_path)

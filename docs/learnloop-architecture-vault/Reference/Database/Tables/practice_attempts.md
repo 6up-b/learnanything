@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "37a2a7e5f582441613f64a7d42c042eef34c50f0"
+source_commit_timestamp: "2026-10-15T13:51:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 204
+schema_head: 230
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -194,6 +194,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/diagnosis/forecast_receipts.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/offline_review/spot_check.py`
@@ -205,6 +206,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/diagnosis/voi_stopping.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`

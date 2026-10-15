@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_204/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_230/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_204" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_230" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 204
+SCHEMA_HEAD = 230
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -122,6 +122,7 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "daily_plans": "Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
     "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
+    "forecast_receipts": "Keeps every saved forecast a decision states before its outcome is known (saved diagnosis forecasts, migration 230, a placeholder number): a completed diagnosis's prediction of the next unaided observation of each facet it explains, and a scheduled repair cold check's predicted cold outcome, each written in its decision's transaction with its forecaster, scope, inputs as of when, the forecast payload (the voi_forecasts body) and its exact binding, or the reason it has none (censored at birth). Resolutions are derived at read time by `learnloop diagnosis calibration`; nothing serving, scoring or scheduling reads it and no rebuild writes or clears it. Append-only (an update or delete aborts); kill switch diagnosis.forecast_receipts.",
     "followup_value_decisions": "Keeps one immutable receipt per follow-up decision the value-of-information rule takes part in (mvp-0.21): each decision on a source attempt gets its own id and ordinal (an automatic decision and a later manual follow-up, or a recorded generation need and a later queue), with the value decision's forecasts in `decision_json` (NULL when no candidate was valued), so no later decision overwrites an earlier one and no rebuild clears them.",
     "decision_features": "Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names.",
     "practice_item_snapshots": "Keeps one content-addressed copy of every practice-item revision the scheduler scored, keyed by the SHA-256 of its canonical JSON, so selection decision features can be joined to the exact item text after the vault item changes.",
@@ -860,7 +861,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "trace_evidence": "opportunistic trace evidence and learner-burden limits",
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
-    "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, and mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule)",
+    "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, PF-c grading support, mvp-0.21's probe hypothesis lane reading the diagnoser's verdict (with its pending rule), and the saved diagnosis forecasts' kill switch (forecast_receipts, logging only)",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "router": "action router R1: decision logging on today's serving paths and the mvp-0.15 probe-tie admission kill switch",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
@@ -1002,6 +1003,11 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "registered facet's meaning without an explanatory span (not exam-only) waits for the owner's confirm and "
         "a title or worked-example change needs no explanatory citation; off restores the predecessor rule "
         "(refused at accept, dropped by the producers). Exam-only support is refused either way."
+    ),
+    "diagnosis.forecast_receipts": (
+        "Kill switch of saved diagnosis forecasts: on, a completed diagnosis and a scheduled repair cold check "
+        "write their forecasts as forecast_receipts rows in the deciding transaction; off writes none. Logging "
+        "only: no grading, scoring, scheduling or serving change, and replay never reads the receipts."
     ),
     "field.enabled": "Allows explicitly requested paid field experiments; never changes serving or evidence.",
     "field.active_predictor": "Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor.",
@@ -1992,7 +1998,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_204/state.sqlite",
+                "fixtures/migration_head_230/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

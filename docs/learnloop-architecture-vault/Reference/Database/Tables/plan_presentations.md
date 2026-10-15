@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "37a2a7e5f582441613f64a7d42c042eef34c50f0"
+source_commit_timestamp: "2026-10-15T13:51:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 204
+schema_head: 230
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -117,6 +117,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_evsi_staged_binding.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_router_g4_restraint.py`

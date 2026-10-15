@@ -124,4 +124,4 @@ Run both documentation validators after regeneration:
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
-The database/config validator compares all 322 table notes and all 857 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
+The database/config validator compares all 323 table notes and all 858 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.

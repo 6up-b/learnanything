@@ -46,7 +46,7 @@ from tests.recurrence_fakes import (
 )
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_204"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {

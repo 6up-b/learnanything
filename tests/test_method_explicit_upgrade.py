@@ -75,7 +75,7 @@ from tests.helpers import NOW, append_config_toml, create_placement_vault, set_a
 from tests.split_live_helpers import split_vault
 from tests.test_recurrence_commands import _pass_guard
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_204"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_230"
 CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 TARGET = METHOD_EXPLICIT_ALGORITHM_VERSION
 

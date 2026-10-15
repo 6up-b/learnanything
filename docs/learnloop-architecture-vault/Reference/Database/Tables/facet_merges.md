@@ -3,13 +3,13 @@ title: "facet_merges"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "37a2a7e5f582441613f64a7d42c042eef34c50f0"
+source_commit_timestamp: "2026-10-15T13:51:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_merges"
   - "table facet_merges"
-schema_head: 204
+schema_head: 230
 table_name: "facet_merges"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,8 +25,9 @@ source_paths:
   - "src/learnloop/curriculum/subject_registry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/facet_identity.py"
-  - "src/learnloop/learner/facet_state_reader.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/learner/facet_evidence_timeline.py"
+  - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/ops/doctor.py"
 tags:
   - "learnloop/database/table"

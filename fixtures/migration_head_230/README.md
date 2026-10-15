@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-204. Migration 167 adds the learner-field F1 read model
+230. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -136,17 +136,24 @@ Migration 204 comes from exam protection by extraction identity
 trigger: the held-out signals each fresh inventory marked on the reading its
 model run read, with its revision and the role it was made under) and
 backfills it from `source_unit_inventories` (none here).
-Built as a backup-API copy of `migration_head_203` (itself a backup-API copy
+Migration 230 comes from saved diagnosis forecasts
+(`diagnosis/forecast-receipts`, docs/reviews/diagnosis-forecast-receipts.md;
+230 is a placeholder number, renumbered at its landing): it adds
+`forecast_receipts` (RECEIPT, append-only by trigger: one forecast per row,
+written in the transaction of the decision that made it, with its exact
+binding or the reason it has none; no rows here).
+Built as a backup-API copy of `migration_head_204` with only 230 applied through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (checkpointed with `wal_checkpoint(TRUNCATE)`, rollback journal,
+`integrity_check` ok, `foreign_key_check` clean, no companion files);
+`migration_head_204` was renamed to this directory. `migration_head_204` was
+itself a backup-API copy of `migration_head_203` (itself a backup-API copy
 of `migration_head_202` with only 203 applied, that of `migration_head_201`
 with only 202 applied, that of `migration_head_199` with only 200-201
 applied, that of `migration_head_197` with only 198-199 applied, that of
 `migration_head_195` with only 196-197 applied, and that of
-`migration_head_186` with 187-195 applied) with only 204 applied through
-`learnloop.db.migrate.apply_migrations` (checkpointed with
-`wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
-`foreign_key_check` clean, no companion files); `migration_head_203` was
-renamed to this directory. It pins
-current-head schema coverage while the original populated fixture and the
+`migration_head_186` with 187-195 applied) with only 204 applied
+(`migration_head_203` renamed). It pins current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 
 The database is kept in rollback mode (`PRAGMA journal_mode=DELETE`) so the

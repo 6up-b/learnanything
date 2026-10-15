@@ -3,8 +3,8 @@ title: "Config - misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c4dee14ae58d42b11c27423acb4ee7cc4964d048"
-source_commit_timestamp: "2026-10-15T12:49:49-04:00"
+source_commit: "37a2a7e5f582441613f64a7d42c042eef34c50f0"
+source_commit_timestamp: "2026-10-15T13:51:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml misconceptions"
@@ -46,8 +46,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `misconceptions.auto_resolve_clean_attempts` | `3` | integer | modeled default or validator seed | Controls auto resolve clean attempts in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:501`; `src/learnloop/attempts/attempts.py:3553` |
-| `misconceptions.auto_resolve_min_correctness` | `0.85` | number | modeled default or validator seed | Controls auto resolve min correctness in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:502`; `src/learnloop/attempts/attempts.py:3564` |
+| `misconceptions.auto_resolve_clean_attempts` | `3` | integer | modeled default or validator seed | Controls auto resolve clean attempts in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:501`; `src/learnloop/attempts/attempts.py:3561` |
+| `misconceptions.auto_resolve_min_correctness` | `0.85` | number | modeled default or validator seed | Controls auto resolve min correctness in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:502`; `src/learnloop/attempts/attempts.py:3572` |
 | `misconceptions.tau_misconception_resolved` | `0.15` | number | modeled default or validator seed | Sets the decision cutoff for misconception resolved in misconception resolution and discriminator gates. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:506`; `src/learnloop/diagnosis/misconceptions.py:899` |
 | `misconceptions.sim_gate_min_sensitivity_lb` | `0.7` | number | modeled default or validator seed | Controls sim gate min sensitivity lb in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:511` |
 | `misconceptions.sim_gate_min_specificity_lb` | `0.8` | number | modeled default or validator seed | Controls sim gate min specificity lb in misconception resolution and discriminator gates, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:512` |
