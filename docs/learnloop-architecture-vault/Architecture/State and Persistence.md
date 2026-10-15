@@ -69,6 +69,8 @@ Application entry points call `open_vault_repository(vault_root, sqlite_path)`. 
 
 Plain doctor uses an explicit read-only attachment and does not create directories, migrate schemas, or write pragmas. `Repository.attach(path, read_only=True|False)` separates migration from access mode.
 
+Only the coordinator upgrades an existing database. An upgrade has a vault-level step: under the same lock, the coordinator records the held-out signals the vault's exam membership qualifies (migration 225; exam protection identity, F3 final). `Repository(path)` knows only the database, so it creates a missing database or attaches to a current one, and refuses one with migrations pending (`UncoordinatedMigrationError`, the database left unchanged). Code below an entry point that has the vault calls `vault_repository(VaultPaths)`: a current database is attached as before, without the lock, and a missing or older one is opened through the coordinator. `tests/test_coordinated_migrations.py` pins that nothing else in `src/` or `scripts/` constructs `Repository(path)`, and that only the coordinator calls `apply_migrations` (besides an offline review upgrading its own scratch copy).
+
 Incremental migrations execute complete statements inside `BEGIN IMMEDIATE` with the schema receipt in the same transaction. Foreign-key-rebuild scripts disable enforcement before the transaction, run `foreign_key_check` before commit, roll back body plus receipt on failure/interruption, and restore enforcement in `finally`. Fresh databases are built under a temporary path, switched to WAL and closed, then atomically renamed.
 
 ## Journal mode and durability

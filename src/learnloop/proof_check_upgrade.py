@@ -61,7 +61,7 @@ from learnloop.algorithm_versions import (
     STUCK_PROMPT_ALGORITHM_VERSION,
 )
 from learnloop.clock import Clock
-from learnloop.db.repositories import Repository
+from learnloop.vault.repository import open_vault_repository
 from learnloop.learner_text_gap_upgrade import upgrade_to_mvp016
 from learnloop.ops.vault_upgrade import UpgradeResult, rewrite_algorithm_version
 from learnloop.params import parameter_registry as registry_service
@@ -127,9 +127,9 @@ def upgrade_to_mvp017(root: Path, *, clock: Clock | None = None) -> UpgradeResul
     current = vault.config.algorithms.algorithm_version
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    # Construction applies migration 186 (the clarification trigger) before
+    # Opening the vault (through its coordinator) applies migration 186 (the clarification trigger) before
     # anything can record a route-check question.
-    repository = Repository(sqlite_path)
+    repository = open_vault_repository(vault.root, sqlite_path)
     registry_service.freeze_manifest(vault, repository, algorithm_version=current, clock=clock)
     vault.config.algorithms.algorithm_version = target
     activate_p0_projection(vault, repository, from_version=current, clock=clock)

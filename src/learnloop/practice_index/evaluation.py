@@ -457,8 +457,9 @@ def run_retrieval_evaluation(
     """Plan (dry run: no clients, no writes) or run the evaluation end to end."""
     if queries < 0 or logged_queries < 0 or bootstrap_samples < 1:
         raise ValueError("queries and logged_queries must be nonnegative; bootstrap_samples positive")
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = planning_repository(sqlite_path, dry_run=dry_run)
+    paths = VaultPaths(vault.root, vault.config)
+    sqlite_path = paths.sqlite_path
+    repository = planning_repository(paths, dry_run=dry_run)
     run_id = new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, PracticeConstraints(), clock=clock)
     snapshot = load_snapshot(vault, repository, embedder=embedder)

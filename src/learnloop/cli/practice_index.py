@@ -131,8 +131,7 @@ def practice_index_find(
             exclude_item_ids=tuple(exclude or ()), rerank=rerank,
         )
         if dry_run:
-            repository = planning_repository(VaultPaths(loaded.root, loaded.config).sqlite_path,
-                                             dry_run=True)
+            repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=True)
             report = plan_find_practice(loaded, repository, query, constraints)
         else:
             report = find_practice(loaded, _repository(root), query, constraints, origin="cli")

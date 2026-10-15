@@ -37,6 +37,7 @@ from learnloop.config import LearnLoopConfig
 from learnloop.config.schema import StorageConfig
 from learnloop.db.copies import copy_tree_with_databases, copy_tree_without_databases
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
@@ -310,7 +311,7 @@ def run_simulation(
     overrides = dict(config_overrides or {})
     if overrides:
         vault.config = apply_config_overrides(vault.config, overrides)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     profile = _resolve_auto_misconceptions(vault, profile)
     student = SyntheticStudent(profile, seed)
     # Deterministic RNG for planted grader-confusion injection (§9.7.1). Seeded so

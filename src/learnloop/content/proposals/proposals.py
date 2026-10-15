@@ -27,6 +27,7 @@ from learnloop.content.proposals.ai_contracts import (
 )
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.db.repositories import MisconceptionRecord, Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ai.runs import finish_agent_run
 from learnloop.diagnosis.diagnostic_gate import GateResult, run_discrimination_gate
 from learnloop.ids import new_ulid
@@ -60,7 +61,7 @@ def request_authoring_proposal(
 
 def list_proposals(root: Path) -> list[dict]:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     batches = repository.proposal_batches()
     for batch in batches:
         batch["items"] = repository.proposal_items(batch["id"])
@@ -435,7 +436,7 @@ def generate_authoring_proposal(
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     context = build_authoring_context(
         vault,
         subjects=subjects,
@@ -676,7 +677,7 @@ def generate_diagnostic_proposal(
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     need = repository.intervention_need(need_id)
     if need is None:
         raise ValueError(f"Intervention need {need_id} not found")
@@ -811,7 +812,7 @@ def persist_authoring_proposal(
     clock: Clock | None = None,
 ) -> str:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     now = utc_now_iso(clock)
     proposal_payload = proposal.model_dump(mode="json", exclude_none=False)
     context_hash = hashlib.sha256(
@@ -967,7 +968,7 @@ def maybe_promote_self_tagged_fatal_error(
 
 def reject_items(root: Path, patch_id: str, item_ids: list[str] | None = None) -> int:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     diagnostic_reopen_candidates = _diagnostic_reopen_candidates(repository, patch_id, item_ids)
     applied_count = reject_applied_items(root, patch_id, item_ids)
     pending_count = repository.set_proposal_item_decision(patch_id, "rejected", item_ids)
@@ -1133,7 +1134,7 @@ def edit_proposal_item(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     item = repository.proposal_item(item_id)
     if item is None or item["proposed_patch_id"] != patch_id:
         raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
@@ -1172,7 +1173,7 @@ def refresh_proposal_item_validation(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     item = repository.proposal_item(item_id)
     if item is None or item["proposed_patch_id"] != patch_id:
         raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
@@ -1214,7 +1215,7 @@ def repair_proposal_item_audit(
 ) -> dict[str, Any]:
     """Replace a pending item's audit and revalidate the complete proposal item."""
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     item = repository.proposal_item(item_id)
     if item is None or item["proposed_patch_id"] != patch_id:
         raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
@@ -1261,7 +1262,7 @@ def delete_proposal_item(root: Path, patch_id: str, item_id: str) -> bool:
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     item = repository.proposal_item(item_id)
     if item is None or item["proposed_patch_id"] != patch_id:
         raise ValueError(f"Proposal item {item_id} was not found in proposal {patch_id}")
@@ -1278,7 +1279,7 @@ def accept_items(
     clock: Clock | None = None,
 ) -> PatchApplyResult:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     selected_items = repository.pending_proposal_items(patch_id, item_ids)
     diagnostic_items = [item for item in selected_items if _is_diagnostic_probe_item(item)]
     _normalize_diagnostic_probe_mode(
@@ -1403,7 +1404,7 @@ def reset_items(
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     return repository.reset_proposal_item_decision(patch_id, item_ids, clock=clock)
 
 

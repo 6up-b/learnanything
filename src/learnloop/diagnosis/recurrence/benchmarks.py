@@ -84,6 +84,7 @@ from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
 from learnloop.diagnosis.recurrence.judging import estimate_tokens, sum_estimates
 from learnloop.diagnosis.recurrence.kind import SAME_CAUSE, compatible, hypothesis_subjects, scope_of
@@ -1230,7 +1231,7 @@ def run_bench(
         if sqlite_path.exists():
             # Every admitted call is observed by the spend collector, which
             # forwards it to the vault's model_call_receipts.
-            receipts = Repository(sqlite_path)
+            receipts = vault_repository(VaultPaths(vault.root, vault.config))
             spend.collector.sink = lambda action, event: receipts.record_model_event(
                 action, event, owner_kind="recurrence_benchmark", owner_id=suite.name
             )

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.probe_episodes import enter_episode
 from learnloop.vault.loader import load_vault
@@ -282,7 +283,8 @@ def test_overconfidence_probe_records_origin(tmp_path):
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)
-    repo = Repository(scratch)
+    apply_migrations(scratch)  # a copied database outside any vault: upgraded directly
+    repo = Repository.attach(scratch)
     lo_id = next(iter(vault.learning_objects))
     episode = enter_episode(
         vault, repo, lo_id, trigger="goal_diagnostic", origin="overconfidence_list"
@@ -304,7 +306,8 @@ def test_overconfidence_probe_origin_survives_target_selection(tmp_path):
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)
-    repo = Repository(scratch)
+    apply_migrations(scratch)  # a copied database outside any vault: upgraded directly
+    repo = Repository.attach(scratch)
     lo_id = next(iter(vault.learning_objects))
     episode = enter_episode(
         vault, repo, lo_id, trigger="goal_diagnostic", origin="overconfidence_list"
@@ -327,7 +330,8 @@ def test_probe_episode_without_origin_is_null(tmp_path):
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
     shutil.copyfile(VaultPaths(root, vault.config).sqlite_path, scratch)
-    repo = Repository(scratch)
+    apply_migrations(scratch)  # a copied database outside any vault: upgraded directly
+    repo = Repository.attach(scratch)
     lo_id = next(iter(vault.learning_objects))
     episode = enter_episode(vault, repo, lo_id, trigger="initial")
     fetched = repo.probe_episode(episode.id)

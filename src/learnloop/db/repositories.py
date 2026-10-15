@@ -22,7 +22,7 @@ from learnloop.causal_activity_policy import (
 )
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
-from learnloop.db.migrate import apply_migrations
+from learnloop.db.migrate import create_or_attach_current
 from learnloop.db.stores.completion import AttemptCompletionStoreMixin
 from learnloop.db.stores.diagnoses import (
     DiagnosisStoreMixin,
@@ -831,8 +831,18 @@ class Repository(
     RecurrenceStoreMixin,
 ):
     def __init__(self, sqlite_path: Path):
+        """Create the database, or attach to one at this code's migrations.
+
+        An existing database with migrations pending is refused, unchanged
+        (``UncoordinatedMigrationError``): only the vault's migration
+        coordinator upgrades it, because the upgrade's vault-level step (the
+        held-out signals the vault's exam membership qualifies) needs the
+        vault, which this path-only constructor does not know (exam
+        protection identity, F3 final). Code that has the vault opens it
+        through ``learnloop.vault.repository``.
+        """
         self._initialize(sqlite_path, read_only=False)
-        apply_migrations(sqlite_path)
+        create_or_attach_current(sqlite_path)
 
     @classmethod
     def attach(

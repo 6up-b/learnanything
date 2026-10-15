@@ -383,14 +383,14 @@ def test_fixture_vault_goal_over_unauthored_concepts_resolves(tmp_path):
     it (which is exactly how the goal-decay golden broke).
     """
 
-    from learnloop.db.repositories import Repository
     from learnloop.goals.goal_projection import goal_material_gaps, resolve_goal_scope
     from learnloop.vault.loader import load_vault
+    from learnloop.vault.repository import open_vault_repository
 
     root = tmp_path / "linear_algebra"
     shutil.copytree(FIXTURE_VAULT, root)
     vault = load_vault(root)
-    repository = Repository(root / "state.sqlite")
+    repository = open_vault_repository(root, root / "state.sqlite")
 
     concepts = [
         "concept_coordinate_proofs_in_f_n",

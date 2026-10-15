@@ -793,7 +793,15 @@ def test_open_text_migration_preserves_existing_attempts_and_foreign_keys(tmp_pa
     assert evidence["attempt_id"] == "attempt_existing"
 
 
-def test_repository_applies_pending_migrations_on_open(tmp_path):
+def test_opening_the_vault_applies_pending_migrations_a_bare_repository_refuses(tmp_path):
+    """Only the vault's coordinator upgrades an existing database (exam
+    protection identity, F3 final): ``Repository(path)`` refuses one with
+    migrations pending and leaves it as it was; opening the vault applies
+    them."""
+
+    from learnloop.db.migrate import UncoordinatedMigrationError
+    from learnloop.vault.repository import open_vault_repository
+
     sqlite_path = tmp_path / "state.sqlite"
     old_migrations = tmp_path / "old_migrations"
     old_migrations.mkdir()
@@ -803,7 +811,11 @@ def test_repository_applies_pending_migrations_on_open(tmp_path):
 
     apply_migrations(sqlite_path, migrations_dir=old_migrations)
 
-    Repository(sqlite_path)
+    with pytest.raises(UncoordinatedMigrationError, match="is at migration 3"):
+        Repository(sqlite_path)
+    assert applied_versions(sqlite_path) == {1, 2, 3}
+
+    open_vault_repository(tmp_path, sqlite_path)
 
     assert 4 in applied_versions(sqlite_path)
     with connect(sqlite_path) as connection:

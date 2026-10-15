@@ -21,6 +21,7 @@ from learnloop.algorithm_versions import (
 )
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import open_vault_repository
 from learnloop.learner.assessment_contracts import (
     KM_ALGORITHM_VERSION,
     P0_ALGORITHM_VERSION,
@@ -117,10 +118,10 @@ def upgrade_to_mvp07(root: Path, *, clock: Clock | None = None) -> UpgradeResult
         )
 
     # Use an in-memory version switch to enable the canonical projection before
-    # the durable config flip. Repository construction also applies the additive
-    # schema migrations needed by the projection. The old per-LO state and the
-    # raw attempts remain untouched for frozen mvp-0.6 replay.
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    # the durable config flip. Opening the vault (through its coordinator) also
+    # applies the additive schema migrations needed by the projection. The old
+    # per-LO state and the raw attempts remain untouched for frozen mvp-0.6 replay.
+    repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
     vault.config.algorithms.algorithm_version = KM_ALGORITHM_VERSION
     project_canonical_facet_state(vault, repository, clock=clock)
     _rewrite_algorithm_version(root / "learnloop.toml", current, KM_ALGORITHM_VERSION)
@@ -161,7 +162,7 @@ def upgrade_to_mvp08(root: Path, *, clock: Clock | None = None) -> UpgradeResult
         )
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository(sqlite_path)
+    repository = open_vault_repository(vault.root, sqlite_path)
     # (1) Freeze legacy manifests while the config still names mvp-0.7. Idempotent.
     registry_service.freeze_manifest(vault, repository, algorithm_version=LEGACY_ALGORITHM_VERSION, clock=clock)
     registry_service.freeze_manifest(vault, repository, algorithm_version=KM_ALGORITHM_VERSION, clock=clock)
@@ -224,7 +225,7 @@ def upgrade_to_mvp09(root: Path, *, clock: Clock | None = None) -> UpgradeResult
         )
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository(sqlite_path)
+    repository = open_vault_repository(vault.root, sqlite_path)
     registry_service.freeze_manifest(
         vault,
         repository,
@@ -288,8 +289,8 @@ def upgrade_to_mvp010(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         )
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    # Construction applies the additive migrations the split needs (170).
-    repository = Repository(sqlite_path)
+    # Opening the vault (through its coordinator) applies the additive migrations the split needs (170).
+    repository = open_vault_repository(vault.root, sqlite_path)
     registry_service.freeze_manifest(
         vault,
         repository,
@@ -377,9 +378,9 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
     current = vault.config.algorithms.algorithm_version
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    # Repository construction applies the additive migrations (172's receipt
+    # Opening the vault (through its coordinator) applies the additive migrations (172's receipt
     # tables, 173's quick-check presentations) before anything reads them.
-    repository = Repository(sqlite_path)
+    repository = open_vault_repository(vault.root, sqlite_path)
     registry_service.freeze_manifest(
         vault,
         repository,

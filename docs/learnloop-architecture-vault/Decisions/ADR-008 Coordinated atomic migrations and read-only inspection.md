@@ -32,7 +32,7 @@ Application opens supply vault root plus DB path to a lock-taking migration coor
 ## Consequences
 
 - Normal CLI/TUI/sidecar opens serialize correctly.
-- Path-only `Repository(path)` remains a documented compatibility constructor, not the preferred app open path.
+- Path-only `Repository(path)` remains a documented compatibility constructor, not the preferred app open path. Amended 2026-10-15 (exam protection identity, F3 final): it creates a database or attaches to a current one, and refuses to upgrade an existing one (`UncoordinatedMigrationError`). Every upgrade goes through the coordinator, which records what the vault's exam membership qualifies; code below an entry point opens the vault with `vault_repository`.
 - Doctor `--fix` is an explicit mutation boundary.
 
 ## Enforcement

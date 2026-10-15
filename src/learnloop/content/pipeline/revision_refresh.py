@@ -22,6 +22,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.ingest.reanchor import EXACT_HASH, reanchor_spans
 from learnloop.content.sources.exam_material import is_exam_role
@@ -94,7 +95,7 @@ def refresh_revision(
     vault = load_vault(root)
     if repository is None:
         # Repository opens a fresh sqlite connection per call; nothing to close.
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
     return _refresh(
         root, vault, repository, source_set_id, source_id, old_revision_id, new_revision_id,
         client=client, new_extraction_id=new_extraction_id, confirm=confirm,

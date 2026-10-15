@@ -29,9 +29,9 @@ from learnloop.curriculum.golden_path_fixture import (
 )
 from learnloop.substrate import surface_pool as SP
 from learnloop.substrate.activities import resolve_legacy_item
-from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import open_vault_repository
 from learnloop_sidecar.dto import to_camel
 from learnloop_sidecar.server import serve
 
@@ -96,7 +96,7 @@ def main() -> None:
 
         # Admit + review two real practice surfaces so poolNextSurface exercises a
         # genuine ServedSurface (fresh/warmth/exposure flags), not the empty fallback (L5).
-        repo = Repository(VaultPaths(vault_root, load_vault(vault_root).config).sqlite_path)
+        repo = open_vault_repository(vault_root, VaultPaths(vault_root, load_vault(vault_root).config).sqlite_path)
         vault = load_vault(vault_root)
         for slug, item_id in zip(
             [s["surface_slug"] for s in pool_stub["surfaces"]], (EXEMPLAR_A, EXEMPLAR_B)

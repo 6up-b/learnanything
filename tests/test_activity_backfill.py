@@ -12,6 +12,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.substrate.compat.activity_backfill import backfill_activity_substrate
 from learnloop.vault.loader import load_vault
+from learnloop.vault.repository import open_vault_repository
 
 from tests.helpers import NOW
 
@@ -62,7 +63,7 @@ def _hashes(repo: Repository) -> tuple[list, list]:
 def test_backfill_populates_substrate_from_fixture(tmp_path):
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
 
     report = backfill_activity_substrate(vault, repo, clock=CLOCK)
 
@@ -97,7 +98,7 @@ def test_backfill_populates_substrate_from_fixture(tmp_path):
 def test_backfill_is_idempotent_on_fixture_copy(tmp_path):
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
 
     backfill_activity_substrate(vault, repo, clock=CLOCK)
     counts_1 = _table_counts(repo)
@@ -119,7 +120,7 @@ def test_backfill_render_once_per_shared_surface(tmp_path):
 
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
     backfill_activity_substrate(vault, repo, clock=CLOCK)
 
     with connect(repo.sqlite_path) as connection:
@@ -138,7 +139,7 @@ def test_diagnostic_probe_attempts_reuse_shared_surface_hash(tmp_path):
 
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
     backfill_activity_substrate(vault, repo, clock=CLOCK)
 
     with connect(repo.sqlite_path) as connection:
@@ -161,7 +162,7 @@ def test_backfill_marks_unverifiable_for_missing_item(tmp_path):
 
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
 
     # Seed a historical attempt referencing a practice item that is not in the vault.
     with connect(repo.sqlite_path) as connection:
@@ -201,7 +202,7 @@ def test_backfill_logs_attempt_duration_interaction_events(tmp_path):
 
     vault_root = _copy_fixture(tmp_path)
     vault = load_vault(vault_root)
-    repo = Repository(vault_root / "state.sqlite")
+    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
     # Give one attempt a recorded latency so the duration path is exercised.
     with connect(repo.sqlite_path) as connection:
         target = connection.execute(

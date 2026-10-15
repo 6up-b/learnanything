@@ -175,7 +175,7 @@ def _revalue_capped_followups(vault: Any, repository: Any, capped: list[dict[str
 
 def _today(root: Path) -> dict[str, Any]:
     from learnloop.clock import SystemClock
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.scheduling.scheduler import OfferTrace, SchedulerSession, build_due_queue
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
@@ -183,7 +183,7 @@ def _today(root: Path) -> dict[str, Any]:
     def build(enabled: bool) -> tuple[OfferTrace, float, int]:
         vault = load_vault(root)
         vault.config.voi_stopping.enabled = enabled
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
         trace = OfferTrace()
         started = time.perf_counter()
         queue = build_due_queue(
@@ -353,13 +353,13 @@ def main(argv: list[str] | None = None) -> int:
     root = args.vault
     _refuse_unless_copy(root)
 
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
     steps = _upgrade(root)
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
     history = _history(vault, repository)
     revalued = _revalue_capped_followups(vault, repository, history["followup_intervention"].pop("capped"))
     history["followup_intervention"]["value_on_the_capped_ones"] = revalued

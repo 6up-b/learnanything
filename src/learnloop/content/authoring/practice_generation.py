@@ -12,6 +12,7 @@ from learnloop.content.proposals.ai_contracts import PRACTICE_GENERATION_PROMPT_
 from learnloop.ai.client import AIProviderClient
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.substrate.activity_patterns import LEGACY_UNMAPPED, map_capability
 from learnloop.content.authoring.contract_commissioning import commission_plan
 from learnloop.curriculum.depth_rungs import (
@@ -653,7 +654,7 @@ def generate_diagnostic_practice_proposal(
     codex_revision: str | None = None,
 ) -> DiagnosticPracticeResult:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository)
     plan = build_diagnostic_practice_plan(
         vault,
@@ -770,7 +771,7 @@ def generate_post_probe_practice_proposal(
     source_refs: list[dict[str, Any]] | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository)
     plan = build_practice_expansion_plan(
         vault,
@@ -902,7 +903,7 @@ def generate_goal_practice_proposal(
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository)
     goal = next((candidate for candidate in vault.goals if candidate.id == goal_id), None)
     if goal is None:
@@ -1130,7 +1131,7 @@ def generate_cross_source_practice_proposal(
     from learnloop.content.sources.exam_material import exam_material
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository)
     plan = build_practice_expansion_plan(
         vault,

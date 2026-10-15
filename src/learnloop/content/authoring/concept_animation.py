@@ -921,12 +921,12 @@ def generate_concept_animation(
     exception re-raised. Any other exception marks the row failed before
     re-raising — a row never wedges in a non-terminal state."""
 
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import vault_repository
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
     vault = load_vault(root)
-    repository = repository or Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = repository or vault_repository(VaultPaths(vault.root, vault.config))
     row = repository.concept_animation(animation_id)
     if row is None:
         raise ConceptAnimationError("animation_not_found", f"Animation {animation_id!r} does not exist.")

@@ -39,6 +39,7 @@ from learnloop.ai.spend import (
 )
 from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
 from learnloop.ops.contamination.detectors import (
@@ -516,7 +517,8 @@ def contamination_report(
         return finish()
 
     with _report_lock(loaded.root):
-        writer = Repository(sqlite_path)  # applies migrations: the ledger must exist
+        # The vault's repository, upgraded through its coordinator when due: the ledger must exist.
+        writer = vault_repository(VaultPaths(loaded.root, loaded.config))
         requests, rows, pending = plan()
         report["verifier"]["written"] = _write_verifier_verdicts(writer, candidates, rows)
         if not pending:

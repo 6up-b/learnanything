@@ -28,6 +28,7 @@ from typing import Any, Mapping
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
     ApplyAttemptInput,
@@ -323,7 +324,7 @@ def _run_one_episode(
     # meaningful; keep every plausible candidate in the locked set.
     overrides.setdefault("probe.hypothesis_set_max_size", 7)
     vault.config = apply_config_overrides(vault.config, overrides)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     clock = FrozenClock(VALIDATION_START)
     rng = random.Random(seed)
 

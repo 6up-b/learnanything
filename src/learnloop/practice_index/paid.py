@@ -75,6 +75,8 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.practice_index import completed_root_receipts
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import vault_repository
 
 
 Billing = Literal["subscription", "metered"]
@@ -167,15 +169,17 @@ def resolve_client(vault: LoadedVault, route: PaidRoute) -> tuple[Any | None, st
     return resolved.client, None
 
 
-def planning_repository(sqlite_path: Path, *, dry_run: bool) -> Repository:
+def planning_repository(paths: VaultPaths, *, dry_run: bool) -> Repository:
     """The repository a paid batch command plans with.
 
     A dry run attaches read-only and never migrates, so planning an older
     database changes neither its schema nor its journal mode; tables it does
-    not have yet read as empty. A real run opens (and migrates) as usual.
+    not have yet read as empty. A real run opens the vault as usual
+    (``vault_repository``: through the coordinator when an upgrade is due).
     """
     if not dry_run:
-        return Repository(sqlite_path)
+        return vault_repository(paths)
+    sqlite_path = paths.sqlite_path
     if not Path(sqlite_path).exists():
         raise ValueError(f"No database at {sqlite_path}; open the vault once before planning.")
     return Repository.attach(sqlite_path, read_only=True)

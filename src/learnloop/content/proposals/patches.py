@@ -10,6 +10,7 @@ from typing import Any, Callable
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.facet_identity import authority
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.substrate.state_sync import sync_vault_state
@@ -85,7 +86,7 @@ def apply_accepted_items(
     """
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     # The span-support check's Decider requests go out before the lock
     # (review F1): no network call holds the lock other writers wait for.
     span_verdicts = _ask_span_support(vault, repository, patch_id, item_ids, clock)
@@ -320,7 +321,7 @@ def reject_applied_items(
     clock: Clock | None = None,
 ) -> int:
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     origin = _proposal_origin(repository, patch_id)
     requested = set(item_ids or [])
     items = [

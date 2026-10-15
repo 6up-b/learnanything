@@ -72,6 +72,7 @@ from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
 )
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
 from learnloop.ops import pf_verify
@@ -1567,7 +1568,8 @@ def generate_practice(
     tier_routes = _tier_routes(vault, options.tier)
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     # A dry run never migrates or writes: attach read-only to what exists.
-    repository = (Repository.attach(sqlite_path, read_only=True) if dry_run else Repository(sqlite_path))
+    repository = (Repository.attach(sqlite_path, read_only=True) if dry_run
+                  else vault_repository(VaultPaths(vault.root, vault.config)))
     run_id = new_ulid()
     caller = PFCaller(vault, repository, caps=caps, price_per_million=price_per_million,
                       run_id=run_id, cancelled=cancelled)
@@ -1727,7 +1729,7 @@ def publish_backlog(vault: LoadedVault, *, clock: Clock | None = None) -> dict[s
     """Publish selected-but-capped candidates under today's cap; no model calls."""
     if not vault.config.pf.generation_enabled:
         return {"status": "disabled", "reason": "pf.generation_enabled is off"}
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     with repository.connection() as connection:
         rows = store.candidates(connection, where="status='selected' AND verification='verified'")
     order = [row["id"] for row in sorted(rows, key=lambda row: (row["created_at"], row["id"]))]

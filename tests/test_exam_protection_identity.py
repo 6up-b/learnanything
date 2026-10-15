@@ -1366,3 +1366,96 @@ def test_identity_rereview_f3_the_running_app_records_hand_edited_exam_membershi
     held = EM.held_out_material(vault, repository)
     assert held.covers("extXA", "x1"), "A's question stays held out after the second hand edit"
     assert "extXB" in held.extractions and "src_x" in EM.source_marks(vault, repository)
+
+
+# --- F3 final: only the coordinator upgrades a vault's database -----------------------------------------
+
+
+#: CLI commands that opened the vault's database with a bare ``Repository(path)`` at bbe340ce9, which
+#: applied 225 without recording what the vault's exam membership qualifies: a command that built the
+#: repository itself, one whose library call built it, and one that reads its ledger first.
+_CLI_UPGRADES = {
+    "facets_actions": ["facets", "actions", "--json"],
+    "proposals": ["proposals", "--json"],
+    "families_undo": ["families", "undo", "fam_none", "--json"],
+}
+
+
+@pytest.mark.parametrize("command", sorted(_CLI_UPGRADES))
+def test_f3_final_a_cli_upgrade_records_what_membership_qualifies_before_a_hand_edit(exam_book, command):
+    """F3 final (the final verify's reproduction): before 225, a legacy
+    ``combined`` inventory holds A's question out, the book is an exam member
+    in ``source_sets.yaml``, and B is read. A CLI command upgrades the vault;
+    the owner then removes the membership in a text editor; the app opens the
+    vault. At bbe340ce9 the CLI's bare ``Repository(path)`` applied 225 and
+    recorded nothing, so the open appended no row and A's and B's questions,
+    the book's marks and the post-attempt scope were all released. Every
+    upgrade now runs through the coordinator, which records the membership it
+    read."""
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.db.migrate import applied_versions
+    from learnloop.source_retrieval.find_sources import scope_for
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.models import SourceRef
+    from learnloop.vault.repository import open_vault_repository
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    _older_build_with_membership(exam_book, _EXAM_MEMBER)
+    assert 225 not in applied_versions(repo.sqlite_path)
+
+    result = CliRunner().invoke(app, [*_CLI_UPGRADES[command], "--vault", str(root)])
+    assert result.exception is None or isinstance(result.exception, SystemExit), result.output
+    assert 225 in applied_versions(repo.sqlite_path), "the CLI command upgraded the vault"
+
+    _hand_edit_members(root, [])
+    repository = open_vault_repository(root, repo.sqlite_path)  # the app opens the vault normally
+    vault = load_vault(root)
+    held = EM.held_out_material(vault, repository)
+    assert EM.held_out_among(held, "extXA", ["x1"]) == ["x1"], "A's question stays held out"
+    assert held.covers("extXB", "y3") and "extXB" in held.extractions, "B's question stays held out"
+    assert "src_x" in EM.source_marks(vault, repository)
+    ref = SourceRef(ref_type="canonical_source", ref_id="src_x", source_id="src_x", revision_id="rev_x",
+                    extraction_id="extXA", span_ids=["x1"])
+    item = NS(id="itemA", learning_object_id="lo1", provenance=NS(source_refs=[ref]))
+    scope = scope_for(vault, repository, policy="post_attempt", scope="library", learning_object_ids=[], item=item)
+    assert "extXA" not in scope.extractions or ("extXA", "x1") in scope.excluded, (
+        "post-attempt retrieval never admits A's question")
+    assert sorted(row["made_as_role"] or "" for row in repository.held_out_signal_marks()) == ["", "exam"], (
+        "the CLI's upgrade recorded the signal its exam membership qualified (an appended copy)")
+
+
+@pytest.mark.parametrize("vault_was", ["upgraded_by_the_app", "a_textbook_upgraded_by_the_cli"])
+def test_f3_final_a_cli_open_changes_nothing_else(exam_book, vault_was):
+    """Controls. A vault the app already upgraded is attached by every CLI
+    command as before: its ledger gains nothing. A book that is not exam
+    material (the owner's vaults: a video's ``combined`` inventory) records
+    nothing when a CLI command upgrades it, and protects nothing."""
+
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.migration_coordinator import migrate_vault
+    from learnloop.vault.loader import load_vault
+
+    repo, root = exam_book["repo"], exam_book["root"]
+    textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
+    _older_build_with_membership(exam_book, _EXAM_MEMBER if vault_was == "upgraded_by_the_app" else textbook)
+    before = None
+    if vault_was == "upgraded_by_the_app":
+        assert [migration.version for migration in migrate_vault(root, repo.sqlite_path)] == [225]
+        before = sorted((row["id"], row["made_as_role"] or "") for row in repo.held_out_signal_marks())
+
+    for command in sorted(_CLI_UPGRADES):
+        result = CliRunner().invoke(app, [*_CLI_UPGRADES[command], "--vault", str(root)])
+        assert result.exception is None or isinstance(result.exception, SystemExit), result.output
+    rows = sorted((row["id"], row["made_as_role"] or "") for row in repo.held_out_signal_marks())
+    if vault_was == "upgraded_by_the_app":
+        assert rows == before and [role for _, role in rows] == ["", "exam"]
+    else:
+        assert [role for _, role in rows] == [""], "a textbook's signal is recorded as nothing"
+        vault = load_vault(root)
+        assert EM.source_marks(vault, repo) == {}
+        assert not EM.held_out_material(vault, repo).covers("extXA", "x1")

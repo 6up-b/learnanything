@@ -49,7 +49,7 @@ def test_repository_attach_skips_migrations_and_can_be_physically_read_only(
     def unexpected_migration(*_args, **_kwargs):
         raise AssertionError("Repository.attach() must not apply migrations")
 
-    monkeypatch.setattr(repositories, "apply_migrations", unexpected_migration)
+    monkeypatch.setattr(repositories, "create_or_attach_current", unexpected_migration)
     repository = Repository.attach(sqlite_path, read_only=True)
 
     with repository.connection() as connection:
@@ -67,7 +67,7 @@ def test_repository_attach_can_open_a_writable_scratch_copy(tmp_path, monkeypatc
     def unexpected_migration(*_args, **_kwargs):
         raise AssertionError("Repository.attach() must not apply migrations")
 
-    monkeypatch.setattr(repositories, "apply_migrations", unexpected_migration)
+    monkeypatch.setattr(repositories, "create_or_attach_current", unexpected_migration)
 
     repository = Repository.attach(sqlite_path, read_only=False)
     with repository.connection() as connection:
