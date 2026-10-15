@@ -106,3 +106,65 @@ The spec's §17: current data on the working vaults (Q1, owner-run), generator c
 **Left for the owner and the AD2/AD3 stage:**
 - §17 Q8: dated notes in the knowledge-model spec (§8.3), the P3 reader spec (§8.2, §15.4) and the firewall module's docstring, scoped to AD's prediction-only use. This revision does not edit them.
 - §17 Q7: the proposal's quality on real vaults is unknown until the successor runs; G-AD3-7 bounds the cost of a wrong proposal on synthetic vaults.
+
+## Revision 2026-10-15b (owner: reading kinds)
+
+**Branch:** `docs/adaptive-reading-kinds`, from main `37a2a7e5f` (migration head 204). Docs only: no code, migration, config or test changed, and no paid API call was made.
+
+**The owner's decision, in the owner's words:** "Confirming also the exception you scoped for the reading-signal firewall, except we should have each discrete event (maybe collate section read/passage view together for this) have its own weight, since then we can see whats the best way to read actively over time that best optimizes cold retrieval (like tutor exchanges while reading or studying worked examples, how many worked examples/in-passage questions should be done/asked to optimize for learning while minimzing friction and burden?)"
+
+**What changed in the spec:**
+1. **The firewall exception, confirmed (A12, D20; §5.11; Q8 resolved).**
+   - It keeps four limits: only discrete events; prediction and selection only, never evidence or certification; learned weights; its own kill switch (`reading_opportunities`) and auto-flag.
+   - The AD2+AD3 stage updates the rule text in `attempts/salience_firewall.py` and adds one narrow carve-out, `learning_opportunity_events`. It admits only the listed sources, returns records still stamped `salience_only`, and leaves every existing firewall test unchanged (new gate G-AD3-13).
+   - The stage also adds the dated notes to the knowledge-model and P3 reader specs (Q8, now resolved).
+2. **Four kinds, each with its own learned weight (§5.1, §5.2, §5.5, §5.6, §5.8, §5.11).**
+   - The kinds: `reading` (a section read and a passage viewed, collated); `reader_tutor_exchange`; `worked_example`; and `in_passage_question` (RW1b's next-step and why-step prompts, the restored assumptions prompt, section quick checks and owner-placed reading questions).
+   - Each kind has a saturating dose curve in how many of that kind occurred before the next graded attempt on the facet: `g_κ(n) = γ_read[κ,1]·b_1(n) + γ_read[κ,2]·b_2(n)`, with `b_m(n) = 1 − exp(−n/h_m)`, `h_1 = 1` and `h_2 = 4`. The coefficients are hierarchical latent state (a shared curve plus a deviation per kind), exchangeable a priori, learned per vault and never hand-set. The curve is bounded whatever the coefficients, and a negative slow coefficient can show a harmful overdose.
+   - An in-passage answer graded as an attempt keeps its evidence through the ordinary pipeline and takes its kind's increment in place of `γ`, never both. Today none is graded: the spec says so, citing the migrations and the Reader dialogue.
+3. **The dose-and-burden analysis in the AD report (§10.4).**
+   - Per kind, the gain in cold-retrieval success per event and per minute, with intervals. Minutes come from a regression of Reader visits' recorded active minutes on their event counts, beside a practice reference row.
+   - The dose-response curve, and the useful dose: the dose past which another event buys less cold retrieval per minute than another practice question.
+   - Model-based and randomized estimates are kept apart, and "helps when" lines appear only on moderated contrasts whose interval excludes 0.
+   - Plain, template-built recommendation lines appear in the glass box ("What helps you"). Minutes stay in the report, so no recommendation acts by itself.
+4. **The causal caveat and a randomized dose arm (new §5.12, D21, R14).**
+   - Observed doses are confounded by struggle, so at an eligible section boundary the Reader offers one extra worked example or in-passage question with an exploration floor of 0.10 each. The friction budget is one extra offer per section and three a day.
+   - Exact propensities are logged before the offer in `ad_dose_offers`, under a new `reading_dose` design in the randomization layer, with its own switch (`reading_dose_offers`) and a burden auto-flag.
+   - It identifies the offer's effect, moderated by the dose already taken. The effect of taking an offer is identified only under a stated assumption.
+   - The honest limit: at the default floor, one learner's arm resolves only large effects, after thousands of eligible sections. Running it live is D21, recommended on with a small floor.
+5. **Gates (§14).** G-AD1-11 is rewritten for the four kinds, and G-AD3-8 and G-AD3-9 are extended. The new gates are:
+   - G-AD3-11: synthetic readers with known per-kind effects and saturation recover them, and confounded reading is never labelled as tested;
+   - G-AD3-12: the dose arm's propensities are exact;
+   - G-AD3-13: the carve-out admits only the listed kinds;
+   - G-AD3-14: the report's recommendation follows the fitted curves.
+6. **Consistency.**
+   - New ids: R14, D21, Q9 and G-AD3-11 to G-AD3-14.
+   - §5.9's arithmetic is unchanged; only its reading bullet names the new increment.
+   - The migration head is updated to 204 at `37a2a7e5f`.
+   - Also updated: the switch table, tables, config, the learner's view, the contribution export, the deferrals (three new rows) and the §18 prompt.
+
+**Supporting file:** the research appendix gains §3 (h), with nine sources, each verified at its Crossref record (title and first author): `[klasnja2015]`, `[boruvka2018]`, `[angrist1996]`, `[robins2000]`, `[roediger2006]`, `[hamaker1986]`, `[sweller1985]`, `[kalyuga2003]` and `[chi1989]`. Abstracts were read at Crossref where it carries them, otherwise at OpenAlex. `[choffin2019]`'s log-count claim was checked in its full text (p. 4). That makes 135 sources in all, and the new claims are rows of its §1.3.
+
+**Method.**
+- **Code read at `37a2a7e5f`:** the firewall module and its tests; the `apply_attempt` guard; `reader_authored_questions` (migrations 105 and 185); owner-placed reading questions and `reader_answer_submitted` (`reader/reader_dialogue.py`); `studied_worked_examples`; the section and span to LO mapping; the Reader report's visit timing; the randomization layer's designs and grades; the cold retrieval delay; the quick-check gate in `ReaderScreen.tsx`.
+- **Specs read:** RW1b, RW2c and the Reader's restraint rules in `spec_reader_workbench_v1.md`, and `spec_reader_quick_check_producer.md`.
+- **Finding:** RW1b's `next_step` and `why_step` actions are specified and admitted by the schema, but not built at `37a2a7e5f`.
+- **Arithmetic:** the priors' first-event and full-window effects, the propensities at the default floor, and the planning illustration (about 300 outcomes per variant for a 10-point difference near 70%) were computed by hand for this revision.
+
+**Gate.**
+
+| Check | Result |
+|---|---|
+| Ids | Every D (D1–D21), A (A1–A12), Q (Q1–Q9) and R (R1–R14) the spec uses is defined. Every G id referenced is defined, and every "G-ADn-a to G-ADn-b" range is complete (by script) |
+| Section references | Every in-spec § reference resolves to a heading; the 13 that match no heading here point into other specs (by script, then read) |
+| External citations | All 112 bracketed keys the spec cites are rows of the appendix, and the appendix has 135 rows (by script) |
+| Code citations | The 34 `file:line` citations on changed lines resolve to a unique tracked file with a valid range at `37a2a7e5f` (by script), and each was read against its claim; so were the continuation citations `:40-68`, `:71-80` and `:98-109`. The reading bullets of §3.1 were moved to their current lines: `db/repositories.py` and `reader/reader_progression.py` had shifted since `2be98cc43` |
+| Citations not touched | Not re-checked in this revision. A script comparing cited lines between `2be98cc43` and `37a2a7e5f` shows drift in, among others, `config/schema.py`, `practice_generation.py` (the band instruction cited at `:1919` is now at `:1920`), `daily_plan/engine.py` and `vault/models.py` (the concept graph cited at `:171-178` is now near `:199`). The §18 prompt already makes the implementing stage re-check every citation it relies on; a full refresh is left to that stage or a later docs pass |
+| `git diff --check` | Clean |
+| Tests | None run: no code changed |
+| Paid calls | None. Crossref, OpenAlex and arXiv lookups are free and read no learner data |
+
+**Left for the owner and the AD2+AD3 stage:**
+- D21: whether the dose arm runs live (recommended on, floor 0.10).
+- §17 Q9: whether the learner takes the offers. Uptake is in the report from the first week.
+- The carve-out, the rule text and the two dated notes (Q8, resolved), built by the AD2+AD3 stage.
