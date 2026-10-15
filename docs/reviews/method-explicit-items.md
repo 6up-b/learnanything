@@ -49,6 +49,14 @@ to 199, head fixture `migration_head_199`).
 > default is established from the graded revision's own provenance. See
 > `docs/reviews/method-explicit-3-codex-review.md`.
 >
+> **Round-3 re-review (2026-10-15).** Every answer-key check records the
+> key identity its hash was computed under. A check from before the
+> method-aware key never verifies a question whose method was cleared when a
+> method contract recorded that hash, and a contract from before the fix
+> binds its method revision, never the cleared question. A resumed PF
+> selection is budgeted by its largest judgment estimates. See "Re-review"
+> in `docs/reviews/method-explicit-3-codex-review.md`.
+>
 > **Merge note for `mcp/c1-read-context`.** Its `learner_context._pins`
 > reads only the pinned contract's `$.prompt`. When it lands after this
 > branch, it must render the pinned question with
