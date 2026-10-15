@@ -439,3 +439,38 @@ These counts differ from the parity copies' 22 / 6 / 47 because preparation also
    - annotations have their re-anchor action, and the Guide shows moved passages flagged.
 
    **Default:** no "place it again" action yet.
+
+### F8 runtime enforcement
+
+A Codex verify of the coordinated-migration rule found F3 fixed on every runtime path. It raised **F8 [Medium]**: `tests/test_coordinated_migrations.py`'s source scan misses indirect calls (an assignment alias, `getattr`, a factory, an inherited constructor). Such a call would keep the unsafe capability: an upgrade that skips the coordinator's lock and qualification. No such alias existed. Fixed at run time in `0057eca47`, not by scanning harder:
+
+- **The refusal.** `apply_migrations` upgrades an existing database only under a named `db.migrate.upgrade_allowance`, a context variable set for its `with` block (this thread or task only). There are three allowances, each greppable:
+  - `UPGRADE_BY_COORDINATOR`: `migrate_vault`, for its locked, qualifying step only (the upgrade and `record_member_exam_signals`);
+  - `UPGRADE_SCRATCH_COPY`: the offline review bringing its scratch copy to head;
+  - `UPGRADE_TEST_HELPER`: the tests' `migration_upgrade_allowed` fixture.
+
+  Outside every allowance, a database with migrations pending raises `UncoordinatedMigrationError` before anything opens it for writing (no WAL switch), so the file stays byte-identical. The private `_apply_incremental_migration` refuses the same way when reached directly.
+- **What needs no allowance.** Creating a database (a missing file, or an existing one with no migration applied) and attaching a current one. `Repository(path)` still never upgrades.
+- **The scan** stays as the fast check. It now also pins who names an allowance in `src/` and `scripts/`, counting names, attributes, imports and string constants: only `migration_coordinator.py` (its constant) and `offline_review/runner.py` (its own).
+- **New tests** (14 in `tests/test_coordinated_migrations.py`):
+  - the reproduction: `upgrade = apply_migrations; upgrade(path)`, plus `getattr`, a `partial`, a factory's lambda and the incremental step. Each raises outside an allowance, and the file is byte-identical with no `-wal` content;
+  - `Repository` reached by alias, `getattr` or a subclass never upgrades;
+  - creation needs no allowance;
+  - the coordinator path still upgrades and qualifies: it refuses the alias first, then `migrate_vault` upgrades under `UPGRADE_BY_COORDINATOR`, records the `hos_q_` copy with `made_as_role = 'exam'` under the same allowance, and the allowance ends after. This test is marked `durability`;
+  - the offline review's `ReviewRun.open` upgrades its scratch copy under `UPGRADE_SCRATCH_COPY`, and the vault's file stays untouched;
+  - the tests' fixture works;
+  - an unknown allowance is refused.
+- **Existing tests** that build an older database and upgrade it directly now request the fixture: 27 tests in 14 files, and module-wide in `test_migrations.py` and `test_migrate_fresh.py`. The forked child in `test_migration_coordinator.py` enters `UPGRADE_TEST_HELPER` itself.
+- **Docs.** `State and Persistence` and the Pipeline Map say the rule is enforced at run time.
+
+**Gate on `0057eca47`:**
+
+| Step | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11,829 passed**, 0 failed (17 min 17 s; 11,815 + the 14 new) |
+| `flock … uv run --no-sync pytest -m durability -n auto` | **106 passed** (105 + the coordinator test) |
+| `npm run typecheck`, `npm test`, `npm run frontend:build`, `cargo check` | ok, 599 passed in 84 files, built, ok (unchanged since the landing) |
+| `db_validate_reference.py`, `validate_vault.py` | 0 errors, passes |
+
+Only this paragraph was committed after `0057eca47`.
