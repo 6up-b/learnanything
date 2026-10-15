@@ -2698,6 +2698,23 @@ class DeciderRoutesConfig(BaseModel):
     required_method_statement: bool = True
 
 
+class UiConfig(BaseModel):
+    """How the desktop app presents learner surfaces (``docs/specs/ux_learnloop_v1.md`` §10).
+
+    Display only: nothing here is read by grading, scheduling, evidence,
+    projections or replay, so a value never needs an algorithm successor.
+
+    ``practice_feedback`` is the kill switch of UX Phase 4 (practice and
+    feedback, §7.4/§7.5): ``"simple"`` leads every practice card, feedback,
+    short-check result and session finish with one plain line and one next
+    step, the rest behind *details*; ``"classic"`` restores the screens as they
+    were before Phase 4 exactly (owner ruling: live changes behind kill
+    switches, no shadow stage).
+    """
+
+    practice_feedback: Literal["simple", "classic"] = "simple"
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -2754,6 +2771,7 @@ class LearnLoopConfig(BaseModel):
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
     required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
+    ui: UiConfig = Field(default_factory=UiConfig)
 
     @model_validator(mode="before")
     @classmethod

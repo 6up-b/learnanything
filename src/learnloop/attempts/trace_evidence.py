@@ -82,7 +82,10 @@ class ElicitationDecision:
 #: "Why this method?" is one line and enormously informative; "explain each
 #: algebra step" is annoying and tells you nothing.
 _DECISION_POINT_PROMPT = "Optional, one line: why this approach rather than another?"
-_APPLICABILITY_PROMPT = "Optional, one line: what made this case fit?"
+#: UX Phase 4 (usability round 1, m13): "what made this case fit?" sat under
+#: questions that are not about a case; display copy only, the grader reads the
+#: learner's line and never this prompt.
+_APPLICABILITY_PROMPT = "Optional, one line: what told you this idea applies here?"
 
 #: The heading that marks the volunteered line inside the composed trace. A
 #: delimiter for the *reader*: the grader must receive ONE trace rather than two
@@ -135,6 +138,24 @@ def volunteered_explanation(trace_md: str | None) -> str | None:
     if not marker:
         return None
     return tail.strip() or None
+
+
+def learner_answer_part(trace_md: str | None) -> str:
+    """The learner's answer inside a composed trace, without the volunteered
+    line: the other half of :func:`volunteered_explanation`'s inverse.
+
+    Read path only (UX Phase 4: feedback shows the learner's own answer beside
+    a full answer, and the volunteered line apart from it). A trace with no
+    line is returned byte-identically, as :func:`compose_learner_trace` wrote it.
+    """
+
+    if not trace_md:
+        return ""
+    head, marker, _ = trace_md.partition(f"\n\n{ELICITATION_ANSWER_HEADING}")
+    if marker:
+        return head
+    head, marker, _ = trace_md.partition(ELICITATION_ANSWER_HEADING)
+    return head.rstrip() if marker else trace_md
 
 
 def elicited_explanations_in(traces) -> int:

@@ -31,6 +31,11 @@ class AnswerClarificationInput(ParamsModel):
 
 class TriggerRegradeInput(ParamsModel):
     attempt_id: str
+    # UX Phase 4 "I think I was right" (spec §7.5): the learner's one-line
+    # reason. Recorded before the regrade (kept even if the grader is
+    # unavailable) and never handed to the grader, which stays blind to it.
+    # Absent: the plain regrade, exactly as before (records nothing).
+    learner_reason: str | None = None
 
 
 class AddErrorEventInput(ParamsModel):
@@ -472,6 +477,14 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    if params.learner_reason is not None:
+        # "I think I was right": the learner's contest is kept before anything
+        # else, so a grader outage never loses it. The store is the
+        # presentation-only claim ledger (responses never mutate evidence,
+        # grading or belief); the regrade below is the existing one, blind to it.
+        _record_grade_contest(
+            repository, params.attempt_id, params.learner_reason.strip(), session_id=attempt.get("session_id")
+        )
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
     if not runtime.ready:
         label = provider_label(provider_name)
@@ -490,6 +503,49 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
         clock=None,
     )
     return feedback_bundle(vault, repository, params.attempt_id)
+
+
+#: The claim type a learner's "I think I was right" is kept under.
+GRADE_CONTEST_CLAIM_TYPE = "grade_contest"
+
+
+def _record_grade_contest(repository, attempt_id: str, reason: str, *, session_id: str | None) -> None:
+    """Keep a learner's grade contest in the claim ledger (presented, then answered).
+
+    The learner started it, so the attention budget that paces system-asked
+    claims does not apply: each contest is its own visit, never suppressed, and
+    no cooldown hides a second one on the same answer.
+    """
+
+    from learnloop.ids import new_ulid
+    from learnloop.learner.hypothesis_claims import present_claims, record_response
+
+    [presentation] = present_claims(
+        repository,
+        [
+            {
+                "claim_class": "ledger_fact",
+                "claim_type": GRADE_CONTEST_CLAIM_TYPE,
+                "claim_ref": {"attemptId": attempt_id, "kind": GRADE_CONTEST_CLAIM_TYPE},
+                "claim_version": f"{GRADE_CONTEST_CLAIM_TYPE}:{new_ulid()}",
+                "producer_version": "ux-phase4",
+                "surface": "feedback_contest",
+                "temperature": "hot",
+                "visible_at": utc_now_iso(),
+                "claim_text": "I think I was right",
+            }
+        ],
+        session_id=None,
+        visit_id=f"grade-contest:{attempt_id}:{new_ulid()}",
+        session_card_budget=1,
+        claim_cooldown_days=0,
+    )
+    record_response(
+        repository,
+        str(presentation["presentation_id"]),
+        {"response": "i_think_i_was_right", "reason": reason},
+    )
+    log_event("grade_contest_recorded", attempt_id=attempt_id, session_id=session_id, has_reason=bool(reason))
 
 
 @method("trigger_followup", TriggerFollowupInput)

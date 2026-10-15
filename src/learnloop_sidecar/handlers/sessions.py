@@ -117,7 +117,8 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
     from learnloop.learner.session_learning_diff import session_learning_diff
 
-    learning_diff = session_learning_diff(vault, repository, params.session_id)
+    learning_diff = dict(session_learning_diff(vault, repository, params.session_id))
+    demonstrated_facet_ids = learning_diff.pop("demonstrated_facet_ids", [])
     cold_checks = _session_cold_checks(repository, params.session_id)
     return versioned(
         {
@@ -133,9 +134,80 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             "cold_checks_completed": cold_checks["completed"],
             "cold_checks_passed": cold_checks["passed"],
             "streak": repository.session_day_streak(),
+            # UX Phase 4: the calm session finish names what was practised, in
+            # the knowledge well's words (display only, never evidence).
+            "topics": _session_topics(vault, repository, params.session_id, demonstrated_facet_ids),
             **learning_diff,
         }
     )
+
+
+#: Attempt types that are help by construction (a walkthrough, its
+#: reconstruction, a hinted answer).
+_ASSISTED_ATTEMPT_TYPES = frozenset({"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"})
+
+
+def _session_topics(vault, repository, session_id: str, demonstrated_facet_ids) -> list[dict[str, Any]]:
+    """The topics the session practised, each with how it went, in the ○ ◌ ●
+    vocabulary (``docs/specs/ux_learnloop_v1.md`` §7.5, session end):
+
+    * ``on_your_own`` (●): a facet the topic's answers exercise earned
+      certification credit in the session window (the session diff's own
+      "facets demonstrated", which assisted answers never earn);
+    * ``with_help`` (◌): otherwise, an answer that earned points with help
+      (hints, a primed retry or a walkthrough) whose grade is not held.
+
+    A topic only tried, missed, skipped or held is not named: the line says
+    what moved, never a count of what did not. Display only.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+
+    rows = repository.session_attempt_rows(session_id)
+    if not rows:
+        return []
+    demonstrated = {vault.canonical_facet_id(str(facet_id)) for facet_id in demonstrated_facet_ids or ()}
+    held = held_attempt_ids(repository, (row["id"] for row in rows))
+    order: list[str] = []
+    evidence: dict[str, str | None] = {}
+    for row in rows:
+        learning_object_id = str(row.get("learning_object_id") or "")
+        if not learning_object_id or row.get("attempt_type") == "skip":
+            continue
+        if learning_object_id not in evidence:
+            order.append(learning_object_id)
+            evidence[learning_object_id] = None
+        if evidence[learning_object_id] == "on_your_own":
+            continue
+        try:
+            facets = json.loads(row.get("evidence_facets_json") or "[]")
+        except ValueError:
+            facets = []
+        if isinstance(facets, dict):
+            facets = list(facets)
+        if demonstrated and {vault.canonical_facet_id(str(facet)) for facet in facets} & demonstrated:
+            evidence[learning_object_id] = "on_your_own"
+            continue
+        assisted = (
+            int(row.get("hints_used") or 0) > 0
+            or bool(row.get("primed"))
+            or row.get("attempt_type") in _ASSISTED_ATTEMPT_TYPES
+        )
+        if assisted and row["id"] not in held and float(row.get("correctness") or 0.0) > 0.0:
+            evidence[learning_object_id] = "with_help"
+    topics: list[dict[str, Any]] = []
+    for learning_object_id in order:
+        if evidence[learning_object_id] is None:
+            continue
+        learning_object = vault.learning_objects.get(learning_object_id)
+        topics.append(
+            {
+                "learning_object_id": learning_object_id,
+                "title": learning_object.title if learning_object is not None else learning_object_id,
+                "evidence": evidence[learning_object_id],
+            }
+        )
+    return topics
 
 
 #: ``patch_checkpoint``'s default for a field the caller does not touch.

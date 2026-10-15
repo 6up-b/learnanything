@@ -9567,6 +9567,32 @@ class Repository(
             "items_reviewed": int(row["items_reviewed"] if row is not None else 0),
         }
 
+    def session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]:
+        """The session's attempts, oldest first, with what the session finish
+        reads (the same session window as :meth:`session_attempt_counts`)."""
+
+        session = self.fetch_session(session_id)
+        if session is None:
+            return []
+        started_at = session["started_at"]
+        ended_at = session["ended_at"] or utc_now_iso()
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, practice_item_id, learning_object_id, attempt_type,
+                       hints_used, primed, correctness, evidence_facets_json, created_at
+                FROM practice_attempts
+                WHERE session_id = ?
+                   OR (
+                     session_id IS NULL
+                     AND created_at >= ? AND created_at <= ?
+                   )
+                ORDER BY created_at, id
+                """,
+                (session_id, started_at, ended_at),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def review_session_rows(self) -> list[dict[str, Any]]:
         """Reverse-chronological session spine for the Review surface."""
 

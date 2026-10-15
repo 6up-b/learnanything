@@ -1067,7 +1067,24 @@ def _attempt_result(result, repository=None, vault=None) -> dict[str, Any]:
         status = diagnosis_status(repository, result.attempt_id)["status"]
         if status != NOT_NEEDED:
             payload["diagnosisStatus"] = status
+        mark_released_held(payload, repository)
     return payload
+
+
+def mark_released_held(payload: dict[str, Any], repository) -> None:
+    """UX Phase 4 (display only): each released short-check answer says whether
+    its grade is held for review (THE held predicate), so the result shows
+    "held for review" and never the grader's provisional score."""
+
+    block_end = payload.get("probeBlockEnd")
+    released = block_end.get("releasedFeedback") if isinstance(block_end, dict) else None
+    if not released:
+        return
+    from learnloop.held_grades import held_attempt_ids
+
+    held = held_attempt_ids(repository, (entry.get("attemptId") for entry in released))
+    for entry in released:
+        entry["heldForReview"] = entry.get("attemptId") in held
 
 
 def _log_attempt_recorded(repository, session_id: str, answer_md: str, result) -> None:

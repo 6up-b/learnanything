@@ -882,12 +882,33 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "regraded_at": regrade_marker["at"],
             "direction": regrade_direction,
         }
+    from learnloop.attempts.trace_evidence import learner_answer_part, volunteered_explanation
+    from learnloop.db.stores.answered_contracts import answered_contracts
+    from learnloop.held_grades import attempt_grade_held
+
+    trace_md = attempt.get("learner_answer_md")
+    with repository.connection() as connection:
+        answered_contract = answered_contracts(connection, [attempt_id]).get(attempt_id)
     return versioned(
         {
             "attempt_id": attempt_id,
             "practice_item_id": item.id,
             "learning_object_id": attempt["learning_object_id"],
             "learning_object_title": learning_object.title if learning_object is not None else attempt["learning_object_id"],
+            # UX Phase 4 (display only): a grade held for review (THE held
+            # predicate, ``learnloop.held_grades``) is the grader's provisional
+            # score, no evidence anywhere, so the surface says "held for
+            # review" and never shows that score.
+            "held_for_review": attempt_grade_held(repository, attempt_id),
+            # The learner's own answer and volunteered line, apart, so feedback
+            # can show "you wrote" beside a full answer (§7.5).
+            "learner_answer_md": learner_answer_part(trace_md),
+            "learner_explanation_md": volunteered_explanation(trace_md),
+            # The question as it was given, for the screen that shows it beside
+            # the answers: a method-explicit answer's frozen statement and its
+            # rendered instruction (method-explicit-3 F3); None when the item's
+            # own presentation is the question it was given.
+            "answered_presentation": _answered_presentation_or_none(item, answered_contract),
             "rubric_score": attempt["rubric_score"] or 0,
             "max_points": max_points,
             "correctness": attempt["correctness"] or 0.0,
@@ -899,7 +920,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "next_due_at": state.due_at if state is not None else attempt["created_at"],
             "criterion_evidence": [
                 criterion_evidence_dto(row, _rubric_for_item(vault, item))
-                for row in repository.fetch_grading_evidence(attempt_id)
+                for row in _latest_evidence_per_criterion(repository.fetch_grading_evidence(attempt_id))
             ],
             "fatal_errors": metadata.get("fatal_errors") or [],
             "error_attributions": [
@@ -1027,6 +1048,38 @@ def intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None:
             "updated_at": row["updated_at"],
         }
     )
+
+
+def _answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """:func:`answered_presentation`, or None when the item cannot be rendered
+    (the screen then falls back to the item's own presentation; feedback is
+    never refused over the question's display)."""
+
+    try:
+        return answered_presentation(item, contract)
+    except SidecarError:
+        return None
+
+
+def _latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]:
+    """One live row per criterion for display: the latest grading epoch's.
+
+    A regrade of a model-graded attempt leaves the original model rows live
+    beside its own (it supersedes the self-grade tier), and the feedback rubric
+    showed every criterion twice (UX usability round 1, M-b). The attempt's
+    grade, and every fold that reads "the latest epoch", is the regrade's, so
+    the display shows that row. The ledger itself is untouched (display only).
+    """
+
+    latest: dict[str, GradingEvidenceRecord] = {}
+    for row in rows:
+        current = latest.get(row.criterion_id)
+        if current is None or (
+            (row.created_at, -1 if row.grading_revision is None else row.grading_revision, row.id)
+            >= (current.created_at, -1 if current.grading_revision is None else current.grading_revision, current.id)
+        ):
+            latest[row.criterion_id] = row
+    return [row for row in rows if latest.get(row.criterion_id) is row]
 
 
 def criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]:

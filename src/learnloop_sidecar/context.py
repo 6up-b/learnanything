@@ -488,6 +488,9 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # mvp-0.13: the answer surfaces offer "I'm stuck" (write what you
             # can) instead of "I don't know" when this is true.
             "practice": {"stuck_prompt": stuck_prompt_active(vault)},
+            # UX Phase 4's kill switch (display only): "simple" practice and
+            # feedback surfaces, or "classic" for the screens as they were.
+            "ui": {"practice_feedback": config.ui.practice_feedback},
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

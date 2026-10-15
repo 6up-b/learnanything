@@ -111,6 +111,13 @@ def session_learning_diffs(
                 delta > 1e-9
                 for delta in facet_delta_by_session[session_id].values()
             ),
+            # The facets counted above, by id: the session finish names the
+            # topics they belong to (UX Phase 4, display only).
+            "demonstrated_facet_ids": sorted(
+                facet_id
+                for facet_id, delta in facet_delta_by_session[session_id].items()
+                if delta > 1e-9
+            ),
             "predictions_moved": {
                 "up": int(session.get("predictions_up") or 0),
                 "down": int(session.get("predictions_down") or 0),
@@ -126,6 +133,7 @@ def session_learning_diffs(
 def _empty_diff() -> dict[str, object]:
     return {
         "facets_demonstrated": 0,
+        "demonstrated_facet_ids": [],
         "predictions_moved": {"up": 0, "down": 0},
         "corrections": 0,
         "misconceptions_touched": {"resolved": 0, "returned": 0},
