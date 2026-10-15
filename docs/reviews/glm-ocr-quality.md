@@ -2,6 +2,8 @@
 
 Branch `ingest/glm-ocr-quality`, worktree `learnanything-glmocr`, base `bffe086ec` (main with GLM-OCR landed, mvp-0.23).
 
+*Landed on main at `mvp-0.24` (merge `2d8a30125`; see "Landing onto main" below). The extractor landed unchanged. One existing retry test was made immune to the text-layer worker's wait. Re-read safety will need two of its tests updated for the 3,500-token estimate when it lands.*
+
 This stage fixes the content problems found by the owner-requested live checks on 2026-10-14, when GLM-OCR read the owner's books. It covers items 1–4 under "Code changes needed" in the live report. The live report is the session's `glm-ocr-live-results.md`; its raw answers are under the gitignored `fixtures-local/glm-live-responses/`.
 
 The work stays inside the extractor and its normaliser:
@@ -223,3 +225,126 @@ The only new blocks are the recovered footnotes, each after its page's last bloc
 - `tests/test_glm_ocr.py` and `tests/fixtures/glm_ocr/` (README with attribution).
 - `docs/specs/spec_source_ingestion_v2.md`, `docs/reviews/glm-ocr-ingest.md`, `docs/learnloop-architecture-vault/_scripts/db_generate_reference.py`, and the two config reference notes whose content changed (`Config - ingest.md`, `Config - schema_version.md`).
 - Not committed (gitignored, third-party content): `fixtures-local/glm-live-run/out/quality/revalidate.json` and the saved answers.
+
+## Landing onto main
+
+**Branch:** `merge/glmq-onto-main` (worktree `learnanything-merge2`), from main `a9356f986`: `mvp-0.24` LATEST, migration head 202, sixteen defaults snapshots. Since this branch's base `bffe086ec`, main has landed router R2b + R2c, plan determinism and the storage and sync spec.
+
+- Merge `2d8a30125` is a real `--no-ff` merge of `ingest/glm-ocr-quality` (`8be2fdd8f`, unchanged; the Codex re-review was clean).
+- Then `4152afcc5`, a test fix (see "The flake").
+- Then this record.
+
+Not pushed. Owner-directed, 2026-10-15, single phase.
+
+**Paid calls:** none ($0.00); no network, no key read. **Migration:** none (head 202 is main's). **Successor:** none. **`apps/`:** unchanged, so no frontend gate and no `cargo check`.
+
+| Commit | What |
+|---|---|
+| `2d8a30125` | the merge: the regenerated references and the Pipeline Map line |
+| `4152afcc5` | the retry test records only the retry loop's own waits |
+| (this commit) | this section |
+
+### Conflicts and compositions
+
+| File | Resolution |
+|---|---|
+| `Config - ingest.md`, `Config - schema_version.md` (the only conflicts, both generated) | Taken from main, then regenerated with the rest of `Reference/`. 373 notes changed: provenance, plus the branch's two content lines (the 3,500-token estimate under `price_per_million_tokens`, and the `glm_ocr.py:292` citation under `schema_version`). |
+| Auto-merged, both sides kept | `_scripts/db_generate_reference.py`: the branch's estimate wording beside main's `plan.deterministic_staged_plans` override |
+| This side only | `glm_ocr.py`, `glm_text_layer.py`, `tests/test_glm_ocr.py`, `tests/fixtures/glm_ocr/`, `spec_source_ingestion_v2.md`, `glm-ocr-ingest.md` and the two review records. Since `bffe086ec`, main has changed none of them, and nothing under `src/learnloop/ingest/`, `content/` or `reader/`. |
+
+- **The code is the branch's.** `git diff 8be2fdd8f 4152afcc5` is empty for `src/learnloop/ingest/`, `tests/fixtures/glm_ocr/` and the spec, and `tests/test_glm_ocr.py` differs only by the fix below. `git diff a9356f986 4152afcc5 -- src` touches only the two extractor files.
+- **R2b + R2c and plan determinism.** They share no code with this branch. Neither reads an extraction, and the extractor reads no plan, router or config state that they added.
+- **Defaults.** The merge changes no config: `git diff a9356f986 4152afcc5 -- src/learnloop/config` is empty. So the sixteen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries are main's and were not recomputed. A fresh process (`python -B`) confirms all sixteen against `defaults_fingerprint_for_version`.
+- **References.**
+  - `db_generate_reference.py`: schema head 202, 321 table notes.
+  - `db_validate_reference.py` reports `errors: []`, with the prose counts unchanged. `Configuration.md` and `Database.md` still read 854 leaves in 50 sections, since no leaf was added or removed.
+- **CLI help.** `test_cli_help_snapshot.py` passes unchanged.
+- **Pipeline Map** (`Maps/LearnLoop Pipeline Map.md`). One line after the extraction paragraph:
+  - the normaliser's repairs (HTML wrappers, heading depth from bookmarks or numbering, split numbers joined only with evidence, currency, `algorithm` regions);
+  - the text layer read in a pdfium worker process, for footnotes and equation numbers;
+  - the health flags, and the cache identity (`MAP_VERSION` 2, `text_layer`).
+
+  `validate_vault.py` passed: 1,105 notes.
+- **Re-read safety** (`fix/reread-safety` `9f1023b49`, in review, not on main).
+  - A dry merge with this tip (`git merge-tree --write-tree`; no ref changed, no checkout) conflicts only in the 373 generated notes. `test_glm_ocr.py` auto-merges: its status-line assertions gain pages and cost.
+  - On that tree, exported to `fixtures-local/` and run with its own `src` first on the path, `test_glm_ocr.py` and `test_reread_safety.py` give **164 passed, 2 failed**. Both failures pin the old 6,000-token estimate:
+    - `test_the_z_ai_ok_line_names_pages_and_cost_for_a_404_page_book` expects "404 pages, about $0.07". It is now about $0.04: 404 × 3,500 tokens × $0.03 per million = $0.042.
+    - `test_the_reread_confirmation_shows_pages_and_cost_when_z_ai_reads_it` expects `26 * 6000 * 0.03 / 1_000_000` (0.00468). It is now 0.00273.
+  - Re-read safety's landing must update those two expectations. Computing them from `glm_ocr.ESTIMATED_TOKENS_PER_PAGE` would stop them pinning the number again. Nothing else on that branch reads the estimate.
+
+### The flake
+
+Every run below is a separate `pytest` process on the merge, with `TMPDIR` in this worktree's `fixtures-local/tmp`. Other worktrees' suites were running, so the machine was loaded.
+
+| Run | Result |
+|---|---|
+| the two worker-process tests alone (`test_cr_f1_extraction_never_enters_pdfium_in_this_process_while_the_reader_renders`, `test_cr_f1_a_worker_that_crashes_or_hangs_is_recorded_and_the_reading_goes_on`), 25 runs, load 18–37 | **25 of 25 passed** |
+| `tests/test_glm_ocr.py` under `-n 8` at `2d8a30125`, 10 runs, load 30–46 | **7 of 10 failed**, each on `test_429_and_5xx_retry_with_their_own_admission_and_receipt` |
+| the same with the fix (`4152afcc5`), 20 runs, load 13–24 | **20 of 20 passed** (110 tests each) |
+
+**The worker-process tests did not flake.** The test that did, `test_429_and_5xx_retry_with_their_own_admission_and_receipt`, came with GLM-OCR and is on main.
+
+- **Symptom.** `sleeps` held `[3.0, 2.0]` and then 207 to 2,149 more entries, starting `0.001`.
+- **Cause.** The test replaces `time.sleep` for the whole process and asserts every call. (The file's autouse fixture already makes `time.sleep` a no-op; this test records the calls instead.) Since this branch, `extract` reads the text layer in a worker process. `subprocess.run`'s wait polls with `time.sleep` (0.001, 0.002, … up to 0.05 s) when the worker has answered and closed its pipes but not yet exited, which a loaded machine makes common.
+- **Main is not exposed.** Its `extract` never starts a process.
+- **Reproduction.** A worker that waits 0.3 s after answering fails the test every time, with 708,726 extra entries. It ran as a scratch test, since deleted.
+- **The fix** (`4152afcc5`, test only). The recorder keeps only the calls made from `glm_ocr`'s own code, and the assertion `[3.0, 2.0]` is unchanged. With it, the reproduction passes.
+- **Left as is.** Under the file's no-op `sleep`, every worker wait in this file spins rather than sleeps. That costs CPU in tests only and never fails.
+
+The full suite and the durability lane each passed on their first run, so neither needed a rerun.
+
+### Gate
+
+Run in this worktree with `TMPDIR=<worktree>/fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok. The sync removed pypdfium2 and the install restored 5.14.0; a plain `uv run` (an inexact sync) keeps it. |
+| `uv run lint-imports --no-cache` | **17 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`, at `2d8a30125` | **11,153 passed**, 0 failed, 48 warnings (16 min 27 s). That is main's 11,110 plus the branch's 43 more GLM-OCR tests (67 → 110). |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability -n auto`, at `4152afcc5` | **100 passed**, 0 failed (31 s, after about 16 minutes waiting for the lock) |
+| Targeted, before the merge commit | **468 passed** across `test_glm_ocr.py`, CLI help, PDF extraction and extractor selection, the Reader's PDF and span views, the `mvp-0.23` and `mvp-0.24` upgrades, and the 19 ingest and source-ingestion files. **52 passed** across config, plan determinism and the vault template. |
+| `tests/test_glm_ocr.py` after the fix | 20 of 20 runs under `-n 8` passed (see "The flake") |
+| Frontend, `cargo check` | not run: nothing under `apps/` changed |
+
+### Parity
+
+The parity copies are in `fixtures-local/glmq-parity`. They are backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability` (`mvp-0.8`): one pristine copy each, then one copy per side and per check. Each copy was migrated by its own code (`migration_coordinator.migrate_vault`, 47 migrations to 202):
+
+- **main `a9356f986`**, exported with `git archive` (`src`, `tests`, `migrations`) and placed first on `PYTHONPATH`. The migration printed the archive's `learnloop/__init__.py`, and the export's `glm_ocr` has `MAP_VERSION` 1 and no `glm_text_layer`.
+- **the merge's own code.**
+
+On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json` ran with `LEARNLOOP_CONFIG_DIR` an empty directory. The outputs were compared after setting aside ULIDs, timestamps, ids, hashes and paths.
+
+| Fixture | Version | Shadow (facet / mastery / schedule) | Doctor issues / errors | Differences, main vs merge |
+|---|---|---|---|---:|
+| linear algebra | `mvp-0.8` (own) | 22 / 6 / 47 | 106 / 1 | **0** (shadow and doctor) |
+| probability | `mvp-0.8` (own) | 2 / 1 / 1 | 134 / 49 (46 `criterion:unknown_dependency`) | **0** |
+| linear algebra | `mvp-0.24` | 0 / 0 / 0 | 56 / 1 | **0** |
+| probability | `mvp-0.24` | 0 / 0 / 0 | 98 / 49 (46) | **0** |
+
+**How the `mvp-0.24` copies were made.** Each side's own code ran `learnloop upgrade --to mvp-0.9`, then `--to mvp-0.24` (the chain's advisory-guard notes printed). Then `learnloop rebuild-derived-state` ran twice, to its fixed point. The upgrade printed the same notes on both sides. The `mvp-0.8` rows are the fixtures' existing drift. It is the same on both sides, and the same as at the plan-determinism landing.
+
+**No GLM-OCR reading in the owner's data.**
+- Linear algebra's extraction runs are Marker (`1.10.2+map2`, 2) and YouTube (2).
+- Probability's are Marker (`1.10.2+map3`, 3) and HTML (1).
+- No run, model version or health record names GLM-OCR.
+
+So the changed code reads none of the owner's data. Replay never reads an extraction's normaliser, and 0 replay differences is what extraction-only work should give.
+
+**Every run left its copy alone.** `live_database.unchanged` is true on every shadow, and each copy's `state.sqlite` hash is the same before and after its shadow and doctor. Doctor exits 1 on both sides, as on main. The tracked fixtures were only copied: their hashes are unchanged and `git status fixtures/` is clean.
+
+### Safety
+
+- No paid call, no subscription call, no network. No key, credential, `.env` or `settings.env` file was read, nor `~/.config/learnloop/`.
+- The main checkout was not touched, and its working vaults were never opened. This worktree's tracked `linear_algebra` and `probability` were opened only by the backup API, and `arxiv_v2` not at all.
+- Nothing was pushed, rebased or stashed. `ingest/glm-ocr-quality`, its worktree `learnanything-glmocr` and `fix/reread-safety` were not modified. The dry merge wrote objects only; no ref changed.
+- Nothing from `fixtures-local/` is committed.
+
+### Open questions for the owner (defaults applied)
+
+1. **A card line when a scan's footnotes and equation numbers can't be recovered** (open question 1 above; the Codex review's 1). **Default applied: health only.** `glm_ocr_no_text_layer` (and `glm_ocr_text_layer_unavailable` for a worker failure) is recorded in extraction health, with no line on the Library card. A quiet line on every scan's card would be noise against the frictionless defaults. If the owner wants one, it is a single detail keyed on the flag, for the re-read safety stage (which owns `add_source.py`) or a UX stage.
+2. **The epigraph's type** (open question 2; the review's 2). **Default applied: it stays typed `Footnote`.** Axler's chapter epigraph is recovered from the text layer as a Footnote, as Marker's reading typed it. An `Epigraph` type would add an IR block type, which is outside the extractor.
+3. **Follow-up: Marker can race the Reader the same way** (the review's open question 3). Marker runs in the sidecar's own process (`PdfConverter`), and its PDF text extraction also uses pdfium. So a Marker import on the ingest drain's thread can enter pdfium while the Reader renders, which is the segmentation fault F1 fixed for GLM-OCR. It predates this stage and lies outside the GLM-OCR extractor, so it is not fixed here. **Default: a follow-up stage**, with one of two fixes:
+   - the same worker pattern (`glm_text_layer.pdfium_worker`: pdfium in a process of its own) for Marker's conversion;
+   - one process-wide pdfium lock, shared by the Reader's renderer and every pdfium caller left in the sidecar's process.
