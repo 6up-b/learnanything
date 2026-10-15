@@ -84,11 +84,15 @@ def reference_content_hash(item: Any) -> str:
     method revision's hash left the method out (the *legacy identity*), so a
     method revision and the same question with its method cleared shared one
     hash. A check written now records the identity it was computed under
-    (:data:`KEY_IDENTITY_FIELD`). A check without it (every check on main,
-    and this branch's before the fix) is read under explicit compatibility
-    rules (:func:`applicable_checks`): it never verifies a question without
-    a method whose hash a method contract recorded under the legacy
-    identity, and it still binds that contract.
+    (:data:`KEY_IDENTITY_FIELD`), and so does a method contract frozen now.
+    A check without it (every check on main, and this branch's before the
+    fix) is read under explicit compatibility rules (:func:`applicable_checks`):
+    it never verifies a question without a method whose hash may be a method
+    contract's legacy identity, and it still binds a contract whose revision
+    a rebuild establishes. A method contract whose binding nothing
+    establishes exactly is ambiguous and needs a fresh check
+    (:data:`AMBIGUOUS_METHOD_REVISION`). Only vaults that ran this unmerged
+    branch have either: main has no required method.
     """
 
     fields = {"prompt": item.prompt, "expected_answer": item.expected_answer,
@@ -196,7 +200,7 @@ KEY_STATUS_LABELS = {
     "checking": "Being checked",
     "model_answer": "Model's answer, not checked",
     "disputed": "LearnLoop's check disagrees with this answer key",
-    "changed_since_check": "Answer key changed since it was checked",
+    "changed_since_check": "Needs a fresh check: the answer key changed since it was checked",
     "not_applicable": "",
 }
 READER_IMPORT_MECHANISM = "reader_exercise_import"
@@ -339,21 +343,26 @@ def identity_recorded(check: Mapping[str, Any]) -> bool:
     return (check.get("verification") or {}).get(KEY_IDENTITY_FIELD) == KEY_IDENTITY
 
 
-def legacy_method_contents(connection: sqlite3.Connection, practice_item_id: str) -> set[str]:
-    """Every answer-key hash a method contract of the item recorded.
+def legacy_method_identity(connection: sqlite3.Connection, practice_item_id: str, content_hash: str) -> bool:
+    """Whether ``content_hash``, the hash of a question WITHOUT a method, may
+    be a method contract's legacy identity (method-explicit-3 final verify).
 
     A contract frozen for a method revision before review F1 recorded the
     legacy identity: the same hash as that question with its method cleared.
     One frozen since records a method-aware hash, which no question without
-    a method has. So a hash in this set that a question WITHOUT a method also
-    has is a legacy method identity."""
+    a method has. So a method contract that recorded exactly this hash is a
+    legacy one. A method contract frozen before contracts recorded a hash
+    (round 2, F19) names no identity at all, so it may be this one: fail
+    closed. Only vaults that ran this unmerged branch have method contracts."""
 
     if not table_exists(connection, "assessment_contract_versions"):
-        return set()
-    return {str(row[0]) for row in connection.execute(
-        "SELECT json_extract(contract_json, '$.reference_content_hash') FROM assessment_contract_versions "
-        "WHERE practice_item_id=? AND json_extract(contract_json, '$.required_method.name') IS NOT NULL "
-        "AND json_extract(contract_json, '$.reference_content_hash') IS NOT NULL", (practice_item_id,))}
+        return False
+    return connection.execute(
+        "SELECT 1 FROM assessment_contract_versions WHERE practice_item_id=? "
+        "AND json_extract(contract_json, '$.required_method.name') IS NOT NULL "
+        "AND (json_extract(contract_json, '$.reference_content_hash') IS NULL "
+        "OR json_extract(contract_json, '$.reference_content_hash') = ?) LIMIT 1",
+        (practice_item_id, content_hash)).fetchone() is not None
 
 
 def applicable_checks(connection: sqlite3.Connection, practice_item_id: str, content_hash: str, *,
@@ -366,11 +375,13 @@ def applicable_checks(connection: sqlite3.Connection, practice_item_id: str, con
     (:func:`identity_recorded` false):
 
     * ``method_revision=False`` (the revision has no required method): such
-      a check does not apply when a method contract of the item recorded the
-      same hash (:func:`legacy_method_contents`). That hash was the method
-      revision's too, so the check may have verified the method question,
-      not this one. A check recorded since (with its identity) applies.
-      Without such a contract (every item on main) nothing changes;
+      a check does not apply when the hash may be a method contract's legacy
+      identity (:func:`legacy_method_identity`: a method contract recorded
+      it, or recorded no hash). That hash was the method revision's too, so
+      the check may have verified the method question, not this one: the
+      question needs a fresh check. A check recorded since (with its
+      identity) applies. Without a method contract (every item on main)
+      nothing changes;
     * ``legacy_hash``: the revision's legacy identity (a method revision a
       contract froze before the fix, or rebuilt from one). Such a check
       carrying that hash applies too: it is the binding the contract had. A
@@ -381,7 +392,7 @@ def applicable_checks(connection: sqlite3.Connection, practice_item_id: str, con
     rows = key_checks_for_item(connection, practice_item_id) if checks is None else list(checks)
     excluded = method_revision is False and any(
         row["content_hash"] == content_hash and not identity_recorded(row) for row in rows
-    ) and content_hash in legacy_method_contents(connection, practice_item_id)
+    ) and legacy_method_identity(connection, practice_item_id, content_hash)
     applicable: list[Mapping[str, Any]] = []
     for row in rows:
         if row["content_hash"] == content_hash:
@@ -529,6 +540,16 @@ REFERENCE_BINDING_TASK = "attempt_reference_binding"
 #: vault no longer has (round 3, F13/F19 reopened): the default it was graded
 #: under cannot be recovered, so the binding is ambiguous and never verified.
 AMBIGUOUS_DEFAULT_REVISION = "ambiguous_default"
+#: ``bind_replacement_grade``'s ``graded_revision`` for a method contract whose
+#: answer-key binding nothing establishes exactly (method-explicit-3 final
+#: verify): no recorded hash with its key identity, and no rebuild of the
+#: revision graded. Its hash may be the legacy identity another revision
+#: shares, so no check of any revision verifies or disputes it: it needs a
+#: fresh check, and the grade certifies nothing. Only vaults that ran this
+#: unmerged branch have such contracts.
+AMBIGUOUS_METHOD_REVISION = "ambiguous_method"
+#: The bindings whose revision graded cannot be established: no check is read.
+UNESTABLISHED_REVISIONS = frozenset({AMBIGUOUS_DEFAULT_REVISION, AMBIGUOUS_METHOD_REVISION})
 
 
 def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
@@ -560,9 +581,13 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
 
     ``graded_revision = ambiguous_default`` (:data:`AMBIGUOUS_DEFAULT_REVISION`,
     round 3) is a historical binding whose revision graded may have inherited
-    a default rubric that cannot be recovered: no check can vouch for what it
-    graded, so the grade is lowered whatever the candidates' statuses (an
-    exercise import's; ``not_applicable`` content is never gated).
+    a default rubric that cannot be recovered, and ``ambiguous_method``
+    (:data:`AMBIGUOUS_METHOD_REVISION`, the final verify) a method contract
+    whose binding nothing establishes. No check can vouch for what either
+    graded, and none of another revision may decide it, so no check is read:
+    the key status is ``changed_since_check`` (it needs a fresh check) and
+    the grade is lowered whatever any check says (an exercise import's;
+    ``not_applicable`` content is never gated).
 
     The key identities (method-explicit-3 re-review F1,
     :func:`applicable_checks`): ``method_revision`` says whether the graded
@@ -579,11 +604,14 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     else:
         contents = list(dict.fromkeys(graded_contents))
     legacy = dict(legacy_contents or {})
-    statuses = {content: key_status_for_content(connection, item, content, method_revision=method_revision,
-                                                legacy_hash=legacy.get(content)) for content in contents}
-    unrecoverable = graded_contents is not None and graded_revision == AMBIGUOUS_DEFAULT_REVISION
+    if graded_contents is not None and graded_revision in UNESTABLISHED_REVISIONS:
+        unestablished = "changed_since_check" if is_exercise_import(connection, item) else "not_applicable"
+        statuses = {content: unestablished for content in contents}
+    else:
+        statuses = {content: key_status_for_content(connection, item, content, method_revision=method_revision,
+                                                    legacy_hash=legacy.get(content)) for content in contents}
     lowering = [content for content, status in statuses.items()
-                if status != "not_applicable" and (unrecoverable or status not in VERIFIED_STATUSES)]
+                if status != "not_applicable" and status not in VERIFIED_STATUSES]
     if not lowering:
         return None
     row = connection.execute("SELECT reference_status FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone()
@@ -1682,7 +1710,7 @@ __all__ = [
     "identity_recorded",
     "KEY_IDENTITY",
     "KEY_IDENTITY_FIELD",
-    "legacy_method_contents",
+    "legacy_method_identity",
     "effective_key_status",
     "reference_content_hash",
     "exercise_import_ids",
@@ -1703,6 +1731,7 @@ __all__ = [
     "reference_status_for_item",
     "REFERENCE_BINDING_TASK",
     "AMBIGUOUS_DEFAULT_REVISION",
+    "AMBIGUOUS_METHOD_REVISION",
     "bind_replacement_grade",
     "update_import",
     "IMPRESSION_SURFACES",

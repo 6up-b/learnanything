@@ -43,6 +43,20 @@ def _contract(repository, attempt_id: str) -> dict:
     return dict(repository.fetch_assessment_contract_version(version_id)["contract"])
 
 
+def _without_contract_identity(repository, attempt_id: str) -> None:
+    """The attempt's contract as the code before the final verify froze it:
+    without the key identity of its hash."""
+
+    version_id = next(row.assessment_contract_version_id for row in repository.fetch_grading_evidence(attempt_id)
+                      if row.assessment_contract_version_id is not None)
+    contract = dict(repository.fetch_assessment_contract_version(version_id)["contract"])
+    contract.pop("key_identity", None)
+    with closing(connect(repository.sqlite_path)) as connection:
+        with connection:
+            connection.execute("UPDATE assessment_contract_versions SET contract_json=? WHERE id=?",
+                               (json.dumps(contract, sort_keys=True), version_id))
+
+
 def _checks(repository, item_id: str) -> list[dict]:
     from learnloop.db.stores.source_service import key_checks_for_item
 
@@ -55,7 +69,8 @@ def _checks(repository, item_id: str) -> list[dict]:
 def pre_fix(gated_successor, monkeypatch):  # noqa: F811 - the imported fixture
     """A verified exercise answered under induction by the code before the
     fix: its import check, the check of its induction revision and its
-    contract all carry the legacy hash, and no check records an identity."""
+    contract all carry the legacy hash, and neither a check nor the contract
+    records an identity (contracts record it since the final verify)."""
 
     from learnloop.db.stores import source_service
     from learnloop.learner import assessment_contracts
@@ -77,7 +92,9 @@ def pre_fix(gated_successor, monkeypatch):  # noqa: F811 - the imported fixture
         _check(repository, item_id, legacy_hash, "book_solution", "rkc_prefix_induction", "2026-01-01T00:00:00Z")
         attempt = _attempt(paths, repository, item_id, criterion=criterion)
         assert _status(repository, attempt.attempt_id) == "verified"
+    _without_contract_identity(repository, attempt.attempt_id)
     assert _contract(repository, attempt.attempt_id)["reference_content_hash"] == legacy_hash
+    assert "key_identity" not in _contract(repository, attempt.attempt_id)
     assert all("key_identity" not in check["verification"] for check in _checks(repository, item_id))
     return paths, repository, item_id, criterion, attempt, legacy_hash
 

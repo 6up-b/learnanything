@@ -1624,6 +1624,21 @@ class GradedContract:
         that hash when it is frozen (review F19), and the regrade binds
         exactly that revision: ``([hash], "frozen")``.
 
+        **One rule for a method contract** (method-explicit-3 final verify):
+        its binding is established only by a hash recorded with its key
+        identity (every contract frozen from now on), or by rebuilding the
+        revision graded from a rubric the item is known to have had. A
+        method contract this branch froze earlier, whose hash may be the
+        legacy identity (no method), and whose revision no rebuild
+        reproduces, is AMBIGUOUS: ``([its hash], "ambiguous_method")``.
+        So is a historical one (no recorded hash) that no rebuild reproduces
+        (``unrebuilt:<item_content_hash>``). No check of any revision
+        verifies or disputes an ambiguous binding (a check of the question
+        with its method cleared shares its hash): it needs a fresh check,
+        and the grade is lowered whatever any check says
+        (``source_service.bind_replacement_grade``). Only vaults that ran
+        this unmerged branch have such contracts.
+
         A historical contract (frozen before it recorded the hash) froze the
         statement, the expected answer and the required method verbatim and
         the RESOLVED rubric only by hash, so the revision is rebuilt from
@@ -1666,23 +1681,26 @@ class GradedContract:
           inherited revision first, bound UNVERIFIED (never frozen, never
           verified from today's default);
         * none does (the rubric changed too and no snapshot recorded the old
-          one): every revision a key check recorded may be it, the current
-          one excepted when the frozen statement or answer differs from it:
+          one): for a method contract, AMBIGUOUS (above); otherwise every
+          revision a key check recorded may be it, the current one excepted
+          when the frozen statement or answer differs from it:
           ``(hashes, "unresolved")``, bound fail closed.
 
         **Legacy identities** (method-explicit-3 re-review F1). The third
         value maps a returned method revision to its legacy identity: its
         hash without the method, the identity contracts and checks carried
         before review F1, whose checks still bind it
-        (``source_service.applicable_checks``). A recorded hash that is a
-        legacy identity (it equals a rebuild of the frozen revision without
-        its method) binds the method-aware revision with that mapping, so a
-        check of the question with its method cleared, which has the same
-        legacy hash, never reaches it.
+        (``source_service.applicable_checks``). A recorded hash without its
+        key identity is established by a rebuild: one that reproduces it
+        with the method binds it as recorded; one that reproduces it without
+        the method (the legacy identity) binds the method-aware revision
+        with that mapping, so a check of the question with its method
+        cleared, which has the same legacy hash, never reaches it.
         """
 
         from learnloop.db.stores.source_service import (
-            AMBIGUOUS_DEFAULT_REVISION, checked_content_hashes, reference_content_hash,
+            AMBIGUOUS_DEFAULT_REVISION, AMBIGUOUS_METHOD_REVISION, KEY_IDENTITY, KEY_IDENTITY_FIELD,
+            checked_content_hashes, reference_content_hash,
         )
 
         frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer"),
@@ -1741,19 +1759,26 @@ class GradedContract:
 
         recorded = self.contract.get("reference_content_hash")
         if isinstance(recorded, str) and recorded:
-            if self.required_method is not None:
-                # Recorded before review F1 (the legacy identity)? Then the
-                # revision is the method-aware one with exactly that hash
-                # without its method.
-                seen: list[str] = []
-                for rubric in rubrics:
-                    key = json.dumps(rubric, sort_keys=True, default=str)
-                    view = None if key in seen else view_with(rubric)
-                    seen.append(key)
-                    if view is not None and legacy_identity(view) == recorded:
-                        content = reference_content_hash(view)
-                        return [content], "frozen", {content: recorded}
-            return [recorded], "frozen", {}
+            if self.required_method is None or self.contract.get(KEY_IDENTITY_FIELD) == KEY_IDENTITY:
+                return [recorded], "frozen", {}
+            # Frozen by this branch before contracts recorded their key
+            # identity: the hash names the method (since review F1) or not
+            # (the legacy identity). Only a rebuild tells which.
+            seen: list[str] = []
+            for rubric in rubrics:
+                key = json.dumps(rubric, sort_keys=True, default=str)
+                view = None if key in seen else view_with(rubric)
+                seen.append(key)
+                if view is None:
+                    continue
+                if reference_content_hash(view) == recorded:
+                    return [recorded], "frozen", {}
+                if legacy_identity(view) == recorded:
+                    content = reference_content_hash(view)
+                    return [content], "frozen", {content: recorded}
+            # No rebuild establishes it: a check of the question with its
+            # method cleared may carry this very hash (the final verify).
+            return [recorded], AMBIGUOUS_METHOD_REVISION, {}
 
         pinned = _attempt_time_revision(connection, attempt, item.id)
         if pinned is not None and same_question(pinned):
@@ -1803,6 +1828,11 @@ class GradedContract:
             return bound(matched, "frozen")
         if matched:
             return bound([content for content in matched if is_checked(content)] or matched, "ambiguous")
+        if self.required_method is not None:
+            # A method contract whose revision no rebuild reproduces: every
+            # checked revision may be it, the question with its method
+            # cleared among them (the final verify). Ambiguous.
+            return [f"unrebuilt:{self.contract.get('item_content_hash')}"], AMBIGUOUS_METHOD_REVISION, {}
         current = reference_content_hash(item)
         same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer
         candidates = [content for content in checked_content_hashes(connection, item.id)

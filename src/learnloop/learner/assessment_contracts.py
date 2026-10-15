@@ -29,6 +29,7 @@ from learnloop.algorithm_versions import (
 from learnloop.clock import Clock
 from learnloop.learner.capability_mapping import compile_criterion_targets
 from learnloop.attempts.grading import resolved_rubric
+from learnloop.db.stores.source_service import KEY_IDENTITY, KEY_IDENTITY_FIELD
 from learnloop.vault.hashes import reference_content_hash as _reference_content_hash
 from learnloop.vault.models import (
     LearningObject,
@@ -166,6 +167,12 @@ def compile_assessment_contract(
         # cannot be rebuilt from the resolved rubric, which an inherited
         # default and the same rubric written inline share.
         contract["reference_content_hash"] = _reference_content_hash(item)
+        # The key identity it was computed under, as every check records
+        # (method-explicit-3 final verify): this hash names the method, so the
+        # binding is exact without rebuilding the rubric. A method contract
+        # without it was frozen by this branch before, possibly under the
+        # legacy identity, and binds only what a rebuild establishes.
+        contract[KEY_IDENTITY_FIELD] = KEY_IDENTITY
     return contract
 
 

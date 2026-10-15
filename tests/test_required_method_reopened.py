@@ -241,13 +241,13 @@ def test_f13_a_dispute_of_the_edited_revision_never_lowers_the_frozen_regrade(ga
 
 
 @pytest.mark.parametrize("disputed", [False, True], ids=["all_verified", "graded_revision_disputed"])
-def test_f13_when_the_graded_revision_cannot_be_rebuilt_any_unverified_other_revision_lowers(
-        gated_successor, disputed):
+def test_f13_when_the_graded_revision_cannot_be_rebuilt_it_needs_a_fresh_check(gated_successor, disputed):
     """The rubric changed too, so the graded revision's key hash cannot be
-    rebuilt from a HISTORICAL frozen contract (one frozen before contracts
-    recorded the hash, review F19): the grade stands when every checked
-    revision other than the current one is verified, and is lowered when any
-    is not (fail closed)."""
+    rebuilt from a HISTORICAL frozen method contract (one frozen before
+    contracts recorded the hash, review F19). Its binding is ambiguous
+    (method-explicit-3 final verify): the checked revisions include the
+    question before its method was set, so none of them decides it, verified
+    or disputed. It needs a fresh check: the regrade is lowered either way."""
 
     from learnloop.vault.writer import upsert_practice_item
     from tests.source_service_fakes import loaded
@@ -266,13 +266,11 @@ def test_f13_when_the_graded_revision_cannot_be_rebuilt_any_unverified_other_rev
     data["expected_answer"] = "x = 6"
     upsert_practice_item(paths.root, data)
     _regrade(paths, repository, attempt.attempt_id)
-    if not disputed:
-        assert _status(repository, attempt.attempt_id) == "verified"
-        assert _bindings(repository, attempt.attempt_id) == []
-        return
     assert _status(repository, attempt.attempt_id) == "unverified"
     [binding] = _bindings(repository, attempt.attempt_id)
-    assert "graded_revision=unresolved" in binding["rationale"]
+    assert binding["right_id"].startswith("unrebuilt:")
+    assert "key_status=changed_since_check" in binding["rationale"]
+    assert "graded_revision=ambiguous_method" in binding["rationale"]
 
 
 @pytest.fixture
