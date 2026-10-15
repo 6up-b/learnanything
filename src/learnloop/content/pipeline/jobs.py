@@ -2042,6 +2042,29 @@ def _record_import_source(ctx: JobContext, source_id: str, revision_id: str) -> 
     ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, "source_id": source_id, "revision_id": revision_id})
 
 
+def _note_carry_owed(ctx: JobContext, revision_id: str, extraction_id: str) -> None:
+    """Before a reading of a revision that already has one completes (or a
+    cached one is carried again): the job's payload names the carry-over it
+    owes (re-read safety, Codex review F7; ``reread.carry_owed``)."""
+
+    from learnloop.content.pipeline.reread import CARRY_DONE_KEY, CARRY_OWED_KEY, owes_carry
+
+    if not owes_carry(ctx.repo, revision_id, extraction_id):
+        return
+    stored = dict((ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {})
+    if stored.get(CARRY_OWED_KEY) == extraction_id and stored.get(CARRY_DONE_KEY) != extraction_id:
+        return
+    stored.pop(CARRY_DONE_KEY, None)
+    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, CARRY_OWED_KEY: extraction_id})
+
+
+def _carry_noted(ctx: JobContext, extraction_id: str) -> bool:
+    from learnloop.content.pipeline.reread import CARRY_OWED_KEY
+
+    stored = (ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {}
+    return stored.get(CARRY_OWED_KEY) == extraction_id
+
+
 def handle_import(ctx: JobContext) -> dict[str, Any]:
     """import: fetch -> register artifact/revision -> extract to IR -> persist -> health.
 
@@ -2140,6 +2163,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         ir = ctx.repo.load_document_ir(extraction_id)
         if ir is None:
             raise IngestRunnerError(f"cached extraction '{extraction_id}' has no persisted IR")
+        _note_carry_owed(ctx, registered.revision_id, extraction_id)
     else:
         ir = ctx.services.extract_ir(fetched, category, ctx)
         # Injected/custom providers may refine the preflight identity. Persist
@@ -2184,6 +2208,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 status="running",
                 clock=ctx.clock,
             )
+        _note_carry_owed(ctx, registered.revision_id, extraction_id)
         if not reused_extraction:
             ctx.repo.persist_document_ir(extraction_id, ir)
             ctx.repo.complete_extraction_run(
@@ -2195,14 +2220,22 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     # Re-read safety: the revision becomes current only now that it has a
     # completed reading, and a second reading of a revision carries what the
     # learner had on the first (aliases, progress, selection, annotations).
-    from learnloop.content.pipeline.reread import adopt_revision, carry_over
+    # The job's payload names the carry-over this reading owes before the
+    # reading completes (``_note_carry_owed``) and records it done after: one
+    # that fails here (a busy database) or is interrupted stays owed, on the
+    # book's card ("Finish moving them") and in doctor, never silently lost
+    # (Codex review F7). The reading itself stands either way.
+    from learnloop.content.pipeline.reread import adopt_revision, carry_over, mark_carried
 
     adopt_revision(ctx.repo, registered.source_id, registered.revision_id, clock=ctx.clock)
     try:
         carried = carry_over(ctx.repo, extraction_id, clock=ctx.clock)
-    except Exception as exc:  # noqa: BLE001 - the reading stands; references still resolve on read
+    except Exception as exc:  # noqa: BLE001 - the reading stands; the carry-over stays owed
         logging.getLogger(__name__).exception("carrying the old reading over to %s failed", extraction_id)
-        carried = {"error": f"{type(exc).__name__}: {exc}"}
+        carried = {"error": f"{type(exc).__name__}: {exc}", "owed": True}
+    else:
+        if _carry_noted(ctx, extraction_id):
+            mark_carried(ctx.repo, ctx.job_id, extraction_id)
 
     # Fresh or reused alike (Codex review F3): a retry after a worker died
     # between completion and this call still queues what the source is owed.

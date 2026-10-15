@@ -2384,6 +2384,13 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
                      ("restore_reading", "Open the reading you had"), _RESTORE_READING_DETAILS)
     has_text = _completed_extraction(repo, source_id) is not None
     if has_text:
+        from learnloop.content.pipeline import reread
+
+        if reread.carry_owed(repo, source_id) is not None:
+            # A re-read whose carry-over did not finish (Codex review F7): one
+            # tap finishes it; nothing was lost.
+            return _line(reread.CARRY_INCOMPLETE_LINE, "problem", ("retry", reread.CARRY_INCOMPLETE_ACTION),
+                         reread.CARRY_INCOMPLETE_DETAILS)
         refused = _reread_refused(repo, source_id)
         if refused is not None:
             return refused

@@ -24,14 +24,19 @@ database's unit selections when it is built:
    re-import, or an extraction of a revision the set does not pin, is exam
    material too.
 2. *An exam unit.* A member's scope entry with ``role_override: exam`` (a
-   textbook chapter overridden to exam). In the member's pinned extraction it
-   is resolved by unit id with every nested unit (a merged unit is its
-   members; a split child is the blocks under its own heading where that
-   extraction's boundary overrides define it, else its whole raw parent); in
-   every other extraction of the source by the pinned unit's label (unit ids
-   are positional; a split child by its raw parent's label). A unit that does
-   not resolve in an extraction makes that whole extraction exam material
-   (fail closed).
+   textbook chapter overridden to exam). A scope names unit ids of the
+   reading it was made on, and unit ids are positional: a re-read of the
+   pinned revision may reuse ``u1`` for another unit (re-read safety, Codex
+   review F1). A scope does not record its reading, so every completed
+   top-level reading of the pinned revision is a possible origin, and each
+   interpretation is withheld (over-protective, never released): in each
+   origin the scope is resolved by unit id with every nested unit (a merged
+   unit is its members; a split child is the blocks under its own heading
+   where that extraction's boundary overrides define it, else its whole raw
+   parent), and by the labels the other origins resolve it to; in every
+   other extraction of the source by those labels (a split child by its raw
+   parent's label). A unit that does not resolve in an extraction makes that
+   whole extraction exam material (fail closed).
 3. *A held-out unit, whatever its role.* Every unit marked
    ``held_out_evaluation`` in any unit selection of the source (in a source
    set or not, whatever role its member has; owner, 2026-10-13). A mark is a
@@ -45,7 +50,9 @@ database's unit selections when it is built:
 The **held-out partition** (§8.5: what the leakage gate fingerprints and an
 import or a generated item must never reproduce) is rule 3 plus the held-out
 assessment signals of exam units (an exam unit's inventory signals marked
-``held_out``, resolved in the member's pinned extraction):
+``held_out``, on the reading the inventory was made on, and carried to every
+other reading of its revision through the one alias authority; a signal span
+with no alias there withholds that whole reading: Codex review F2):
 :func:`held_out_partition`. It is the one held-out predicate (Codex review
 F3): :attr:`ExamMaterial.held_out`, the Reader's refusals
 (:func:`held_out_material`, read with the vault's source sets) and the gate
@@ -99,6 +106,8 @@ EXAM_UNIT = "exam_unit"
 HELD_OUT_UNIT = "held_out_unit"
 HELD_OUT_SIGNAL = "held_out_signal"
 UNRESOLVED_UNIT = "unresolved_unit"
+#: A held-out signal span with no alias on another reading of its revision.
+UNRESOLVED_SIGNAL = "unresolved_signal"
 EXAM_RESERVED = "exam_reserved"
 EXAM_SOURCE = "exam_source"
 
@@ -292,6 +301,7 @@ class _Reader:
         self._units: dict[str, list[UnitRow]] = {}
         self._extractions: dict[tuple[str, str], list[str]] = {}
         self._pinned: dict[str, str | None] = {}
+        self._readings: dict[str, list[str]] = {}
         self._selections: dict[str, Mapping[str, Any]] = {}
         self._effective: dict[str, Mapping[str, tuple[str, ...]] | None] = {}
 
@@ -307,6 +317,28 @@ class _Reader:
                 source_extraction_ids(self.connection, revision_id=revision_id) if revision_id else [])
             self._extractions[key] = list(dict.fromkeys(found))
         return self._extractions[key]
+
+    def readings(self, revision_id: str | None) -> list[str]:
+        """The revision's completed top-level readings, oldest first: what a
+        scope's unit ids may name (re-read safety, Codex review F1)."""
+
+        if not revision_id:
+            return []
+        if revision_id not in self._readings:
+            self._readings[revision_id] = [str(row[0]) for row in self.connection.execute(
+                "SELECT id FROM source_extraction_runs WHERE revision_id = ? AND status = 'completed' "
+                "AND parent_extraction_id IS NULL ORDER BY created_at, id", (str(revision_id),))]
+        return self._readings[revision_id]
+
+    def origins(self, revision_id: str | None) -> list[str]:
+        """Every reading a member's scope may have been made on: each completed
+        top-level reading of its pinned revision, else the pinned extraction."""
+
+        found = self.readings(revision_id)
+        if found:
+            return found
+        pinned = self.pinned(revision_id)
+        return [pinned] if pinned else []
 
     def pinned(self, revision_id: str | None) -> str | None:
         """The member revision's extraction (its latest completed top-level run)."""
@@ -339,42 +371,64 @@ class _Reader:
         return self._effective[extraction_id]
 
 
+def _origin_units(reader: _Reader, origin: str, narrowing: set[str]) -> tuple[set[str], set[str]] | None:
+    """The scope resolved by unit id in one reading it may have been made on:
+    ``(its spans there, the labels of its raw units)``, or None when a unit
+    id does not resolve there."""
+
+    units = reader.units(origin)
+    by_id = {unit.unit_id: unit for unit in units}
+    roots_of = {unit_id: raw_roots(unit_id, by_id) for unit_id in narrowing}
+    if any(roots is None for roots in roots_of.values()):
+        return None
+    effective = reader.effective_spans(origin) if any("#" in unit_id for unit_id in narrowing) else None
+    spans: set[str] = set()
+    for unit_id, roots in roots_of.items():
+        own = effective.get(unit_id) if effective is not None and "#" in unit_id else None
+        if own is not None:
+            spans.update(own)  # a split child: the blocks under its own heading
+            continue
+        chosen = descendants(units, set(roots or ()))
+        spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
+    labels = {by_id[root].label for roots in roots_of.values() for root in roots or ()}
+    return spans, labels
+
+
 def _member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, reason: str) -> None:
-    """Resolve a member's narrowing units (by id in its pinned extraction, by
-    label in every other extraction of its source); fail closed per extraction."""
+    """Resolve a member's narrowing units; fail closed per extraction.
+
+    The scope's unit ids name units of the reading it was made on, which the
+    scope does not record: every completed top-level reading of the pinned
+    revision is a possible origin (a re-read may reuse ``u1`` for another
+    unit; Codex review F1). Each interpretation is withheld: in each origin by
+    unit id and by the labels the other origins resolve the scope to, in every
+    other extraction of the source by all those labels."""
 
     extraction_ids = reader.source_extractions(member.source_id, member.revision_id)
-    pinned = reader.pinned(member.revision_id)
     pinned_revision = str(member.revision_id or "") or None
-    pinned_units = {unit.unit_id: unit for unit in reader.units(pinned)} if pinned else {}
-    roots_of = {unit_id: raw_roots(unit_id, pinned_units) for unit_id in narrowing}
-    resolved_in_pinned = all(roots is not None for roots in roots_of.values())
-    labels = {pinned_units[root].label for roots in roots_of.values() if roots for root in roots}
-    for extraction_id in extraction_ids:
+    origins = reader.origins(member.revision_id)
+    resolved = {origin: _origin_units(reader, origin, narrowing) for origin in origins}
+    labels_from = {origin: found[1] for origin, found in resolved.items() if found is not None}
+    all_labels = set().union(*labels_from.values()) if labels_from else set()
+    # No origin resolves every unit id: nothing names the scope's units at all.
+    unknown = not labels_from
+    for extraction_id in dict.fromkeys([*extraction_ids, *origins]):
         units = reader.units(extraction_id)
-        if extraction_id == pinned:
-            if not resolved_in_pinned:
-                acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
-                continue
-            effective = reader.effective_spans(extraction_id) if any("#" in unit_id for unit_id in narrowing) \
-                else None
-            spans: set[str] = set()
-            for unit_id, roots in roots_of.items():
-                own = effective.get(unit_id) if effective is not None and "#" in unit_id else None
-                if own is not None:
-                    spans.update(own)  # a split child: the blocks under its own heading
-                    continue
-                chosen = descendants(units, set(roots or ()))
-                spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
-            acc.add_spans(extraction_id, spans, reason, pinned_revision)
+        if unknown or (extraction_id in resolved and resolved[extraction_id] is None):
+            acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
             continue
+        own = resolved.get(extraction_id)
+        spans: set[str] = set(own[0]) if own is not None else set()
+        # The labels the other interpretations name, found here by label.
+        labels = set().union(*(found for origin, found in labels_from.items() if origin != extraction_id)) \
+            if own is not None else all_labels
         roots = {unit.unit_id for unit in units if unit.label in labels}
-        if not resolved_in_pinned or {unit.label for unit in units if unit.unit_id in roots} != labels:
+        if {unit.label for unit in units if unit.unit_id in roots} != labels:
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
             continue
         chosen = descendants(units, roots)
-        acc.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
-                      reason, pinned_revision)
+        spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
+        acc.add_spans(extraction_id, spans, reason, pinned_revision)
 
 
 def _role_material(reader: _Reader, member: Any, withheld_role: Callable[[str | None], bool], acc: _Acc, *,
@@ -634,8 +688,19 @@ def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
                  subjects: set[str] | None = None) -> None:
     """The held-out assessment signals of exam units into ``held``: an exam
     unit's inventory signals marked ``held_out`` (every signal of an exam unit
-    itself marked held out), resolved in the member's pinned extraction.
-    ``subjects`` narrows them to those subjects' source sets."""
+    itself marked held out). ``subjects`` narrows them to those subjects'
+    source sets.
+
+    Each inventory names spans of the reading it was made on (its own
+    ``extraction_id``), never "the latest reading" (Codex review F2): its
+    signals hold there, and on every other completed reading of the revision
+    through the one alias authority (``span_aliases``: the same text or the
+    same place). A signal span with no alias on a reading withholds that whole
+    reading (fail closed). An inventory's unit is an exam unit when its own
+    reading's units say so: the member's exam material (rules 1 and 2, every
+    interpretation of its scope) covers it there."""
+
+    from learnloop.content.sources.span_aliases import SpanTranslator
 
     repository = reader.repository
     for source_set in _source_sets(vault_or_sets):
@@ -645,23 +710,43 @@ def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
             overrides = {str(entry.unit_id): entry.role_override for entry in member.scope if entry.role_override}
             if not is_exam_role(member.default_role) and not any(is_exam_role(role) for role in overrides.values()):
                 continue
-            pinned = reader.pinned(member.revision_id)
-            if pinned is None:
+            pinned_revision = str(member.revision_id or "") or None
+            rows = [row for row in repository.unit_inventories_for_revision(member.revision_id)
+                    if row.get("inventory") and row.get("extraction_id")]
+            if not rows:
                 continue
-            scope_units = [str(entry.unit_id) for entry in member.scope] or [
-                unit.unit_id for unit in reader.units(pinned)]
-            inventories = {str(row["unit_id"]): row["inventory"]
-                           for row in repository.unit_inventories_for_revision(member.revision_id)
-                           if row.get("inventory")}
-            modes = reader.selection(pinned).get("exam_use_modes") or {}
-            for unit_id in scope_units:
-                if not is_exam_role(overrides.get(unit_id, member.default_role)):
+            exam = _Acc()
+            _role_material(reader, member, is_exam_role, exam, member_reason=EXAM_MEMBER, unit_reason=EXAM_UNIT)
+            readings = reader.origins(member.revision_id)
+            translators: dict[str, Any] = {}
+            for row in rows:
+                origin, unit_id = str(row["extraction_id"]), str(row["unit_id"])
+                units = reader.units(origin)
+                roots = raw_roots(unit_id, {unit.unit_id: unit for unit in units})
+                chosen = descendants(units, roots or set())
+                unit_spans = {span for unit in units if unit.unit_id in chosen for span in unit.span_ids}
+                # An exam unit on its own reading (a unit no longer found there
+                # counts: fail closed).
+                if roots is not None and origin not in exam.whole and not any(
+                        (origin, span) in exam.spans for span in unit_spans):
                     continue
-                inventory = inventories.get(unit_id)
-                if inventory:
-                    held.add_spans(pinned, _signal_spans(inventory, held_out_only=modes.get(unit_id)
-                                                         != HELD_OUT_EVALUATION),
-                                   HELD_OUT_SIGNAL, str(member.revision_id or "") or None)
+                modes = reader.selection(origin).get("exam_use_modes") or {}
+                spans = _signal_spans(row["inventory"], held_out_only=modes.get(unit_id) != HELD_OUT_EVALUATION)
+                if not spans:
+                    continue
+                held.add_spans(origin, spans, HELD_OUT_SIGNAL, pinned_revision)
+                for reading in readings:
+                    if reading == origin:
+                        continue
+                    translator = translators.get(reading)
+                    if translator is None:
+                        translator = translators[reading] = SpanTranslator(repository, reading)
+                    landed = [translator.resolve(origin, span) for span in sorted(spans)]
+                    if any(resolution.span_id is None for resolution in landed):
+                        held.add_whole(reading, UNRESOLVED_SIGNAL, pinned_revision)
+                        continue
+                    held.add_spans(reading, (str(resolution.span_id) for resolution in landed), HELD_OUT_SIGNAL,
+                                   pinned_revision)
 
 
 def held_out_partition(vault_or_sets: Any, repository: Any, *,

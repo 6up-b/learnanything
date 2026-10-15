@@ -142,7 +142,8 @@ export interface ReaderInquiryInput {
   onRestored?: (spanId: string | null) => void;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
-    ((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore" }) => Promise<void>) | null
+    ((card: SourceLibraryCard, jumpSpan?: string,
+      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<void>) | null
   >;
 }
 
@@ -452,7 +453,9 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (target.sourceId !== render?.sourceId) {
       const card = (library ?? []).find((candidate) => candidate.sourceId === target.sourceId);
       const openSource = openSourceRef.current;
-      if (card && openSource) await openSource(card, target.spanId ?? undefined, { via: "restore" });
+      if (card && openSource) {
+        await openSource(card, target.spanId ?? undefined, { via: "restore", jumpReading: target.extractionId });
+      }
     } else if (target.spanId) {
       jumpToSpan(target.spanId);
     }

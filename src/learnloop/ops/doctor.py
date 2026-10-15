@@ -24,8 +24,13 @@ from learnloop.content.facet_identity.actions import (
     interrupted_registry_saves,
     recover_interrupted_actions,
 )
-from learnloop.content.pipeline.reread import restore_readable_revision, unread_current_revisions
-from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys, reading_source
+from learnloop.content.pipeline.reread import (
+    carry_owed,
+    finish_carry_over,
+    restore_readable_revision,
+    unread_current_revisions,
+)
+from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys, reading_source
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
     WAL_RESET_ADVISORY_URL,
@@ -404,8 +409,12 @@ def _check_reread_state(
     * a warning for source-object citations whose text on the book's current
       reading differs from the reading they cite (or whose reading is unknown);
     * a warning for links (and YAML source refs) pinned to a reading that is
-      no longer current and that do not resolve to the same text on it.
-    Both warnings read through the one alias authority (``span_aliases``)."""
+      no longer current and that do not resolve to the same text on it;
+    * a warning for a re-read whose carry-over (progress, study map, notes)
+      failed or was interrupted (Codex review F7), finished by
+      ``--fix-state`` (the card's "Finish moving them" does the same).
+    The citation and link warnings read through the one alias authority
+    (``span_aliases``)."""
 
     for state in unread_current_revisions(repository):
         if fix_state:
@@ -422,14 +431,37 @@ def _check_reread_state(
             details={**state, "fix": "doctor --fix-state"},
         ))
 
+    for artifact in repository.all_source_artifacts():
+        source_id = str(artifact["id"])
+        owed = carry_owed(repository, source_id)
+        if owed is None:
+            continue
+        if fix_state:
+            try:
+                finish_carry_over(repository, source_id)
+                continue
+            except Exception as exc:  # noqa: BLE001 - still owed: reported below
+                owed = {**owed, "error": f"{type(exc).__name__}: {exc}"}
+        issues.append(_issue(
+            "warning",
+            "source:reread_carry_incomplete",
+            f"'{_book_title(repository, source_id)}' was read again, but moving the learner's progress, study map "
+            "and notes to the new reading didn't finish. Fix: `learnloop doctor --fix-state`, or 'Finish moving "
+            "them' on its card in the Library. Nothing is lost: they are still on the earlier reading.",
+            entity_id=source_id,
+            details={**owed, "fix": "doctor --fix-state"},
+        ))
+
     current = CurrentKeys(repository)
     if "source_object_citations" in database_tables:
         resolver = CitationResolver(repository)
         changed: dict[str, dict[str, int]] = {}
         with repository.connection() as connection:
             rows = [dict(row) for row in connection.execute(
-                "SELECT c.id, c.revision_id, c.span_id, c.block_content_hash, c.created_at, r.source_id "
-                "FROM source_object_citations c JOIN source_revisions r ON r.id = c.revision_id"
+                f"SELECT c.id, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} AS created_at, "
+                "r.source_id FROM source_object_citations c "
+                "JOIN source_object_versions v ON v.id = c.source_object_version_id "
+                "JOIN source_revisions r ON r.id = c.revision_id"
             ).fetchall()]
         for row in rows:
             resolution = resolver.resolve(row)

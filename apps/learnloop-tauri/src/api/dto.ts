@@ -3423,7 +3423,8 @@ export interface SourceRereadConfirmationDto {
   pageSelection: number[] | null;
   pages: number | null;
   estimatedUsd: number | null;
-  engine: "glm_ocr" | "local";
+  /** glm_ocr: z.ai; glm_ocr_local: the owner's own GLM-OCR server; local: this computer. */
+  engine: "glm_ocr" | "glm_ocr_local" | "local";
   needsConfirmation: boolean;
   title: string;
   lines: string[];
@@ -6670,6 +6671,10 @@ export interface ReaderRenderViewDto {
   /** Readings of this book whose spans have aliases into this one (it was
    *  read again): a place saved on one of them is translated first. */
   aliasedFrom?: string[];
+  /** Every other reading of this book, whether or not aliases were recorded
+   *  (re-read safety, Codex review F5): a bare saved span id is this
+   *  reading's only when there are none. */
+  otherReadings?: string[];
 }
 
 /** Where a saved reading place lands on the book's current reading
@@ -6678,12 +6683,16 @@ export interface ReaderRenderViewDto {
 export interface ReaderSavedPlaceDto {
   version?: number;
   sourceId: string;
-  fromExtractionId: string;
+  /** null: a bare span id whose reading is unknown (then `stale`). */
+  fromExtractionId: string | null;
   fromSpanId: string;
   extractionId: string;
   spanId: string | null;
   status: "current" | "needs_reanchor" | "stale";
   matchKind: string | null;
+  /** unknown_reading: a place saved before places recorded their reading, on
+   *  a book read again since; the reading history decides instead. */
+  reason?: "unknown_reading";
 }
 
 /** Local, source-grounded guidance for one reading section.  Learner-state

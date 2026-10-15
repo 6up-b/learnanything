@@ -147,6 +147,20 @@ export interface OpenedReading {
   extractionId: string;
   /** Readings with aliases into this one (reader.render_view's aliasedFrom). */
   aliasedFrom?: string[];
+  /** Every other reading of the book (reader.render_view's otherReadings),
+   *  aliases or not: the reading history (Codex review F5). */
+  otherReadings?: string[];
+}
+
+/** Whether a saved place is on the reading the book opened on, so it is used
+ *  as it is. A bare span id (saved before places recorded their reading) is
+ *  only when the book has no other reading at all: aliases may be missing (a
+ *  re-read made before they were recorded, one that matched nothing), so the
+ *  reading history decides, never the alias rows (Codex review F5). */
+export function placeIsOnReading(saved: SavedReadingPlace, reading: OpenedReading | undefined): boolean {
+  if (!reading) return true;
+  if (saved.extractionId) return saved.extractionId === reading.extractionId;
+  return (reading.otherReadings ?? reading.aliasedFrom ?? []).length === 0;
 }
 
 /** Imperative handle of the watch panel the jumps seek. */
@@ -255,10 +269,12 @@ export interface ReadingProgress {
    *  reading history decides once it is read. */
   placeAtOpen: (
     sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+    jumpReading?: string | null,
   ) => void;
-  /** The saved place was translated onto a reading whose text changed there
-   *  (re-read safety): the Reader says the place is approximate. */
-  placeApproximate: boolean;
+  /** The saved place (``"saved"``) or a search hit's passage (``"found"``)
+   *  was translated onto a reading whose text changed there (re-read safety):
+   *  the Reader says the place is approximate. False: it is exact. */
+  placeApproximate: false | "saved" | "found";
   /** Hydrate durable reading progress so reveal/completion survive restarts. */
   hydrateProgress: (extractionId: string, progress: ReaderProgressListDto) => void;
   /** Per-source reset; leaving a book saves what was read in it first. */
@@ -301,8 +317,10 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // Re-read safety: a place saved on an earlier reading of the book, once the
   // sidecar has translated it (null: none waiting), and a nudge for the
   // history resume when it could not be.
-  const [translatedPlace, setTranslatedPlace] = useState<{ spanId: string; approximate: boolean } | null>(null);
-  const [placeApproximate, setPlaceApproximate] = useState(false);
+  const [translatedPlace, setTranslatedPlace] = useState<
+    { spanId: string; approximate: false | "saved" | "found" } | null
+  >(null);
+  const [placeApproximate, setPlaceApproximate] = useState<false | "saved" | "found">(false);
   const [historyKick, setHistoryKick] = useState(0);
   const placeRequestRef = useRef(0);
   // Quick checks the learner answered this visit: the guide stops calling them
@@ -404,53 +422,60 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
 
   const placeAtOpen = useCallback((
     sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+    jumpReading?: string | null,
   ) => {
     let placed = Boolean(handoff);
     let translating = false;
+    // A place on another reading of the book (a saved place, or a search hit
+    // found before the book was read again): translated through the re-read's
+    // aliases by the sidecar, never taken as a span of this reading (re-read
+    // safety). Stale or unknown: the reading history decides.
+    const translate = (place: SavedReadingPlace, kind: "saved" | "found") => {
+      translating = true;
+      const request = ++placeRequestRef.current;
+      api
+        .readerSavedPlace({ sourceId, spanId: place.spanId, extractionId: place.extractionId })
+        .then((landed) => {
+          if (placeRequestRef.current !== request) return;
+          if (landed.spanId && landed.status !== "stale") {
+            setTranslatedPlace({ spanId: landed.spanId, approximate: landed.status === "needs_reanchor" ? kind : false });
+          } else {
+            historyResumeRef.current = true;
+            setHistoryKick((value) => value + 1);
+          }
+        })
+        .catch(() => {
+          if (placeRequestRef.current !== request) return;
+          historyResumeRef.current = true;
+          setHistoryKick((value) => value + 1);
+        });
+    };
+    // A search hit (or a return) names its own reading (Codex review F8): one
+    // on another reading is translated like a saved place.
+    const jump: SavedReadingPlace | null = jumpSpan ? { extractionId: jumpReading ?? null, spanId: jumpSpan } : null;
+    const jumpHere = jump !== null && (!jump.extractionId || placeIsOnReading(jump, reading));
     try {
       const saved = decodeReadingPlace(window.localStorage.getItem(readingPositionKey(sourceId)));
-      // Saved on this reading (a bare span id counts as this reading while the
-      // book was never read again): used as it is.
-      const here = saved !== null && (!reading || (saved.extractionId
-        ? saved.extractionId === reading.extractionId
-        : (reading.aliasedFrom ?? []).length === 0));
-      if (saved && here) {
+      if (saved && placeIsOnReading(saved, reading)) {
         setReadingSpan(saved.spanId);
         setActiveSpan(saved.spanId);
         setRestoredSpan(saved.spanId);
         placed = true;
-      } else if (saved && !handoff && !jumpSpan) {
-        // Saved on another reading: translated through the re-read's aliases,
-        // never taken as a span of this one (re-read safety).
-        translating = true;
-        const request = ++placeRequestRef.current;
-        api
-          .readerSavedPlace({ sourceId, spanId: saved.spanId, extractionId: saved.extractionId })
-          .then((landed) => {
-            if (placeRequestRef.current !== request) return;
-            if (landed.spanId && landed.status !== "stale") {
-              setTranslatedPlace({ spanId: landed.spanId, approximate: landed.status === "needs_reanchor" });
-            } else {
-              historyResumeRef.current = true;
-              setHistoryKick((value) => value + 1);
-            }
-          })
-          .catch(() => {
-            if (placeRequestRef.current !== request) return;
-            historyResumeRef.current = true;
-            setHistoryKick((value) => value + 1);
-          });
+      } else if (saved && !handoff && !jump) {
+        translate(saved, "saved");
       }
     } catch {
       /* Reading still works when storage is unavailable. */
     }
     // A search hit overrides the resume position: the learner asked to land
     // on the matching passage, not where they left off.
-    if (jumpSpan) {
-      setReadingSpan(jumpSpan);
-      setActiveSpan(jumpSpan);
-      setRestoredSpan(jumpSpan);
+    if (jump && jumpHere) {
+      setReadingSpan(jump.spanId);
+      setActiveSpan(jump.spanId);
+      setRestoredSpan(jump.spanId);
       placed = true;
+    } else if (jump && !handoff) {
+      translate(jump, "found");
     }
     // No saved place: the reading history decides, once it is read (below).
     historyResumeRef.current = !placed && !translating;

@@ -13354,7 +13354,10 @@ class Repository(
                     "block_content_hash, exact_quote, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         new_ulid(), version_id, i, cite.get("revision_id", version["revision_id"]),
-                        cite["span_id"], cite.get("block_content_hash"), cite.get("exact_quote"), now,
+                        cite["span_id"], cite.get("block_content_hash"), cite.get("exact_quote"),
+                        # A copied citation keeps when it was made: its reading
+                        # is read from that (re-read safety, Codex review F3).
+                        cite.get("created_at") or now,
                     ),
                 )
             connection.commit()
@@ -13509,7 +13512,8 @@ class Repository(
             },
             citations=[
                 {"revision_id": c["revision_id"], "span_id": c["span_id"],
-                 "block_content_hash": c.get("block_content_hash"), "exact_quote": c.get("exact_quote")}
+                 "block_content_hash": c.get("block_content_hash"), "exact_quote": c.get("exact_quote"),
+                 "created_at": c.get("created_at")}
                 for c in head["citations"]
             ],
             clock=clock,

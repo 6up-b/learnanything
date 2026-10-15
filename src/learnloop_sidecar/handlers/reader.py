@@ -443,6 +443,12 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     # the Reader knows a saved place from before a re-read needs translating
     # (``reader.saved_place``) while one saved on this reading is used as is.
     payload["aliased_from"] = repository.span_reanchor_origins(resolved)
+    # The book's other readings, whether or not aliases were recorded (Codex
+    # review F5): a bare saved span id is this reading's only when there are
+    # none.
+    from learnloop.content.sources.span_aliases import other_readings
+
+    payload["other_readings"] = other_readings(repository, resolved)
     return versioned(payload)
 
 
@@ -463,10 +469,13 @@ def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> di
     is the same text, ``needs_reanchor`` the same place with changed text (the
     Reader says the place is approximate), ``stale`` no place (the Reader
     falls back to the reading history). A bare span id saved before places
-    recorded their reading is taken to be on the reading the current one was
-    read from again, or on the current one when it was never re-read."""
+    recorded their reading is read on the reading it can only have been saved
+    on (``span_aliases.legacy_place_origin``); when that is unknown (a re-read
+    made before aliases were recorded, one that matched nothing, more than one
+    earlier reading) it is ``stale``: never declared a place on the current
+    reading (Codex review F5)."""
 
-    from learnloop.content.sources.span_aliases import resolve_span
+    from learnloop.content.sources.span_aliases import STATUS_STALE, legacy_place_origin, resolve_span
 
     _vault, repository = _require_reader(ctx)
     current = resolve_extraction_id(repository, params.source_id)
@@ -474,8 +483,13 @@ def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> di
         raise SidecarError("extraction_not_found", f"No extraction resolves for {params.source_id!r}.")
     origin = params.extraction_id
     if not origin:
-        origins = repository.span_reanchor_origins(current)
-        origin = origins[0] if origins else current
+        origin = legacy_place_origin(repository, current)
+        if origin is None:
+            return versioned({
+                "source_id": params.source_id, "from_extraction_id": None, "from_span_id": params.span_id,
+                "extraction_id": current, "span_id": None, "status": STATUS_STALE, "match_kind": None,
+                "reason": "unknown_reading",
+            })
     elif _source_id_for_extraction(repository, origin) != _source_id_for_extraction(repository, current):
         raise SidecarError("validation_error", "That place was saved on another book.")
     resolution = resolve_span(repository, origin, params.span_id, current)

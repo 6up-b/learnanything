@@ -365,13 +365,17 @@ def carry_selection(repository: Any, old_extraction_id: str, new_extraction_id: 
 
 def carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *,
                       clock: Clock | None = None) -> dict[str, int]:
-    """Re-anchor every annotation of the book not yet on the new reading."""
+    """Re-anchor onto the new reading every annotation of the book anchored on
+    an EARLIER reading of its revision. One anchored on a newer reading, or on
+    another revision, stays where it is: annotations never move backward
+    (Codex review F6)."""
 
+    earlier = set(span_aliases.previous_readings(repository, new_extraction_id))
     statuses: Counter[str] = Counter()
     cache: dict[str, Any] = {}
     for head in repository.annotations_for_source(source_id):
         anchor = (head or {}).get("anchor")
-        if not anchor or anchor.get("extraction_id") == new_extraction_id:
+        if not anchor or anchor.get("extraction_id") not in earlier:
             continue
         try:
             result = reanchor_annotation(repository, annotation_id=head["annotation"]["id"],
@@ -383,32 +387,112 @@ def carry_annotations(repository: Any, source_id: str, new_extraction_id: str, *
     return dict(statuses)
 
 
+def _newest_with(readings: Sequence[str], has: Any) -> str:
+    """The newest of ``readings`` (newest first) that has the state, else the newest."""
+
+    return next((reading for reading in readings if has(reading)), readings[0])
+
+
 def carry_over(repository: Any, new_extraction_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
     """After a completed top-level reading on a revision that already had one:
     record the aliases from every earlier reading of the revision, then carry
-    section progress, the unit selection and annotations from the reading the
-    Reader showed until now. Idempotent (a retried import runs it again)."""
+    section progress, the unit selection and annotations onto it. Idempotent
+    (a retried import, or the card's "Finish moving them", runs it again).
+
+    Only onto the reading the Reader opens (Codex review F6): an import whose
+    extraction cache hands back an older reading carries nothing, so nothing
+    moves backward. Progress and the selection come from the newest earlier
+    reading that has them (one never shown, say, whose own carry did not
+    finish, does not hide the learner's)."""
 
     previous = span_aliases.previous_readings(repository, new_extraction_id)
     if not previous:
         return None
     source_id = span_aliases.reading_source(repository, new_extraction_id)
+    current = span_aliases.current_reading(repository, source_id) if source_id is not None else None
+    if current != new_extraction_id:
+        return {"skipped": "not_the_current_reading", "current_extraction_id": current}
     summary: dict[str, Any] = {"from_extraction_id": previous[0], "aliases": {}}
     for old in previous:
         counts = span_aliases.record_aliases(repository, old, new_extraction_id, clock=clock)
         if old == previous[0]:
             summary["aliases"] = counts
-    old_ir = repository.load_document_ir(previous[0])
     new_ir = repository.load_document_ir(new_extraction_id)
-    if old_ir is not None and new_ir is not None:
-        aliases = span_aliases.alias_map(repository, previous[0], new_extraction_id)
-        units = unit_map(old_ir, new_ir, aliases)
-        summary["progress"] = carry_progress(repository, previous[0], new_extraction_id, old_ir, new_ir, units,
-                                             clock=clock)
-        summary["selection"] = carry_selection(repository, previous[0], new_extraction_id, units, clock=clock)
+    if new_ir is not None:
+        for kind, has in (("progress", lambda reading: bool(repository.reader_section_progress_for(reading))),
+                          ("selection", lambda reading: repository.get_unit_selection(reading) is not None)):
+            origin = _newest_with(previous, has)
+            old_ir = repository.load_document_ir(origin)
+            if old_ir is None:
+                continue
+            units = unit_map(old_ir, new_ir, span_aliases.alias_map(repository, origin, new_extraction_id))
+            if kind == "progress":
+                summary["progress"] = carry_progress(repository, origin, new_extraction_id, old_ir, new_ir, units,
+                                                     clock=clock)
+            else:
+                summary["selection"] = carry_selection(repository, origin, new_extraction_id, units, clock=clock)
     if source_id is not None:
         summary["annotations"] = carry_annotations(repository, source_id, new_extraction_id, clock=clock)
     return summary
+
+
+# --- a carry-over that did not finish (Codex review F7) --------------------------------
+
+#: The import job's payload names the reading it owes a carry-over (before
+#: that reading completes) and, once the carry-over finished, the same reading
+#: again: a carry-over that failed or was interrupted stays visible on the
+#: book's card and in doctor until it is finished.
+CARRY_OWED_KEY = "carry_over_for"
+CARRY_DONE_KEY = "carry_over_done"
+CARRY_INCOMPLETE_LINE = "Your progress and notes didn't all move to the new reading"
+CARRY_INCOMPLETE_ACTION = "Finish moving them"
+CARRY_INCOMPLETE_DETAILS = (
+    "The new reading is ready, but moving your progress, study map and notes to it didn't finish. "
+    "Nothing is lost: they are still on the reading you had."
+)
+
+
+def owes_carry(repository: Any, revision_id: str, extraction_id: str) -> bool:
+    """Whether a reading of ``revision_id`` would owe a carry-over: the
+    revision has another completed top-level reading."""
+
+    return any(str(run["id"]) != extraction_id for run in span_aliases.completed_readings(repository, revision_id))
+
+
+def carry_owed(repository: Any, source_id: str) -> dict[str, Any] | None:
+    """The carry-over a book still owes its current reading, or None:
+    ``{"job_id", "extraction_id"}`` of the import that did not finish it."""
+
+    current = reread_reading(repository, source_id)
+    if current is None or not span_aliases.previous_readings(repository, current):
+        return None
+    for job in repository.ingest_jobs_for_source(("import",), source_id):
+        payload = job.get("payload") or {}
+        if payload.get(CARRY_OWED_KEY) == current:
+            if payload.get(CARRY_DONE_KEY) == current:
+                return None
+            return {"job_id": str(job["id"]), "extraction_id": current}
+    return None
+
+
+def mark_carried(repository: Any, job_id: str, extraction_id: str) -> None:
+    job = repository.get_ingest_job(job_id) or {}
+    payload = dict(job.get("payload") or {})
+    if payload.get(CARRY_DONE_KEY) != extraction_id:
+        repository.update_ingest_job_payload(job_id, {**payload, CARRY_DONE_KEY: extraction_id})
+
+
+def finish_carry_over(repository: Any, source_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
+    """The card's "Finish moving them" and ``doctor --fix-state``: run the
+    owed carry-over again (idempotent) and record it done. None when nothing
+    is owed. Raises what the carry-over raises (still owed then)."""
+
+    owed = carry_owed(repository, source_id)
+    if owed is None:
+        return None
+    summary = carry_over(repository, owed["extraction_id"], clock=clock)
+    mark_carried(repository, owed["job_id"], owed["extraction_id"])
+    return {"extraction_id": owed["extraction_id"], "carried_over": summary}
 
 
 # --- the card's confirmation -----------------------------------------------------------
@@ -475,20 +559,49 @@ def _plural(count: int, noun: str, plural: str | None = None) -> str:
     return f"{count} {noun if count == 1 else (plural or noun + 's')}"
 
 
-def reread_plan(vault: Any, repository: Any, source_id: str, *, glm: bool, upload_ok: bool,
+def reread_reading(repository: Any, source_id: str) -> str | None:
+    """The completed top-level reading the Reader opens for a book (the one a
+    re-read replaces): never a page repair's child run, whose one page would
+    become the whole next reading (Codex review F4)."""
+
+    extraction_id = span_aliases.current_reading(repository, source_id)
+    run = repository.get_extraction_run(extraction_id) if extraction_id else None
+    if run is None or run.get("status") != "completed" or run.get("parent_extraction_id") is not None:
+        return None
+    return str(extraction_id)
+
+
+def _engine_line(backend: str | None, settings: Mapping[str, Any], usd: float | None) -> tuple[str, str]:
+    """``(engine, who reads it)`` for the confirmation: hosted GLM-OCR (z.ai),
+    the owner's own GLM-OCR server (on this computer or another), or text
+    recognition on this computer (Codex review F9)."""
+
+    if backend == "api":
+        return "glm_ocr", f"z.ai (GLM-OCR) reads it: {cost_phrase(usd)}"
+    if backend == "local":
+        from learnloop.ingest.extractors.glm_ocr import LOCAL_URL, is_loopback_url
+
+        here = is_loopback_url(str(settings.get("local_url") or LOCAL_URL))
+        return "glm_ocr_local", ("GLM-OCR on this computer reads it: free" if here
+                                 else "Your GLM-OCR server reads it: free")
+    return "local", "Read on this computer: free"
+
+
+def reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | None, upload_ok: bool,
                 title: str | None = None) -> dict[str, Any]:
     """What reading this book again will read, cost and carry, in plain words.
 
-    ``glm``: GLM-OCR (z.ai) reads it; else text recognition on this computer.
+    ``backend``: the GLM-OCR backend that reads it (``"api"``: z.ai,
+    ``"local"``: the owner's own server; ``glm_ocr.selected_backend``), else
+    None: text recognition on this computer. The pages and the study state are
+    the reading the Reader opens (:func:`reread_reading`).
     ``needs_confirmation`` when the book has study state, or when z.ai would
     read it with the OK already given (no OK line would show the cost)."""
 
-    from learnloop.content.pipeline.add_source import _completed_extraction
     from learnloop.ingest.extractors.glm_ocr import estimate
     from learnloop.ingest.originals import stored_original_path
 
-    resolved = _completed_extraction(repository, source_id)
-    extraction_id = resolved[1] if resolved else None
+    extraction_id = reread_reading(repository, source_id)
     run = repository.get_extraction_run(extraction_id) if extraction_id else None
     page_selection = list((run or {}).get("page_selection") or []) or None
     revision = current_revision(repository, source_id) or {}
@@ -500,13 +613,12 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, glm: bool, uploa
 
             pages = _pdf_page_count(path.read_bytes())
     settings = vault.config.ingest.pdf.glm_ocr.model_dump()
-    priced = estimate(pages, settings, backend="api" if glm else "local")
+    priced = estimate(pages, settings, backend="api" if backend == "api" else "local")
     state = study_state(repository, source_id, extraction_id)
     has_state = any(state.values())
     scope = (f"{page_label(page_selection)} ({_plural(len(page_selection), 'page')}), as before"
              if page_selection else (f"all {_plural(pages, 'page')}" if pages else "the whole file"))
-    who = (f"z.ai (GLM-OCR) reads it: {cost_phrase(priced['estimated_usd'])}" if glm
-           else "Read on this computer: free")
+    engine, who = _engine_line(backend, settings, priced["estimated_usd"])
     lines = [f"{scope[0].upper()}{scope[1:]}.", f"{who}."]
     kept: list[str] = []
     if state["sections_read"]:
@@ -529,9 +641,9 @@ def reread_plan(vault: Any, repository: Any, source_id: str, *, glm: bool, uploa
         "pages": pages,
         "estimated_usd": priced["estimated_usd"],
         "estimate": priced,
-        "engine": "glm_ocr" if glm else "local",
+        "engine": engine,
         "study_state": state,
-        "needs_confirmation": has_state or (glm and upload_ok),
+        "needs_confirmation": has_state or (backend == "api" and upload_ok),
         "title": f"Read {name} again with text recognition?",
         "lines": lines,
         "confirm_label": "Read it again",

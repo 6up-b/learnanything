@@ -862,3 +862,371 @@ def test_a_glm_reread_of_a_sliced_book_sends_only_its_pages(card_book, monkeypat
     uploaded = sum(len(PdfReader(io.BytesIO(base64.b64decode(body["file"].split(",", 1)[-1]))).pages)
                    for body in sent)
     assert uploaded == 26
+
+
+# --- Codex review of the stage (2026-10-14): reproductions, written to fail first ------
+
+
+def _persist_child(repo: Repository, ir: DocumentIR, *, revision_id: str, extraction_id: str, parent: str, clock,
+                   page_selection) -> str:
+    """A completed one-page repair child of a reading (``handle_extraction_repair``)."""
+
+    request_hash = extraction_request_hash(
+        revision_id=revision_id, extractor=ir.extractor, extractor_version=ir.extractor_version,
+        page_selection=page_selection, ir_schema_version=IR_SCHEMA_VERSION, config={"repair_of": parent},
+    )
+    repo.insert_extraction_run(
+        id=extraction_id, revision_id=revision_id, extractor=ir.extractor, extractor_version=ir.extractor_version,
+        extraction_request_hash=request_hash, ir_schema_version=IR_SCHEMA_VERSION, page_selection=page_selection,
+        parent_extraction_id=parent, status="running", clock=clock,
+    )
+    repo.persist_document_ir(extraction_id, ir)
+    repo.complete_extraction_run(extraction_id, extraction_result_hash=extraction_result_hash(request_hash, ir),
+                                 clock=clock)
+    return extraction_id
+
+
+_EXAM_Q = "Exam question: prove that every eigenvalue of a self-adjoint operator is real."
+_THEORY = "Theory: a self-adjoint operator has only real eigenvalues, by the spectral theorem."
+
+
+def _exam_reading_a() -> DocumentIR:
+    return _ir({"x0": ("SectionHeader", 1, ["Exam"], "Exam"), "x1": ("Text", 1, ["Exam"], _EXAM_Q),
+                "x2": ("SectionHeader", 2, ["Theory"], "Theory"), "x3": ("Text", 2, ["Theory"], _THEORY)},
+               [("u1", "Exam", "sha256:exam-a", ["x0", "x1"]), ("u2", "Theory", "sha256:theory-a", ["x2", "x3"])],
+               extractor="marker")
+
+
+def _exam_reading_b() -> DocumentIR:
+    """The re-read reuses A's unit ids for the other units: u1 is Theory here."""
+
+    return _ir({"y0": ("SectionHeader", 2, ["Theory"], "Theory"), "y1": ("Text", 2, ["Theory"], _THEORY),
+                "y2": ("SectionHeader", 1, ["Exam"], "Exam"), "y3": ("Text", 1, ["Exam"], _EXAM_Q)},
+               [("u1", "Theory", "sha256:theory-b", ["y0", "y1"]), ("u2", "Exam", "sha256:exam-b", ["y2", "y3"])],
+               extractor="glm_ocr")
+
+
+@pytest.fixture
+def exam_book(tmp_path):
+    from tests.helpers import create_basic_vault
+    from tests.test_source_inventory import _register_revision
+
+    clock = _clock()
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+    _register_revision(repo, source_id="src_x", revision_id="rev_x")
+    repo.set_source_current_revision("src_x", "rev_x")
+    _persist(repo, _exam_reading_a(), revision_id="rev_x", extraction_id="extXA", clock=clock)
+    clock.advance()
+    return {"repo": repo, "clock": clock, "root": paths.root}
+
+
+def _exam_sets(*, default_role: str = "textbook", scope=(("u1", "exam"),)):
+    from learnloop.vault.models import SourceSet, SourceSetMember, SourceSetScope
+
+    return [SourceSet(id="set_x", subject_id="linear_algebra", title="Exam prep", members=[SourceSetMember(
+        source_id="src_x", revision_id="rev_x", default_role=default_role,
+        scope=[SourceSetScope(unit_id=unit, role_override=role) for unit, role in scope])])]
+
+
+def test_f1_reused_unit_ids_never_release_a_source_set_exam_scope(exam_book):
+    """F1: the scope's ``u1`` named reading A's Exam unit; the re-read B uses
+    ``u1`` for Theory. The exam material stays withheld in both readings."""
+
+    from learnloop.content.sources.exam_material import exam_material, role_material
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    sets = _exam_sets()
+    before = exam_material(sets, repo)
+    assert before.covers("extXA", "x1") and not before.covers("extXA", "x3")
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    after = exam_material(sets, repo)
+    assert after.covers("extXA", "x1"), "the exam question of the reading the scope was made on"
+    assert after.covers("extXB", "y3"), "the same exam question on the re-read"
+    teaching = role_material(sets, repo, lambda role: role == "exam")
+    assert teaching.covers("extXA", "x1") and teaching.covers("extXB", "y3")
+
+
+def _held_out_inventory(repo, *, extraction_id: str, unit_id: str, span_ids, held_out: bool = True) -> None:
+    from learnloop.ids import new_ulid
+
+    repo.insert_unit_inventory(
+        id="inv_" + new_ulid(), source_revision_id="rev_x", extraction_id=extraction_id, unit_id=unit_id,
+        unit_semantic_hash=f"sha256:{extraction_id}-{unit_id}", inventory_profile="exam",
+        inventory_schema_version=1, prompt_version="test", provider="fake", model="fake",
+        inventory={"assessment_signals": [{"signal_id": "sig_1", "held_out": held_out,
+                                           "span_ids": list(span_ids)}]})
+
+
+def test_f2_held_out_signals_stay_on_the_passage_they_name_after_a_reread(exam_book):
+    """F2: an exam paper's inventory marks A's ``x1`` held out. After the
+    re-read that passage is B's ``y3``: the held-out partition keeps (A, x1)
+    and protects (B, y3), never "(B, x1)"."""
+
+    from learnloop.content.sources.exam_material import exam_material, held_out_partition
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    sets = _exam_sets(default_role="exam", scope=())
+    _held_out_inventory(repo, extraction_id="extXA", unit_id="u1", span_ids=["x1"])
+    assert held_out_partition(sets, repo).covers("extXA", "x1")
+    _persist(repo, _exam_reading_b(), revision_id="rev_x", extraction_id="extXB", clock=clock)
+    held = held_out_partition(sets, repo)
+    assert held.covers("extXA", "x1"), "the passage on the reading the inventory was made on"
+    assert held.covers("extXB", "y3"), "the same passage on the re-read"
+    assert exam_material(sets, repo).is_held_out("extXB", "y3")
+
+
+def test_f2_a_held_out_signal_that_matches_nowhere_withholds_the_reading(exam_book):
+    from learnloop.content.sources.exam_material import held_out_partition
+
+    repo, clock = exam_book["repo"], exam_book["clock"]
+    sets = _exam_sets(default_role="exam", scope=())
+    _held_out_inventory(repo, extraction_id="extXA", unit_id="u1", span_ids=["x1"])
+    # Nothing of A's at the same text or the same place: no alias at all.
+    gone = _ir({"z0": ("SectionHeader", 9, ["Appendix"], "Appendix"), "z1": ("Text", 9, ["Appendix"], "Unrelated.")},
+               [("u1", "Appendix", "sha256:z", ["z0", "z1"])], extractor="pypdf")
+    _persist(repo, gone, revision_id="rev_x", extraction_id="extXZ", clock=clock)
+    held = held_out_partition(sets, repo)
+    assert held.covers("extXA", "x1") and "extXZ" in held.extractions  # fail closed
+
+
+def test_f3_reviewing_a_legacy_citation_after_a_reread_keeps_what_it_cites(studied):
+    """F3: a status-only review copies a citation with no block hash into a
+    new version with a new timestamp; it still names the reading it was made on."""
+
+    from learnloop.reader import source_objects as SO
+    from learnloop.source_retrieval.find_sources import source_object_lists
+
+    repo, clock = studied["repo"], studied["clock"]
+    _reread(studied)
+    clock.advance()
+    (head,) = repo.source_objects_for_source("src1")
+    SO.review_source_object(repo, source_object_id=head["object"]["id"], status="reviewed", clock=clock)
+    assert source_object_lists(repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
+    (citations,) = _codes(studied["root"])["source:citation_text_changed"]
+    # Both versions' citations of the changed and the gone passage, never "current".
+    assert citations.details["by_status"] == {"needs_reanchor": 2, "stale": 2}
+    # A copy a review made before this fix carries the review's time: it is
+    # still read from the first copy's time.
+    review_time = clock.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    with repo.connection() as connection:
+        connection.execute(
+            "UPDATE source_object_citations SET created_at = ? WHERE source_object_version_id IN "
+            "(SELECT id FROM source_object_versions WHERE version_ordinal = 2)", (review_time,))
+        connection.commit()
+    assert source_object_lists(repo, "explain", ["extB"])["source_objects"] == [("extB", "b1")]
+    (citations,) = _codes(studied["root"])["source:citation_text_changed"]
+    assert citations.details["by_status"] == {"needs_reanchor": 2, "stale": 2}
+
+
+def test_f3_a_reviewed_copy_keeps_its_citations_origin(studied):
+    """The copy itself carries when the citation was made (a stable origin)."""
+
+    from learnloop.reader import source_objects as SO
+
+    repo, clock = studied["repo"], studied["clock"]
+    _reread(studied)
+    clock.advance()
+    (head,) = repo.source_objects_for_source("src1")
+    SO.review_source_object(repo, source_object_id=head["object"]["id"], status="reviewed", clock=clock)
+    with repo.connection() as connection:
+        made = {(row["span_id"], row["created_at"]) for row in connection.execute(
+            "SELECT span_id, created_at FROM source_object_citations")}
+    assert len(made) == 3  # one origin per citation, across both versions
+
+
+def test_f4_a_page_repair_never_becomes_the_next_rereads_scope(card_book):
+    ctx, source_id, clock = card_book["ctx"], card_book["source_id"], card_book["clock"]
+    first = resolve_extraction_id(ctx.repository, source_id)
+    revision_id = ctx.repository.get_extraction_run(first)["revision_id"]
+    _persist_child(ctx.repository, reading_a(), revision_id=revision_id, extraction_id="ext_repair", parent=first,
+                   clock=clock, page_selection=[20])
+    clock.advance()
+    assert resolve_extraction_id(ctx.repository, source_id) == first  # the Reader opens the top-level reading
+    ctx.repository.upsert_reader_section_progress(extraction_id=first, section_id="u1", spans_seen=4, span_count=4,
+                                                  completed=True)
+    asked = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})
+    confirmation = asked["confirmation"]
+    assert confirmation["pageSelection"] == list(range(13, 39))
+    assert confirmation["lines"][0] == "Pages 14–39 (26 pages), as before."
+    assert "your progress (1 section)" in confirmation["lines"][2].lower()
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition", "confirmed": True})
+    import_job = next(job for job in ctx.repository.ingest_jobs_for_batch(out["batchId"]) if job["job_type"] == "import")
+    assert import_job["payload"]["page_selection"] == list(range(13, 39))
+
+
+def test_f5_a_legacy_saved_place_with_an_unknown_reading_falls_back_to_the_history(studied):
+    """F5: a bare span id saved before places recorded their reading, on a
+    book read again by an older build (no aliases recorded): its reading is
+    unknown, so it is never declared a place on the current reading."""
+
+    _reread(studied, carry=False)
+    ctx = SidecarContext()
+    ctx.load(studied["root"])
+    view = call(ctx, "reader.render_view", {"extractionId": "src1"})
+    assert view["extractionId"] == "extB" and view["otherReadings"] == ["extA"]
+    legacy = call(ctx, "reader.saved_place", {"sourceId": "src1", "spanId": "b5"})
+    assert (legacy["spanId"], legacy["status"]) == (None, "stale")
+
+
+def test_f5_a_legacy_saved_place_after_a_reread_with_no_alias_falls_back_to_the_history(studied):
+    repo = studied["repo"]
+    nothing_alike = _ir({"q0": ("Text", 30, ["Other"], "Entirely different words."),
+                         "q1": ("Text", 31, ["Other"], "More different words.")},
+                        [("w1", "Other", "sha256:w1", ["q0", "q1"])], extractor="pypdf")
+    _persist(repo, nothing_alike, revision_id="rev1", extraction_id="extQ", clock=studied["clock"])
+    from learnloop.content.pipeline.reread import carry_over
+
+    carry_over(repo, "extQ", clock=studied["clock"])
+    assert repo.span_reanchors_between("extA", "extQ") == []
+    ctx = SidecarContext()
+    ctx.load(studied["root"])
+    legacy = call(ctx, "reader.saved_place", {"sourceId": "src1", "spanId": "q1"})
+    assert (legacy["spanId"], legacy["status"]) == (None, "stale")
+
+
+def test_f5_a_legacy_saved_place_on_a_book_read_once_is_on_its_reading(studied):
+    ctx = SidecarContext()
+    ctx.load(studied["root"])
+    view = call(ctx, "reader.render_view", {"extractionId": "src1"})
+    assert view["otherReadings"] == []
+    legacy = call(ctx, "reader.saved_place", {"sourceId": "src1", "spanId": EXACT})
+    assert (legacy["spanId"], legacy["status"]) == (EXACT, "current")
+
+
+def _annotate(repo, extraction_id: str, span_id: str, quote: str, *, source_id: str, revision_id: str, clock) -> str:
+    from learnloop.reader import annotations as ANN
+
+    translation = ANN.translate_selection(repo, extraction_id=extraction_id,
+                                          raw_selection={"nodes": [{"span_id": span_id, "quote": quote}]})
+    return ANN.append_annotation(repo, source_id=source_id, revision_id=revision_id, extraction_id=extraction_id,
+                                 annotation_type="highlight", translation=translation, clock=clock)["annotation_id"]
+
+
+def test_f6_an_import_that_reuses_an_older_reading_never_moves_annotations_backward(card_book):
+    ctx, source_id, clock = card_book["ctx"], card_book["source_id"], card_book["clock"]
+    repo = ctx.repository
+    first = resolve_extraction_id(repo, source_id)
+    revision_id = repo.get_extraction_run(first)["revision_id"]
+    _annotate(repo, first, EXACT, "vector space", source_id=source_id, revision_id=revision_id, clock=clock)
+    pages = list(range(13, 39))
+    # B: the card's re-read; C: another engine's reading of the same pages.
+    call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition", "confirmed": True})
+    ctx.ingest_jobs.drain_foreground()
+    second = resolve_extraction_id(repo, source_id)
+    clock.advance()
+    runner = ctx.ingest_jobs._require_runner()
+    runner.enqueue_batch("import", [JobSpec("import", {"source": str(card_book["book"]), "source_id": source_id,
+                                                       "page_selection": pages,
+                                                       "pdf_config": {"engine": "glm_ocr"}})])
+    ctx.ingest_jobs.drain_foreground()
+    third = resolve_extraction_id(repo, source_id)
+    assert len({first, second, third}) == 3
+    assert {head["anchor"]["extraction_id"] for head in repo.annotations_for_source(source_id)} == {third}
+    clock.advance()
+    # The card's re-read again: the extraction cache hands back B.
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition", "confirmed": True})
+    ctx.ingest_jobs.drain_foreground()
+    (job,) = [job for job in repo.ingest_jobs_for_batch(out["batchId"]) if job["job_type"] == "import"]
+    assert job["result"]["reused_extraction"] is True and job["result"]["extraction_id"] == second
+    assert resolve_extraction_id(repo, source_id) == third
+    assert {head["anchor"]["extraction_id"] for head in repo.annotations_for_source(source_id)} == {third}
+
+
+@pytest.mark.parametrize("step", ["aliases", "progress", "selection", "annotations"])
+def test_f7_a_carry_over_that_fails_is_finished_later_never_lost(card_book, monkeypatch, step):
+    from learnloop.content.pipeline import reread
+    from learnloop.content.sources import span_aliases
+
+    ctx, source_id, clock = card_book["ctx"], card_book["source_id"], card_book["clock"]
+    repo = ctx.repository
+    first = resolve_extraction_id(repo, source_id)
+    revision_id = repo.get_extraction_run(first)["revision_id"]
+    repo.upsert_unit_selection(extraction_id=first, source_id=source_id, revision_id=revision_id,
+                               selected_unit_ids=["u1", "u2", "u3"], exam_use_modes={"u3": "held_out_evaluation"})
+    repo.upsert_reader_section_progress(extraction_id=first, section_id="u1", spans_seen=4, span_count=4,
+                                        completed=True)
+    _annotate(repo, first, EXACT, "vector space", source_id=source_id, revision_id=revision_id, clock=clock)
+    target = {"aliases": (span_aliases, "record_aliases"), "progress": (reread, "carry_progress"),
+              "selection": (reread, "carry_selection"), "annotations": (reread, "carry_annotations")}[step]
+    original = getattr(*target)
+
+    def busy(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(*target, busy)
+    call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition", "confirmed": True})
+    ctx.ingest_jobs.drain_foreground()
+    new = resolve_extraction_id(repo, source_id)
+    assert new != first  # the reading stands
+    line = core.source_status_line(repo, ctx.vault, source_id)
+    assert line["text"] == "Your progress and notes didn't all move to the new reading"
+    assert line["action"] == {"kind": "retry", "label": "Finish moving them"}
+    from learnloop.ops.doctor import run_doctor
+
+    assert any(issue.code == "source:reread_carry_incomplete" for issue in run_doctor(card_book["root"]).issues)
+
+    monkeypatch.setattr(*target, original)
+    call(ctx, "source_action", {"sourceId": source_id, "action": "retry"})
+    assert [row["section_id"] for row in repo.reader_section_progress_for(new) if row["completed_at"]] == ["h1"]
+    assert repo.get_unit_selection(new)["exam_use_modes"] == {"h3": "held_out_evaluation"}
+    assert {head["anchor"]["extraction_id"] for head in repo.annotations_for_source(source_id)} == {new}
+    assert repo.span_reanchors_between(first, new)
+    after = core.source_status_line(repo, ctx.vault, source_id)
+    assert after is None or after["text"] != "Your progress and notes didn't all move to the new reading"
+    assert not any(issue.code == "source:reread_carry_incomplete" for issue in run_doctor(card_book["root"]).issues)
+
+
+def test_f9_a_self_hosted_glm_ocr_reread_is_named_and_priced_as_local(card_book, monkeypatch, no_network):
+    from tests.ux_phase1_support import set_config
+
+    ctx, source_id, root = card_book["ctx"], card_book["source_id"], card_book["root"]
+    monkeypatch.setattr(no_network, "local_available", lambda config=None: True)
+    set_config(root, {("ingest", "pdf", "glm_ocr", "backend"): "local",
+                      ("ingest", "pdf", "glm_ocr", "local_url"): "http://127.0.0.1:5002/glmocr/parse"})
+    ctx.reload(maintenance=False)
+    ctx.repository.upsert_reader_section_progress(extraction_id=resolve_extraction_id(ctx.repository, source_id),
+                                                  section_id="u1", spans_seen=4, span_count=4, completed=True)
+    confirmation = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})["confirmation"]
+    assert confirmation["engine"] == "glm_ocr_local" and confirmation["estimatedUsd"] == 0
+    assert confirmation["lines"][1] == "GLM-OCR on this computer reads it: free."
+    set_config(root, {("ingest", "pdf", "glm_ocr", "local_url"): "http://gpu-box.invalid:5002/glmocr/parse"})
+    ctx.reload(maintenance=False)
+    confirmation = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition"})["confirmation"]
+    assert confirmation["lines"][1] == "Your GLM-OCR server reads it: free."
+
+
+def test_f7_doctor_fix_state_finishes_a_carry_over_left_owed(card_book, monkeypatch):
+    """The same owed carry-over, finished by ``doctor --fix-state`` (and one an
+    interrupted worker left: the job failed after its reading completed)."""
+
+    from learnloop.content.pipeline import reread
+    from learnloop.ops.doctor import run_doctor
+
+    ctx, source_id, clock = card_book["ctx"], card_book["source_id"], card_book["clock"]
+    repo = ctx.repository
+    first = resolve_extraction_id(repo, source_id)
+    repo.upsert_reader_section_progress(extraction_id=first, section_id="u1", spans_seen=4, span_count=4,
+                                        completed=True)
+    original = reread.carry_progress
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(reread, "carry_progress", interrupted)
+    out = call(ctx, "source_action", {"sourceId": source_id, "action": "text_recognition", "confirmed": True})
+    ctx.ingest_jobs.drain_foreground()
+    (job,) = [job for job in repo.ingest_jobs_for_batch(out["batchId"]) if job["job_type"] == "import"]
+    new = resolve_extraction_id(repo, source_id)
+    assert job["payload"]["carry_over_for"] == new and "carry_over_done" not in job["payload"]
+    with repo.connection() as connection:  # as an expired lease leaves it
+        connection.execute("UPDATE ingest_jobs SET status = 'failed' WHERE id = ?", (job["id"],))
+        connection.commit()
+    (issue,) = [issue for issue in run_doctor(card_book["root"]).issues
+                if issue.code == "source:reread_carry_incomplete"]
+    assert issue.severity == "warning" and "--fix-state" in issue.message
+    monkeypatch.setattr(reread, "carry_progress", original)
+    run_doctor(card_book["root"], fix_state=True)
+    assert [row["section_id"] for row in repo.reader_section_progress_for(new) if row["completed_at"]] == ["h1"]
+    assert not any(issue.code == "source:reread_carry_incomplete" for issue in run_doctor(card_book["root"]).issues)
+    assert reread.carry_owed(repo, source_id) is None

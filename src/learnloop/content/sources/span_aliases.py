@@ -24,7 +24,8 @@ A reference is resolved against the reading it was made on first: a link's
 locator names its extraction; a source-object citation names a revision and is
 pinned to a reading by its ``block_content_hash`` when recorded, else by the
 reading that was current on that revision when it was made
-(:func:`cited_reading`).
+(:func:`cited_reading`; when it was made is its first copy's time,
+:data:`CITATION_MADE_AT_SQL`).
 """
 
 from __future__ import annotations
@@ -134,6 +135,39 @@ def previous_readings(repository: Any, extraction_id: str) -> list[str]:
             break
         earlier.append(str(other["id"]))
     return list(reversed(earlier))
+
+
+def other_readings(repository: Any, extraction_id: str) -> list[str]:
+    """Every other completed top-level reading of the reading's book, newest
+    first: its reading history, whether or not any alias was recorded
+    (a re-read made before aliases were, or one that matched nothing)."""
+
+    source_id = reading_source(repository, extraction_id)
+    if source_id is None:
+        return []
+    return [str(run["id"]) for run in reversed(source_readings(repository, source_id))
+            if str(run["id"]) != str(extraction_id)]
+
+
+def legacy_place_origin(repository: Any, extraction_id: str) -> str | None:
+    """The reading a bare span id names when it was saved before places
+    recorded their reading (the desktop's ``localStorage``), for a book whose
+    Reader now opens ``extraction_id``; ``None`` when that is unknown, and the
+    place is then never read as a span of this reading (Codex review F5).
+
+    Known only when one reading can have held it: the book was never read
+    again (this reading), or it has exactly one other reading, an earlier one
+    of the same revision from which this reading's aliases were recorded (so
+    this reading was made by a build that saves every place with its reading:
+    the bare place is older than it)."""
+
+    others = other_readings(repository, extraction_id)
+    if not others:
+        return str(extraction_id)
+    if len(others) == 1 and others == previous_readings(repository, extraction_id) \
+            and repository.span_reanchors_between(others[0], extraction_id):
+        return others[0]
+    return None
 
 
 # --- aliases ----------------------------------------------------------------------------
@@ -286,6 +320,21 @@ def _block_hash(repository: Any, extraction_id: str, span_id: str) -> str | None
             (extraction_id, span_id),
         ).fetchone()
     return str(row[0]) if row is not None and row[0] is not None else None
+
+
+#: When a source-object citation was made, as SQL over ``source_object_citations AS c``
+#: joined to its ``source_object_versions AS v``: the earliest copy of the same
+#: citation (same object, ordinal, revision and span) across the object's
+#: versions. A status-only review copies citations into a new version, which
+#: before re-read safety's review stamped them with the review's time; a
+#: citation with no block hash is pinned to its reading by when it was made,
+#: so a copy reviewed after a re-read named the new reading (Codex review F3).
+CITATION_MADE_AT_SQL = (
+    "COALESCE((SELECT MIN(origin.created_at) FROM source_object_citations AS origin "
+    "JOIN source_object_versions AS origin_version ON origin_version.id = origin.source_object_version_id "
+    "WHERE origin_version.source_object_id = v.source_object_id AND origin.citation_ordinal = c.citation_ordinal "
+    "AND origin.revision_id = c.revision_id AND origin.span_id = c.span_id), c.created_at)"
+)
 
 
 def cited_reading(repository: Any, *, revision_id: str, span_id: str, block_content_hash: str | None = None,

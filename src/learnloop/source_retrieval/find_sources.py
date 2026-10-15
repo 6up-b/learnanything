@@ -39,7 +39,7 @@ from learnloop.content.authoring.practice_leakage import build_cross_source_span
 from learnloop.content.sources.exam_material import exam_material
 from learnloop.content.sources.provenance import get_entity_provenance
 from learnloop.content.sources.source_outline import resolve_extraction_id
-from learnloop.content.sources.span_aliases import CitationResolver, CurrentKeys
+from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import search_blocks
@@ -343,7 +343,7 @@ def source_object_lists(repository: Repository, intent: str, extraction_ids: Seq
             return {}
         rows = connection.execute(
             "SELECT v.object_type, v.authorial_role, v.content_json, c.revision_id, c.span_id, "
-            "c.block_content_hash, c.created_at "
+            f"c.block_content_hash, {CITATION_MADE_AT_SQL} "
             "FROM source_object_versions v JOIN source_object_citations c ON c.source_object_version_id = v.id "
             "WHERE v.status IN ('proposed', 'reviewed') ORDER BY v.created_at, c.citation_ordinal").fetchall()
     strong: list[SpanKey] = []

@@ -309,6 +309,21 @@ def source_action(ctx: SidecarContext, params: SourceActionInput) -> dict[str, A
             ctx.ingest_jobs, params.source_id, chapter_ids=[chapter.unit_id for chapter in chapters]
         )
     elif params.action == "retry":
+        from learnloop.content.pipeline import reread
+
+        if reread.carry_owed(repository, params.source_id) is not None:
+            # A re-read whose carry-over did not finish (Codex review F7):
+            # finish it now (idempotent); the reading itself is already there.
+            try:
+                result["carried_over"] = reread.finish_carry_over(repository, params.source_id)
+            except Exception as exc:  # noqa: BLE001 - still owed; the card keeps offering it
+                logger.exception("finishing the carry-over for %s failed", params.source_id)
+                raise SidecarError(
+                    "carry_over_incomplete",
+                    "Moving your progress and notes to the new reading didn't finish. Try again in a minute.",
+                    retryable=True,
+                ) from exc
+            return versioned(result)
         if core._completed_extraction(repository, params.source_id) is None:
             batch_id = core.latest_add_batch(repository, params.source_id)
             if batch_id is None:
@@ -383,10 +398,12 @@ def _reread_plan(ctx: SidecarContext, vault, repository, source_id: str, artifac
         reread.original_bytes(repository, vault.root, source_id)
     except IngestRunnerError as exc:
         raise SidecarError(exc.code, str(exc), details=dict(exc.details)) from exc
-    glm = selected_backend(vault.config.ingest.pdf.glm_ocr.model_dump()) is not None
+    # The backend itself (z.ai, or the owner's own server): never a boolean
+    # that prices a self-hosted reading as z.ai's (Codex review F9).
+    backend = selected_backend(vault.config.ingest.pdf.glm_ocr.model_dump())
     revision = repository.get_source_revision(str(artifact.get("current_revision_id") or "")) or None
     return reread.reread_plan(
-        vault, repository, source_id, glm=glm,
+        vault, repository, source_id, backend=backend,
         upload_ok=core.file_upload_allowed(vault.config, "glm_ocr_upload"),
         title=f"“{core.learner_title(artifact, revision)}”",
     )

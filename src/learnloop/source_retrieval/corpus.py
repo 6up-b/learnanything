@@ -25,7 +25,7 @@ from learnloop.content.sources import exam_material as EM
 from learnloop.content.sources.exam_material import is_exam_role
 from learnloop.content.sources.role_authority import role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
-from learnloop.content.sources.span_aliases import CitationResolver
+from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
@@ -364,7 +364,7 @@ def role_proposal_keys(connection, repository: Repository, extraction_ids: Itera
         return strong, weak
     marks = ",".join("?" for _ in wanted)
     rows = connection.execute(
-        "SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, c.created_at "
+        f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
         "FROM source_object_versions v "
         "JOIN source_object_citations c ON c.source_object_version_id = v.id "
         f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
