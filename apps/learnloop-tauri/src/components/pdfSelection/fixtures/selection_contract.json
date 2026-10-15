@@ -1,0 +1,363 @@
+{
+ "about": "The nodes the Reader's PDF selection model sends for these selections (written by arxiv.test.ts). tests/test_reader_pdf_selection.py anchors each and requires an exact anchor with these offsets.",
+ "blocks": {
+  "synthetic": [
+   {
+    "spanId": "h0",
+    "page": 0,
+    "bbox": [
+     71,
+     32.6,
+     272,
+     42.6
+    ],
+    "blockType": "PageHeader",
+    "text": "Synthetic Notes on Foxes"
+   },
+   {
+    "spanId": "s1",
+    "page": 0,
+    "bbox": [
+     71,
+     77.8,
+     290,
+     93.8
+    ],
+    "blockType": "SectionHeader",
+    "text": "1 Foxes and Dogs"
+   },
+   {
+    "spanId": "s2",
+    "page": 0,
+    "bbox": [
+     71,
+     111,
+     290,
+     165
+    ],
+    "blockType": "Text",
+    "text": "The quick brown fox jumps over the lazy dog while a long computation of the integral runs in the background very quietly."
+   },
+   {
+    "spanId": "s3",
+    "page": 0,
+    "bbox": [
+     319,
+     111,
+     540,
+     165
+    ],
+    "blockType": "Text",
+    "text": "Right column begins with the second paragraph of this page, which a careful reader reads after the whole left column."
+   },
+   {
+    "spanId": "s4",
+    "page": 0,
+    "bbox": [
+     71,
+     732.6,
+     372,
+     742.6
+    ],
+    "blockType": "Footnote",
+    "text": "1 A footnote about foxes, read after the body."
+   },
+   {
+    "spanId": "s5",
+    "page": 1,
+    "bbox": [
+     71,
+     81,
+     372,
+     107
+    ],
+    "blockType": "Text",
+    "text": "Continuing on the next page, the paragraph ends with an equation:"
+   },
+   {
+    "spanId": "s6",
+    "page": 1,
+    "bbox": [
+     199,
+     119.4,
+     300,
+     133.4
+    ],
+    "blockType": "Equation",
+    "text": "$$\nx^{2} + y^{2} = 1\n$$"
+   },
+   {
+    "spanId": "s7",
+    "page": 1,
+    "bbox": [
+     71,
+     161,
+     372,
+     187
+    ],
+    "blockType": "Text",
+    "text": "Table 1 lists two values of the unknowns a and b."
+   },
+   {
+    "spanId": "s8",
+    "page": 1,
+    "bbox": [
+     89,
+     201,
+     200,
+     227
+    ],
+    "blockType": "Table",
+    "text": "| a | b |\n| --- | --- |\n| 1 | 2 |"
+   },
+   {
+    "spanId": "s9",
+    "page": 1,
+    "bbox": [
+     71,
+     251,
+     372,
+     277
+    ],
+    "blockType": "Text",
+    "text": "Let $x$ be positive; then $x^{2} > 0$ holds for every such $x$."
+   },
+   {
+    "spanId": "s10",
+    "page": 2,
+    "bbox": [
+     72,
+     80,
+     300,
+     98
+    ],
+    "blockType": "SectionHeader",
+    "text": "2 A Scanned Page"
+   },
+   {
+    "spanId": "s11",
+    "page": 2,
+    "bbox": [
+     72,
+     110,
+     540,
+     190
+    ],
+    "blockType": "Text",
+    "text": "A scanned page has no text layer at all, only a picture of the words, so the words are placed by estimate inside the box the layout model found. Vectors 𝑧 and 𝑤 span 𝐂² here."
+   },
+   {
+    "spanId": "s12",
+    "page": 2,
+    "bbox": [
+     200,
+     200,
+     400,
+     230
+    ],
+    "blockType": "Equation",
+    "text": "$$\\int_0^1 x \\, dx = \\tfrac{1}{2}$$"
+   },
+   {
+    "spanId": "s13",
+    "page": 2,
+    "bbox": [
+     72,
+     240,
+     540,
+     280
+    ],
+    "blockType": "Text",
+    "text": "The last words of the synthetic book sit on this scanned page."
+   }
+  ]
+ },
+ "selections": [
+  {
+   "name": "two columns in reading order",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s2",
+     "quote": "quietly.",
+     "start": 113,
+     "end": 121
+    },
+    {
+     "spanId": "s3",
+     "quote": "Right column begins",
+     "start": 0,
+     "end": 19
+    }
+   ]
+  },
+  {
+   "name": "a hyphenated word",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s2",
+     "quote": "long computation of",
+     "start": 52,
+     "end": 71
+    }
+   ]
+  },
+  {
+   "name": "over a page break and its footnote",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s3",
+     "quote": "column.",
+     "start": 110,
+     "end": 117
+    },
+    {
+     "spanId": "s4",
+     "quote": "1 A footnote about foxes, read after the body.",
+     "start": 0,
+     "end": 46
+    },
+    {
+     "spanId": "s5",
+     "quote": "Continuing on",
+     "start": 0,
+     "end": 13
+    }
+   ]
+  },
+  {
+   "name": "a display formula",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s6",
+     "quote": "$$\nx^{2} + y^{2} = 1\n$$",
+     "start": 0,
+     "end": 23
+    }
+   ]
+  },
+  {
+   "name": "a table",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s8",
+     "quote": "| a | b |\n| --- | --- |\n| 1 | 2 |",
+     "start": 0,
+     "end": 33
+    }
+   ]
+  },
+  {
+   "name": "inline maths",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s9",
+     "quote": "positive; then $x^{2} > 0$ holds",
+     "start": 11,
+     "end": 43
+    }
+   ]
+  },
+  {
+   "name": "letters outside the BMP on a scan",
+   "extraction": "synthetic",
+   "nodes": [
+    {
+     "spanId": "s11",
+     "quote": "Vectors 𝑧 and 𝑤 span 𝐂²",
+     "start": 145,
+     "end": 168
+    }
+   ]
+  },
+  {
+   "name": "arxiv: across the columns",
+   "extraction": "arxiv",
+   "nodes": [
+    {
+     "spanId": "s4",
+     "quote": "retinopathy (DR) is a leading global cause of blindness. Early detection of hard exudates plays a crucial role in identifying DR, which aids in treating diabetes and preventing vision loss. However, the unique characteristics of hard exudates, ranging from their inconsistent shapes to indistinct boundaries, pose significant challenges to existing segmentation techniques. To address these issues, we present a novel supervised contrastive learning framework to optimize hard exudate segmentation. Specifically, we introduce a patchwise density contrasting scheme to distinguish between areas with varying lesion concentrations, and therefore improve the model's proficiency in segmenting small lesions. To handle the ambiguous boundaries, we develop a discriminative edge inspection module to dynamically analyze the pixels that lie around the boundaries and accurately delineate the exudates. Upon evaluation using the IDRiD dataset and comparison with state-of-the-art frameworks, our method exhibits its effectiveness and shows potential for computer-assisted hard exudate detection. The code to replicate experiments is available at github.com/wetang7/HECL/.",
+     "start": 9,
+     "end": 1173
+    },
+    {
+     "spanId": "s5",
+     "quote": "1. INTRODUCTION",
+     "start": 0,
+     "end": 15
+    },
+    {
+     "spanId": "s6",
+     "quote": "2. RELATED WORKS",
+     "start": 0,
+     "end": 16
+    },
+    {
+     "spanId": "s7",
+     "quote": "2.1. Medical Image Segmentation",
+     "start": 0,
+     "end": 31
+    },
+    {
+     "spanId": "s8",
+     "quote": "Deep learning",
+     "start": 0,
+     "end": 13
+    }
+   ]
+  },
+  {
+   "name": "arxiv: authors with superscripts",
+   "extraction": "arxiv",
+   "nodes": [
+    {
+     "spanId": "s2",
+     "quote": "Tang $ ^{1,2} $ , Kangning Cui",
+     "start": 4,
+     "end": 34
+    }
+   ]
+  },
+  {
+   "name": "arxiv: the loss formula",
+   "extraction": "arxiv",
+   "nodes": [
+    {
+     "spanId": "s12",
+     "quote": "$$\n\\mathcal {L} _ {t o t a l} = \\mathcal {L} _ {s u p} + \\alpha \\left(\\mathcal {L} _ {p d} + \\mathcal {L} _ {d e}\\right).\n$$",
+     "start": 0,
+     "end": 124
+    }
+   ]
+  },
+  {
+   "name": "arxiv: the results table",
+   "extraction": "arxiv",
+   "nodes": [
+    {
+     "spanId": "s15",
+     "quote": "| Model | IoU | F1score | AUC | Recall |\n| --- | --- | --- | --- | --- |\n| H-DenseUNet | 44.59 | 59.71 | 98.50 | 52.13 |\n| Att-UNet | 51.81 | 66.75 | 95.67 | 59.66 |\n| DeepLabv3+ | 41.10 | 58.21 | 84.07 | 47.81 |\n| HED | 52.68 | 68.96 | 38.98 | 65.50 |\n| CogSeg | 46.63 | 63.44 | 63.36 | 55.56 |\n| Ours | 55.69 | 69.64 | 96.59 | 65.65 |",
+     "start": 0,
+     "end": 336
+    }
+   ]
+  },
+  {
+   "name": "arxiv: a reference",
+   "extraction": "arxiv",
+   "nodes": [
+    {
+     "spanId": "s19",
+     "quote": "W. L. Alyoubi, W. M. Shalash, and M. F. Abulkhair,",
+     "start": 4,
+     "end": 54
+    }
+   ]
+  }
+ ]
+}

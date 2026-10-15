@@ -419,7 +419,7 @@ class ReaderRenderViewInput(ParamsModel):
 
 @method("reader.render_view", ReaderRenderViewInput)
 def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     resolved = resolve_extraction_id(repository, params.extraction_id)
     if resolved is None:
         raise SidecarError(
@@ -450,6 +450,11 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     from learnloop.content.sources.span_aliases import other_readings
 
     payload["other_readings"] = other_readings(repository, resolved)
+    # reader-pdf-selection: what the model actions must not touch here, so a
+    # selection on held-out material offers none (exam_material decides).
+    payload["protection"] = RG.reading_protection(
+        vault, repository, resolved, [block.get("span_id") for block in payload.get("blocks") or []]
+    )
     return versioned(payload)
 
 
@@ -627,8 +632,8 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
     # still needs the page to jump to a section, follow the reading position
     # through the original and resume it.
     page_spans: list[dict[str, Any]] = []
+    ir = repository.load_document_ir(resolved) if not preparing else None
     if available and not preparing:
-        ir = repository.load_document_ir(resolved)
         for block in sorted(ir.blocks, key=lambda b: b.ordinal) if ir is not None else []:
             if block.page is not None:
                 page_spans.append({"span_id": block.span_id, "page": block.page})
@@ -647,6 +652,12 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
                     "text": block.text,
                 }
             )
+    # reader-pdf-selection: the held-out passages (or the whole reading, rule 4)
+    # a selection on the original offers no model action on.
+    protection = None
+    if not preparing:
+        protection = RG.reading_protection(vault, repository, resolved,
+                                           [block.span_id for block in ir.blocks] if ir is not None else [])
     return versioned(
         {
             "available": available,
@@ -657,6 +668,7 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
             "revision_id": (revision or {}).get("id"),
             "blocks": blocks,
             "page_spans": page_spans,
+            "protection": protection,
         }
     )
 
@@ -827,12 +839,20 @@ def reader_annotation_history(ctx: SidecarContext, params: ReaderAnnotationHisto
 
 class ReaderSourceAnnotationsInput(ParamsModel):
     source_id: str
+    # reader-pdf-selection: the reading the Reader has open. With it, every
+    # head also says where it lands on that reading (``placement``), resolved
+    # through the one alias authority; without it, the wire is unchanged.
+    extraction_id: str | None = None
 
 
 @method("reader.source_annotations", ReaderSourceAnnotationsInput)
 def reader_source_annotations(ctx: SidecarContext, params: ReaderSourceAnnotationsInput) -> dict[str, Any]:
     _vault, repository = _require_reader(ctx)
-    return versioned({"annotations": repository.annotations_for_source(params.source_id)})
+    heads = repository.annotations_for_source(params.source_id)
+    if params.extraction_id:
+        placements = ANN.annotation_placements(repository, heads, params.extraction_id)
+        heads = [{**head, "placement": placement} for head, placement in zip(heads, placements) if head is not None]
+    return versioned({"annotations": heads})
 
 
 class ReaderOutboxStatusInput(ParamsModel):

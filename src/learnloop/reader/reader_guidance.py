@@ -18,7 +18,7 @@ import re
 from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
-from learnloop.content.sources.exam_material import held_out_among, held_out_material
+from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
@@ -656,6 +656,26 @@ def held_out_sections(
     material = held_out_material(vault_or_sets, repository)
     return {str(row["id"]) for row in section_rows
             if held_out_among(material, extraction_id, row.get("span_ids") or [])}
+
+
+def reading_protection(
+    vault_or_sets: Any, repository: Repository, extraction_id: str, span_ids: Iterable[str | None],
+) -> dict[str, Any]:
+    """What of a reading the Reader's model actions must not touch, for its
+    selection surfaces (reader-pdf-selection): the whole reading when it is
+    withheld (``exam_material`` rule 4, or held out whole), else its held-out
+    passages, with the refusal the model paths give. The same held-out
+    partition the Reader's Ask, requests and checks refuse, so an action the
+    sidecar would refuse is never offered; nothing else decides it."""
+
+    material = held_out_material(vault_or_sets, repository)
+    whole = material.covers(str(extraction_id))
+    held = [] if whole else held_out_among(material, extraction_id, span_ids)
+    return {
+        "withheld": whole,
+        "held_out_span_ids": held,
+        "message": held_out_refusal(material, extraction_id) if (whole or held) else None,
+    }
 
 
 def _add_auto_authored_questions(
