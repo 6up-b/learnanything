@@ -237,6 +237,7 @@ def test_a_usage_limit_stops_that_profile_and_shows_in_its_allowance(source, ser
     assert fast["summary"]["valid"] == 4 and fast["stopped"] is None
     assert pro["stopped"] == "ChatGPTPlanUsageExhausted"
     assert pro["summary"]["allowance_errors"] == 1 and pro["summary"]["calls"] == 1
+    assert pro["summary"]["physical_requests"] == 1  # the failed request; nothing after the pause
     assert pro["grading"]["att_06_svd_fail"]["error"] == "not_run: ChatGPTPlanUsageExhausted"
     first = pro["grading"]["att_03_svd_pass"]
     assert first["error"] == "ChatGPTPlanUsageExhausted" and "chatgpt.com/settings/usage" in first["detail"]
@@ -288,3 +289,16 @@ def test_a_failed_diagnosis_keeps_its_reason_in_the_report(source, server, tmp_p
     assert (diagnosis["status"], diagnosis["error"]) == ("failed", "ChatGPTPlanRequestRejected")
     assert 'workspace_mode = "inline"' in diagnosis["detail"] and len(diagnosis["detail"]) <= 500
     assert report["agreement"][0]["diagnosis"]["both_valid"] is False
+
+
+def test_the_meter_counts_only_requests_that_were_sent():
+    from learnloop.cli.ai_compare import _Meter
+
+    refused = _Meter()  # the operation's own receipt only, no usage: nothing was sent
+    refused("start", {"id": "root", "parent_call_id": None})
+    refused("finish", {"id": "root", "status": "failed"})
+    assert refused.summary()["physical_requests"] == 0
+    reported = _Meter()  # a transport that reports usage on the operation itself
+    reported("start", {"id": "root", "parent_call_id": None})
+    reported("finish", {"id": "root", "status": "completed", "input_tokens": 10, "output_tokens": 2})
+    assert (reported.summary()["physical_requests"], reported.summary()["input_tokens"]) == (1, 10)

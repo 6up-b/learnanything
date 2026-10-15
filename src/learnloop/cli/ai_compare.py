@@ -296,7 +296,11 @@ class _Meter:
     def summary(self) -> dict[str, Any]:
         physical = [event for event in self.finishes
                     if (self.starts.get(str(event.get("id"))) or {}).get("parent_call_id")]
-        physical = physical or self.finishes
+        if not physical:
+            # No child receipt: a transport that reports on the operation itself
+            # counts once if it reported usage; a local refusal sent nothing.
+            physical = [event for event in self.finishes
+                        if isinstance(event.get("input_tokens"), int) or isinstance(event.get("output_tokens"), int)]
         tokens: dict[str, int | None] = {}
         for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens"):
             values = [event.get(key) for event in physical if isinstance(event.get(key), int)]
