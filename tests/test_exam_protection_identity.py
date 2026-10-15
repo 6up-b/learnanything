@@ -1337,3 +1337,32 @@ def test_identity_rereview_f3_exam_membership_the_writer_adds_survives_a_hand_ed
     held = EM.held_out_material(vault, repo)
     assert held.covers("extXA", "x1"), "A's question stays held out after the hand edit"
     assert "extXB" in held.extractions and "src_x" in EM.source_marks(vault, repo)
+
+
+def test_identity_rereview_f3_the_running_app_records_hand_edited_exam_membership(exam_book):
+    """Re-review F3 through the desktop app's own path: the app upgrades the
+    vault when it loads it (the book a textbook then), the owner makes the
+    book exam material in a text editor, the watcher reloads the vault, and
+    the owner then removes the membership in the editor. Every load the app
+    serves from goes through the vault's open, which records the signals the
+    membership it read qualifies, so the second edit releases nothing."""
+
+    from learnloop_sidecar.context import SidecarContext
+
+    root = exam_book["root"]
+    textbook = {**_EXAM_MEMBER, "default_role": "primary_textbook"}
+    _older_build_with_membership(exam_book, textbook)
+    context = SidecarContext()
+    context.load(root, maintenance=False)
+    vault, repository = context.require_vault()
+    assert [row["made_as_role"] for row in repository.held_out_signal_marks()] == [None], "upgraded, nothing qualified"
+    assert not EM.held_out_material(vault, repository).covers("extXA", "x1")
+
+    for members in ([_EXAM_MEMBER], [textbook]):  # the owner's two hand edits, each picked up by the watcher
+        _hand_edit_members(root, members)
+        assert context.refresh_vault_files(["sources/source_sets.yaml"], expected_root=root)["mode"] != "stale"
+    vault, repository = context.require_vault()
+    assert vault.source_sets[0].members[0].default_role == "primary_textbook", "the app serves the edited vault"
+    held = EM.held_out_material(vault, repository)
+    assert held.covers("extXA", "x1"), "A's question stays held out after the second hand edit"
+    assert "extXB" in held.extractions and "src_x" in EM.source_marks(vault, repository)
