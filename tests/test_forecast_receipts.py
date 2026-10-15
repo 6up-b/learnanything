@@ -233,6 +233,34 @@ def test_the_kill_switch_writes_no_receipt(tmp_path):
     assert _receipts(repository) == []
 
 
+def test_the_forecast_reads_the_diagnosis_class_and_confidence_once_per_facet_and_pattern(tmp_path):
+    from learnloop.diagnosis.forecast_receipts import diagnosis_receipts
+
+    _paths, vault, _repository = split_vault(tmp_path, seed=False)
+    attempt = {"id": "att_x", "practice_item_id": ITEM, "learning_object_id": "lo_svd_compute",
+               "created_at": "2026-05-02T09:00:00Z"}
+    record = {"error_attributions": [
+        {"index": 0, "error_type": "slip", "target_evidence_families": ["recall"], "validity_scope": "valid_measurement"},
+        {"index": 1, "error_type": "slip", "target_evidence_families": ["recall"], "validity_scope": "valid_measurement"},
+        {"index": 2, "error_type": "gap", "target_evidence_families": ["recall"], "validity_scope": "item_contract"},
+    ]}
+    event = {"registry_match": {"kind": "abstain"}, "history_changed_cause": {"changed": False}}
+    values = {"status": "completed", "mode": "live", "proposal": {"event_diagnoses": [
+        {**event, "event_index": 0, "causal_class": "transient_execution", "causal_confidence": 0.9},
+        {**event, "event_index": 1, "causal_class": "learner_state", "causal_confidence": 0.8},
+        {**event, "event_index": 2, "causal_class": "learner_state"},
+    ]}}
+
+    receipts = diagnosis_receipts(vault, diagnosis_id="dg_x", attempt=attempt, values=values, record=record)
+
+    # One pattern on one facet is one forecast (the first event's); an error
+    # the grader scoped to the item contract is not the learner's.
+    [receipt] = receipts
+    assert receipt.inputs["event_index"] == 0 and receipt.columns["hypothesis_ref"] == "error_type:slip"
+    assert receipt.forecast["prior"] == {"learner_state": pytest.approx(0.1), "transient_execution": pytest.approx(0.9)}
+    assert receipt.p == pytest.approx(receipt.forecast["predicted_outcomes"]["pass"]) and receipt.p > 0.5
+
+
 # -- exact binding through presentations ------------------------------------------------------
 
 

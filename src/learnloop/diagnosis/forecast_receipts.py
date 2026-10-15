@@ -8,7 +8,8 @@ writes its forecast as a ``forecast_receipts`` row in its own transaction
   ``diagnosis.split.jobs._persist``): for each diagnosed error event whose
   cause the diagnoser classed (learner state or a transient slip; an
   ``unknown`` class states no expectation and writes nothing) and each facet
-  the event targets, the diagnosis's posterior over the event's cause (its
+  the event targets (once per facet and error pattern), the diagnosis's
+  posterior over the event's cause (its
   causal class and the diagnoser's own confidence) and what that posterior
   predicts for the NEXT qualifying observation of the facet: the facet
   passes, the same error pattern recurs, or another error shows (kind
@@ -208,6 +209,9 @@ def diagnosis_receipts(
     retrieval = context.get("retrieval") if isinstance(context.get("retrieval"), Mapping) else {}
     seen = sorted({str(value) for value in seen_attempt_ids if value})
     receipts: list[FR.ForecastReceipt] = []
+    #: One forecast per (facet, pattern): two events of one pattern on one
+    #: facet predict one observation once (the first event's statement).
+    stated: set[tuple[str, str, str | None]] = set()
     parameters = _diagnoser_parameters(vault)
     for event in proposal.get("event_diagnoses") or []:
         if not isinstance(event, Mapping):
@@ -236,6 +240,9 @@ def diagnosis_receipts(
         for facet in facets:
             if len(receipts) >= MAX_RECEIPTS_PER_DIAGNOSIS:
                 break
+            if (facet, error_type, misconception_id) in stated:
+                continue
+            stated.add((facet, error_type, misconception_id))
             likelihood = next_observation_likelihood(vault, facet_id=facet, error_type=error_type)
             body = FR.categorical_body(likelihood, posterior, alphabet=NEXT_OBSERVATION_ALPHABET)
             body.update({
