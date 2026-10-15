@@ -308,3 +308,56 @@ def test_the_agreement_report_binds_a_statement_label_only_explicitly_or_on_the_
     ]
     task = agreement_report(rows)["tasks"]["required_method_statement"]
     assert task["labels"] == 0
+
+
+# -- the answer key's fresh-check label: only where the key changed ------------------------------
+
+
+def test_a_check_recorded_on_main_still_verifies_and_the_fresh_check_label_needs_a_change(tmp_path, monkeypatch):
+    """Main's checks record no key identity. An exercise import checked on
+    main (no required method) keeps its status and label under the merge;
+    only a changed key (an edit, or a required method set) reads
+    changed_since_check, now labelled "Needs a fresh check: ..."."""
+
+    from learnloop.clock import FrozenClock
+    from learnloop.content.authoring import pf_sandbox
+    from learnloop.content.authoring import source_exercise_import as SEI
+    from learnloop.db.stores import source_service as SS
+    from learnloop.vault.writer import upsert_practice_item
+    from tests.helpers import NOW
+    from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, loaded, service_clients
+
+    paths, repository, spans = build_textbook_vault(tmp_path / "vault")
+    monkeypatch.setattr(pf_sandbox, "_sandbox_bwrap_path", lambda: None)
+    result = SEI.import_source_exercise(
+        paths.root, repository, extraction_id="ext_text", span_ids=[spans["exercises"][1]], caller="learner",
+        clients=service_clients(FakeServiceLLM()))
+    item_id = result["practice_item_id"]
+    # A later check recorded as main records it: no key identity with its hash.
+    with repository.connection() as connection:
+        SS.insert_key_check(connection, id="chk_main_shaped", practice_item_id=item_id,
+                            content_hash=SS.reference_content_hash(loaded(paths).practice_items[item_id]),
+                            key_status="checked", rung="panel", trigger="verify",
+                            started_at="2030-01-01T00:00:00Z", created_at="2030-01-01T00:00:00Z",
+                            legacy_identity=True)
+        connection.commit()
+
+    def status_and_label():
+        vault = loaded(paths)
+        with repository.connection() as connection:
+            status = SS.effective_key_status(connection, vault.practice_items[item_id])
+        return status, SS.KEY_STATUS_LABELS[status]
+
+    checked = ("checked", "Checked: independent solvers and a symbolic check agree")
+    assert status_and_label() == checked
+    item = loaded(paths).practice_items[item_id]
+    fresh = ("changed_since_check", "Needs a fresh check: the answer key changed since it was checked")
+    # An edited key needs a fresh check; restored, the checked revision verifies again.
+    upsert_practice_item(paths.root, item.model_copy(update={"expected_answer": "x = 6"}), clock=FrozenClock(NOW))
+    assert status_and_label() == fresh
+    upsert_practice_item(paths.root, item, clock=FrozenClock(NOW))
+    assert status_and_label() == checked
+    # A required method set alone is a new revision of the key too.
+    upsert_practice_item(paths.root, item.model_copy(update={"required_method": RequiredMethod(
+        name="substitution", criterion_ids=[item.grading_rubric.criteria[0].id])}), clock=FrozenClock(NOW))
+    assert status_and_label() == fresh
