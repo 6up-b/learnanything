@@ -125,7 +125,8 @@ class SourcesOut(_Out):
 # The output schema names every field, so each text field is classified by the
 # read model's one rule (``learner_context.RELEASED_BY``: (a) authored vault
 # text, (b) the learner's own pinned answer, (c) a derived text whose recorded
-# write-time provenance is complete and safe, held back otherwise; ``STRUCTURAL_FIELDS``: ids,
+# write-time provenance is complete and safe, held back otherwise, and always
+# while ``diagnosis.chat_shows_recorded_text`` is off, its default; ``STRUCTURAL_FIELDS``: ids,
 # codes, times, fixed notes); a test checks the classes against this schema.
 # ``extra="forbid"`` everywhere: a new field cannot reach a host without being
 # declared, and so classified.
@@ -593,9 +594,8 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
                      "(the question, the learner's answer, the grade, the diagnosis status, held and assistance "
                      "labels), gaps named from the learner's own questions, and topics at risk of being forgotten. "
                      "Wording LearnLoop's models wrote (statements, summaries, names of topics made from the "
-                     "learner's words) is shown only when LearnLoop recorded what it was written from and all of "
-                     "that is safe to show; otherwise it is held back, and the entries, counts and status still "
-                     "show. Hypotheses are revisable; answer keys are never included. Read-only."),
+                     "learner's words) is held back for now: the entries, counts and status show, the text does "
+                     "not. Hypotheses are revisable; answer keys are never included. Read-only."),
         annotations=ToolAnnotations(title="Learning context", **READ_ONLY), structured_output=True,
     )
     def learning_context_tool(

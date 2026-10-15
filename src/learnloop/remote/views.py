@@ -14,7 +14,8 @@ practice happens in the app (chat practice is C2).
 model's one guard (``learner_context.TextGuard``, Q12): a topic the
 learner-text pipeline generated (its title drafted from the learner's words)
 shows a fixed label and an opaque keyed alias, as in ``learning_context``,
-unless its drafter's write-time record is complete and safe (rule (c)). A
+unless its drafter's write-time record is complete and safe (rule (c), behind
+``diagnosis.chat_shows_recorded_text``, off by default). A
 plan block's computed "why" embeds the titles it was built with, so a block on
 a generated topic, or with a why a model wrote, shows no why (the same
 "held back" reason).

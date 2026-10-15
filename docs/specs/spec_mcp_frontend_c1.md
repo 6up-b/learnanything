@@ -225,7 +225,8 @@ chat host, also takes the narrow text rule is an owner question (record, Q16).
      longer be answered cold (`learner_protection.PastWork.solution_reason`), every source ref is not exam
      material, every learner question records the contract of its own unprotected item (Q10), every topic
      is authored or carries its own folded record, and the text reproduces no key of those items and
-     topics. The kill switch `diagnosis.chat_shows_recorded_text` (on) puts back "nothing derived".
+     topics. Rule (c) sits behind the kill switch `diagnosis.chat_shows_recorded_text`, **off as landed**
+     (2026-10-15, §4.8): off, nothing derived is shown (C1a's narrow rule) and the writers still record.
 
    Everything else is held back with one plain reason, `Held back until LearnLoop records what this was
    written from`; an entry whose own answer is protected names that instead ("a check waiting in the app").
@@ -327,6 +328,17 @@ held back. Old rows have none and stay held back; a re-diagnosis writes new, rec
 - **What of an item a writer saw:** a rubric or reference solution read for an item the learner can still
   answer cold (its attempt window is open: the retrieval policy's rule for unlocking an item's own
   solution) holds the text back until the window closes.
+
+**Landing (2026-10-15): the release is off.** The recording above landed on main (migration 205; built as
+204, a placeholder), but rule (c)'s release did not: the final verify reopened two High findings in the
+release path. F2: the stuck-answer gap reader's `reading_record` folds topic records without checking the
+titles its context showed. F3: a legacy joint grading's C4 history attempts escape the freeze's grading
+validation (only the attempts listed directly, and factor attempts, are checked). So
+`diagnosis.chat_shows_recorded_text` defaults off, and chat shows exactly what C1a showed. It is turned on
+only after a follow-up routes every model-context build through one capture point (what a writer was shown
+is captured where the context is built, names and C4 history included, and validated as one) and a clean
+verify passes. Record: [diagnosis-input-provenance.md](../reviews/diagnosis-input-provenance.md), "Landing
+onto main".
 
 The router card keeps its G5 rule; it may read the same records.
 

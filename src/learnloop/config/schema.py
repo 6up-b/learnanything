@@ -1733,7 +1733,14 @@ class DiagnosisConfig(BaseModel):
     # generated topic's name) only when its write-time record is complete and
     # every recorded input is safe. Off: chat holds every such text back (the
     # C1a narrow rule). Writers record either way; nothing is evidence.
-    chat_shows_recorded_text: bool = True
+    # Off as landed (2026-10-15, owner: "land narrow, then fix source"): the
+    # final verify reopened two High findings in the release path (a gap
+    # reader's record folds topics without checking the titles it showed; C4
+    # history dependencies escape grading validation). It stays off until
+    # every model-context build records through one capture point and a clean
+    # verify passes (docs/reviews/diagnosis-input-provenance.md, "Landing
+    # onto main").
+    chat_shows_recorded_text: bool = False
     # PF-c (spec_embedding_consumers_v1 §5.5): reference policy, valid-
     # alternative path and solve-first in the blind prompt. Off restores the
     # mvp-2.0 blind prompt exactly.

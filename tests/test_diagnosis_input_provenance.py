@@ -11,6 +11,12 @@ The first groups replay the C1a narrow stage's last-verify reproductions
 is still held back when an input it was written from is unsafe, and is
 released when every recorded input is safe. On ``499bd3ebd`` nothing records
 a write, so every "released" assertion fails there (fail first).
+
+The release switch ``diagnosis.chat_shows_recorded_text`` landed on main off
+by default (docs/reviews/diagnosis-input-provenance.md, "Landing onto main").
+These tests cover the release path as an owner who turns it on has it: the
+read model is read with the switch on unless the vault's ``learnloop.toml``
+sets it (:func:`_switched_on`). The writers record either way.
 """
 
 from __future__ import annotations
@@ -75,8 +81,18 @@ def _dp() -> Any:
     return module
 
 
+def _switched_on(vault: Any) -> Any:
+    """``vault`` with the release switch on, unless its ``learnloop.toml``
+    sets the switch (then as set). The switch is off by default since the
+    landing; these tests cover what it releases when on."""
+
+    if "chat_shows_recorded_text" not in vault.config.diagnosis.model_fields_set:
+        vault.config.diagnosis.chat_shows_recorded_text = True
+    return vault
+
+
 def _context(root: Path, repository: Any, **kwargs: Any) -> dict[str, Any]:
-    return learning_context(load_vault(root), repository, limits=ContextLimits(traces=40), **kwargs)
+    return learning_context(_switched_on(load_vault(root)), repository, limits=ContextLimits(traces=40), **kwargs)
 
 
 def _trace(context: dict[str, Any], attempt_id: str) -> dict[str, Any]:
@@ -1083,9 +1099,10 @@ def test_f4_retirements_are_idempotent_and_only_for_events_that_left():
 # -- F5: the kill switch is the predecessor's serving, and replay never reads either -------------
 
 
-def test_f5_every_defaults_snapshot_records_the_switch_on():
+def test_f5_every_defaults_snapshot_records_the_switch_off():
     """Each recorded snapshot moves only because the effective config gains
-    the switch (default on); none records it off."""
+    the switch. Built on by default; landed off (the final verify reopened F2
+    and F3 in the release path), so every snapshot records it off."""
 
     import tomllib
 
@@ -1100,7 +1117,7 @@ def test_f5_every_defaults_snapshot_records_the_switch_on():
     for version in SUCCESSOR_CHAIN:
         assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version], version
         config = LearnLoopConfig.model_validate(tomllib.loads(default_config_text(version)))
-        assert config.diagnosis.chat_shows_recorded_text is True, version
+        assert config.diagnosis.chat_shows_recorded_text is False, version
 
 
 def test_f5_the_switch_off_is_the_narrow_rule_exactly(world):
@@ -1158,7 +1175,7 @@ def test_f5_replay_never_reads_the_switch_or_the_records(tmp_path, monkeypatch):
             return {table: sorted(tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"'))
                     for table in derived}
 
-    rebuild_all_derived_state(load_vault(paths.root), repository, clock=clock)
+    rebuild_all_derived_state(_switched_on(load_vault(paths.root)), repository, clock=clock)
     switched_on = snapshot()
     records = _rows(repository)
     assert records

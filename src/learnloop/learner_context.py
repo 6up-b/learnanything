@@ -56,9 +56,16 @@ stay held back (a re-diagnosis writes new, recorded ones). The entries keep
 their structure: ids (a generated topic's id as an opaque keyed alias while
 its name is held back, accepted back as a named id; its raw id is answered
 as unknown), statuses, counts, dates, evidence counts and held state;
-recurrence-group keys are keyed digests too (Q13). The kill switch
-``diagnosis.chat_shows_recorded_text`` (on by default) puts back the narrow
-rule (nothing derived is shown).
+recurrence-group keys are keyed digests too (Q13).
+
+Rule (c) is behind the kill switch ``diagnosis.chat_shows_recorded_text``,
+**off by default** since its landing on main (2026-10-15): the final verify
+reopened two High findings in the release path, so the writers record but
+nothing derived is shown, which is the C1a narrow rule exactly
+(:func:`no_write_provenance`). It stays off until every model-context build
+records through one capture point and a clean verify passes
+(docs/reviews/diagnosis-input-provenance.md, "Landing onto main"). On, rule
+(c) releases as described above.
 
 Why no output-side provenance: earlier rounds followed each text's provenance
 from the output back to the answers behind it, and five reviews in a row found
@@ -437,11 +444,12 @@ def recorded_write_provenance(connection: Any, kind: str, record_id: str) -> Wri
 
 
 def default_provenance(vault: Any) -> ProvenanceSource:
-    """The vault's source: the recorded one, unless the kill switch
-    ``diagnosis.chat_shows_recorded_text`` is off (the narrow rule)."""
+    """The vault's source: the recorded one only when the kill switch
+    ``diagnosis.chat_shows_recorded_text`` is on; off (the default since the
+    landing), or unreadable, none (the narrow rule)."""
 
     diagnosis = getattr(getattr(vault, "config", None), "diagnosis", None)
-    return recorded_write_provenance if bool(getattr(diagnosis, "chat_shows_recorded_text", True)) \
+    return recorded_write_provenance if bool(getattr(diagnosis, "chat_shows_recorded_text", False)) \
         else no_write_provenance
 
 
