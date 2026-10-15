@@ -60,7 +60,7 @@ def serve(
     """Serve the vault to chat hosts (secondary attach: never migrates or runs startup work).
 
     Exits 78 when the vault's schema is not this code's: open the desktop app or
-    run `learnloop doctor` once to migrate."""
+    run `learnloop doctor --fix-state` once to migrate."""
 
     from learnloop.app_launch import serve_mcp
     from learnloop.remote.endpoint_token import TokenError

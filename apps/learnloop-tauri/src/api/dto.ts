@@ -3321,6 +3321,11 @@ export type SourceActionKind =
   | "text_recognition"
   /** The separate OK for sending a whole file out (a recording, a whole PDF). */
   | "allow_upload"
+  /** Re-read safety E1: make the reading the book had current again. */
+  | "restore_reading"
+  /** Protection redesign: the owner marks exam material on a reading held
+   *  back because exam material is marked on another reading of the book. */
+  | "mark_exam_material"
   | "connect_ai"
   | "open_changes"
   | "open_settings";
@@ -3407,6 +3412,50 @@ export interface SourceActionResultDto {
   action: SourceActionKind;
   batchId?: string;
   reverted?: number;
+  /** text_recognition on a book with study state (or one z.ai would read at
+   *  a cost no OK line shows), or mark_exam_material: nothing ran yet; ask,
+   *  then call again with `confirmed` (re-read safety). */
+  needsConfirmation?: boolean;
+  confirmation?: SourceRereadConfirmationDto | SourceMarkConfirmationDto;
+  /** restore_reading: the revision made current again, or null. */
+  restoredRevisionId?: string | null;
+  /** mark_exam_material, confirmed: the reading marked and the units held out on it. */
+  marked?: { extractionId: string; heldOutUnitIds: string[]; fromExtractionIds: string[] } | null;
+}
+
+/** What a card's action asks before it runs, in plain words. */
+export interface SourceActionConfirmationDto {
+  sourceId: string;
+  extractionId: string | null;
+  needsConfirmation: boolean;
+  title: string;
+  lines: string[];
+  confirmLabel: string;
+  cancelLabel: string;
+  /** The marking's confirmation only: the identity of the proposal shown,
+   *  sent back with its extractionId when the owner confirms (exam
+   *  protection by extraction identity, final verify F13). */
+  proposalHash?: string | null;
+}
+
+/** Protection redesign: what marking exam material on a held-back reading
+ *  will hold out (suggested from the reading marked before). Confirming sends
+ *  back its extractionId and proposalHash; if either changed meanwhile the
+ *  sidecar marks nothing and returns a fresh confirmation. */
+export interface SourceMarkConfirmationDto extends SourceActionConfirmationDto {
+  heldOutUnitIds: string[];
+  revisionId: string | null;
+  proposalHash: string;
+}
+
+/** What reading a book again reads, costs and carries, in plain words. */
+export interface SourceRereadConfirmationDto extends SourceActionConfirmationDto {
+  /** 0-based PDF pages of the reading it replaces; null: the whole file. */
+  pageSelection: number[] | null;
+  pages: number | null;
+  estimatedUsd: number | null;
+  /** glm_ocr: z.ai; glm_ocr_local: the owner's own GLM-OCR server; local: this computer. */
+  engine: "glm_ocr" | "glm_ocr_local" | "local";
 }
 
 // ── Source deletion (§4.1) ───────────────────────────────────────────────
@@ -3552,6 +3601,13 @@ export interface SourceSetMemberDto {
   defaultRole: string;
   scope: SourceSetScopeDto[];
   priority: number;
+  /** The reading (extraction) the scope's unit ids were chosen on, its
+   *  revision, and the vault writer's seal binding them to the scope's
+   *  entries (exam protection by extraction identity). Absent when not
+   *  recorded; re-sent exactly as received. */
+  scopeExtractionId?: string | null;
+  scopeRevisionId?: string | null;
+  scopeSeal?: string | null;
 }
 
 export interface SourceSetDto {
@@ -5279,10 +5335,15 @@ export interface SourceConflictDto {
   leftRevisionId: string | null;
   leftLocator: string | null;
   leftExtractionId: string | null;
+  /** The span to open on leftExtractionId (re-read safety: the reading the
+   *  span was cited on, or its exact match on the current one); null when
+   *  its reading is unknown. Absent from older sidecars. */
+  leftSpanId?: string | null;
   rightSourceId: string | null;
   rightRevisionId: string | null;
   rightLocator: string | null;
   rightExtractionId: string | null;
+  rightSpanId?: string | null;
   statement: string;
   status: string;
   resolution: Record<string, unknown> | null;
@@ -6646,6 +6707,33 @@ export interface ReaderRenderViewDto {
   status: string;
   blocks: ReaderRenderBlockDto[];
   layers: Record<string, string>;
+  /** Readings of this book whose spans have aliases into this one (it was
+   *  read again): a place saved on one of them is translated first. */
+  aliasedFrom?: string[];
+  /** Every other reading of this book, whether or not aliases were recorded
+   *  (re-read safety, Codex review F5): a bare saved span id is this
+   *  reading's only when there are none. */
+  otherReadings?: string[];
+}
+
+/** Where a saved reading place lands on the book's current reading
+ *  (reader.saved_place, re-read safety): the same text (`current`), the same
+ *  place with changed text (`needs_reanchor`) or nowhere (`stale`). */
+export interface ReaderSavedPlaceDto {
+  version?: number;
+  sourceId: string;
+  /** null: a bare span id whose reading is unknown (then `stale`). */
+  fromExtractionId: string | null;
+  fromSpanId: string;
+  /** The reading it landed on: the one asked for (toExtractionId), else the
+   *  book's current reading. A Reader applies it only to that reading. */
+  extractionId: string;
+  spanId: string | null;
+  status: "current" | "needs_reanchor" | "stale";
+  matchKind: string | null;
+  /** unknown_reading: a place saved before places recorded their reading, on
+   *  a book read again since; the reading history decides instead. */
+  reason?: "unknown_reading";
 }
 
 /** Local, source-grounded guidance for one reading section.  Learner-state
@@ -6657,6 +6745,9 @@ export interface ReaderSuggestedPassageDto {
   learningObjectId: string;
   learningObjectTitle: string;
   learnerSignal: "recent_misunderstanding" | "uncertain" | "goal_frontier" | "new_material" | "source_relevance";
+  /** needs_reanchor: cited on an earlier reading of the book and its words
+   *  changed at this place when it was read again; `quote` is what was cited. */
+  anchor?: "current" | "needs_reanchor";
 }
 
 export interface ReaderSectionQuestionDto {

@@ -1582,16 +1582,22 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
         subject_id, created = ensure_subject(ctx.vault_root, vault, source_id, title, clock=ctx.clock)
         vault = load_vault(ctx.vault_root)
         existing = next((s for s in vault.source_sets if s.id == source_set_id), None)
-        previous = [
-            entry.unit_id
-            for member in (existing.members if existing else [])
-            if member.source_id == source_id
-            for entry in member.scope
-        ]
+        before = [member for member in (existing.members if existing else []) if member.source_id == source_id]
+        overrides = {entry.unit_id: entry.role_override for member in before for entry in member.scope
+                     if entry.role_override}
+        previous = [entry.unit_id for member in before for entry in member.scope]
         order = {unit.unit_id: index for index, unit in enumerate(choice.outline.units)}
-        # Exam material marked since an earlier build leaves the scope too.
-        scope = sorted((set(previous) | set(unit_ids)) - choice.withheld_unit_ids,
+        # Exam material marked since an earlier build leaves the scope too; a
+        # unit with a role override (an owner's exam scope among them) never does.
+        scope = sorted((set(previous) | set(unit_ids)) - (choice.withheld_unit_ids - set(overrides)),
                        key=lambda unit_id: order.get(unit_id, len(order)))
+        # The scope names the reading its unit ids were chosen on (exam
+        # protection by extraction identity): this reading, unless earlier
+        # entries came from a reading not recorded as this one, whose ids are
+        # then kept as they were and the scope names no reading.
+        recorded = {member.scope_extraction_id for member in before if member.scope}
+        reading = ({"scope_extraction_id": extraction_id, "scope_revision_id": revision_id}
+                   if recorded <= {extraction_id} else {})
         upsert_source_set(
             ctx.vault_root,
             {
@@ -1602,8 +1608,10 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
                     "source_id": source_id,
                     "revision_id": revision_id,
                     "default_role": role,
-                    "scope": [{"unit_id": unit_id} for unit_id in scope],
+                    "scope": [{"unit_id": unit_id, **({"role_override": overrides[unit_id]}
+                                                      if unit_id in overrides else {})} for unit_id in scope],
                     "priority": 1,
+                    **reading,
                 }],
             },
             clock=ctx.clock,
@@ -2164,8 +2172,16 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, config
         if flow == "audio_transcription" or category == "audio":
             return _line("Transcribing this recording sends it to an online service", "quiet",
                          ("allow_upload", "OK"), message or None)
-        return _line("Reading this document sends the whole file to z.ai (GLM-OCR)" if flow == "glm_ocr_upload" else "Reading this PDF sends the whole file to your AI", "quiet",
+        if flow == "glm_ocr_upload":
+            # Pages and the estimated cost where the OK is asked, as the
+            # Ingest screen shows them (re-read safety item 5).
+            return _line(f"Reading this document{glm_estimate_phrase(error.get('details') or {})} sends the whole "
+                         "file to z.ai (GLM-OCR)", "quiet", ("allow_upload", "OK"), message or None)
+        return _line("Reading this PDF sends the whole file to your AI", "quiet",
                      ("allow_upload", "OK"), message or None)
+    if code == "original_changed":
+        return _line("Its original file changed or is missing, so it can't be read again", "problem", None,
+                     message or None)
     if code == "kept_local":
         # Refused under the retired "Keep this book on this computer" (owner,
         # 2026-10-13): nothing refuses it now, so trying again reads it.
@@ -2191,6 +2207,42 @@ def _import_failure_line(job: Mapping[str, Any], category: str | None, *, config
     if category == "pdf":
         return _line("Couldn't read this PDF", "problem", retry, message or None)
     return _line(f"Couldn't get this {kind_noun(category)} ready", "problem", retry, message or None)
+
+
+_RESTORE_READING_DETAILS = (
+    "Reading it again read a file that has changed since (or is missing), so the book showed no reading. "
+    "The reading you had is still here: this opens it again."
+)
+
+
+def glm_estimate_phrase(details: Mapping[str, Any]) -> str:
+    """" (404 pages, about $0.07)" from a z.ai OK's estimate, or "" without one."""
+
+    from learnloop.content.pipeline.reread import cost_phrase
+
+    pages = details.get("pages")
+    if not isinstance(pages, int) or pages <= 0:
+        return ""
+    usd = details.get("estimated_usd")
+    cost = cost_phrase(float(usd)) if isinstance(usd, (int, float)) else None
+    noun = "page" if pages == 1 else "pages"
+    return f" ({pages} {noun}, {cost})" if cost else f" ({pages} {noun})"
+
+
+def _reread_refused(repo, source_id: str) -> dict[str, Any] | None:
+    """A book that has a reading whose latest import (a re-read) refused
+    because its original file changed: one plain line, no action that
+    cannot help (re-read safety E1)."""
+
+    imports = import_jobs(repo, source_id)
+    latest = imports[0] if imports else None
+    if latest is None or latest["status"] != "failed":
+        return None
+    error = latest.get("error") or {}
+    if error.get("code") != "original_changed":
+        return None
+    return _line("Couldn't read it again: its original file changed or is missing", "quiet", None,
+                 str(error.get("message") or "") or None)
 
 
 def text_recognition_available(*, config=None) -> bool:
@@ -2330,7 +2382,37 @@ def source_status_line(repo, vault, source_id: str | None, *, batch_id: str | No
         return None
     category = artifact.get("acquisition_kind")
     noun = source_kind_noun(repo, source_id, category)
+    from learnloop.content.pipeline.reread import unread_current_revision
+
+    if unread_current_revision(repo, source_id) is not None:
+        # Re-read safety E1: a revision with no reading was made current (an
+        # older re-read read a changed file). One tap opens the reading the
+        # learner had; nothing was lost.
+        return _line(f"This {noun}'s file changed after it was read", "problem",
+                     ("restore_reading", "Open the reading you had"), _RESTORE_READING_DETAILS)
     has_text = _completed_extraction(repo, source_id) is not None
+    if has_text:
+        from learnloop.content.pipeline import reread
+
+        if reread.carry_owed(repo, source_id) is not None:
+            # A re-read whose carry-over did not finish (Codex review F7): one
+            # tap finishes it; nothing was lost.
+            return _line(reread.CARRY_INCOMPLETE_LINE, "problem", ("retry", reread.CARRY_INCOMPLETE_ACTION),
+                         reread.CARRY_INCOMPLETE_DETAILS)
+        refused = _reread_refused(repo, source_id)
+        if refused is not None:
+            return refused
+        if vault is not None:
+            from learnloop.content.pipeline import exam_marking
+
+            if exam_marking.held_back_reading(vault, repo, source_id) is not None:
+                # Exam material marked on another reading of this book never
+                # carries to this one (protection redesign), and a mark made
+                # before marks named their reading places nothing (extraction
+                # identity): it is held back, whole, until the owner marks it here.
+                return _line(exam_marking.HELD_BACK_LINE, "problem",
+                             (exam_marking.MARK_ACTION, exam_marking.MARK_LABEL),
+                             exam_marking.held_back_details(vault, repo, source_id))
     if not has_text:
         imports = import_jobs(repo, source_id)
         latest_import = imports[0] if imports else None

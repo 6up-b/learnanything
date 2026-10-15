@@ -38,6 +38,7 @@ from learnloop.content.facet_identity.judge import (
 )
 from learnloop.content.facet_identity.views import judge_view
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
@@ -139,7 +140,7 @@ def run_dedupe(
         # No change at all: read the database as it is (no migration).
         repository = Repository.attach(sqlite_path, read_only=True)
     else:
-        repository = Repository(sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
         # Finish any merge or undo an earlier run left mid-flight first.
         recovered = recover_interrupted_actions(vault.root, repository, clock=clock)
         if recovered:

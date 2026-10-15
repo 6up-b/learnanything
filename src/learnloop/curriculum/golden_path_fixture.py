@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, FrozenClock, utc_now_iso
-from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.curriculum import golden_path_confirm as GPC
 from learnloop.curriculum import task_blueprints as TB
 from learnloop.substrate.activities import resolve_legacy_item
@@ -354,7 +354,7 @@ def build_golden_path_fixture(
     now_iso = utc_now_iso(clock)
     paths = _seed_vault(root, clock=clock, now_iso=now_iso)
     vault = load_vault(root)
-    repo = Repository(paths.sqlite_path)
+    repo = vault_repository(paths)
 
     # Owner artifact 1: register + review the blueprint (deterministic stub).
     spec = stub_blueprint()

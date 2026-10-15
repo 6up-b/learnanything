@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +9,12 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
+from learnloop.db.connection import connect
+from learnloop.db.stores.held_out_signals import (
+    exam_member_sources,
+    qualify_unrecorded_signals,
+    unqualified_signal_count,
+)
 from learnloop.vault.loader import load_practice_item_file, load_vault
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
@@ -21,6 +29,7 @@ from learnloop.vault.models import (
     SourceSet,
 )
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.scope_seal import scope_seal
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop.vault_lock import vault_mutation_lock
 
@@ -439,8 +448,14 @@ def upsert_source_set(
         raise VaultWriterError("Source set id is required")
     index = _list_index_by_id(source_sets, set_id)
     existing = _mapping(source_sets[index]) if index is not None else {}
+    if isinstance(raw.get("members"), list):
+        raw = {**raw, "members": _keep_scope_readings(existing.get("members"), raw["members"])}
     merged = _merge_entity(existing, raw, SOURCE_SET_ORDER, clock=clock)
     validated = SourceSet.model_validate(merged).model_dump(mode="json", exclude_none=False)
+    # A book this write makes exam material in the set, or stops making it.
+    changed = exam_member_sources(existing.get("members")) ^ exam_member_sources(validated.get("members"))
+    if changed:
+        _record_exam_qualification(paths.sqlite_path, changed, clock=clock)
     if index is None:
         source_sets.append(validated)
     else:
@@ -448,6 +463,91 @@ def upsert_source_set(
     paths.source_sets_path.parent.mkdir(parents=True, exist_ok=True)
     write_yaml(paths.source_sets_path, data)
     return paths.source_sets_path
+
+
+def _record_exam_qualification(sqlite_path: Path, source_ids: set[str], *, clock: Clock | None) -> None:
+    """Before a write ends these books' exam membership in the set, record
+    their held-out signals whose role was not recorded (signals migration 204
+    backfilled) as exam material, so the change never releases protection
+    they gave (``db.stores.held_out_signals``; Codex review of exam protection
+    by extraction identity, F3). A write that makes them exam material records
+    them too, and so does the app when it opens the vault, so a later hand
+    edit of the file releases nothing (re-review F3). A database that cannot
+    record it refuses the change (fail closed); a vault with no database, or
+    one not migrated to 204, has nothing to record."""
+
+    if not sqlite_path.exists():
+        return
+    try:
+        with closing(connect(sqlite_path)) as connection:
+            if not unqualified_signal_count(connection, source_ids):
+                return
+            qualify_unrecorded_signals(connection, source_ids, created_at=utc_now_iso(clock))
+            connection.commit()
+    except sqlite3.Error as error:
+        raise VaultWriterError(
+            "Could not record the exam material of " + ", ".join(sorted(source_ids))
+            + f" before changing its collection, so the collection was not changed: {error}") from error
+
+
+#: The member fields naming the reading a scope's unit ids were chosen on
+#: (``SourceSetMember.scope_extraction_id``; exam protection by extraction identity).
+_SCOPE_READING_FIELDS = ("scope_extraction_id", "scope_revision_id", "scope_seal")
+
+
+def _scope_key(member: Any) -> tuple[Any, ...] | None:
+    if not isinstance(member, dict):
+        return None
+    scope = []
+    for entry in member.get("scope") or []:
+        if not isinstance(entry, dict):
+            return None
+        scope.append((str(entry.get("unit_id") or ""), entry.get("role_override") or None))
+    return (str(member.get("source_id") or ""), str(member.get("revision_id") or ""), tuple(scope))
+
+
+def _without_reading(member: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in member.items() if key not in _SCOPE_READING_FIELDS}
+
+
+def _keep_scope_readings(existing: Any, incoming: list[Any]) -> list[Any]:
+    """Seal and keep the reading each member's scope names (exam protection
+    by extraction identity).
+
+    A member that names its reading is sealed (``scope_seal``): the book, the
+    reading and the scope's entries, so an edit made outside the writer is
+    seen. A member that arrives with a seal its content no longer matches
+    (its units or reading changed under it) names no reading: the change
+    named none. A member that re-sends an unchanged scope (same source,
+    pinned revision, unit ids and role overrides) without naming its reading
+    keeps the stored member's sealed reading: a writer that does not know the
+    fields (an older desktop, a hand-built payload) never erases them. A
+    changed scope keeps nothing."""
+
+    recorded: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for member in existing if isinstance(existing, list) else []:
+        key = _scope_key(member)
+        if key is not None and key[2] and member.get("scope_extraction_id") \
+                and member.get("scope_seal") == scope_seal(member):
+            recorded.setdefault(key, {field: member.get(field) for field in _SCOPE_READING_FIELDS})
+    kept: list[Any] = []
+    for member in incoming:
+        key = _scope_key(member)
+        if key is None:
+            kept.append(member)
+            continue
+        if not key[2]:
+            member = _without_reading(member)
+        elif member.get("scope_extraction_id"):
+            seal = scope_seal(member)
+            member = _without_reading(member) if member.get("scope_seal") not in (None, seal) \
+                else {**member, "scope_seal": seal}
+        elif key in recorded:
+            member = {**member, **recorded[key]}
+        else:
+            member = _without_reading(member)
+        kept.append(member)
+    return kept
 
 
 def _vault_paths(root: Path) -> VaultPaths:

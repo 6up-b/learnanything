@@ -538,6 +538,13 @@ def get_source_library(ctx: SidecarContext, _params) -> dict[str, Any]:
             current = revisions[-1]
         runs = repository.extraction_runs_for_revision(current["id"]) if current else []
         completed = [run for run in runs if run.get("status") == "completed"]
+        if not completed:
+            # Re-read safety E1: a current revision with no reading still
+            # shows the reading the book has (its card offers to restore it).
+            readable = resolve_extraction_id(repository, artifact["id"])
+            fallback = repository.get_extraction_run(readable) if readable else None
+            if fallback is not None and fallback.get("status") == "completed":
+                completed = [fallback]
         latest = completed[-1] if completed else (runs[-1] if runs else None)
         counts = repository.document_ir_counts(latest["id"]) if latest else {"unit_count": 0, "block_count": 0}
         if latest is not None and latest.get("status") == "completed" and counts["block_count"] > 0:
@@ -846,6 +853,12 @@ class SourceSetMemberParams(ParamsModel):
     default_role: str = "reference"
     scope: list[SourceSetScopeParams] = []
     priority: int = 1
+    # The reading the scope's unit ids were chosen on (exam protection by
+    # extraction identity). A re-sent member that omits it keeps the stored
+    # one when its scope is unchanged (vault.writer.upsert_source_set).
+    scope_extraction_id: str | None = None
+    scope_revision_id: str | None = None
+    scope_seal: str | None = None
 
 
 class UpsertSourceSetInput(ParamsModel):
@@ -1260,9 +1273,11 @@ class ListConflictsInput(ParamsModel):
 def list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -> dict[str, Any]:
     """List source conflicts by status (§10.2) for the conflict review surface.
 
-    Each side is enriched with its resolved ``extraction_id`` (from the cited
-    revision) so the client can open both bounded spans side by side through the
-    M6-UX ``get_span_view``/Open-in-source viewer."""
+    Each side is enriched with its resolved ``extraction_id`` and ``span_id``
+    (a span locator through the one alias authority, ``span_aliases``; any
+    other locator from the cited revision) so the client can open both bounded
+    spans side by side through the M6-UX ``get_span_view``/Open-in-source
+    viewer."""
 
     from learnloop.content.sources.source_outline import resolve_extraction_id
 
@@ -1277,9 +1292,23 @@ def list_source_conflicts_rpc(ctx: SidecarContext, params: ListConflictsInput) -
             extraction_cache[revision_id] = resolve_extraction_id(repository, revision_id)
         return extraction_cache[revision_id]
 
+    from learnloop.content.sources.span_aliases import is_span_locator, locator_key
+
+    def _side(revision_id: str | None, locator: str | None, created_at: str | None) -> tuple[str | None, str | None]:
+        # Re-read safety: a cited span opens on the reading it was cited on
+        # (or its exact match on the current one), never "the latest reading
+        # + the old span id"; one whose reading is unknown is not opened.
+        if is_span_locator(locator):
+            key = locator_key(repository, revision_id=revision_id, locator=locator, created_at=created_at)
+            return key if key is not None else (None, None)
+        return _extraction_for(revision_id), None
+
     for conflict in conflicts:
-        conflict["left_extraction_id"] = _extraction_for(conflict.get("left_revision_id"))
-        conflict["right_extraction_id"] = _extraction_for(conflict.get("right_revision_id"))
+        for side in ("left", "right"):
+            extraction_id, span_id = _side(conflict.get(f"{side}_revision_id"), conflict.get(f"{side}_locator"),
+                                           conflict.get("created_at"))
+            conflict[f"{side}_extraction_id"] = extraction_id
+            conflict[f"{side}_span_id"] = span_id
     return versioned({"conflicts": conflicts})
 
 

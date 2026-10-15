@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type ComponentProps } from "react";
 import { api } from "../api/client";
-import type { AiConnectionDto, PendingAddDto, SourceActionKind, SourceLibraryCard } from "../api/dto";
+import type { AiConnectionDto, PendingAddDto, SourceActionConfirmationDto, SourceActionKind, SourceLibraryCard } from "../api/dto";
 import { TAG } from "../api/queryTags";
 import { useCachedQuery } from "../api/useCachedQuery";
 import type { AddOptions } from "../components/AddSource";
@@ -31,6 +31,29 @@ function tabStyle(active: boolean): CSSProperties {
     cursor: "pointer"
   };
 }
+
+const confirmButton: CSSProperties = {
+  background: "transparent",
+  border: `1px solid ${COLOR.borderStrong}`,
+  borderRadius: 3,
+  color: COLOR.text,
+  fontFamily: FONT_MONO,
+  fontSize: 12,
+  padding: "4px 12px",
+  cursor: "pointer"
+};
+
+const cancelButton: CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  color: COLOR.amberLink,
+  fontFamily: FONT_MONO,
+  fontSize: 11,
+  cursor: "pointer",
+  textDecoration: "underline",
+  textUnderlineOffset: 2
+};
 
 function busyShelf(sources: SourceLibraryCard[] | undefined, pending: PendingAddDto[] | undefined): boolean {
   return (pending?.length ?? 0) > 0 || (sources ?? []).some((card) => card.statusLine?.tone === "working");
@@ -98,10 +121,31 @@ export function LibraryPlace({
     }
   }, [openWhenReady, sources, onOpenBook, onOpenedWhenReady]);
 
-  const run = useCallback(async (input: { sourceId?: string | null; batchId?: string | null; action: SourceActionKind }) => {
+  // Re-read safety: reading a book again that has study state (or that z.ai
+  // would read at a cost no OK line shows) asks first, naming the pages, the
+  // cost and what moves to the new reading. Marking exam material on a
+  // held-back reading asks the same way, naming what it will hold out.
+  const [confirming, setConfirming] = useState<{
+    sourceId: string;
+    action: SourceActionKind;
+    confirmation: SourceActionConfirmationDto;
+  } | null>(null);
+
+  const run = useCallback(async (input: {
+    sourceId?: string | null;
+    batchId?: string | null;
+    action: SourceActionKind;
+    confirmed?: boolean;
+    confirmedExtractionId?: string | null;
+    confirmedProposalHash?: string | null;
+  }) => {
     setNotice(null);
     try {
-      await api.sourceAction(input);
+      const result = await api.sourceAction(input);
+      if (result.needsConfirmation && result.confirmation && input.sourceId) {
+        setConfirming({ sourceId: input.sourceId, action: input.action, confirmation: result.confirmation });
+        return;
+      }
       await refetchRef.current().catch(() => undefined);
     } catch (error) {
       setNotice(plainError(error).line);
@@ -139,6 +183,54 @@ export function LibraryPlace({
           {notice ? (
             <div role="status" style={{ padding: "10px 32px 0", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amber }}>
               {notice}
+            </div>
+          ) : null}
+          {confirming ? (
+            <div
+              role="alertdialog"
+              aria-label={confirming.confirmation.title}
+              style={{
+                margin: "10px 32px 0",
+                padding: "10px 14px",
+                border: `1px solid ${COLOR.borderStrong}`,
+                borderRadius: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 5,
+                fontFamily: FONT_MONO,
+                fontSize: 11,
+                color: COLOR.textDim
+              }}
+            >
+              <div style={{ fontSize: 12, color: COLOR.text }}>{confirming.confirmation.title}</div>
+              {confirming.confirmation.lines.map((line) => (
+                <div key={line}>{line}</div>
+              ))}
+              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                <button
+                  type="button"
+                  style={confirmButton}
+                  onClick={() => {
+                    const chosen = confirming;
+                    setConfirming(null);
+                    // The marking's confirmation is bound to the reading and
+                    // the proposal it showed: if either changed meanwhile the
+                    // sidecar marks nothing and asks again.
+                    const binding = chosen.confirmation.proposalHash
+                      ? {
+                          confirmedExtractionId: chosen.confirmation.extractionId,
+                          confirmedProposalHash: chosen.confirmation.proposalHash
+                        }
+                      : {};
+                    void run({ sourceId: chosen.sourceId, action: chosen.action, confirmed: true, ...binding });
+                  }}
+                >
+                  {confirming.confirmation.confirmLabel}
+                </button>
+                <button type="button" style={cancelButton} onClick={() => setConfirming(null)}>
+                  {confirming.confirmation.cancelLabel}
+                </button>
+              </div>
             </div>
           ) : null}
           <BookShelf

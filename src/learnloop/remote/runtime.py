@@ -82,7 +82,7 @@ def check_schema(sqlite_path: Path, *, vault_root: Path | None = None) -> None:
     if not valid:
         hint = f" --vault {vault_root}" if vault_root is not None else ""
         raise SchemaMismatch(
-            "Schema mismatch: open the desktop app or run `learnloop doctor" + hint + "` once to migrate"
+            "Schema mismatch: open the desktop app or run `learnloop doctor --fix-state" + hint + "` once to migrate"
         )
 
 

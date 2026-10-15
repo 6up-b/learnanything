@@ -451,8 +451,9 @@ def generate_dossiers(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Plan (dry run: no client, no writes) or write the missing dossiers."""
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = planning_repository(sqlite_path, dry_run=dry_run)
+    paths = VaultPaths(vault.root, vault.config)
+    sqlite_path = paths.sqlite_path
+    repository = planning_repository(paths, dry_run=dry_run)
     plans = build_plans(vault, repository, facet_ids=facet_ids)
     route = plan_route(vault, "practice_dossier", client)
     model_id = route.model or "unspecified"

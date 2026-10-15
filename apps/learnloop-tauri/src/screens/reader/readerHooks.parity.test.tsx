@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   readerLogActivity: vi.fn(), readerNoteReadingProgress: vi.fn(), readerAuthorSectionQuestion: vi.fn(),
   readerGuidePlan: vi.fn(), readerMarkSectionProgress: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
   readerRestoreSource: vi.fn(), readerReconnectAnswer: vi.fn(), readerSetInquiryStatus: vi.fn(),
+  readerSavedPlace: vi.fn(),
 }));
 vi.mock("../../api/client", () => ({ api }));
 vi.mock("./readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
@@ -214,6 +215,41 @@ it("useReadingProgress: the saved place opens, a search hit wins over it, and wi
   act(() => result.current.placeAtOpen(view.sourceId, SPANS[3], null));
   expect(result.current.readingSpan).toBe(SPANS[3]);
   expect(setActiveSpan).toHaveBeenLastCalledWith(SPANS[3]);
+});
+
+// Re-read safety, Codex re-review F10: a search hit found on reading A opens
+// render B; reading C completes before the place is translated. An answer on
+// C's span ids is never applied to B; one on B is.
+async function openHitTranslatedOnto(landedOn: string) {
+  api.readerSavedPlace.mockResolvedValue({
+    version: 1, sourceId: view.sourceId, fromExtractionId: "ext_A", fromSpanId: "a7",
+    extractionId: landedOn, spanId: SPANS[2], status: "current", matchKind: "exact_hash",
+  });
+  const setActiveSpan = vi.fn();
+  const { result } = renderHook(() => useReadingProgress(progressInput({ setActiveSpan })));
+  await act(async () => {
+    result.current.placeAtOpen(view.sourceId, "a7", null,
+      { extractionId: view.extractionId, otherReadings: ["ext_A", "ext_C"] }, "ext_A");
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  return { result, setActiveSpan };
+}
+
+it("useReadingProgress (re-read F10): a hit's place answered on a reading other than the open one is never applied", async () => {
+  const { result, setActiveSpan } = await openHitTranslatedOnto("ext_C");
+  expect(setActiveSpan).not.toHaveBeenCalledWith(SPANS[2]);
+  expect(result.current.restoredSpan).not.toBe(SPANS[2]);
+  expect(result.current.placeApproximate).toBe(false);
+  // It asks for the place on the reading it has open.
+  expect(api.readerSavedPlace).toHaveBeenCalledWith({
+    sourceId: view.sourceId, spanId: "a7", extractionId: "ext_A", toExtractionId: view.extractionId,
+  });
+});
+
+it("useReadingProgress (re-read F10): a hit's place answered on the open reading lands there", async () => {
+  const { result, setActiveSpan } = await openHitTranslatedOnto(view.extractionId);
+  expect(setActiveSpan).toHaveBeenCalledWith(SPANS[2]);
+  expect(result.current.restoredSpan).toBe(SPANS[2]);
 });
 
 it("useReadingProgress: leaving a book saves what was read in it and resets the per-source state", async () => {

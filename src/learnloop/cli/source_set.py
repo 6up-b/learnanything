@@ -27,6 +27,7 @@ def source_set_add(
     revision_id: Annotated[str, typer.Option("--revision", help="Pinned revision id (required, §4.3).")],
     role: Annotated[str, typer.Option("--role", help="Membership role (open string).")] = "reference",
     units: Annotated[list[str] | None, typer.Option("--unit", help="Scope unit id (repeatable). Empty = whole artifact.")] = None,
+    reading: Annotated[str | None, typer.Option("--reading", help="Extraction id of the reading the --unit ids were chosen on (recorded with the scope).")] = None,
     priority: Annotated[int, typer.Option("--priority")] = 1,
     json_output: Annotated[bool, typer.Option("--json")] = False,
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
@@ -51,6 +52,8 @@ def source_set_add(
             "default_role": role,
             "scope": [{"unit_id": unit_id, "role_override": None} for unit_id in (units or [])],
             "priority": priority,
+            # The reading the unit ids name (exam protection by extraction identity).
+            **({"scope_extraction_id": reading, "scope_revision_id": revision_id} if units and reading else {}),
         }
     )
     upsert_source_set(

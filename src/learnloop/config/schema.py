@@ -113,9 +113,12 @@ class GoalsConfig(BaseModel):
     # an exam item shown after its reservation is withdrawn before the exam
     # starts; an item made from held-out material stays out of routine
     # practice (Today, the quick check, find_practice, picks and session
-    # serves) and is never a cold probe or retry. Live at every version
-    # (replay never reads it); off restores the selection before the stage.
-    # What a model is shown (teaching, the Reader, leakage) is not switched.
+    # serves) and is never a cold probe or retry; the plan's reading step in
+    # DL1's order (plan.reading_from_furthest off) never offers exam material
+    # (exam protection by extraction identity, Codex review F6). Live at every
+    # version (replay never reads it); off restores the selection before the
+    # stage. What a model is shown (teaching, the Reader, leakage) is not
+    # switched.
     held_out_selection: bool = True
 
 

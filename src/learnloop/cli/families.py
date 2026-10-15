@@ -9,9 +9,9 @@ import typer
 
 from learnloop.ai.spend import SpendCaps
 from learnloop.cli.embeddings import _cancellation
-from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import open_vault_repository
 
 
 families_app = typer.Typer(no_args_is_help=True, help="Propose practice families and undo an applied decision.")
@@ -89,7 +89,7 @@ def families_undo(
         if not (vault / "learnloop.toml").is_file():
             raise ValueError("--vault must contain learnloop.toml")
         loaded = load_vault(vault)
-        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         with repository.connection() as connection:
             row = connection.execute(
                 "SELECT left_id AS id FROM judgment_ledger "

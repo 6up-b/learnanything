@@ -80,7 +80,7 @@ def test_series_scratch_copy_attaches_without_migrating(tmp_path, monkeypatch):
         raise AssertionError("historical scratch copies must retain their schema")
 
     monkeypatch.setattr(
-        "learnloop.db.repositories.apply_migrations",
+        "learnloop.db.repositories.create_or_attach_current",
         unexpected_migration,
     )
 

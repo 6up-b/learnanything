@@ -27,7 +27,7 @@ from learnloop.reader.ai_contracts import (
     reader_preset_synthesis_prompt,
 )
 from learnloop.clock import Clock, utc_now_iso, parse_utc
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.db.repositories import Repository
 from learnloop.reader import source_objects as SO
 
@@ -318,6 +318,11 @@ def _land_proposals(
     source object + canonical mapping proposal (+ commitment mapping for
     commit-class presets). Never auto-admitted."""
 
+    # Each citation records its block's content hash, so it resolves against
+    # the reading it was made on after the book is read again (re-read
+    # safety: never "the latest reading + this span id").
+    ir = repository.load_document_ir(str(request.get("extraction_id") or "")) if request.get("extraction_id") else None
+    hashes = {block.span_id: block.content_hash for block in (ir.blocks if ir is not None else [])}
     authored = SO.author_source_object(
         repository,
         source_id=request["source_id"],
@@ -325,7 +330,8 @@ def _land_proposals(
         object_type=object_type,
         exact_text=exact_text,
         content=dict(content),
-        citations=[{"revision_id": request["revision_id"], "span_id": sid} for sid in span_ids],
+        citations=[{"revision_id": request["revision_id"], "span_id": sid, "block_content_hash": hashes.get(sid)}
+                   for sid in span_ids],
         authorship="ai",
         status="proposed",
         model_provenance=dict(model_provenance),
@@ -384,7 +390,7 @@ def model_synthesis(
         held_out = held_out_material(source_sets() if callable(source_sets) else source_sets, repository)
         focus = [request.get("span_id"), *(window.get("selected_span_ids") or [])]
         if held_out_among(held_out, request["extraction_id"], focus):
-            raise ReaderRequestError(HELD_OUT_REFUSAL)
+            raise ReaderRequestError(held_out_refusal(held_out, request["extraction_id"]))
         withheld = set(held_out_among(held_out, request["extraction_id"], window.get("span_ids") or []))
         span_ids = [str(s) for s in window.get("span_ids") or [] if str(s) not in withheld]
         ir = repository.load_document_ir(request["extraction_id"])

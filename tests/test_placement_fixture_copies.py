@@ -17,10 +17,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
-from learnloop.db.repositories import Repository
 from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
+from learnloop.vault.repository import open_vault_repository
 
 from tests.helpers import append_config_toml, set_algorithm_version
 
@@ -37,7 +37,7 @@ def _copy(tmp_path, fixture, name, *, version, placement_toml=None, sync=True):
     if placement_toml:
         append_config_toml(root, placement_toml)
     vault = load_vault(root)
-    repository = Repository(root / vault.config.storage.sqlite_path)
+    repository = open_vault_repository(root, root / vault.config.storage.sqlite_path)
     if sync:
         sync_vault_state(vault, repository, clock=MOMENT)
     return vault, repository

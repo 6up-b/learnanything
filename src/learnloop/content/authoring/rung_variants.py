@@ -30,6 +30,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.substrate.canonical_projection import surface_group_id
@@ -587,7 +588,7 @@ def generate_rung_variant(
 
     vault = load_vault(root)
     if repository is None:
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
     request = repository.rung_variant_request(request_id)
     if request is None:
         raise RungVariantError("request_not_found", f"Unknown rung variant request {request_id!r}.")

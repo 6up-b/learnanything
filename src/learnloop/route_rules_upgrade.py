@@ -48,7 +48,7 @@ from learnloop.algorithm_versions import (
     SUCCESSOR_CHAIN,
 )
 from learnloop.clock import Clock
-from learnloop.db.repositories import Repository
+from learnloop.vault.repository import open_vault_repository
 from learnloop.ops.vault_upgrade import UpgradeResult, rewrite_algorithm_version
 from learnloop.params import parameter_registry as registry_service
 from learnloop.sources_upgrade import upgrade_to_mvp019
@@ -103,7 +103,7 @@ def upgrade_to_mvp020(root: Path, *, clock: Clock | None = None) -> UpgradeResul
     current = vault.config.algorithms.algorithm_version
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository(sqlite_path)
+    repository = open_vault_repository(vault.root, sqlite_path)
     registry_service.freeze_manifest(vault, repository, algorithm_version=current, clock=clock)
     vault.config.algorithms.algorithm_version = target
     activate_p0_projection(vault, repository, from_version=current, clock=clock)

@@ -824,7 +824,7 @@ def test_certification_replay_reports_no_data_when_nothing_certifies(
         raise AssertionError("historical scratch copies must retain their schema")
 
     monkeypatch.setattr(
-        "learnloop.db.repositories.apply_migrations",
+        "learnloop.db.repositories.create_or_attach_current",
         unexpected_migration,
     )
 

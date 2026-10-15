@@ -227,13 +227,30 @@ def resolve_extraction_id(repo: Repository, ref: str) -> str | None:
         return _latest_completed(repo, ref)
     artifact = repo.get_source_artifact(ref)
     if artifact is not None:
+        revisions = repo.source_revisions_for(ref)
         revision_id = artifact.get("current_revision_id")
         if revision_id is None:
-            revisions = repo.source_revisions_for(ref)
             revision_id = revisions[-1]["id"] if revisions else None
         if revision_id is not None:
+            if _completed_top_level(repo, revision_id) is None:
+                # Re-read safety E1: a current revision with no reading (a
+                # re-read of a changed file, before the fix) never hides the
+                # book's reading; the card offers to make it current again.
+                for revision in reversed(revisions):
+                    readable = _completed_top_level(repo, revision["id"])
+                    if readable is not None:
+                        return readable
             return _latest_completed(repo, revision_id)
     return None
+
+
+def _completed_top_level(repo: Repository, revision_id: str) -> str | None:
+    completed = [
+        run
+        for run in repo.extraction_runs_for_revision(revision_id)
+        if run.get("status") == "completed" and run.get("parent_extraction_id") is None
+    ]
+    return completed[-1]["id"] if completed else None
 
 
 def _latest_completed(repo: Repository, revision_id: str) -> str | None:

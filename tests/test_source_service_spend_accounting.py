@@ -635,7 +635,7 @@ def test_an_upgrade_counts_every_request_and_reports_the_unprovable_overlap(tmp_
     assert unmigrated["usd"] == pytest.approx(0.85), unmigrated
     assert unmigrated["legacy"]["uncertain_usd"] == pytest.approx(0.20)
     SS._DAILY.clear()
-    repository = Repository(sqlite_path)  # the upgrade
+    repository = _upgraded(sqlite_path)  # the upgrade
     with connect(sqlite_path, read_only=True) as connection:
         legacy = dict(connection.execute("SELECT id, legacy FROM source_service_spend").fetchall())
     assert legacy == {"ssp_import": 1, "ssp_embed": 1, "ssp_linked": 0}
@@ -689,6 +689,16 @@ def _legacy_era(sqlite_path, rows, receipts) -> None:
         connection.commit()
 
 
+def _upgraded(sqlite_path) -> Repository:
+    """The upgrade of a database outside any vault: applied directly, as
+    only the vault's coordinator may upgrade a vault's database."""
+
+    from learnloop.db.migrate import apply_migrations
+
+    apply_migrations(sqlite_path)
+    return Repository.attach(sqlite_path)
+
+
 def _unmigrated_and_upgraded(sqlite_path) -> tuple[dict, dict, Repository]:
     """The day's accounting read before migrating, then after the upgrade."""
 
@@ -699,7 +709,7 @@ def _unmigrated_and_upgraded(sqlite_path) -> tuple[dict, dict, Repository]:
         unmigrated = service_spend_accounting(connection, envelope=SS.DAILY_ENVELOPE, day=day,
                                               since=day + "T00:00:00", now=SS.utc_now_iso(), price_per_million=PRICE)
     SS._DAILY.clear()
-    repository = Repository(sqlite_path)  # the upgrade
+    repository = _upgraded(sqlite_path)  # the upgrade
     return unmigrated, SS.service_spend_today(_vault(1.0), repository), repository
 
 

@@ -66,7 +66,7 @@ def attach(config: MobileConfig, *, read_only: bool = False) -> Repository:
         valid = False
     if not valid:
         raise SchemaMismatch(
-            "Schema mismatch: open the desktop app or run learnloop doctor --vault "
+            "Schema mismatch: open the desktop app or run learnloop doctor --fix-state --vault "
             f"{config.vault} once to migrate"
         )
     return Repository.attach(path, read_only=read_only)

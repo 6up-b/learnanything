@@ -43,6 +43,7 @@ from learnloop.ai.transport import (
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
 from learnloop.substrate.families import (
@@ -288,7 +289,7 @@ def propose_families(
     if not dry_run:
         # Finish an already accepted/undone intent before choosing unfamilied
         # items. Otherwise an interrupted multi-file apply changes the next plan.
-        sync_authored_families(vault, Repository(sqlite_path))
+        sync_authored_families(vault, vault_repository(VaultPaths(vault.root, vault.config)))
     items = sorted((
         item for item in vault.practice_items.values()
         if item.status != "retired" and not getattr(item, "family_id", None)
@@ -393,7 +394,7 @@ def propose_families(
         report.update(model_id=settings["model"], provider=provider,
                       cached_passes=len(saved), pending_passes=len(pending),
                       estimate=asdict(_estimate(pending, price_per_million)))
-        repository = Repository(sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
         run_id = new_ulid()
         usage: dict[str, Any] = {}
         current: PairPass | None = None

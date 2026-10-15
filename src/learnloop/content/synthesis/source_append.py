@@ -41,6 +41,7 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.append_neighborhood import Neighborhood, select_neighborhood
@@ -181,7 +182,7 @@ def append_source(
     vault = load_vault(root)
     if repository is None:
         # Repository opens a fresh sqlite connection per call; nothing to close.
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
     return _append(
         vault, repository, root, source_set_id,
         client=client, new_revision_ids=new_revision_ids, change_kind=change_kind,

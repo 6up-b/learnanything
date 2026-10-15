@@ -45,7 +45,7 @@ import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 import { type InquiryCommitment, type ReaderExchange } from "./ReaderAskBranches";
 import { cachedSourceRead } from "./readerCache";
 import { clip, selectionNodes, type MarginAnnotation, type ReaderSelection } from "./readerShared";
-import { readingPositionKey } from "./useReadingProgress";
+import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import type { ReaderVisit } from "./useReaderVisit";
 import {
   back as stackBack,
@@ -142,7 +142,8 @@ export interface ReaderInquiryInput {
   onRestored?: (spanId: string | null) => void;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
-    ((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore" }) => Promise<void>) | null
+    ((card: SourceLibraryCard, jumpSpan?: string,
+      options?: { via?: "search" | "restore"; jumpReading?: string | null }) => Promise<void>) | null
   >;
 }
 
@@ -357,7 +358,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     const root = inquiry && hasDetour(returnStack) ? returnStack.entries[0] : null;
     const saved = root && root.sourceId === render.sourceId && root.spanId ? root.spanId : readingSpan;
     try {
-      window.localStorage.setItem(readingPositionKey(render.sourceId), saved);
+      // The reading travels with the place (re-read safety).
+      window.localStorage.setItem(readingPositionKey(render.sourceId), encodeReadingPlace(render.extractionId, saved));
     } catch {
       /* Reading-position persistence is best-effort. */
     }
@@ -451,7 +453,9 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     if (target.sourceId !== render?.sourceId) {
       const card = (library ?? []).find((candidate) => candidate.sourceId === target.sourceId);
       const openSource = openSourceRef.current;
-      if (card && openSource) await openSource(card, target.spanId ?? undefined, { via: "restore" });
+      if (card && openSource) {
+        await openSource(card, target.spanId ?? undefined, { via: "restore", jumpReading: target.extractionId });
+      }
     } else if (target.spanId) {
       jumpToSpan(target.spanId);
     }

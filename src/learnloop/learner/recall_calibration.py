@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from learnloop.clock import FrozenClock
 from learnloop.config import SeverityExampleConfig, default_severity_examples
 from learnloop.db.repositories import MasteryState, Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.learner.facet_state_reader import facet_recall_state_for_lo
 from learnloop.diagnosis.followups import FollowupDecision, evaluate_intervention_followup
@@ -280,7 +281,7 @@ def _fresh_calibration_vault(root: Path):
     upsert_practice_item(root, {"id": "pi_calibration_main", "prompt": "State the calibration fact.", **base_item}, clock=clock)
     upsert_practice_item(root, {"id": "pi_calibration_repair", "prompt": "Repair the calibration fact.", **base_item}, clock=clock)
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     sync_vault_state(vault, repository, clock=clock)
     return vault, repository
 

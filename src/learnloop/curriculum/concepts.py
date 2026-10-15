@@ -7,6 +7,7 @@ from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -102,7 +103,7 @@ def merge_concepts(
     change_batch_id = None
     content_event_count = 0
     if not dry_run:
-        repository = Repository(paths.sqlite_path)
+        repository = vault_repository(paths)
         _rewrite_pending_proposal_refs(repository, canonical_id, duplicate_id, clock_iso=now)
         refreshed = load_vault(vault.root)
         sync_vault_state(refreshed, repository, clock=clock)

@@ -6,7 +6,7 @@
 // in a mounted Guide and when a cached source is reopened. These tests drive
 // the real ReaderScreen, the real api client (so its mutation wrappers really
 // invalidate) and the real query cache over a fake sidecar.
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { forwardRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api/client";
@@ -45,7 +45,21 @@ const CARD: SourceLibraryCard = {
 };
 
 /** What the fake sidecar knows: whether an attempt has been graded, and whether its diagnosis landed. */
-const backend = { attempted: true, diagnosisLanded: false, guidePlanCalls: 0 };
+const backend = {
+  attempted: true, diagnosisLanded: false, guidePlanCalls: 0,
+  // Re-read safety: the passage was cited on the reading before a re-read and
+  // its words changed there; the open reading has aliases from that one.
+  moved: false, aliasedFrom: [] as string[],
+  // Every other reading of the book, aliases or not (Codex review F5); null:
+  // a sidecar that does not say (the field absent).
+  otherReadings: null as string[] | null,
+  // extractionId: the reading the translation landed on (default: the open one).
+  savedPlace: null as null | {
+    spanId: string | null; status: "current" | "needs_reanchor" | "stale"; extractionId?: string;
+  },
+  // A library search's one hit, on the reading it was found on (Codex review F8).
+  searchHit: null as null | { extractionId: string; spanId: string },
+};
 
 function guidePlan(): ReaderGuidePlanDto {
   const reason = !backend.attempted ? FOUNDATION : backend.diagnosisLanded ? DIAGNOSED : FALLBACK;
@@ -72,7 +86,8 @@ function guidePlan(): ReaderGuidePlanDto {
             reason,
             learningObjectId: "lo_svd_compute",
             learningObjectTitle: "Compute an SVD",
-            learnerSignal: backend.attempted ? "recent_misunderstanding" : "new_material"
+            learnerSignal: backend.attempted ? "recent_misunderstanding" : "new_material",
+            anchor: backend.moved ? "needs_reanchor" : "current"
           }
         ]
       }
@@ -99,7 +114,23 @@ function sidecar(command: string): unknown {
     case "get_source_library":
       return { version: 1, sources: [CARD] };
     case "reader_render_view":
-      return readerRenderViewFixture;
+      return {
+        ...readerRenderViewFixture, aliasedFrom: backend.aliasedFrom,
+        ...(backend.otherReadings ? { otherReadings: backend.otherReadings } : {})
+      };
+    case "reader_search_sources":
+      return {
+        version: 1, query: "eigen", searchedSources: 1,
+        hits: backend.searchHit ? [{
+          sourceId: SOURCE_ID, sourceTitle: CARD.title, section: null, page: null, snippet: "the eigenbasis hit",
+          ...backend.searchHit
+        }] : []
+      };
+    case "reader_saved_place":
+      return {
+        version: 1, sourceId: SOURCE_ID, fromExtractionId: "ext_before", fromSpanId: "s_before",
+        extractionId: EXTRACTION_ID, matchKind: null, ...backend.savedPlace
+      };
     case "reader_guide_plan":
       backend.guidePlanCalls += 1;
       return guidePlan();
@@ -146,13 +177,34 @@ beforeEach(() => {
   backend.attempted = true;
   backend.diagnosisLanded = false;
   backend.guidePlanCalls = 0;
+  backend.moved = false;
+  backend.aliasedFrom = [];
+  backend.otherReadings = null;
+  backend.savedPlace = null;
+  backend.searchHit = null;
+  vi.stubGlobal("localStorage", memoryStorage());
   invoke.mockReset().mockImplementation(async (command: string) => sidecar(command));
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
+
+function memoryStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => void values.delete(key),
+    setItem: (key: string, value: string) => void values.set(key, String(value)),
+  };
+}
 
 /** Let the open sequence's chained reads settle without moving the clock far. */
 async function settle(ms = 0) {
@@ -221,4 +273,126 @@ it("an attempt submitted elsewhere invalidates the cached Guide plan", async () 
   await settle();
   expect(backend.guidePlanCalls).toBe(2);
   expect(screen.getByText(FALLBACK)).toBeTruthy();
+});
+
+// -- Re-read safety (docs/reviews/reread-safety.md) ------------------------------
+
+it("a passage cited before the book was read again shows flagged where its words changed", async () => {
+  backend.moved = true;
+  openReader();
+  await settle();
+  expect(screen.getByText("reworded since you read it")).toBeTruthy();
+  expect(screen.getByText("“A real symmetric matrix admits an orthonormal eigenbasis.”")).toBeTruthy();
+});
+
+it("a place saved on the reading before a re-read is translated, and an approximate one says so", async () => {
+  backend.aliasedFrom = ["ext_before"];
+  backend.savedPlace = { spanId: SPAN_IDS[2], status: "needs_reanchor" };
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, JSON.stringify({ extractionId: "ext_before", spanId: "s_before" }));
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
+  expect(screen.getByText("This book was read again: you're near where you left off.")).toBeTruthy();
+});
+
+it("a place saved on the open reading is used as it is, with no translation", async () => {
+  backend.aliasedFrom = ["ext_before"];
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, JSON.stringify({ extractionId: EXTRACTION_ID, spanId: SPAN_IDS[2] }));
+  openReader();
+  await settle();
+  expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
+  expect(screen.queryByText("This book was read again: you're near where you left off.")).toBeNull();
+});
+
+it("a bare place from before places recorded their reading is translated once the book was read again", async () => {
+  backend.aliasedFrom = ["ext_before"];
+  backend.savedPlace = { spanId: null, status: "stale" };
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, "s_before");
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: null, toExtractionId: EXTRACTION_ID } });
+  expect(screen.queryByText("This book was read again: you're near where you left off.")).toBeNull();
+});
+
+// -- Codex review of re-read safety (2026-10-14) ----------------------------------
+
+it("F5: a bare place on a book read again with no alias recorded asks the sidecar, never takes it as is", async () => {
+  // A re-read made before aliases were recorded (or one that matched
+  // nothing): no aliases into the open reading, but the book has another reading.
+  backend.aliasedFrom = [];
+  backend.otherReadings = ["ext_before"];
+  backend.savedPlace = { spanId: null, status: "stale" };
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, SPAN_IDS[2] as string);
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: SPAN_IDS[2], extractionId: null, toExtractionId: EXTRACTION_ID } });
+});
+
+it("F5: a bare place on a book never read again is used as it is", async () => {
+  backend.otherReadings = [];
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, SPAN_IDS[2] as string);
+  openReader();
+  await settle();
+  expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
+});
+
+async function searchAndOpenHit() {
+  render(<ReaderScreen onError={() => undefined} />);
+  await settle();
+  fireEvent.change(screen.getByPlaceholderText("search all sources…"), { target: { value: "eigen" } });
+  await settle(400);
+  fireEvent.click(screen.getByText("the eigenbasis hit"));
+  await settle();
+}
+
+it("F8: a search hit found on a reading the book was read again since is translated, not opened as is", async () => {
+  backend.otherReadings = ["ext_before"];
+  backend.searchHit = { extractionId: "ext_before", spanId: "s_before" };
+  backend.savedPlace = { spanId: SPAN_IDS[2], status: "needs_reanchor" };
+  await searchAndOpenHit();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
+  expect(screen.getByText("This book was read again: you're near the passage you found.")).toBeTruthy();
+});
+
+it("F8: a search hit on the reading the book opens on lands there with no translation", async () => {
+  backend.otherReadings = ["ext_before"];
+  backend.searchHit = { extractionId: EXTRACTION_ID, spanId: SPAN_IDS[2] as string };
+  await searchAndOpenHit();
+  expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
+});
+
+// -- Codex re-review of re-read safety (2026-10-14) -------------------------------
+
+it("F10: a translation that lands on a reading other than the open one is never applied to it", async () => {
+  // The Reader opened this reading; another reading completed before the
+  // sidecar was asked, and an answer on that reading's span ids came back.
+  backend.otherReadings = ["ext_before", "ext_newer"];
+  backend.searchHit = { extractionId: "ext_before", spanId: "s_before" };
+  backend.savedPlace = { spanId: SPAN_IDS[2] as string, status: "needs_reanchor", extractionId: "ext_newer" };
+  await searchAndOpenHit();
+  expect(screen.queryByText("This book was read again: you're near the passage you found.")).toBeNull();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({
+    input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID }
+  });
+});
+
+it("F10 (same class): the original's page geometry is asked for the reading the Reader rendered, never the book's latest", async () => {
+  // A source id resolves to the book's latest reading, which may have
+  // completed after the render: its blocks' span ids would be another
+  // reading's, used for highlights and selection on this one.
+  backend.otherReadings = ["ext_before"];
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_pdf_view");
+  expect(asked.length).toBeGreaterThan(0);
+  for (const call of asked) expect(call[1]).toEqual({ input: { extractionId: EXTRACTION_ID } });
 });

@@ -307,9 +307,30 @@ def _document_extractor(ctx: JobContext, pdf_config: Mapping[str, Any], fetched:
             local.selection_reason = GLM_NEEDS_UPLOAD_OK
             return local
         _guard_file_upload(
-            ctx, "glm_ocr_upload", plain_message=_PLAIN_IMPORT_IMAGE_MESSAGE if image else None
+            ctx, "glm_ocr_upload", plain_message=_PLAIN_IMPORT_IMAGE_MESSAGE if image else None,
+            details=glm_upload_estimate(ctx, fetched),
         )
     return extractor
+
+
+def glm_upload_estimate(ctx: JobContext, fetched: FetchedBytes) -> dict[str, Any]:
+    """Pages and the estimated cost of reading this file with hosted GLM-OCR
+    (``glm_ocr.estimate``), for the card's z.ai OK line (re-read safety item 5):
+    the pages the import asks for, else every page of the file."""
+
+    from learnloop.ingest.extractors.glm_ocr import estimate, is_image_document
+
+    pages: int | None
+    selection = _normalize_pages(ctx.payload.get("page_selection"))
+    if selection:
+        pages = len(selection)
+    elif is_image_document(fetched.raw_bytes):
+        pages = 1
+    else:
+        pages = _pdf_page_count(fetched.raw_bytes)
+    priced = estimate(pages, _glm_settings(ctx), backend="api")
+    return {"pages": priced["pages"], "estimated_usd": priced["estimated_usd"],
+            "page_selection": selection or None}
 
 
 def _extraction_interrupt(ctx: JobContext) -> Any:
@@ -401,7 +422,8 @@ def _refuse_local_repair_of_an_image() -> None:
     )
 
 
-def _guard_file_upload(ctx: JobContext, flow: str, *, plain_message: str | None = None) -> None:
+def _guard_file_upload(ctx: JobContext, flow: str, *, plain_message: str | None = None,
+                       details: Mapping[str, Any] | None = None) -> None:
     """Before a whole file leaves the computer (UX Phase 1 review F1): an Add
     (which asked the learner nothing per book) uploads only after the separate
     OK for whole files (spec §6.6: the connection's OK covers passages and
@@ -416,7 +438,8 @@ def _guard_file_upload(ctx: JobContext, flow: str, *, plain_message: str | None 
             message = _UPLOAD_FLOW_MESSAGES[flow]
             if not ctx.payload.get("require_upload_ok"):
                 message = plain_message or _PLAIN_IMPORT_UPLOAD_MESSAGES.get(flow, message)
-            raise IngestRunnerError(message, code="needs_upload_ok", retryable=True, details={"flow": flow})
+            raise IngestRunnerError(message, code="needs_upload_ok", retryable=True,
+                                    details={"flow": flow, **dict(details or {})})
 
 
 def _extract_pdf_locally(
@@ -494,7 +517,7 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
                 # no card that asks, so it fails as the local reading did.
                 raise IngestRunnerError(
                     _PLAIN_IMPORT_SCAN_MESSAGE, code="needs_upload_ok", retryable=True,
-                    details={"flow": "glm_ocr_upload"},
+                    details={"flow": "glm_ocr_upload", **glm_upload_estimate(ctx, fetched)},
                 ) from exc
             raise
         if native_fallback:
@@ -2002,19 +2025,44 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
     return result.as_dict()
 
 
-def _record_import_source(ctx: JobContext, source_id: str) -> None:
+def _record_import_source(ctx: JobContext, source_id: str, revision_id: str) -> None:
     """Name the book on its import once the book exists (GLM-OCR third
     review F2): a link Add's or a plain import's job learns its book only
     here, and a failed one has no result, so without it the book's card never
     finds the import that waits for an OK. An Add's own ``source_id`` (a
-    book that already existed) is left as it is."""
+    book that already existed) is left as it is. The revision it registered
+    is named too, so a retry reads that revision's own bytes (re-read safety),
+    not the book's current one."""
 
     if ctx.payload.get("source_id"):
         return
     stored = dict((ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {})
     if stored.get("source_id"):
         return
-    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, "source_id": source_id})
+    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, "source_id": source_id, "revision_id": revision_id})
+
+
+def _note_carry_owed(ctx: JobContext, revision_id: str, extraction_id: str) -> None:
+    """Before a reading of a revision that already has one completes (or a
+    cached one is carried again): the job's payload names the carry-over it
+    owes (re-read safety, Codex review F7; ``reread.carry_owed``)."""
+
+    from learnloop.content.pipeline.reread import CARRY_DONE_KEY, CARRY_OWED_KEY, owes_carry
+
+    if not owes_carry(ctx.repo, revision_id, extraction_id):
+        return
+    stored = dict((ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {})
+    if stored.get(CARRY_OWED_KEY) == extraction_id and stored.get(CARRY_DONE_KEY) != extraction_id:
+        return
+    stored.pop(CARRY_DONE_KEY, None)
+    ctx.repo.update_ingest_job_payload(ctx.job_id, {**stored, CARRY_OWED_KEY: extraction_id})
+
+
+def _carry_noted(ctx: JobContext, extraction_id: str) -> bool:
+    from learnloop.content.pipeline.reread import CARRY_OWED_KEY
+
+    stored = (ctx.repo.get_ingest_job(ctx.job_id) or {}).get("payload") or {}
+    return stored.get(CARRY_OWED_KEY) == extraction_id
 
 
 def handle_import(ctx: JobContext) -> dict[str, Any]:
@@ -2033,12 +2081,38 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     source = str(payload.get("source") or "").strip()
     if not source:
         raise IngestRunnerError("import job requires a 'source'.")
-    resolved = resolve_source(source)
-    category = resolved.category
+    # Re-read safety E1: an import that names an existing book (the card's
+    # "Read it again", an Add of a book already here, a retry) keeps the
+    # book's own kind and identity and is handed its current revision's BYTES
+    # from the originals store, verified by its hash: never whatever sits at
+    # its path now (a git-LFS pointer, an edited file), and its path is never
+    # classified again (a store file has no extension, so ``resolve_source``
+    # refuses it: GLM-OCR live run, 2026-10-14).
+    known = ctx.repo.get_source_artifact(str(payload["source_id"])) if payload.get("source_id") else None
+    if known is not None and known.get("acquisition_kind"):
+        category = str(known["acquisition_kind"])
+        canonical_uri = str(known.get("canonical_uri") or source)
+    else:
+        resolved = resolve_source(source)
+        category, canonical_uri = resolved.category, resolved.source
     requested_pages = _normalize_pages(payload.get("page_selection")) or None
 
     ctx.report("acquired", message="Fetching source material")
-    fetched = ctx.services.fetch_bytes(resolved.source, category, ctx)
+    fetched = None
+    if known is not None:
+        from learnloop.content.pipeline.reread import original_bytes, revision_bytes
+
+        fetch_url = lambda uri: ctx.services.fetch_bytes(uri, category, ctx)  # noqa: E731
+        named = ctx.repo.get_source_revision(str(payload["revision_id"])) if payload.get("revision_id") else None
+        if named is not None and named.get("source_id") == payload["source_id"]:
+            # A retry of an import that registered this revision itself.
+            fetched = revision_bytes(Path(ctx.vault_root), named, ctx.repo.get_source_artifact(named["source_id"]),
+                                     fetch_url=fetch_url, clock=ctx.clock)
+        else:
+            fetched = original_bytes(ctx.repo, Path(ctx.vault_root), str(payload["source_id"]),
+                                     fetch_url=fetch_url, clock=ctx.clock)
+    if fetched is None:
+        fetched = ctx.services.fetch_bytes(canonical_uri, category, ctx)
     is_pdf = _is_document(fetched, category)
     page_selection = requested_pages if is_pdf else None
     if page_selection:
@@ -2055,7 +2129,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
     registered = register_source_revision(
         ctx.repo,
         acquisition_kind=category,
-        canonical_uri=resolved.source,
+        canonical_uri=canonical_uri,
         raw_bytes=fetched.raw_bytes,
         original_uri=fetched.original_uri,
         retrieved_at=fetched.retrieved_at,
@@ -2065,7 +2139,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         clock=ctx.clock,
     )
     ctx.job["_revision_id"] = registered.revision_id
-    _record_import_source(ctx, registered.source_id)
+    _record_import_source(ctx, registered.source_id, registered.revision_id)
     # Label the extracted transcript unit by the real video title (not the
     # "<title> — <author>" display form) when the fetch captured one.
     if fetched.title and not ctx.payload.get("title"):
@@ -2089,6 +2163,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
         ir = ctx.repo.load_document_ir(extraction_id)
         if ir is None:
             raise IngestRunnerError(f"cached extraction '{extraction_id}' has no persisted IR")
+        _note_carry_owed(ctx, registered.revision_id, extraction_id)
     else:
         ir = ctx.services.extract_ir(fetched, category, ctx)
         # Injected/custom providers may refine the preflight identity. Persist
@@ -2133,6 +2208,7 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 status="running",
                 clock=ctx.clock,
             )
+        _note_carry_owed(ctx, registered.revision_id, extraction_id)
         if not reused_extraction:
             ctx.repo.persist_document_ir(extraction_id, ir)
             ctx.repo.complete_extraction_run(
@@ -2141,12 +2217,33 @@ def handle_import(ctx: JobContext) -> dict[str, Any]:
                 health=ir.health.model_dump(mode="json"),
                 clock=ctx.clock,
             )
+    # Re-read safety: the revision becomes current only now that it has a
+    # completed reading, and a second reading of a revision carries what the
+    # learner had on the first (aliases, progress, selection, annotations).
+    # The job's payload names the carry-over this reading owes before the
+    # reading completes (``_note_carry_owed``) and records it done after: one
+    # that fails here (a busy database) or is interrupted stays owed, on the
+    # book's card ("Finish moving them") and in doctor, never silently lost
+    # (Codex review F7). The reading itself stands either way.
+    from learnloop.content.pipeline.reread import adopt_revision, carry_over, mark_carried
+
+    adopt_revision(ctx.repo, registered.source_id, registered.revision_id, clock=ctx.clock)
+    try:
+        carried = carry_over(ctx.repo, extraction_id, clock=ctx.clock)
+    except Exception as exc:  # noqa: BLE001 - the reading stands; the carry-over stays owed
+        logging.getLogger(__name__).exception("carrying the old reading over to %s failed", extraction_id)
+        carried = {"error": f"{type(exc).__name__}: {exc}", "owed": True}
+    else:
+        if _carry_noted(ctx, extraction_id):
+            mark_carried(ctx.repo, ctx.job_id, extraction_id)
+
     # Fresh or reused alike (Codex review F3): a retry after a worker died
     # between completion and this call still queues what the source is owed.
     queue_source_vectors(ctx, extraction_id, title=display_title)
 
     ctx.report("extracted", message="Extracted document structure")
     return {
+        "carried_over": carried,
         "source_id": registered.source_id,
         "revision_id": registered.revision_id,
         "title": display_title,
@@ -2460,10 +2557,19 @@ def handle_extraction_repair(ctx: JobContext) -> dict[str, Any]:
     source = revision.get("original_uri") or (artifact.get("canonical_uri") if artifact else None)
     if not source:
         raise IngestRunnerError(f"revision '{revision_id}' has no fetchable URI for re-extraction.")
-    resolved_category = resolve_source(str(source)).category
+    # The book's own kind: its path is never classified again (a store file
+    # has no extension; re-read safety, GLM-OCR live run).
+    resolved_category = str((artifact or {}).get("acquisition_kind") or "") or resolve_source(str(source)).category
 
     ctx.report("acquired", message=f"Re-acquiring {len(pages)} page(s) for repair")
-    fetched = ctx.services.fetch_bytes(str(source), resolved_category, ctx)
+    # The revision's own bytes (re-read safety E1): never what sits at its
+    # path now.
+    from learnloop.content.pipeline.reread import revision_bytes
+
+    fetched = revision_bytes(
+        Path(ctx.vault_root), revision, artifact,
+        fetch_url=lambda uri: ctx.services.fetch_bytes(uri, resolved_category, ctx), clock=ctx.clock,
+    )
 
     options = dict(payload.get("repair_options") or {})
     repair_config = _repair_pdf_config(options, pages)
@@ -2687,11 +2793,12 @@ def _refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_i
     before any model call, and before a check authored before the mark is
     handed back (code ``exam_material``)."""
 
-    from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+    from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 
-    held = held_out_among(held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo), extraction_id, span_ids)
+    material = held_out_material(_reader_source_sets(ctx.vault_root), ctx.repo)
+    held = held_out_among(material, extraction_id, span_ids)
     if held:
-        raise IngestRunnerError(HELD_OUT_REFUSAL, code="exam_material",
+        raise IngestRunnerError(held_out_refusal(material, extraction_id), code="exam_material",
                                 details={"extraction_id": extraction_id, "span_ids": held})
 
 

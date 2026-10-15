@@ -34,6 +34,7 @@ export function AddToCollectionPanel({
   sourceId,
   revisionId,
   scopeUnitIds,
+  scopeExtractionId = null,
   seedRole,
   onClose,
   onAdded
@@ -41,6 +42,9 @@ export function AddToCollectionPanel({
   sourceId: string;
   revisionId: string | null;
   scopeUnitIds: string[];
+  /** The reading the scope's unit ids were chosen on (recorded with the scope:
+   *  exam protection by extraction identity). */
+  scopeExtractionId?: string | null;
   seedRole: string | null;
   onClose: () => void;
   // The subject rides along because synthesis is subject-scoped: the build-plan
@@ -89,7 +93,8 @@ export function AddToCollectionPanel({
       revisionId,
       defaultRole: role,
       scope: scopeUnitIds.map((unitId) => ({ unitId, roleOverride: null })),
-      priority: 1
+      priority: 1,
+      ...(scopeUnitIds.length > 0 && scopeExtractionId ? { scopeExtractionId, scopeRevisionId: revisionId } : {})
     };
     setBusy(true);
     setError(null);
@@ -133,7 +138,7 @@ export function AddToCollectionPanel({
     } finally {
       setBusy(false);
     }
-  }, [mode, selectedSetId, newName, newSubjectId, role, revisionId, sourceId, scopeUnitIds, onAdded]);
+  }, [mode, selectedSetId, newName, newSubjectId, role, revisionId, sourceId, scopeUnitIds, scopeExtractionId, onAdded]);
 
   const scopeLabel = scopeUnitIds.length > 0 ? `${scopeUnitIds.length} unit(s)` : "whole source";
 

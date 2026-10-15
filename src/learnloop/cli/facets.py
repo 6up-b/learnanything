@@ -92,13 +92,13 @@ def facets_actions(
     (`learnloop facets confirm` or `learnloop facets keep`).
     """
     from learnloop.content.facet_identity.actions import describe, list_actions
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
     try:
         loaded = load_vault(_root(vault))
-        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         report = {"status": "complete", "actions": [
             describe(record, loaded) for record in list_actions(repository, run_id=run_id, limit=limit)
         ]}
@@ -119,13 +119,13 @@ def facets_undo(
     stay with the surviving facet; the result says so (not_restored).
     """
     from learnloop.content.facet_identity.actions import FacetIdentityActionError, undo_action
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
     try:
         loaded = load_vault(_root(vault))
-        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         report = undo_action(loaded.root, repository, action_id)
     except FacetIdentityActionError as exc:
         report = {"status": "refused", "code": exc.code, "reason": str(exc)}
@@ -140,13 +140,13 @@ def _decide_reword(action_id: str, vault: Path, json_output: bool, *, confirm: b
         confirm_reword,
         keep_current_wording,
     )
-    from learnloop.db.repositories import Repository
+    from learnloop.vault.repository import open_vault_repository
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 
     try:
         loaded = load_vault(_root(vault))
-        repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         decide = confirm_reword if confirm else keep_current_wording
         report = decide(loaded.root, repository, action_id)
     except FacetIdentityActionError as exc:

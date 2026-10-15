@@ -187,7 +187,7 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
     check(
         "schema", schema_ok,
         "Schema matches this host." if schema_ok else
-        f"Open the desktop app or run learnloop doctor --vault {vault} once to migrate.",
+        f"Open the desktop app or run learnloop doctor --fix-state --vault {vault} once to migrate.",
     )
     try:
         check("loopback", loopback_listener(_command(["ss", "-H", "-ltn"]), config.port),

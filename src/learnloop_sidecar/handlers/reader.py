@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL
+from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_guidance as RG
 from learnloop.source_retrieval.suggest import suggested_learning_objects
@@ -439,7 +439,75 @@ def reader_render_view(ctx: SidecarContext, params: ReaderRenderViewInput) -> di
     # Opening a source is the natural moment to resume draining any synthesis
     # requests left queued by a previous session (spec §6.4).
     ctx.ingest_jobs.kick_reader_drain()
-    return versioned(RV.render_payload(repository, view["id"]))
+    payload = RV.render_payload(repository, view["id"])
+    # Re-read safety: the readings whose spans have aliases into this one, so
+    # the Reader knows a saved place from before a re-read needs translating
+    # (``reader.saved_place``) while one saved on this reading is used as is.
+    payload["aliased_from"] = repository.span_reanchor_origins(resolved)
+    # The book's other readings, whether or not aliases were recorded (Codex
+    # review F5): a bare saved span id is this reading's only when there are
+    # none.
+    from learnloop.content.sources.span_aliases import other_readings
+
+    payload["other_readings"] = other_readings(repository, resolved)
+    return versioned(payload)
+
+
+class ReaderSavedPlaceInput(ParamsModel):
+    source_id: str
+    span_id: str
+    # The reading the place was saved on; None for a place saved before the
+    # Reader recorded it (a bare span id).
+    extraction_id: str | None = None
+    # The reading the Reader has open, which the place is translated onto
+    # (Codex re-review F10: another reading may complete after it opened);
+    # None: the book's current reading.
+    to_extraction_id: str | None = None
+
+
+@method("reader.saved_place", ReaderSavedPlaceInput)
+def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> dict[str, Any]:
+    """Where a saved reading place lands on the reading the Reader has open
+    (``to_extraction_id``; the book's current reading when not given).
+
+    Re-read safety (2026-10-14): a place saved on another reading is
+    translated through the one alias authority (``span_aliases``): ``current``
+    is the same text, ``needs_reanchor`` the same place with changed text (the
+    Reader says the place is approximate), ``stale`` no place (the Reader
+    falls back to the reading history). A bare span id saved before places
+    recorded their reading is read on the reading it can only have been saved
+    on (``span_aliases.legacy_place_origin``); when that is unknown (a re-read
+    made before aliases were recorded, one that matched nothing, more than one
+    earlier reading) it is ``stale``: never declared a place on the current
+    reading (Codex review F5). The answer names the reading it lands on, and
+    a Reader applies it only to that reading (Codex re-review F10)."""
+
+    from learnloop.content.sources.span_aliases import STATUS_STALE, legacy_place_origin, resolve_span
+
+    _vault, repository = _require_reader(ctx)
+    if params.to_extraction_id:
+        current = str(params.to_extraction_id)
+        if repository.get_extraction_run(current) is None:
+            raise SidecarError("extraction_not_found", f"No extraction {current!r}.")
+        if _source_id_for_extraction(repository, current) != params.source_id:
+            raise SidecarError("validation_error", "That reading is of another book.")
+    else:
+        current = resolve_extraction_id(repository, params.source_id)
+    if current is None:
+        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.source_id!r}.")
+    origin = params.extraction_id
+    if not origin:
+        origin = legacy_place_origin(repository, current)
+        if origin is None:
+            return versioned({
+                "source_id": params.source_id, "from_extraction_id": None, "from_span_id": params.span_id,
+                "extraction_id": current, "span_id": None, "status": STATUS_STALE, "match_kind": None,
+                "reason": "unknown_reading",
+            })
+    elif _source_id_for_extraction(repository, origin) != _source_id_for_extraction(repository, current):
+        raise SidecarError("validation_error", "That place was saved on another book.")
+    resolution = resolve_span(repository, origin, params.span_id, current)
+    return versioned({"source_id": params.source_id, **resolution.as_dict()})
 
 
 class ReaderGuidePlanInput(ParamsModel):
@@ -1440,7 +1508,8 @@ def reader_author_section_question(
     section_rows = [row for row in (RG.extraction_sections(ir)[0] if ir is not None else [])
                     if row["id"] == params.section_id]
     if RG.held_out_sections(vault, repository, resolved, section_rows):
-        raise SidecarError("exam_material", HELD_OUT_REFUSAL,
+        refusal = HELD_BACK_REFUSAL if reading_held_back(vault, repository, resolved) else HELD_OUT_REFUSAL
+        raise SidecarError("exam_material", refusal,
                            details={"extraction_id": resolved, "section_id": params.section_id})
 
     existing = repository.latest_reader_authored_question(

@@ -18,6 +18,7 @@ from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transpo
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.cli.embeddings import _cancellation
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import open_vault_repository
 from learnloop.decider_judgments import VERSION as DECIDER_VERSION
 from learnloop.decider_judgments import enabled as decider_enabled
 from learnloop.field.classification import PROMPT_VERSION, TASK, classify_missing_questions
@@ -101,7 +102,7 @@ def classify_questions(
         sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
         repository = (
             Repository.attach(sqlite_path, read_only=True)
-            if dry_run or not enabled else Repository(sqlite_path)
+            if dry_run or not enabled else open_vault_repository(loaded.root, sqlite_path)
         )
         events = repository.question_events()
         with repository.connection() as connection:

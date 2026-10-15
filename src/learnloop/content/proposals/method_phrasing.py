@@ -102,6 +102,7 @@ from learnloop.diagnosis.recurrence.judging import receipt_sink
 from learnloop.ids import new_ulid
 from learnloop.vault.models import LoadedVault, PracticeItem
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import vault_repository
 from learnloop.vault.required_method import (
     CRITERIA_BY_FACT_GUIDANCE,
     MethodTarget,
@@ -1076,7 +1077,7 @@ def run_method_phrasing(
         raise ValueError(f"--judge must be one of {', '.join(JUDGE_CHOICES)}")
     items = candidate_items(vault, item_ids)
     caps = caps or default_caps(len(items))
-    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    paths = VaultPaths(vault.root, vault.config)
     criteria = sum(len(item.grading_rubric.criteria) for item in items)
     report: dict[str, Any] = {
         "version": REPORT_VERSION, "status": "dry_run" if dry_run else "pending",
@@ -1092,7 +1093,7 @@ def run_method_phrasing(
 
     route = resolve_judge(vault, judge, clients=clients)
     report["judge"] = route.as_dict()
-    repository = Repository(sqlite_path)
+    repository = vault_repository(paths)
     run_id = new_ulid()
     spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million, config=vault.config)
     spend.collector.sink = receipt_sink(repository, owner_kind=RECEIPT_OWNER_KIND, owner_id=run_id)

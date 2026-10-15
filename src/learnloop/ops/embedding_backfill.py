@@ -18,6 +18,7 @@ from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores.embedding_vectors import get_vector, get_vector_by_content, put_vector
 from learnloop.ids import new_ulid
 from learnloop.vault.embedding_recipes import EmbeddingRecipe, EmbeddingRecord, select_recipes
@@ -273,7 +274,7 @@ def backfill_embeddings(
         pending, reusable = _pending(sqlite_path, records, model_id, config.dimensions)
         report.update(pending=len(pending), cached=len(records) - len(pending),
                       reused_by_content=len(reusable))
-        _materialize(Repository(sqlite_path), reusable, model_id)
+        _materialize(vault_repository(VaultPaths(loaded.root, loaded.config)), reusable, model_id)
         if not pending:
             report["status"] = "complete"
             return report
@@ -294,7 +295,7 @@ def backfill_embeddings(
             raise ValueError("The embedding client does not support canonical text")
         if any(estimated_tokens(record.text) > client.max_input_tokens for record in pending):
             raise ValueError("An embedding recipe exceeds the model input limit; no text was truncated or sent")
-        repository = Repository(sqlite_path)
+        repository = vault_repository(VaultPaths(loaded.root, loaded.config))
         run_id = new_ulid()
         report["run_id"] = run_id
         usage: dict[str, Any] = {}

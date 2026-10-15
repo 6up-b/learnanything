@@ -24,30 +24,57 @@ database's unit selections when it is built:
    re-import, or an extraction of a revision the set does not pin, is exam
    material too.
 2. *An exam unit.* A member's scope entry with ``role_override: exam`` (a
-   textbook chapter overridden to exam). In the member's pinned extraction it
-   is resolved by unit id with every nested unit (a merged unit is its
-   members; a split child is the blocks under its own heading where that
-   extraction's boundary overrides define it, else its whole raw parent); in
-   every other extraction of the source by the pinned unit's label (unit ids
-   are positional; a split child by its raw parent's label). A unit that does
-   not resolve in an extraction makes that whole extraction exam material
-   (fail closed).
+   textbook chapter overridden to exam), on the reading the scope names
+   (``SourceSetMember.scope_extraction_id``, exam protection by extraction
+   identity, 2026-10-15) and nowhere else, by unit id with every nested unit
+   (a merged unit is its members; a split child is the blocks under its own
+   heading where that reading's boundary overrides define it, else its whole
+   raw parent); a unit id that does not resolve there holds that reading out
+   whole (fail closed). Rule 4 decides the book's other readings.
 3. *A held-out unit, whatever its role.* Every unit marked
-   ``held_out_evaluation`` in any unit selection of the source (in a source
-   set or not, whatever role its member has; owner, 2026-10-13). A mark is a
-   restriction on the source, so every extraction carries every mark (Codex
-   review F2): its own by unit id, another extraction's by label. A split
-   child withholds its whole raw parent and a merged unit its members; a
-   label that does not resolve withholds the whole extraction, and a mark
-   that resolves nowhere withholds every extraction of its source (fail
-   closed).
+   ``held_out_evaluation`` in a unit selection (in a source set or not,
+   whatever role its member has; owner, 2026-10-13), on the extraction whose
+   selection marks it and whose :data:`MARKS_MADE_ON_KEY` names it, by unit
+   id. A split child withholds its whole raw parent and a merged unit its
+   members; a mark that does not resolve there withholds that whole
+   extraction (fail closed). Nowhere else: rule 4.
+4. *A reading held back until it is marked exactly* (protection redesign,
+   2026-10-15; extraction identity, the same day's fourth round). Every
+   protection mark names the reading it was made on and is resolved there
+   only; nothing is rebound or inferred from positional unit ids, creation
+   order or content matching. A book is *protected* when any extraction of
+   any revision carries any mark or signal: an exam scope (rule 2), a
+   held-out mark or the owner's "Mark exam material on this reading"
+   (:data:`PROTECTION_MARK_KEY`) (rule 3), or a held-out assessment signal
+   (the ``source_held_out_signal_marks`` ledger: the spans a model run
+   marked held out on the reading it read, made under an exam role or on a
+   book that is exam material; a cached inventory reused for another
+   reading writes none, so it never marks that reading and never erases the
+   origin's). Marks and signals are found across every revision and
+   extraction, whatever the source sets pin now. Every extraction of a
+   protected book with no exact owner's mark on it is withheld whole, as
+   held-out material: no Reader Ask, no teaching or tutor context, no
+   generation or retrieval, no leakage-gate pass, no search hit, no margin
+   cue, whatever the settings. A held-out signal marks the reading it was
+   made on only when the book carries no owner's mark at all and no signal
+   of unknown reading. A legacy mark that names no reading it can be on (a
+   scope without ``scope_extraction_id``, a selection without
+   :data:`MARKS_MADE_ON_KEY` or naming another reading) is *ambiguous*: it
+   is an owner's mark that places nothing, so every reading not marked
+   exactly is withheld whole (:data:`AMBIGUOUS_MARK`) until the owner marks
+   it. So is a held-out signal whose reading is not known (a cache row a
+   reuse had rebound before the ledger existed): it may be about any
+   reading, and no other signal marks a reading beside it (Codex review of
+   extraction identity, F2). The owner's marking records which of these
+   unplaced marks it reviewed (:data:`REVIEWED_UNPLACED`) and covers those
+   only: a new or changed one holds the reading back again (F1). A marked
+   reading is protected exactly as marked, by its own marks only.
 
 The **held-out partition** (§8.5: what the leakage gate fingerprints and an
-import or a generated item must never reproduce) is rule 3 plus the held-out
-assessment signals of exam units (an exam unit's inventory signals marked
-``held_out``, resolved in the member's pinned extraction):
-:func:`held_out_partition`. It is the one held-out predicate (Codex review
-F3): :attr:`ExamMaterial.held_out`, the Reader's refusals
+import or a generated item must never reproduce) is rule 3, rule 4 and the
+held-out assessment signals (on the marked reading their model run read, and
+nowhere else): :func:`held_out_partition`. It is the one held-out predicate
+(Codex review F3): :attr:`ExamMaterial.held_out`, the Reader's refusals
 (:func:`held_out_material`, read with the vault's source sets) and the gate
 all read it.
 
@@ -78,6 +105,7 @@ may still support a facet's meaning (support, not leakage:
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
@@ -87,6 +115,7 @@ from learnloop.content.sources.role_authority import ASSESSMENT_ONLY_ROLES
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_block_fts import UnitRow, extraction_units, source_extraction_ids
 from learnloop.db.stores.source_service import shown_items
+from learnloop.vault.scope_seal import scope_seal
 
 #: The exam use mode of a protected, held-out evaluation unit (spec_source_ingestion_v2 §4.2).
 HELD_OUT_EVALUATION = "held_out_evaluation"
@@ -99,8 +128,30 @@ EXAM_UNIT = "exam_unit"
 HELD_OUT_UNIT = "held_out_unit"
 HELD_OUT_SIGNAL = "held_out_signal"
 UNRESOLVED_UNIT = "unresolved_unit"
+#: A whole reading of a protected source with no protection marked on it (rule 4).
+UNMARKED_READING = "unmarked_reading"
+#: A whole reading of a book whose legacy mark names no reading it can be on (rule 4).
+AMBIGUOUS_MARK = "ambiguous_mark"
 EXAM_RESERVED = "exam_reserved"
 EXAM_SOURCE = "exam_source"
+
+#: The key of a unit selection's ``exam_paper_metadata`` under which the
+#: owner's "Mark exam material on this reading" records that it was marked
+#: (``{"at": time, "from": [the readings its suggestion came from]}``): the
+#: reading is marked even when nothing on it is held out (rule 4).
+PROTECTION_MARK_KEY = "protection_marked"
+#: The key of a unit selection's ``exam_paper_metadata`` naming the reading its
+#: marks (held-out units, :data:`PROTECTION_MARK_KEY`) were made on:
+#: ``{"extraction_id", "revision_id"}`` (exam protection by extraction
+#: identity). Written by every writer of marks (:func:`marks_made_on`);
+#: marks without it, or naming another reading, are ambiguous.
+MARKS_MADE_ON_KEY = "marks_made_on"
+#: The key, inside :data:`PROTECTION_MARK_KEY`'s value, listing the book's
+#: unplaced marks the owner reviewed when they marked the reading
+#: (:attr:`SourceMarks.unplaced`: a legacy exam scope's unit ids, a held-out
+#: signal of unknown reading). The marking covers those only (Codex review of
+#: extraction identity, F1).
+REVIEWED_UNPLACED = "reviewed_unplaced"
 
 SpanKey = tuple[str, str]
 
@@ -291,14 +342,30 @@ class _Reader:
         self.repository = repository
         self._units: dict[str, list[UnitRow]] = {}
         self._extractions: dict[tuple[str, str], list[str]] = {}
-        self._pinned: dict[str, str | None] = {}
+        self._readings: dict[str, list[str]] = {}
         self._selections: dict[str, Mapping[str, Any]] = {}
         self._effective: dict[str, Mapping[str, tuple[str, ...]] | None] = {}
+        self._runs: dict[str, tuple[str | None, str | None] | None] = {}
 
     def units(self, extraction_id: str) -> list[UnitRow]:
         if extraction_id not in self._units:
             self._units[extraction_id] = extraction_units(self.connection, extraction_id)
         return self._units[extraction_id]
+
+    def run(self, extraction_id: str | None) -> tuple[str | None, str | None] | None:
+        """``(revision id, source id)`` of an extraction run, None when there is none."""
+
+        if not extraction_id:
+            return None
+        key = str(extraction_id)
+        if key not in self._runs:
+            row = self.connection.execute(
+                "SELECT run.revision_id, revision.source_id FROM source_extraction_runs AS run "
+                "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id WHERE run.id = ?",
+                (key,)).fetchone()
+            self._runs[key] = None if row is None else (
+                None if row[0] is None else str(row[0]), None if row[1] is None else str(row[1]))
+        return self._runs[key]
 
     def source_extractions(self, source_id: str | None, revision_id: str | None) -> list[str]:
         key = (str(source_id or ""), str(revision_id or ""))
@@ -308,16 +375,16 @@ class _Reader:
             self._extractions[key] = list(dict.fromkeys(found))
         return self._extractions[key]
 
-    def pinned(self, revision_id: str | None) -> str | None:
-        """The member revision's extraction (its latest completed top-level run)."""
+    def readings(self, revision_id: str | None) -> list[str]:
+        """The revision's completed top-level readings, oldest first."""
 
         if not revision_id:
-            return None
-        if revision_id not in self._pinned:
-            from learnloop.content.sources.source_outline import resolve_extraction_id
-
-            self._pinned[revision_id] = resolve_extraction_id(self.repository, str(revision_id))
-        return self._pinned[revision_id]
+            return []
+        if revision_id not in self._readings:
+            self._readings[revision_id] = [str(row[0]) for row in self.connection.execute(
+                "SELECT id FROM source_extraction_runs WHERE revision_id = ? AND status = 'completed' "
+                "AND parent_extraction_id IS NULL ORDER BY created_at, id", (str(revision_id),))]
+        return self._readings[revision_id]
 
     def selection(self, extraction_id: str) -> Mapping[str, Any]:
         if extraction_id not in self._selections:
@@ -339,37 +406,97 @@ class _Reader:
         return self._effective[extraction_id]
 
 
-def _member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, reason: str) -> None:
-    """Resolve a member's narrowing units (by id in its pinned extraction, by
-    label in every other extraction of its source); fail closed per extraction."""
+def _origin_units(reader: _Reader, origin: str, narrowing: set[str]) -> tuple[set[str], set[str]] | None:
+    """The scope resolved by unit id on the reading it names: ``(its spans
+    there, the labels of its raw units)``, or None when a unit id does not
+    resolve there."""
+
+    units = reader.units(origin)
+    by_id = {unit.unit_id: unit for unit in units}
+    roots_of = {unit_id: raw_roots(unit_id, by_id) for unit_id in narrowing}
+    if any(roots is None for roots in roots_of.values()):
+        return None
+    effective = reader.effective_spans(origin) if any("#" in unit_id for unit_id in narrowing) else None
+    spans: set[str] = set()
+    for unit_id, roots in roots_of.items():
+        own = effective.get(unit_id) if effective is not None and "#" in unit_id else None
+        if own is not None:
+            spans.update(own)  # a split child: the blocks under its own heading
+            continue
+        chosen = descendants(units, set(roots or ()))
+        spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
+    labels = {by_id[root].label for roots in roots_of.values() for root in roots or ()}
+    return spans, labels
+
+
+def scope_reading_of(member: Any, run: tuple[str | None, str | None] | None) -> bool:
+    """Whether a member's ``scope_extraction_id`` names a reading its scope can
+    be on: sealed with its entries by the writer (``scope_seal``; an edit
+    made outside the writer breaks it), an extraction of the member's own
+    book, of the revision the member records for it (``scope_revision_id``,
+    when recorded)."""
+
+    if not getattr(member, "scope_extraction_id", None) or run is None:
+        return False
+    if getattr(member, "scope_seal", None) != scope_seal(member):
+        return False
+    revision_id, source_id = run
+    recorded_revision = getattr(member, "scope_revision_id", None)
+    return source_id == str(member.source_id) and (not recorded_revision or recorded_revision == revision_id)
+
+
+def _exact_scope_reading(reader: _Reader, member: Any) -> str | None:
+    """The reading a member's scope names, when it names one it can be on (else None)."""
+
+    extraction_id = getattr(member, "scope_extraction_id", None)
+    return str(extraction_id) if scope_reading_of(member, reader.run(extraction_id)) else None
+
+
+#: How a role's scope reaches the book's readings beyond the one it names.
+#: An exam role read without the marks (``role_material``): every other extraction whole.
+_ELSEWHERE_WHOLE = "whole"
+#: A role that carries no exam protection (problem sets, notes): by label.
+_ELSEWHERE_LABEL = "label"
+
+
+def _member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, reason: str, *,
+                  elsewhere: str) -> None:
+    """Resolve a member's narrowing units on the reading its scope names
+    (``scope_extraction_id``), by unit id; a unit id that does not resolve
+    there withholds every extraction of the book (fail closed). Every other
+    extraction: ``elsewhere``.
+
+    A scope that names no reading it can be on: an exam role withholds every
+    extraction of the book whole; any other role is read, as before the
+    field existed, on the first completed top-level reading of its pinned
+    revision (those roles carry no exam protection)."""
 
     extraction_ids = reader.source_extractions(member.source_id, member.revision_id)
-    pinned = reader.pinned(member.revision_id)
     pinned_revision = str(member.revision_id or "") or None
-    pinned_units = {unit.unit_id: unit for unit in reader.units(pinned)} if pinned else {}
-    roots_of = {unit_id: raw_roots(unit_id, pinned_units) for unit_id in narrowing}
-    resolved_in_pinned = all(roots is not None for roots in roots_of.values())
-    labels = {pinned_units[root].label for roots in roots_of.values() if roots for root in roots}
+    origin = _exact_scope_reading(reader, member)
+    if origin is None and elsewhere == _ELSEWHERE_WHOLE:
+        for extraction_id in extraction_ids:
+            acc.add_whole(extraction_id, AMBIGUOUS_MARK, pinned_revision)
+        return
+    if origin is None:
+        found = reader.readings(member.revision_id)
+        origin = found[0] if found else None
+    resolved = _origin_units(reader, origin, narrowing) if origin else None
+    if resolved is None:
+        for extraction_id in dict.fromkeys([*extraction_ids, *([origin] if origin else [])]):
+            acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
+        return
+    spans, labels = resolved
+    acc.add_spans(origin, spans, reason, pinned_revision)
     for extraction_id in extraction_ids:
-        units = reader.units(extraction_id)
-        if extraction_id == pinned:
-            if not resolved_in_pinned:
-                acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
-                continue
-            effective = reader.effective_spans(extraction_id) if any("#" in unit_id for unit_id in narrowing) \
-                else None
-            spans: set[str] = set()
-            for unit_id, roots in roots_of.items():
-                own = effective.get(unit_id) if effective is not None and "#" in unit_id else None
-                if own is not None:
-                    spans.update(own)  # a split child: the blocks under its own heading
-                    continue
-                chosen = descendants(units, set(roots or ()))
-                spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
-            acc.add_spans(extraction_id, spans, reason, pinned_revision)
+        if extraction_id == origin:
             continue
+        if elsewhere == _ELSEWHERE_WHOLE:
+            acc.add_whole(extraction_id, reason, pinned_revision)
+            continue
+        units = reader.units(extraction_id)
         roots = {unit.unit_id for unit in units if unit.label in labels}
-        if not resolved_in_pinned or {unit.label for unit in units if unit.unit_id in roots} != labels:
+        if {unit.label for unit in units if unit.unit_id in roots} != labels:
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
             continue
         chosen = descendants(units, roots)
@@ -377,43 +504,30 @@ def _member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, 
                       reason, pinned_revision)
 
 
+def _exam_narrowing(member: Any) -> set[str]:
+    """The member's scope units overridden to an exam role (rule 2)."""
+
+    return {str(entry.unit_id) for entry in member.scope if entry.role_override and is_exam_role(entry.role_override)}
+
+
 def _role_material(reader: _Reader, member: Any, withheld_role: Callable[[str | None], bool], acc: _Acc, *,
                    member_reason: str, unit_reason: str) -> None:
-    """A member's material whose role ``withheld_role`` names, in EVERY extraction of its source."""
+    """A member's material whose role ``withheld_role`` names: the whole
+    source when its default role does (rule 1), else its scope's units on the
+    reading the scope names: exam units with every other extraction whole,
+    the other roles by label."""
 
-    narrowing = {str(entry.unit_id) for entry in member.scope
-                 if entry.role_override and withheld_role(entry.role_override)}
     if withheld_role(member.default_role):
         for extraction_id in reader.source_extractions(member.source_id, member.revision_id):
             acc.add_whole(extraction_id, member_reason, str(member.revision_id or "") or None)
         return
-    if narrowing:
-        _member_units(reader, member, narrowing, acc, unit_reason)
-
-
-def _held_out_ids(selection: Mapping[str, Any]) -> list[str]:
-    modes = selection.get("exam_use_modes") or {}
-    return sorted(str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION)
-
-
-def _held_out_sources(connection: Any) -> dict[tuple[str, str], tuple[str | None, str | None, set[str]]]:
-    """Every source with a unit selection that marks a unit held out:
-    ``{key: (source id, revision id, the marking extractions)}``. A selection
-    whose run names no source is its own group (its extraction still counts)."""
-
-    rows = connection.execute(
-        "SELECT s.extraction_id, COALESCE(s.source_id, revision.source_id), run.revision_id "
-        "FROM source_unit_selections AS s "
-        "LEFT JOIN source_extraction_runs AS run ON run.id = s.extraction_id "
-        "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id "
-        "WHERE s.exam_use_modes_json LIKE ? ORDER BY s.extraction_id", (f"%{HELD_OUT_EVALUATION}%",)).fetchall()
-    found: dict[tuple[str, str], tuple[str | None, str | None, set[str]]] = {}
-    for extraction_id, source_id, revision_id in rows:
-        source = None if source_id is None else str(source_id)
-        revision = None if revision_id is None else str(revision_id)
-        key = ("source", source) if source else ("revision", revision) if revision else ("extraction", str(extraction_id))
-        found.setdefault(key, (source, revision if not source else None, set()))[2].add(str(extraction_id))
-    return found
+    narrowing = {str(entry.unit_id) for entry in member.scope
+                 if entry.role_override and withheld_role(entry.role_override)}
+    exam_units = narrowing & _exam_narrowing(member)
+    if exam_units:
+        _member_units(reader, member, exam_units, acc, unit_reason, elsewhere=_ELSEWHERE_WHOLE)
+    if narrowing - exam_units:
+        _member_units(reader, member, narrowing - exam_units, acc, unit_reason, elsewhere=_ELSEWHERE_LABEL)
 
 
 def _outline_exam_sources(connection: Any) -> list[tuple[str | None, str | None, str]]:
@@ -430,84 +544,382 @@ def _outline_exam_sources(connection: Any) -> list[tuple[str | None, str | None,
             for row in rows]
 
 
-def _label_occurrences(units: Sequence[UnitRow]) -> dict[str, tuple[str, int, str]]:
-    """``{unit id: (label, n, content hash)}``: the unit is the n-th (from 0, in
-    outline order) of its extraction's units with that label."""
+# --- rules 2-4: protection marks, each bound to the reading it was made on ---------------
 
-    seen: dict[str, int] = {}
-    found: dict[str, tuple[str, int, str]] = {}
-    for unit in units:
-        index = seen.get(unit.label, 0)
-        seen[unit.label] = index + 1
-        found[unit.unit_id] = (unit.label, index, unit.semantic_hash)
+
+def _json_value(text: Any, default: Any) -> Any:
+    try:
+        value = json.loads(text) if text else default
+    except (TypeError, ValueError):
+        return default
+    return value if isinstance(value, type(default)) else default
+
+
+def marks_made_on(extraction_id: str, revision_id: str | None) -> dict[str, Any]:
+    """The value of :data:`MARKS_MADE_ON_KEY` a writer records with the marks it
+    makes on ``extraction_id`` (``revision_id``: that extraction's revision)."""
+
+    return {"extraction_id": str(extraction_id), "revision_id": None if revision_id is None else str(revision_id)}
+
+
+def selection_marks_exact(extraction_id: str, metadata: Mapping[str, Any] | None,
+                          run: tuple[str | None, str | None] | None) -> bool:
+    """Whether a selection's marks name the reading they sit on: its
+    :data:`MARKS_MADE_ON_KEY` names this extraction and its run's revision.
+    Marks without it (written before it existed) or naming another reading
+    (copied from one) are ambiguous."""
+
+    made_on = (metadata or {}).get(MARKS_MADE_ON_KEY)
+    if not isinstance(made_on, Mapping) or str(made_on.get("extraction_id") or "") != str(extraction_id):
+        return False
+    if run is None:
+        return False
+    recorded = made_on.get("revision_id")
+    return not recorded or str(recorded) == str(run[0] or "")
+
+
+def _reviewed_unplaced(metadata: Mapping[str, Any] | None) -> frozenset[str]:
+    """The unplaced marks the owner's marking reviewed (:data:`REVIEWED_UNPLACED`);
+    none when it records none (a marking made before it was recorded)."""
+
+    marked = (metadata or {}).get(PROTECTION_MARK_KEY)
+    reviewed = marked.get(REVIEWED_UNPLACED) if isinstance(marked, Mapping) else None
+    return frozenset(str(value) for value in reviewed if value) if isinstance(reviewed, list) else frozenset()
+
+
+def _marked_selections(connection: Any) -> list[tuple[str, str | None, str | None, list[str], bool,
+                                                    Mapping[str, Any]]]:
+    """``(extraction id, source id, revision id, held-out unit ids, marked by
+    the owner's action, paper metadata)`` of every unit selection that marks
+    protection: a held-out mark (rule 3) or the owner's "Mark exam material
+    on this reading" (:data:`PROTECTION_MARK_KEY`)."""
+
+    rows = connection.execute(
+        "SELECT s.extraction_id, COALESCE(s.source_id, revision.source_id), run.revision_id, "
+        "s.exam_use_modes_json, s.exam_paper_metadata_json FROM source_unit_selections AS s "
+        "LEFT JOIN source_extraction_runs AS run ON run.id = s.extraction_id "
+        "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id "
+        "WHERE s.exam_use_modes_json LIKE ? OR s.exam_paper_metadata_json LIKE ? ORDER BY s.extraction_id",
+        (f"%{HELD_OUT_EVALUATION}%", f"%{PROTECTION_MARK_KEY}%")).fetchall()
+    found: list[tuple[str, str | None, str | None, list[str], bool, Mapping[str, Any]]] = []
+    for extraction_id, source_id, revision_id, modes_json, metadata_json in rows:
+        modes = _json_value(modes_json, {})
+        held = sorted(str(unit) for unit, mode in modes.items() if mode == HELD_OUT_EVALUATION)
+        metadata = _json_value(metadata_json, {})
+        flagged = PROTECTION_MARK_KEY in metadata
+        if held or flagged:
+            found.append((str(extraction_id), None if source_id is None else str(source_id),
+                          None if revision_id is None else str(revision_id), held, flagged, metadata))
     return found
 
 
-def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | None, marking: Iterable[str],
-                    acc: _Acc) -> None:
-    """Units marked ``held_out_evaluation`` in a unit selection of a source (any role).
+def _held_out_signal_spans(inventory: Any) -> list[str]:
+    spans: set[str] = set()
+    for signal in (inventory.get("assessment_signals") or []) if isinstance(inventory, Mapping) else []:
+        if isinstance(signal, Mapping) and signal.get("held_out"):
+            spans |= {str(span) for span in signal.get("span_ids") or [] if span}
+    return sorted(spans)
 
-    A mark is a restriction on the SOURCE (Codex review F2 of the stage), so
-    every extraction of the source carries every mark, its own and the
-    others':
 
-    * its own marks by unit id (a split child withholds its raw parent, a
-      merged unit its members);
-    * another extraction's marks by label (unit ids are positional), every
-      unit with that label (labels can repeat: "Exercises" under each
-      chapter). The one exception: a mark is already carried by an extraction
-      that itself marks the same unit, the n-th with that label and the same
-      content hash (the unit marked again after a re-extraction);
-    * a label that does not resolve withholds the whole extraction; a mark
-      that does not resolve at all (its unit, so its label, is unknown)
-      withholds EVERY extraction of the source (fail closed).
-    """
+def _cache_signal_ledger(connection: Any) -> list[dict[str, Any]]:
+    """The ledger migration 204's backfill would write, read from the
+    inventory cache: for a database read before it is migrated (a dry run
+    never migrates). A row whose usage names no inventory it was rebound from
+    is on its own extraction; a rebound row, or one whose usage cannot be
+    read, names no reading. A row on a book with an outline exam pick was made
+    as exam material; the inventory profile is no role (re-review F7)."""
 
-    extraction_ids = list(dict.fromkeys([*reader.source_extractions(source_id, revision_id), *sorted(marking)]))
-    marked: dict[str, set[str]] = {}
-    marked_keys: dict[str, set[tuple[str, int, str]]] = {}
-    unresolved = False
-    for extraction_id in extraction_ids:
-        held = _held_out_ids(reader.selection(extraction_id))
-        if not held:
+    picked = {source_id for source_id, _revision, _extraction in _outline_exam_sources(connection) if source_id}
+    found: list[dict[str, Any]] = []
+    for (inventory_id, revision_id, extraction_id, unit_id, inventory_json, usage_json,
+         source_id) in connection.execute(
+            "SELECT inventory.id, inventory.source_revision_id, inventory.extraction_id, inventory.unit_id, "
+            "inventory.inventory_json, inventory.usage_json, revision.source_id "
+            "FROM source_unit_inventories AS inventory "
+            "LEFT JOIN source_revisions AS revision ON revision.id = inventory.source_revision_id "
+            "WHERE inventory.inventory_json LIKE '%held_out%' ORDER BY inventory.created_at, inventory.id"):
+        spans = _held_out_signal_spans(_json_value(inventory_json, {}))
+        if not spans:
             continue
-        units = reader.units(extraction_id)
-        by_id = {unit.unit_id: unit for unit in units}
-        occurrence = _label_occurrences(units)
-        roots: set[str] = set()
-        for unit_id in held:
-            resolved = raw_roots(unit_id, by_id)
-            if resolved is None:
-                unresolved = True
+        if usage_json is None:
+            bound = True
+        else:
+            try:
+                usage = json.loads(usage_json)
+            except (TypeError, ValueError):
+                usage = None
+            bound = isinstance(usage, dict) and usage.get("rebound_from_inventory_id") is None
+        exam = source_id is not None and str(source_id) in picked
+        found.append({"revision_id": None if revision_id is None else str(revision_id),
+                      "extraction_id": str(extraction_id) if bound and extraction_id else None,
+                      "unit_id": str(unit_id), "made_as_role": EXAM_ROLE if exam else None,
+                      "span_ids": frozenset(spans), "source_id": None if source_id is None else str(source_id),
+                      "inventory_id": str(inventory_id)})
+    return found
+
+
+def _signal_ledger(connection: Any) -> list[dict[str, Any]]:
+    """Every row of the held-out signal ledger with its book (migration 204);
+    on a database not yet migrated, what its backfill would write."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' "
+                          "AND name = 'source_held_out_signal_marks'").fetchone() is None:
+        return _cache_signal_ledger(connection)
+    rows = connection.execute(
+        "SELECT m.revision_id, m.extraction_id, m.unit_id, m.made_as_role, m.span_ids_json, r.source_id, "
+        "m.inventory_id FROM source_held_out_signal_marks AS m LEFT JOIN source_revisions AS r "
+        "ON r.id = m.revision_id ORDER BY m.created_at, m.id").fetchall()
+    return [{"revision_id": None if row[0] is None else str(row[0]),
+             "extraction_id": None if row[1] is None else str(row[1]), "unit_id": str(row[2]),
+             "made_as_role": None if row[3] is None else str(row[3]),
+             "span_ids": frozenset(str(span) for span in _json_value(row[4], []) if span),
+             "source_id": None if row[5] is None else str(row[5]), "inventory_id": str(row[6])} for row in rows]
+
+
+#: What kind of mark makes a book's protection ambiguous (:attr:`SourceMarks.ambiguous`):
+#: a legacy exam scope, a legacy selection mark, a held-out signal of unknown reading.
+AMBIGUOUS_SCOPE = "scope"
+AMBIGUOUS_SELECTION = "selection"
+AMBIGUOUS_SIGNAL = "signal"
+
+
+def _unplaced_scope(unit_id: str) -> str:
+    """An unplaced legacy exam scope unit, as the owner's marking records it reviewed."""
+
+    return f"scope:{unit_id}"
+
+
+def _unplaced_signal(inventory_id: str) -> str:
+    """A held-out signal of unknown reading (by the inventory that made it), as reviewed."""
+
+    return f"signal:{inventory_id}"
+
+
+@dataclass
+class _Marks:
+    """One book's protection marks, each on the reading it names (rules 2-4)."""
+
+    source_id: str | None
+    revision_id: str | None
+    #: Every extraction of the book (all revisions and runs), the marking ones included.
+    extractions: list[str] = field(default_factory=list)
+    #: The readings an exact owner's mark is on: an exam scope naming it, a
+    #: held-out mark of its own selection, the owner's marking action.
+    owner: set[str] = field(default_factory=set)
+    #: ``{reading: the unplaced marks the owner reviewed}`` for the readings
+    #: the owner's "Mark exam material on this reading" marked exactly
+    #: (:data:`REVIEWED_UNPLACED`): no ambiguity it reviewed reaches them.
+    confirmed: dict[str, frozenset[str]] = field(default_factory=dict)
+    #: ``{reading: its exact exam scope's unit ids}`` (rule 2).
+    scope_units: dict[str, set[str]] = field(default_factory=dict)
+    #: ``{reading: the pinned revisions of the members whose scope names it}``.
+    scope_pins: dict[str, set[str]] = field(default_factory=dict)
+    #: ``{reading: its own held-out unit ids}`` (rule 3).
+    held_units: dict[str, list[str]] = field(default_factory=dict)
+    #: ``{reading: [(held-out signal spans, revision)]}``: signals a model run made on it.
+    signals: dict[str, list[tuple[frozenset[str], str | None]]] = field(default_factory=dict)
+    #: Marks that name no reading they can be on (:data:`AMBIGUOUS_SCOPE`, ...).
+    ambiguous: set[str] = field(default_factory=set)
+    #: The marks that may be about any reading: a legacy exam scope's units
+    #: and held-out signals of unknown reading (:func:`_unplaced_scope`,
+    #: :func:`_unplaced_signal`).
+    unplaced: set[str] = field(default_factory=set)
+    #: Readings whose own selection carries marks that name no reading (or another one).
+    ambiguous_on: set[str] = field(default_factory=set)
+    #: ``{reading: legacy held-out unit ids}``: placed nowhere, kept for the marking's suggestion.
+    legacy_units: dict[str, list[str]] = field(default_factory=dict)
+    #: The unit ids of the exam scopes that name no reading (the suggestion reads them).
+    legacy_scope_units: set[str] = field(default_factory=set)
+    #: ``[(revision, unit id, spans)]`` of the held-out signals of unknown reading (the suggestion reads them).
+    unbound_signals: list[tuple[str | None, str, frozenset[str]]] = field(default_factory=list)
+
+    @property
+    def protected(self) -> bool:
+        """Any mark or signal on any reading of the book (exact, ambiguous or unbound)."""
+
+        return bool(self.owner or self.scope_units or self.held_units or self.signals or self.ambiguous)
+
+    @property
+    def marked(self) -> set[str]:
+        """The readings protection is marked on exactly: an owner's mark that
+        no ambiguous mark may also be about (an unplaced mark, a legacy exam
+        scope or a signal of unknown reading, may be about any reading; a
+        legacy selection mark about its own), unless the owner's marking
+        action marked it after reviewing every unplaced mark there is now; or,
+        where the book carries no owner's mark at all and no ambiguous mark,
+        the readings with held-out signals of their own."""
+
+        if not (self.owner or self.ambiguous):
+            return set(self.signals)
+        return {reading for reading in self.owner if (
+            reading in self.confirmed and self.unplaced <= self.confirmed[reading]) or (
+            not self.unplaced and reading not in self.ambiguous_on)}
+
+    @property
+    def unmarked(self) -> list[str]:
+        """The extractions withheld whole until protection is marked on them exactly."""
+
+        if not self.protected:
+            return []
+        marked = self.marked
+        return [extraction_id for extraction_id in self.extractions if extraction_id not in marked]
+
+
+def _signal_counts(row: Mapping[str, Any], *, exam_sources: set[str], scoped: set[str],
+                   scope_spans: Mapping[str, set[str]]) -> bool:
+    """Whether a ledger row's held-out signals are protection: made under an
+    exam role, or on a book that is exam material now (rule 1: an exam member
+    of any set, or an outline exam pick), or on spans an exact exam scope
+    names on the same reading, or (a row whose role was not recorded) on a
+    book with an exam scope that names no reading (fail closed)."""
+
+    if is_exam_role(row["made_as_role"]):
+        return True
+    source_id = row["source_id"]
+    if source_id in exam_sources:
+        return True
+    extraction_id = row["extraction_id"]
+    if extraction_id and row["span_ids"] & scope_spans.get(extraction_id, set()):
+        return True
+    return row["made_as_role"] is None and source_id in scoped
+
+
+def _protection_marks(reader: _Reader, vault_or_sets: Any) -> dict[tuple[str, str], _Marks]:
+    """Every book's protection marks, each on the reading it names (rules 2-4),
+    read from the vault's source sets and the database, across every revision
+    and extraction of the book whatever its membership: exam scopes (rule 2),
+    held-out marks and the owner's marking action (rule 3, the unit
+    selections) and the held-out signal ledger. Grouped by book (a mark
+    whose run names no book by its revision, else its own extraction)."""
+
+    found: dict[tuple[str, str], _Marks] = {}
+
+    def group(source_id: str | None, revision_id: str | None, extraction_id: str | None) -> _Marks:
+        key = (("source", source_id) if source_id else ("revision", revision_id) if revision_id
+               else ("extraction", str(extraction_id or "")))
+        if key not in found:
+            found[key] = _Marks(source_id, None if source_id else revision_id)
+        return found[key]
+
+    sets = _source_sets(vault_or_sets)
+    exam_sources: set[str] = set()
+    scoped: set[str] = set()
+    for source_set in sets:
+        for member in source_set.members:
+            if is_exam_role(member.default_role):
+                exam_sources.add(str(member.source_id))
                 continue
-            roots |= resolved
-        marked[extraction_id] = roots
-        marked_keys[extraction_id] = {occurrence[unit_id] for unit_id in roots}
-    if unresolved:
-        for extraction_id in extraction_ids:
-            acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
-        return
-    if not marked:
-        return
-    for extraction_id in extraction_ids:
-        units = reader.units(extraction_id)
-        own_keys = marked_keys.get(extraction_id, set())
-        labels = {key[0] for other, keys in marked_keys.items() if other != extraction_id
-                  for key in keys if key not in own_keys}
-        by_label = {unit.unit_id for unit in units if unit.label in labels}
-        if {unit.label for unit in units if unit.unit_id in by_label} != labels:
-            acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+            units = _exam_narrowing(member)
+            if not units:
+                continue
+            scoped.add(str(member.source_id))
+            marks = group(str(member.source_id), str(member.revision_id or "") or None, None)
+            reading = _exact_scope_reading(reader, member)
+            if reading is None:
+                marks.ambiguous.add(AMBIGUOUS_SCOPE)
+                marks.unplaced |= {_unplaced_scope(unit) for unit in units}
+                marks.legacy_scope_units |= units
+                continue
+            marks.owner.add(reading)
+            marks.extractions.append(reading)
+            marks.scope_units.setdefault(reading, set()).update(units)
+            if member.revision_id:
+                marks.scope_pins.setdefault(reading, set()).add(str(member.revision_id))
+    exam_sources |= {str(source_id) for source_id, _revision, _picked in _outline_exam_sources(reader.connection)
+                     if source_id}
+    for extraction_id, source_id, revision_id, held, flagged, metadata in _marked_selections(reader.connection):
+        marks = group(source_id, revision_id, extraction_id)
+        marks.extractions.append(extraction_id)
+        if not selection_marks_exact(extraction_id, metadata, reader.run(extraction_id)):
+            marks.ambiguous.add(AMBIGUOUS_SELECTION)
+            marks.ambiguous_on.add(extraction_id)
+            if held:
+                marks.legacy_units[extraction_id] = held
             continue
-        chosen = descendants(units, marked.get(extraction_id, set()) | by_label)
-        acc.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
-                      HELD_OUT_UNIT, None)
+        marks.owner.add(extraction_id)
+        if flagged:
+            marks.confirmed[extraction_id] = _reviewed_unplaced(metadata)
+        if held:
+            marks.held_units[extraction_id] = held
+    scope_spans: dict[str, set[str]] = {}
+    for marks in found.values():
+        for reading, units in marks.scope_units.items():
+            resolved = _origin_units(reader, reading, units)
+            scope_spans[reading] = resolved[0] if resolved is not None else {
+                span for unit in reader.units(reading) for span in unit.span_ids}
+    for row in _signal_ledger(reader.connection):
+        if not row["span_ids"] or not _signal_counts(row, exam_sources=exam_sources, scoped=scoped,
+                                                     scope_spans=scope_spans):
+            continue
+        marks = group(row["source_id"], row["revision_id"], row["extraction_id"])
+        extraction_id = row["extraction_id"]
+        run = reader.run(extraction_id)
+        if extraction_id and run is not None and run[0] == row["revision_id"]:
+            marks.signals.setdefault(extraction_id, []).append((row["span_ids"], row["revision_id"]))
+            marks.extractions.append(extraction_id)
+        else:
+            # Its reading is not known: it may be about any reading (identity review F2).
+            marks.ambiguous.add(AMBIGUOUS_SIGNAL)
+            marks.unplaced.add(_unplaced_signal(row["inventory_id"]))
+            marks.unbound_signals.append((row["revision_id"], row["unit_id"], row["span_ids"]))
+    for marks in found.values():
+        everything = reader.source_extractions(marks.source_id, marks.revision_id) if (
+            marks.source_id or marks.revision_id) else []
+        marks.extractions = list(dict.fromkeys([*everything, *marks.extractions]))
+    return {key: marks for key, marks in found.items() if marks.protected}
 
 
-def _add_held_out(connection: Any, reader: _Reader, held: _Acc) -> None:
-    """Rule 3 into ``held``: every held-out unit of every source, from the database alone."""
+def _held_units(reader: _Reader, extraction_id: str, unit_ids: Iterable[str], held: _Acc) -> None:
+    """An extraction's own held-out marks (rule 3), by unit id: a split child
+    withholds its whole raw parent, a merged unit its members; a mark that
+    does not resolve withholds the whole extraction (fail closed)."""
 
-    for source_id, revision_id, marking in _held_out_sources(connection).values():
-        _held_out_units(reader, source_id, revision_id, marking, held)
+    units = reader.units(extraction_id)
+    by_id = {unit.unit_id: unit for unit in units}
+    roots: set[str] = set()
+    for unit_id in unit_ids:
+        resolved = raw_roots(unit_id, by_id)
+        if resolved is None:
+            held.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+            return
+        roots |= resolved
+    chosen = descendants(units, roots)
+    held.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
+                   HELD_OUT_UNIT, None)
+
+
+def _add_protection(reader: _Reader, vault_or_sets: Any, held: _Acc, exam: _Acc | None = None) -> None:
+    """Rules 2-4 into ``held`` (and the exam scopes' units into ``exam``): on
+    each reading marked exactly, its own exam scope units, held-out marks and
+    signals; every other extraction of a protected book, whole. An exact
+    scope unit that does not resolve on the reading it names holds that
+    reading out whole (fail closed)."""
+
+    for marks in _protection_marks(reader, vault_or_sets).values():
+        marked = marks.marked
+        whole_reasons = (UNMARKED_READING, AMBIGUOUS_MARK) if marks.ambiguous else (UNMARKED_READING,)
+        for extraction_id in marks.unmarked:
+            for reason in whole_reasons:
+                held.add_whole(extraction_id, reason, None)
+        for reading, units in sorted(marks.scope_units.items()):
+            if reading not in marked:
+                continue
+            pins = sorted(marks.scope_pins.get(reading, ())) or [None]
+            resolved = _origin_units(reader, reading, units)
+            if resolved is None:
+                for pin in pins:
+                    held.add_whole(reading, UNRESOLVED_UNIT, pin)
+            elif exam is not None:
+                for pin in pins:
+                    exam.add_spans(reading, resolved[0], EXAM_UNIT, pin)
+        for extraction_id, unit_ids in sorted(marks.held_units.items()):
+            if extraction_id in marked:
+                _held_units(reader, extraction_id, unit_ids, held)
+        for reading, entries in sorted(marks.signals.items()):
+            if reading not in marked:
+                continue
+            for spans, revision_id in entries:
+                held.add_spans(reading, spans, HELD_OUT_SIGNAL, revision_id)
 
 
 def _runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str | None, str | None]]:
@@ -531,7 +943,7 @@ def _source_sets(vault_or_sets: Any) -> list[Any]:
 
 
 def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
-    """Exam material vault-wide (rules 1-3): ``vault`` or its ``source_sets``."""
+    """Exam material vault-wide (rules 1-4): ``vault`` or its ``source_sets``."""
 
     acc = _Acc()
     held = _Acc()
@@ -539,12 +951,13 @@ def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
         reader = _Reader(connection, repository)
         for source_set in _source_sets(vault_or_sets):
             for member in source_set.members:
-                _role_material(reader, member, is_exam_role, acc, member_reason=EXAM_MEMBER, unit_reason=EXAM_UNIT)
+                if is_exam_role(member.default_role):
+                    for extraction_id in reader.source_extractions(member.source_id, member.revision_id):
+                        acc.add_whole(extraction_id, EXAM_MEMBER, str(member.revision_id or "") or None)
         for source_id, revision_id, picked in _outline_exam_sources(connection):
             for extraction_id in dict.fromkeys([*reader.source_extractions(source_id, revision_id), picked]):
                 acc.add_whole(extraction_id, EXAM_SOURCE, None)
-        _add_held_out(connection, reader, held)
-        _add_signals(reader, vault_or_sets, held)
+        _add_protection(reader, vault_or_sets, held, acc)
         held_material = Material.from_acc(held)
         material = Material.from_acc(acc).union(held_material)
         runs = _runs(connection, set(material.extractions) | {key[0] for key in material.spans})
@@ -553,10 +966,12 @@ def exam_material(vault_or_sets: Any, repository: Any) -> ExamMaterial:
 
 def role_material(vault_or_sets: Any, repository: Any, withheld_role: Callable[[str | None], bool], *,
                   member_reason: str = "role_member", unit_reason: str = "role_unit") -> Material:
-    """Members' material whose role ``withheld_role`` names, by the same
-    resolution as exam material (rules 1 and 2), for callers that withhold
-    more than exams (``corpus.teaching_exclusions``: problem sets, notes and
-    unknown roles)."""
+    """Members' material whose role ``withheld_role`` names (rules 1 and 2),
+    for callers that withhold more than exams (``corpus.teaching_exclusions``:
+    problem sets, notes and unknown roles). A scope's units are resolved on
+    the reading it names; beyond it a role that carries no exam protection is
+    followed by label, and an exam unit withholds every other extraction
+    whole (and a scope that names no reading, every extraction)."""
 
     acc = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -577,11 +992,114 @@ def exam_withheld(vault_or_sets: Any, repository: Any, keys: Iterable[Sequence[s
     return exam_material(vault_or_sets, repository).withheld(wanted)
 
 
+# --- rule 4 for the book's card, doctor and the owner's marking ---------------------------
+
+
+@dataclass(frozen=True)
+class SourceMarks:
+    """One protected book's readings: where protection is marked exactly, the
+    extractions held back until it is marked on them (rule 4), the kinds of
+    mark that name no reading (``ambiguous``: :data:`AMBIGUOUS_SCOPE`,
+    :data:`AMBIGUOUS_SELECTION`, :data:`AMBIGUOUS_SIGNAL`), and the marks
+    that may be about any reading (``unplaced``), which the owner's marking
+    records it reviewed (:data:`REVIEWED_UNPLACED`)."""
+
+    source_id: str
+    marked: tuple[str, ...]
+    unmarked: tuple[str, ...]
+    ambiguous: tuple[str, ...] = ()
+    unplaced: tuple[str, ...] = ()
+
+
+def source_marks(vault_or_sets: Any, repository: Any) -> dict[str, SourceMarks]:
+    """``{source id: its marks}`` for every protected book (rule 4): what the
+    book's card ("Mark exam material on this reading"), doctor and the marking
+    action read."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        reader = _Reader(connection, repository)
+        found = _protection_marks(reader, vault_or_sets)
+    return {str(marks.source_id): SourceMarks(
+        str(marks.source_id), tuple(sorted(marks.marked & set(marks.extractions))), tuple(marks.unmarked),
+        tuple(sorted(marks.ambiguous)), tuple(sorted(marks.unplaced)))
+        for marks in found.values() if marks.source_id}
+
+
+def reading_held_back(vault_or_sets: Any, repository: Any, extraction_id: str | None) -> bool:
+    """Whether a reading is withheld whole until protection is marked on it (rule 4)."""
+
+    if not extraction_id:
+        return False
+    return any(str(extraction_id) in marks.unmarked for marks in source_marks(vault_or_sets, repository).values())
+
+
+def protected_spans_by_reading(vault_or_sets: Any, repository: Any, source_id: str) -> dict[str, set[str]]:
+    """``{reading: spans}`` every mark of a book would protect if it were read
+    on that reading by its own unit ids, exact or not: the owner's marking
+    suggestion's sources (never an authority). Exact marks and signals on the
+    reading they name; a legacy held-out mark on the reading its selection
+    sits on; a legacy exam scope (it names no reading) on every reading by
+    unit id; a signal of unknown reading on every reading of its revision, by
+    its unit id and its span ids. A unit id that does not resolve suggests
+    nothing."""
+
+    found: dict[str, set[str]] = {}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        reader = _Reader(connection, repository)
+        marks = next((value for value in _protection_marks(reader, vault_or_sets).values()
+                      if value.source_id == str(source_id)), None)
+        if marks is None:
+            return {}
+
+        def place(reading: str, unit_ids: Iterable[str]) -> None:
+            units = reader.units(reading)
+            by_id = {unit.unit_id: unit for unit in units}
+            for unit_id in unit_ids:
+                roots = raw_roots(unit_id, by_id)
+                if roots is None:
+                    continue
+                chosen = descendants(units, roots)
+                found.setdefault(reading, set()).update(
+                    span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
+
+        for reading, units in marks.scope_units.items():
+            place(reading, units)
+        for reading, unit_ids in [*marks.held_units.items(), *marks.legacy_units.items()]:
+            place(reading, unit_ids)
+        for reading, entries in marks.signals.items():
+            for spans, _revision in entries:
+                found.setdefault(reading, set()).update(spans)
+        if marks.legacy_scope_units:
+            for reading in marks.extractions:
+                place(reading, marks.legacy_scope_units)
+        for revision_id, unit_id, spans in marks.unbound_signals:
+            for reading in marks.extractions:
+                run = reader.run(reading)
+                if run is None or run[0] != revision_id:
+                    continue
+                place(reading, [unit_id])
+                there = {span for unit in reader.units(reading) for span in unit.span_ids}
+                found.setdefault(reading, set()).update(spans & there)
+    return found
+
+
 # --- the Reader's model contexts ---------------------------------------------------------
 
 #: What a learner is told when a Reader request would show held-out material to a model.
 HELD_OUT_REFUSAL = ("This passage is held out for evaluation (an exam you'll sit later), so LearnLoop won't "
                     "explain it or make questions from it: that keeps the exam a fair test.")
+#: What a learner is told when the passage is on a reading held back until its
+#: exam material is marked (rule 4): not an exam question, a reading not yet checked.
+HELD_BACK_REFUSAL = ("This reading of the book is held back until you mark its exam material (on the book's card "
+                     "in the Library), so LearnLoop won't explain it or make questions from it yet.")
+
+
+def held_out_refusal(material: Material, extraction_id: str | None) -> str:
+    """The plain refusal for a Reader request over ``material``: a reading held
+    back until it is marked says so (rule 4); anything else is held out."""
+
+    reasons = material.reasons.get(str(extraction_id or ""), frozenset())
+    return HELD_BACK_REFUSAL if UNMARKED_READING in reasons else HELD_OUT_REFUSAL
 
 
 def held_out_material(vault_or_sets: Any, repository: Any) -> Material:
@@ -621,66 +1139,23 @@ class HeldOutSpan:
         return f"{self.extraction_id}/{self.span_id}"
 
 
-def _signal_spans(inventory: Mapping[str, Any], *, held_out_only: bool) -> set[str]:
-    spans: set[str] = set()
-    for signal in inventory.get("assessment_signals", []) or []:
-        if held_out_only and not signal.get("held_out"):
-            continue
-        spans |= {str(span) for span in signal.get("span_ids", []) or [] if span}
-    return spans
-
-
-def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
-                 subjects: set[str] | None = None) -> None:
-    """The held-out assessment signals of exam units into ``held``: an exam
-    unit's inventory signals marked ``held_out`` (every signal of an exam unit
-    itself marked held out), resolved in the member's pinned extraction.
-    ``subjects`` narrows them to those subjects' source sets."""
-
-    repository = reader.repository
-    for source_set in _source_sets(vault_or_sets):
-        if subjects is not None and source_set.subject_id not in subjects:
-            continue
-        for member in source_set.members:
-            overrides = {str(entry.unit_id): entry.role_override for entry in member.scope if entry.role_override}
-            if not is_exam_role(member.default_role) and not any(is_exam_role(role) for role in overrides.values()):
-                continue
-            pinned = reader.pinned(member.revision_id)
-            if pinned is None:
-                continue
-            scope_units = [str(entry.unit_id) for entry in member.scope] or [
-                unit.unit_id for unit in reader.units(pinned)]
-            inventories = {str(row["unit_id"]): row["inventory"]
-                           for row in repository.unit_inventories_for_revision(member.revision_id)
-                           if row.get("inventory")}
-            modes = reader.selection(pinned).get("exam_use_modes") or {}
-            for unit_id in scope_units:
-                if not is_exam_role(overrides.get(unit_id, member.default_role)):
-                    continue
-                inventory = inventories.get(unit_id)
-                if inventory:
-                    held.add_spans(pinned, _signal_spans(inventory, held_out_only=modes.get(unit_id)
-                                                         != HELD_OUT_EVALUATION),
-                                   HELD_OUT_SIGNAL, str(member.revision_id or "") or None)
-
-
 def held_out_partition(vault_or_sets: Any, repository: Any, *,
                        subject_ids: Iterable[str] | None = None) -> Material:
-    """The held-out partition: every held-out unit (rule 3, any role, every
-    extraction, fail closed) plus the held-out assessment signals of exam units
-    (resolved in the member's pinned extraction). The one held-out predicate:
-    the leakage gate fingerprints it, the Reader refuses it
+    """The held-out partition: every held-out unit (rule 3, any role, on the
+    extraction that marks it), every reading held back until protection is
+    marked on it exactly (rule 4, whole), plus the held-out assessment
+    signals on the marked reading their model run read. The one held-out
+    predicate: the leakage gate fingerprints it, the Reader refuses it
     (:func:`held_out_material`) and :attr:`ExamMaterial.held_out` is it.
 
-    ``subject_ids`` narrows the exam units' signals to those subjects' source
-    sets; held-out units count wherever they sit."""
+    ``subject_ids`` no longer narrows anything (exam protection by extraction
+    identity): a signal is its book's protection whatever source sets it is
+    in now, so every subject's gate counts it (fail closed)."""
 
-    subjects = None if subject_ids is None else {str(value) for value in subject_ids}
+    del subject_ids  # protection marks are their book's, wherever it sits (see the docstring)
     held = _Acc()
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        reader = _Reader(connection, repository)
-        _add_held_out(connection, reader, held)
-        _add_signals(reader, vault_or_sets, held, subjects=subjects)
+        _add_protection(_Reader(connection, repository), vault_or_sets, held)
     return Material.from_acc(held)
 
 
@@ -851,9 +1326,12 @@ def held_out_selection_active(vault: Any) -> bool:
     review F6). On (the default): material the learner has been shown never
     becomes an exam item, a certification cold probe or a cold retry; an exam
     item shown after its reservation is withdrawn before the exam starts; an
-    item made from held-out material stays out of routine practice. Off, each
-    selection is the predecessor's. Live at every version: replay never reads
-    it. The model-context protections are not switched."""
+    item made from held-out material stays out of routine practice; the
+    plan's reading step in DL1's order never offers exam material
+    (``daily_plan.engine.reading_step_rule``; Codex review of extraction
+    identity, F6). Off, each selection is the predecessor's. Live at every
+    version: replay never reads it. The model-context protections are not
+    switched."""
 
     goals = getattr(getattr(vault, "config", None), "goals", None)
     return bool(getattr(goals, "held_out_selection", True))
@@ -929,6 +1407,10 @@ def exam_reserved(repository: Any, item_id: str | None) -> bool:
 
 
 __all__ = [
+    "AMBIGUOUS_MARK",
+    "AMBIGUOUS_SCOPE",
+    "AMBIGUOUS_SELECTION",
+    "AMBIGUOUS_SIGNAL",
     "EXAM_MEMBER",
     "EXAM_RESERVED",
     "EXAM_ROLE",
@@ -937,6 +1419,7 @@ __all__ = [
     "ExamMaterial",
     "ExamVerdict",
     "HELD_OUT_EVALUATION",
+    "HELD_BACK_REFUSAL",
     "HELD_OUT_ITEM_REFUSAL",
     "HELD_OUT_MATERIAL",
     "HELD_OUT_REFUSAL",
@@ -944,7 +1427,12 @@ __all__ = [
     "HELD_OUT_UNIT",
     "HeldOutSpan",
     "ItemExamStatus",
+    "MARKS_MADE_ON_KEY",
     "Material",
+    "PROTECTION_MARK_KEY",
+    "REVIEWED_UNPLACED",
+    "SourceMarks",
+    "UNMARKED_READING",
     "UNRESOLVED_UNIT",
     "descendants",
     "exam_material",
@@ -956,13 +1444,20 @@ __all__ = [
     "held_out_items",
     "held_out_material",
     "held_out_partition",
+    "held_out_refusal",
     "held_out_selection_active",
     "held_out_spans",
     "is_exam_role",
     "item_exam_status",
     "item_source_keys",
+    "marks_made_on",
+    "protected_spans_by_reading",
     "raw_roots",
+    "reading_held_back",
     "role_material",
+    "scope_reading_of",
+    "selection_marks_exact",
+    "source_marks",
     "source_ref_keys",
     "source_ref_protected",
 ]

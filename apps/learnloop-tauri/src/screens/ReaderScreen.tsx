@@ -373,7 +373,7 @@ export function ReaderScreen({
 
   // RW1a's inquiry: the Ask and its branches, the return stack, the reconnect
   // line, inquiry status and the passage quick check (screens/reader/useReaderInquiry).
-  const openSourceRef = useRef<((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore"; handoff?: ReadingPosition | null }) => Promise<void>) | null>(null);
+  const openSourceRef = useRef<((card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null }) => Promise<void>) | null>(null);
   const {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
@@ -595,7 +595,10 @@ export function ReaderScreen({
     async (
       card: SourceLibraryCard,
       jumpSpan?: string,
-      options: { via?: "search" | "restore"; handoff?: ReadingPosition | null } = {},
+      // jumpReading: the reading jumpSpan was found on (a search hit, a
+      // return); another reading's span is translated, never opened as a span
+      // of the reading the book opens on now (Codex review F8).
+      options: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null } = {},
     ) => {
       const handoff = options.handoff ?? null;
       progress.handoffRef.current = handoff;
@@ -624,7 +627,7 @@ export function ReaderScreen({
         // Opening restores a position: following starts once it has settled.
         settleOpening();
         // RW1a: another source after leaving one is a detour (useReaderInquiry).
-        noteSourceOpened(card, view.extractionId, jumpSpan, options.via);
+        noteSourceOpened(card, jumpSpan && options.jumpReading ? options.jumpReading : view.extractionId, jumpSpan, options.via);
         setRender(view);
         setOffline(false);
         setSourceTitle(card.title);
@@ -634,7 +637,11 @@ export function ReaderScreen({
         onSourceChange?.({ card, spanId: null });
         // The saved place, a search hit's passage over it, or (with neither)
         // the reading history once it is read (useReadingProgress).
-        placeAtOpen(view.sourceId, jumpSpan, handoff);
+        placeAtOpen(
+          view.sourceId, jumpSpan, handoff,
+          { extractionId: view.extractionId, aliasedFrom: view.aliasedFrom ?? [], otherReadings: view.otherReadings },
+          options.jumpReading ?? null,
+        );
         setGuideLoading(true);
         readGuidePlan(card.sourceId, view.extractionId)
           .then(setGuidePlan)
@@ -654,11 +661,15 @@ export function ReaderScreen({
             .finally(() => setWatchLoading(false));
         } else {
           // Original-PDF surface when the originals store has this revision's bytes.
+          // Its block geometry is the rendered reading's: a source id would
+          // resolve to the book's latest reading, which may have completed
+          // since the render, with other span ids (re-read safety, Codex
+          // re-review F10's class).
           const pdfRequest = ++pdfViewRequestRef.current;
           const current = () => pdfViewRequestRef.current === pdfRequest;
           setPdfViewPending(true);
-          cachedSourceRead(card.sourceId, ["reader_pdf_view", card.sourceId], () =>
-            api.readerPdfView({ extractionId: card.sourceId })
+          cachedSourceRead(card.sourceId, ["reader_pdf_view", view.extractionId], () =>
+            api.readerPdfView({ extractionId: view.extractionId })
           )
             .then((manifest) => {
               if (current()) setPdfView(manifest.available ? manifest : null);
@@ -1754,7 +1765,7 @@ export function ReaderScreen({
                       <Card
                         key={`${hit.extractionId}/${hit.spanId}`}
                         onClick={() => {
-                          if (card && opening === null) void openSource(card, hit.spanId, { via: "search" });
+                          if (card && opening === null) void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
                         }}
                         style={{ display: "flex", flexDirection: "column", gap: 4, cursor: card ? "pointer" : "default" }}
                       >
@@ -1850,6 +1861,15 @@ export function ReaderScreen({
           </button>
           <Meta>{sourceTitle ?? "Untitled source"}</Meta>
           {offline ? <Pill color="amber">offline demo</Pill> : null}
+          {progress.placeApproximate && !offline ? (
+            // Re-read safety: the saved place (or the search hit's passage)
+            // was on an earlier reading whose words changed there.
+            <Faint style={{ fontSize: 11 }}>
+              {progress.placeApproximate === "found"
+                ? "This book was read again: you're near the passage you found."
+                : "This book was read again: you're near where you left off."}
+            </Faint>
+          ) : null}
           {pdfView && !offline ? (
             <span
               onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}

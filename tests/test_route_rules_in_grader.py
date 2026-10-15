@@ -598,10 +598,10 @@ def test_migration_186_keeps_its_trigger_which_nothing_writes_now(tmp_path):
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.db.migrate import discover_migrations
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_203"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_204"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
-    assert max(m.version for m in discover_migrations()) == 203
+    assert max(m.version for m in discover_migrations()) == 204
     with connect(root / "state.sqlite") as connection:
         sql = connection.execute(
             "SELECT sql FROM sqlite_master WHERE name = 'grading_clarifications'").fetchone()[0]
@@ -990,13 +990,13 @@ def test_f5_a_regrade_supersedes_an_mvp017_route_check_verdict(tmp_path):
     writes that task now, so any regrade of such an attempt (at mvp-0.17, or
     after the upgrade) supersedes it as not checked."""
     from learnloop.db.copies import copy_tree_with_databases
-    from learnloop.db.repositories import Repository
     from learnloop.route_rules_upgrade import upgrade_to_mvp020
+    from learnloop.vault.repository import open_vault_repository
 
     expected = json.loads((MVP017_FIXTURE / "expected.json").read_text(encoding="utf-8"))["attempts"]
     root = tmp_path / "vault"
     copy_tree_with_databases(MVP017_FIXTURE, root)
-    vault, repository = load_vault(root), Repository(root / "state.sqlite")
+    vault, repository = load_vault(root), open_vault_repository(root, root / "state.sqlite")
     held, restored = expected["held"]["attempt_id"], expected["restored_both"]["attempt_id"]
     later = FrozenClock(CLOCK.now() + timedelta(days=60))  # after every fixture grade
     [legacy] = _judgments(repository, held, "proof_route_check")

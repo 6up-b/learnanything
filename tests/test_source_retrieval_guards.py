@@ -319,17 +319,24 @@ def test_an_assessment_link_without_an_extraction_excludes_its_sources_extractio
     assert "ext_book" not in teaching_scope(loaded(paths), repository, ["lo_matrices"]).extractions
 
 
-def test_a_unit_override_is_resolved_in_every_extraction_by_label(tmp_path):
+def test_a_unit_override_is_resolved_on_its_reading_and_an_unmarked_reimport_is_held_back_whole(tmp_path):
+    """An exam unit override is resolved on the reading its scope names. The
+    book's re-import (a new revision, units renumbered) never inherits it by
+    label (protection redesign, re-read safety 2026-10-15): with no exam
+    material marked on it, the whole re-import stays out of teaching until the
+    owner marks it."""
+
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     upsert_source_set(paths.root, {"id": "sset_la", "subject_id": "linear-algebra", "title": "LA", "members": [
         {"source_id": "src_book", "revision_id": "rev_book", "default_role": "primary_textbook",
-         "scope": [{"unit_id": "ch_det", "role_override": "exam"}]},
+         "scope": [{"unit_id": "ch_det", "role_override": "exam"}],
+         "scope_extraction_id": "ext_book", "scope_revision_id": "rev_book"},
         {"source_id": "src_exam", "revision_id": "rev_exam", "default_role": "exam"},
     ]})
     from tests.source_retrieval_fakes import BOOK
 
     # The book re-imported (a new current revision the set does not pin), its
-    # units renumbered: the override is found by the pinned unit's label.
+    # units renumbered.
     with repository.connection() as connection:
         connection.execute(
             "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
@@ -339,10 +346,14 @@ def test_a_unit_override_is_resolved_in_every_extraction_by_label(tmp_path):
     renamed = {f"x_{unit_id}": value for unit_id, value in BOOK.items()}
     seed_source_extraction(repository, "rev_book2", "ext_book_v2", renamed)
     scope = teaching_scope(loaded(paths), repository, ["lo_matrices"])
-    for extraction_id in ("ext_book", "ext_book_v2"):
-        assert (extraction_id, "s6") in scope.excluded  # "Chapter 3 Determinants" header ...
-        assert (extraction_id, "s7") in scope.excluded  # ... and its blocks
-        assert (extraction_id, "s2") not in scope.excluded
+    assert ("ext_book", "s6") in scope.excluded  # "Chapter 3 Determinants" header ...
+    assert ("ext_book", "s7") in scope.excluded  # ... and its blocks
+    assert ("ext_book", "s2") not in scope.excluded
+    # The re-import is held back whole until it is marked: no block of it teaches.
+    from learnloop.source_retrieval.corpus import teaching_exclusions
+
+    assert "ext_book_v2" in teaching_exclusions(loaded(paths), repository).extractions
+    assert "ext_book" not in teaching_exclusions(loaded(paths), repository).extractions
 
 
 def seed_source_extraction(repository, revision_id, extraction_id, units):

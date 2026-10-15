@@ -27,6 +27,7 @@ from learnloop.tutor.ai_contracts import (
     promotion_analysis_prompt,
 )
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.learner.mastery import display_mastery
 from learnloop.content.authoring.practice_generation import (
     PracticeExpansionError,
@@ -205,7 +206,7 @@ def promote_tutor_question(
         raise PromotionError(f"Unknown promotion intent {intent!r}")
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
 
     existing = repository.question_promotion(event_id)
     if existing is not None:

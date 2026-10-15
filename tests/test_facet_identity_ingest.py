@@ -500,7 +500,7 @@ def test_the_dedupe_dry_run_never_migrates_the_database(tmp_path, monkeypatch):
     def no_migration(*_args, **_kwargs):
         raise AssertionError("a dry run applied migrations")
 
-    monkeypatch.setattr(repositories, "apply_migrations", no_migration)
+    monkeypatch.setattr(repositories, "create_or_attach_current", no_migration)
     report = run_dedupe(root, dry_run=True, client=_study_judge(data))
     assert report["status"] == "dry_run" and report["estimate"]["calls"] == 1
 

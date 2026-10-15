@@ -22,7 +22,7 @@ from learnloop.causal_activity_policy import (
 )
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
-from learnloop.db.migrate import apply_migrations
+from learnloop.db.migrate import create_or_attach_current
 from learnloop.db.stores.completion import AttemptCompletionStoreMixin
 from learnloop.db.stores.diagnoses import (
     DiagnosisStoreMixin,
@@ -34,6 +34,7 @@ from learnloop.db.stores.recurrence import RecurrenceStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
 from learnloop.db.stores.facet_identity import settled_merge_rows
+from learnloop.db.stores.held_out_signals import is_exam_role, qualify_unrecorded_signals
 from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
     load_canonical_observation_ledger,
@@ -830,8 +831,18 @@ class Repository(
     RecurrenceStoreMixin,
 ):
     def __init__(self, sqlite_path: Path):
+        """Create the database, or attach to one at this code's migrations.
+
+        An existing database with migrations pending is refused, unchanged
+        (``UncoordinatedMigrationError``): only the vault's migration
+        coordinator upgrades it, because the upgrade's vault-level step (the
+        held-out signals the vault's exam membership qualifies) needs the
+        vault, which this path-only constructor does not know (exam
+        protection identity, F3 final). Code that has the vault opens it
+        through ``learnloop.vault.repository``.
+        """
         self._initialize(sqlite_path, read_only=False)
-        apply_migrations(sqlite_path)
+        create_or_attach_current(sqlite_path)
 
     @classmethod
     def attach(
@@ -13082,6 +13093,49 @@ class Repository(
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def carry_reader_section_progress(
+        self, extraction_id: str, rows: Iterable[Mapping[str, Any]], *, clock: Clock | None = None
+    ) -> int:
+        """Carry section progress onto a new reading of the same book (re-read
+        safety, 2026-10-14). Each row names ``section_id``, ``spans_seen``,
+        ``span_count``, ``revealed_at``, ``completed_at`` and
+        ``generation_batch_id``; the same monotone rules as
+        :meth:`upsert_reader_section_progress` apply, and a carried generation
+        stamp keeps a section from building its questions twice."""
+
+        now = utc_now_iso(clock)
+        values = [
+            (
+                extraction_id, str(row["section_id"]), int(row.get("spans_seen") or 0),
+                int(row.get("span_count") or 0), row.get("revealed_at"), row.get("completed_at"),
+                row.get("generation_batch_id"), now,
+            )
+            for row in rows
+        ]
+        if not values:
+            return 0
+        with self.connection() as connection:
+            connection.executemany(
+                """
+                INSERT INTO reader_section_progress(
+                  extraction_id, section_id, spans_seen, span_count,
+                  revealed_at, completed_at, generation_batch_id, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(extraction_id, section_id) DO UPDATE SET
+                  spans_seen = MAX(reader_section_progress.spans_seen, excluded.spans_seen),
+                  span_count = MAX(reader_section_progress.span_count, excluded.span_count),
+                  revealed_at = COALESCE(reader_section_progress.revealed_at, excluded.revealed_at),
+                  completed_at = COALESCE(reader_section_progress.completed_at, excluded.completed_at),
+                  generation_batch_id = COALESCE(reader_section_progress.generation_batch_id,
+                                                 excluded.generation_batch_id),
+                  updated_at = excluded.updated_at
+                """,
+                values,
+            )
+            connection.commit()
+        return len(values)
+
     def mark_section_generation(
         self, *, extraction_id: str, section_id: str, batch_id: str, clock: Clock | None = None
     ) -> bool:
@@ -13311,7 +13365,10 @@ class Repository(
                     "block_content_hash, exact_quote, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         new_ulid(), version_id, i, cite.get("revision_id", version["revision_id"]),
-                        cite["span_id"], cite.get("block_content_hash"), cite.get("exact_quote"), now,
+                        cite["span_id"], cite.get("block_content_hash"), cite.get("exact_quote"),
+                        # A copied citation keeps when it was made: its reading
+                        # is read from that (re-read safety, Codex review F3).
+                        cite.get("created_at") or now,
                     ),
                 )
             connection.commit()
@@ -13466,7 +13523,8 @@ class Repository(
             },
             citations=[
                 {"revision_id": c["revision_id"], "span_id": c["span_id"],
-                 "block_content_hash": c.get("block_content_hash"), "exact_quote": c.get("exact_quote")}
+                 "block_content_hash": c.get("block_content_hash"), "exact_quote": c.get("exact_quote"),
+                 "created_at": c.get("created_at")}
                 for c in head["citations"]
             ],
             clock=clock,
@@ -18918,6 +18976,9 @@ class Repository(
             else:
                 counts.setdefault("source_span_reanchors", 0)
             by_ids("source_unit_inventories", "extraction_id", extraction_ids)
+            # The held-out signal ledger is keyed by revision (a row whose
+            # reading is unknown names none).
+            by_ids("source_held_out_signal_marks", "revision_id", revision_ids)
 
             # --- render views (crosswalk rows hang off the view) ------------
             view_ids = [
@@ -19263,6 +19324,61 @@ class Repository(
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def record_span_reanchors(
+        self,
+        from_extraction_id: str,
+        to_extraction_id: str,
+        aliases: Iterable[tuple[str, str, str, float | None]],
+        *,
+        clock: Clock | None = None,
+    ) -> int:
+        """Persist one re-read's span aliases ``(from span, to span, match
+        kind, confidence)`` in one transaction. Idempotent on the primary key:
+        an alias already recorded is kept as it was (re-read safety, 2026-10-14)."""
+
+        now = utc_now_iso(clock)
+        rows = [
+            (from_extraction_id, str(from_span), to_extraction_id, str(to_span), str(kind), confidence, now)
+            for from_span, to_span, kind, confidence in aliases
+        ]
+        if not rows:
+            return 0
+        with self.connection() as connection:
+            before = connection.total_changes
+            connection.executemany(
+                """
+                INSERT OR IGNORE INTO source_span_reanchors(
+                  from_extraction_id, from_span_id, to_extraction_id, to_span_id,
+                  match_kind, confidence, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            connection.commit()
+            return connection.total_changes - before
+
+    def span_reanchors_between(self, from_extraction_id: str, to_extraction_id: str) -> list[dict[str, Any]]:
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM source_span_reanchors WHERE from_extraction_id = ? AND to_extraction_id = ? "
+                "ORDER BY from_span_id",
+                (from_extraction_id, to_extraction_id),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def span_reanchor_origins(self, to_extraction_id: str) -> list[str]:
+        """The readings with recorded aliases into ``to_extraction_id``, the
+        most recently recorded first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT from_extraction_id, MAX(created_at) AS at FROM source_span_reanchors "
+                "WHERE to_extraction_id = ? GROUP BY from_extraction_id ORDER BY at DESC, from_extraction_id DESC",
+                (to_extraction_id,),
+            ).fetchall()
+        return [str(row["from_extraction_id"]) for row in rows]
+
     def backfill_locator_schemes(
         self, locators: Iterable[str], *, clock: Clock | None = None
     ) -> dict[str, str]:
@@ -19321,6 +19437,18 @@ class Repository(
     ) -> None:
         now = utc_now_iso(clock)
         with self.connection() as connection:
+            previous = connection.execute(
+                "SELECT s.role_override, COALESCE(s.source_id, revision.source_id) FROM source_unit_selections AS s "
+                "LEFT JOIN source_extraction_runs AS run ON run.id = s.extraction_id "
+                "LEFT JOIN source_revisions AS revision ON revision.id = run.revision_id WHERE s.extraction_id = ?",
+                (extraction_id,),
+            ).fetchone()
+            if previous is not None and is_exam_role(previous[0]) and not is_exam_role(role_override):
+                # An outline exam pick changed: the book's held-out signals
+                # whose role was not recorded are recorded as exam material
+                # first, so the change never releases them (exam protection
+                # by extraction identity, Codex review F3).
+                qualify_unrecorded_signals(connection, [previous[1], source_id], created_at=now)
             connection.execute(
                 """
                 INSERT INTO source_unit_selections(
@@ -19391,9 +19519,35 @@ class Repository(
         model: str,
         inventory: Mapping[str, Any],
         usage: Mapping[str, Any] | None = None,
+        made_as_role: str | None = None,
+        reused_from_inventory_id: str | None = None,
         clock: Clock | None = None,
     ) -> None:
+        """Write one cached inventory (§7) and, for a model run on
+        ``extraction_id`` (not a reuse), its held-out signals into the
+        append-only ``source_held_out_signal_marks`` ledger, in one
+        transaction (exam protection by extraction identity).
+
+        The cache row is keyed per revision, so a reuse for another reading
+        of the revision rebinds it there; exam protection never reads that
+        binding. ``reused_from_inventory_id`` names the inventory a reuse
+        re-anchored (recorded in ``usage`` as ``rebound_from_inventory_id``,
+        as before): a reuse writes no ledger row, so it never marks the
+        reading it is bound to, and the origin's ledger row stays.
+        ``made_as_role`` is the role the model run was made under."""
+
         now = utc_now_iso(clock)
+        usage_row = dict(usage or {})
+        if reused_from_inventory_id:
+            usage_row.setdefault("rebound_from_inventory_id", reused_from_inventory_id)
+        reused = bool(reused_from_inventory_id or usage_row.get("rebound_from_inventory_id"))
+        held_out_spans = sorted({
+            str(span)
+            for signal in (dict(inventory).get("assessment_signals") or [])
+            if isinstance(signal, Mapping) and signal.get("held_out")
+            for span in (signal.get("span_ids") or [])
+            if span
+        })
         with self.connection() as connection:
             connection.execute(
                 """
@@ -19423,11 +19577,32 @@ class Repository(
                     provider,
                     model,
                     _json(dict(inventory)),
-                    _json(dict(usage or {})),
+                    _json(usage_row),
                     now,
                 ),
             )
+            if held_out_spans and not reused:
+                spans_json = _json(held_out_spans)
+                digest = hashlib.sha256(
+                    _json([source_revision_id, extraction_id, unit_id, made_as_role, held_out_spans]).encode()
+                ).hexdigest()[:32]
+                connection.execute(
+                    "INSERT OR IGNORE INTO source_held_out_signal_marks(id, revision_id, extraction_id, unit_id, "
+                    "inventory_id, made_as_role, span_ids_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (f"hos_{digest}", source_revision_id, extraction_id, unit_id, id, made_as_role, spans_json, now),
+                )
             connection.commit()
+
+    def held_out_signal_marks(self) -> list[dict[str, Any]]:
+        """Every row of the held-out signal ledger (exam protection by
+        extraction identity), with its book's source id, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT m.*, r.source_id AS source_id FROM source_held_out_signal_marks AS m "
+                "LEFT JOIN source_revisions AS r ON r.id = m.revision_id ORDER BY m.created_at, m.id"
+            ).fetchall()
+        return [{**dict(row), "span_ids": _loads(row["span_ids_json"], [])} for row in rows]
 
     def reusable_unit_inventories(
         self,

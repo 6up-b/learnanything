@@ -28,6 +28,7 @@ from learnloop.content.pipeline.ai_contracts import (
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import kebab_case, new_ulid, snake_case
 from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import ResolvedSource, resolve_source
@@ -208,7 +209,7 @@ def ingest_canonical_source(
         # original URL/file changed or is no longer available. Nothing is
         # fetched, so fetch-only metadata (caption cues, arXiv labels, authors,
         # license) is absent and chunking follows the IR markdown.
-        repository = Repository(paths.sqlite_path)
+        repository = vault_repository(paths)
         extraction = repository.get_extraction_run(resume_extraction_id)
         revision = repository.get_source_revision(extraction["revision_id"]) if extraction else None
         artifact = repository.get_source_artifact(revision["source_id"]) if revision else None
@@ -268,7 +269,7 @@ def ingest_canonical_source(
         clock=clock,
     )
     vault = load_vault(vault.root)
-    repository = Repository(paths.sqlite_path)
+    repository = vault_repository(paths)
     context_hash = canonical_ingest_context_hash(
         normalized.canonical_uri,
         content_hash,
@@ -482,7 +483,7 @@ def _run_ingest_windows(
     usage: dict[str, int] | None = None,
 ) -> AuthoringProposal:
     proposals: list[AuthoringProposal] = []
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     for index, window in enumerate(windows, 1):
         _report_progress(
             progress,

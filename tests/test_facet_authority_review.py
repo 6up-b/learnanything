@@ -194,7 +194,8 @@ def _add_split_chapter(repo, root, scope):
     current = _source_set(root)
     members = [member.model_dump(mode="json", exclude_none=True) for member in current.members]
     members.append({"source_id": "src_split", "revision_id": "rev_split", "default_role": "primary_textbook",
-                    "scope": scope, "priority": 1})
+                    "scope": scope, "priority": 1, "scope_extraction_id": "ext_split",
+                    "scope_revision_id": "rev_split"})
     upsert_source_set(root, {"id": "set_la", "subject_id": SUBJECT, "title": "Linear Algebra",
                              "members": members}, clock=_CLOCK)
     return authority.CitationResolver.for_source_set(repo, _source_set(root))
@@ -294,8 +295,12 @@ def test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_reso
     Exam protection (2026-10-13): while the paper's selection still marks it
     ``held_out_evaluation`` it stays exam material outside any source set (the
     one predicate, ``content.sources.exam_material``: held-out units count
-    wherever they sit), so the undo is refused as exam authority; once the
-    mark is gone too, the citation is merely unresolved."""
+    wherever they sit), so the undo is refused as exam authority. Exam
+    protection by extraction identity (2026-10-15): the paper's inventory
+    was made as exam material and holds the question out, and a held-out
+    signal is its book's protection whatever the source sets say now (final
+    verify F14), so with the mark gone too the undo is still refused as exam
+    authority, never treated as a merely unresolved citation."""
 
     root, repo, result = _exam_alias_consolidation(tmp_path)
     (action,) = result.facet_identity["actions"]
@@ -314,7 +319,7 @@ def test_an_undo_never_mints_a_candidate_whose_recorded_citations_no_longer_reso
     with pytest.raises(FacetIdentityActionError) as raised:
         undo_action(root, repo, action["id"], clock=_CLOCK)
 
-    assert raised.value.code == "unresolved_citation"
+    assert raised.value.code == "exam_authority"
     assert "facet_symmetry_exam" not in load_vault(root).evidence_facets
     assert facet_actions.action_by_id(repo, action["id"])["status"] == status != "undoing"
 

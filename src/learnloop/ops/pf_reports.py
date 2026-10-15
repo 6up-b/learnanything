@@ -36,6 +36,7 @@ from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.content.authoring import pf_contracts as C
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
 from learnloop.ops.embedding_compare import judge_prediction
@@ -291,8 +292,8 @@ def _write(output_dir: Path, name: str, report: dict[str, Any], markdown: str) -
 
 
 def _repository(vault: LoadedVault, writable: bool) -> Repository:
-    path = VaultPaths(vault.root, vault.config).sqlite_path
-    return Repository(path) if writable else Repository.attach(path, read_only=True)
+    paths = VaultPaths(vault.root, vault.config)
+    return vault_repository(paths) if writable else Repository.attach(paths.sqlite_path, read_only=True)
 
 
 def _arm_summary(repository: Repository, vault: LoadedVault, rows: list[dict[str, Any]],

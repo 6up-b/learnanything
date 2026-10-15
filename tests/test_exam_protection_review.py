@@ -3,9 +3,12 @@
 * F1: an item made from material marked held out after its import stays out of
   routine practice (Today's queue, the quick check, ``find_practice``), and a
   pick or a session serve of it is refused.
-* F2: held-out marks are source-level. Each one reaches every extraction of the
-  source, the ones with marks of their own included; a mark that resolves
-  nowhere withholds every extraction of its source.
+* F2: held-out marks are source-level: no extraction of a marked source is
+  released. Since the protection redesign (re-read safety, 2026-10-15) a mark
+  never carries to another extraction by label or content: an extraction with
+  marks of its own is held by them exactly, one with none is withheld whole
+  until the owner marks it, and a mark that resolves nowhere withholds its
+  extraction whole.
 * F3: one held-out partition (held-out units plus exam units' held-out
   assessment signals) for the Reader's model contexts, imports and the leakage
   gate alike.
@@ -227,7 +230,12 @@ def _second_text_extraction(repository, *, labels=("Chapter 5 Eigenvalues", "Wor
     return spans
 
 
-def test_held_out_marks_in_two_extractions_each_reach_the_other(textbook):
+def test_held_out_marks_in_two_extractions_each_hold_their_own_extraction_exactly(textbook):
+    """Each extraction is held by the marks made on it (protection redesign:
+    a mark never reaches another extraction by its label), and neither is
+    released: an extraction of the source with no mark of its own is held
+    back whole until it is marked."""
+
     paths, repository, spans = textbook
     second = _second_text_extraction(repository)
     save_unit_selection(repository, "ext_text", list(spans), exam_use_modes={"exercises": "held_out_evaluation"})
@@ -235,12 +243,22 @@ def test_held_out_marks_in_two_extractions_each_reach_the_other(textbook):
                         exam_use_modes={"u1": "held_out_evaluation"})  # "Worked examples"
     material = exam_material(loaded(paths), repository)
 
-    for span in (spans["exercises"][1], spans["worked"][1]):
-        assert material.is_held_out("ext_text", span), span
-    for span in (second["Exercises"][0], second["Worked examples"][0]):
-        assert material.is_held_out("ext_text_2", span), span
+    assert material.is_held_out("ext_text", spans["exercises"][1])
+    assert not material.covers("ext_text", spans["worked"][1]), "ext_text_2's mark never reaches ext_text"
+    assert material.is_held_out("ext_text_2", second["Worked examples"][0])
+    assert not material.covers("ext_text_2", second["Exercises"][0]), "ext_text's mark never reaches ext_text_2"
     assert not material.covers("ext_text", spans["ch5"][1])
     assert not material.covers("ext_text_2", second["Chapter 5 Eigenvalues"][0])
+
+    # A third extraction with no mark of its own is held back whole.
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO source_revisions(id, source_id, asset_hash, original_uri, created_at) VALUES (?,?,?,?,?)",
+            ("rev_text_3", "src_text", "sha256:text3", None, "2026-03-01T00:00:00Z"))
+        connection.commit()
+    _persist(repository, _ir([("u0", "Exercises", [_block("s1", "Exercises block one")], "sha256:x3", 1)]),
+             revision_id="rev_text_3", extraction_id="ext_text_3")
+    assert "ext_text_3" in exam_material(loaded(paths), repository).held_out.extractions
 
 
 def test_an_unresolvable_mark_withholds_every_extraction_of_its_source(textbook):
@@ -277,9 +295,9 @@ def _two_extractions(repository, source_id: str, *, second_hash: str = "sha256:c
 
 
 def test_the_same_unit_marked_in_two_extractions_withholds_only_that_unit(textbook):
-    """Two "Exercises" units: the same one (same occurrence, same content)
-    marked in both extractions stays one unit; marks that disagree on which
-    one withhold both (the label is ambiguous)."""
+    """Two "Exercises" units: the one each extraction marks is held there, by
+    unit id, and no other (protection redesign: an extraction is held by its
+    own marks exactly, never by another's label, ambiguous or not)."""
 
     paths, repository, _spans = textbook
     units = _two_extractions(repository, "two")
@@ -291,23 +309,24 @@ def test_the_same_unit_marked_in_two_extractions_withholds_only_that_unit(textbo
 
     save_unit_selection(repository, "ext_two_b", units, exam_use_modes={"c3": "held_out_evaluation"})
     material = exam_material(loaded(paths), repository).held_out
-    assert material.covers("ext_two", "s5") and material.covers("ext_two", "s11")
-    assert material.covers("ext_two_b", "s2") and material.covers("ext_two_b", "s4")
+    assert material.covers("ext_two", "s5") and not material.covers("ext_two", "s11")
+    assert material.covers("ext_two_b", "s4") and not material.covers("ext_two_b", "s2")
     assert not material.covers("ext_two", "s2") and not material.covers("ext_two", "s8")
     assert not material.covers("ext_two_b", "s1") and not material.covers("ext_two_b", "s3")
 
 
-def test_the_same_occurrence_with_other_content_is_not_the_same_unit(textbook):
-    """Marks on the n-th "Exercises" of two extractions whose content differs
-    may be different units: every "Exercises" unit is withheld in both."""
+def test_a_second_extraction_marked_by_the_owner_is_held_by_its_own_marks_only(textbook):
+    """Marks on the n-th "Exercises" of two extractions whose content differs:
+    each extraction is held by the unit it marks, whatever the other's label
+    or content (protection redesign: no label occurrence, no content hash)."""
 
     paths, repository, _spans = textbook
     units = _two_extractions(repository, "three", second_hash="sha256:changed{index}")
     save_unit_selection(repository, "ext_three", units, exam_use_modes={"c1": "held_out_evaluation"})
     save_unit_selection(repository, "ext_three_b", units, exam_use_modes={"c1": "held_out_evaluation"})
     material = exam_material(loaded(paths), repository).held_out
-    assert material.covers("ext_three", "s5") and material.covers("ext_three", "s11")
-    assert material.covers("ext_three_b", "s2") and material.covers("ext_three_b", "s4")
+    assert material.covers("ext_three", "s5") and not material.covers("ext_three", "s11")
+    assert material.covers("ext_three_b", "s2") and not material.covers("ext_three_b", "s4")
     assert not material.covers("ext_three", "s2") and not material.covers("ext_three_b", "s3")
 
 
@@ -587,7 +606,7 @@ def test_replay_never_reads_the_switch(tmp_path):
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from tests.helpers import _set_algorithm_version_at
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_203"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_204"
     root = tmp_path / "head"
     copy_tree_with_databases(head, root)
     _set_algorithm_version_at(root, LATEST_ALGORITHM_VERSION)

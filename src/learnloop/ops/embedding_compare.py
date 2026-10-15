@@ -60,6 +60,7 @@ from learnloop.content.authoring.pf_sandbox import (
 )
 from learnloop.ai.output_budget import output_budget
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
     ROLE_TASKS, PFCaller, PFUnavailable, RoleClient, estimate_tokens, planned_role_clients, pricing_basis,
@@ -712,7 +713,8 @@ def run_compare(
     data = suite.load(vault, request)
     plan = suite.plan(vault, data, request)
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository.attach(sqlite_path, read_only=True) if request.dry_run else Repository(sqlite_path)
+    repository = (Repository.attach(sqlite_path, read_only=True) if request.dry_run
+                  else vault_repository(VaultPaths(vault.root, vault.config)))
     caller = PFCaller(vault, repository, caps=caps, price_per_million=price_per_million, run_id=new_ulid(),
                       owner_kind="embeddings_compare", cancelled=cancelled,
                       input_price_per_million=input_price_per_million,

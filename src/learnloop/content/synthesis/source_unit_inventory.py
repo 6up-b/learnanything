@@ -627,12 +627,16 @@ def prepare_unit_inventory(
                 model=model_name,
                 inventory=reusable.model_dump(),
                 usage={"calls": 0, "rebound_from_inventory_id": candidate["id"]},
+                reused_from_inventory_id=str(candidate["id"]),
                 clock=clock,
             )
             # The table has one binding per semantic identity within a revision.
             # Rebinding a repaired extraction therefore updates that existing row
             # through its UNIQUE key and retains its id; a genuinely new revision
-            # inserts the fresh binding id.
+            # inserts the fresh binding id. A reuse never marks exam protection
+            # on the reading it is bound to: the held-out signal ledger keeps
+            # each signal on the reading its model run read (exam protection
+            # by extraction identity, final verify F2).
             inventory_id = (
                 str(candidate["id"])
                 if str(candidate.get("source_revision_id") or "") == revision_id
@@ -831,6 +835,7 @@ def persist_prepared_inventory(
         model=prepared.model,
         inventory=execution.inventory.model_dump(),
         usage=execution.usage,
+        made_as_role=prepared.role,
         clock=clock,
     )
     return InventoryResult(

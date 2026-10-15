@@ -37,14 +37,17 @@ sources_app.add_typer(exercises_app, name="exercises")
 def _open(vault: Path, *, migrate: bool = True):
     from learnloop.practice_index.paid import planning_repository
     from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.repository import open_vault_repository
 
     if not (vault / "learnloop.toml").is_file():
         raise typer.BadParameter("--vault must name a vault containing learnloop.toml")
     loaded = load_vault(vault)
-    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    paths = VaultPaths(loaded.root, loaded.config)
+    if migrate:
+        return loaded, open_vault_repository(paths.root, paths.sqlite_path)
     try:
         # A dry run attaches read-only and never migrates.
-        return loaded, planning_repository(sqlite_path, dry_run=not migrate)
+        return loaded, planning_repository(paths, dry_run=True)
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
 

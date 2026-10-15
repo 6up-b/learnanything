@@ -42,7 +42,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.clock import Clock, parse_utc, utc_now_iso
-from learnloop.content.sources.exam_material import HELD_OUT_REFUSAL, held_out_among, held_out_material
+from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
 from learnloop.db.repositories import Repository
 from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
@@ -609,7 +609,7 @@ def ask(
     # refused before any signal lands (the tutor refuses it too, before any
     # call: ``tutor_qa.HeldOutMaterialRefused``).
     if held_out_among(held_out, extraction_id, [span_id, *selection_span_ids]):
-        raise tutor_qa.HeldOutMaterialRefused(HELD_OUT_REFUSAL)
+        raise tutor_qa.HeldOutMaterialRefused(held_out_refusal(held_out, extraction_id))
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.
     set_answer_mode(repository, extraction_id=extraction_id, span_id=span_id,

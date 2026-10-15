@@ -47,6 +47,7 @@ from learnloop.config.schema import LearnLoopConfig
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.db.stores.source_block_fts import extraction_blocks, section_header_titles
 from learnloop.ops.embedding_backfill import BackfillLockBusy, backfill_embeddings, estimated_tokens
 from learnloop.source_retrieval.corpus import current_extractions
@@ -164,7 +165,7 @@ def backfill_source_vectors(
 
     Aggregate report only (counts, caps, charges, model): never block text."""
 
-    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    repository = vault_repository(VaultPaths(loaded.root, loaded.config))
     source_id, current = target_extraction(repository, extraction_id)
     report: dict[str, Any] = {"extraction_id": extraction_id, "source_id": source_id,
                               "embedded_extraction_id": current}

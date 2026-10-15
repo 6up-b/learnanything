@@ -19,6 +19,7 @@ from collections import defaultdict
 from typing import Any, Iterable, Mapping
 
 from learnloop.content.sources.exam_material import held_out_among, held_out_material
+from learnloop.content.sources.span_aliases import SpanTranslator
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
 from learnloop.vault.required_method import presented_prompt
@@ -73,18 +74,55 @@ def _ref_matches_source(ref: SourceRef, source_id: str, note_ids: set[str]) -> b
 
 
 def _span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str,
-                  note_ids: set[str], blocks: list[Any]) -> str | None:
+                  note_ids: set[str], blocks: list[Any], translator: Any = None,
+                  accept_moved: bool = False) -> str | None:
+    """The span of the viewed reading a provenance ref names, or None.
+
+    ``translator`` (a ``span_aliases.SpanTranslator`` onto ``extraction_id``)
+    resolves a ref made on another reading of the book (a re-read): the same
+    text there, or with ``accept_moved`` the same place with changed text
+    (flagged where it is shown, :func:`_anchor_for_ref`)."""
+
+    anchor = _anchor_for_ref(ref, source_id=source_id, extraction_id=extraction_id, note_ids=note_ids,
+                             blocks=blocks, translator=translator)
+    if anchor is None or (anchor[1] != _ANCHOR_CURRENT and not accept_moved):
+        return None
+    return anchor[0]
+
+
+_ANCHOR_CURRENT = "current"
+_ANCHOR_MOVED = "needs_reanchor"
+
+
+def _anchor_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str, note_ids: set[str],
+                    blocks: list[Any], translator: Any = None) -> tuple[str, str] | None:
+    """``(span id, "current" | "needs_reanchor")`` for a ref on the viewed reading.
+
+    The one alias authority (``content.sources.span_aliases``) resolves a span
+    of another reading of the book: an exact alias is ``current``; a
+    geometry/section alias (the same place, changed text) is
+    ``needs_reanchor``, tried only after the time and quote matches; no alias
+    names nothing. Never the viewed reading with the old span id."""
+
     if not _ref_matches_source(ref, source_id, note_ids):
         return None
 
+    in_view = {block.span_id for block in blocks}
     extra = _extras(ref)
     ref_extraction = str(extra.get("extraction_id") or "")
     locator = str(ref.locator or "")
     match = _SPAN_LOCATOR_RE.match(locator)
+    moved: str | None = None
     if match is not None and (match.group(1) == extraction_id or ref_extraction == extraction_id):
         span_id = match.group(2)
-        if any(block.span_id == span_id for block in blocks):
-            return span_id
+        if span_id in in_view:
+            return span_id, _ANCHOR_CURRENT
+    elif match is not None and translator is not None:
+        resolution = translator.resolve(match.group(1), match.group(2))
+        if resolution.span_id is not None and resolution.span_id in in_view:
+            if resolution.exact:
+                return resolution.span_id, _ANCHOR_CURRENT
+            moved = resolution.span_id
 
     # Caption IR keeps the cue locator on extractor_block_id. Match a cited
     # video segment to the first overlapping cue so transcript guidance can use
@@ -103,7 +141,7 @@ def _span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str,
             if cue_end >= ref_start and cue_start <= ref_end:
                 timed.append((abs(cue_start - ref_start), block.span_id))
         if timed:
-            return min(timed)[1]
+            return min(timed)[1], _ANCHOR_CURRENT
 
     # Older canonical refs carry a quote and a heading-path locator rather than
     # an extraction span.  An unambiguous quote is the safest compatibility path.
@@ -111,8 +149,21 @@ def _span_for_ref(ref: SourceRef, *, source_id: str, extraction_id: str,
     if len(quote) >= 8:
         matches = [block.span_id for block in blocks if quote in normalize_text(block.text)]
         if len(matches) == 1:
-            return matches[0]
+            return matches[0], _ANCHOR_CURRENT
+    if moved is not None:
+        return moved, _ANCHOR_MOVED
     return None
+
+
+def _cited_text(repository: Repository, ref: SourceRef) -> str | None:
+    """The text a span ref cites, read on the reading it names."""
+
+    match = _SPAN_LOCATOR_RE.match(str(ref.locator or ""))
+    if match is None:
+        return ref.quote or None
+    ir = repository.load_document_ir(match.group(1))
+    block = ir.block_by_span(match.group(2)) if ir is not None else None
+    return block.text if block is not None else (ref.quote or None)
 
 
 def goal_for_item(vault: LoadedVault, learning_object: Any, item: Any) -> Any | None:
@@ -407,6 +458,7 @@ def _passages_by_section(
     returns one goal candidate per grounded item for the plan's goal context.
     """
 
+    translator = SpanTranslator(repository, extraction_id)
     passages_by_section: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     goal_candidates: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
@@ -417,13 +469,19 @@ def _passages_by_section(
             continue
 
         ref_spans: list[str] = []
+        moved_quotes: dict[str, str] = {}
         for ref in _refs_for(vault, item, learning_object):
-            span_id = _span_for_ref(
+            anchor = _anchor_for_ref(
                 ref, source_id=source_id, extraction_id=extraction_id,
-                note_ids=note_ids, blocks=blocks,
+                note_ids=note_ids, blocks=blocks, translator=translator,
             )
-            if span_id is not None and span_id not in ref_spans:
-                ref_spans.append(span_id)
+            if anchor is None or anchor[0] in ref_spans:
+                continue
+            ref_spans.append(anchor[0])
+            if anchor[1] == _ANCHOR_MOVED:
+                # Re-read: the place this passage was cited at, its text
+                # changed; shown flagged, with the words that were cited.
+                moved_quotes[anchor[0]] = _cited_text(repository, ref) or ""
         if not ref_spans:
             continue
 
@@ -445,16 +503,20 @@ def _passages_by_section(
                     continue
                 block = block_by_span[span_id]
                 existing = passages_by_section[section_id].get(span_id)
+                moved = span_id in moved_quotes
                 passage = {
                     "span_id": span_id,
-                    "quote": " ".join(block.text.split())[:260],
+                    "quote": " ".join((moved_quotes[span_id] if moved and moved_quotes[span_id]
+                                       else block.text).split())[:260],
                     "reason": passage_reason,
                     "learning_object_id": learning_object.id,
                     "learning_object_title": learning_object.title,
                     "learner_signal": signal,
                     "score": score,
+                    "anchor": _ANCHOR_MOVED if moved else _ANCHOR_CURRENT,
                 }
-                if existing is None or passage["score"] > existing["score"]:
+                if (existing is None or passage["score"] > existing["score"]
+                        or (existing.get("anchor") == _ANCHOR_MOVED and not moved)):
                     passages_by_section[section_id][span_id] = passage
     return passages_by_section, goal_candidates
 

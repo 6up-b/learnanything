@@ -25,6 +25,7 @@ from learnloop.content.sources import exam_material as EM
 from learnloop.content.sources.exam_material import is_exam_role
 from learnloop.content.sources.role_authority import role_authority
 from learnloop.content.sources.source_outline import resolve_extraction_id
+from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
@@ -363,23 +364,25 @@ def role_proposal_keys(connection, repository: Repository, extraction_ids: Itera
         return strong, weak
     marks = ",".join("?" for _ in wanted)
     rows = connection.execute(
-        "SELECT v.content_json, c.revision_id, c.span_id FROM source_object_versions v "
+        f"SELECT v.content_json, c.revision_id, c.span_id, c.block_content_hash, {CITATION_MADE_AT_SQL} "
+        "FROM source_object_versions v "
         "JOIN source_object_citations c ON c.source_object_version_id = v.id "
         f"WHERE v.status IN ('proposed', 'reviewed') AND v.authorial_role IN ({marks})",
         tuple(sorted(wanted))).fetchall()
-    resolved: dict[str, str | None] = {}
-    for content_json, revision_id, span_id in rows:
-        revision = str(revision_id)
-        if revision not in resolved:
-            resolved[revision] = resolve_extraction_id(repository, revision)
-        extraction_id = resolved[revision]
-        if extraction_id is None or extraction_id not in extractions:
+    # Each citation on the reading it was made on, moved to its book's
+    # current reading only through an exact alias (re-read safety): never
+    # "the latest reading + the old span id".
+    citations = CitationResolver(repository)
+    for content_json, revision_id, span_id, block_content_hash, created_at in rows:
+        key = citations.current_key({"revision_id": revision_id, "span_id": span_id,
+                                     "block_content_hash": block_content_hash, "created_at": created_at})
+        if key is None or key[0] not in extractions:
             continue
         try:
             confidence = (json.loads(content_json or "{}") or {}).get("confidence")
         except (TypeError, ValueError):
             confidence = None
-        (weak if confidence == "low" else strong).add((extraction_id, str(span_id)))
+        (weak if confidence == "low" else strong).add(key)
     return strong, weak - strong
 
 

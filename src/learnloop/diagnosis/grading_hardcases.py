@@ -102,6 +102,7 @@ from learnloop.attempts.grading_support import (
     reference_policy,
 )
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.diagnosis.diagnostic_augmentation import diagnostic_verifier_observations
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
@@ -656,7 +657,8 @@ def run_hardcases(
     version, cases = load_cases(cases_path)
     requests = {case.id: _requests(vault, case, arms) for case in cases}
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository.attach(sqlite_path, read_only=True) if dry_run else Repository(sqlite_path)
+    repository = (Repository.attach(sqlite_path, read_only=True) if dry_run
+                  else vault_repository(VaultPaths(vault.root, vault.config)))
     caller = PFCaller(
         vault, repository, caps=caps, price_per_million=price_per_million, run_id=new_ulid(),
         owner_kind="grading_hardcases", cancelled=cancelled,

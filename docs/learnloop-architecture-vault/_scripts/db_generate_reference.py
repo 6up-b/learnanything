@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_203/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_204/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_203" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_204" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 203
+SCHEMA_HEAD = 204
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -117,6 +117,7 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "source_tool_calls": "Receipts for the typed source tools (canonical sources S4): a request row per validated request from the tutor, the router or an external agent (its stored caller context, derived policy, validated arguments and dropped ids, refused when it leaked the answer or arrived during a cold administration) and a run row per execution naming the request (result refs, keys, source versions, model, latency). Append-only.",
     "retrieval_interventions": "Appends one row when a retrieved asset is shown or served (canonical sources S5): a cited or opened passage, a comparison shown, ranked remediation passages delivered, a proposal picked, a need fulfilled from the sources and served. References only (assets with revisions, targets, the valuation's state hashes, the valued candidate's predicted outcome distribution and minutes, impressions, the independence verdict at valuation and serving time); reports read it, nothing serves from it.",
     "retrieval_intervention_outcomes": "Materializes the outcome join for retrieval_interventions (canonical sources S5): R_next within the session or day, R_cold as the decision-value outcome states (pending stays right-censored), the observed bucket beside the predicted one, actual beside predicted minutes and the learner's taps. Rebuilt by its one replayer from persisted rows with no model call; associations, not causes.",
+    "source_held_out_signal_marks": "Keeps each held-out assessment signal on the reading its model run read (exam protection by extraction identity, migration 204): one row per fresh inventory that held anything out, with the extraction and revision it read, the unit, the role it ran under and the sorted span ids. `content.sources.exam_material` reads protection from it, never from `source_unit_inventories`, whose cache rows a reuse rebinds to another reading. A reuse writes no row. Backfilled rows from rebound cache rows name no reading (`extraction_id` NULL): their book stays protected and they mark no reading. Append-only (an update aborts); deleted only with its book.",
     "source_service_spend": "Shares the canonical-sources service's daily money cap (source_service.max_daily_cost_usd) across every process that opens the vault: one row per metered request admitted under it, reserved inside one BEGIN IMMEDIATE transaction that recovers orphaned rows and checks the day's total plus the estimate, so a sidecar and a CLI batch cannot both spend the same allowance. One accounting function (service_spend_accounting) gives that total for admission, recovery and reports, counting each request once with the receipts naming its row (`budget_json.envelope_reservations`): while its owner's lease (`lease_expires_at`, renewed while the process lives) holds, a row counts the larger of its charge and its receipts; once reconciled (`settled`), its receipts (its reconciled cost bounding a lost finish); an orphan is reconciled with its receipts or `released` when it has none (`resolved_by` names the owner or recovery), and a receipt naming a released row cannot start, so its request is never sent. A `legacy` row, written before receipts named rows, counts its charge and suppresses no receipt (no durable identity ties one to it; an amount or a second-resolution stamp is no identity), so its charge and every unlinked receipt count and the receipts started in its lifetime are reported as `legacy.uncertain_usd`; a receipt naming no row counts by its own cost. A receipt's dollars are its reported cost, else its tokens at the rate its request recorded, else at the owner's service rate. Subscription requests reserve nothing.",
     "daily_plans": "Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
@@ -1991,7 +1992,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_203/state.sqlite",
+                "fixtures/migration_head_204/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

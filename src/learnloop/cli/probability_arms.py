@@ -186,9 +186,9 @@ def prepare_or_load_probability_arms(
         history={"start_established": established, "start_unknown_history_withheld": len(points) - established},
     )
     if prepare or dry_run:
-        from learnloop.db.repositories import Repository
+        from learnloop.vault.repository import open_vault_repository
 
-        repository = None if dry_run else Repository(sqlite_path)
+        repository = None if dry_run else open_vault_repository(loaded.root, sqlite_path)
         for judge in judges:
             judge_variants = [v for v, j in selection if j == judge]
             report["judges"][judge] = prepare_judge(
@@ -387,15 +387,15 @@ def live_decider_check(loaded, *, task: str = "llm_probability_decider", http=No
     from learnloop.ai.execution import call_labels, observe_model_calls
     from learnloop.ai.providers.decider import DeciderProviderClient
     from learnloop.ai.spend import SpendBudget
-    from learnloop.db.repositories import Repository
     from learnloop.ids import new_ulid
+    from learnloop.vault.repository import open_vault_repository
 
     name, profile, _settings, questions, _tokens, estimate = _readiness_request(loaded, task)
     load_machine_environment(loaded.root)
     client = DeciderProviderClient(name, profile, http=http)
     caps = READINESS_CAPS
     budget = SpendBudget(caps)
-    repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
     owner_id = new_ulid()
     with budget.request(estimate) as charge, observe_model_calls(
         lambda action, event: repository.record_model_event(

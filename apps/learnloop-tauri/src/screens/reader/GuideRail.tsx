@@ -290,6 +290,11 @@ export function GuideRail({
                       {passage.learnerSignal === "recent_misunderstanding" ? "repair" : "important"}
                     </Pill>
                     <Faint style={{ fontSize: 10 }}>{passage.learningObjectTitle}</Faint>
+                    {passage.anchor === "needs_reanchor" ? (
+                      // Re-read safety: cited on the earlier reading; its words
+                      // changed here when the book was read again.
+                      <Faint style={{ fontSize: 10, color: COLOR.amber }}>reworded since you read it</Faint>
+                    ) : null}
                   </div>
                   <SourceVoice locator={currentGuideSection.label}>“{clip(passage.quote, 150)}”</SourceVoice>
                   <MeaningLabel style={{ lineHeight: 1.45 }}>{passage.reason}</MeaningLabel>

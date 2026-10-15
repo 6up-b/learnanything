@@ -14,6 +14,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.goals.goal_projection import goal_report, projected_ready_mean_at
 from learnloop.vault.loader import load_vault
+from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.writer import upsert_practice_item
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
@@ -138,7 +139,7 @@ def test_linear_algebra_fixture_golden_projection(tmp_path):
     root = tmp_path / "linear_algebra"
     shutil.copytree(FIXTURE_VAULT, root)
     vault = load_vault(root)
-    repository = Repository(root / "state.sqlite")
+    repository = open_vault_repository(root, root / "state.sqlite")
     now = datetime(2026, 7, 14, 12, 0, tzinfo=UTC)
     goal = vault.goals[0]
     assert goal.id == "goal_symmetric_matrices_and_variance"

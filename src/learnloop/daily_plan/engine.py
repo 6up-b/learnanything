@@ -120,8 +120,11 @@ def plan_active(vault: Any) -> bool:
 def reading_from_furthest_active(vault: Any) -> bool:
     """The reading block continues from the furthest section read (UX Phase 1,
     U4) wherever the plan acts, with its kill switch
-    ``plan.reading_from_furthest`` on; off, it is DL1's selection exactly, the
-    first unfinished section in book order.
+    ``plan.reading_from_furthest`` on; off, it is DL1's order, the first
+    unfinished section in book order. Either way the one exam predicate keeps
+    exam and held-out material off the step (the setting orders it only;
+    exam protection by extraction identity, final verify F15); in DL1's order
+    that is behind the serving rules' kill switch (:func:`reading_step_rule`).
 
     A live change behind a kill switch, not a successor tag (owner ruling at
     the UX Phase 1 merge, docs/reviews/ux-phase1.md "Landing onto main"): the
@@ -130,6 +133,34 @@ def reading_from_furthest_active(vault: Any) -> bool:
     no replayer or projection reads it back."""
 
     return plan_active(vault) and bool(vault.config.plan.reading_from_furthest)
+
+
+#: The rule that chose a plan's reading step (``split_json["reading_rule"]``).
+#: U4's order (``plan.reading_from_furthest``), exam material never the step.
+READING_RULE_FURTHEST = "furthest"
+#: DL1's order, exam material never the step (exam protection by extraction identity, F15).
+READING_RULE_BOOK_ORDER = "book_order"
+#: DL1's selection exactly: ``plan.reading_from_furthest`` and the serving
+#: rules' kill switch ``goals.held_out_selection`` both off (identity review F6).
+READING_RULE_DL1 = "dl1"
+
+
+def reading_step_rule(vault: Any) -> str:
+    """Which rule chooses the plan's reading step. Exam protection in DL1's
+    order (``book_order``) is a live serving change behind the serving rules'
+    kill switch, ``goals.held_out_selection`` (Codex review of exam
+    protection by extraction identity, F6): off, with
+    ``plan.reading_from_furthest`` off too, the step is DL1's selection
+    exactly (``dl1``), as before the change. U4's order (``furthest``) kept
+    its own exam filter from the start, behind ``plan.reading_from_furthest``.
+    Not a successor tag: replay never reads the selection (the owner's ruling
+    at the UX Phase 1 merge)."""
+
+    from learnloop.content.sources.exam_material import held_out_selection_active
+
+    if reading_from_furthest_active(vault):
+        return READING_RULE_FURTHEST
+    return READING_RULE_BOOK_ORDER if held_out_selection_active(vault) else READING_RULE_DL1
 
 
 def _exam_material(vault: Any, repository: Any) -> Any:
@@ -1063,10 +1094,18 @@ def _prepare_plan(
     )
     reading: ReadingTarget | None = None
     reading_full: float | None = None
+    reading_rule: str | None = None
     if bool(config.reading_blocks) and not reentry and override is None and not _reading_used_today(day):
         from_furthest = reading_from_furthest_active(env.vault)
-        exam = _exam_material(env.vault, env.repository) if from_furthest else None
-        if not (from_furthest and exam is None):
+        reading_rule = reading_step_rule(env.vault)
+        # Protection whatever the reading order (exam protection by extraction
+        # identity, final verify F15): the setting orders the step, the one
+        # exam predicate decides what may be one; unreadable, no step. With
+        # the serving rules' kill switch off, DL1's order is DL1's selection
+        # exactly, as before (identity review F6).
+        protected = reading_rule != READING_RULE_DL1
+        exam = _exam_material(env.vault, env.repository) if protected else None
+        if not (protected and exam is None):
             reading = next_reading_target(env.repository, from_furthest=from_furthest, exam=exam)
         if reading is not None:
             reading_full = built.estimator.reading_minutes(reading.words_left)
@@ -1094,6 +1133,10 @@ def _prepare_plan(
         ],
         "admitted_new_minutes": round(admitted_new_minutes, 4),
         "reading": reading.as_dict() if reading is not None else None,
+        # Which rule chose the reading step (identity review F6): U4's order,
+        # DL1's order with exam protection, or DL1's selection exactly (the
+        # serving rules' kill switch off); None when no step was considered.
+        "reading_rule": reading_rule,
         "reading_full_minutes": round(reading_full, 4) if reading_full is not None else None,
         # The plan's universe: nothing new joins mid-plan (§6.1), except
         # follow-ups produced by this session's answers.
@@ -3159,6 +3202,9 @@ __all__ = [
     "PlanStillOpenError",
     "PoolContext",
     "READING_OUTCOMES",
+    "READING_RULE_BOOK_ORDER",
+    "READING_RULE_DL1",
+    "READING_RULE_FURTHEST",
     "advance",
     "advance_with_context",
     "build_plan",
@@ -3177,6 +3223,7 @@ __all__ = [
     "plan_active",
     "plan_scheduler_session",
     "reading_from_furthest_active",
+    "reading_step_rule",
     "reading_ended",
     "reconcile",
     "register_plan_decision_logger",

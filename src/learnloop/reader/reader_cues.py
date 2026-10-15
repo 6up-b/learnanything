@@ -267,7 +267,11 @@ def cue_candidates(vault: Any, repository: Repository, *, extraction_id: str,
     raw: list[tuple[int, dict[str, Any], dict[str, Any]]] = []
     for ordinal, section in enumerate(sections):
         for passage in section.get("suggested_passages") or []:
-            if passage.get("learner_signal") == "recent_misunderstanding":
+            # A passage cited on an earlier reading whose words changed at its
+            # place (re-read safety) is shown flagged in the rail; the margin
+            # marks only words that are the ones cited.
+            if (passage.get("learner_signal") == "recent_misunderstanding"
+                    and passage.get("anchor", "current") == "current"):
                 raw.append((ordinal, section, passage))
     if not raw:
         return [], 0

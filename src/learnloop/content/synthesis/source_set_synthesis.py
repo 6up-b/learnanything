@@ -53,6 +53,7 @@ from learnloop.content.synthesis.ai_contracts import (
 )
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid, snake_case
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.brief import validate_brief
@@ -2020,7 +2021,7 @@ def create_study_map(
     vault = load_vault(root)
     if repository is None:
         # Repository opens a fresh sqlite connection per call; nothing to close.
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
     return _create_study_map(
         vault, repository, root, source_set_id,
         client=client, brief=brief or {}, mode=mode, apply=apply, apply_gate=apply_gate,
@@ -2639,7 +2640,7 @@ def revalidate_synthesis_candidate(
 
     vault = load_vault(root)
     if repository is None:
-        repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+        repository = vault_repository(VaultPaths(vault.root, vault.config))
     run = repository.synthesis_run(synthesis_run_id)
     if run is None:
         raise StudyMapError(

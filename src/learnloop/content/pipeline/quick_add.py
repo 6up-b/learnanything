@@ -460,6 +460,10 @@ def enqueue_quick_add(
                     "default_role": role,
                     "scope": scope,
                     "priority": 1,
+                    # The reading the plan's units were chosen on (exam
+                    # protection by extraction identity).
+                    **({"scope_extraction_id": plan.extraction_id, "scope_revision_id": plan.revision_id}
+                       if scope and plan.extraction_id else {}),
                 }
             ],
         },

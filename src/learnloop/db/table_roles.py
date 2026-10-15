@@ -413,6 +413,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_exercise_imports", TableRole.WORKFLOW),
     ("source_exposure_events", TableRole.RAW_LEDGER),
     ("source_extraction_runs", TableRole.WORKFLOW),
+    # Exam protection by extraction identity: the held-out signals each
+    # model run marked on the reading it read, append-only (migration 204).
+    ("source_held_out_signal_marks", TableRole.RAW_LEDGER),
     ("source_locator_schemes", TableRole.COMPAT),
     ("source_object_citations", TableRole.RAW_LEDGER),
     ("source_object_relations", TableRole.RAW_LEDGER),

@@ -25,6 +25,7 @@ from typing import Any
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.proposals.ai_contracts import AuthoringProposal, AuthoringProposalItem
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import vault_repository
 from learnloop.ids import new_ulid
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.proposals.proposals import auto_apply_rows, proposal_item_row
@@ -84,7 +85,7 @@ def propose_graph_edits(
         raise GraphEditError("invalid_request", "At least one edit is required.")
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     batch_id, items = _persist_graph_edit_batch(
         root, vault, repository, rationale, edits, clock=clock
     )
@@ -318,7 +319,7 @@ def queue_restructure_request(
         raise GraphEditError("invalid_request", "At least one facet id is required.")
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
 
     canonical = [vault.canonical_facet_id(str(facet)) for facet in facet_ids]
     for facet_id in canonical:
@@ -379,7 +380,7 @@ def resolve_edge_direction(
         raise GraphEditError("invalid_request", f"Unsupported resolution '{resolution}'.")
 
     vault = load_vault(root)
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    repository = vault_repository(VaultPaths(vault.root, vault.config))
     edge = next((candidate for candidate in vault.edges if candidate.id == edge_id), None)
 
     batch_id: str | None = None

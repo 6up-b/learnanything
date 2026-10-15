@@ -30,6 +30,29 @@ class JournalModeSwitchError(RuntimeError):
     """The database could not be moved to WAL, so its journal mode is unchanged."""
 
 
+class UncoordinatedMigrationError(RuntimeError):
+    """An existing database is behind this code's migrations, and only the
+    vault's migration coordinator may upgrade it.
+
+    Upgrading a vault's database has a vault-level step: under the vault
+    mutation lock, the coordinator records the held-out signals the vault's
+    exam membership qualifies (``learnloop.migration_coordinator``; exam
+    protection identity, F3 final). A bare ``Repository(path)`` knows no
+    vault, so it creates a database or attaches to a current one and never
+    upgrades one: the database is left unchanged.
+    """
+
+    def __init__(self, sqlite_path: Path, current: int, pending: list[Migration]) -> None:
+        self.sqlite_path = Path(sqlite_path)
+        self.current = current
+        self.pending = tuple(migration.version for migration in pending)
+        super().__init__(
+            f"{self.sqlite_path} is at migration {current} and this LearnLoop needs migration "
+            f"{self.pending[-1]}. Open the vault with LearnLoop to upgrade it (the desktop app, or "
+            "`learnloop doctor --fix-state --vault <vault>`)."
+        )
+
+
 @dataclass(frozen=True)
 class Migration:
     version: int
@@ -70,11 +93,43 @@ def apply_migrations(
     migrations_dir: Path | None = None,
     clock: Clock | None = None,
 ) -> list[Migration]:
-    sqlite_path = Path(sqlite_path)
-    migrations = discover_migrations(migrations_dir)
+    """Create the database, or upgrade it to this code's migrations.
+
+    Upgrading a vault's database belongs to the vault's migration coordinator
+    (``learnloop.migration_coordinator.migrate_vault``), which also records
+    what the vault's files qualify; ``tests/test_coordinated_migrations.py``
+    pins every other caller. :func:`create_or_attach_current` is the
+    vault-less entry (``Repository(path)``).
+    """
+
+    return _migrate(Path(sqlite_path), discover_migrations(migrations_dir), clock, upgrade=True)
+
+
+def create_or_attach_current(
+    sqlite_path: Path,
+    migrations_dir: Path | None = None,
+    clock: Clock | None = None,
+) -> list[Migration]:
+    """Create the database (a missing file, or one with no migration applied
+    yet), or check that an existing one is at this code's migrations (moving
+    it to WAL as :func:`apply_migrations` does).
+
+    An existing database with migrations pending raises
+    :class:`UncoordinatedMigrationError` and is left unchanged: only the
+    vault's coordinator upgrades one.
+    """
+
+    return _migrate(Path(sqlite_path), discover_migrations(migrations_dir), clock, upgrade=False)
+
+
+def _migrate(sqlite_path: Path, migrations: list[Migration], clock: Clock | None, *, upgrade: bool) -> list[Migration]:
     if not sqlite_path.exists():
         return _apply_fresh(sqlite_path, migrations, clock)
     already_applied = applied_versions(sqlite_path)
+    if not upgrade and already_applied:
+        pending = [migration for migration in migrations if migration.version not in already_applied]
+        if pending:
+            raise UncoordinatedMigrationError(sqlite_path, max(already_applied), pending)
     applied: list[Migration] = []
     # Closed explicitly: an open WAL connection holds the database open, and a
     # later exclusive operation in this process must not wait for the garbage

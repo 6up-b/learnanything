@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 from learnloop.clock import FrozenClock, parse_utc
-from learnloop.db.repositories import Repository
 from learnloop.substrate.canonical_projection import (
     configured_repeat_discount,
     project_canonical_facet_state,
@@ -30,6 +29,7 @@ from learnloop.learner.facet_evidence_timeline import (
     fold_demonstrated_timeline,
 )
 from learnloop.vault.loader import load_vault
+from learnloop.vault.repository import open_vault_repository
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 FIXTURE_VAULTS = sorted(
@@ -50,7 +50,7 @@ def _loaded_fixture(tmp_path, name):
     assert count == 1
     toml_path.write_text(text, encoding="utf-8")
     vault = load_vault(root)
-    repository = Repository(root / "state.sqlite")
+    repository = open_vault_repository(root, root / "state.sqlite")
     return vault, repository
 
 
@@ -155,6 +155,6 @@ def test_ready_derivation_none_on_legacy_vault(tmp_path):
     assert count == 1
     toml_path.write_text(text, encoding="utf-8")
     vault = load_vault(root)
-    repository = Repository(root / "state.sqlite")
+    repository = open_vault_repository(root, root / "state.sqlite")
     ready = facet_ready_derivation(vault, repository, "facet_x", [])
     assert ready is None

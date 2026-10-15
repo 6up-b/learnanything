@@ -114,6 +114,55 @@ export function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
 }
 
+/** A saved reading place: the passage, and the reading it was saved on (null
+ *  for a place saved before places recorded their reading: a bare span id). */
+export interface SavedReadingPlace {
+  extractionId: string | null;
+  spanId: string;
+}
+
+/** The stored form of a reading place (re-read safety): the reading travels
+ *  with the span, so a place saved before the book was read again is
+ *  translated, never taken as a span of the new reading. */
+export function encodeReadingPlace(extractionId: string, spanId: string): string {
+  return JSON.stringify({ extractionId, spanId });
+}
+
+export function decodeReadingPlace(value: string | null): SavedReadingPlace | null {
+  if (!value) return null;
+  if (value.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(value) as { extractionId?: unknown; spanId?: unknown };
+      if (typeof parsed.spanId !== "string" || !parsed.spanId) return null;
+      return { extractionId: typeof parsed.extractionId === "string" ? parsed.extractionId : null, spanId: parsed.spanId };
+    } catch {
+      return null;
+    }
+  }
+  return { extractionId: null, spanId: value };
+}
+
+/** The reading a source opened on, as placing the saved position needs it. */
+export interface OpenedReading {
+  extractionId: string;
+  /** Readings with aliases into this one (reader.render_view's aliasedFrom). */
+  aliasedFrom?: string[];
+  /** Every other reading of the book (reader.render_view's otherReadings),
+   *  aliases or not: the reading history (Codex review F5). */
+  otherReadings?: string[];
+}
+
+/** Whether a saved place is on the reading the book opened on, so it is used
+ *  as it is. A bare span id (saved before places recorded their reading) is
+ *  only when the book has no other reading at all: aliases may be missing (a
+ *  re-read made before they were recorded, one that matched nothing), so the
+ *  reading history decides, never the alias rows (Codex review F5). */
+export function placeIsOnReading(saved: SavedReadingPlace, reading: OpenedReading | undefined): boolean {
+  if (!reading) return true;
+  if (saved.extractionId) return saved.extractionId === reading.extractionId;
+  return (reading.otherReadings ?? reading.aliasedFrom ?? []).length === 0;
+}
+
 /** Imperative handle of the watch panel the jumps seek. */
 export interface WatchSeekHandle {
   seekToSpan: (spanId: string) => boolean;
@@ -218,7 +267,14 @@ export interface ReadingProgress {
   /** Place the reading position a source opens at: the saved place, or a
    *  search hit's passage over it; with neither (and no hand-over) the
    *  reading history decides once it is read. */
-  placeAtOpen: (sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null) => void;
+  placeAtOpen: (
+    sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+    jumpReading?: string | null,
+  ) => void;
+  /** The saved place (``"saved"``) or a search hit's passage (``"found"``)
+   *  was translated onto a reading whose text changed there (re-read safety):
+   *  the Reader says the place is approximate. False: it is exact. */
+  placeApproximate: false | "saved" | "found";
   /** Hydrate durable reading progress so reveal/completion survive restarts. */
   hydrateProgress: (extractionId: string, progress: ReaderProgressListDto) => void;
   /** Per-source reset; leaving a book saves what was read in it first. */
@@ -258,6 +314,15 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   // where a book with no saved place reopens.
   const [readingHistory, setReadingHistory] = useState<SectionHistory[] | null>(null);
   const historyResumeRef = useRef(false);
+  // Re-read safety: a place saved on an earlier reading of the book, once the
+  // sidecar has translated it (null: none waiting), and a nudge for the
+  // history resume when it could not be.
+  const [translatedPlace, setTranslatedPlace] = useState<
+    { spanId: string; approximate: false | "saved" | "found" } | null
+  >(null);
+  const [placeApproximate, setPlaceApproximate] = useState<false | "saved" | "found">(false);
+  const [historyKick, setHistoryKick] = useState(0);
+  const placeRequestRef = useRef(0);
   // Quick checks the learner answered this visit: the guide stops calling them
   // "ready, just below" (usability round 2).
   const [answeredSections, setAnsweredSections] = useState<string[]>([]);
@@ -338,6 +403,9 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     lastPlaybackSpanRef.current = null;
     setReadingHistory(null);
     historyResumeRef.current = false;
+    placeRequestRef.current += 1;
+    setTranslatedPlace(null);
+    setPlaceApproximate(false);
     setAnsweredSections([]);
     setRevealedSections([]);
     setDismissedSections([]);
@@ -352,29 +420,72 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     settleUntilRef.current = Date.now() + SEEN_SETTLE_MS;
   }, []);
 
-  const placeAtOpen = useCallback((sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null) => {
+  const placeAtOpen = useCallback((
+    sourceId: string, jumpSpan: string | undefined, handoff: ReadingPosition | null, reading?: OpenedReading,
+    jumpReading?: string | null,
+  ) => {
     let placed = Boolean(handoff);
+    let translating = false;
+    // A place on another reading of the book (a saved place, or a search hit
+    // found before the book was read again): translated through the re-read's
+    // aliases by the sidecar, never taken as a span of this reading (re-read
+    // safety). Stale or unknown: the reading history decides. It is translated
+    // onto the reading this render shows, and an answer on any other reading
+    // (one completed since this render opened) is never applied here: its
+    // span ids are that reading's (Codex re-review F10).
+    const translate = (place: SavedReadingPlace, kind: "saved" | "found") => {
+      translating = true;
+      const request = ++placeRequestRef.current;
+      const openReading = reading?.extractionId ?? null;
+      api
+        .readerSavedPlace({
+          sourceId, spanId: place.spanId, extractionId: place.extractionId, toExtractionId: openReading,
+        })
+        .then((landed) => {
+          if (placeRequestRef.current !== request) return;
+          const here = !openReading || landed.extractionId === openReading;
+          if (here && landed.spanId && landed.status !== "stale") {
+            setTranslatedPlace({ spanId: landed.spanId, approximate: landed.status === "needs_reanchor" ? kind : false });
+          } else {
+            historyResumeRef.current = true;
+            setHistoryKick((value) => value + 1);
+          }
+        })
+        .catch(() => {
+          if (placeRequestRef.current !== request) return;
+          historyResumeRef.current = true;
+          setHistoryKick((value) => value + 1);
+        });
+    };
+    // A search hit (or a return) names its own reading (Codex review F8): one
+    // on another reading is translated like a saved place.
+    const jump: SavedReadingPlace | null = jumpSpan ? { extractionId: jumpReading ?? null, spanId: jumpSpan } : null;
+    const jumpHere = jump !== null && (!jump.extractionId || placeIsOnReading(jump, reading));
     try {
-      const savedSpan = window.localStorage.getItem(readingPositionKey(sourceId));
-      if (savedSpan) {
-        setReadingSpan(savedSpan);
-        setActiveSpan(savedSpan);
-        setRestoredSpan(savedSpan);
+      const saved = decodeReadingPlace(window.localStorage.getItem(readingPositionKey(sourceId)));
+      if (saved && placeIsOnReading(saved, reading)) {
+        setReadingSpan(saved.spanId);
+        setActiveSpan(saved.spanId);
+        setRestoredSpan(saved.spanId);
         placed = true;
+      } else if (saved && !handoff && !jump) {
+        translate(saved, "saved");
       }
     } catch {
       /* Reading still works when storage is unavailable. */
     }
     // A search hit overrides the resume position: the learner asked to land
     // on the matching passage, not where they left off.
-    if (jumpSpan) {
-      setReadingSpan(jumpSpan);
-      setActiveSpan(jumpSpan);
-      setRestoredSpan(jumpSpan);
+    if (jump && jumpHere) {
+      setReadingSpan(jump.spanId);
+      setActiveSpan(jump.spanId);
+      setRestoredSpan(jump.spanId);
       placed = true;
+    } else if (jump && !handoff) {
+      translate(jump, "found");
     }
     // No saved place: the reading history decides, once it is read (below).
-    historyResumeRef.current = !placed;
+    historyResumeRef.current = !placed && !translating;
   }, [setActiveSpan]);
 
   const hydrateProgress = useCallback((extractionId: string, progress: ReaderProgressListDto) => {
@@ -885,7 +996,17 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
       setRestoredSpan(spanId);
       jumpToSpan(spanId, "start");
     }
-  }, [render, offline, guidePlan, readingHistory, jumpToSpan]);
+  }, [render, offline, guidePlan, readingHistory, jumpToSpan, historyKick]);
+
+  // A saved place translated from an earlier reading (re-read safety): the
+  // Reader goes there once, saying so when the words there changed.
+  useEffect(() => {
+    if (!translatedPlace || !render || offline) return;
+    setTranslatedPlace(null);
+    setPlaceApproximate(translatedPlace.approximate);
+    setRestoredSpan(translatedPlace.spanId);
+    jumpToSpan(translatedPlace.spanId, "start");
+  }, [translatedPlace, render, offline, jumpToSpan]);
 
   // The learner's own hand on the page: what makes a scroll reading (round 2).
   const noteUserScroll = useCallback(() => {
@@ -984,6 +1105,6 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     offeredCheckSections, openQuestionSections, pendingQuickCheckCount, currentQuestionOpen, pdfOfferSection,
     readingProgress, retryQuickCheck, openQuickCheck, revealSection, completeSection, jumpToSpan, notePlacement, revealSegment,
     onReadingScroll, noteUserScroll, onPlaybackSpan, onPlaybackSeek, settleUntilRef, handoffRef, jumpGuardRef,
-    settleOpening, placeAtOpen, hydrateProgress, resetProgress,
+    settleOpening, placeAtOpen, placeApproximate, hydrateProgress, resetProgress,
   };
 }

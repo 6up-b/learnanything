@@ -29,6 +29,7 @@ import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
+from learnloop.vault.repository import open_vault_repository
 from learnloop.scheduling.session_minutes import (
     FIRST_RUN_MINUTES,
     MINUTE_PRESETS,
@@ -212,7 +213,7 @@ def test_the_streak_count_is_unchanged_on_fixture_copies(tmp_path, fixture_name)
         pytest.skip(f"{fixture_name} fixture absent")
     root = tmp_path / fixture_name
     copy_tree_with_databases(source, root)
-    repository = Repository(root / "state.sqlite")
+    repository = open_vault_repository(root, root / "state.sqlite")
     with repository.connection() as connection:
         latest = connection.execute("SELECT MAX(started_at) AS latest FROM sessions").fetchone()["latest"]
     if latest is None:
