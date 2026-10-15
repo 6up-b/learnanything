@@ -176,8 +176,8 @@ Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp` after `uv sync -
 | Check | Result |
 |---|---|
 | `uv run lint-imports --no-cache` | 22 kept, 0 broken |
-| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | GATE_FULL |
-| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | GATE_DURABILITY |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11846 passed, 0 failed (13 min 24 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11740 deselected |
 | `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 92 files, 655 passed; build succeeds (the usual chunk-size warning) |
 | `cargo check` | not run: nothing under `src-tauri` changed (`trigger_regrade` is a passthrough) |
 | DB/config references | regenerated; `db_validate_reference.py` on the final tree: 0 errors |
