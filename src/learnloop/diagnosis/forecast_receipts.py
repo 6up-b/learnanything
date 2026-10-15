@@ -22,7 +22,8 @@ writes its forecast as a ``forecast_receipts`` row in its own transaction
   record_remediation_attempt``, the primed attempt's transaction): the
   probability that the repair class fixes it on the cold attempt the task
   binds (kind ``repair_cold_outcome``, forecaster ``repair_class_cold_rate``:
-  the class's measured cold successes shrunk toward the pooled rate). A
+  the class's measured cold outcomes, read as their cold grades stand when
+  the receipt is written, shrunk toward the pooled rate). A
   repair whose verification cannot be scheduled (no episode, no independent
   surface, no repair class) is censored at birth with that reason.
 
@@ -34,9 +35,13 @@ resolves only on the first qualifying attempt on its facet that was NOT
 visible when the receipt was written (the visible ones are listed in the
 receipt), and only when that attempt answered a plan or probe presentation or
 a scheduler offer (``practice_attempts.plan_presentation_id`` /
-``probe_presentation_id`` / ``scheduler_candidate_id``); an unbound one
-censors it. A repair forecast resolves only on its task's consumed attempt
-and terminal cold outcome. Logging only: nothing here changes grading,
+``probe_presentation_id`` / ``scheduler_candidate_id``) that the report
+verifies exists, is of the answered item and was administered to it (Codex
+review F4); an unbound one, or one whose reference establishes nothing,
+censors it. Its facet is read under the contract its grade cites, and its
+pattern only through errors attributed to that facet (F1, F2). A repair
+forecast resolves only on its task's consumed attempt and terminal cold
+outcome. Logging only: nothing here changes grading,
 scoring, scheduling or what is served, and every function returns quietly on
 any failure.
 """
@@ -59,15 +64,20 @@ logger = logging.getLogger(__name__)
 DIAGNOSER_FORECASTER = "diagnoser_causal_class"
 #: v1: causal class posterior x the facet response model, item-agnostic.
 DIAGNOSER_FORECASTER_VERSION = "diagnoser_causal_class_v1"
-#: The frozen rule that names a diagnosis forecast's observation. v1: among
-#: the attempts created at or after the diagnosed attempt (not it) and not
-#: visible when the receipt was written (``target.seen_attempt_ids``), the
-#: first, in (created_at, id) order, whose recorded evidence facets include
-#: the facet and that tests it unaided (a qualifying type, not primed, no
-#: hint); assisted, primed or non-test attempts before it are kept as
-#: intervening. It must answer a plan or probe presentation or a scheduler
-#: offer, else the forecast is censored ``unbound_attempt``.
-NEXT_OBSERVATION_RULE = "next_unseen_qualifying_presented_attempt_on_facet_v1"
+#: The frozen rule that names a diagnosis forecast's observation and its
+#: emission. Among the attempts created at or after the diagnosed attempt
+#: (not it) and not visible when the receipt was written
+#: (``target.seen_attempt_ids``), the first, in (created_at, id) order, whose
+#: recorded evidence facets include the facet and that tests it unaided (a
+#: qualifying type, not primed, no hint); assisted, primed or non-test
+#: attempts before it are kept as intervening. It must answer a plan or probe
+#: presentation or a scheduler offer whose record verifies (exists, is of the
+#: answered item, was administered to that attempt), else the forecast is
+#: censored ``unbound_attempt``. v2 (Codex review 2026-10-15): the facet must
+#: be assessed under the contract the grade cites before anything resolves,
+#: and the pattern counts only through errors attributed to the facet (v1
+#: counted any error on the attempt and accepted any nonempty reference).
+NEXT_OBSERVATION_RULE = "next_unseen_qualifying_presented_attempt_on_facet_v2"
 NEXT_OBSERVATION_ALPHABET = ("pass", "same_error", "other_error")
 #: Attempt types that test a facet unaided (the field's graded retrievals and
 #: the committed diagnostic probe).
@@ -254,11 +264,12 @@ def diagnosis_receipts(
                     "after_created_at": attempt.get("created_at"),
                     "seen_attempt_ids": seen,
                     "qualifying_attempt_types": list(QUALIFYING_ATTEMPT_TYPES),
-                    "requires": "plan_presentation | probe_presentation | scheduler_candidate",
+                    "requires": "a verified plan_presentation | probe_presentation | scheduler_candidate",
                 },
                 "pattern": {"error_type": error_type, "misconception_id": misconception_id},
                 "emissions": {
-                    "same_error": "the observation shows the pattern (its error type or registry misconception)",
+                    "same_error": "the facet is assessed and an error attributed to it shows the pattern "
+                                  "(its error type or registry misconception)",
                     "pass": "otherwise, the facet's outcome on the observation reaches the high bucket",
                     "other_error": "otherwise",
                 },
@@ -363,35 +374,102 @@ def record_diagnosis_forecasts(
 # -- the repair forecast ---------------------------------------------------------------------
 
 REPAIR_FORECASTER = "repair_class_cold_rate"
-#: v1: Beta-binomial: the class's measured cold successes, shrunk toward the
-#: pooled measured rate (itself Laplace-smoothed) by REPAIR_PSEUDO_COUNT.
-REPAIR_FORECASTER_VERSION = "repair_class_cold_rate_v1"
+#: v2 (Codex review F3): Beta-binomial: the class's measured cold outcomes AS
+#: THEIR GRADES STAND when the receipt is written (:func:`effective_cold_outcome`:
+#: a held or unassessed cold grade is no measurement, a regrade counts as
+#: regraded), shrunk toward the pooled measured rate (itself
+#: Laplace-smoothed) by REPAIR_PSEUDO_COUNT. v1 counted the verification's
+#: immutable disposition.
+REPAIR_FORECASTER_VERSION = "repair_class_cold_rate_v2"
 REPAIR_ALPHABET = ("cold_success", "cold_failure")
 REPAIR_PSEUDO_COUNT = 2.0
 #: The cold verification's own rule for a success (``causal_probe_coherence.
 #: record_delayed_cold_verification``): v1, correctness at or above the
 #: frozen threshold on the task's consumed, assessed, unheld cold attempt.
 REPAIR_OUTCOME_RULE = "followup_task_consumed_attempt_v1"
+#: A measured disposition (the others are censored, never outcomes).
+MEASURED_COLD_DISPOSITIONS = ("cold_success", "cold_failure")
 
 
-def _measured_cold_outcomes(connection: Any, repair_class_id: str | None) -> dict[str, Any]:
+def _has_table(connection: Any, table: str) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+    ).fetchone() is not None
+
+
+def _assessed(connection: Any, attempt_id: str) -> bool:
+    """Does the attempt's current grade assess anything? Its surviving rows,
+    the last row of a criterion winning (as replay reads them), any of them
+    not unassessed."""
+
+    from learnloop.outcome_contract import unassessed_evidence_row
+
+    if not _has_table(connection, "grading_evidence"):
+        return False
+    latest: dict[str, Any] = {}
+    for row in connection.execute(
+        "SELECT criterion_id, attribution_json FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL "
+        "ORDER BY created_at, criterion_id, id",
+        (attempt_id,),
+    ):
+        latest[str(row[0])] = row[1]
+    return any(not unassessed_evidence_row(attribution) for attribution in latest.values())
+
+
+def effective_cold_outcome(connection: Any, cold_attempt_id: str, *, threshold: float) -> tuple[str | None, str]:
+    """A measured cold verification's outcome as the cold attempt's grade
+    stands NOW: ``(cold_success | cold_failure, "realized")``, or ``(None,
+    why not)``: the grade is held for review (THE held predicate), assesses
+    nothing, or there is no correctness. The disposition row is immutable; a
+    regrade or a hold since the verification is read here. The repair
+    forecaster's measured sample (as of its receipt) and the report's
+    resolution (as of the report) read outcomes through this one rule."""
+
+    from learnloop.held_grades import held_for_review_attempts
+    from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
+
+    cold_attempt_id = str(cold_attempt_id)
+    if cold_attempt_id in held_for_review_attempts(connection, (cold_attempt_id,)):
+        return None, GRADE_HELD_FOR_REVIEW
+    if not _assessed(connection, cold_attempt_id):
+        return None, "cold_attempt_unassessed"
+    row = connection.execute("SELECT correctness FROM practice_attempts WHERE id = ?", (cold_attempt_id,)).fetchone()
+    if row is None or row[0] is None:
+        return None, "ungraded"
+    return ("cold_success" if float(row[0]) >= float(threshold) else "cold_failure"), "realized"
+
+
+def _measured_cold_outcomes(connection: Any, repair_class_id: str | None, *, threshold: float) -> dict[str, Any]:
+    """The measured cold outcomes as their grades stand now (Codex review F3):
+    every measured disposition's cold attempt read through
+    :func:`effective_cold_outcome`; the ones that no longer measure anything
+    are counted by reason, never in the sample."""
+
     pooled = {"successes": 0, "n": 0}
     own = {"successes": 0, "n": 0}
-    exists = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'causal_cold_outcomes'"
-    ).fetchone()
-    if exists is None:
-        return {"pooled": pooled, "class": own}
-    for row in connection.execute(
-        "SELECT outcome, repair_class_id FROM causal_cold_outcomes WHERE outcome IN ('cold_success', 'cold_failure')"
-    ):
-        success = 1 if row[0] == "cold_success" else 0
+    excluded: dict[str, int] = {}
+    if not _has_table(connection, "causal_cold_outcomes"):
+        return {"pooled": pooled, "class": own, "excluded": excluded}
+    marks = ",".join("?" for _ in MEASURED_COLD_DISPOSITIONS)
+    for _outcome, row_class, cold_attempt_id in connection.execute(
+        f"SELECT outcome, repair_class_id, cold_attempt_id FROM causal_cold_outcomes WHERE outcome IN ({marks}) "
+        "ORDER BY created_at, id",
+        MEASURED_COLD_DISPOSITIONS,
+    ).fetchall():
+        if not cold_attempt_id:
+            excluded["missing_cold_attempt"] = excluded.get("missing_cold_attempt", 0) + 1
+            continue
+        emission, why = effective_cold_outcome(connection, str(cold_attempt_id), threshold=threshold)
+        if emission is None:
+            excluded[why] = excluded.get(why, 0) + 1
+            continue
+        success = 1 if emission == "cold_success" else 0
         pooled["n"] += 1
         pooled["successes"] += success
-        if repair_class_id is not None and row[1] == repair_class_id:
+        if repair_class_id is not None and row_class == repair_class_id:
             own["n"] += 1
             own["successes"] += success
-    return {"pooled": pooled, "class": own}
+    return {"pooled": pooled, "class": own, "excluded": dict(sorted(excluded.items()))}
 
 
 def repair_receipt(
@@ -407,14 +485,15 @@ def repair_receipt(
 ) -> FR.ForecastReceipt:
     """The repair class's predicted cold outcome (reads the measured ledger)."""
 
-    measured = _measured_cold_outcomes(connection, repair_class_id)
+    measured = _measured_cold_outcomes(connection, repair_class_id, threshold=success_threshold)
     pooled, own = measured["pooled"], measured["class"]
     pooled_mean = (pooled["successes"] + 1.0) / (pooled["n"] + 2.0)
     p = (own["successes"] + REPAIR_PSEUDO_COUNT * pooled_mean) / (own["n"] + REPAIR_PSEUDO_COUNT)
     hypothesis = f"repair_class:{repair_class_id or 'unmapped'}"
     body = FR.categorical_body({hypothesis: {"cold_success": p, "cold_failure": 1.0 - p}}, {hypothesis: 1.0},
                                alphabet=REPAIR_ALPHABET)
-    body["measured"] = {"class": dict(own), "pooled": dict(pooled), "pooled_mean": round(pooled_mean, 8)}
+    body["measured"] = {"class": dict(own), "pooled": dict(pooled), "pooled_mean": round(pooled_mean, 8),
+                        "excluded": dict(measured["excluded"])}
     task_id = (task or {}).get("id")
     episode_id = (episode or {}).get("id")
     cold_item_id = (task or {}).get("selected_item_id") or (episode or {}).get("cold_item_id")
@@ -431,7 +510,8 @@ def repair_receipt(
                      "measured" if pooled["n"] else "population_prior",
                      source="causal_cold_outcomes" if pooled["n"] else "laplace_prior", sample_count=pooled["n"]),
         VF.parameter("class_cold_successes", own["successes"], "measured" if own["n"] else "heuristic",
-                     source="causal_cold_outcomes", sample_count=own["n"]),
+                     source="causal_cold_outcomes", sample_count=own["n"],
+                     note="measured dispositions read as their cold grades stand (held/unassessed excluded)"),
         VF.parameter("cold_verification_success_correctness", float(success_threshold), "heuristic",
                      source="causal_probe_parameters", note="what a cold success is"),
     ]
@@ -513,6 +593,7 @@ def record_repair_expectation(
 __all__ = [
     "DIAGNOSER_FORECASTER",
     "DIAGNOSER_FORECASTER_VERSION",
+    "MEASURED_COLD_DISPOSITIONS",
     "NEXT_OBSERVATION_ALPHABET",
     "NEXT_OBSERVATION_RULE",
     "QUALIFYING_ATTEMPT_TYPES",
@@ -521,6 +602,7 @@ __all__ = [
     "REPAIR_FORECASTER_VERSION",
     "REPAIR_OUTCOME_RULE",
     "diagnosis_receipts",
+    "effective_cold_outcome",
     "next_observation_likelihood",
     "record_diagnosis_forecasts",
     "record_repair_expectation",

@@ -12,25 +12,37 @@ receipt at read time, through its own exact binding and nothing else:
   settled merges) and that tests it unaided (a qualifying type, not primed,
   no hint); assisted, primed or non-test attempts before it are counted as
   intervening. It must answer a plan or probe presentation or a scheduler
-  offer, else the forecast is censored ``unbound_attempt``: the next
-  observation is never replaced by a later one. Its emission: ``same_error``
-  when the attempt's current error events show the pattern (error type or
-  registry misconception), else ``pass`` when the facet's outcome under the
-  assessment contract its current grade was read under (the version its rows
-  cite, else the current item's, as replay reads it; EVSI calibration's
-  target-facet weighting, review F5; bucketed as the facet updater buckets
+  offer whose record verifies (it exists, is of the answered item and was
+  administered to that attempt: Codex review F4), else the forecast is
+  censored ``unbound_attempt`` (a reference that establishes nothing is
+  listed as rejected): the next observation is never replaced by a later
+  one. The facet must first be assessed under the assessment contract the
+  current grade cites (the latest row of every criterion citing one and the
+  same version, as EVSI calibration review F5 reads a grade; anything else is
+  ``graded_contract_unknown``, never today's content: F2); unassessed or
+  unmapped, the forecast is censored. Then its emission: ``same_error`` when
+  an error event attributed to the facet (the facets it names, else those of
+  the criteria it names, else the contract's only facet; never one the grader
+  scoped off the learner) shows the pattern (error type or registry
+  misconception: F1), else ``pass`` when the facet's outcome (EVSI
+  calibration's target-facet weighting, bucketed as the facet updater buckets
   it) is ``high``, else ``other_error``.
 * ``repair_cold_outcome`` (``forecast_receipts``): the task's consumed attempt
   and the cold verification's terminal disposition for it
   (``causal_cold_outcomes``). A measured disposition resolves on the cold
-  attempt's CURRENT correctness against the threshold frozen in the receipt;
-  any other disposition (contaminated, same surface, expired, missing chain)
-  censors it with that reason.
+  attempt's grade as it stands now (``diagnosis.forecast_receipts.
+  effective_cold_outcome``: held and unassessed grades are no outcome; the
+  correctness against the threshold frozen in the receipt), the rule the
+  repair forecaster's own measured sample reads; any other disposition
+  (contaminated, same surface, expired, missing chain) censors it with that
+  reason.
 * ``check_outcome`` (``voi_forecasts``, EVSI calibration Part B): the same
   family read through an adapter (forecaster = the decision site), joined by
   :mod:`.live_report`'s exact adapters and scored in each site's alphabet.
 
-Every resolution reads the attempt's current grade, so a regrade re-resolves;
+Every resolution reads the attempt's current grade, so a regrade re-resolves
+(a diagnosis forecast only when the regrade cites the contract it was read
+under: a method-explicit item's does, any other is ``graded_contract_unknown``);
 a grade held for review (``held_grades.held_for_review_attempts``) resolves
 nothing until it is released. Censored and pending forecasts are counted with
 their reasons, never scored. Read-only; replay never reads receipts.
@@ -50,10 +62,15 @@ from learnloop.db.connection import connect
 from learnloop.db.stores import forecast_receipts as receipt_store
 from learnloop.db.stores import voi_forecasts as voi_store
 from learnloop.db.stores.facet_identity import settled_merge_rows
+from learnloop.db.stores.plan_presentations import bindable_presentation
+from learnloop.diagnosis.forecast_receipts import (
+    MEASURED_COLD_DISPOSITIONS,
+    NON_LEARNER_VALIDITY,
+    effective_cold_outcome,
+)
 from learnloop.evsi_calibration import live_report as LR
 from learnloop.evsi_calibration.metrics import reliability
 from learnloop.held_grades import held_for_review_attempts
-from learnloop.learner.assessment_contracts import compile_assessment_contract
 from learnloop.learner.capability_mapping import ROLE_WEIGHTS
 from learnloop.learner.facet_diagnostics import facet_outcome_bucket
 from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW, unassessed_evidence_row
@@ -62,7 +79,10 @@ from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
 #: v1: the three kinds, exact bindings, held grades unresolved, the honest n.
-REPORT_VERSION = "forecast_calibration_report_v1"
+#: v2 (Codex review 2026-10-15): bindings verified, the graded contract or
+#: censored (never today's content), the pattern only on the facet once it is
+#: assessed, the repair outcome through the shared effective-outcome rule.
+REPORT_VERSION = "forecast_calibration_report_v2"
 
 #: Fewer resolved forecasts than this and a reliability table says little.
 SMALL_N = 30
@@ -109,6 +129,7 @@ class _Ledgers:
         self._keys: list[tuple[str, str]] = []
         self._canonical: Callable[[str], str] | None = None
         self._held: dict[str, bool] = {}
+        self._contracts: dict[str, Mapping[str, Any] | None] = {}
 
     def canonical(self, facet: str) -> str:
         if self._canonical is None:
@@ -131,8 +152,8 @@ class _Ledgers:
                 dict(row)
                 for row in self.connection.execute(
                     "SELECT id, practice_item_id, attempt_type, primed, hints_used, evidence_facets_json, "
-                    "plan_presentation_id, probe_presentation_id, scheduler_candidate_id, correctness, created_at "
-                    "FROM practice_attempts ORDER BY created_at, id"
+                    "plan_presentation_id, probe_presentation_id, scheduler_candidate_id, scheduler_slate_id, "
+                    "session_id, correctness, created_at FROM practice_attempts ORDER BY created_at, id"
                 )
             ]
             self._keys = [(str(a["created_at"]), str(a["id"])) for a in self._attempts]
@@ -157,31 +178,30 @@ class _Ledgers:
             self._held[attempt_id] = attempt_id in held_for_review_attempts(self.connection, (attempt_id,))
         return self._held[attempt_id]
 
-    def _contract(self, attempt_id: str, contract_id: str | None) -> tuple[Mapping[str, Any] | None, str]:
-        """The assessment contract the current grade was read under, as replay
-        reads it: the version its rows cite, else (a regrade of an item
-        without a frozen method reads the item as it is now, and cites none)
-        the current item's compiled contract."""
+    def _contract(self, contract_id: str | None) -> Mapping[str, Any] | None:
+        """The assessment contract the current grade cites (Codex review F2).
 
-        if contract_id is not None:
+        Only a version the grade's rows cite is read. A grade that cites none
+        (or several) was read under content that is not on record: a regrade
+        of an item without a frozen method reads the item as it was then and
+        cites nothing. Compiling today's item instead would let an edit of
+        its rubric rewrite a resolved forecast, so it is ``None``
+        (``graded_contract_unknown``)."""
+
+        if contract_id is None:
+            return None
+        if contract_id not in self._contracts:
             stored = self.connection.execute(
                 "SELECT contract_json FROM assessment_contract_versions WHERE id = ?", (contract_id,)
             ).fetchone()
             contract = _loads(stored["contract_json"], None) if stored is not None else None
-            return (contract, "graded") if isinstance(contract, Mapping) else (None, "graded")
-        attempt = self.connection.execute(
-            "SELECT practice_item_id FROM practice_attempts WHERE id = ?", (attempt_id,)
-        ).fetchone()
-        item = self.vault.practice_items.get(str(attempt["practice_item_id"])) if attempt is not None else None
-        rubric = self.vault.rubric_for_item(item) if item is not None else None
-        if item is None or rubric is None:
-            return None, "current_item"
-        return compile_assessment_contract(self.vault, item, rubric=rubric), "current_item"
+            self._contracts[contract_id] = contract if isinstance(contract, Mapping) else None
+        return self._contracts[contract_id]
 
-    def facet_outcome(self, attempt_id: str, facet_id: str) -> tuple[float | None, str, str | None]:
+    def facet_outcome(self, attempt_id: str, facet_id: str) -> tuple[float | None, str, Mapping[str, Any] | None]:
         """One attempt's outcome on ``facet_id`` under the contract its current
-        grade was read under: ``(outcome, "realized", contract source)``, or
-        ``(None, why not, source)``.
+        grade cites: ``(outcome, "realized", contract)``, or ``(None, why
+        not, contract or None)``.
 
         As EVSI calibration reads a follow-up's target facet (review F5) and
         ``recall_coverage.derive_facet_outcomes`` weights it: each current,
@@ -199,20 +219,15 @@ class _Ledgers:
         latest, contract_id = self.current_evidence(attempt_id)
         if not latest:
             return None, "ungraded", None
-        contract, source = self._contract(attempt_id, contract_id)
+        contract = self._contract(contract_id)
         if contract is None:
-            return None, "graded_contract_unknown", source
+            return None, "graded_contract_unknown", None
         target = self.canonical(facet_id)
         dont_know = attempt["attempt_type"] == "dont_know" or bool(attempt["declared_dont_know"])
         numerator = denominator = 0.0
         mapped_any = False
         for criterion in contract.get("criteria") or []:
-            weights: dict[str, float] = {}
-            for observed in criterion.get("targets") or []:
-                role_weight = float(ROLE_WEIGHTS.get(observed.get("role"), 1.0))
-                if observed.get("facet") and role_weight > 0:
-                    facet = self.canonical(str(observed["facet"]))
-                    weights[facet] = weights.get(facet, 0.0) + role_weight
+            weights = self._criterion_weights(criterion)
             total = sum(weights.values())
             share = weights.get(target, 0.0) / total if total > 0 else 0.0
             if share <= 0:
@@ -227,20 +242,34 @@ class _Ledgers:
             numerator += weight * correctness
             denominator += weight
         if not mapped_any:
-            return None, "facet_not_in_contract", source
+            return None, "facet_not_in_contract", contract
         if denominator <= 0:
-            return None, "facet_unassessed", source
-        return numerator / denominator, "realized", source
+            return None, "facet_unassessed", contract
+        return numerator / denominator, "realized", contract
+
+    def _criterion_weights(self, criterion: Mapping[str, Any]) -> dict[str, float]:
+        """A contract criterion's facets (canonical now), role-weighted."""
+
+        weights: dict[str, float] = {}
+        for observed in criterion.get("targets") or []:
+            role_weight = float(ROLE_WEIGHTS.get(observed.get("role"), 1.0))
+            if observed.get("facet") and role_weight > 0:
+                facet = self.canonical(str(observed["facet"]))
+                weights[facet] = weights.get(facet, 0.0) + role_weight
+        return weights
 
     def current_evidence(self, attempt_id: str) -> tuple[dict[str, sqlite3.Row], str | None]:
-        """The attempt's current grade per criterion, read as replay reads it
-        (``replay_existing_attempt``): the surviving rows in (created_at,
-        criterion) order, the last row of a criterion winning (a regrade's
-        rows supersede the grade they replace), and the first contract
-        version they cite."""
+        """The attempt's current grade per criterion and the contract it cites.
+
+        The rows are read as replay reads them (``replay_existing_attempt``):
+        the surviving rows in (created_at, criterion) order, the last row of
+        a criterion winning (a regrade's rows supersede the grade they
+        replace). The contract is the one version the winning rows ALL cite
+        (EVSI calibration review F5's rule), else None: a regrade whose rows
+        cite none, or rows citing different versions, establish no contract
+        (Codex review F2)."""
 
         latest: dict[str, sqlite3.Row] = {}
-        contract_id: str | None = None
         for row in self.connection.execute(
             "SELECT criterion_id, points_awarded, attribution_json, assessment_contract_version_id "
             "FROM grading_evidence WHERE attempt_id = ? AND superseded_at IS NULL "
@@ -248,44 +277,175 @@ class _Ledgers:
             (attempt_id,),
         ):
             latest[str(row["criterion_id"])] = row
-            if contract_id is None and row["assessment_contract_version_id"]:
-                contract_id = str(row["assessment_contract_version_id"])
+        versions = {row["assessment_contract_version_id"] or None for row in latest.values()}
+        contract_id = str(next(iter(versions))) if len(versions) == 1 and None not in versions else None
         return latest, contract_id
 
     def graded(self, attempt_id: str) -> bool:
         return bool(self.current_evidence(attempt_id)[0])
 
-    def assessed(self, attempt_id: str) -> bool:
-        latest, _contract = self.current_evidence(attempt_id)
-        return any(not unassessed_evidence_row(row["attribution_json"]) for row in latest.values())
+    def _attributed_facets(self, plan: Mapping[str, Any], contract: Mapping[str, Any]) -> set[str] | None:
+        """The facets an error event's recorded attribution names (canonical
+        now), as the grading's own facet attribution reads it: the facets it
+        names (``target_evidence_families``, a ``facet_capability`` target),
+        else the facets of the contract criteria it names
+        (``target_criterion_ids``, a ``criterion`` target); ``None`` when it
+        names nothing. An attribution the grader scoped off the learner (the
+        item contract, its interpretation, the interaction) or whose facet
+        write it blocked names none (an empty set)."""
 
-    def shows_pattern(self, attempt_id: str, pattern: Mapping[str, Any]) -> bool:
+        if plan.get("facet_write_blocked") or str(plan.get("cause_scope") or "") in NON_LEARNER_VALIDITY:
+            return set()
+        ref = plan.get("target_ref") if isinstance(plan.get("target_ref"), Mapping) else {}
+        facets = {self.canonical(str(f)) for f in plan.get("target_evidence_families") or [] if f}
+        if ref.get("kind") == "facet_capability" and ref.get("facet_id"):
+            facets.add(self.canonical(str(ref["facet_id"])))
+        if facets:
+            return facets
+        criteria = {str(c) for c in plan.get("target_criterion_ids") or [] if c}
+        if ref.get("kind") == "criterion" and ref.get("criterion_id"):
+            criteria.add(str(ref["criterion_id"]))
+        if not criteria:
+            return None
+        named: set[str] = set()
+        for criterion in contract.get("criteria") or []:
+            if str(criterion.get("id")) in criteria:
+                named.update(self._criterion_weights(criterion))
+        return named
+
+    def facet_shows_pattern(
+        self, attempt_id: str, pattern: Mapping[str, Any], facet_id: str, contract: Mapping[str, Any]
+    ) -> bool:
+        """Does an error event on the attempt attributed to ``facet_id`` show
+        the pattern (Codex review F1)? An error confined to another facet is
+        that facet's, never this one's recurrence. An error that names no
+        target is attributed to the facet only when the contract measures no
+        other facet."""
+
         if not _has(self.connection, "error_events"):
             return False
         error_type = pattern.get("error_type")
         misconception = pattern.get("misconception_id")
+        target = self.canonical(facet_id)
+        measured: set[str] | None = None
         for row in self.connection.execute(
-            "SELECT error_type, misconception_id FROM error_events WHERE attempt_id = ?", (attempt_id,)
+            "SELECT error_type, misconception_id, repair_plan_json FROM error_events WHERE attempt_id = ? "
+            "ORDER BY created_at, id",
+            (attempt_id,),
         ):
-            if error_type and row[0] == error_type:
-                return True
-            if misconception and row[1] == misconception:
+            if not ((error_type and row[0] == error_type) or (misconception and row[1] == misconception)):
+                continue
+            plan = _loads(row[2], {}) or {}
+            facets = self._attributed_facets(plan if isinstance(plan, Mapping) else {}, contract)
+            if facets is None:
+                if measured is None:
+                    measured = set()
+                    for criterion in contract.get("criteria") or []:
+                        measured.update(self._criterion_weights(criterion))
+                facets = measured if measured == {target} else set()
+            if target in facets:
                 return True
         return False
 
 
-# -- the diagnosis forecast -----------------------------------------------------------------------
+# -- exact bindings -------------------------------------------------------------------------------
 
 
-def _presentation(attempt: Mapping[str, Any]) -> str | None:
-    for column, label in (
-        ("plan_presentation_id", "plan_presentation"),
-        ("probe_presentation_id", "probe_presentation"),
-        ("scheduler_candidate_id", "scheduler_candidate"),
-    ):
-        if attempt.get(column):
-            return label
+def _plan_binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> str | None:
+    """Why the attempt's plan presentation does not bind it (None: it does):
+    router R2a's own write-time rule, read again (it exists, is of the item,
+    no other attempt answered it)."""
+
+    bound, why = bindable_presentation(
+        ledgers.connection, str(attempt["plan_presentation_id"]),
+        practice_item_id=str(attempt.get("practice_item_id") or ""), attempt_id=str(attempt["id"]),
+    )
+    return None if bound is not None else (why or "unknown_presentation")
+
+
+def _probe_binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> str | None:
+    """Why the attempt's probe presentation does not bind it: it must exist,
+    be of the item, and this attempt be the one that answered it."""
+
+    connection = ledgers.connection
+    if not _has(connection, "probe_presentations"):
+        return "no_presentation_ledger"
+    presentation_id = str(attempt["probe_presentation_id"])
+    row = connection.execute(
+        "SELECT practice_item_id FROM probe_presentations WHERE id = ?", (presentation_id,)
+    ).fetchone()
+    if row is None:
+        return "unknown_presentation"
+    if str(row[0]) != str(attempt.get("practice_item_id")):
+        return "presentation_of_another_item"
+    first = connection.execute(
+        "SELECT id FROM practice_attempts WHERE probe_presentation_id = ? ORDER BY created_at, id LIMIT 1",
+        (presentation_id,),
+    ).fetchone()
+    if first is None or str(first[0]) != str(attempt["id"]):
+        return "presentation_answered_by_another_attempt"
     return None
+
+
+def _scheduler_binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> str | None:
+    """Why the attempt's scheduler offer does not bind it: the exact offer
+    link the attempt store writes (``_link_attempt_to_scheduler_candidate``)
+    and the data-quality report checks: a returned candidate of the item, in
+    the attempt's slate and session, generated no later than the answer, and
+    chosen by this attempt."""
+
+    connection = ledgers.connection
+    if not _has(connection, "scheduler_slate_candidates") or not _has(connection, "scheduler_slates"):
+        return "no_offer_ledger"
+    row = connection.execute(
+        "SELECT c.practice_item_id, c.slate_id, c.was_returned, c.chosen_attempt_id, s.session_id, s.generated_at "
+        "FROM scheduler_slate_candidates c LEFT JOIN scheduler_slates s ON s.id = c.slate_id WHERE c.id = ?",
+        (str(attempt["scheduler_candidate_id"]),),
+    ).fetchone()
+    if row is None:
+        return "unknown_candidate"
+    if str(row["practice_item_id"]) != str(attempt.get("practice_item_id")):
+        return "candidate_of_another_item"
+    if not row["was_returned"]:
+        return "candidate_not_offered"
+    if str(row["chosen_attempt_id"] or "") != str(attempt["id"]):
+        return "candidate_chosen_by_another_attempt"
+    session = str(attempt.get("session_id") or "")
+    if str(row["slate_id"]) != str(attempt.get("scheduler_slate_id") or "") or not session or (
+        str(row["session_id"] or "") != session
+    ):
+        return "candidate_of_another_slate_or_session"
+    if not row["generated_at"] or str(row["generated_at"]) > str(attempt.get("created_at") or ""):
+        return "offered_after_answer"
+    return None
+
+
+_BINDINGS = (
+    ("plan_presentation_id", "plan_presentation", _plan_binding),
+    ("probe_presentation_id", "probe_presentation", _probe_binding),
+    ("scheduler_candidate_id", "scheduler_candidate", _scheduler_binding),
+)
+
+
+def _binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> tuple[str | None, dict[str, str]]:
+    """The exact receipt the attempt answered (Codex review F4): the first of
+    its references whose record verifies, ``(label, {})``; else ``(None,
+    {label: why})`` for every reference it carries that establishes nothing.
+    A nonempty column is a claim, not a binding (none of them is checked by a
+    foreign key but the plan presentation's)."""
+
+    rejected: dict[str, str] = {}
+    for column, label, check in _BINDINGS:
+        if not attempt.get(column):
+            continue
+        why = check(ledgers, attempt)
+        if why is None:
+            return label, {}
+        rejected[label] = why
+    return None, rejected
+
+
+# -- the diagnosis forecast -----------------------------------------------------------------------
 
 
 def next_observation(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
@@ -329,30 +489,33 @@ def resolve_diagnosis(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str
         return _resolution(state, reason, intervening=len(found.get("intervening") or []))
     attempt_id = str(attempt["id"])
     common = {"attempt_id": attempt_id, "intervening": len(found["intervening"]), "facets_from": found["facets_from"]}
-    binding = _presentation(attempt)
+    binding, rejected = _binding(ledgers, attempt)
     if binding is None:
+        if rejected:
+            common["rejected_bindings"] = rejected
         return _resolution(CENSORED, "unbound_attempt", **common)
     common["binding"] = binding
     if ledgers.held(attempt_id):
         return _resolution(HELD, GRADE_HELD_FOR_REVIEW, **common)
     if not ledgers.graded(attempt_id):
         return _resolution(PENDING, "ungraded", **common)
-    body = receipt.get("forecast") or {}
-    if ledgers.shows_pattern(attempt_id, body.get("pattern") or {}):
-        return _resolution(RESOLVED, "realized", emission="same_error", **common)
+    # The facet must be assessed under the graded contract before anything
+    # resolves, a recurrence included (Codex review F1).
     outcome, why, contract = ledgers.facet_outcome(attempt_id, found["facet"])
-    if outcome is None:
+    if outcome is None or contract is None:
         if why == "ungraded":
             return _resolution(PENDING, why, **common)
         return _resolution(CENSORED, why, **common)
+    body = receipt.get("forecast") or {}
+    if ledgers.facet_shows_pattern(attempt_id, body.get("pattern") or {}, found["facet"], contract):
+        return _resolution(RESOLVED, "realized", emission="same_error", facet_outcome=round(outcome, 4), **common)
     emission = "pass" if facet_outcome_bucket(outcome) == "high" else "other_error"
-    return _resolution(RESOLVED, "realized", emission=emission, facet_outcome=round(outcome, 4),
-                       contract=contract, **common)
+    return _resolution(RESOLVED, "realized", emission=emission, facet_outcome=round(outcome, 4), **common)
 
 
 # -- the repair forecast --------------------------------------------------------------------------
 
-_MEASURED = ("cold_success", "cold_failure")
+_MEASURED = MEASURED_COLD_DISPOSITIONS
 
 
 def resolve_repair(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]:
@@ -394,15 +557,13 @@ def resolve_repair(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, A
         return _resolution(PENDING, "awaiting_cold_verification", **common)
     if disposition["outcome"] not in _MEASURED:
         return _resolution(CENSORED, str(disposition["outcome"]), **common)
-    if not ledgers.assessed(cold_attempt_id):
-        return _resolution(CENSORED, "cold_attempt_unassessed", **common)
-    attempt = connection.execute(
-        "SELECT correctness FROM practice_attempts WHERE id = ?", (cold_attempt_id,)
-    ).fetchone()
-    if attempt is None or attempt["correctness"] is None:
-        return _resolution(PENDING, "ungraded", **common)
+    # The rule the repair forecaster's measured sample reads (Codex review F3).
     threshold = float(((receipt.get("forecast") or {}).get("target") or {}).get("success_threshold", 0.8))
-    emission = "cold_success" if float(attempt["correctness"]) >= threshold else "cold_failure"
+    emission, why = effective_cold_outcome(connection, cold_attempt_id, threshold=threshold)
+    if emission is None:
+        if why == GRADE_HELD_FOR_REVIEW:
+            return _resolution(HELD, why, **common)
+        return _resolution(PENDING if why == "ungraded" else CENSORED, why, **common)
     return _resolution(RESOLVED, "realized", emission=emission,
                        regraded_since_verification=emission != disposition["outcome"], **common)
 
@@ -610,11 +771,14 @@ def forecast_calibration_report(
         "notes": [
             "Each forecast resolves only through its exact binding: a diagnosis forecast on the first unseen "
             "qualifying attempt on its facet that answered a plan or probe presentation or a scheduler offer "
-            "(else censored unbound_attempt), a repair forecast on its cold task's consumed attempt and "
-            "verification, a check forecast through EVSI calibration's adapters. Never the next attempt on "
-            "the item by guess.",
+            "whose record verifies (else censored unbound_attempt, with any reference that established nothing "
+            "listed as rejected), a repair forecast on its cold task's consumed attempt and verification, a "
+            "check forecast through EVSI calibration's adapters. Never the next attempt on the item by guess.",
             "Resolutions read the current grade (a regrade re-resolves); a grade held for review resolves "
-            "nothing until it is released. Pending and censored forecasts are counted, never scored.",
+            "nothing until it is released. A diagnosis forecast reads its facet under the contract the grade "
+            "cites, never today's content (graded_contract_unknown otherwise), and counts a recurrence only "
+            "through an error attributed to that facet once it is assessed. Pending and censored forecasts are "
+            "counted, never scored.",
             "Single-learner sample sizes: read every rate with its n. distinct_outcome_attempts is the honest "
             "n (several forecasts resolved on one attempt are one observation); small_n marks fewer than "
             f"{SMALL_N} resolved forecasts.",

@@ -12,8 +12,14 @@ calibration`` resolves each at read time through its exact binding only:
 * a repair forecast on its cold task's consumed attempt and the cold
   verification's disposition for it.
 
-A held grade resolves nothing until it is released; a regrade re-resolves;
-replay neither reads nor writes receipts. Fakes only: no network, no paid call.
+A held grade resolves nothing until it is released; a regrade re-resolves
+(when it cites the contract it was read under); replay neither reads nor
+writes receipts. The Codex review's four findings (2026-10-15) each have a
+fail-first test: an error on another facet, or an unassessed target facet,
+is never a recurrence (F1); a grade that cites no contract is censored, never
+read against today's rubric (F2); the repair forecaster measures cold outcomes
+as their grades stand (F3); a reference that establishes no administration
+binds nothing (F4). Fakes only: no network, no paid call.
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ from datetime import timedelta
 import pytest
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
 from learnloop.attempts.attempts import AttemptDraft, complete_attempt_with_ai_required
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.attempts.regrade import regrade_attempt
@@ -83,7 +90,7 @@ def _present(repository: Repository, item: str, *, block: str, when) -> str:
     return f"pp_{block}"
 
 
-def _answer(vault, repository, client, *, answer: str, when, presentation_id: str | None = None):
+def _answer(vault, repository, client, *, answer: str, when, presentation_id: str | None = None, **draft):
     """A graded attempt through the live door, bound to a plan presentation when given."""
 
     draft = AttemptDraft(
@@ -91,6 +98,7 @@ def _answer(vault, repository, client, *, answer: str, when, presentation_id: st
         learner_answer_md=answer,
         attempt_type="independent_attempt",
         plan_presentation_id=presentation_id,
+        **draft,
     )
     clock = FrozenClock(when)
     result = complete_attempt_with_ai_required(
@@ -111,10 +119,18 @@ def _only(rows, kind):
     return matching[0]
 
 
-def _diagnosed(tmp_path, *, version: str = "mvp-0.10", config: str = ""):
-    """A split vault with one wrong answer diagnosed (its forecast written)."""
+def _diagnosed(tmp_path, *, version: str = "mvp-0.10", config: str = "", method: bool = False):
+    """A split vault with one wrong answer diagnosed (its forecast written).
+
+    ``method``: the item is method-explicit (at the method-explicit
+    successor), so a regrade reads and cites its assessment contract."""
 
     paths, vault, repository = split_vault(tmp_path, version=version, config=config)
+    if method:
+        from tests.test_required_method_grading import _require_method
+
+        _require_method(paths)
+        vault = load_vault(paths.root)
     client = ReviewFakeClient()
     diagnosed = submit(vault, repository, client, answer=WRONG, when=at(20))
     drain_jobs(vault, repository, client, clock=FrozenClock(at(20.5)))
@@ -274,7 +290,7 @@ def test_the_forecast_resolves_on_the_next_attempt_bound_to_a_presentation(tmp_p
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert resolution == {
         "state": "resolved", "reason": "realized", "emission": "same_error", "attempt_id": nxt.attempt_id,
-        "intervening": 0, "facets_from": "recorded", "binding": "plan_presentation",
+        "intervening": 0, "facets_from": "recorded", "binding": "plan_presentation", "facet_outcome": 0.0,
     }
 
 
@@ -314,6 +330,19 @@ def test_attempts_visible_when_the_receipt_was_written_are_never_its_observation
 # -- held grades and regrades -----------------------------------------------------------------
 
 
+def _cited_by_the_current_grade(repository, attempt_id: str) -> set:
+    """The contract versions the winning row of each criterion cites."""
+
+    latest: dict = {}
+    with repository.connection() as connection:
+        for criterion, cited in connection.execute(
+            "SELECT criterion_id, assessment_contract_version_id FROM grading_evidence "
+            "WHERE attempt_id = ? AND superseded_at IS NULL ORDER BY created_at, criterion_id, id", (attempt_id,)
+        ):
+            latest[criterion] = cited
+    return set(latest.values())
+
+
 def test_a_held_grade_resolves_nothing_until_a_regrade_releases_it(tmp_path):
     _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=ROUTE_RULES_VERSION)
     presentation = _present(repository, ITEM, block="blk_held", when=at(29))
@@ -330,18 +359,26 @@ def test_a_held_grade_resolves_nothing_until_a_regrade_releases_it(tmp_path):
     n = report["kinds"][FR.DIAGNOSIS_NEXT_OBSERVATION]["forecasters"]["diagnoser_causal_class"]["n"]
     assert n["resolved"] == 0 and n["held_for_review"] == {"grade_held_for_review": 1}
 
-    # A regrade that validates the route releases it: now it is an outcome.
+    # A regrade that validates the route releases it: no longer held. This
+    # item has no frozen method, so its regrade read the item as it was then
+    # and cites no contract: what the grade was read under is not on record,
+    # and the forecast is censored (Codex review F2; a method-explicit
+    # item's regrade cites its contract and resolves:
+    # test_a_regrade_re_resolves_the_forecast).
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(held.attempt_id),
                     runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
                     clock=FrozenClock(at(31)))
+    assert _cited_by_the_current_grade(repository, held.attempt_id) == {None}
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
-    assert (resolution["state"], resolution.get("emission"), resolution["attempt_id"]) == (
-        "resolved", "pass", held.attempt_id,
+    assert (resolution["state"], resolution["reason"], resolution["attempt_id"]) == (
+        "censored", "graded_contract_unknown", held.attempt_id,
     )
 
 
 def test_a_regrade_re_resolves_the_forecast(tmp_path):
-    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=ROUTE_RULES_VERSION)
+    # A method-explicit item: its regrade cites the contract it read; any
+    # other regrade cites none and censors (test_f2_...).
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=METHOD_VERSION, method=True)
     presentation = _present(repository, ITEM, block="blk_regrade", when=at(29))
     nxt = _answer(vault, repository, ReviewFakeClient(), answer=WRONG + " again", when=at(30),
                   presentation_id=presentation)
@@ -350,6 +387,7 @@ def test_a_regrade_re_resolves_the_forecast(tmp_path):
     regrade_attempt(vault, repository, repository.fetch_practice_attempt(nxt.attempt_id),
                     runtime=ReadyRuntime(), client=FullCreditGrader(), grading_source="ai",
                     clock=FrozenClock(at(31)))
+    assert None not in _cited_by_the_current_grade(repository, nxt.attempt_id)
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert (resolution["state"], resolution.get("emission")) == ("resolved", "pass")
     # The receipt itself never changed: resolutions are derived at read time.
@@ -538,3 +576,311 @@ def test_the_report_reads_a_vault_without_receipts_as_empty(tmp_path):
 
     report = forecast_calibration_report(load_vault(paths.root), include_checks=False)
     assert report["receipts_table"] is False and report["kinds"] == {}
+
+
+# -- Codex review (2026-10-15): F1-F4 ------------------------------------------------------------
+
+
+class _CrossFacetSlipGrader(ReviewFakeClient):
+    """Full credit on ``result`` (recall); ``setup`` (compute) marked down
+    with the forecast's error type, attributed to compute only."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [
+            row.model_copy(update={"points_awarded": 2.0 if row.criterion_id == "result" else 0.0})
+            for row in result.criterion_evidence
+        ]
+        attributions = [
+            row.model_copy(update={
+                "target_evidence_families": ["compute"], "target_criterion_ids": ["setup"],
+                "first_divergence": row.first_divergence.model_copy(update={"criterion_id": "setup"}),
+                "resolution_status": "resolved",
+            })
+            for row in result.error_attributions
+        ]
+        assert [row.error_type for row in attributions] == ["conceptual_slip"]
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "rubric_score": 2, "error_attributions": attributions,
+        })
+
+
+#: The reference's final answer by another route: PF-c's final-answer check verifies it.
+VERIFYING_ANSWER = "A different route.\nFinal answer: U Sigma V^T"
+
+
+class _UnassessedRecallSlipOnCompute(ReviewFakeClient):
+    """On a verifying answer: ``result`` (recall) half-marked with nothing
+    located (PF-c records it unverified: unassessed), ``setup`` (compute)
+    marked down with the forecast's error type located on compute."""
+
+    def _blind_grading(self, request, context):
+        from learnloop.attempts.blind_grading import BlindErrorAttribution
+
+        result = super()._blind_grading(request, context)
+        evidence = [
+            row.model_copy(update={"points_awarded": 1.0 if row.criterion_id == "result" else 0.0})
+            for row in result.criterion_evidence
+        ]
+        slip = BlindErrorAttribution.model_validate({
+            "error_type": "conceptual_slip",
+            "evidence": "The setup diverges here.",
+            "first_divergence": {"anchor_kind": "span", "criterion_id": "setup", "quote": "A different route."},
+            "target_evidence_families": ["compute"],
+            "target_criterion_ids": ["setup"],
+            "validity_scope": "valid_measurement",
+            "resolution_status": "resolved",
+        })
+        return result.model_copy(update={
+            "criterion_evidence": evidence, "rubric_score": 1, "error_attributions": [slip],
+        })
+
+
+def test_f1_an_error_on_another_facet_is_not_the_forecast_facets_recurrence(tmp_path):
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    [receipt] = _receipts(repository, FR.DIAGNOSIS_NEXT_OBSERVATION)
+    pattern = receipt["forecast"]["pattern"]["error_type"]
+    assert receipt["facet_id"] == "recall"
+    nxt = _answer(vault, repository, _CrossFacetSlipGrader(), answer=WRONG + " again", when=at(30),
+                  presentation_id=_present(repository, ITEM, block="blk_cross", when=at(29)))
+    with repository.connection() as connection:
+        events = [tuple(row) for row in connection.execute(
+            "SELECT error_type, repair_plan_json FROM error_events WHERE attempt_id = ?", (nxt.attempt_id,)
+        )]
+    # The forecast's own pattern shows on the answer, attributed to compute.
+    assert [error_type for error_type, _plan in events] == [pattern]
+    assert json.loads(events[0][1])["target_evidence_families"] == ["compute"]
+
+    # recall earned full credit; the slip is compute's: recall passed.
+    resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (resolution["state"], resolution.get("emission"), resolution.get("facet_outcome")) == (
+        "resolved", "pass", 1.0,
+    )
+
+
+def test_f1_an_unassessed_target_facet_censors_whatever_errors_another_facet_shows(tmp_path):
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    [receipt] = _receipts(repository, FR.DIAGNOSIS_NEXT_OBSERVATION)
+    nxt = _answer(vault, repository, _UnassessedRecallSlipOnCompute(), answer=VERIFYING_ANSWER, when=at(30),
+                  presentation_id=_present(repository, ITEM, block="blk_unassessed", when=at(29)))
+    support = repository.latest_blind_grade_record(nxt.attempt_id)["record"]["grading_support"]
+    assert support["unverified_criterion_ids"] == ["result"]
+    with repository.connection() as connection:
+        assert [row[0] for row in connection.execute(
+            "SELECT error_type FROM error_events WHERE attempt_id = ?", (nxt.attempt_id,)
+        )] == [receipt["forecast"]["pattern"]["error_type"]]
+
+    resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (resolution["state"], resolution["reason"], resolution["attempt_id"]) == (
+        "censored", "facet_unassessed", nxt.attempt_id,
+    )
+
+
+def _edit_result_points(paths, points: int) -> None:
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.practice_item_path("linear-algebra", ITEM)
+    data = read_yaml(path)
+    for criterion in data["grading_rubric"]["criteria"]:
+        if criterion["id"] == "result":
+            criterion["points"] = points
+    data["grading_rubric"]["max_points"] = sum(c["points"] for c in data["grading_rubric"]["criteria"])
+    write_yaml(path, data)
+
+
+def test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric(tmp_path):
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    nxt = _answer(vault, repository, ReviewFakeClient(), answer=RIGHT, when=at(30),
+                  presentation_id=_present(repository, ITEM, block="blk_contract", when=at(29)))
+    assert _diagnosis_resolution(vault, diagnosed.attempt_id)["emission"] == "pass"
+
+    # The live grade cites the contract it was presented under: a later edit
+    # of the rubric changes nothing.
+    _edit_result_points(paths, 4)
+    vault = load_vault(paths.root)
+    assert _diagnosis_resolution(vault, diagnosed.attempt_id)["emission"] == "pass"
+    _edit_result_points(paths, 2)
+    vault = load_vault(paths.root)
+
+    # A regrade of an item without a frozen method reads the item as it is
+    # then and cites no contract: what it was read under is not on record.
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(nxt.attempt_id),
+                    runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai",
+                    clock=FrozenClock(at(31)))
+    assert _cited_by_the_current_grade(repository, nxt.attempt_id) == {None}
+    first = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (first["state"], first["reason"]) == ("censored", "graded_contract_unknown")
+
+    # Editing today's content never rewrites it.
+    _edit_result_points(paths, 4)
+    vault = load_vault(paths.root)
+    assert _diagnosis_resolution(vault, diagnosed.attempt_id) == first
+
+
+def test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade(tmp_path):
+    """The review's scenario: a self-grade (it cites its presentation's
+    contract) is superseded by an AI regrade of an item without a frozen
+    method, so no surviving row cites any contract. The forecast is censored,
+    and an edit of the item's rubric afterwards changes nothing (it used to
+    compile today's item: pass, then other_error after the edit)."""
+
+    from learnloop.attempts.attempts import SelfGradeInput, complete_self_graded_attempt
+
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    nxt = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md=RIGHT, attempt_type="independent_attempt",
+                     plan_presentation_id=_present(repository, ITEM, block="blk_self", when=at(29))),
+        SelfGradeInput(criterion_points={"setup": 2, "result": 2}, confidence=4, fatal_errors=[]),
+        clock=FrozenClock(at(30)),
+    )
+    assert _cited_by_the_current_grade(repository, nxt.attempt_id) - {None}
+    assert _diagnosis_resolution(vault, diagnosed.attempt_id)["emission"] == "pass"
+
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(nxt.attempt_id),
+                    runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai",
+                    clock=FrozenClock(at(31)))
+    with repository.connection() as connection:
+        surviving = {row[0] for row in connection.execute(
+            "SELECT assessment_contract_version_id FROM grading_evidence "
+            "WHERE attempt_id = ? AND superseded_at IS NULL", (nxt.attempt_id,)
+        )}
+    assert surviving == {None}
+    regraded = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (regraded["state"], regraded["reason"]) == ("censored", "graded_contract_unknown")
+
+    _edit_result_points(paths, 4)
+    vault = load_vault(paths.root)
+    assert _diagnosis_resolution(vault, diagnosed.attempt_id) == regraded
+
+
+def _measured_prediction(repository, attempt_id: str) -> tuple[float, dict]:
+    with repository.connection() as connection:
+        receipt = repair_forecasts.repair_receipt(
+            connection, attempt={"id": attempt_id}, repair_class_id="rc_stub", hypothesis_ids=(),
+            episode=None, task=None, censor_reason="test", success_threshold=0.8,
+        )
+    return receipt.p, receipt.forecast["measured"]
+
+
+def _measured_cold_success(tmp_path):
+    """One repair cycle whose cold attempt was verified a cold success (class rc_stub)."""
+
+    root, vault, repository, misconception_id = _setup(tmp_path)
+    treatment = _to_treatment(vault, repository, misconception_id)
+    primed = _attempt(vault, repository, treatment["primed_item_id"], clock=FrozenClock(NOW), primed=True)
+    task = _cold_task(repository)
+    cold = _attempt(vault, repository, treatment["cold_item_id"], clock=FrozenClock(NOW + timedelta(days=2)))
+    task["context"] = dict(task["context"]) | {"repair_class_id": "rc_stub"}
+    record_cold_verification_from_task(
+        vault, repository, task=task, cold_attempt_id=cold.attempt_id, clock=FrozenClock(NOW + timedelta(days=2)),
+    )
+    with repository.connection() as connection:
+        assert [tuple(row) for row in connection.execute(
+            "SELECT outcome, repair_class_id, cold_attempt_id FROM causal_cold_outcomes "
+            "WHERE outcome IN ('cold_success', 'cold_failure')"
+        )] == [("cold_success", "rc_stub", cold.attempt_id)]
+    p, measured = _measured_prediction(repository, primed.attempt_id)
+    assert p == pytest.approx(7 / 9) and measured["class"] == {"successes": 1, "n": 1}
+    return root, vault, repository, primed, cold
+
+
+def test_f3_a_cold_success_regraded_to_failure_is_measured_as_a_failure(tmp_path):
+    _root, vault, repository, primed, cold = _measured_cold_success(tmp_path)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(cold.attempt_id),
+                    runtime=ReadyRuntime(), client=ReviewFakeClient(), grading_source="ai",
+                    clock=FrozenClock(NOW + timedelta(days=3)))
+    assert repository.fetch_practice_attempt(cold.attempt_id)["correctness"] < 0.8
+
+    p, measured = _measured_prediction(repository, primed.attempt_id)
+    # One measured failure: the class 0/1, the pooled mean (0 + 1) / (1 + 2).
+    assert measured["class"] == {"successes": 0, "n": 1} and measured["pooled"] == {"successes": 0, "n": 1}
+    assert p == pytest.approx((0 + 2 * (1 / 3)) / (1 + 2))
+
+
+def test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured(tmp_path):
+    from learnloop.held_grades import held_for_review_attempts
+    from tests.helpers import set_algorithm_version
+    from learnloop.vault.paths import VaultPaths
+
+    root, vault, repository, primed, cold = _measured_cold_success(tmp_path)
+    # The vault moves to the own-route rules; a regrade holds the cold grade.
+    set_algorithm_version(VaultPaths(vault.root, vault.config), ROUTE_RULES_VERSION)
+    vault = load_vault(root)
+    regrade_attempt(vault, repository, repository.fetch_practice_attempt(cold.attempt_id),
+                    runtime=ReadyRuntime(), client=DivergentUnlocatedGrader(), grading_source="ai",
+                    clock=FrozenClock(NOW + timedelta(days=3)))
+    with repository.connection() as connection:
+        assert cold.attempt_id in held_for_review_attempts(connection, (cold.attempt_id,))
+
+    p, measured = _measured_prediction(repository, primed.attempt_id)
+    # Nothing measured stands: the no-measurement prior.
+    assert measured["class"] == {"successes": 0, "n": 0} and measured["pooled"] == {"successes": 0, "n": 0}
+    assert p == pytest.approx(0.5)
+
+
+def _offer(repository, *, item: str, session: str, candidate: str, when) -> str:
+    """One returned scheduler offer of ``item`` in ``session`` (a one-candidate slate)."""
+
+    stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")
+    with repository.connection() as connection:
+        connection.execute("INSERT OR IGNORE INTO sessions(id, started_at) VALUES (?, ?)", (session, stamp))
+        lo = connection.execute(
+            "SELECT learning_object_id FROM practice_attempts WHERE practice_item_id = ? LIMIT 1", (ITEM,)
+        ).fetchone()[0]
+        connection.execute(
+            "INSERT INTO scheduler_slates(id, session_id, generated_at, selection_policy, session_context_json, "
+            "config_snapshot_json, algorithm_version, created_at, updated_at) "
+            "VALUES (?, ?, ?, 'test', '{}', '{}', 'test', ?, ?)",
+            (f"slate_{candidate}", session, stamp, stamp, stamp),
+        )
+        connection.execute(
+            "INSERT INTO scheduler_slate_candidates(id, slate_id, practice_item_id, learning_object_id, rank, "
+            "returned_rank, was_returned, selected_mode, priority, components_json, algorithm_version, created_at) "
+            "VALUES (?, ?, ?, ?, 1, 1, 1, 'test', 1.0, '{}', 'test', ?)",
+            (candidate, f"slate_{candidate}", item, lo, stamp),
+        )
+        connection.commit()
+    return candidate
+
+
+def test_f4_an_answer_to_a_scheduler_offer_resolves_through_it(tmp_path):
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    candidate = _offer(repository, item=ITEM, session="ses_offer", candidate="cand_ok", when=at(29))
+    nxt = _answer(vault, repository, ReviewFakeClient(), answer=RIGHT, when=at(30),
+                  session_id="ses_offer", scheduler_candidate_id=candidate)
+    assert repository.fetch_practice_attempt(nxt.attempt_id)["scheduler_candidate_id"] == candidate
+
+    resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (resolution["state"], resolution.get("emission"), resolution["binding"]) == (
+        "resolved", "pass", "scheduler_candidate",
+    )
+
+
+@pytest.mark.parametrize("reference", ["dangling_candidate", "another_items_candidate", "dangling_probe"])
+def test_f4_a_reference_that_establishes_no_administration_censors_the_forecast(tmp_path, reference):
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path)
+    nxt = _answer(vault, repository, ReviewFakeClient(), answer=RIGHT, when=at(30))
+    # Rows the schema admits (neither column has a foreign key) and an older
+    # or out-of-band writer could leave.
+    with repository.connection() as connection:
+        if reference == "dangling_candidate":
+            connection.execute("UPDATE practice_attempts SET scheduler_candidate_id = 'NONEXISTENT_CANDIDATE' "
+                               "WHERE id = ?", (nxt.attempt_id,))
+        elif reference == "another_items_candidate":
+            connection.commit()
+            other = _offer(repository, item="pi_svd_compute_002", session="ses_other", candidate="cand_other",
+                           when=at(29))
+            connection.execute("UPDATE practice_attempts SET scheduler_candidate_id = ?, "
+                               "scheduler_slate_id = ?, session_id = 'ses_other' WHERE id = ?",
+                               (other, f"slate_{other}", nxt.attempt_id))
+        else:
+            connection.execute("UPDATE practice_attempts SET probe_presentation_id = 'NONEXISTENT_PRESENTATION' "
+                               "WHERE id = ?", (nxt.attempt_id,))
+        connection.commit()
+
+    resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
+    assert (resolution["state"], resolution["reason"], resolution["attempt_id"]) == (
+        "censored", "unbound_attempt", nxt.attempt_id,
+    )
+    assert resolution["rejected_bindings"]
