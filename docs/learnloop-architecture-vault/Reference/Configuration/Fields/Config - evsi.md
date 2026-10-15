@@ -3,8 +3,8 @@ title: "Config - evsi"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "90f203c4b8c15f4f3908bfdd92311f502d93a666"
-source_commit_timestamp: "2026-10-15T07:17:25-04:00"
+source_commit: "ddbf0a189ae7d1e344c57a8e3fb52f22e16fdc1c"
+source_commit_timestamp: "2026-10-15T08:06:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml evsi"
@@ -44,9 +44,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1963`; `src/learnloop/evsi_calibration/live_report.py:982` |
-| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1964`; `src/learnloop/evsi_calibration/live_report.py:983` |
-| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1965`; `src/learnloop/diagnosis/voi_stopping.py:538`; `src/learnloop/evsi_calibration/live_report.py:989` |
+| `evsi.forecast_logging` | `true` | boolean | modeled default or validator seed | Turns forecast logging behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1966`; `src/learnloop/evsi_calibration/live_report.py:982` |
+| `evsi.measured_loss_enabled` | `false` | boolean | modeled default or validator seed | Turns measured loss behavior on or off within EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1967`; `src/learnloop/evsi_calibration/live_report.py:983` |
+| `evsi.unresolved_cost_prior_pseudo_count` | `5.0` | number | modeled default or validator seed | Controls unresolved cost prior pseudo count in EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1968`; `src/learnloop/diagnosis/voi_stopping.py:538`; `src/learnloop/evsi_calibration/live_report.py:989` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

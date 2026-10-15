@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "90f203c4b8c15f4f3908bfdd92311f502d93a666"
-source_commit_timestamp: "2026-10-15T07:17:25-04:00"
+source_commit: "ddbf0a189ae7d1e344c57a8e3fb52f22e16fdc1c"
+source_commit_timestamp: "2026-10-15T08:06:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/content/facet_identity/span_support.py`
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/exam_marking.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -166,6 +167,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
 - `tests/test_exam_protection.py`
+- `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority.py`
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_identity.py`
@@ -173,7 +175,6 @@ None found by exact static reference scan.
 - `tests/test_facet_identity_ingest.py`
 - `tests/test_facet_reword_confirm.py`
 - `tests/test_facet_reword_paths.py`
-- `tests/test_family_proposals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

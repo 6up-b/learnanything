@@ -3,8 +3,8 @@ title: "source_held_out_signal_marks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "90f203c4b8c15f4f3908bfdd92311f502d93a666"
-source_commit_timestamp: "2026-10-15T07:17:25-04:00"
+source_commit: "ddbf0a189ae7d1e344c57a8e3fb52f22e16fdc1c"
+source_commit_timestamp: "2026-10-15T08:06:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_held_out_signal_marks"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/225_source_held_out_signal_marks.sql"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/held_out_signals.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/content/synthesis/source_unit_inventory.py"
 tags:

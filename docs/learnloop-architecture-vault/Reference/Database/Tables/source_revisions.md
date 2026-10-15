@@ -3,8 +3,8 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "90f203c4b8c15f4f3908bfdd92311f502d93a666"
-source_commit_timestamp: "2026-10-15T07:17:25-04:00"
+source_commit: "ddbf0a189ae7d1e344c57a8e3fb52f22e16fdc1c"
+source_commit_timestamp: "2026-10-15T08:06:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/capture/inbox.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/held_out_signals.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
@@ -97,12 +98,14 @@ Indexes and uniqueness:
 - `Repository.reading_request_unsettled()`
 - `Repository.source_revision_by_asset_hash()`
 - `Repository.source_revisions_for()`
+- `Repository.upsert_unit_selection()`
 
 ### Direct SQL readers
 
 - `src/learnloop/capture/inbox.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/held_out_signals.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/substrate/dataset.py`
