@@ -151,3 +151,86 @@ describe("PreparingView", () => {
     expect(onBack).toHaveBeenCalled();
   });
 });
+
+// Exam protection by extraction identity, Codex review F4: the preparing
+// Reader's marking sends back the reading and the proposal it showed, and a
+// fresh confirmation returned for a stale one is asked again, never dropped.
+describe("PreparingView marking exam material", () => {
+  const HELD_BACK: SourceLibraryCard = {
+    ...CARD,
+    readiness: "ready",
+    statusLine: {
+      text: "This reading is held back until you mark its exam material",
+      tone: "problem",
+      action: { kind: "mark_exam_material", label: "Mark exam material on this reading" },
+      details: null
+    }
+  };
+  const SHOWN = {
+    sourceId: "src_1",
+    extractionId: "ext_b",
+    revisionId: "rev_1",
+    heldOutUnitIds: ["u2"],
+    proposalHash: "sha256:b",
+    needsConfirmation: true,
+    title: "Mark exam material on this reading of Probability?",
+    lines: ["Held out as exam material: Exam.", "These are suggested from what you marked before: check them."],
+    confirmLabel: "Mark them",
+    cancelLabel: "Not now"
+  };
+  const FRESH = {
+    ...SHOWN,
+    extractionId: "ext_c",
+    heldOutUnitIds: [],
+    proposalHash: "sha256:c",
+    lines: [
+      "This reading changed since you looked, so nothing was marked yet. Check it again:",
+      "Nothing in this reading matches the exam material you marked before."
+    ],
+    confirmLabel: "Mark it"
+  };
+  const asking = (confirmation: typeof SHOWN) => ({
+    version: 1, sourceId: "src_1", action: "mark_exam_material", needsConfirmation: true, confirmation
+  });
+
+  const open = async () => {
+    api.readerPdfView.mockResolvedValue(MANIFEST);
+    api.getSourceLibrary.mockResolvedValue({ version: 1, sources: [HELD_BACK] });
+    render(<PreparingView card={HELD_BACK} onBack={vi.fn()} onReady={vi.fn()} onError={vi.fn()} />);
+    expect(await screen.findByTestId("pdf")).toBeTruthy();
+    await act(async () => {
+      screen.getByRole("button", { name: "Mark exam material on this reading" }).click();
+    });
+  };
+
+  it("sends the reading and the proposal shown, and asks again when they changed", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    api.sourceAction
+      .mockResolvedValueOnce(asking(SHOWN))
+      .mockResolvedValueOnce(asking(FRESH))
+      .mockResolvedValueOnce({
+        version: 1, sourceId: "src_1", action: "mark_exam_material",
+        marked: { extractionId: "ext_c", heldOutUnitIds: [], fromExtractionIds: [] }
+      });
+    await open();
+    await waitFor(() => expect(api.sourceAction).toHaveBeenCalledTimes(3));
+    expect(api.sourceAction.mock.calls.map((call) => call[0])).toEqual([
+      { sourceId: "src_1", action: "mark_exam_material" },
+      { sourceId: "src_1", action: "mark_exam_material", confirmed: true, confirmedExtractionId: "ext_b", confirmedProposalHash: "sha256:b" },
+      { sourceId: "src_1", action: "mark_exam_material", confirmed: true, confirmedExtractionId: "ext_c", confirmedProposalHash: "sha256:c" }
+    ]);
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(confirm.mock.calls[1][0]).toContain("This reading changed since you looked, so nothing was marked yet.");
+  });
+
+  it("marks nothing when the learner says not now to the fresh confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValueOnce(true).mockReturnValueOnce(false);
+    api.sourceAction.mockResolvedValueOnce(asking(SHOWN)).mockResolvedValueOnce(asking(FRESH));
+    await open();
+    await waitFor(() => expect(api.sourceAction).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(api.sourceAction).toHaveBeenCalledTimes(2);
+  });
+});

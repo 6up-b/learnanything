@@ -7,7 +7,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import type { ReaderPdfViewDto, SourceActionKind, SourceLibraryCard } from "../../api/dto";
+import type { ReaderPdfViewDto, SourceActionKind, SourceActionResultDto, SourceLibraryCard } from "../../api/dto";
 import { readableTitle, StatusLine } from "../../components/BookCard";
 import { PdfReaderPane } from "../../components/PdfReaderPane";
 import { COLOR, FONT_MONO } from "../../components/term";
@@ -88,17 +88,22 @@ export function PreparingView({
   const working = !current.statusLine || current.statusLine.tone === "working";
   const statusLine = current.statusLine;
   const runAction = (kind: SourceActionKind) => {
+    // A book with study state is read again only after the learner says so,
+    // with the pages and cost named (re-read safety). Marking exam material
+    // sends back the reading and the proposal it showed; if either changed
+    // meanwhile the sidecar marks nothing and returns a fresh confirmation,
+    // which is asked again (exam protection by extraction identity, F4).
+    const ask = (result: SourceActionResultDto): Promise<unknown> | undefined => {
+      const confirmation = result.needsConfirmation ? result.confirmation : undefined;
+      if (!confirmation || !window.confirm([confirmation.title, ...confirmation.lines].join("\n"))) return undefined;
+      const binding = confirmation.proposalHash
+        ? { confirmedExtractionId: confirmation.extractionId, confirmedProposalHash: confirmation.proposalHash }
+        : {};
+      return api.sourceAction({ sourceId: current.sourceId, action: kind, confirmed: true, ...binding }).then(ask);
+    };
     void api
       .sourceAction({ sourceId: current.sourceId, action: kind })
-      .then((result) => {
-        // A book with study state is read again only after the learner says
-        // so, with the pages and cost named (re-read safety).
-        const confirmation = result.needsConfirmation ? result.confirmation : undefined;
-        if (confirmation && window.confirm([confirmation.title, ...confirmation.lines].join("\n"))) {
-          return api.sourceAction({ sourceId: current.sourceId, action: kind, confirmed: true });
-        }
-        return undefined;
-      })
+      .then(ask)
       .catch((error: unknown) => onError(errorMessage(error)));
   };
   return (
