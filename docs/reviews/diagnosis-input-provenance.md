@@ -10,6 +10,9 @@ reference). **Migration:** 204. **Spec:** [spec_mcp_frontend_c1.md](../specs/spe
 **Codex review:** [diagnosis-input-provenance-codex-review.md](diagnosis-input-provenance-codex-review.md)
 (F1–F4 fixed, F5 fixed in part; this record is annotated in italics where the review showed a claim did
 not hold).
+**Landed** on main 2026-10-15 as migration **205**, with the chat release switch
+(`diagnosis.chat_shows_recorded_text`) **off**: the final verify reopened F2 and F3 in the release path. See
+[Landing onto main](#landing-onto-main).
 
 ## Why: the owner's decision (2026-10-14, "land narrow, then fix source")
 
@@ -263,3 +266,176 @@ fixed above.
 3. **The Codex SDK's turn item types** could not be inspected here (the SDK is not installed in this
    environment). The extractor now fails closed on unknown items. One minimal live probe would confirm the
    type names, so a plain read is never over-counted as reading the whole export.
+
+## Landing onto main
+
+**Branch:** `merge/provenance-onto-main` (worktree `learnanything-merge2`), from main `37a2a7e5f` (`mvp-0.25` LATEST; migration head 204, re-read safety's `source_held_out_signal_marks`; head fixture `fixtures/migration_head_204`; seventeen defaults snapshots `mvp-0.9`..`mvp-0.25`). Not pushed. Owner-directed, 2026-10-15, single phase. The sections above and the Codex review record describe the branch as built (tip `17d386fdb`), and keep its placeholder migration number (204) and its switch default (on).
+
+**Commits:**
+- `cbbeee14a`: a real `--no-ff` merge of `diagnosis/input-provenance` (`17d386fdb`, unchanged, 7 commits from `499bd3ebd`), with the conflict resolution and the renumber. The release switch is still the branch's in this commit (on).
+- `7fdce04f0`: the release switch off, the seventeen snapshots, and the landing and composition tests.
+- `55d5383b7`: the regenerated references and the Pipeline Map.
+- This record.
+
+**Main since `499bd3ebd`, composed:** re-read safety and exam protection by extraction identity (migration 204, rule 4, identity-bound marks, the one alias authority, coordinated migrations with F8's run-time allowances), the Marker pdfium worker, GLM-OCR quality, and the adaptive-difficulty spec revision. No algorithm successor: the landing changes no scoring, scheduling or projection, and with the switch off no serving.
+
+### The release switch is off, and why
+
+The final Codex verify of the branch (job `20261015-132314-nwmTQW`) confirmed F1 fixed and **reopened two High findings in the release path**:
+
+- **F2.** The stuck-answer gap reader's `reading_record` (`diagnosis/text_gaps/provenance.py`, called by the belief writer in `text_gaps/actions.py`) calls `fold_topic_records` without `titles`. A generated topic renamed by a writer that records nothing, shown to the gap reader under its new name (`sources.stuck_answer_text` puts the title in the context), folds its old record as complete. `TextGuard` withholds the title itself but releases a belief statement that repeats it.
+- **F3.** C4 history dependencies escape grading validation. A legacy joint grading A with no stored grading record but a C4 receipt naming history attempt B is folded through `grading_record(A)` after `frozen_record` / `freeze_entries` chose the attempts to check (only those listed directly, and factor attempts). B regraded between the history read and the freeze leaves A's record complete, naming B's new contract.
+
+The owner's ruling is "land narrow, then fix source". The recording infrastructure lands; the release does not:
+
+- `diagnosis.chat_shows_recorded_text` defaults **false** (`config/schema.py`). The decision-only template leaves the key out, as on the branch. `default_provenance` reads a missing or unreadable switch as off.
+- With it off, chat's `learning_context` (and `today` and `progress`, through the same `TextGuard`) read with `no_write_provenance`: every model-written text is held back with C1a's reason, exactly as main's narrow C1a. The `learning_context` tool's description is C1a's again ("held back for now").
+- **The writers record either way:** gradings, diagnoses (frozen at context build), hypotheses, candidates, misconceptions and corrections, gap words, drafted topics and seeded items, Q9's lineage and Q10's question contracts. So the follow-up starts from recorded history.
+- **The follow-up, "one context capture point":** route every model-context build (the diagnoser's inline and snapshot contexts, the gap reader, the prerequisite drafter, the joint grader's C4 history, the tutor) through one capture point. It records what the model was shown where the context is built (every name with the text shown, every dynamically resolved answer or contract dependency, C4 history included) and validates it as one identity at the freeze. Then it needs a clean verify. Only then is the switch turned on.
+
+### Conflicts
+
+377 files:
+- **375 generated reference notes**: main's side, then regenerated.
+- **The head fixture's `README.md` and `state.sqlite`**: both sides had built a `migration_head_204` (main's re-read safety, the branch's provenance). Main's side was taken, then renamed and rebuilt (below).
+
+Every other file merged cleanly. The 24 test files, both reference scripts and `docs/decider-tier1-migration.md` had moved the head path from 203 to 204 identically on both sides. Shared source files (`config/schema.py`, `db/repositories.py`, `db/table_roles.py`, `tutor/tutor_qa.py`, `tests/test_architecture.py`) merged without overlap and were read after the merge.
+
+### The renumber: migration 204 → 205
+
+- **Migration.** `migrations/204_write_provenance.sql` became `migrations/205_write_provenance.sql`. Its header names both numbers (built as 204, a placeholder, renumbered 205 after re-read safety's 204). Only a comment changed.
+- **Table roles.** `text_write_provenance` and `error_event_lineage` stay `RAW_LEDGER` in `table_roles.py` (comments say migration 205), so they need no replayer. The `question_events` column needs none.
+- **Every mention of the provenance migration says 205:** `db/stores/write_provenance.py`, `learner_context.py`, `table_roles.py`, `tests/test_diagnosis_input_provenance.py` (including the migration file path its F4 test reads), `tests/test_architecture.py` and spec §4.7/§4.8. The held-out signal ledger's mentions of 204 are re-read safety's and stay.
+- **Head fixture.** `git mv fixtures/migration_head_204 fixtures/migration_head_205`. Its `state.sqlite` was rebuilt:
+  - a backup-API copy (`learnloop.db.copies.backup_database`) of main's 204 database (blob `85d9de239`);
+  - only 205 applied, through `apply_migrations` under the test suite's allowance (`upgrade_allowance(UPGRADE_TEST_HELPER)`: F8 refuses an upgrade outside one);
+  - `wal_checkpoint(TRUNCATE)` → `(0, 0, 0)`, then `journal_mode=DELETE` (header bytes 18-19 are 1/1);
+  - `integrity_check` ok, `foreign_key_check` empty;
+  - copied back with the backup API, with no companion files.
+
+  Its `sqlite_master` equals the branch's head-204 fixture's plus main's `source_held_out_signal_marks` (table, two indexes, its autoindex and trigger). The new tables have 0 rows. The README gains the 205 paragraph and the build chain.
+- **Hard-coded head paths.** 24 test files name `migration_head_205`. So do both reference scripts (`SCHEMA_PATH`, `SCHEMA_HEAD = 205`, the generator's other mention) and `docs/decider-tier1-migration.md`. The max-migration assertion in `test_route_rules_in_grader.py` is 205.
+
+### Coordinated migrations
+
+The branch adds no `Repository(path)` construction or `apply_migrations` call in `src/` or `scripts/`. Its new tests' `Repository(paths.sqlite_path)` (`tests/test_diagnostic_augmentation.py`) attaches a freshly created, current database, which needs no allowance. `tests/test_coordinated_migrations.py` needed one change. `test_f8_the_coordinator_upgrades_under_its_allowance_and_qualifies` upgrades an older build that lacks the ledger's migration (204), but asserted that the coordinator applied the *newest* migration. With 205 on top, that is 204, so the test now looks up the ledger's migration by name. All 20 cases pass, under the test pragmas and under `--durable-sqlite`.
+
+### The switch off: what changed
+
+- `config/schema.py`: `chat_shows_recorded_text: bool = False`, with a comment giving the reason and the follow-up.
+- `learner_context.py`: `default_provenance` defaults to off; the module doc says rule (c) is behind the switch, off by default, and that off is C1a's narrow rule exactly.
+- `learnloop_mcp/server.py`: the `learning_context` tool's description is C1a's again; the schema comment names the switch. `remote/views.py`'s doc names it too.
+- Spec `spec_mcp_frontend_c1.md`: §4.7 rule (c) says off as landed, and §4.8 ends with the landing paragraph (F2, F3, the follow-up).
+- **Defaults snapshots.** All seventeen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries were recomputed with `defaults_fingerprint_for_version`, after deleting `config/__pycache__/template.cpython-312.pyc` and touching `template.py`. Every one moves, because the effective config now carries the key as `false` (main has no key; the branch had `true`); no other leaf moves. The template comment records the switch, its default off at landing, and why.
+- `tests/test_diagnosis_input_provenance.py` keeps covering the release path as an owner who turns the switch on has it. Its `_context` reads through `_switched_on`, which turns the switch on unless the vault's `learnloop.toml` sets it. So the kill-switch tests that write `false` keep their meaning. `test_f5_every_defaults_snapshot_records_the_switch_off` pins all seventeen snapshots with the switch off. The replay test rebuilds once with the switch on, then once with it off.
+
+### Landing and composition tests
+
+`tests/test_diagnosis_input_provenance_landing.py`, 11 cases (9 pass, and 2 are strict xfails):
+
+| Test | What it shows |
+|---|---|
+| `test_the_release_switch_defaults_off_and_the_default_source_is_the_narrow_rule` | The schema and a new vault have the switch off; `default_provenance` is `no_write_provenance` (an unreadable config too); `true` in `learnloop.toml` selects the recorded source |
+| `test_off_a_fully_recorded_safe_text_is_withheld_in_chat_and_the_writers_still_record` | A diagnosis summary and a belief with complete records and safe inputs (window closed). Through the MCP server's `learning_context` tool (fresh attach), both are held back with C1a's reason, nothing of either is in the payload, and the tool's description is C1a's. `learning_context` equals the `no_write_provenance` payload byte for byte. Switched on, both are shown, as `RecordedText` |
+| `test_off_the_live_pipeline_records_and_chat_withholds_until_the_switch_is_on` | The real door (blind grader, diagnoser job, materialized hypothesis) with the switch off: the grading, diagnosis and hypothesis rows are written and complete; after the correct answer, chat still holds the summary and cause back. On, both are shown |
+| `test_off_f2_a_belief_from_a_renamed_generated_topic_is_withheld` | F2's reproduction (a drafted topic renamed by an unrecorded writer, a stuck answer read with the new title, `record_belief`'s write): the candidate's record says complete (the defect), and with the switch off the statement is held back |
+| `test_on_f2_…` (strict xfail) | The same with the switch on asserts "withheld"; today the statement is released, so it xfails. The follow-up turns it into a pass (and `strict` fails the suite until the mark is removed) |
+| `test_off_f3_a_summary_over_a_regraded_c4_history_attempt_is_withheld` | F3's reproduction (legacy joint grading `PEER` with a C4 receipt naming `att_b`; the store's marks captured while `att_b` pins `acv_own`; `att_b` re-pinned to `acv_own_v2` with its grading record; `frozen_record`, persisted as `jobs._persist` does): the record is complete and names `acv_own_v2` (the defect), and with the switch off the summary is held back |
+| `test_on_f3_…` (strict xfail) | As for F2 |
+| `test_the_reproductions_hold_no_name_or_key_with_the_switch_off` | Both reproductions together through the MCP tool: neither the renamed title nor the summary reaches the payload |
+| `test_rule_4_and_identity_bound_marks_reach_rule_c_through_learner_protection` | Composition 1, below |
+| `test_a_method_explicit_question_records_the_contract_it_was_presented_with` | Composition 2, below |
+| `test_q14_on_a_vault_the_coordinator_upgrades_the_receipt_commits_with_the_grade` | Composition 4, below |
+
+Both xfails were checked with `--runxfail`: each fails on its own assertion (F2: "Thinks Parity, renamed by a writer that recorded nothing needs no sign rule" released; F3: the summary released). No other error.
+
+### Compositions
+
+1. **Rule 4 and identity-bound marks reach rule (c) through `learner_protection`.** Rule (c)'s input check reads items through `learner_protection.withheld_items` (which routes exam decisions through `exam_material`) and source refs through `exam_material.source_ref_protected` (`PastWork.source_reason`). Re-read safety's rule 4 puts an unmarked reading of a protected book into that material whole, so no code change was needed. In re-read safety's own landing world (`reread_world`, the book read again as `ext_book_r2`, an item made from the re-read's own passage):
+   - a diagnosis that read the answer on that item, and a correction written from that passage, are recorded complete;
+   - switch off, both are held back with C1a's reason; switch on, both are shown while the book is unprotected;
+   - then the owner marks a section of the book's **first** reading (an exact mark bound to `ext_book`'s identity). The re-read is held back (`reading_held_back`), the item is `exam or held-out material`, and both texts are withheld with that reason.
+2. **Method-explicit's `answered_prompt` for pinned questions.**
+   - `pi_own` is given a required method. The tutor's Q10 writer (`_question_contract`, mid-attempt) records `snapshot_for_presentation`'s contract. That contract freezes the method, and `answered_prompt(item, contract)` equals `presented_prompt(item.prompt, item.required_method)`, the question the learner was shown, ending with the method's sentence.
+   - An answer graded under that contract shows that question in chat (rule (a)), identically with the switch off and on.
+   - A question recorded with the contract is held back off, and its words are shown on.
+3. **The Marker and GLM workers are unaffected.** The branch changes nothing under `ingest/`, `content/sources/` or `content/pipeline/`, and no worker reads a provenance table or the switch. Their tests (`test_marker_pdfium_worker.py`, `test_glm_ocr.py`, `test_reread_safety*.py`) pass in the full suite unchanged.
+4. **The C4 receipt inside the grading transaction composes with the coordinated grading paths.** Main's grading code is unchanged since `499bd3ebd` (`attempts/` untouched there), so Q14 merged as built. The composition is the database it runs on:
+   - a vault an older build wrote (205 rolled back: both tables, the column and the ledger row) is refused by a bare `Repository(path)` (`UncoordinatedMigrationError`);
+   - it is opened through the coordinator (`vault_repository`, which upgrades it to 205 under the vault lock);
+   - a joint grade on it commits with exactly one Phase-C receipt and one complete grading record;
+   - with the receipt write failing, the model grade rolls back and the door's self-grade commits, with no model evidence, no receipt and no grading record.
+
+   This passes under `--durable-sqlite` too.
+
+**Also:**
+- The CLI help snapshot was regenerated (`python tests/test_cli_help_snapshot.py --write`) and did not change.
+- The RPC pins (`tests/test_mobile_allowlist.py`, `test_desktop_rpc_contract.py`, the sidecar serializer snapshot) pass unchanged: no RPC changed.
+- Nothing under `apps/` changed, so neither the frontend nor `cargo check` applies.
+
+### Generated files
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**; schema head 205, 324 table notes (two new: `text_write_provenance`, `error_event_lineage`, `RAW_LEDGER`), 858 effective configuration leaves (`diagnosis.chat_shows_recorded_text`, `false`). `Database.md`'s prose counts were corrected by hand: 324 tables, 19 `DERIVED`, 305 others, 858 leaves.
+- `validate_vault.py` passes: 1,109 notes, all 1,107 non-template notes reachable from Home.
+- **Pipeline Map.** A "Write-time provenance (migration 205; chat release off)" entry under grading and diagnosis covers:
+  - the writers and what they record;
+  - Q14, Q9 and Q10;
+  - rule (c) behind the switch, off, with the two reopened findings and the follow-up;
+  - that nothing is evidence and replay never reads the records.
+
+  The diagram gains the ledger, the chat frontend entry says the release is off, the replay entry names both tables as raw, and the source paths and gaps list follow.
+
+### Gate
+
+Run on the final code tree, `55d5383b7`; only this record was committed after it. `TMPDIR` was the worktree's `fixtures-local/tmp`. No paid calls ($0.00): every test uses fakes.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` (5.14.0); `uv run --no-sync` afterwards | ok |
+| `uv run --no-sync lint-imports --no-cache` | **22 kept**, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto -q -p no:cacheprovider` | **11,921 passed, 2 xfailed** (the strict F2/F3 marks), 0 failed, in 18 min 19 s (lock 14:15:38, done 14:33; `fixtures-local/prov-fullsuite.log`) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability -n auto` | **106 passed** in 26 s (`fixtures-local/prov-durability.log`) |
+| `db_generate_reference.py` / `db_validate_reference.py` / `validate_vault.py` | regenerated / 0 errors / passes (above) |
+| Head fixture `fixtures/migration_head_205` | schema version 205, `journal_mode=delete`, `integrity_check` ok, `foreign_key_check` empty, no companion files |
+| CLI help snapshot (`--write`), RPC pins | unchanged |
+| Frontend (npm) and `cargo check` | not applicable: nothing under `apps/` changed |
+| `git diff --check` | clean |
+
+Nothing failed, so nothing needed a rerun alone.
+
+**Tests:**
+- 11 added in `tests/test_diagnosis_input_provenance_landing.py` (9 pass, 2 strict xfails);
+- `tests/test_diagnosis_input_provenance.py` reads with the switch on (`_switched_on`) and pins the snapshots off;
+- `tests/test_coordinated_migrations.py`'s coordinator test looks up the ledger migration by name;
+- 24 test files' head path, and `test_route_rules_in_grader.py`'s max migration, moved to 205.
+
+### Parity
+
+**Setup:**
+- **Copies.** Backup-API copies (`copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and `fixtures/probability`, under `fixtures-local/tmp/prov-parity`, two of each (one per side).
+- **Main's side.** Main `37a2a7e5f`, exported with `git archive` (`src`, `migrations`) and put first on `PYTHONPATH`; every run printed the export's `learnloop/__init__.py`. Its coordinator (`open_vault_repository`) applied 49 migrations to each copy, 155 → 204.
+- **The merge's side:** 50 migrations, 155 → 205, by the merge's coordinator.
+- **Runs.** On each copy, with `LEARNLOOP_CONFIG_DIR` set to an empty directory: `learnloop rebuild --shadow --json`, `learnloop doctor --json`, and chat's read views. The views (`learning_context`, `today`, `progress`) were read through `RemoteRuntime.attach`, the MCP server's read-only attach, with a fixed clock and alias key, and written as sorted JSON.
+- **Comparison.** Shadows were compared structurally, with ULIDs, timestamps, hashes and paths set aside. Doctor reports were compared positionally and as multisets, with the copy's directory name normalized. Chat views were compared byte for byte.
+
+| Fixture | Shadow (facet / mastery / schedule) | Shadow differences | Doctor main → merge | Chat views (switch off) |
+|---|---|---:|---|---|
+| linear algebra | 22 / 6 / 47 on both sides | **0** | 107 → 107 (1 error, 106 warnings); identical positionally and as multisets | **byte-identical** (37,520 bytes) |
+| probability | 2 / 1 / 1 on both sides | **0** | 138 → 138 (49 errors, 46 of them `criterion:unknown_dependency`); identical | **byte-identical** (5,985 bytes) |
+
+**Checks:**
+- **No doctor additions.** The branch adds no doctor check, and the reports are equal.
+- **Q14 only moves a failure path.** A successful grading writes the same rows as before plus one record, and nothing grades during these runs. The rebuild's learner-state diff and its replayers are the same on both sides.
+- **The new tables are empty on the merge's copies** (`text_write_provenance` 0, `error_event_lineage` 0, no question with a recorded contract). The upgrade writes nothing, and neither do shadow or doctor. Records start with the first grading after the upgrade.
+- **Chat is C1a's.** With the switch off (the merge's copies read `False`; main's config has no key), `learning_context`, `today` and `progress` are byte-identical to main's code on the same data.
+- **The copies are unchanged.** `live_database.unchanged` is true on every shadow, and each copy's `state.sqlite` hash (checkpointed) is the same before and after the shadow, doctor and view runs.
+- **The tracked fixtures were only copied.** `git status --porcelain fixtures/` is empty before and after. `arxiv_v2` was not opened, and the main checkout and the source branch were not touched.
+
+### Open questions for the owner (defaults as landed)
+
+1. **Old vaults release almost nothing, even with the switch on.** Diagnosis contexts show old joint gradings with no C4 receipt and unrecorded prior hypotheses, and one such input holds back everything written from it (the stage's manual run: linear algebra released nothing). **Default: (a) accept.** Prose appears as blind-graded history accumulates. No backfill (b) and no "pre-C4 joint grades count as not augmented" rule (c) without an owner decision. While the switch is off this changes nothing chat shows.
+2. **Tutor inputs are unrecorded.** A tutor question's reading (the tutor's thread, expected answer, feedback and passages) is recorded **incomplete**, so a belief, a drafted topic or a seeded item drawn from it stays held back. **Default:** held back; recording the tutor's inputs is a follow-up writer, naturally part of the one-capture-point follow-up.
+3. **The Codex SDK's turn item types are unverified.** The SDK is not installed here, so the snapshot-mode extractor fails closed: an item it cannot read counts as reading the whole export, and no report makes the record incomplete. **Default:** fail closed. One minimal live probe (owner-approved, paid) would confirm the type names so a plain read is not over-counted.
+4. **Concept-title coverage.** A generated topic's record covers its topic title, not its drafted concept title. A drafter shown a concept title that differs from the title folds the topic as `NAME_UNCOVERED` (incomplete), and the draft is held back. **Default:** held back. Recommended follow-up: record the drafted concept title as a covered name of the topic.
+
+The successor question (Codex review, open question 5) is moot at this landing: with the switch off nothing served changes, and Q14 only moves a failure path (a receipt that cannot be written now fails the grading, and the door's self-grade commits). If the follow-up turns the switch on, the owner's standing ruling (live changes behind kill switches) applies, or a tag at that checkpoint.
