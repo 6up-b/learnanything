@@ -4,6 +4,8 @@
 
 **Compiled** 2026-10-14 on branch `docs/adaptive-difficulty-spec` from main `4108e1ccd`. No paid API calls were made. The research workers ran on Codex under the owner's ChatGPT subscription (owner decision 2026-10-12).
 
+**Extended** 2026-10-15 on branch `docs/adaptive-ad3-live` from main `2be98cc43`, for the spec's learned relatedness model (spec R13, §5.10): five sources in §3 (g), found and verified by the revising agent at their primary records, with no research worker and no paid call (§1.2).
+
 ---
 
 ## 1. Method
@@ -44,6 +46,7 @@ Every source was opened at its primary bibliographic record and checked for **ti
   - The Harvard Data Science Review page for `[schmid2022]` refused automated access (HTTP 403). The source is verified by its DOI `10.1162/99608f92.3f1772ce`.
 - **Two that workers flagged UNVERIFIED are verified here** through their Crossref records: `[lesmes2010]` (worker a) and `[bi2024]` (worker e).
 - **Dropped: none.** Every candidate resolved to a matching primary record.
+- **Added 2026-10-15: 5 of 5 verified** by the same method: `[adams1997]`, `[chen2015q]`, `[culpepper2019]` and `[hoeting1999]` at their Crossref records, `[capstick2024]` at its arXiv abstract page. Crossref carries no abstract for `[chen2015q]` and Semantic Scholar refused automated access (HTTP 429), so its abstract was read from its Europe PMC record. That makes 126 verified sources in all.
 - **The year column** is the primary record's date (online-first issue, or the first arXiv version), so it can differ from the year in a key. **The venue** is what the record shows. Later journal or conference publication claimed by a worker is not asserted unless the record carries it.
 
 ### 1.3 Quantitative claims checked against the source text
@@ -73,6 +76,10 @@ The spec leans on these numbers. Each was checked against the abstract (arXiv ci
 | Generated questions' difficulty measured by the paper's own LM-KT model `[srivastava2021]` | Full text (arXiv PDF) | Confirmed: "We then use LM-KT (a well-calibrated proxy for true difficulty) to measure the…" |
 | 234 students evaluated a generated reading test `[zelikman2023]` | ACL Anthology abstract | Confirmed |
 | Fit statistics are a biased measure of knowledge-tracer quality as a policy `[rachatasumrit2024]` | Title (Crossref); the abstract was not retrievable | The spec cites only the title's claim; the worker's "43% of synthetic datasets" figure is not used |
+| A Q-matrix can be estimated from response data (regularized maximum likelihood, with identifiability theory) `[chen2015q]` | Europe PMC abstract | Confirmed |
+| A fully Bayesian Q-matrix estimate from an expert-knowledge prior, checking which expert attributes are supported and finding residual ones `[culpepper2019]` | Crossref abstract | Confirmed |
+| LLM-elicited priors reduce error with fewer labels than in-context learning `[capstick2024]` | arXiv abstract | Confirmed |
+| Bayesian model averaging accounts for model uncertainty; improved out-of-sample predictive performance in the examples reviewed `[hoeting1999]` | Crossref abstract | Confirmed |
 
 ---
 
@@ -84,6 +91,7 @@ The synthesis is in the spec (§4.1, R1–R12, and the item-by-item verdict on t
 - **Outside estimates.** Treat LLM labels and solver panels as item-side signals with learned weights (`[an2026]`, `[li2025]`, `[acquaye2026]`, `[isophys2026]`). Treat history-conditioned forecasts as competing experts scored by proper rules (`[gneiting2007]`, `[choe2023]`, `[herbster1998]`).
 - **The band and the limits.** Keep 70–80% as an engineering default to be tested on delayed outcomes (`[wilson2019]`, `[klinkenberg2011]`, `[papousek2016]`). Be explicit about what one learner's data cannot identify (`[chen2021]`, `[fu2016]`, `[bolsinova2025]`).
 - **Pooling.** Pool later with robust priors and learner-level privacy (`[schmidli2014]`, `[liu2020]`, `[steiner2018]`).
+- **Relatedness (added 2026-10-15).** Let an expert, here an LLM, propose which topics an item draws on and which are related, and learn from the data how far to trust it (`[culpepper2019]`, `[capstick2024]`, `[adams1997]`, `[chen2015q]`), averaging over hyperparameters rather than fixing them (`[hoeting1999]`).
 
 Each worker's open questions are folded into the spec's §16 (deferrals with triggers) and §17 (open questions).
 
@@ -192,7 +200,7 @@ Verdicts: **Adopt** (use the method as is), **Adapt** (use with the change named
 | `glickman1999` | Parameter Estimation in Large Dynamic Paired Comparison Experiments | Mark E. Glickman | Journal of the Royal Statistical Society Series C: Applied Statistics | 1999 | <https://doi.org/10.1111/1467-9876.00159> | Glicko: approximate Bayesian updates for changing abilities. | Uncertainty propagation fits; the likelihood does not. | Adapt: dynamics (§5.6). |
 | `herbrich2006` | TrueSkill™: A Bayesian Skill Rating System | Ralf Herbrich; Tom Minka; Thore Graepel | Advances in Neural Information Processing Systems | 2006 | <https://proceedings.neurips.cc/paper/2006/hash/f44ee263952e65b3610b8ba51229d1f9-Abstract.html> | TrueSkill: Bayesian skill rating with moment-matched updates. | Draws are not partial credit. | Adapt: assumed-density update (§5.6). |
 | `wang2013pc` | Extending Knowledge Tracing to Allow Partial Credit: Using Continuous versus Binary Nodes | Yutao Wang; Neil Heffernan | Artificial Intelligence in Education (LNCS) | 2013 | <https://doi.org/10.1007/978-3-642-39112-5_19> | Knowledge tracing with partial credit as continuous nodes. | Hand-set hint penalties are not validated here. | Adapt: ordinal outcome (§5.3). |
-| `rachatasumrit2024` | Good Fit Bad Policy: Why Fit Statistics Are a Biased Measure of Knowledge Tracer Quality | Napol Rachatasumrit; Daniel Weitekamp; Kenneth R. Koedinger | Artificial Intelligence in Education (CCIS). Posters and Late Breaking Results, Workshops and Tutorials, Industry and Innovation Tracks, Practitioners, Doctoral Consortium and Blue Sky | 2024 | <https://doi.org/10.1007/978-3-031-64312-5_22> | Fit statistics are a biased measure of a knowledge tracer's quality as a policy. | Simulation evidence. | Adopt: decision-level checks in AD2's serving gate and live monitoring, beside log loss for promotion (§10.4). |
+| `rachatasumrit2024` | Good Fit Bad Policy: Why Fit Statistics Are a Biased Measure of Knowledge Tracer Quality | Napol Rachatasumrit; Daniel Weitekamp; Kenneth R. Koedinger | Artificial Intelligence in Education (CCIS). Posters and Late Breaking Results, Workshops and Tutorials, Industry and Innovation Tracks, Practitioners, Doctoral Consortium and Blue Sky | 2024 | <https://doi.org/10.1007/978-3-031-64312-5_22> | Fit statistics are a biased measure of a knowledge tracer's quality as a policy. | Simulation evidence. | Adopt: decision-level checks in the AD2/AD3 serving gate and live monitoring, beside log loss in the monitoring (§10.4). |
 | `bolsinova2025` | Keeping Elo alive: Evaluating and improving measurement properties of learning systems based on Elo ratings | Maria Bolsinova; Bence Gergely; Matthieu J. S. Brinkhuis | British Journal of Mathematical and Statistical Psychology | 2025 | <https://doi.org/10.1111/bmsp.12395> | Elo ratings are generally biased; adaptive selection with simultaneous item updates inflates variance and prevents convergence. | Our adaptive loop could do the same. | Adopt the caution (§5.8). |
 | `girard2026` | Counterfactual learning of new adaptive instructional policies using logged data | Samuel Girard; Sein Minn; Amel Bouzeghoub et al. | arXiv; European Conference on Machine Learning and Principles and Practice of Knowledge Discovery in Databases (ECML-PKDD), Sep 2026, Naples, Italy | 2026 | <https://arxiv.org/abs/2606.23015> | Counterfactual learning of difficulty policies from logs with a behaviour-policy estimate. | Static ability, full-trace leakage acknowledged. | Reference: estimator hygiene for replay. |
 
@@ -244,6 +252,16 @@ Verdicts: **Adopt** (use the method as is), **Adapt** (use with the change named
 | `herbster1998` | Tracking the Best Expert | Mark Herbster; Manfred K. Warmuth | Machine Learning | 1998 | <https://doi.org/10.1023/A:1007424614876> | Tracking the best expert: fixed-share weighting. | Handles drift in which forecaster is best. | Adopt (§8.4). |
 | `schmid2022` | Bayesian Models for N-of-1 Trials | Christopher Schmid; Jiabei Yang | Harvard Data Science Review | 2022 | <https://doi.org/10.1162/99608f92.3f1772ce> | Bayesian models for n-of-1 trials, with hierarchical aggregation of individuals. | Crossover assumptions do not fit durable learning. | Adapt the machinery (§13). |
 
+### (g) Relatedness, Q-matrices and elicited priors (added 2026-10-15)
+
+| Key | Title | Authors | Venue | Year | Primary record | What it offers | Fit to our constraints | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| `adams1997` | The Multidimensional Random Coefficients Multinomial Logit Model | Raymond J. Adams; Mark Wilson; Wen-chung Wang | Applied Psychological Measurement | 1997 | <https://doi.org/10.1177/0146621697211001> | A multidimensional Rasch-type model in which one item can measure several dimensions; marginal maximum likelihood estimation. | Population estimation; the loadings are design, not learned at n=1. | Adapt: the soft Q-matrix extends an item's facet weights (spec §5.4, §5.10). |
+| `chen2015q` | Statistical Analysis of Q-Matrix Based Diagnostic Classification Models | Yunxiao Chen; Jingchen Liu; Gongjun Xu et al. | Journal of the American Statistical Association | 2015 | <https://doi.org/10.1080/01621459.2014.934827> | Identifiability of the Q-matrix, and its estimation from responses by regularized maximum likelihood. | Needs many examinees; one learner cannot identify a Q-matrix entry. | Reference: why per-pair strengths stay at the proposal at n=1 (spec §5.8). |
+| `culpepper2019` | Estimating the Cognitive Diagnosis Q Matrix with Expert Knowledge: Application to the Fraction-Subtraction Dataset | Steven Andrew Culpepper | Psychometrika | 2018 (online; print 2019) | <https://doi.org/10.1007/s11336-018-9643-8> | Fully Bayesian Q-matrix estimation from a prior built from expert knowledge; checks which expert-specified attributes the data support and finds residual ones. | The pattern we use, with an LLM as the expert; it learns per entry from many examinees, where we learn vault-level strengths. | Adapt: proposal as prior mean, learned trust (spec §5.10). |
+| `capstick2024` | AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling | Alexander Capstick; Rahul G. Krishnan; Payam Barnaghi | arXiv | 2024 | <https://arxiv.org/abs/2411.17284> | LLM-elicited priors for simple interpretable predictive models; more informative than in-context learning, reducing error with fewer labels. | Supports an LLM supplying priors rather than predictions; not educational and not a relatedness structure. | Adapt: the LLM proposes prior means, never outcomes (spec §5.10). |
+| `hoeting1999` | Bayesian model averaging: a tutorial | Jennifer A. Hoeting; David Madigan; Adrian E. Raftery et al. | Statistical Science | 1999 | <https://doi.org/10.1214/ss/1009212519> | Bayesian model averaging: weight models by posterior probability rather than pick one; reviews implementations and examples where it improves out-of-sample prediction. | A finite grid of hyperparameter points is a small model space. | Adopt: the hyperparameter mixture (spec §5.6, §5.10). |
+
 ---
 
 ## 4. Local measurement (spec §3.3)
@@ -293,7 +311,7 @@ Verdicts: **Adopt** (use the method as is), **Adapt** (use with the change named
 |---|---|
 | Spec internally consistent | One author read-through, then three independent read-only Codex reviews (high effort). See the list below the table |
 | Code citations | 86 distinct `file:line` citations resolve to a unique tracked file in the worktree, with valid ranges, checked by script. Each range was printed and read. Continuation citations (`:NNN` after a named file) were checked by hand. The reviewers spot-checked more than 50 and then 15 |
-| External citations | 121 of 121 sources verified at the primary record (§1.2). All 98 keys the spec cites are rows in §3 |
+| External citations | 121 of 121 sources verified at the primary record (§1.2). All 98 keys the spec cites are rows in §3. On 2026-10-15, 5 more verified and added as §3 (g) |
 | `git diff --cached --check` | Clean on both files |
 | Paid API calls | None |
 

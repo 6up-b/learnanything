@@ -67,6 +67,7 @@
   - no propagation along `part_of`, `related`, `analogous_to` or `confusable_with`;
   - no LLM-generated relation graphs;
   - any cross-LO sharing, including the general level, steers a live decision only after the F1 replay shows held-out support (the §7.4 switching rule).
+  - *Superseded for the adaptive-difficulty subject view by the owner, 2026-10-15* (`spec_adaptive_difficulty_v1.md` §5.10, A6, D19): that view uses a learned, sparse coupling and soft loadings whose prior means an LLM proposes from the vault's content, and it steers live decisions without waiting for held-out support. The safeguards: top-k sparsity, learned shrinkage toward uniform sharing, prediction-only influence (never certification credit), kill switches, and an auto-flag when it predicts first attempts worse than uniform sharing. F6 still binds every predictor in this spec.
 - **F7. Biased sampling is declared.** Every observation records its serving origin. Off-policy claims use only system-chosen observations until a finite, system-ordered plan exists (daily-loop Q9).
 - **F8. Never blend.** On the map, nothing inferred changes well depth or the demonstrated beads (owner's well-view contract, `KnowledgeWellView.tsx:7-25`).
 
@@ -495,7 +496,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | # | Decision | Recommendation |
 |---|---|---|
 | D1 | Active predictor at launch | `mastery_ekf`, the existing per-LO filter. Challengers earn activation (§7.4) |
-| D2 | Cross-LO structure in `lo_general` | A shared general level only; no graph coupling (knowledge-model §8.1, §8.3). Prerequisite-directed coupling is deferred (§11) |
+| D2 | Cross-LO structure in `lo_general` | A shared general level only; no graph coupling (knowledge-model §8.1, §8.3). Prerequisite-directed coupling is deferred (§11). *Superseded for the adaptive-difficulty subject view by the owner, 2026-10-15* (`spec_adaptive_difficulty_v1.md` §5.10, A6, D19): a learned LLM-proposed coupling under the safeguards listed at F6; `lo_general` itself is unchanged and is that view's uniform-sharing comparator |
 | D3 | Extension-arm constants | `γ = 0.2`; capability `N(0, 0.5²)`; relation means 0 / −0.25 / −0.5 (sd 0.5); retrievability `β = 0.5` (sweep 0, 0.5, 1). Versioned, never fitted to the owner |
 | D4 | Quick check | Optional, never prompted; k ≤ 4, ≤ 8 minutes, adaptive with an early stop |
 | D5 | Self-report | "I know this" or "too easy" marks an LO assumed known immediately; "I don't know this" returns it to learning immediately. No triage screen |
@@ -515,11 +516,11 @@ The full design for everything below is preserved at commit `936813f` (`docs/spe
 
 | Deferred | Revisit when |
 |---|---|
-| **Facet-level graph field:** heat kernel over facets, LLM-adjudicated text edges, the representation experiment (V0–V4), the general factor inside a facet kernel, kernel ensembles, population-fit kernel scalars, the co-performance text projection | `data-check` shows hundreds of active facets with ≥ 3 *separately measured* facets per LO and ≥ 1–2k graded attempts, **and** an activated LO-level predictor still leaves residuals correlated along authored or semantic neighbours |
+| **Facet-level graph field:** heat kernel over facets, LLM-adjudicated text edges, the representation experiment (V0–V4), the general factor inside a facet kernel, kernel ensembles, population-fit kernel scalars, the co-performance text projection | `data-check` shows hundreds of active facets with ≥ 3 *separately measured* facets per LO and ≥ 1–2k graded attempts, **and** an activated LO-level predictor still leaves residuals correlated along authored or semantic neighbours. *Superseded for the adaptive-difficulty subject view by the owner, 2026-10-15* (`spec_adaptive_difficulty_v1.md` §5.10, A6, D19): its sparse, LLM-proposed facet coupling is live there under F6's listed safeguards; the dense field stays deferred |
 | **Prerequisite-directed coupling** between LOs | `lo_general` is activated and the replay shows residual correlation along prerequisite edges. It must respect direction (knowledge-model §8.3) |
 | **Map fog** (predictor estimates on the map) | A challenger is activated on the first-attempt split (§7.4) |
 | **Probe targeting** by the active predictor | A challenger is active, and the daily loop's finite plan (Q9) makes propensities known for evaluation |
-| **`idea_hier_llm_prior`**, or any live use of `llm_probability` | The offline test shows calibrated gains over the best LO-level arm on first attempts |
+| **`idea_hier_llm_prior`**, or any live use of `llm_probability` | The offline test shows calibrated gains over the best LO-level arm on first attempts. *Superseded for the adaptive-difficulty subject view by the owner, 2026-10-15* (`spec_adaptive_difficulty_v1.md` §5.10, A6, D19): an LLM-proposed relatedness prior is live there, without waiting for that test, under F6's listed safeguards and scored on first attempts against uniform sharing; `llm_probability` stays offline |
 | **Public-data benchmark** (time-to-useful-vault, kernel fits, transfer guard) | A specific question the owner's replay can't answer, such as whether a deferred facet-level design is worth reviving |
 | **Learned action router** (frozen or fine-tuned embeddings, LoRA) | The non-learned router is specified in `spec_action_router_v1.md`: Perplexity Decider v1.1 and a frontier LLM competing inside the P4 staged frame, with exact propensities. A learned scorer's trigger is in that spec's §13 |
 | **Facet dossiers** | Not deferred: **moved** to the practice-family track as the practice index (`spec_embedding_consumers_v1.md` §5.9) |

@@ -45,4 +45,64 @@ This is a documentation stage, directed by the owner on 2026-10-14. No code, mig
 
 ## Open questions
 
-The spec's §17: current data on the working vaults (Q1, owner-run), generator compliance with feature points (Q2), unit-to-facet mappings for exam targets (Q3), rating timing (Q4), data volume for promotion (Q5), and whether the band should move with session state (Q6). Each has a default or a measurement path.
+The spec's §17: current data on the working vaults (Q1, owner-run), generator compliance with feature points (Q2), unit-to-facet mappings for exam targets (Q3), rating timing (Q4), data volume for the monitoring (Q5, renamed on 2026-10-15), whether the band should move with session state (Q6), and, since the revision below, the relatedness proposal's quality (Q7) and the records outside the spec (Q8). Each has a default or a measurement path.
+
+## Revision 2026-10-15 (owner)
+
+**Branch:** `docs/adaptive-ad3-live`, from main `2be98cc43` (migration head 203). Docs only: no code, migration, config or test changed, and no paid API call was made.
+
+**The owner's decisions, in the owner's words:**
+- "Ok agreed": start AD1 after the diagnosis-provenance stage lands, and the subject-level estimate sets where new topics start from AD2.
+- "I feel like AD3 should be tried with AD2/AD1 just with a kill switch. AD3 is important to be able to have some semblance of adapting quickly within the vault to a learner's skill increase (via the Reader or by doing practice, whatever it is) without having to do a bunch of questions. it can be pretty vault dependent based on how the topics are related and whether being able to answer a given question implies knowledge about which topics (and to what extent it implies knowledge for those topics). this should definitely be some sort of learned model over time, but these intrinsics/hyperparams would probably change with the vault's subject (so perhaps a frontier LLM with high level semantic reasoning within a learned head harness here would be alright). we can just test it out and see for now"
+
+**What changed in the spec:**
+1. **Phases (D3 rewritten, D18 added; §0, §1, A6, §5.6, §5.9, §6.1, §8.2–8.4, §9.5, §10.1, §10.4, §11.1, §11.4, §14, §16–§18).**
+   - AD1 is unchanged and comes first, once the "diagnosis input provenance" stage (`spec_mcp_frontend_c1.md` §4.8) has landed.
+   - AD2 and AD3 now ship and go live together as one algorithm successor, each part behind its own kill switch: `selection`, `generation_contract` and `promoted_predictor`, plus `learned_coupling` and `reading_opportunities` for the subject view's new parts.
+   - The subject view steers live draws, AD5's composition and the readiness numbers from the tag, and a new topic starts from the subject-level estimate.
+   - The former promotion rule (field §7.4 plus the never-seen-cell split and band-region reliability) is now computed every report as monitoring. Five auto-flags each recommend a switch, and the report and glass box say whether sharing is helping, hurting or can't tell yet.
+   - Flipping `promoted_predictor` off restores the LO view exactly. Exact logged propensities are kept everywhere.
+2. **A learned, vault-specific relatedness and implication model (new §5.10, D19, R13; §5.2, §5.4, §5.5, §5.7, §5.8).**
+   - **Shape:** a sparse soft Q-matrix (at most 3 loadings per item) and sparse LO couplings (at most 3 per LO), as extra shared terms in the hierarchy.
+   - **Priors:** a frontier LLM proposes the prior means on the existing `ai.routing.llm_probability_llm` route, spend-capped and ledgered as `judgment_ledger` task `ad_relatedness`, and re-proposed when content changes. It reads the LO and facet text, the concept and prerequisite graph and item stems; it never reads learner data, held-out text or exam text.
+   - **Learning:** the split and the coupling and implication strengths are learned per vault, by Bayesian model averaging over a 36-point a-priori grid (`ad_hyper_v1`) that includes zero coupling and zero implication.
+   - **Safeguards:** sparsity, shrinkage, prediction-only influence, kill switches, and an auto-flag against uniform sharing on first attempts at never-seen topics.
+   - **Supersession:** `spec_learner_field_v1.md` records it at F6, D2 and the two §11 rows.
+3. **Reading as a learning opportunity (new §5.11, D20, A12).**
+   - A section read, a passage viewed, a tutor exchange while reading and a worked example studied each raise the predicted level through a learned rate `γ_read[kind]`. They are frozen in a new receipt, `ad_reading_opportunities`, built in AD1.
+   - Prediction only, never evidence, and no salience magnitude is read.
+   - Scored on first attempts after reading, with an auto-flag.
+4. **Fast adaptation without many questions (§5.9).**
+   - New arithmetic shows what a coupling of strength `χ_C` buys a never-seen related topic. The own answers it needs before band mode fall from about 10 to about 6 at the grid's cap of 0.75, and the share of the related topic's deviation that moves its first prediction rises from 0.43 to 0.76.
+   - Learning and reading transfer along couplings.
+   - The honest limit: band mode on a topic's very first answer would need a correlation of about 0.95, which the grid never asserts.
+   - New gate G-AD3-7 runs on synthetic vaults with known structure: related topics must adapt faster and unrelated ones must not be dragged.
+5. **Consistency.**
+   - New ids are A12, D18–D20, G-AD1-11, G-AD3-1 to G-AD3-10 (rewritten and extended) and Q7–Q8.
+   - The migration head is updated to 203, and the storage-sync spec is noted as on main.
+   - Exam protection (A8, now naming the relatedness proposal), held-out text never shown to any model, and frozen serve inputs (now with loadings) are unchanged in substance.
+
+**Supporting files:**
+- `docs/specs/research/adaptive_difficulty_sources_v1.md` gains §3 (g) with five sources: `[adams1997]`, `[chen2015q]`, `[culpepper2019]`, `[capstick2024]` and `[hoeting1999]`. Each was verified at its Crossref record or arXiv abstract page, with `[chen2015q]`'s abstract read at Europe PMC. That makes 126 in all.
+- `docs/specs/spec_learner_field_v1.md` gains the supersession notes.
+
+**Method.**
+- **Code read at `2be98cc43`:** reader progress and its deletion path; section and span to LO mapping; span-view and reader-question ledgers; worked examples studied; the reading-signal firewall and its `apply_attempt` guard; router outcomes' exposure computation; the concept-graph model; field's `lo_general` registration; `judgment_ledger`'s schema; the AI routes.
+- **Arithmetic:** the §5.9 coupled-case figures come from a linear-Gaussian computation in a local script (0.14 information per answer, no feature effects; its uncoupled case reproduces the spec's existing "about 10").
+- **Records:** the "diagnosis input provenance" stage was identified from `spec_mcp_frontend_c1.md` §4.8 and `docs/reviews/mcp-c1a-narrow.md`.
+
+**Gate.**
+
+| Check | Result |
+|---|---|
+| Ids | Every D (D1–D20), A (A1–A12) and Q (Q1–Q8) the spec uses is defined. Every G id referenced is defined (by script) |
+| Section references | Every in-spec § reference resolves to a heading (by script; the remaining matches point into other specs) |
+| External citations | All 103 bracketed keys the spec cites are rows of the appendix (by script) |
+| Code citations | The 24 `file:line` citations on changed lines, plus their continuation ranges, were re-checked at `2be98cc43`. Each resolves to a unique tracked file with a valid range, and each cited line was read against its claim |
+| `git diff --check` | Clean |
+| Tests | None run: no code changed |
+| Paid calls | None |
+
+**Left for the owner and the AD2/AD3 stage:**
+- §17 Q8: dated notes in the knowledge-model spec (§8.3), the P3 reader spec (§8.2, §15.4) and the firewall module's docstring, scoped to AD's prediction-only use. This revision does not edit them.
+- §17 Q7: the proposal's quality on real vaults is unknown until the successor runs; G-AD3-7 bounds the cost of a wrong proposal on synthetic vaults.
