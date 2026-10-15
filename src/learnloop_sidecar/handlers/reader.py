@@ -458,11 +458,16 @@ class ReaderSavedPlaceInput(ParamsModel):
     # The reading the place was saved on; None for a place saved before the
     # Reader recorded it (a bare span id).
     extraction_id: str | None = None
+    # The reading the Reader has open, which the place is translated onto
+    # (Codex re-review F10: another reading may complete after it opened);
+    # None: the book's current reading.
+    to_extraction_id: str | None = None
 
 
 @method("reader.saved_place", ReaderSavedPlaceInput)
 def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> dict[str, Any]:
-    """Where a saved reading place lands on the book's current reading.
+    """Where a saved reading place lands on the reading the Reader has open
+    (``to_extraction_id``; the book's current reading when not given).
 
     Re-read safety (2026-10-14): a place saved on another reading is
     translated through the one alias authority (``span_aliases``): ``current``
@@ -473,12 +478,20 @@ def reader_saved_place(ctx: SidecarContext, params: ReaderSavedPlaceInput) -> di
     on (``span_aliases.legacy_place_origin``); when that is unknown (a re-read
     made before aliases were recorded, one that matched nothing, more than one
     earlier reading) it is ``stale``: never declared a place on the current
-    reading (Codex review F5)."""
+    reading (Codex review F5). The answer names the reading it lands on, and
+    a Reader applies it only to that reading (Codex re-review F10)."""
 
     from learnloop.content.sources.span_aliases import STATUS_STALE, legacy_place_origin, resolve_span
 
     _vault, repository = _require_reader(ctx)
-    current = resolve_extraction_id(repository, params.source_id)
+    if params.to_extraction_id:
+        current = str(params.to_extraction_id)
+        if repository.get_extraction_run(current) is None:
+            raise SidecarError("extraction_not_found", f"No extraction {current!r}.")
+        if _source_id_for_extraction(repository, current) != params.source_id:
+            raise SidecarError("validation_error", "That reading is of another book.")
+    else:
+        current = resolve_extraction_id(repository, params.source_id)
     if current is None:
         raise SidecarError("extraction_not_found", f"No extraction resolves for {params.source_id!r}.")
     origin = params.extraction_id

@@ -661,11 +661,15 @@ export function ReaderScreen({
             .finally(() => setWatchLoading(false));
         } else {
           // Original-PDF surface when the originals store has this revision's bytes.
+          // Its block geometry is the rendered reading's: a source id would
+          // resolve to the book's latest reading, which may have completed
+          // since the render, with other span ids (re-read safety, Codex
+          // re-review F10's class).
           const pdfRequest = ++pdfViewRequestRef.current;
           const current = () => pdfViewRequestRef.current === pdfRequest;
           setPdfViewPending(true);
-          cachedSourceRead(card.sourceId, ["reader_pdf_view", card.sourceId], () =>
-            api.readerPdfView({ extractionId: card.sourceId })
+          cachedSourceRead(card.sourceId, ["reader_pdf_view", view.extractionId], () =>
+            api.readerPdfView({ extractionId: view.extractionId })
           )
             .then((manifest) => {
               if (current()) setPdfView(manifest.available ? manifest : null);

@@ -53,7 +53,10 @@ const backend = {
   // Every other reading of the book, aliases or not (Codex review F5); null:
   // a sidecar that does not say (the field absent).
   otherReadings: null as string[] | null,
-  savedPlace: null as null | { spanId: string | null; status: "current" | "needs_reanchor" | "stale" },
+  // extractionId: the reading the translation landed on (default: the open one).
+  savedPlace: null as null | {
+    spanId: string | null; status: "current" | "needs_reanchor" | "stale"; extractionId?: string;
+  },
   // A library search's one hit, on the reading it was found on (Codex review F8).
   searchHit: null as null | { extractionId: string; spanId: string },
 };
@@ -290,7 +293,7 @@ it("a place saved on the reading before a re-read is translated, and an approxim
   await settle();
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
   expect(asked).toHaveLength(1);
-  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before" } });
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
   expect(screen.getByText("This book was read again: you're near where you left off.")).toBeTruthy();
 });
 
@@ -310,7 +313,7 @@ it("a bare place from before places recorded their reading is translated once th
   openReader();
   await settle();
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
-  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: null } });
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: null, toExtractionId: EXTRACTION_ID } });
   expect(screen.queryByText("This book was read again: you're near where you left off.")).toBeNull();
 });
 
@@ -327,7 +330,7 @@ it("F5: a bare place on a book read again with no alias recorded asks the sideca
   await settle();
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
   expect(asked).toHaveLength(1);
-  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: SPAN_IDS[2], extractionId: null } });
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: SPAN_IDS[2], extractionId: null, toExtractionId: EXTRACTION_ID } });
 });
 
 it("F5: a bare place on a book never read again is used as it is", async () => {
@@ -354,7 +357,7 @@ it("F8: a search hit found on a reading the book was read again since is transla
   await searchAndOpenHit();
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
   expect(asked).toHaveLength(1);
-  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before" } });
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
   expect(screen.getByText("This book was read again: you're near the passage you found.")).toBeTruthy();
 });
 
@@ -363,4 +366,33 @@ it("F8: a search hit on the reading the book opens on lands there with no transl
   backend.searchHit = { extractionId: EXTRACTION_ID, spanId: SPAN_IDS[2] as string };
   await searchAndOpenHit();
   expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
+});
+
+// -- Codex re-review of re-read safety (2026-10-14) -------------------------------
+
+it("F10: a translation that lands on a reading other than the open one is never applied to it", async () => {
+  // The Reader opened this reading; another reading completed before the
+  // sidecar was asked, and an answer on that reading's span ids came back.
+  backend.otherReadings = ["ext_before", "ext_newer"];
+  backend.searchHit = { extractionId: "ext_before", spanId: "s_before" };
+  backend.savedPlace = { spanId: SPAN_IDS[2] as string, status: "needs_reanchor", extractionId: "ext_newer" };
+  await searchAndOpenHit();
+  expect(screen.queryByText("This book was read again: you're near the passage you found.")).toBeNull();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({
+    input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID }
+  });
+});
+
+it("F10 (same class): the original's page geometry is asked for the reading the Reader rendered, never the book's latest", async () => {
+  // A source id resolves to the book's latest reading, which may have
+  // completed after the render: its blocks' span ids would be another
+  // reading's, used for highlights and selection on this one.
+  backend.otherReadings = ["ext_before"];
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_pdf_view");
+  expect(asked.length).toBeGreaterThan(0);
+  for (const call of asked) expect(call[1]).toEqual({ input: { extractionId: EXTRACTION_ID } });
 });

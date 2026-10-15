@@ -429,15 +429,22 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
     // A place on another reading of the book (a saved place, or a search hit
     // found before the book was read again): translated through the re-read's
     // aliases by the sidecar, never taken as a span of this reading (re-read
-    // safety). Stale or unknown: the reading history decides.
+    // safety). Stale or unknown: the reading history decides. It is translated
+    // onto the reading this render shows, and an answer on any other reading
+    // (one completed since this render opened) is never applied here: its
+    // span ids are that reading's (Codex re-review F10).
     const translate = (place: SavedReadingPlace, kind: "saved" | "found") => {
       translating = true;
       const request = ++placeRequestRef.current;
+      const openReading = reading?.extractionId ?? null;
       api
-        .readerSavedPlace({ sourceId, spanId: place.spanId, extractionId: place.extractionId })
+        .readerSavedPlace({
+          sourceId, spanId: place.spanId, extractionId: place.extractionId, toExtractionId: openReading,
+        })
         .then((landed) => {
           if (placeRequestRef.current !== request) return;
-          if (landed.spanId && landed.status !== "stale") {
+          const here = !openReading || landed.extractionId === openReading;
+          if (here && landed.spanId && landed.status !== "stale") {
             setTranslatedPlace({ spanId: landed.spanId, approximate: landed.status === "needs_reanchor" ? kind : false });
           } else {
             historyResumeRef.current = true;

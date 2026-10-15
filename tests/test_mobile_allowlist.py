@@ -229,7 +229,8 @@ UX_PHASE1_EXTENDED_RPCS = ("initialize", "get_source_library", "reader.pdf_view"
 GLM_OCR_RPCS = ("set_text_recognition_api_key",)
 GLM_OCR_EXTENDED_RPCS = ("update_ingest_settings", "start_ingest", "start_import_batch")
 # Re-read safety (docs/reviews/reread-safety.md) adds reader.saved_place (a
-# saved reading place translated onto the book's current reading) and extends
+# saved reading place translated onto the reading the Reader has open, else
+# the book's current reading) and extends
 # source_action (the re-read's confirmation, its page scope and the one-tap
 # restore_reading, pinned above), get_source_library (the E1 line and the z.ai
 # OK line's pages and cost, pinned above), reader.render_view (aliased_from)

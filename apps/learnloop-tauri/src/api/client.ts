@@ -1268,8 +1268,11 @@ export const api = {
     call<ReaderRenderViewDto>("reader_render_view", { input }),
   readerGuidePlan: (input: { extractionId: string }) =>
     call<ReaderGuidePlanDto>("reader_guide_plan", { input }),
-  // Re-read safety: a reading place saved on another reading of the book.
-  readerSavedPlace: (input: { sourceId: string; spanId: string; extractionId: string | null }) =>
+  // Re-read safety: a reading place saved on another reading of the book,
+  // translated onto the reading the Reader has open (toExtractionId).
+  readerSavedPlace: (input: {
+    sourceId: string; spanId: string; extractionId: string | null; toExtractionId?: string | null;
+  }) =>
     call<ReaderSavedPlaceDto>("reader_saved_place", { input }),
   readerPdfView: (input: { extractionId: string }) =>
     call<ReaderPdfViewDto>("reader_pdf_view", { input }),

@@ -33,26 +33,33 @@ database's unit selections when it is built:
    origin the scope is resolved by unit id with every nested unit (a merged
    unit is its members; a split child is the blocks under its own heading
    where that extraction's boundary overrides define it, else its whole raw
-   parent), and by the labels the other origins resolve it to; in every
-   other extraction of the source by those labels (a split child by its raw
-   parent's label). A unit that does not resolve in an extraction makes that
-   whole extraction exam material (fail closed).
+   parent), and every other origin's interpretation is carried onto it
+   through the alias authority's verified carry (the same words wherever the
+   re-read put them, never a matching label: Codex re-review F1; one that
+   can't be verified withholds the whole reading); in every other extraction
+   of the source (another revision, a page repair) by the labels the
+   interpretations resolve to (a split child by its raw parent's label). A
+   unit that does not resolve in an extraction makes that whole extraction
+   exam material (fail closed).
 3. *A held-out unit, whatever its role.* Every unit marked
    ``held_out_evaluation`` in any unit selection of the source (in a source
    set or not, whatever role its member has; owner, 2026-10-13). A mark is a
    restriction on the source, so every extraction carries every mark (Codex
-   review F2): its own by unit id, another extraction's by label. A split
-   child withholds its whole raw parent and a merged unit its members; a
-   label that does not resolve withholds the whole extraction, and a mark
-   that resolves nowhere withholds every extraction of its source (fail
-   closed).
+   review F2): its own by unit id, another reading of its revision's through
+   the verified carry (Codex re-review F1), any other extraction's by label.
+   A split child withholds its whole raw parent and a merged unit its
+   members; a carry that can't be verified or a label that does not resolve
+   withholds the whole extraction, and a mark that resolves nowhere
+   withholds every extraction of its source (fail closed).
 
 The **held-out partition** (§8.5: what the leakage gate fingerprints and an
 import or a generated item must never reproduce) is rule 3 plus the held-out
 assessment signals of exam units (an exam unit's inventory signals marked
 ``held_out``, on the reading the inventory was made on, and carried to every
-other reading of its revision through the one alias authority; a signal span
-with no alias there withholds that whole reading: Codex review F2):
+other reading of its revision through the one alias authority's verified
+carry, every block that may hold the signal's words; a signal whose words
+can't be followed there withholds that whole reading: Codex review F2,
+re-review F2):
 :func:`held_out_partition`. It is the one held-out predicate (Codex review
 F3): :attr:`ExamMaterial.held_out`, the Reader's refusals
 (:func:`held_out_material`, read with the vault's source sets) and the gate
@@ -304,6 +311,41 @@ class _Reader:
         self._readings: dict[str, list[str]] = {}
         self._selections: dict[str, Mapping[str, Any]] = {}
         self._effective: dict[str, Mapping[str, tuple[str, ...]] | None] = {}
+        self._reading_revision: dict[str, str | None] = {}
+        self._carrier: Any = None
+
+    def reading_revision(self, extraction_id: str) -> str | None:
+        """The revision of a completed top-level reading (None for anything else:
+        a page repair, a run not completed)."""
+
+        if extraction_id not in self._reading_revision:
+            row = self.connection.execute(
+                "SELECT revision_id FROM source_extraction_runs WHERE id = ? AND status = 'completed' "
+                "AND parent_extraction_id IS NULL", (str(extraction_id),)).fetchone()
+            self._reading_revision[extraction_id] = None if row is None or row[0] is None else str(row[0])
+        return self._reading_revision[extraction_id]
+
+    def carry_into(self, protected: Mapping[str, Iterable[str]], to_extraction_id: str) -> set[str] | None:
+        """``protected`` (``{reading: its spans}``, other readings of the
+        revision) onto ``to_extraction_id`` through the alias authority's
+        verified carry (``span_aliases.SpanCarrier``: every block that may hold
+        the same words, never a matching label; Codex re-review F1, F2).
+        ``None`` when one of them can't be verified there."""
+
+        if self._carrier is None:
+            from learnloop.content.sources.span_aliases import SpanCarrier
+
+            self._carrier = SpanCarrier(self.repository)
+        landed: set[str] = set()
+        for origin, spans in protected.items():
+            if origin == to_extraction_id:
+                landed.update(spans)
+                continue
+            carried = self._carrier.carry(origin, spans, to_extraction_id)
+            if carried is None:
+                return None
+            landed |= carried
+        return landed
 
     def units(self, extraction_id: str) -> list[UnitRow]:
         if extraction_id not in self._units:
@@ -400,35 +442,42 @@ def _member_units(reader: _Reader, member: Any, narrowing: set[str], acc: _Acc, 
     The scope's unit ids name units of the reading it was made on, which the
     scope does not record: every completed top-level reading of the pinned
     revision is a possible origin (a re-read may reuse ``u1`` for another
-    unit; Codex review F1). Each interpretation is withheld: in each origin by
-    unit id and by the labels the other origins resolve the scope to, in every
-    other extraction of the source by all those labels."""
+    unit; Codex review F1). Each interpretation is withheld. In each origin:
+    its own by unit id, and every other origin's carried onto it through the
+    alias authority's verified carry (the same words, wherever the re-read put
+    them; a matching label is not the same material: Codex re-review F1), the
+    whole reading when one can't be verified there. In every other extraction
+    of the source (another revision, a page repair) by the labels the
+    interpretations resolve to."""
 
     extraction_ids = reader.source_extractions(member.source_id, member.revision_id)
     pinned_revision = str(member.revision_id or "") or None
     origins = reader.origins(member.revision_id)
     resolved = {origin: _origin_units(reader, origin, narrowing) for origin in origins}
-    labels_from = {origin: found[1] for origin, found in resolved.items() if found is not None}
-    all_labels = set().union(*labels_from.values()) if labels_from else set()
-    # No origin resolves every unit id: nothing names the scope's units at all.
-    unknown = not labels_from
+    found = {origin: hit for origin, hit in resolved.items() if hit is not None}
+    all_labels = set().union(*(hit[1] for hit in found.values())) if found else set()
+    interpretations = {origin: hit[0] for origin, hit in found.items()}
     for extraction_id in dict.fromkeys([*extraction_ids, *origins]):
-        units = reader.units(extraction_id)
-        if unknown or (extraction_id in resolved and resolved[extraction_id] is None):
+        # No origin resolves every unit id (nothing names the scope's units
+        # at all), or this origin doesn't: fail closed.
+        if not found or (extraction_id in resolved and resolved[extraction_id] is None):
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
             continue
-        own = resolved.get(extraction_id)
-        spans: set[str] = set(own[0]) if own is not None else set()
-        # The labels the other interpretations name, found here by label.
-        labels = set().union(*(found for origin, found in labels_from.items() if origin != extraction_id)) \
-            if own is not None else all_labels
-        roots = {unit.unit_id for unit in units if unit.label in labels}
-        if {unit.label for unit in units if unit.unit_id in roots} != labels:
+        if extraction_id in resolved:
+            spans = reader.carry_into(interpretations, extraction_id)
+            if spans is None:
+                acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
+            else:
+                acc.add_spans(extraction_id, spans, reason, pinned_revision)
+            continue
+        units = reader.units(extraction_id)
+        roots = {unit.unit_id for unit in units if unit.label in all_labels}
+        if {unit.label for unit in units if unit.unit_id in roots} != all_labels:
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, pinned_revision)
             continue
         chosen = descendants(units, roots)
-        spans.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
-        acc.add_spans(extraction_id, spans, reason, pinned_revision)
+        acc.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
+                      reason, pinned_revision)
 
 
 def _role_material(reader: _Reader, member: Any, withheld_role: Callable[[str | None], bool], acc: _Acc, *,
@@ -507,11 +556,18 @@ def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | N
 
     * its own marks by unit id (a split child withholds its raw parent, a
       merged unit its members);
-    * another extraction's marks by label (unit ids are positional), every
-      unit with that label (labels can repeat: "Exercises" under each
-      chapter). The one exception: a mark is already carried by an extraction
-      that itself marks the same unit, the n-th with that label and the same
-      content hash (the unit marked again after a re-extraction);
+    * another reading of the same revision's marks (a book read again)
+      through the alias authority's verified carry: the marked unit's words,
+      wherever the re-read put them (a re-read can keep a unit's heading and
+      move its question into another unit: a matching label is not the same
+      material, Codex re-review F1); a mark that can't be verified there
+      withholds the whole reading;
+    * any other extraction's marks (another revision, a page repair) by label
+      (unit ids are positional), every unit with that label (labels can
+      repeat: "Exercises" under each chapter). The one exception: a mark is
+      already carried by an extraction that itself marks the same unit, the
+      n-th with that label and the same content hash (the unit marked again
+      after a re-extraction);
     * a label that does not resolve withholds the whole extraction; a mark
       that does not resolve at all (its unit, so its label, is unknown)
       withholds EVERY extraction of the source (fail closed).
@@ -520,6 +576,7 @@ def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | N
     extraction_ids = list(dict.fromkeys([*reader.source_extractions(source_id, revision_id), *sorted(marking)]))
     marked: dict[str, set[str]] = {}
     marked_keys: dict[str, set[tuple[str, int, str]]] = {}
+    marked_spans: dict[str, set[str]] = {}
     unresolved = False
     for extraction_id in extraction_ids:
         held = _held_out_ids(reader.selection(extraction_id))
@@ -537,6 +594,8 @@ def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | N
             roots |= resolved
         marked[extraction_id] = roots
         marked_keys[extraction_id] = {occurrence[unit_id] for unit_id in roots}
+        chosen = descendants(units, roots)
+        marked_spans[extraction_id] = {span for unit in units if unit.unit_id in chosen for span in unit.span_ids}
     if unresolved:
         for extraction_id in extraction_ids:
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
@@ -545,16 +604,23 @@ def _held_out_units(reader: _Reader, source_id: str | None, revision_id: str | N
         return
     for extraction_id in extraction_ids:
         units = reader.units(extraction_id)
+        revision = reader.reading_revision(extraction_id)
+        siblings = {other for other in marked
+                    if other != extraction_id and revision is not None and reader.reading_revision(other) == revision}
+        carried = reader.carry_into({other: marked_spans[other] for other in sorted(siblings)}, extraction_id)
+        if carried is None:
+            acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
+            continue
         own_keys = marked_keys.get(extraction_id, set())
-        labels = {key[0] for other, keys in marked_keys.items() if other != extraction_id
+        labels = {key[0] for other, keys in marked_keys.items() if other != extraction_id and other not in siblings
                   for key in keys if key not in own_keys}
         by_label = {unit.unit_id for unit in units if unit.label in labels}
         if {unit.label for unit in units if unit.unit_id in by_label} != labels:
             acc.add_whole(extraction_id, UNRESOLVED_UNIT, None)
             continue
         chosen = descendants(units, marked.get(extraction_id, set()) | by_label)
-        acc.add_spans(extraction_id, (span for unit in units if unit.unit_id in chosen for span in unit.span_ids),
-                      HELD_OUT_UNIT, None)
+        carried.update(span for unit in units if unit.unit_id in chosen for span in unit.span_ids)
+        acc.add_spans(extraction_id, carried, HELD_OUT_UNIT, None)
 
 
 def _add_held_out(connection: Any, reader: _Reader, held: _Acc) -> None:
@@ -694,13 +760,13 @@ def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
     Each inventory names spans of the reading it was made on (its own
     ``extraction_id``), never "the latest reading" (Codex review F2): its
     signals hold there, and on every other completed reading of the revision
-    through the one alias authority (``span_aliases``: the same text or the
-    same place). A signal span with no alias on a reading withholds that whole
-    reading (fail closed). An inventory's unit is an exam unit when its own
+    through the one alias authority's verified carry (every block that may
+    hold the signal's words: both halves of a split, never only the one an
+    approximate alias names; Codex re-review F2). A signal whose words can't
+    be followed onto a reading withholds that whole reading (fail closed).
+    An inventory's unit is an exam unit when its own
     reading's units say so: the member's exam material (rules 1 and 2, every
     interpretation of its scope) covers it there."""
-
-    from learnloop.content.sources.span_aliases import SpanTranslator
 
     repository = reader.repository
     for source_set in _source_sets(vault_or_sets):
@@ -718,7 +784,6 @@ def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
             exam = _Acc()
             _role_material(reader, member, is_exam_role, exam, member_reason=EXAM_MEMBER, unit_reason=EXAM_UNIT)
             readings = reader.origins(member.revision_id)
-            translators: dict[str, Any] = {}
             for row in rows:
                 origin, unit_id = str(row["extraction_id"]), str(row["unit_id"])
                 units = reader.units(origin)
@@ -738,15 +803,11 @@ def _add_signals(reader: _Reader, vault_or_sets: Any, held: _Acc, *,
                 for reading in readings:
                     if reading == origin:
                         continue
-                    translator = translators.get(reading)
-                    if translator is None:
-                        translator = translators[reading] = SpanTranslator(repository, reading)
-                    landed = [translator.resolve(origin, span) for span in sorted(spans)]
-                    if any(resolution.span_id is None for resolution in landed):
+                    landed = reader.carry_into({origin: spans}, reading)
+                    if landed is None:
                         held.add_whole(reading, UNRESOLVED_SIGNAL, pinned_revision)
                         continue
-                    held.add_spans(reading, (str(resolution.span_id) for resolution in landed), HELD_OUT_SIGNAL,
-                                   pinned_revision)
+                    held.add_spans(reading, landed, HELD_OUT_SIGNAL, pinned_revision)
 
 
 def held_out_partition(vault_or_sets: Any, repository: Any, *,

@@ -6686,6 +6686,8 @@ export interface ReaderSavedPlaceDto {
   /** null: a bare span id whose reading is unknown (then `stale`). */
   fromExtractionId: string | null;
   fromSpanId: string;
+  /** The reading it landed on: the one asked for (toExtractionId), else the
+   *  book's current reading. A Reader applies it only to that reading. */
   extractionId: string;
   spanId: string | null;
   status: "current" | "needs_reanchor" | "stale";
