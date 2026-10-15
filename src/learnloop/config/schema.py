@@ -1724,6 +1724,13 @@ class DiagnosisConfig(BaseModel):
     # unresolved-cause factor's self-report channel (O14).
     card_enabled: bool = True
     forward_card_taps: bool = True
+    # Diagnosis input provenance (spec_mcp_frontend_c1 §4.8): the chat
+    # frontend shows a model-written text (a diagnosis summary, a hypothesis,
+    # a misconception or candidate statement, a learner question's words, a
+    # generated topic's name) only when its write-time record is complete and
+    # every recorded input is safe. Off: chat holds every such text back (the
+    # C1a narrow rule). Writers record either way; nothing is evidence.
+    chat_shows_recorded_text: bool = True
     # PF-c (spec_embedding_consumers_v1 §5.5): reference policy, valid-
     # alternative path and solve-first in the blind prompt. Off restores the
     # mvp-2.0 blind prompt exactly.

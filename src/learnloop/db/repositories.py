@@ -2243,8 +2243,16 @@ class Repository(
         promotion_reason: str | None = None,
         correction_statement: str | None = None,
         correction_source_span_ids: Iterable[str] | None = None,
+        provenance: Any = None,
+        correction_provenance: Any = None,
+        provenance_writer: str = "misconception",
         clock: Clock | None = None,
     ) -> str:
+        """Insert a registry belief. ``provenance`` / ``correction_provenance``
+        (``db.stores.write_provenance.WriteRecord``) record what the statement
+        and the correction were written from, in this transaction (diagnosis
+        input provenance); without one that text stays held back from chat."""
+
         if status not in {"active", "resolving", "resolved"}:
             raise ValueError("status must be one of active, resolving, resolved")
         misconception_id = id or new_ulid()
@@ -2299,8 +2307,27 @@ class Repository(
                 """,
                 (new_ulid(), misconception_id, status, now),
             )
+            self._record_text_provenance(
+                connection, "misconception", misconception_id, statement, provenance, provenance_writer, clock)
+            if correction_statement is not None:
+                self._record_text_provenance(
+                    connection, "misconception_correction", misconception_id, correction_statement,
+                    correction_provenance, f"{provenance_writer}_correction", clock)
             connection.commit()
         return misconception_id
+
+    @staticmethod
+    def _record_text_provenance(connection: Any, kind: str, record_id: str, text: Any, record: Any,
+                                writer: str, clock: Clock | None) -> None:
+        """One write-time provenance row for a text this transaction writes
+        (diagnosis input provenance), when its writer passed a record."""
+
+        if record is None or text is None:
+            return
+        from learnloop.db.stores.write_provenance import record_text_write
+
+        record_text_write(connection, kind=kind, record_id=record_id, text=text, writer=writer, record=record,
+                          clock=clock)
 
     def misconception(self, misconception_id: str) -> MisconceptionRecord | None:
         with self.connection() as connection:
@@ -2439,6 +2466,8 @@ class Repository(
         correction_statement: str | None = None,
         correction_source_span_ids: Iterable[str] | None = None,
         transition_source: str = "repository",
+        statement_provenance: Any = None,
+        correction_provenance: Any = None,
         clock: Clock | None = None,
     ) -> MisconceptionRecord | None:
         if status is not None and status not in {"active", "resolving", "resolved"}:
@@ -2517,6 +2546,16 @@ class Repository(
                         new_status, now, transition_source,
                     ),
                 )
+            # A rewritten statement or correction records what it was written
+            # from; one rewritten without a record no longer matches the text
+            # its earlier record covers, so it is held back (fail closed).
+            if statement is not None and statement != current.statement:
+                self._record_text_provenance(connection, "misconception", misconception_id, new_statement,
+                                             statement_provenance, f"{transition_source}_statement", clock)
+            if correction_statement is not None and correction_statement != current.correction_statement:
+                self._record_text_provenance(connection, "misconception_correction", misconception_id,
+                                             new_correction, correction_provenance,
+                                             f"{transition_source}_correction", clock)
             connection.commit()
         return self.misconception(misconception_id)
 
@@ -2792,8 +2831,13 @@ class Repository(
         item_ids: Iterable[str] | None = None,
         occurrence_count: int = 1,
         severity: float = 0.0,
+        provenance: Any = None,
+        provenance_writer: str = "misconception_candidate",
         clock: Clock | None = None,
     ) -> str:
+        """Insert a holding-pen candidate. ``provenance`` records what its
+        statement was written from (diagnosis input provenance)."""
+
         candidate_id = id or new_ulid()
         now = utc_now_iso(clock)
         with self.connection() as connection:
@@ -2829,6 +2873,8 @@ class Repository(
                     now,
                 ),
             )
+            self._record_text_provenance(connection, "candidate", candidate_id, statement, provenance,
+                                         provenance_writer, clock)
             connection.commit()
         return candidate_id
 
@@ -4048,9 +4094,24 @@ class Repository(
     # ── Tutor Q&A question events ─────────────────────────────────────────
 
     def insert_question_event(self, event: Mapping[str, Any], *, clock: Clock | None = None) -> str:
+        """Append a learner question. Q10 (diagnosis input provenance): it
+        records the item contract (revision) it was asked about: the one the
+        caller names (the item as presented), else, for a question asked
+        about a graded attempt, the attempt's pinned contract; None on no
+        item."""
+
         event_id = str(event.get("id") or new_ulid())
         now = event.get("created_at") or utc_now_iso(clock)
         with self.connection() as connection:
+            contract = event.get("assessment_contract_version_id")
+            if contract is None and event.get("attempt_id") and event.get("practice_item_id"):
+                from learnloop.db.stores.write_provenance import pinned_contract_ids
+
+                contract = pinned_contract_ids(
+                    connection, {str(event["attempt_id"]): str(event["practice_item_id"])}
+                ).get(str(event["attempt_id"]))
+            if not event.get("practice_item_id"):
+                contract = None
             connection.execute(
                 """
                 INSERT INTO question_events(
@@ -4060,9 +4121,10 @@ class Repository(
                   provider, answer_status,
                   preceding_tutor_move, scaffold_level, warning_state, learner_mode,
                   question_opportunity, hints_used_before, direct_explanation_request,
-                  attempt_progress, signal_channel, source_context_json, created_at
+                  attempt_progress, signal_channel, source_context_json, created_at,
+                  assessment_contract_version_id
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -4096,6 +4158,7 @@ class Repository(
                         else None
                     ),
                     now,
+                    None if contract is None else str(contract),
                 ),
             )
             connection.commit()
@@ -14618,6 +14681,8 @@ class Repository(
         generation_agent_run_id: str | None = None,
         model: str | None = None,
         hypothesis_id: str | None = None,
+        provenance: Any = None,
+        provenance_writer: str = "causal_hypothesis",
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Append a changed hypothesis version, or return the identical head.
@@ -14626,6 +14691,13 @@ class Repository(
         the semantic identity: a hypothesis that stops being unmapped (because a
         repair was finally authored for it) is a CHANGED interpretation and earns
         a new version, exactly like a changed statement would.
+
+        Diagnosis input provenance: ``provenance`` (a
+        ``db.stores.write_provenance.WriteRecord``) is what the statement was
+        written from, recorded with the version in its transaction. Without
+        one, a version that keeps its head's statement carries the head's
+        record forward (the statement was copied from it); any other version
+        records nothing and its statement stays held back from chat.
         """
 
         statement = statement.strip()
@@ -14669,6 +14741,13 @@ class Repository(
         version = int(latest.get("version") or 0) + 1 if latest is not None else 1
         hypothesis_id = hypothesis_id or new_ulid()
         with self.connection() as connection:
+            from learnloop.db.stores.write_provenance import closure, record_text_write, stored_record
+
+            carried = None
+            if provenance is None and latest is not None and str(latest.get("statement") or "") == statement \
+                    and stored_record(connection, "hypothesis", str(latest["id"])) is not None:
+                head = ("hypothesis", str(latest["id"]))
+                carried = closure(connection, [head], texts={head: statement})
             connection.execute(
                 """
                 INSERT INTO causal_hypotheses(
@@ -14711,6 +14790,12 @@ class Repository(
                     utc_now_iso(clock),
                 ),
             )
+            if provenance is not None or carried is not None:
+                record_text_write(
+                    connection, kind="hypothesis", record_id=hypothesis_id, text=statement,
+                    writer=provenance_writer if provenance is not None else "causal_hypothesis_version",
+                    record=provenance if provenance is not None else carried, clock=clock,
+                )
             connection.commit()
         created = self.causal_hypothesis(hypothesis_id)
         assert created is not None

@@ -46,6 +46,16 @@ Q16): the predicates and the protection shared, each text rule kept.
 * **Leakage of derived text** (:meth:`PastWork.evidence_reason`): a statement
   written from protected work (a cause diagnosed from an exam answer, a
   learner's words about a probe) keeps its entry and never its words.
+* **What a writer read** (diagnosis input provenance, spec_mcp_frontend_c1
+  §4.8): the inputs a derived text's write-time record names are checked
+  here too. An item whose rubric or reference solution the writer read
+  (directly or through a grader's output) is safe only once the learner can
+  no longer answer it cold (:meth:`PastWork.solution_reason`: its attempt
+  window is closed, the retrieval policy's rule for unlocking an item's own
+  solution, and nothing holds it); a source ref only when it is not exam or
+  held-out material (:meth:`PastWork.source_reason`); a learner question
+  only when it records the contract of its own, unprotected item
+  (:meth:`PastWork.question_reason`, Q10).
 
 Only the prompt and the required method of a contract are read here, never
 an answer key, a reference solution or a rubric. Read-only; nothing is
@@ -70,6 +80,11 @@ WITHHELD_COLD = "a check waiting in the app"
 WITHHELD_PROBE = "a diagnostic check"
 WITHHELD_UNREADABLE = "the protection rules could not be read"
 WITHHELD_UNKNOWN_ITEM = "its question could not be checked (not readable in the vault)"
+#: A text written with the rubric or reference solution of a question the
+#: learner can still answer cold (its attempt window is open).
+WITHHELD_SOLUTION_OPEN = "written with the worked solution of a question you can still answer"
+#: A text written from a learner question that records no contract of its own item (Q10).
+QUESTION_UNRECORDED = "a question it was written from records no question revision"
 #: An attempt a text names that is not on record.
 ANSWER_UNRECORDED = "an answer it was drawn from is not on record"
 #: A shown attempt with no established question revision.
@@ -85,6 +100,10 @@ PROTECTION_UNKNOWN = "which material is protected could not be read: no question
 EXAM_ATTEMPT_TYPES = frozenset({"exam_attempt", "exam_evidence"})
 PROBE_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe"})
 COLD_TASK_KINDS = ("cold_retry", "certification_cold_probe")
+#: A submission at or above this correctness closes an item's attempt window
+#: (``instructional.policy.WINDOW_CLOSING_CORRECTNESS``, the rule that unlocks
+#: an item's own solution for the learner; a test pins that they agree).
+WINDOW_CLOSING_CORRECTNESS = 0.999
 _CHUNK = 500
 
 
@@ -118,6 +137,10 @@ class Withheld:
     available: bool = True
     unknowns: tuple[str, ...] = ()
     known_items: frozenset[str] | None = None
+    #: The vault's exam material (``exam_material.exam_material``), for the
+    #: source refs a write-time record names; None when it was not read (a
+    #: source ref is then unsafe).
+    exam: Any = field(default=None, compare=False, repr=False)
 
     def reason(self, item_id: str | None) -> str | None:
         if not self.available:
@@ -220,7 +243,8 @@ def withheld_items(vault: Any, repository: Any) -> Withheld:
     except Exception:  # noqa: BLE001 - fail closed: nothing shows
         _LOG.warning("learner protection: protection predicates not read", exc_info=True)
         return Withheld(available=False, unknowns=(PROTECTION_UNKNOWN,))
-    return Withheld(reasons=reasons, known_items=frozenset(str(item_id) for item_id in vault.practice_items))
+    return Withheld(reasons=reasons, known_items=frozenset(str(item_id) for item_id in vault.practice_items),
+                    exam=exam)
 
 
 def attempt_protection(withheld: Withheld, attempt: Mapping[str, Any] | None) -> str | None:
@@ -321,26 +345,16 @@ def pinned_contracts(connection: Any, items: Mapping[str, Any]) -> dict[str, Pin
     """``{attempt id: its pinned contract}`` for the attempts (``{attempt id:
     practice item}``) graded against exactly one assessment contract of their
     own item: the only affirmative record of the question revision an answer
-    was graded against (router R2a review F6). Only the prompt and the frozen
-    required method are read (``json_extract``). Raises when they cannot be
-    read; the caller names that and pins nothing."""
+    was graded against (router R2a review F6; the rule is
+    ``db.stores.write_provenance.pinned_contract_ids``, which a writer's
+    record reads too). Only the prompt and the frozen required method are
+    read (``json_extract``). Raises when they cannot be read; the caller names
+    that and pins nothing."""
 
-    ids = [str(attempt_id) for attempt_id in items if attempt_id]
-    if not ids:
-        return {}
-    if not _table(connection, "assessment_contract_versions") or not _table(connection, "grading_evidence"):
-        return {}
-    contracts: dict[str, set[Any]] = {}
-    for start in range(0, len(ids), _CHUNK):
-        chunk = ids[start:start + _CHUNK]
-        for attempt_id, contract_id in connection.execute(
-            f"SELECT attempt_id, assessment_contract_version_id FROM grading_evidence "
-            f"WHERE superseded_at IS NULL AND attempt_id IN ({_marks(chunk)})", chunk,
-        ):
-            contracts.setdefault(str(attempt_id), set()).add(contract_id)
-    single = {attempt: next(iter(found)) for attempt, found in contracts.items()
-              if len(found) == 1 and None not in found}
-    versions = sorted({str(value) for value in single.values()})
+    from learnloop.db.stores.write_provenance import pinned_contract_ids
+
+    single = pinned_contract_ids(connection, items)
+    versions = sorted(set(single.values()))
     rows: dict[str, tuple[Any, Any, Any]] = {}
     for start in range(0, len(versions), _CHUNK):
         chunk = versions[start:start + _CHUNK]
@@ -407,6 +421,8 @@ class PastWork:
         self._withheld = withheld
         self._attempts: dict[str, dict[str, Any] | None] = {}
         self._pinned: dict[str, PinnedContract] = {}
+        self._windows: dict[str, bool] = {}
+        self._questions: dict[str, dict[str, Any] | None] = {}
 
     def _note(self, unknown: str) -> None:
         if unknown not in self.unknowns:
@@ -491,6 +507,126 @@ class PastWork:
                 return reason
         return None
 
+    # -- what a writer read (a derived text's write-time record) -----------------------
+
+    def window_closed(self, item_id: Any) -> bool:
+        """Whether the item's attempt window is closed: its latest attempt is a
+        correct submission whose grade is not held for review (the retrieval
+        policy's rule for unlocking an item's own solution,
+        ``instructional.policy.attempt_window_open``). An item never attempted,
+        or last answered wrongly, partly or with a held grade, is open: the
+        learner can still answer it cold."""
+
+        key = str(item_id or "")
+        if key not in self._windows:
+            row = self.connection.execute(
+                "SELECT id, correctness FROM practice_attempts WHERE practice_item_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1", (key,),
+            ).fetchone() if key else None
+            closed = bool(row is not None and row[1] is not None
+                          and float(row[1]) >= WINDOW_CLOSING_CORRECTNESS
+                          and str(row[0]) not in self.held([row[0]]))
+            self._windows[key] = closed
+        return self._windows[key]
+
+    def solution_reason(self, item_ids: Iterable[Any]) -> str | None:
+        """Why a text written with these items' rubrics or reference solutions
+        may not leave LearnLoop, or None: an item's own protection first, then
+        an attempt window still open (:meth:`window_closed`): showing it would
+        hand the learner the solution of a question they can still answer
+        cold."""
+
+        ids = sorted(_ids(item_ids))
+        if not ids:
+            return None
+        if not self.withheld.available:
+            return WITHHELD_UNREADABLE
+        for item in ids:
+            reason = self.withheld.reason(item)
+            if reason:
+                return reason
+        for item in ids:
+            if not self.window_closed(item):
+                return WITHHELD_SOLUTION_OPEN
+        return None
+
+    def source_reason(self, refs: Iterable[Mapping[str, Any]]) -> str | None:
+        """Why a text written from these source refs may not leave LearnLoop:
+        a ref that is (or may be) exam or held-out material
+        (``exam_material.source_ref_protected``, conservative where it cannot
+        place the text), or exam material that could not be read."""
+
+        found = [ref for ref in refs if ref]
+        if not found:
+            return None
+        if not self.withheld.available or self.withheld.exam is None or self.repository is None:
+            return WITHHELD_UNREADABLE
+        from types import SimpleNamespace
+
+        from learnloop.content.sources.exam_material import source_ref_protected
+
+        names = ("extraction_id", "span_ids", "locator", "revision_id", "source_id")
+        try:
+            for ref in found:
+                value = SimpleNamespace(**{name: ref.get(name) for name in names})
+                if source_ref_protected(self.withheld.exam, value, self.repository):
+                    return WITHHELD_EXAM
+        except Exception:  # noqa: BLE001 - fail closed
+            _LOG.warning("learner protection: a recorded source ref could not be checked", exc_info=True)
+            return WITHHELD_UNREADABLE
+        return None
+
+    def question(self, event_id: Any) -> dict[str, Any] | None:
+        """A learner question as recorded (``item``, ``attempt``, ``context``,
+        ``contract``: the item contract it was asked about, Q10), or None."""
+
+        key = str(event_id or "")
+        if key not in self._questions:
+            row = None
+            if key and _table(self.connection, "question_events"):
+                columns = {column[1] for column in self.connection.execute("PRAGMA table_info(question_events)")}
+                contract = ("assessment_contract_version_id" if "assessment_contract_version_id" in columns
+                            else "NULL")
+                row = self.connection.execute(
+                    f"SELECT practice_item_id, attempt_id, context, {contract} FROM question_events WHERE id = ?",
+                    (key,),
+                ).fetchone()
+            self._questions[key] = None if row is None else {
+                "item": None if row[0] is None else str(row[0]), "attempt": None if row[1] is None else str(row[1]),
+                "context": row[2], "contract": None if row[3] is None else str(row[3]),
+            }
+        return self._questions[key]
+
+    def question_reason(self, event_id: Any, contracts: Iterable[Any]) -> str | None:
+        """Why a text written from this learner question may not leave
+        LearnLoop: the question is not on record; on an item, the item or the
+        attempt it was asked during is protected, or the question records no
+        contract of that item, or not the one the writer read it under (Q10)."""
+
+        if not self.withheld.available:
+            return WITHHELD_UNREADABLE
+        row = self.question(event_id)
+        if row is None:
+            return QUESTION_UNRECORDED
+        if row["attempt"]:
+            reason = self.attempt_reason(row["attempt"])
+            if reason:
+                return reason
+        if not row["item"]:
+            return None
+        reason = self.withheld.reason(row["item"])
+        if reason:
+            return reason
+        recorded = {None if value in (None, "") else str(value) for value in contracts} or {None}
+        if row["contract"] is None or recorded != {row["contract"]}:
+            return QUESTION_UNRECORDED
+        owner = self.connection.execute(
+            "SELECT practice_item_id FROM assessment_contract_versions WHERE id = ?", (row["contract"],),
+        ).fetchone() if _table(self.connection, "assessment_contract_versions") else None
+        if owner is None or str(owner[0]) != row["item"]:
+            return QUESTION_UNRECORDED
+        return None
+
 
 # -- the text rule, a parameter --------------------------------------------------------
 
@@ -561,14 +697,17 @@ __all__ = [
     "PINS_UNREADABLE",
     "PROBE_MODES",
     "PROTECTION_UNKNOWN",
+    "QUESTION_UNRECORDED",
     "SNAPSHOT_UNSETTLED",
     "STEM_UNRECORDED",
     "WITHHELD_COLD",
     "WITHHELD_EXAM",
     "WITHHELD_PROBE",
     "WITHHELD_RESERVED",
+    "WITHHELD_SOLUTION_OPEN",
     "WITHHELD_UNKNOWN_ITEM",
     "WITHHELD_UNREADABLE",
+    "WINDOW_CLOSING_CORRECTNESS",
     "PastWork",
     "PastWorkText",
     "PinnedContract",

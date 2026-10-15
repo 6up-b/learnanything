@@ -696,6 +696,12 @@ class VaultHistoryStore:
                 events.setdefault(str(row[1]), []).append(
                     {"error_type": str(row[2]), "repair_plan": _decode_json(row[3], {}) or {}}
                 )
+            # Q9: an event a regrade re-minted still names its attempt, so a
+            # belief that lists it keeps its source answer.
+            from learnloop.db.stores.write_provenance import replaced_error_event_attempts
+
+            for replaced, attempt_id in replaced_error_event_attempts(connection).items():
+                self._error_event_attempt.setdefault(replaced, attempt_id)
             fatal: dict[str, list[str]] = {
                 str(row[0]): [str(value) for value in _decode_json(row[1], [])]
                 for row in connection.execute(

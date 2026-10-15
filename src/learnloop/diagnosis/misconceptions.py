@@ -11,6 +11,7 @@ fresh LLM call.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.diagnosis.ai_contracts import (
@@ -327,6 +328,8 @@ def normalize_attempt_misconceptions(
                 facet_ids=_event_facet_ids(vault, event, attempt),
                 severity=severity,
                 source_error_event_ids=[event["id"]],
+                provenance=_event_statement_provenance(repository, attempt_id, event),
+                provenance_writer="normalizer",
                 clock=clock,
             )
             inserted = repository.misconception(misconception_id)
@@ -550,6 +553,7 @@ def promote_candidate(
         candidate.get("target_facet"),
         candidate.get("confused_with_facet"),
     )
+    statement_provenance, correction_provenance = _promotion_provenance(vault, repository, candidate)
     misconception_id = repository.insert_misconception(
         learning_object_id=candidate["learning_object_id"],
         statement=candidate["statement"],
@@ -566,6 +570,9 @@ def promote_candidate(
         promotion_reason=reason,
         correction_statement=correction_statement,
         correction_source_span_ids=correction_spans,
+        provenance=statement_provenance,
+        correction_provenance=correction_provenance,
+        provenance_writer="promotion",
         clock=clock,
     )
     repository.update_misconception_candidate(
@@ -585,6 +592,46 @@ def promote_candidate(
         clock=clock,
     )
     return misconception_id
+
+
+def _event_statement_provenance(repository: Repository, attempt_id: str, event: dict) -> Any:
+    """What an error event's misconception statement was written from: the
+    attempt's grading and the diagnosis whose causal view lies over the event
+    (diagnosis input provenance)."""
+
+    from learnloop.db.stores.write_provenance import attempt_statement_refs, closure, fold_topic_records
+
+    with repository.connection() as connection:
+        return fold_topic_records(connection, closure(connection, attempt_statement_refs(
+            connection, attempt_id, diagnosis_id=str(event.get("diagnosis_id") or "") or None)))
+
+
+def _promotion_provenance(vault: LoadedVault, repository: Repository, candidate: dict) -> tuple[Any, Any]:
+    """What a promoted belief's statement and correction were written from
+    (diagnosis input provenance). The statement is the candidate's, copied:
+    its record (a projected candidate's is its causal hypothesis's). The
+    correction is frozen from authored facet claims: their topic and the
+    source refs the facets were authored from."""
+
+    from learnloop.db.stores.write_provenance import Inputs, WriteRecord, closure, fold_topic_records
+
+    candidate_id = str(candidate.get("id") or "")
+    kind = "hypothesis" if candidate_id and repository.causal_hypothesis(candidate_id) is not None else "candidate"
+    ref = (kind, candidate_id)
+    with repository.connection() as connection:
+        statement = fold_topic_records(connection, closure(
+            connection, [ref], texts={ref: str(candidate.get("statement") or "").strip()
+                                      if kind == "hypothesis" else candidate.get("statement")}))
+    refs = [
+        source
+        for facet_id in (candidate.get("target_facet"), candidate.get("confused_with_facet"))
+        if facet_id
+        for facet in (vault.evidence_facets.get(vault.canonical_facet_id(str(facet_id))),)
+        if facet is not None
+        for source in facet.provenance.source_refs
+    ]
+    correction = WriteRecord(Inputs.of(topics=[candidate.get("learning_object_id")], sources=refs))
+    return statement, correction
 
 
 def _authored_correction(

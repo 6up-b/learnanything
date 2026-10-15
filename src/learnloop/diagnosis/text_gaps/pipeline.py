@@ -564,10 +564,18 @@ def _create(
         except Exception as exc:  # noqa: BLE001
             detail["reason"] = f"draft_failed: {type(exc).__name__}"
             return actions.ActionOutcome("unmatched_prerequisite", detail=detail)
+        from learnloop.diagnosis.text_gaps.provenance import drafter_record
+
+        # Diagnosis input provenance: what the drafter was shown, recorded
+        # with the draft so a resumed creation records the same.
+        with repository.connection() as connection:
+            provenance = drafter_record(connection, vault, text, reading, subject_id=subject_id,
+                                        shown_concept_titles=context["concepts_in_subject"])
         # Recorded BEFORE anything is written: a retry reuses the draft and
         # the ids derived from it and this text (F3).
         created = {**actions.creation_ids(text, draft, dependent_lo=text.anchor), "subject_id": subject_id,
-                   "draft": draft.model_dump(mode="json"), "detail": detail}
+                   "draft": draft.model_dump(mode="json"), "detail": detail,
+                   "provenance": provenance.as_json()}
         checkpoint(created=created)
     if not created.get("edge_status"):
         written = actions.write_created_prerequisite(
@@ -585,6 +593,7 @@ def _create(
         created_concept_id=created.get("concept_id"), created_learning_object_id=created["learning_object_id"],
         detail={**detail, "edge": created.get("edge_status") or "no_asking_learning_object",
                 "draft": created.get("draft")},
+        created_provenance=created.get("provenance"),
     )
     if "seed" in created:
         outcome.seed_practice_item_id, outcome.seed_status = created["seed"]
@@ -854,6 +863,8 @@ def process_learner_text(
     with repository.atomic():
         connection = repository.connection()
         gap_id = store.insert_gap(connection, row)
+        _record_written_texts(connection, vault, text, outcome, gap_id=gap_id, learner_words=row["learner_text"],
+                              clock=clock)
         # A holding-pen candidate or a sighting commits with its ledger row:
         # a retry before this point wrote nothing, after it reads the row (F3).
         for write in outcome.writes:
@@ -866,6 +877,42 @@ def process_learner_text(
         repository.bump_queue_revision(clock=clock)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         return store.gap(connection, gap_id)
+
+
+def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText, outcome: actions.ActionOutcome, *,
+                          gap_id: str, learner_words: str, clock: Clock | None) -> None:
+    """Diagnosis input provenance, in the ledger row's transaction: a
+    question's words (the gap's), a created prerequisite's drafted title and
+    a seeded item's question each record what they were written from
+    (``text_gaps.provenance``). A gap drawn from an answer shows the answer
+    itself (rule (b)) and needs no record."""
+
+    from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
+    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, question_record
+
+    if text.source_kind == "tutor_question":
+        record_text_write(
+            connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
+            record=question_record(connection, str(text.question_event_id or text.source_id),
+                                   topics=text.anchor_learning_object_ids),
+            clock=clock,
+        )
+    created = outcome.created_learning_object_id
+    if outcome.action == "created_prerequisite" and created and created in vault.learning_objects:
+        drafted = (WriteRecord.from_json(outcome.created_provenance) if outcome.created_provenance is not None
+                   else WriteRecord.incomplete("the drafter's inputs were not recorded (drafted before write-time "
+                                               "provenance)"))
+        record_text_write(connection, kind="learning_object", record_id=str(created),
+                          text=vault.learning_objects[str(created)].title, writer="prerequisite_drafter",
+                          record=drafted, clock=clock)
+        seeded = outcome.seed_practice_item_id
+        item = vault.practice_items.get(str(seeded)) if seeded else None
+        if item is not None:
+            # Authored by the question-promotion path from the tutor's answer.
+            record_text_write(
+                connection, kind="practice_item", record_id=str(seeded), text=item.prompt, writer="gap_seed",
+                record=drafted.join(WriteRecord.incomplete(TUTOR_UNRECORDED)), clock=clock,
+            )
 
 
 def failed_row(

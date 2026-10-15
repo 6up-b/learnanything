@@ -348,7 +348,16 @@ def test_c3_k1_leaves_no_sample_support_on_the_stored_attribution(tmp_path):
     assert receipts[0]["c3_sample_count"] == 1
 
 
-def test_post_commit_receipt_failure_never_records_a_fallback_attempt(tmp_path, monkeypatch):
+def test_a_receipt_that_cannot_be_written_commits_no_augmented_grade(tmp_path, monkeypatch):
+    """Q14 (diagnosis input provenance): the Phase-C receipt is written in the
+    grading transaction. Before, it was written after the grade committed and
+    a failure was swallowed (or left a committed grade behind), so a joint
+    grade could stand with no receipt and read as "shown nothing". Now a
+    receipt that cannot be written rolls the model grade back: what commits
+    is the door's ordinary fallback (the learner's self-grade), with no model
+    evidence, no receipt and no grading record, so a missing receipt
+    reliably means "not augmented"."""
+
     from learnloop.attempts import attempts
     paths = create_basic_vault(tmp_path / "vault")
     vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
@@ -356,17 +365,47 @@ def test_post_commit_receipt_failure_never_records_a_fallback_attempt(tmp_path, 
     def fail(*args, **kwargs):
         raise ValueError("interrupted augmentation receipt")
     monkeypatch.setattr(attempts, "_record_diagnostic_augmentation", fail)
-    with pytest.raises(ValueError, match="augmentation receipt"):
-        complete_attempt_with_ai_fallback(
-            vault, repository,
-            AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A = U Sigma"),
-            SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
-            runtime=AIRuntimeReport(status="ready", active_provider="fake", provider_type="openai_chat", model="fake"),
-            ai_client=_SequenceDiagnostician([lambda context: _proposal(context.attempt_id)]),
-        )
+    result = complete_attempt_with_ai_fallback(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A = U Sigma"),
+        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+        runtime=AIRuntimeReport(status="ready", active_provider="fake", provider_type="openai_chat", model="fake"),
+        ai_client=_SequenceDiagnostician([lambda context: _proposal(context.attempt_id)]),
+    )
     with repository.connection() as connection:
         assert connection.execute("SELECT count(*) FROM practice_attempts").fetchone()[0] == 1
-        assert connection.execute("SELECT count(*) FROM attempt_completion_work WHERE status='pending'").fetchone()[0] == 1
+        assert connection.execute("SELECT id FROM practice_attempts").fetchone()[0] == result.attempt_id
+        assert connection.execute(
+            "SELECT count(*) FROM grading_evidence WHERE agent_run_id IS NOT NULL AND superseded_at IS NULL "
+            "AND grader_tier = 3").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM diagnostic_augmentation_receipts").fetchone()[0] == 0
+        assert connection.execute("SELECT count(*) FROM text_write_provenance WHERE kind = 'grading'").fetchone()[0] == 0
+
+
+def test_a_committed_joint_grade_carries_its_receipt_and_grading_record(tmp_path):
+    """Q14: the receipt (with the C4 history shown) and the grading's record
+    commit with the grade, in one transaction."""
+
+    from learnloop.db.stores.write_provenance import grading_record
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository)
+    result = complete_attempt_with_ai_fallback(
+        vault, repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A = U Sigma"),
+        SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+        runtime=AIRuntimeReport(status="ready", active_provider="fake", provider_type="openai_chat", model="fake"),
+        ai_client=_SequenceDiagnostician([lambda context: _proposal(context.attempt_id)]),
+    )
+    with repository.connection() as connection:
+        (receipts,) = connection.execute(
+            "SELECT count(*) FROM diagnostic_augmentation_receipts WHERE attempt_id = ?", (result.attempt_id,)
+        ).fetchone()
+        record = grading_record(connection, result.attempt_id)
+    assert receipts == 1
+    assert record.complete and set(record.inputs.answers) == {result.attempt_id}
+    assert record.inputs.solution_items == frozenset({"pi_svd_define_001"})
 
 
 def test_c3_disagreement_becomes_unresolved_cause_set_and_real_support():

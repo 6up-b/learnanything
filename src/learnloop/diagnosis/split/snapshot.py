@@ -49,6 +49,9 @@ class SnapshotManifest:
     known: KnownIds
     as_of_attempt_id: str
     attempt_count: int
+    #: What each exported file serves (diagnosis input provenance): mapped
+    #: from the diagnoser's reported activity by ``provenance.snapshot_reads``.
+    entries: Any = None
 
     @property
     def file_count(self) -> int:
@@ -247,6 +250,17 @@ def export_snapshot(
         path.write_text(text, encoding="utf-8")
         written[relative] = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+    from learnloop.diagnosis.split.provenance import (
+        DiagnosisReads,
+        SnapshotEntries,
+        attempt_read,
+        hypothesis_read,
+        registry_read,
+        repair_read,
+    )
+
+    served: dict[str, DiagnosisReads] = {}
+    index_topics: set[str] = set()
     attempts = store.attempts_before(before, None)
     facets: set[str] = set()
     titles = {lo_id: lo.title for lo_id, lo in vault.learning_objects.items()}
@@ -262,6 +276,8 @@ def export_snapshot(
     for attempt in attempts:
         relative = f"attempts/{_safe(attempt.completed_at)}_{_safe(attempt.attempt_id)}.md"
         write(relative, render_attempt(attempt, titles.get(attempt.learning_object_id, attempt.learning_object_id)))
+        served[relative] = attempt_read(attempt)
+        index_topics.add(attempt.learning_object_id)
         facets.update(attempt.facets())
         index_lines.append(
             f"- {relative}: {attempt.learning_object_id}; "
@@ -275,12 +291,16 @@ def export_snapshot(
     for record in hypotheses:
         relative = f"hypotheses/{_safe(record.id)}.md"
         write(relative, _render_hypothesis(record))
+        served[relative] = hypothesis_read(record)
+        index_topics.update(value for value in (record.learning_object_id,) if value)
         facets.update(record.target_facets)
         index_lines.append(f"- {relative}: {record.kind}; {record.lifecycle}; {record.learning_object_id}")
     index_lines += ["", "## Registry", ""]
     for record in registry:
         relative = f"registry/{_safe(record.id)}.md"
         write(relative, _render_registry(record))
+        served[relative] = registry_read(record)
+        index_topics.update(value for value in (record.learning_object_id,) if value)
         facets.update(record.facet_ids)
         index_lines.append(f"- {relative}: {record.kind}; {record.status}; {record.learning_object_id}")
     by_facet: dict[str, list[RepairRecord]] = {}
@@ -291,12 +311,15 @@ def export_snapshot(
     for facet, records in sorted(by_facet.items()):
         relative = f"repairs/{_safe(facet)}.md"
         write(relative, _render_repairs(facet, records))
+        served[relative] = DiagnosisReads().join(*(repair_read(record) for record in records))
         index_lines.append(f"- {relative}: {len(records)} repair class(es)")
     graph_text, graph_facets = _render_graph(vault)
     facets.update(graph_facets)
     write("graph/learning_objects.md", graph_text)
+    served["graph/learning_objects.md"] = DiagnosisReads(topics=tuple(sorted(vault.learning_objects)))
     index_lines += ["", "## Graph", "", "- graph/learning_objects.md", ""]
     write("INDEX.md", "\n".join(index_lines))
+    served["INDEX.md"] = DiagnosisReads(topics=tuple(sorted(value for value in index_topics if value)))
 
     digest = hashlib.sha256()
     for relative in sorted(written):
@@ -316,6 +339,7 @@ def export_snapshot(
         known=known,
         as_of_attempt_id=before.attempt_id,
         attempt_count=len(attempts),
+        entries=SnapshotEntries(root=destination, entries=served),
     )
 
 

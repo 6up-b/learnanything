@@ -173,10 +173,13 @@ passed cold checks) and the repairs tried; recurrence groups; recent answer trac
 learner's answer excerpt, the blind grade class, the diagnosis status, held, hints, primed, revealed-before,
 stuck, cold-check and entry-surface labels); open learner-text gaps (what kind, which action, which topic, minus
 reversed ones); retention risks (FSRS recall now below 0.8, or due). Since the narrow stage (§4.7) the
-statements, corrections, summaries and gap targets in these sections are held back: the entries, ids,
-statuses, counts and dates show, the wording does not.
+statements, corrections, summaries and gap targets in these sections are held back unless rule (c) releases
+them: since the diagnosis-input-provenance stage (§4.8, migration 204) a text whose writer recorded what it
+read, completely, with every recorded input safe, is shown; the entries, ids, statuses, counts and dates
+always show.
 
-**What chat shows now, and what it holds back (owner decision 2026-10-14):**
+**What chat shows, and what it holds back (owner decision 2026-10-14; the right column is shown under (c)
+once a text's write-time record is complete and safe, §4.8):**
 
 | Shown | Held back (`Held back until LearnLoop records what this was written from`) |
 |---|---|
@@ -215,10 +218,14 @@ chat host, also takes the narrow text rule is an owner question (record, Q16).
      snapshot (`learner_context.KeyBook`, read for filtering only; `tutor_qa.span_leaks_expected`). Chat adds
      one rule the card does not: a correct answer that states the key is withheld (Q2);
    - **(c) a derived text with a recorded, complete write-time provenance whose inputs are all safe**
-     (`learner_context.WriteProvenance`, read through a `ProvenanceSource`): every answer it names passes
-     (b)'s checks, every item its protection, every topic is authored, and the text reproduces no key of
-     those items and topics. This is the hook for the follow-up stage (§4.8); **no producer writes a record
-     yet**, so (c) releases nothing today.
+     (`learner_context.WriteProvenance`, read through a `ProvenanceSource`; by default
+     `recorded_write_provenance`, the `text_write_provenance` records of §4.8): the record covers the text
+     as stored (its hash), every answer it names passes (b)'s checks under the revision it was read with,
+     every item its protection, every item whose rubric or reference solution the writer read can no
+     longer be answered cold (`learner_protection.PastWork.solution_reason`), every source ref is not exam
+     material, every learner question records the contract of its own unprotected item (Q10), every topic
+     is authored or carries its own folded record, and the text reproduces no key of those items and
+     topics. The kill switch `diagnosis.chat_shows_recorded_text` (on) puts back "nothing derived".
 
    Everything else is held back with one plain reason, `Held back until LearnLoop records what this was
    written from`; an entry whose own answer is protected names that instead ("a check waiting in the app").
@@ -259,24 +266,48 @@ chat host, also takes the narrow text rule is an owner question (record, Q16).
 4. A question is the attempt's pinned contract prompt, never today's edited prompt; only the prompt is
    read from a contract.
 
-### 4.8 Follow-up: "diagnosis input provenance" (desktop stage, unlocks the prose)
+### 4.8 Diagnosis input provenance (built: `diagnosis/input-provenance`, migration 204)
 
-Queued after method-explicit lands. Each writer records, in the transaction that writes the text, exactly
-what it read, as a `WriteProvenance` the read model's `ProvenanceSource` reads:
+Every writer of a model-written text records, in the transaction that writes it, exactly what it read, as
+a closed record (`db.stores.write_provenance`, table `text_write_provenance`, RAW_LEDGER, append-only): its
+own reads plus the recorded inputs of every derived text it read. A text's provenance is the union of its
+writers' rows; a text with no row, an incomplete row, or a row whose hash no longer matches the text is
+held back. Old rows have none and stay held back; a re-diagnosis writes new, recorded ones.
 
-- **Diagnoses** record which attempts, files and snapshot entries they read (the snapshot export's opened
-  files mapped back to attempts, items and topics; an export the diagnoser could not account for makes the
-  record incomplete), and the normalizer, the gap reader and the prerequisite drafter carry the union of
-  their inputs' records into what they write (a closed record).
-- **C4 receipts** are written inside the grading transaction (Q14), so a missing receipt means "not
-  augmented".
-- **Regrades keep event-id lineage** (Q9), so a belief that lists a replaced event can still be followed.
-- **`question_events` record the item contract** (or snapshot hash) a question was asked about (Q10).
-- **What of an item a writer saw.** The (c) check filters a text against the answer keys of every item
-  and topic its record names. A writer that read an item's rubric or reference solution must record that
-  too, and the check must filter against it (or refuse the record) before any producer is switched on.
+- **Gradings** (`kind = grading`, keyed by attempt): the answer under its pinned contract, the item's
+  question, rubric and reference solution, its topic, and the prior answers the joint grader was shown
+  (C4). **Q14:** the joint grade, its Phase-C receipt and this record commit in one transaction (a receipt
+  that cannot be written fails the grading), so a missing receipt means "not augmented". A grading made
+  before migration 204 is accounted for by its own ledger: blind (learner-blind by construction), a
+  model-free grade (no grader text), a joint grade with a C4 receipt; a joint model grade without one is
+  incomplete.
+- **Diagnoses** (`diagnosis.split.provenance`): every attempt the context showed (under its pinned
+  contract; with its grading folded in when a grader's output about it was shown, and its item's rubric
+  and reference solution counted as read), the diagnosed item's rubric and reference solution, the
+  neighbourhood's topics, and every prior hypothesis, registry statement, repair and unresolved-cause
+  factor read (their records folded in). **The snapshot workspace:** the transport's reported reads are
+  mapped to the export entries they served (a plain read serves its file; a listing names only; anything
+  else counts as the whole export); no report, or a path outside the export, makes the record incomplete.
+- **Copy writers:** materialized hypotheses fold the attempt's grading and the diagnosis whose causal view
+  lies over the event (a factor's candidate: every completed diagnosis of the attempt); a hypothesis
+  version that keeps its head's statement carries the head's record; candidates (error hunts, the gap
+  reader, a confirmed factor) and promoted misconceptions fold their sources; a correction frozen from
+  facet claims records the source refs those facets were authored from.
+- **Learner-text gaps:** a question's words record the question with its contract (Q10), its item, the
+  attempt it was asked during, the passage a Reader question was asked on and, when the learner could have
+  seen the item's solution first (a feedback question, a reveal), the solution and the grading; the
+  drafter of a generated topic records the reading, the learner text and its context, the asking topic and
+  the concept titles it was shown. A tutor question's reading is written by the tutor, whose inputs are not
+  recorded yet: what it names (a belief, a drafted topic, a seeded item) is recorded incomplete.
+- **Q9:** a regrade's re-minted error events record the ids they replace (`error_event_lineage`), so a
+  belief listing a replaced event still resolves (`current_error_event_ids`; the diagnosis history reads it).
+- **Q10:** `question_events.assessment_contract_version_id`: the item as presented mid-attempt, or the
+  graded attempt's pinned contract.
+- **What of an item a writer saw:** a rubric or reference solution read for an item the learner can still
+  answer cold (its attempt window is open: the retrieval policy's rule for unlocking an item's own
+  solution) holds the text back until the window closes.
 
-Until then (c) releases nothing and the table in §4.6 is what chat shows.
+The router card keeps its G5 rule; it may read the same records.
 
 ## 5. Telemetry: the chat side in the existing ledgers
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from contextlib import closing, nullcontext
+from contextlib import closing
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
@@ -2009,10 +2009,17 @@ def _complete_joint_graded_attempt(
     ``judgment_ledger`` in the transaction that records the grade, so the
     confusion signal and :func:`learnloop.attempts.stuck.stuck_answers` read
     it in either grading mode. The applied proposal is the ordinary joint one.
+
+    Q14 (diagnosis input provenance): the Phase-C receipt (with the C4 history
+    the grader was shown) and the grading's write-time record are written in
+    the transaction that records the grade, so a grade never commits without
+    them and a missing receipt reliably means "not augmented". A receipt that
+    cannot be written fails the grading (nothing commits), never the reverse.
     """
 
     from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
     from learnloop.attempts.grading import grading_context_hash
+    from learnloop.db.stores.write_provenance import grading_in_progress, record_grading
 
     consensus = _run_augmented_diagnosis(vault, ai_client, context)
     proposal = consensus.proposal
@@ -2020,7 +2027,8 @@ def _complete_joint_graded_attempt(
     if isinstance(proposal, StuckGradingProposal):
         marker = verified_stuck_reading(proposal.stuck_reading, draft.learner_answer_md)
         proposal = proposal.as_grading_proposal()
-    with repository.atomic() if marker is not None else nullcontext():
+    shown = [row.get("attempt_id") for row in getattr(context, "diagnostic_history", None) or ()]
+    with repository.atomic(), grading_in_progress(attempt_id, shown_history=shown):
         result = complete_codex_graded_attempt(
             vault,
             repository,
@@ -2042,14 +2050,21 @@ def _complete_joint_graded_attempt(
                 input_hash=grading_context_hash(context),
                 created_at=utc_now_iso(clock),
             )
-    _record_diagnostic_augmentation(
-        repository,
-        attempt_id=attempt_id,
-        context=context,
-        consensus=consensus,
-        client=ai_client,
-        clock=clock,
-    )
+        _record_diagnostic_augmentation(
+            repository,
+            attempt_id=attempt_id,
+            context=context,
+            consensus=consensus,
+            client=ai_client,
+            clock=clock,
+        )
+        record_grading(
+            repository.connection(),
+            attempt_id=result.attempt_id,
+            writer="joint_grader",
+            shown_history=shown,
+            clock=clock,
+        )
     return result
 
 
@@ -2147,7 +2162,9 @@ def _complete_blind_graded_attempt(
             run.stuck_reading, draft.learner_answer_md
         )
     identity = (blind.calibration_prompt_version, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
-    with repository.atomic():
+    from learnloop.db.stores.write_provenance import grading_in_progress
+
+    with repository.atomic(), grading_in_progress(attempt_id):
         result = complete_codex_graded_attempt(
             vault,
             repository,
@@ -2174,6 +2191,11 @@ def _complete_blind_graded_attempt(
             record=record,
             clock=clock,
         )
+        # Diagnosis input provenance: what this (learner-blind) grader read,
+        # recorded with the grade.
+        from learnloop.db.stores.write_provenance import record_grading
+
+        record_grading(repository.connection(), attempt_id=result.attempt_id, writer="blind_grader", clock=clock)
         # mvp-0.20 (review F4): the grader's route verdict and the rule's
         # outcome, a ledger verdict in the same transaction (no model call).
         record_route_rule_judgment(
@@ -2313,26 +2335,21 @@ def _record_diagnostic_augmentation(
     client: AIProviderClient,
     clock: Clock | None,
 ) -> None:
-    """Telemetry must not be able to turn a committed grade into a failure."""
+    """The Phase-C receipt, written in the grading transaction (Q14): a
+    failure propagates and rolls the grade back, so a committed joint grade
+    always has its receipt and a missing one means "not augmented"."""
 
     from learnloop.diagnosis.diagnostic_augmentation import record_phase_c_receipt
 
-    try:
-        record_phase_c_receipt(
-            repository,
-            attempt_id=attempt_id,
-            context=context,
-            consensus=consensus,
-            grader_provider=getattr(client, "provider_name", None),
-            grader_model=getattr(client, "model", None),
-            clock=clock,
-        )
-    except Exception:  # pragma: no cover - defensive side-channel boundary
-        logging.getLogger(__name__).warning(
-            "failed to record diagnostic augmentation receipt for attempt %s",
-            attempt_id,
-            exc_info=True,
-        )
+    record_phase_c_receipt(
+        repository,
+        attempt_id=attempt_id,
+        context=context,
+        consensus=consensus,
+        grader_provider=getattr(client, "provider_name", None),
+        grader_model=getattr(client, "model", None),
+        clock=clock,
+    )
 
 
 def _assessment_contract(

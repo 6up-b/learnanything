@@ -334,6 +334,9 @@ class AssembledContext:
     tokens: int
     #: History records the context drew on, for citation validation.
     attempts: dict[str, HistoryAttempt] = field(default_factory=dict)
+    #: What the context showed the diagnoser (diagnosis input provenance,
+    #: ``provenance.reads_of_context``): recorded with the diagnosis.
+    reads: Any = None
 
     def rendered(self) -> str:
         return render_context(self.blocks, self.current)
@@ -815,6 +818,18 @@ def assemble_diagnosis_context(
         hypothesis_ids=[record.id for record in hypothesis_rows],
         registry_candidate_ids=[record.id for record in registry_rows],
     )
+    from learnloop.diagnosis.split.provenance import reads_of_context
+
+    reads = reads_of_context(
+        current_attempt_id=current.attempt_id,
+        current_item_id=current.practice_item_id,
+        current_learning_object_id=current.learning_object_id,
+        learning_object_ids=lo_ids,
+        attempts=shown_attempts,
+        hypotheses=hypothesis_rows,
+        registry=registry_rows,
+        repairs=repairs,
+    )
     return AssembledContext(
         mode=mode,
         blocks={key: built[key] for key in STABLE_BLOCKS if key in built},
@@ -824,6 +839,7 @@ def assemble_diagnosis_context(
         context_hash=context_hash,
         tokens=tokens,
         attempts=attempts_map,
+        reads=reads,
     )
 
 

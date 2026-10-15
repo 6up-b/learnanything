@@ -57,6 +57,9 @@ class DiagnosisOutcome:
     latency_seconds: float | None = None
     context_hash: str | None = None
     prompt_tokens: int | None = None
+    #: What the diagnoser read (``provenance.DiagnosisReads``), recorded with
+    #: the diagnosis (diagnosis input provenance); None when nothing was sent.
+    reads: Any = None
 
     @property
     def unknown_id_count(self) -> int:
@@ -139,6 +142,11 @@ def run_diagnosis(
                     "opened": opened,
                     "opened_reported": opened is not None,
                 }
+                # The export entries the reported reads served, recorded with
+                # the diagnosis (never inferred from what it wrote).
+                from learnloop.diagnosis.split.provenance import snapshot_reads
+
+                outcome.reads = assembled.reads.join(snapshot_reads(manifest.entries, opened))
                 validated = validate_diagnosis_proposal(
                     proposal,
                     assembled=assembled,
@@ -162,6 +170,7 @@ def run_diagnosis(
             )
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash
+            outcome.reads = assembled.reads
             proposal, outcome.prompt_tokens = _call(client, assembled, guard=guard, workspace=None)
             validated = validate_diagnosis_proposal(
                 proposal,
