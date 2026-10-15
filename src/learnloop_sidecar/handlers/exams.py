@@ -33,12 +33,14 @@ from learnloop.attempts.grading import (
     validate_codex_grading_proposal,
     vault_grading_calibration_identity,
 )
+from learnloop.db.stores.answered_contracts import answered_contracts
+from learnloop.vault.required_method import answered_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.goals import GoalIdInput, _find_goal
-from learnloop_sidecar.handlers.serializers import item_presentation
+from learnloop_sidecar.handlers.serializers import answered_presentation, item_presentation
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.dto import EmptyParams
 
@@ -455,7 +457,8 @@ def _learner_repair_dto(suggestion: Any) -> dict[str, Any] | None:
 
 
 def _item_review_fields(
-    vault, answer: dict[str, Any] | None, practice_item_id: str
+    vault, answer: dict[str, Any] | None, practice_item_id: str,
+    *, contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Post-sitting review payload for one exam item.
 
@@ -464,6 +467,12 @@ def _item_review_fields(
     just as well as a fresh one — the grade JSON was always retained, only the
     serializer dropped it. Nothing here is reachable mid-exam: the only caller
     is the finished-report DTO.
+
+    ``contract`` is the assessment contract the answer's attempt was graded
+    under (method-explicit-3 review F3): a method-explicit answer is reviewed
+    against the question it was given (``prompt``, and ``presentation`` for
+    the screen), never today's item; ``presentation`` is None otherwise and
+    the screen shows the item as it is.
     """
 
     item = vault.practice_items.get(practice_item_id)
@@ -479,7 +488,11 @@ def _item_review_fields(
         if dto is not None
     ]
     return {
-        "prompt": item.prompt if item is not None else None,
+        # The question as it was presented (round 3: a required method's
+        # instruction rendered after the statement; method-explicit-3 F3:
+        # from the contract the answer was graded under).
+        "prompt": answered_prompt(item, contract),
+        "presentation": answered_presentation(item, contract) if item is not None else None,
         "answer_md": (answer or {}).get("answer_md"),
         "rubric_score": (answer or {}).get("rubric_score"),
         "max_points": rubric.max_points if rubric is not None else None,
@@ -494,6 +507,12 @@ def _report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]:
         row["practice_item_id"]: row
         for row in repository.exam_answers(report["session_id"])
     }
+    # Method-explicit-3 review F3: each answer is reviewed against the
+    # contract its attempt was graded under.
+    with repository.connection() as connection:
+        contracts = answered_contracts(
+            connection, [row["attempt_id"] for row in answers_by_item.values() if row.get("attempt_id")]
+        )
     predicted_values = [
         entry["predicted_correctness"]
         for entry in items
@@ -536,6 +555,9 @@ def _report_dto(vault, repository, report: dict[str, Any]) -> dict[str, Any]:
                     vault,
                     answers_by_item.get(entry["practice_item_id"]),
                     entry["practice_item_id"],
+                    contract=contracts.get(
+                        str((answers_by_item.get(entry["practice_item_id"]) or {}).get("attempt_id") or "")
+                    ),
                 ),
             }
             for entry in items

@@ -33,6 +33,7 @@ from learnloop.substrate.activity_patterns import (
     validate_task_features,
 )
 from learnloop.curriculum.depth_rungs import TASK_FEATURE_SCHEMA_SLUG
+from learnloop.vault.required_method import fit_presented_prompt
 
 
 class RungBackfillError(ValueError):
@@ -104,7 +105,9 @@ def backfill_item_rungs(
                 {
                     "practice_item_id": item.id,
                     "practice_mode": item.practice_mode,
-                    "prompt_excerpt": _excerpt(item.prompt, 400),
+                    # The question as presented, its required method's
+                    # instruction whole (method-explicit-3 review F4/F5).
+                    "prompt_excerpt": fit_presented_prompt(item.prompt, item.required_method, 400, _excerpt),
                     "expected_answer_excerpt": _excerpt(item.expected_answer, 250),
                     "retrieval_demand": item.retrieval_demand,
                     "transfer_distance": item.transfer_distance,

@@ -49,8 +49,11 @@ from learnloop.source_retrieval.contracts import VERDICT_SCORE, SpanVerification
 from learnloop.source_retrieval.queries import MAX_QUERY_CHARS, query_id
 from learnloop.source_retrieval.search import SpanHit
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import fit_presented_prompt
 
 VERIFY_PROMPT_VERSION = "source_span_verify.v2"
+#: The practice question's budget in a verification prompt (``verify_prompt``).
+PRACTICE_QUESTION_CHARS = 700
 #: The token cap's floor for one verification prompt's input (UTF-8 bytes, the
 #: spend estimate's unit); a larger prompt raises the cap to its own size.
 VERIFY_INPUT_TOKENS_BOUND = 60_000
@@ -149,6 +152,26 @@ def _clip(text: str, limit: int) -> str:
     return value if len(value) <= limit else value[: limit - 1] + "…"
 
 
+def _cut(text: str, limit: int) -> str:
+    return " ".join(text.split())[:limit]
+
+
+def practice_question(item: Any, *, ellipsis: bool = False) -> str:
+    """An item-bound verification's practice question: the question as
+    presented, within :data:`PRACTICE_QUESTION_CHARS`.
+
+    Method-explicit-3 review F5: only the statement is shortened, so a long
+    stem never cuts the required method's instruction off (the whole
+    question was cut at 700 characters, instruction included). Without a
+    required method it is the statement shortened exactly as each caller
+    shortened it before: cut (the intent contexts), or with an ellipsis
+    (``ellipsis``: the tutor's pool, which :func:`verify_prompt` clipped).
+    """
+
+    return fit_presented_prompt(item.prompt, getattr(item, "required_method", None), PRACTICE_QUESTION_CHARS,
+                                _clip if ellipsis else _cut)
+
+
 def passage_chars(vault: LoadedVault) -> int:
     """The most characters of one judged passage (``passage_token_budget``)."""
 
@@ -208,7 +231,7 @@ def verify_prompt(question: str, context: str | None, pick_at_most: int,
     payload: dict[str, Any] = {"question": normalize_query(question)[:MAX_QUERY_CHARS],
                                "pick_at_most": pick_at_most, "candidates": list(candidates)}
     if context:
-        payload["practice_question"] = _clip(context, 700)
+        payload["practice_question"] = _clip(context, PRACTICE_QUESTION_CHARS)
     return render_structured_prompt("Source span verification", VERIFY_PROMPT_VERSION,
                                     {"instructions": _INSTRUCTIONS, "context": payload})
 
@@ -286,6 +309,7 @@ def verify_spans(
 
 __all__ = [
     "CHARS_PER_TOKEN",
+    "PRACTICE_QUESTION_CHARS",
     "PREDECESSOR_PASSAGE_CHARS",
     "PRICE_SETTING",
     "TASK",
@@ -297,6 +321,7 @@ __all__ = [
     "judged_passage",
     "passage_chars",
     "passage_limit",
+    "practice_question",
     "verification_route",
     "verify_caps",
     "verify_prompt",

@@ -548,20 +548,28 @@
     "sha256": "dfb4943abfa56992f0910e1cd695d079976bb6a054966e96295de16363917fbf"
   },
   "grading": {
-    "bytes": 2696,
-    "sha256": "214c04376c4bcc30a13c08b4a7d4cfe006aa9c6345abc97c4d88b5df4036b838"
+    "bytes": 3036,
+    "sha256": "e461507dc55188140512be280fcd14d4a08ebf5d571c42381fdff77bd89f6ecf"
   },
   "grading adjudicate": {
     "bytes": 2346,
     "sha256": "695631b22e196d510f29fd48f776341dacb0c2113fb11139064015e5fa268bac"
   },
   "grading hardcases": {
-    "bytes": 7213,
-    "sha256": "5138ad7e7c92311959336a68062e8d0e68315f1159271f0fbedec9ef2fb7def7"
+    "bytes": 7375,
+    "sha256": "26acf0e8029f5df5f7097d8c5edfefd650a3dfaa5bd29d33e0a010a278a3fcaa"
+  },
+  "grading method-phrasing": {
+    "bytes": 5238,
+    "sha256": "3c1d8f05bd54d7b1d957af54ccf9abae76b70f1cb050a01c0dc0c433880ad592"
   },
   "grading receipt": {
     "bytes": 1752,
     "sha256": "fba790dd55894b91c817676ba7bd3a3ba92b096019d370603fa7fe704cc5e404"
+  },
+  "grading required-method": {
+    "bytes": 2828,
+    "sha256": "f2e4ac39504f2582f4e69fc1e8534df300cc37f7fc72b53fe17d3721b70f1323"
   },
   "grading reviews": {
     "bytes": 1207,
@@ -1128,8 +1136,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 6897,
-    "sha256": "9094e7255be2f5eb9c43fc28ef6a14d987d45fda5e95ad90960215cae122a2da"
+    "bytes": 7221,
+    "sha256": "507e45fc36a25faef0795f2a148703a4def3984e1063847aa58ccbbacc59c06e"
   },
   "usage": {
     "bytes": 1546,

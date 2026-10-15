@@ -52,6 +52,22 @@ answer.
   ``not_checked`` when the rule did not run over the new grade). It
   replaced mvp-0.17's separate item reading, re-derivation call and gate
   (owner decision 2026-10-13): one grading call.
+* **Required methods (method-explicit successor, ``own-route-v2``).** Owner
+  rule 2026-10-13: criteria name facts, and an item whose target IS a method
+  records it as ``PracticeItem.required_method`` and is presented with the
+  instruction rendered from that field ("Use {method} in your answer.", after
+  the statement, on every surface and in the grader's question; round 3). The policy then carries the
+  ``required_method`` (name and criterion ids) the answer's assessment
+  contract froze when the item was presented (review F1: a method added or
+  changed later never reaches that answer, at grading or at a regrade), only
+  when the prompt the learner answered requires it, and the prompt adds
+  :data:`REQUIRED_METHOD_RULES`: a criterion tied to the required method is
+  graded on USE of that method. On a route the grader reads as divergent, a
+  mark-down of such a criterion stays assessed with no quoted wrong step (the
+  route is the evidence): neither PF-c's gate nor the unlocated rule
+  unassesses it (the grader's own "cannot verify" still does). Every other
+  criterion keeps the own-route rules. Kill switch ``required_method.enabled``
+  (off: mvp-0.20's grading exactly).
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -96,7 +112,7 @@ from learnloop.attempts.blind_grading import (
 from learnloop.attempts.grading_admission import admit_grading_call
 from learnloop.attempts.stuck import StuckReading
 from learnloop.attempts.answer_check import final_answer_check
-from learnloop.algorithm_versions import ROUTE_RULES_VERSIONS
+from learnloop.algorithm_versions import METHOD_EXPLICIT_VERSIONS, ROUTE_RULES_VERSIONS
 from learnloop.outcome_contract import GRADE_HELD_FOR_REVIEW
 from learnloop.substrate.canonical_projection import (
     UNASSESSED_INTERPRETATION,
@@ -170,6 +186,46 @@ ROUTE_RULES = (
     "mark-down on a divergent route that quotes nothing from the answer is "
     "recorded as not assessed."
 )
+#: The method-explicit successor's rules (owner rule 2026-10-13): the own-route
+#: rules plus :data:`REQUIRED_METHOD_RULES`. Its suffix names the prompt
+#: (``...+own-route-v2``) and the calibration identity, whether or not the
+#: graded item has a required method (the prompt's rules are the same).
+METHOD_ROUTE_RULES_VERSION = "own-route-v2"
+METHOD_ROUTE_RULES_SUFFIX = f"+{METHOD_ROUTE_RULES_VERSION}"
+REQUIRED_METHOD_RULES = (
+    "REQUIRED METHOD (`context.reference_policy.required_method`, when set): the "
+    "item's own statement requires the learner to use the method "
+    "`required_method.name`. Each criterion listed in "
+    "`required_method.criterion_ids` is graded on USE of that method: an answer "
+    "that reaches the result by another route FAILS that criterion even when every "
+    "step of its own route is valid. Set `route_check.divergent_route`, name the "
+    "method the learner used instead in that criterion's evidence, and mark it down "
+    "without needing to quote a wrong step: the route itself is the evidence. Do "
+    "not list such a criterion in `unverified_criterion_ids` merely because the "
+    "route differs; list it only when you genuinely cannot tell whether the method "
+    "was used. Grade every OTHER criterion by the OWN ROUTE rules above: by the fact "
+    "it establishes, on the learner's own route, whatever method they used."
+)
+ROUTE_RULES_V2 = f"{ROUTE_RULES} {REQUIRED_METHOD_RULES}"
+#: The prompt text of each own-route rules version.
+ROUTE_RULES_TEXT: dict[str, str] = {
+    ROUTE_RULES_VERSION: ROUTE_RULES,
+    METHOD_ROUTE_RULES_VERSION: ROUTE_RULES_V2,
+}
+
+
+def route_rules_text(version: str) -> str:
+    """The prompt text of an own-route rules version (``own-route-v1``/``-v2``)."""
+
+    return ROUTE_RULES_TEXT[version]
+
+
+def route_rules_suffix(version: str) -> str:
+    """The prompt and calibration identity suffix of a rules version."""
+
+    return f"+{version}"
+
+
 #: The record the server-side rule writes on the blind record, under the key
 #: the held-grade predicate reads (``outcome_contract.grade_held_for_review``;
 #: mvp-0.17's route-check records use the same key, and their gate versions
@@ -199,6 +255,91 @@ def route_rules_active(vault: LoadedVault) -> bool:
     if config.algorithms.algorithm_version not in ROUTE_RULES_VERSIONS:
         return False
     return bool(getattr(getattr(config, "proof_check", None), "enabled", True))
+
+
+def method_rules_active(vault: LoadedVault) -> bool:
+    """Does this vault grade NEW blind answers under the required-method rules?
+
+    The method-explicit successor (``METHOD_EXPLICIT_VERSIONS``) on top of the
+    own-route rules (:func:`route_rules_active`); ``required_method.enabled``
+    is its kill switch (off: mvp-0.20's grading exactly).
+    """
+
+    if not route_rules_active(vault):
+        return False
+    if vault.config.algorithms.algorithm_version not in METHOD_EXPLICIT_VERSIONS:
+        return False
+    return bool(getattr(getattr(vault.config, "required_method", None), "enabled", True))
+
+
+def route_rules_version(vault: LoadedVault) -> str | None:
+    """The own-route rules version new blind answers are graded under, if any."""
+
+    if method_rules_active(vault):
+        return METHOD_ROUTE_RULES_VERSION
+    if route_rules_active(vault):
+        return ROUTE_RULES_VERSION
+    return None
+
+
+class _ItemRequiredMethod:
+    """:func:`reference_policy`'s default source: the item's current required method."""
+
+    def __repr__(self) -> str:
+        return "ITEM_REQUIRED_METHOD"
+
+
+#: Read the required method from the item as it is now (the gold-set harness
+#: and callers that grade the item as currently stated). The live doors pass
+#: the method frozen with the answer's assessment contract instead (review F1).
+ITEM_REQUIRED_METHOD: Any = _ItemRequiredMethod()
+
+
+def required_method_policy(
+    item: PracticeItem,
+    rubric_criterion_ids: Sequence[str] | None = None,
+    *,
+    required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
+) -> dict[str, Any] | None:
+    """The required method as the grader's policy shows it, or None.
+
+    ``required_method`` is the method the answer is graded under: the one its
+    assessment contract froze when the item was presented (``None``: the
+    presented item required none, and an answer never acquires one from
+    content changed later; review F1), or, by default, the item's current one.
+    Only criteria of the rubric being graded are listed (an unknown id is
+    doctor's ``required_method:unknown_criterion``, never graded).
+
+    The field is the ONE authority (redesign 2026-10-14): nothing here reads
+    the prompt. Whether the statement requires the method was settled when
+    the field was written (a one-time, ledgered judgment on a source
+    statement), and the contract froze the result with the statement the
+    learner answered; the instruction the learner and the grader were shown
+    is rendered from it (``learnloop.vault.required_method.presented_prompt``).
+    """
+
+    if required_method is ITEM_REQUIRED_METHOD:
+        current = getattr(item, "required_method", None)
+        method = (
+            {"name": current.name, "criterion_ids": list(current.criterion_ids)} if current is not None else None
+        )
+    else:
+        method = dict(required_method) if isinstance(required_method, Mapping) else None
+    if method is None or not str(method.get("name") or "").strip():
+        return None
+    name = str(method["name"])
+    known = set(rubric_criterion_ids) if rubric_criterion_ids is not None else None
+    criterion_ids = [str(cid) for cid in method.get("criterion_ids") or () if known is None or str(cid) in known]
+    return {"name": name, "criterion_ids": criterion_ids}
+
+
+def policy_method_criteria(policy: Mapping[str, Any] | None) -> tuple[str, ...]:
+    """The criterion ids a policy's required method grades on use of the method."""
+
+    method = (policy or {}).get("required_method")
+    if not isinstance(method, Mapping):
+        return ()
+    return tuple(str(value) for value in method.get("criterion_ids") or ())
 
 
 class RouteCheck(WireModel):
@@ -263,13 +404,23 @@ def blind_result_model(context: BlindGradingContext) -> type[WireModel]:
 
 
 def reference_policy(
-    item: PracticeItem, learner_answer_md: str, *, route_rules: bool = False,
+    item: PracticeItem,
+    learner_answer_md: str,
+    *,
+    route_rules: bool | str = False,
+    rubric_criterion_ids: Sequence[str] | None = None,
+    required_method: Mapping[str, Any] | None | Any = ITEM_REQUIRED_METHOD,
 ) -> dict[str, Any]:
     """The PF-c policy block for one answer (item-side + this answer only).
 
     ``route_rules`` (mvp-0.20) adds the own-route rules' identity: the prompt
     then carries :data:`ROUTE_RULES` and the server applies
-    :func:`apply_route_rule`. Without it the block is exactly mvp-2.1's.
+    :func:`apply_route_rule`. ``True`` is ``own-route-v1``; a version string
+    names the rules (``own-route-v2``, the method-explicit successor, also
+    shows the ``required_method`` the answer is graded under: the one its
+    contract froze, by default the item's, its criteria limited to
+    ``rubric_criterion_ids``; :func:`required_method_policy`, which never
+    reads the prompt). Without it the block is exactly mvp-2.1's.
     """
 
     expected = item.expected_answer
@@ -281,7 +432,14 @@ def reference_policy(
         "final_answer_check": final_answer_check(learner_answer_md, expected),
     }
     if route_rules:
-        policy["route_rules"] = ROUTE_RULES_VERSION
+        version = ROUTE_RULES_VERSION if route_rules is True else str(route_rules)
+        if version not in ROUTE_RULES_TEXT:
+            raise ValueError(f"unknown own-route rules version {version!r}")
+        policy["route_rules"] = version
+        if version == METHOD_ROUTE_RULES_VERSION:
+            method = required_method_policy(item, rubric_criterion_ids, required_method=required_method)
+            if method is not None:
+                policy["required_method"] = method
     return policy
 
 
@@ -330,6 +488,7 @@ def apply_valid_alternative_gate(
     learner_answer_md: str,
     policy: Mapping[str, Any] | None,
     declared_unverified: Sequence[str] = (),
+    method_criterion_ids: Sequence[str] = (),
 ) -> GateOutcome:
     """Record unlocated failures on a verifying answer as unverified.
 
@@ -341,6 +500,11 @@ def apply_valid_alternative_gate(
     non-blocking log). The proposal's points are left as the grader awarded
     them; the attempt step treats an unverified criterion as unassessed (no
     credit, no failure, out of the grade).
+
+    ``method_criterion_ids`` (the method-explicit successor) are the item's
+    required-method criteria on a route the grader reads as divergent: the
+    route is their evidence, so an unlocated mark-down of one stays assessed
+    (only the grader's own declaration unverifies it).
     """
 
     check = (policy or {}).get("final_answer_check") or {}
@@ -353,7 +517,8 @@ def apply_valid_alternative_gate(
     for attribution in proposal.error_attributions:
         if _located(attribution, learner_answer_md):
             located.update(_attribution_criteria(attribution))
-    unverified = {cid for cid in below if cid not in located}
+    exempt = {str(value) for value in method_criterion_ids}
+    unverified = {cid for cid in below if cid not in located and cid not in exempt}
     unverified.update(str(cid) for cid in declared_unverified if str(cid) in below)
     if not unverified:
         return GateOutcome(proposal)
@@ -429,6 +594,10 @@ class RouteRuleOutcome:
     #: Marked-down criteria that stay assessed only because a quote occurs in
     #: the learner's clarification reply (review F3), not in the answer.
     clarification_located: tuple[str, ...] = ()
+    #: The item's required-method criteria marked down on the divergent route
+    #: with no located quote: they stay assessed, the route is the evidence
+    #: (the method-explicit successor; empty below it).
+    method_route: tuple[str, ...] = ()
     #: Nothing assessed and nothing validated the answer.
     held_for_review: bool = False
     assessed_shortfall: bool = True
@@ -448,6 +617,7 @@ def apply_route_rule(
     unverified_before: Sequence[str] = (),
     declared_unverified: Sequence[str] = (),
     clarification_answer_md: str | None = None,
+    method_criterion_ids: Sequence[str] = (),
 ) -> RouteRuleOutcome:
     """P1 on the grader's own output: no located error, no mark-down.
 
@@ -481,6 +651,13 @@ def apply_route_rule(
     keeps the attempt a measured failure on its own. Points are left as the
     grader awarded them; the evidence rows of unassessed criteria say why
     they are not assessed. Anything else leaves the proposal unchanged.
+
+    ``method_criterion_ids`` (the method-explicit successor, ``own-route-v2``)
+    are the item's required-method criteria. They are graded on USE of the
+    method, so on a divergent route a mark-down of one needs no located
+    quote: it is never unlocated (the route is the evidence) and stays
+    assessed (``method_route``). The grader's own declaration that it cannot
+    verify one still unassesses it. Every other criterion keeps the rule.
     """
 
     previously = {str(value) for value in unverified_before}
@@ -502,18 +679,24 @@ def apply_route_rule(
             in_reply.update(_named_criteria(attribution, maxima))
     located = in_answer | in_reply
     declared_ids = {str(value) for value in declared_unverified}
+    method_ids = {str(value) for value in method_criterion_ids} & set(maxima)
     declared = [cid for cid in maxima if cid in below and cid in declared_ids and cid not in previously]
     unlocated = [
         cid for cid in maxima
         if cid in below and cid not in located and cid not in previously and cid not in declared_ids
+        and cid not in method_ids
     ]
     unverified = previously | set(unlocated) | set(declared)
+    method_route = tuple(
+        cid for cid in maxima if cid in method_ids and cid in below and cid not in located and cid not in unverified
+    )
     from_reply = tuple(
         cid for cid in maxima if cid in below and cid in in_reply and cid not in in_answer and cid not in unverified
     )
     if not (unlocated or declared):
         return RouteRuleOutcome(
             proposal, unverified=tuple(sorted(previously)), clarification_located=from_reply,
+            method_route=method_route,
         )
     # PF-c's "nothing assessed schedules as correct" rests on a verified final
     # answer; without one an all-unassessed grade rests on nothing.
@@ -550,6 +733,7 @@ def apply_route_rule(
         declared=tuple(declared),
         unverified=tuple(sorted(unverified)),
         clarification_located=from_reply,
+        method_route=method_route,
         held_for_review=held,
         assessed_shortfall=bool(below - unverified) or attribution_in_force,
     )
@@ -948,12 +1132,19 @@ def request_blind_grading_run(
     ungated = proposal = raw[winner]
     support: dict[str, Any] = {"version": GRADING_SUPPORT_VERSION, "sampling": sampling}
     if policy is not None:
+        divergent = bool((extras[winner].get("route_check") or {}).get("divergent_route"))
+        # The method-explicit successor: on a divergent route the item's
+        # required-method criteria are graded on use of the method, so neither
+        # gate unassesses an unlocated mark-down of one.
+        method_ids = policy_method_criteria(policy) if policy.get("route_rules") else ()
+        route_method_ids = method_ids if divergent else ()
         gate = apply_valid_alternative_gate(
             proposal,
             rubric=rubric,
             learner_answer_md=context.learner_answer_md,
             policy=policy,
             declared_unverified=declared[winner],
+            method_criterion_ids=route_method_ids,
         )
         proposal = gate.proposal
         support.update(
@@ -972,7 +1163,6 @@ def request_blind_grading_run(
         if policy.get("route_rules"):
             # mvp-0.20: the own-route rule over the grader's own output.
             final_status = (policy.get("final_answer_check") or {}).get("status")
-            divergent = bool((extras[winner].get("route_check") or {}).get("divergent_route"))
             rule = apply_route_rule(
                 proposal,
                 rubric=rubric,
@@ -985,6 +1175,7 @@ def request_blind_grading_run(
                 # Review F3: the learner's clarification reply is the
                 # learner's words too; the machine's question is not.
                 clarification_answer_md=(context.clarification_exchange or {}).get("answer_md"),
+                method_criterion_ids=method_ids,
             )
             support[ROUTE_RULE_SUPPORT_KEY] = {
                 "version": ROUTE_RULE_RECORD_VERSION,
@@ -1000,6 +1191,14 @@ def request_blind_grading_run(
                 "held_for_review": rule.held_for_review,
                 "assessed_shortfall": rule.assessed_shortfall if rule.applied else None,
             }
+            if isinstance(policy.get("required_method"), Mapping):
+                # The method-explicit successor's record: the item's required
+                # method, and its criteria marked down on the divergent route
+                # that stayed assessed with no located quote.
+                support[ROUTE_RULE_SUPPORT_KEY].update(
+                    required_method=dict(policy["required_method"]),
+                    method_route_criterion_ids=list(rule.method_route),
+                )
             if rule.applied:
                 proposal = rule.proposal
                 # PF-c's keys over both rules, so every reader of
@@ -1027,12 +1226,18 @@ __all__ = [
     "GRADING_SUPPORT_VERSION",
     "GateOutcome",
     "HELD_REVIEW_REASON",
+    "ITEM_REQUIRED_METHOD",
     "LEGACY_ROUTE_CHECK_JUDGMENT_TASK",
+    "METHOD_ROUTE_RULES_SUFFIX",
+    "METHOD_ROUTE_RULES_VERSION",
     "NOT_CHECKED_VERDICT",
     "REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION",
     "REFERENCE_POLICY_PROMPT_VERSION",
     "REFERENCE_POLICY_RULES",
+    "REQUIRED_METHOD_RULES",
     "ROUTE_RULES",
+    "ROUTE_RULES_TEXT",
+    "ROUTE_RULES_V2",
     "ROUTE_RULES_SUFFIX",
     "ROUTE_RULES_VERSION",
     "ROUTE_RULE_JUDGMENT_TASK",
@@ -1051,11 +1256,17 @@ __all__ = [
     "family_key",
     "gated_review_reason",
     "grade_uncertainty_signal",
+    "method_rules_active",
     "modal_sample",
+    "policy_method_criteria",
     "record_route_rule_judgment",
     "reference_policy",
     "request_blind_grading_run",
+    "required_method_policy",
     "revalidated_support",
     "route_rules_active",
+    "route_rules_suffix",
+    "route_rules_text",
+    "route_rules_version",
     "sample_fingerprint",
 ]

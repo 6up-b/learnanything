@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
@@ -178,13 +179,13 @@ Indexes and uniqueness:
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_field_split_outcomes.py`
 - `tests/test_learner_text_gaps.py`
+- `tests/test_method_explicit_landing.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_pfc_unverified_unassessed.py`
 - `tests/test_probability_prep.py`
 - `tests/test_projection_evidence_polarity.py`
-- `tests/test_router_card.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

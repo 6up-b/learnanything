@@ -874,7 +874,8 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
-    "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, and the facet span-support check",
+    "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",
+    "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
 }
 
 
@@ -1118,6 +1119,19 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
         "setting it in learnloop.toml has no effect."
     ),
+    "ai.routing.rubric_phrasing_judge": (
+        "Names the judge of `learnloop grading method-phrasing` (method-explicit items, owner rule "
+        "2026-10-13): a decider profile (one typed fact/method choice per criterion) or a chat profile "
+        "(one structured reading per item, with fact rewrites). Empty uses the Tier-1 Decider "
+        "(ai.routing.tier1_decider's profile, else the code-default openrouter_decider) when it is "
+        "ready, else ai.active_provider; with neither ready the report falls back to the conservative "
+        "heuristic and says so. The same route makes the one-time required-method statement judgments "
+        "(redesign 2026-10-14): whether a textbook exercise's statement requires its proposed method (at "
+        "import) and whether a PF variant's stem prohibits its parent's (at selection), the Decider first "
+        "(argmax of its probabilities; decider_routes.required_method_statement), else the LLM judge, "
+        "ledgered (task required_method_statement); with neither ready nothing is decided. Grading never "
+        "uses it."
+    ),
     "ai.routing.project": (
         "Names the provider profile for project-understanding probe authoring and the closed-book "
         "check. Empty follows ai.routing.grading, then the active provider; probe grading itself "
@@ -1265,6 +1279,28 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Decider answers one typed question over those spans and the new wording; only `supports` as its "
         "top option applies it, anything else (or no answer) holds it for the owner's one-tap confirm. Off: "
         "a cited reword applies as before."
+    ),
+    "decider_routes.required_method_statement": (
+        "Kill switch for the Decider's one-time required-method statement judgment (method-explicit "
+        "items, a Tier-1 content task registered at their merge; every version): whether a textbook "
+        "exercise's statement requires the method its import proposes (requires / allows / prohibits; "
+        "only requires keeps the item's required_method) and whether a PF variant's stem contradicts "
+        "its parent's (a contradicting stem is refused). The Decider is ai.routing.rubric_phrasing_judge's "
+        "decider profile, else the Tier-1 Decider's; every verdict is ledgered (task "
+        "required_method_statement) and reused, so a statement is judged once. Off: the LLM judge on "
+        "ai.routing.rubric_phrasing_judge (or ai.active_provider) decides it. Grading never reads it."
+    ),
+    "required_method.enabled": (
+        "Kill switch for the method-explicit successor's required-method grading (owner rule "
+        "2026-10-13; mvp-0.25). On, the own-route rules are "
+        "own-route-v2: an item's required_method, frozen with the assessment contract (the one "
+        "authority: no prompt is parsed to decide it), reaches the grader's policy, and a criterion "
+        "tied to it is graded on use of that method, so a divergent "
+        "route fails it with no quoted wrong step (neither PF-c's gate nor the unlocated rule "
+        "unassesses it); every other criterion keeps the own-route rules. Off, new answers grade "
+        "exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; "
+        "replay reads the blind record, never this switch. Generation phrasing criteria by fact and "
+        "doctor's criterion:method_phrased are content paths, not gated here."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

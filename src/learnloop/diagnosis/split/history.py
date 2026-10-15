@@ -45,6 +45,8 @@ from learnloop.substrate.canonical_projection import (
     unverified_evidence_row,
 )
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.db.stores.answered_contracts import answered_contracts
+from learnloop.vault.required_method import answered_prompt
 
 #: Attempt types that measure nothing and never appear as history.
 NON_MEASURING_ATTEMPT_TYPES = frozenset({"skip", "self_report", "guided_walkthrough"})
@@ -555,8 +557,13 @@ def history_attempt_from_blind_record(
     record: Mapping[str, Any],
     hints_used: int = 0,
     primed: bool = False,
+    contract: Mapping[str, Any] | None = None,
 ) -> HistoryAttempt:
-    """Blind-grade-equivalent fields from a validated blind grade record."""
+    """Blind-grade-equivalent fields from a validated blind grade record.
+
+    ``contract`` (method-explicit-3 review F3) is the assessment contract the
+    answer was graded under: a method-explicit answer's question is the one
+    it was given (``answered_prompt``), never today's item."""
 
     maxima, max_points = _max_points_by_criterion(vault, item)
     # PF-c (review F4): a criterion the valid-alternative gate recorded
@@ -586,7 +593,7 @@ def history_attempt_from_blind_record(
         practice_item_id=practice_item_id,
         completed_at=completed_at,
         surface_group=surface_group_id(item) if item is not None else f"item:{practice_item_id}",
-        item_prompt=item.prompt if item is not None else "",
+        item_prompt=answered_prompt(item, contract) or "",
         learner_answer_md=learner_answer_md or "",
         attempt_type=attempt_type,
         score=float(record["rubric_score"]) if record.get("rubric_score") is not None else None,
@@ -714,6 +721,9 @@ class VaultHistoryStore:
             # the history (it happened) with no score: its grade is the
             # grader's provisional one, nothing assessed, nothing validated.
             held = held_for_review_attempts(connection)
+            # Method-explicit-3 review F3: the question each answer was given
+            # (its graded contract), for the method-explicit ones.
+            contracts = answered_contracts(connection)
             cold = [dict(row) for row in connection.execute(
                 "SELECT source_attempt_id, cold_attempt_id, repair_class_id, success, created_at "
                 "FROM causal_cold_verifications ORDER BY created_at, id"
@@ -742,11 +752,13 @@ class VaultHistoryStore:
                     record=self._blind[attempt_id],
                     hints_used=int(row.get("hints_used") or 0),
                     primed=bool(row.get("primed")),
+                    contract=contracts.get(attempt_id),
                 )
             else:
                 record = self._from_stored(
                     row, item, evidence.get(attempt_id, {}), events.get(attempt_id, []),
                     fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
+                    contract=contracts.get(attempt_id),
                 )
             if attempt_id in held:
                 record = replace(record, score=None)
@@ -995,6 +1007,7 @@ class VaultHistoryStore:
         fatal: Sequence[str],
         *,
         has_unassessed: bool = False,
+        contract: Mapping[str, Any] | None = None,
     ) -> HistoryAttempt:
         """A stored joint grade, reduced to blind-grade-equivalent fields (S3).
 
@@ -1034,7 +1047,7 @@ class VaultHistoryStore:
             practice_item_id=str(row["practice_item_id"]),
             completed_at=str(row["created_at"]),
             surface_group=surface_group_id(item) if item is not None else f"item:{row['practice_item_id']}",
-            item_prompt=item.prompt if item is not None else "",
+            item_prompt=answered_prompt(item, contract) or "",
             learner_answer_md=str(row.get("learner_answer_md") or ""),
             attempt_type=attempt_type,
             score=float(row["rubric_score"]) if row.get("rubric_score") is not None else None,

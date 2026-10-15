@@ -47,7 +47,9 @@ _WHEN = {
         "classify-questions; your questions and the tutor's answers (and generated items beside "
         "held-out exam text) when you run a contamination report; your earlier and current answers "
         "when you run learnloop diagnose review. At every version, the cited source passages and the "
-        "new wording of a facet reword a proposal makes (no learner text)."
+        "new wording of a facet reword a proposal makes, and (decider_routes.required_method_statement, "
+        "while ai.routing.rubric_phrasing_judge is unset) a textbook exercise's statement with the method "
+        "its import proposes, or a practice-family variant's stem with its parent's method (no learner text)."
     ),
     "learner_text_gaps": (
         "When the learner-text gap pipeline reads your tutor questions, stuck answers or diagnosis "

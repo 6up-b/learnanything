@@ -122,6 +122,7 @@ PRACTICE_ITEM_ORDER = [
     "hints",
     "hint_policy",
     "grading_rubric",
+    "required_method",
     "status",
     "status_reason",
     "provenance",

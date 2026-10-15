@@ -27,6 +27,7 @@ from learnloop.content.sources import exam_material
 from learnloop.content.sources.exam_material import HeldOutSpan
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 
 # Default contiguous word-shingle order for the wording-overlap gate. Six words
 # is long enough that innocuous shared phrasing ("the derivative of the") does not
@@ -195,12 +196,14 @@ def _payload_surfaces(payload: dict[str, Any]) -> str:
     """Concatenate the learner-visible surfaces of a practice-item payload.
 
     Prompt + expected answer + rubric criterion descriptions — the surfaces the
-    §8.5 rule protects (wording, numbers, answer structure)."""
+    §8.5 rule protects (wording, numbers, answer structure). The prompt is the
+    question as presented: a required method's instruction, rendered from the
+    field after the statement (method-explicit items), is screened with it."""
 
     parts: list[str] = []
     prompt = payload.get("prompt")
     if isinstance(prompt, str):
-        parts.append(prompt)
+        parts.append(presented_prompt(prompt, payload.get("required_method")))
     expected = payload.get("expected_answer")
     if isinstance(expected, str):
         parts.append(expected)

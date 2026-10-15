@@ -57,7 +57,7 @@ from learnloop.source_retrieval.corpus import (
 from learnloop.source_retrieval.policy import POLICIES, CallerContext, PolicyRefused, derive_policy
 from learnloop.source_retrieval.queries import query_id
 from learnloop.source_retrieval.search import POOL_HYBRID_RRF, SpanHit, SpanKey, search_spans
-from learnloop.source_retrieval.verify import PRICE_SETTING, judged_passage, verify_caps
+from learnloop.source_retrieval.verify import PRICE_SETTING, judged_passage, practice_question, verify_caps
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -555,7 +555,8 @@ def find_sources(
         if intent == "worked_example" and learner_work_md:
             context["learner_work"] = learner_work_md[:3000]
         if item is not None and policy == "assisted_practice":
-            context["practice_question"] = " ".join(item.prompt.split())[:700]
+            # Review F5: the statement is shortened, never the instruction.
+            context["practice_question"] = practice_question(item)
         if facet_labels:
             # Facet targeting: the passage should bear on these facets.
             context["target_facets"] = [entry["label"] for entry in facet_labels]

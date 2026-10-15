@@ -42,9 +42,11 @@ from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import exam_material
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.answered_contracts import answered_contracts
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.reader.reader_guidance import held_out_sections
 from learnloop.substrate.activities import log_interaction_event
+from learnloop.vault.required_method import answered_question, fit_presented_prompt
 
 CUES_VERSION = "rw3a-guide-cues-v1"
 #: The judgment_ledger task every cue verdict lands on (spec §6.2, §11).
@@ -172,6 +174,18 @@ def _clip(text: str | None, limit: int) -> str | None:
     return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
 
 
+def _clip_question(statement: str | None, method: Any) -> str | None:
+    """The answered question for the popover: the statement clipped as before,
+    and a required method's instruction after it, whole."""
+
+    if not statement and method is None:
+        return None
+    if not str(statement or "").strip() and method is None:
+        return None
+    return fit_presented_prompt(statement or "", method, MAX_PROMPT_CHARS,
+                                lambda text, limit: _clip(text, limit) or "")
+
+
 def _clip_answer(text: str | None, limit: int = MAX_ANSWER_CHARS) -> str | None:
     """The learner's own words, verbatim but for surrounding blank space and a
     clip at ``limit`` (line breaks kept: an answer's shape is part of it)."""
@@ -195,16 +209,27 @@ def _strongest_error(repository: Repository, learning_object_id: str) -> Any | N
 def _earlier_work(vault: Any, repository: Repository, error: Any, pending: set[str]) -> dict[str, Any]:
     """What "Open" shows (spec §6.1, "the cited attempt, its diagnosis"): when
     the learner answered, on which question, the answer itself in their own
-    words, and LearnLoop's model's reading of that answer once it has one."""
+    words, and LearnLoop's model's reading of that answer once it has one.
+
+    The question is the one the answer was given (method-explicit items,
+    ``answered_question``): for a method-explicit answer its graded
+    contract's statement and frozen required method, the instruction kept
+    whole when the popover's clip shortens the statement; otherwise the item
+    as it is now, exactly as before."""
 
     attempt = repository.fetch_practice_attempt(error.attempt_id) if error.attempt_id else None
     item_id = str((attempt or {}).get("practice_item_id") or "") or None
     item = vault.practice_items.get(item_id) if item_id else None
     answered_at = str((attempt or {}).get("created_at") or error.created_at or "") or None
+    contract = None
+    if attempt is not None:
+        with repository.connection() as connection:
+            contract = answered_contracts(connection, [str(error.attempt_id)]).get(str(error.attempt_id))
+    statement, method = answered_question(item, contract)
     return {
         "attempt_id": error.attempt_id,
         "practice_item_id": item_id,
-        "prompt": _clip(getattr(item, "prompt", None), MAX_PROMPT_CHARS),
+        "prompt": _clip_question(statement, method),
         "answer": _clip_answer((attempt or {}).get("learner_answer_md")),
         "answered_at": answered_at,
         "answered_on": _day(answered_at),

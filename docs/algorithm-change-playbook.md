@@ -54,6 +54,39 @@ placeholder, and relabelled mvp-0.20 at its merge after the sources track;
 mvp-0.18 and mvp-0.19 vaults also grade new answers without the check).
 See `docs/reviews/route-check-in-grader.md`.
 
+Recorded owner rule, 2026-10-13 (method-explicit items): rubric criteria name
+the fact a step establishes, not the method; an item whose target IS a method
+records it as `PracticeItem.required_method` and is presented with the
+instruction "Use {method} in your answer." rendered from that field. The
+grading side changes grading for new answers on required-method items (a
+criterion tied to the required method is graded on use of that method,
+`own-route-v2`), so it mints a successor, built as `mvp-0.22-placeholder` and
+relabelled mvp-0.25 at its merge after router R2b + R2c (mvp-0.24), with the
+kill switch `required_method.enabled` grading exactly as mvp-0.24. The
+generation side
+(criteria phrased by fact on every writer, the required method written only on
+a method target) is a content change, and existing method-phrased criteria are
+flagged (`criterion:method_phrased`) and repaired only through proposals the
+owner confirms, never rewritten. An answer is graded under the required
+method its assessment contract froze when the item was presented, never one
+the item gained later (grading and regrading alike); while the rules are on, a
+regrade of a required-method item also reads the statement and rubric from
+that contract, and its rows cite it, so a content edit never changes how a
+past answer's method is enforced. The field is the ONE authority (redesign,
+2026-10-14): grading, regrading and replay never parse the prompt to decide
+whether a method applies. The instruction is never stored in the statement
+(round 3): it is rendered from the field as a separate block wherever the
+item is shown, and into the grader's question from the frozen contract, so
+no writer appends it, no validation looks for it and nothing edits a
+statement to add or remove it. A textbook statement is judged once at import
+by the Decider, else the LLM judge, ledgered; a PF variant's stem is judged
+once before publication; a statement reader survives only as an advisory
+doctor/report flag. A frozen regrade binds the key status of the content it
+graded, not the item's current content, and a historical one whose inherited
+default rubric cannot be recovered binds unverified. See
+`docs/reviews/method-explicit-items.md` and
+`docs/reviews/method-explicit-items-codex-review.md` ("Redesign").
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.

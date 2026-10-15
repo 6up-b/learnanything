@@ -98,6 +98,9 @@ from learnloop.attempts.stuck import (
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
+    compile_assessment_contract,
+    contract_required_method,
+    rubric_from_contract,
 )
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
@@ -608,7 +611,10 @@ def _complete_attempt_with_agent_fallback(
         assessment_contract=contract,
     )
     blind = (
-        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         if split_grading_active(vault)
         else None
     )
@@ -873,18 +879,22 @@ def plan_grading_calls(
         item, rubric, draft.learner_answer_md, attempt_id="planned"
     ) is not None:
         return GradingCallPlan(kind="deterministic", calls=0)
+    contract = _assessment_contract(repository, draft)
     context = build_grading_context(
         vault,
         item,
         attempt_id="planned",
         learner_answer_md=draft.learner_answer_md,
         rubric=rubric,
-        assessment_contract=_assessment_contract(repository, draft),
+        assessment_contract=contract,
     )
     if split_grading_active(vault):
         from learnloop.attempts.blind_grading import blind_grading_prompt
 
-        blind = _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        blind = _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         return GradingCallPlan(
             kind="blind",
             calls=_blind_sample_count(vault),
@@ -946,7 +956,10 @@ def _complete_attempt_with_agent_required(
         assessment_contract=contract,
     )
     blind = (
-        _blind_grading_plan(vault, item, context, stuck=draft.declared_stuck)
+        _blind_grading_plan(
+            vault, item, context, stuck=draft.declared_stuck,
+            required_method=_graded_required_method(item, contract),
+        )
         if split_grading_active(vault)
         else None
     )
@@ -1501,12 +1514,397 @@ class _BlindGradingPlan:
     calibration_prompt_version: str
 
 
+#: ``_blind_grading_plan``'s default: grade under the item's current required
+#: method (the live doors pass the assessment contract's instead).
+_CURRENT_ITEM_METHOD: Any = object()
+
+
+def _graded_required_method(item: PracticeItem, contract: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The required method an answer is graded under (review F1).
+
+    The one its assessment contract froze when the item was presented; a
+    contract without one (the presented item required none, or the contract
+    predates method-explicit items) gives none, whatever the item says now.
+    Without a contract the submission snapshots the item as it is now, so the
+    item's current method is the presented one.
+    """
+
+    if contract is not None:
+        return contract_required_method(contract)
+    method = getattr(item, "required_method", None)
+    return {"name": method.name, "criterion_ids": list(method.criterion_ids)} if method is not None else None
+
+
+def _attempt_time_revision(connection: Any, attempt: Mapping[str, Any] | None,
+                           practice_item_id: str) -> dict[str, Any] | None:
+    """The item revision the attempt's selection recorded, or None
+    (method-explicit-3 review F8).
+
+    The attempt's scheduler candidate (the attempt row's, else its
+    submission intent's or probe presentation's) has a ``decision_features``
+    row written at or before the attempt whose ``content_hash`` addresses
+    the exact ``practice_item_snapshots`` serialization scored for it (the
+    same receipt chain field outcomes read as an ``exact`` revision). None
+    when any link is missing: the revision is then established from what
+    else is recorded.
+    """
+
+    import hashlib
+
+    if not attempt:
+        return None
+    created_at = attempt.get("created_at")
+    try:
+        candidates: list[str] = []
+        if attempt.get("scheduler_candidate_id"):
+            candidates.append(str(attempt["scheduler_candidate_id"]))
+        if attempt.get("submission_id"):
+            row = connection.execute(
+                "SELECT scheduler_candidate_id FROM submission_intents WHERE submission_id=? AND practice_item_id=?",
+                (attempt["submission_id"], practice_item_id),
+            ).fetchone()
+            if row is not None and row[0]:
+                candidates.insert(0, str(row[0]))
+        if attempt.get("probe_presentation_id"):
+            row = connection.execute(
+                "SELECT scheduler_candidate_id FROM probe_presentations WHERE id=? AND practice_item_id=?",
+                (attempt["probe_presentation_id"], practice_item_id),
+            ).fetchone()
+            if row is not None and row[0]:
+                candidates.insert(0, str(row[0]))
+        for candidate_id in dict.fromkeys(candidates):
+            demand = connection.execute(
+                "SELECT item_demand_vector_json FROM decision_features WHERE decision_type='selection' "
+                "AND decision_id=? AND created_at<=? ORDER BY created_at DESC LIMIT 1",
+                (candidate_id, created_at),
+            ).fetchone()
+            try:
+                digest = (json.loads(demand[0]) or {}).get("content_hash") if demand and demand[0] else None
+            except (TypeError, ValueError, AttributeError):
+                digest = None
+            if not digest:
+                continue
+            snapshot = connection.execute(
+                "SELECT item_json FROM practice_item_snapshots WHERE content_hash=? AND practice_item_id=? "
+                "AND created_at<=?",
+                (digest, practice_item_id, created_at),
+            ).fetchone()
+            if snapshot is None or hashlib.sha256(str(snapshot[0]).encode("utf-8")).hexdigest() != digest:
+                continue
+            data = json.loads(snapshot[0])
+            if isinstance(data, dict):
+                return data
+    except (sqlite3.Error, TypeError, ValueError):
+        return None
+    return None
+
+
+@dataclass(frozen=True)
+class GradedContract:
+    """The assessment contract a recorded attempt was graded under (review F1)."""
+
+    version_id: str
+    contract: dict[str, Any]
+
+    @property
+    def required_method(self) -> dict[str, Any] | None:
+        return contract_required_method(self.contract)
+
+    def rubric(self) -> Rubric:
+        return rubric_from_contract(self.contract)
+
+    def _froze(self, compiled: dict[str, Any]) -> bool:
+        keys = ("item_content_hash", "rubric_content_hash")
+        return all(self.contract.get(key) is not None and self.contract.get(key) == compiled.get(key) for key in keys)
+
+    def graded_reference_contents(
+        self, vault: LoadedVault, item: PracticeItem, connection: Any,
+        attempt: Mapping[str, Any] | None = None,
+    ) -> tuple[list[str], str, dict[str, str]]:
+        """The answer-key revision(s) a regrade under this contract graded (review F13, F19).
+
+        A key check binds one revision of an item: its
+        ``reference_content_hash`` (statement, expected answer, the item's
+        OWN rubric, inline or inherited, and its required method:
+        method-explicit-3 review F1). A method-explicit contract records
+        that hash when it is frozen (review F19), and the regrade binds
+        exactly that revision: ``([hash], "frozen")``.
+
+        **One rule for a method contract** (method-explicit-3 final verify):
+        its binding is established only by a hash recorded with its key
+        identity (every contract frozen from now on), or by rebuilding the
+        revision graded from a rubric the item is known to have had. A
+        method contract this branch froze earlier, whose hash may be the
+        legacy identity (no method), and whose revision no rebuild
+        reproduces, is AMBIGUOUS: ``([its hash], "ambiguous_method")``.
+        So is a historical one (no recorded hash) that no rebuild reproduces
+        (``unrebuilt:<item_content_hash>``). No check of any revision
+        verifies or disputes an ambiguous binding (a check of the question
+        with its method cleared shares its hash): it needs a fresh check,
+        and the grade is lowered whatever any check says
+        (``source_service.bind_replacement_grade``). Only vaults that ran
+        this unmerged branch have such contracts.
+
+        A historical contract (frozen before it recorded the hash) froze the
+        statement, the expected answer and the required method verbatim and
+        the RESOLVED rubric only by hash, so the revision is rebuilt from
+        them with each rubric the item is known to have had (its current one
+        and its recorded snapshots'). An inline rubric resolves to itself, so
+        whether it matches the frozen contract is exact. An INHERITED rubric
+        (``None``) resolved to the vault's default at the time, which is not
+        recorded: today's default recovers it exactly only when it
+        reproduces the frozen rubric hash.
+
+        **Whether the revision graded may have inherited a default**
+        (method-explicit-3 review F8) is established from that revision's
+        own provenance, never from an unrelated one:
+
+        * the attempt-time revision, when the attempt's selection recorded it
+          (``attempt``: its scheduler candidate's ``decision_features``
+          snapshot, at or before the attempt, with the frozen statement and
+          answer; the receipt field outcomes read as ``exact``): its rubric
+          is the one graded. Inline and reproducing the contract:
+          ``([hash], "frozen")``; inherited and not reproducible today:
+          ``([hash], "ambiguous_default")``;
+        * otherwise, a revision recorded with the graded statement and answer
+          (the current item, a snapshot, or a key check of the inherited
+          rebuild) that inherited a default. A revision with another
+          question (a later edit, a snapshot of a different statement) is
+          never the one graded, so its rubric says nothing about it.
+
+        Then:
+
+        * one revision matches (the inherited one recovered exactly, if it
+          was possible): ``([hash], "frozen")``;
+        * several do: the ones a key check recorded (a verified attempt's
+          revision had one), else all of them: ``(hashes, "ambiguous")``,
+          bound fail closed (any unverified one lowers the grade);
+        * the revision graded may have inherited a default that today's
+          default does not reproduce (round 3, F13/F19 reopened): the default
+          the answer was graded under cannot be recovered, so the revision
+          graded may be the inherited one under a default nobody can check,
+          whatever else matches. ``(hashes, "ambiguous_default")``, the
+          inherited revision first, bound UNVERIFIED (never frozen, never
+          verified from today's default);
+        * none does (the rubric changed too and no snapshot recorded the old
+          one): for a method contract, AMBIGUOUS (above); otherwise every
+          revision a key check recorded may be it, the current one excepted
+          when the frozen statement or answer differs from it:
+          ``(hashes, "unresolved")``, bound fail closed.
+
+        **Legacy identities** (method-explicit-3 re-review F1). The third
+        value maps a returned method revision to its legacy identity: its
+        hash without the method, the identity contracts and checks carried
+        before review F1, whose checks still bind it
+        (``source_service.applicable_checks``). A recorded hash without its
+        key identity is established by a rebuild: one that reproduces it
+        with the method binds it as recorded; one that reproduces it without
+        the method (the legacy identity) binds the method-aware revision
+        with that mapping, so a check of the question with its method
+        cleared, which has the same legacy hash, never reaches it.
+        """
+
+        from learnloop.db.stores.source_service import (
+            AMBIGUOUS_DEFAULT_REVISION, AMBIGUOUS_METHOD_REVISION, KEY_IDENTITY, KEY_IDENTITY_FIELD,
+            checked_content_hashes, reference_content_hash,
+        )
+
+        frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer"),
+                  # The method the learner was presented, not today's (F1).
+                  "required_method": self.required_method}
+        base = item.model_dump(mode="json")
+        legacy: dict[str, str] = {}
+
+        def view_with(rubric: Any) -> PracticeItem | None:
+            try:
+                return PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
+            except Exception:  # noqa: BLE001 - not a revision this item can have had
+                return None
+
+        def legacy_identity(view: PracticeItem) -> str:
+            return reference_content_hash(view.model_copy(update={"required_method": None}))
+
+        def rebuild(rubric: Any) -> tuple[str | None, bool]:
+            """The revision with ``rubric``: its key hash, and whether it
+            reproduces the frozen contract."""
+
+            view = view_with(rubric)
+            if view is None:
+                return None, False
+            try:
+                compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
+            except Exception:  # noqa: BLE001 - no rubric resolves (no default for the mode today)
+                compiled = None
+            content = reference_content_hash(view)
+            if self.required_method is not None:
+                legacy[content] = legacy_identity(view)
+            return content, compiled is not None and self._froze(compiled)
+
+        def bound(contents: list[str], revision: str) -> tuple[list[str], str, dict[str, str]]:
+            return contents, revision, {content: legacy[content] for content in contents if content in legacy}
+
+        def same_question(data: Mapping[str, Any]) -> bool:
+            return data.get("prompt") == frozen["prompt"] and data.get("expected_answer") == frozen["expected_answer"]
+
+        try:
+            stored = connection.execute(
+                "SELECT item_json FROM practice_item_snapshots WHERE practice_item_id = ? ORDER BY created_at DESC",
+                (item.id,),
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - a vault without snapshots rebuilds from the others
+            stored = []
+        snapshots: list[Mapping[str, Any]] = []
+        for (item_json,) in stored:
+            try:
+                data = json.loads(item_json)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(data, Mapping):
+                snapshots.append(data)
+        rubrics: list[Any] = [base.get("grading_rubric"), *[data.get("grading_rubric") for data in snapshots], None]
+
+        recorded = self.contract.get("reference_content_hash")
+        if isinstance(recorded, str) and recorded:
+            if self.required_method is None or self.contract.get(KEY_IDENTITY_FIELD) == KEY_IDENTITY:
+                return [recorded], "frozen", {}
+            # Frozen by this branch before contracts recorded their key
+            # identity: the hash names the method (since review F1) or not
+            # (the legacy identity). Only a rebuild tells which.
+            seen: list[str] = []
+            for rubric in rubrics:
+                key = json.dumps(rubric, sort_keys=True, default=str)
+                view = None if key in seen else view_with(rubric)
+                seen.append(key)
+                if view is None:
+                    continue
+                if reference_content_hash(view) == recorded:
+                    return [recorded], "frozen", {}
+                if legacy_identity(view) == recorded:
+                    content = reference_content_hash(view)
+                    return [content], "frozen", {content: recorded}
+            # No rebuild establishes it: a check of the question with its
+            # method cleared may carry this very hash (the final verify).
+            return [recorded], AMBIGUOUS_METHOD_REVISION, {}
+
+        pinned = _attempt_time_revision(connection, attempt, item.id)
+        if pinned is not None and same_question(pinned):
+            content, matches = rebuild(pinned.get("grading_rubric"))
+            if content is not None and matches:
+                return bound([content], "frozen")
+            if content is not None and pinned.get("grading_rubric") is None:
+                return bound([content], AMBIGUOUS_DEFAULT_REVISION)
+            # The rubric changed between the selection and the submission:
+            # rebuilt below from what else is known.
+        inherited, _matches = rebuild(None)
+        checked = set(checked_content_hashes(connection, item.id))
+        legacy_checked = set(checked_content_hashes(connection, item.id, legacy_identity=True))
+
+        def is_checked(content: str) -> bool:
+            return content in checked or legacy.get(content, "") in legacy_checked
+
+        # A revision of the graded question is known to have inherited a
+        # default (the current item or a snapshot with the frozen statement
+        # and answer and no rubric of its own, or a key check of exactly that
+        # revision): the inherited revision may be the one graded (F8).
+        inheritance_possible = any(data.get("grading_rubric") is None
+                                   for data in (base, *snapshots) if same_question(data)) \
+            or (inherited is not None and is_checked(inherited))
+        tried: list[str] = []
+        matched: list[str] = []
+        unrecovered: str | None = None
+        for rubric in rubrics:
+            key = json.dumps(rubric, sort_keys=True, default=str)
+            if key in tried:
+                continue
+            tried.append(key)
+            content, matches = rebuild(rubric)
+            if content is None:
+                continue
+            if matches:
+                if content not in matched:
+                    matched.append(content)
+            elif rubric is None and inheritance_possible:
+                # Today's default does not reproduce the frozen rubric: the
+                # default the inherited revision was graded under is unknown.
+                unrecovered = content
+        if unrecovered is not None:
+            return bound([unrecovered, *[content for content in matched if content != unrecovered]],
+                         AMBIGUOUS_DEFAULT_REVISION)
+        if len(matched) == 1:
+            return bound(matched, "frozen")
+        if matched:
+            return bound([content for content in matched if is_checked(content)] or matched, "ambiguous")
+        if self.required_method is not None:
+            # A method contract whose revision no rebuild reproduces: every
+            # checked revision may be it, the question with its method
+            # cleared among them (the final verify). Ambiguous.
+            return [f"unrebuilt:{self.contract.get('item_content_hash')}"], AMBIGUOUS_METHOD_REVISION, {}
+        current = reference_content_hash(item)
+        same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer
+        candidates = [content for content in checked_content_hashes(connection, item.id)
+                      if same_text or content != current]
+        if not candidates:
+            # No check recorded the revision graded (it never verified): the
+            # best rebuild, which no check matches either, binds unverified.
+            try:
+                candidates = [reference_content_hash(PracticeItem.model_validate({**base, **frozen}))]
+            except Exception:  # noqa: BLE001 - an identity no check carries
+                candidates = [f"unrebuilt:{self.contract.get('item_content_hash')}"]
+        return candidates, "unresolved", {}
+
+
+def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedContract | None:
+    """The assessment contract a recorded attempt's evidence rows cite.
+
+    The one frozen when the item was presented, or snapshotted when it was
+    first graded; superseded rows included, since a regrade outside a
+    method-explicit item writes rows that cite none. None for an attempt
+    graded before contracts (or whose contract is missing).
+    """
+
+    evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    version_id = next(
+        (row.assessment_contract_version_id for row in evidence if row.assessment_contract_version_id is not None),
+        None,
+    )
+    if version_id is None:
+        return None
+    stored = repository.fetch_assessment_contract_version(version_id)
+    if stored is None:
+        return None
+    return GradedContract(version_id=str(version_id), contract=dict(stored.get("contract") or {}))
+
+
+def regrade_reads_contract(vault: LoadedVault, item: PracticeItem, graded: GradedContract | None) -> bool:
+    """Does a regrade grade the answer under its assessment contract (re-review F1)?
+
+    Only for a method-explicit item while the required-method rules are on
+    (:func:`~learnloop.attempts.grading_support.method_rules_active`): its
+    contract froze a required method, or the item has one now. The method,
+    the statement that required it and the rubric whose criteria it lists
+    are one contract, so the regrade reads all three from it: mixing the
+    frozen method with today's statement would drop a requirement the
+    learner was given (or enforce one they never saw). Every other regrade
+    reads the item as it is now, as before (canonical sources §7.3a), and so
+    does every regrade with the kill switch off (mvp-0.20 exactly).
+    """
+
+    if graded is None:
+        return False
+    from learnloop.attempts.grading_support import method_rules_active
+
+    if not method_rules_active(vault):
+        return False
+    return graded.required_method is not None or getattr(item, "required_method", None) is not None
+
+
 def _blind_grading_plan(
     vault: LoadedVault,
     item: PracticeItem,
     context: Any,
     *,
     stuck: bool = False,
+    required_method: Any = _CURRENT_ITEM_METHOD,
 ) -> _BlindGradingPlan:
     """The learner-blind context for one answer: item side + this answer only.
 
@@ -1519,7 +1917,11 @@ def _blind_grading_plan(
     calibration identity (the scoring rules are the same). At mvp-0.20 the
     policy carries the own-route rules (kill switch ``proof_check.enabled``),
     which change the scoring rules, so they also name the calibration
-    identity (``+own-route-v1``).
+    identity (``+own-route-v1``). At the method-explicit successor they are
+    ``own-route-v2`` (kill switch ``required_method.enabled``) and the policy
+    also carries the ``required_method`` the answer is graded under (review
+    F1): the doors pass the one frozen with its assessment contract
+    (:func:`_graded_required_method`); left out, it is the item's current one.
     """
 
     from learnloop.attempts.blind_grading import (
@@ -1528,24 +1930,38 @@ def _blind_grading_plan(
         blind_prompt_version,
     )
     from learnloop.attempts.grading_support import (
+        ITEM_REQUIRED_METHOD,
         REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION,
-        ROUTE_RULES_SUFFIX,
         reference_policy,
-        route_rules_active,
+        route_rules_suffix,
+        route_rules_version,
     )
     from learnloop.diagnosis.diagnostic_augmentation import (
         diagnostic_verifier_observations,
     )
 
     support = bool(getattr(getattr(vault.config, "diagnosis", None), "grading_support", True))
-    route_rules = support and route_rules_active(vault)
+    rules = route_rules_version(vault) if support else None
+    rubric_ids = [
+        str(criterion.get("id"))
+        for criterion in (context.rubric or {}).get("criteria") or ()
+        if isinstance(criterion, dict) and criterion.get("id")
+    ]
     blind_context = blind_context_from_grading_context(
         context,
         verifier_observations=diagnostic_verifier_observations(
             context.learner_answer_md, context.expected_answer
         ),
         reference_policy=(
-            reference_policy(item, context.learner_answer_md, route_rules=route_rules) if support else None
+            reference_policy(
+                item, context.learner_answer_md, route_rules=rules or False, rubric_criterion_ids=rubric_ids,
+                # The field frozen with the answer's contract: the one
+                # authority (the prompt is never read to decide it).
+                required_method=(
+                    ITEM_REQUIRED_METHOD if required_method is _CURRENT_ITEM_METHOD else required_method
+                ),
+            )
+            if support else None
         ),
         answer_prompt=stuck_answer_prompt() if stuck else None,
     )
@@ -1554,7 +1970,7 @@ def _blind_grading_plan(
         context=blind_context,
         prompt_version=blind_prompt_version(blind_context),
         context_hash=blind_grading_context_hash(blind_context),
-        calibration_prompt_version=f"{calibration}{ROUTE_RULES_SUFFIX}" if route_rules else calibration,
+        calibration_prompt_version=f"{calibration}{route_rules_suffix(rules)}" if rules else calibration,
     )
 
 

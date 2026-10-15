@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from dataclasses import dataclass, replace
+from typing import Any
 
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
@@ -17,6 +18,8 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.attempts.attempts import (
     GradeAttribution,
     assessed_rubric_score,
+    attempt_graded_contract,
+    regrade_reads_contract,
     unverified_attribution_json,
 )
 from learnloop.attempts.grading import (
@@ -163,13 +166,21 @@ def regrade_attempt(
     building a second grading path whose semantics could drift."""
     item = vault.practice_items[attempt["practice_item_id"]]
     learning_object = vault.learning_objects[attempt["learning_object_id"]]
-    rubric = resolved_rubric(vault, item)
+    # Method-explicit items (re-review F1): the answer is regraded under the
+    # assessment contract its method was frozen with, statement and rubric
+    # included, and the new rows cite that contract so replay reads the same
+    # criteria. Every other regrade reads the item as it is now (§7.3a).
+    graded_contract = attempt_graded_contract(repository, attempt["id"])
+    reads_contract = regrade_reads_contract(vault, item, graded_contract)
+    rubric = graded_contract.rubric() if reads_contract else resolved_rubric(vault, item)
     old_evidence = repository.fetch_grading_evidence(attempt["id"])
     context = build_grading_context(
         vault,
         item,
         attempt_id=attempt["id"],
         learner_answer_md=attempt.get("learner_answer_md") or "",
+        rubric=rubric,
+        assessment_contract=graded_contract.contract if reads_contract else None,
     )
     if clarification_exchange:
         context = replace(context, clarification_exchange=dict(clarification_exchange))
@@ -213,9 +224,12 @@ def regrade_attempt(
 
         # mvp-0.13: a stuck answer is regraded under the same stuck rules, so
         # its new blind record carries a fresh reading (the confusion signal
-        # follows the current record).
+        # follows the current record). Method-explicit items (review F1): the
+        # answer is regraded under the required method its assessment
+        # contract froze, never one the item gained afterwards.
         blind_plan = _blind_grading_plan(
-            vault, item, context, stuck=bool(attempt.get("declared_stuck"))
+            vault, item, context, stuck=bool(attempt.get("declared_stuck")),
+            required_method=graded_contract.required_method if graded_contract is not None else None,
         )
     if blind_plan is None and attempt.get("declared_stuck"):
         # mvp-0.13 (review F3): a joint regrade of a stuck answer re-reads it
@@ -347,6 +361,7 @@ def regrade_attempt(
                 item=item,
                 vault=vault,
                 learner_answer_md=attempt.get("learner_answer_md") or "",
+                rubric=rubric,
             )
     except Exception as exc:
         finish_agent_run(
@@ -399,6 +414,11 @@ def regrade_attempt(
                 **(
                     {"attribution_json": unverified_attribution_json()}
                     if evidence.criterion_id in unverified
+                    else {}
+                ),
+                **(
+                    {"assessment_contract_version_id": graded_contract.version_id}
+                    if reads_contract and graded_contract is not None
                     else {}
                 ),
             }
@@ -457,6 +477,13 @@ def regrade_attempt(
                 ),
                 new_score=new_score,
                 rubric=rubric,
+                # Review F13, F19: the grade binds to the content it was
+                # read against. A regrade under the frozen contract read the
+                # presented content, so the revision it graded binds (the
+                # one its contract recorded; a dispute recorded since
+                # against THAT revision lowers it; a check of an edited or
+                # merely equivalent one does not decide it).
+                bind_frozen=graded_contract if reads_contract and graded_contract is not None else None,
                 primary_error_type=primary_error_type,
                 content_events=content_events,
                 blind_record=blind_record,
@@ -524,6 +551,7 @@ def _publish_regrade(
     supersede_tiers: tuple[int, ...],
     new_score: int,
     rubric,
+    bind_frozen: Any | None,
     primary_error_type: str | None,
     content_events: list[dict],
     blind_record: dict | None,
@@ -557,17 +585,36 @@ def _publish_regrade(
         error_type=primary_error_type,
         clock=clock,
     )
-    # C3 (canonical sources §7.3a): the new grade was read against the item as
-    # it is now. If that content's key is not verified, the grade certifies
-    # nothing; the attempt's status is lowered (never raised) before the replay
-    # below reads it.
+    # C3 (canonical sources §7.3a): the new grade is bound to the content it
+    # was read against: if that content's key is not verified, the grade
+    # certifies nothing; the attempt's status is lowered (never raised)
+    # before the replay below reads it. Usually that is the item as it is
+    # now. A method-explicit regrade (re-review F1) read the presented
+    # content its contract froze (``bind_frozen``): the revision it graded
+    # binds instead (review F13), the one the contract recorded (F19): an
+    # unverified revision made since never lowers the grade, and a later
+    # dispute of the revision graded does.
+    connection = repository.connection()
+    gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
+    # The key identities (method-explicit-3 re-review F1): whether the
+    # revision graded has a method, and the legacy identity a contract
+    # frozen before that review recorded for it.
+    graded_contents, graded_revision, legacy_contents = (
+        bind_frozen.graded_reference_contents(vault, item, connection, attempt=attempt)
+        if bind_frozen is not None and gated
+        else (None, "current", {})
+    )
     bind_replacement_grade(
-        repository.connection(),
+        connection,
         attempt_id=attempt["id"],
         item=item,
-        gated=vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS,
+        gated=gated,
         grading="regrade",
         created_at=utc_now_iso(clock),
+        graded_contents=graded_contents,
+        graded_revision=graded_revision,
+        method_revision=bind_frozen.required_method is not None if bind_frozen is not None else None,
+        legacy_contents=legacy_contents,
     )
     if content_events:
         repository.record_content_events(content_events)

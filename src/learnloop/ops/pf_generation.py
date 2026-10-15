@@ -51,6 +51,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import logging
 import math
 from pathlib import Path
 from typing import Any, Iterator
@@ -71,6 +72,12 @@ from learnloop.content.sources.exam_material import exam_material, source_ref_pr
 from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
 )
+from learnloop.content.proposals.method_statement_judge import (
+    LazyStatementJudge,
+    planned_tokens,
+    recorded_verdict,
+    resolve_statement_judge,
+)
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
@@ -80,7 +87,14 @@ from learnloop.ops.pf_calls import (
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
     resolve_role_clients,
 )
-from learnloop.ops.pf_publish import TRACE_RELATIONS, judged_inputs, publish_selected, remaining_publish_slots
+from learnloop.ops.pf_publish import (
+    TRACE_RELATIONS,
+    judge_variant_stem,
+    judged_inputs,
+    publish_selected,
+    remaining_publish_slots,
+    stale_inputs,
+)
 from learnloop.ops.pf_selection import DIVERSITY_BASIS, mmr_order, similarity, vendi_contributions, vendi_score
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.families import apply_family, family_operation_lock, sync_authored_families
@@ -92,6 +106,8 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import ActivityFamily, FamilyReference, LoadedVault, PracticeItem
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_activity_family
+
+_LOGGER = logging.getLogger(__name__)
 
 PATHS = ("generator", "ensemble", "source_anchored", "single_shot")
 RELATIONS = ("same_target", "isomorph", "near", "far")
@@ -172,6 +188,60 @@ class Candidate:
         return skeleton_content_hash(self.payload["stem"], self.expected_answer)
 
 
+def _candidate_from_row(row: dict[str, Any]) -> Candidate:
+    """A persisted candidate as the run holds it (review F20: a resumed job)."""
+
+    def loads(raw: Any) -> dict[str, Any]:
+        return json.loads(raw) if raw else {}
+
+    return Candidate(
+        id=row["id"], path=row["generation_path"], payload=json.loads(row["payload_json"]),
+        proposer_model=row["proposer_model"], prompt_version=row["prompt_version"],
+        declared_relation=row["declared_relation"], status=row["status"], verification=row["verification"],
+        verification_check=row["verification_check"], final_relation=row["final_relation"],
+        rejection_filter=row["rejection_filter"], filters=loads(row["filters_json"]),
+        difficulty=row["difficulty"], panel=loads(row["panel_json"]), selection=loads(row["selection_json"]),
+        cost=loads(row["cost_json"]),
+    )
+
+
+#: The completion marker a finished selection writes into every survivor's
+#: ``selection_json``, in ONE transaction with the survivors' statuses (round
+#: 3, F22): ``selected_order`` is the exact order chosen (the judge's, else
+#: MMR's), and ``selection_complete`` says the whole selection was persisted.
+SELECTION_ORDER_KEY = "selected_order"
+SELECTION_COMPLETE_KEY = "selection_complete"
+
+
+def selection_state(rows: list[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """How far a mint request's selection got, from its persisted candidates.
+
+    * ``{"stage": "judgment", "order": [...]}``: the completion marker exists,
+      so the selection finished; a rerun resumes at the judgment and
+      publication step with exactly that order;
+    * ``{"stage": "selection"}``: some candidate carries a selection but none
+      the marker (persisted candidate by candidate before round 3, and
+      interrupted): the selection never finished, so a rerun finishes it
+      first (review F22), never taking the rows written so far for it;
+    * None: selection never started (a rerun runs the pipeline, from
+      checkpoints).
+    """
+
+    started = False
+    for row in rows:
+        raw = row.get("selection_json")
+        if not raw:
+            continue
+        started = True
+        try:
+            selection = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(selection, dict) and selection.get(SELECTION_COMPLETE_KEY):
+            return {"stage": "judgment", "order": [str(cid) for cid in selection.get(SELECTION_ORDER_KEY) or ()]}
+    return {"stage": "selection"} if started else None
+
+
 def _sha(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -202,9 +272,14 @@ def _item_context(item: PracticeItem, vault: LoadedVault | None = None) -> dict[
     """Item-side material only; the resolved rubric (item or practice-mode default)."""
     resolved = vault.rubric_for_item(item) if vault is not None else item.grading_rubric
     rubric = resolved.model_dump(mode="json") if resolved is not None else None
-    return {"id": item.id, "prompt": item.prompt, "expected_answer": item.expected_answer,
-            "practice_mode": item.practice_mode, "rubric": rubric,
-            "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract else None}
+    context = {"id": item.id, "prompt": item.prompt, "expected_answer": item.expected_answer,
+               "practice_mode": item.practice_mode, "rubric": rubric,
+               "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract else None}
+    if item.required_method is not None:
+        # Method-explicit items: shown only when set, so every other parent's
+        # context (and its checkpoint keys) is unchanged.
+        context["required_method"] = item.required_method.model_dump(mode="json")
+    return context
 
 
 def _family_context(family: ActivityFamily) -> dict[str, Any]:
@@ -280,6 +355,26 @@ class _Context:
         self.limits = SandboxLimits.from_config(vault.config.pf)
         self._roles: dict[str, list[RoleClient]] = {}
         self._inventory = None
+        self._method_judge: Any = None
+
+    def method_judge(self) -> Any:
+        """The one-time required-method publication judge (redesign 2026-10-14),
+        resolved on first use: ``clients["required_method_judge"]`` when
+        injected, else the Decider via its route, else the LLM judge (a metered
+        one at this run's owner price). Its requests are admitted under this
+        run's caps (its metered or subscription budget), as the plan counts
+        them."""
+
+        if self._method_judge is None:
+            injected = self.injected.get("required_method_judge")
+            caller = self.caller
+            # The run's owner price, as an upper bound when it is an input/output pair.
+            price = caller.price if caller.price is not None else (
+                max(caller.input_price, caller.output_price or 0.0) if caller.input_price is not None else None)
+            self._method_judge = LazyStatementJudge(lambda: resolve_statement_judge(
+                self.vault, clients=injected, price_per_million=price,
+                budget_for=lambda billing: caller.subscription if billing == "subscription" else caller.metered))
+        return self._method_judge
 
     def role(self, name: str) -> list[RoleClient]:
         if name not in self._roles:
@@ -299,9 +394,17 @@ class _Context:
         self.caller.vault = self.vault
 
 
+class RequiredMethodJudgmentIncomplete(RuntimeError):
+    """A selected variant has no required-method verdict yet (review F17):
+    the family's job stays retryable instead of completing."""
+
+
 class _FamilyRun:
-    def __init__(self, ctx: _Context, family: ActivityFamily, parent: PracticeItem, path: str) -> None:
+    def __init__(self, ctx: _Context, family: ActivityFamily, parent: PracticeItem, path: str,
+                 planned_resume: Mapping[str, Any] | None = None) -> None:
         self.ctx = ctx
+        #: The resumable state the plan admitted this job under (round 3), or None.
+        self.planned_resume = planned_resume
         self.family = family
         self.parent = parent
         self.path = path
@@ -326,8 +429,8 @@ class _FamilyRun:
         repository = self.ctx.repository
         resolved = resolve_legacy_item(self.ctx.vault, repository, self.parent, purpose="practice",
                                        clock=self.ctx.clock)
-        angle = {"family_id": self.family.id, "path": self.path, "relation": self.relation,
-                 "round": self.ctx.round, "tier": self.ctx.options.tier, "count": self.count}
+        angle = _job_angle(self.family.id, self.path, self.relation, self.ctx.round, self.ctx.options.tier,
+                           self.count)
         request_id = repository.enqueue_surface_mint_request(
             card_version_id=resolved.card_version_id, anchor_surface_id=resolved.surface_id,
             requested_angle_json=json.dumps(angle, sort_keys=True, separators=(",", ":")),
@@ -370,6 +473,31 @@ class _FamilyRun:
             )
 
     # -- persistence -------------------------------------------------------------
+    def _write(self, connection: Any, candidate: Candidate, now: str) -> None:
+        stored = store.candidate(connection, candidate.id)
+        if stored is not None and stored["status"] == "published":
+            return
+        store.update_candidate(
+            connection, candidate.id, status=candidate.status, verification=candidate.verification,
+            verification_check=candidate.verification_check, final_relation=candidate.final_relation,
+            rejection_filter=candidate.rejection_filter,
+            filters_json=json.dumps(candidate.filters, sort_keys=True),
+            payload_json=json.dumps(candidate.payload, sort_keys=True),
+            difficulty=candidate.difficulty,
+            difficulty_source="solver_panel" if candidate.difficulty is not None else None,
+            panel_json=json.dumps(candidate.panel, sort_keys=True) if candidate.panel else None,
+            selection_json=json.dumps(candidate.selection, sort_keys=True) if candidate.selection else None,
+            cost_json=json.dumps(candidate.cost, sort_keys=True),
+            updated_at=now,
+        )
+
+    def _persist_all(self, candidates: list[Candidate]) -> None:
+        """Persist ``candidates`` in ONE transaction: all of them or none (review F22)."""
+        now = utc_now_iso(self.ctx.clock)
+        with self.ctx.repository.connection() as connection:
+            for candidate in candidates:
+                self._write(connection, candidate, now)
+
     def _persist(self, candidate: Candidate, *, insert: bool = False) -> None:
         now = utc_now_iso(self.ctx.clock)
         with self.ctx.repository.connection() as connection:
@@ -387,22 +515,7 @@ class _FamilyRun:
                     "judged_inputs_json": json.dumps(self.judged_inputs, sort_keys=True),
                     "created_at": now, "updated_at": now,
                 })
-            stored = store.candidate(connection, candidate.id)
-            if stored is not None and stored["status"] == "published":
-                return
-            store.update_candidate(
-                connection, candidate.id, status=candidate.status, verification=candidate.verification,
-                verification_check=candidate.verification_check, final_relation=candidate.final_relation,
-                rejection_filter=candidate.rejection_filter,
-                filters_json=json.dumps(candidate.filters, sort_keys=True),
-                payload_json=json.dumps(candidate.payload, sort_keys=True),
-                difficulty=candidate.difficulty,
-                difficulty_source="solver_panel" if candidate.difficulty is not None else None,
-                panel_json=json.dumps(candidate.panel, sort_keys=True) if candidate.panel else None,
-                selection_json=json.dumps(candidate.selection, sort_keys=True) if candidate.selection else None,
-                cost_json=json.dumps(candidate.cost, sort_keys=True),
-                updated_at=now,
-            )
+            self._write(connection, candidate, now)
 
     def _record_filter(self, candidate: Candidate, filter_name: str, verdict: str, detail: Any) -> None:
         """The authoritative filter verdict (§5.8): ledgered, idempotent, superseding.
@@ -480,44 +593,95 @@ class _FamilyRun:
             )
         return record
 
+    def _resume_after_selection(self) -> str | None:
+        """Where a rerun of this job resumes, from its persisted candidates.
+
+        ``"judgment"`` (review F20): the selection's completion marker exists
+        (:func:`selection_state`), so the job was left retryable after
+        selection (a required-method judgment could not be made, F17; a spend
+        refusal or a cancellation stopped it there; publication failed). Its
+        candidates, filters, panel and selection are persisted: the rerun
+        loads them and takes the selected order exactly as it was chosen,
+        then asks only the missing verdicts (each verdict already ledgered is
+        reused) and publishes. The variants it published meanwhile would
+        change the freshness and selection requests, so re-running the
+        pipeline would miss their checkpoints and pay again.
+
+        ``"selection"`` (review F22): a selection was started but its marker
+        never written (the rows of a selection persisted candidate by
+        candidate, interrupted). Nothing was published from it, so the
+        survivors are loaded back as survivors and the selection is finished
+        first (its judge's request is the one already checkpointed), never
+        judged from the partial rows.
+
+        None: selection never started; the pipeline runs (from checkpoints).
+        """
+        if self.request is None or self.path == "single_shot":
+            return None
+        with self.ctx.repository.connection() as connection:
+            rows = store.candidates(connection, where="mint_request_id=?", params=(self.request["id"],))
+        state = selection_state(rows)
+        if state is None:
+            return None
+        self.candidates = [_candidate_from_row(row) for row in rows]
+        if state["stage"] == "judgment":
+            known = {candidate.id for candidate in self.candidates}
+            self.selected_order = [cid for cid in state["order"] if cid in known]
+            self.report["resumed"] = "required_method_judgment"
+            return "judgment"
+        for candidate in self.candidates:
+            if candidate.status in ("selected", "not_selected"):
+                candidate.status = "survivor"
+            candidate.selection = {}
+        self.report["resumed"] = "selection"
+        return "selection"
+
+    def _judge_and_publish(self) -> None:
+        try:
+            self._judge_required_method()
+        except RequiredMethodJudgmentIncomplete:
+            # Review F17: the variants judged so far publish now; the job
+            # stays retryable for the rest (below), and a rerun resumes here
+            # (F20) without any pipeline work.
+            if self.ctx.options.publish:
+                self._publish()
+            raise
+        if self.ctx.options.publish:
+            self._publish()
+
     # -- stages -------------------------------------------------------------------
     def execute(self) -> dict[str, Any]:
         if not self._enqueue_and_claim():
             return self.report
         try:
-            self.parent_skeleton = self._parent_skeleton()
-            if self.path == "generator":
-                self._generate_programs()
-            elif self.path == "source_anchored":
-                self._generate_source_anchored()
-            else:
-                self._generate_proposals()
-            self._free_filters()
-            if self.path == "generator":
-                self._panel_generator()
-            elif self.path == "source_anchored":
-                self._verify_source_anchored()
-            else:
-                self._verify_ensemble()
-            self._finalize_difficulty()
-            self._structure()
-            self._freshness()
-            for candidate in self.candidates:
-                if candidate.alive:
-                    for name in NOT_APPLICABLE_FILTERS:
-                        if name not in candidate.filters:
-                            self._pass(candidate, name, "not_applicable")
-                    if candidate.path != "single_shot":
-                        candidate.status = "survivor"
-                    self._persist(candidate)
-            if self.path != "single_shot":
+            stage = self._resume_after_selection()
+            if stage == "judgment":
+                self._judge_and_publish()
+            elif stage == "selection":
                 self._select()
-                if self.ctx.options.publish:
-                    self._publish()
+                self._judge_and_publish()
+            elif self.planned_resume is not None:
+                # The plan admitted only this job's unfinished work, and the
+                # job has none to resume now: nothing unplanned is paid for.
+                self.release()
+                self.report.update(status="resume_unavailable",
+                                   reason="the job planned as a resume has no persisted selection; rerun to plan it")
+                return self.report
+            else:
+                self._run_pipeline()
             self._summarize()
             selected = self.report.get("selected", 0) + len(self.report.get("published_item_ids", []))
             self._resolve_request("admitted" if selected else "rejected")
             self.report["status"] = "complete"
+        except RequiredMethodJudgmentIncomplete as exc:
+            # Review F17: paid, verified variants are never stranded by a
+            # judgment that could not be made (a timeout, a failure, no judge
+            # ready): the mint request is left ``failed``, which a rerun of
+            # the round reclaims, resuming at the judgment (F20) and asking
+            # only the missing verdicts.
+            self._summarize()
+            self._resolve_request("failed", reason="required_method_unjudged")
+            self.report.update(status="judgment_incomplete", reason=str(exc))
         except (AIInterrupted, KeyboardInterrupt):
             self._summarize()
             self.release()
@@ -536,6 +700,36 @@ class _FamilyRun:
             self._resolve_request("failed", reason=type(exc).__name__)
             raise
         return self.report
+
+    def _run_pipeline(self) -> None:
+        self.parent_skeleton = self._parent_skeleton()
+        if self.path == "generator":
+            self._generate_programs()
+        elif self.path == "source_anchored":
+            self._generate_source_anchored()
+        else:
+            self._generate_proposals()
+        self._free_filters()
+        if self.path == "generator":
+            self._panel_generator()
+        elif self.path == "source_anchored":
+            self._verify_source_anchored()
+        else:
+            self._verify_ensemble()
+        self._finalize_difficulty()
+        self._structure()
+        self._freshness()
+        for candidate in self.candidates:
+            if candidate.alive:
+                for name in NOT_APPLICABLE_FILTERS:
+                    if name not in candidate.filters:
+                        self._pass(candidate, name, "not_applicable")
+                if candidate.path != "single_shot":
+                    candidate.status = "survivor"
+                self._persist(candidate)
+        if self.path != "single_shot":
+            self._select()
+            self._judge_and_publish()
 
     def _parent_skeleton(self) -> dict[str, Any]:
         entry = self.ctx.role("skeleton")[0]
@@ -1369,9 +1563,60 @@ class _FamilyRun:
                     rationale={"slots": self.slots, "offered": len(order), "basis": DIVERSITY_BASIS},
                 )
         self.selected_order = chosen
+        # Review F22: the complete selected order and its completion marker
+        # are persisted with every survivor's status in ONE transaction, so a
+        # rerun never mistakes a partly persisted selection for a finished one.
         for candidate in survivors:
             candidate.status = "selected" if candidate.id in chosen else "not_selected"
-            self._persist(candidate)
+            candidate.selection = {**candidate.selection, SELECTION_ORDER_KEY: list(chosen),
+                                   SELECTION_COMPLETE_KEY: True}
+        self._persist_all(survivors)
+
+    def _judge_required_method(self) -> None:
+        """The one-time publication judgment of each selected variant of a parent
+        with a required method (redesign 2026-10-14; review F10): does its stem
+        prohibit or contradict the method? Recorded once in ``judgment_ledger``
+        whether or not the candidate is published today, so publication (now
+        or from the backlog, which makes no model call) reads the verdict and
+        refuses a contradicting stem before anything is appended.
+
+        Review F17: a spend refusal or a cancellation propagates (the run
+        releases the job, resumable); any other failure, or no judge ready,
+        raises :class:`RequiredMethodJudgmentIncomplete` once every selected
+        variant has been tried, so the job stays retryable until each has a
+        verdict."""
+        order = getattr(self, "selected_order", [])
+        method = getattr(self.parent, "required_method", None)
+        if method is None or not order:
+            return
+        tally: Counter = Counter()
+        failures: Counter = Counter()
+        for candidate_id in order:
+            with self.ctx.repository.connection() as connection:
+                row = store.candidate(connection, candidate_id)
+            if row is None:
+                continue
+            try:
+                verdict = judge_variant_stem(self.ctx.vault, self.ctx.repository, row, self.ctx.method_judge(),
+                                             owner=(self.ctx.caller.owner_kind, self.ctx.caller.run_id),
+                                             clock=self.ctx.clock, strict=True)
+            except (AIInterrupted, SpendLimitExceeded):
+                raise
+            except Exception as exc:  # noqa: BLE001 - no verdict yet; the job stays retryable
+                _LOGGER.warning("the required-method publication judgment failed for %s", candidate_id,
+                                exc_info=True)
+                failures[type(exc).__name__] += 1
+                verdict = None
+            tally[verdict or "unjudged"] += 1
+        self.report["required_method_judgments"] = dict(sorted(tally.items()))
+        if failures:
+            self.report["required_method_judgment_failures"] = dict(sorted(failures.items()))
+        if tally.get("unjudged"):
+            reason = (f"{tally['unjudged']} selected variant(s) have no required-method verdict ("
+                      + (", ".join(f"{name} x{count}" for name, count in sorted(failures.items())) if failures
+                         else "no judge is ready")
+                      + "); rerun this round to judge them")
+            raise RequiredMethodJudgmentIncomplete(reason)
 
     def _publish(self) -> None:
         order = getattr(self, "selected_order", [])
@@ -1381,7 +1626,8 @@ class _FamilyRun:
         self.ctx.vault = vault
         self.ctx.caller.vault = vault
         self.report.update(published_item_ids=outcome["published_item_ids"],
-                           capped=outcome["capped_candidates"], stale=outcome["stale_candidates"])
+                           capped=outcome["capped_candidates"], stale=outcome["stale_candidates"],
+                           refused=outcome["refused_candidates"], unjudged=outcome["unjudged_candidates"])
         for candidate in self.candidates:
             if candidate.id in order:
                 with self.ctx.repository.connection() as connection:
@@ -1412,6 +1658,147 @@ class _FamilyRun:
 
 
 # -- planning and the command entry -------------------------------------------------
+
+def _job_angle(family_id: str, path: str, relation: str, round_id: str, tier: str | None,
+               count: int) -> dict[str, Any]:
+    """A family job's requested angle: its mint request's identity (with the
+    parent's card version) and its generation seed."""
+    return {"family_id": family_id, "path": path, "relation": relation, "round": round_id, "tier": tier,
+            "count": count}
+
+
+def _resumable_job(vault: LoadedVault, repository: Repository, family: ActivityFamily, parent: PracticeItem,
+                   path: str, options: GenerationOptions, round_id: str, now_iso: str) -> dict[str, Any] | None:
+    """A job of this round whose selection already started, read-only (round 3, F17/F20/F22).
+
+    Detected BEFORE any route is resolved or any budget planned, so a rerun
+    is planned and admitted as its unfinished work only: the claimable
+    (``pending`` or ``failed``, or ``running`` under an expired lease) mint
+    request of the same angle whose candidates were judged against the
+    parent and family as they are now (:func:`~learnloop.ops.pf_publish.
+    stale_inputs`), with a selection (:func:`selection_state`). Returns its
+    request id, stage and selected order, or None (the job runs the
+    pipeline, as planned by :func:`_plan_family`).
+    """
+    if path == "single_shot" or family.id.startswith("(seed:") or not repository.sqlite_path.exists():
+        return None
+    count = options.count or vault.config.pf.candidates_per_family
+    relation = "isomorph" if path == "generator" else options.relation
+    angle = json.dumps(_job_angle(family.id, path, relation, round_id, options.tier, count),
+                       sort_keys=True, separators=(",", ":"))
+    with repository.connection() as connection:
+        tables = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('pf_candidates', 'surface_mint_requests')")}
+        if tables != {"pf_candidates", "surface_mint_requests"}:
+            return None
+        requests = [row[0] for row in connection.execute(
+            "SELECT id FROM surface_mint_requests WHERE requested_angle_json = ? AND generator_version = ? "
+            "AND gate_policy_version = ? AND (status IN ('pending', 'failed') OR (status = 'running' "
+            "AND (lease_expires_at IS NULL OR lease_expires_at < ?))) ORDER BY created_at DESC, id DESC",
+            (angle, GENERATOR_VERSIONS[path], GATE_POLICY_VERSION, now_iso))]
+        for request_id in requests:
+            rows = store.candidates(connection, where="mint_request_id=? AND parent_item_id=?",
+                                    params=(request_id, parent.id))
+            if not rows or any(stale_inputs(vault, row) for row in rows):
+                continue
+            state = selection_state(rows)
+            if state is None:
+                continue
+            method = getattr(parent, "required_method", None)
+
+            def unjudged(row: Mapping[str, Any], stem: str) -> bool:
+                return method is not None and recorded_verdict(
+                    connection, question="variant", subject_kind="pf_candidate", subject_id=str(row["id"]),
+                    statement=stem, method=method.name) is None
+
+            # Review F7 (method-explicit-3): the persisted inputs of the
+            # unfinished work, so the plan estimates THEM, never the parent's
+            # stem in their place: the stems still to be judged and, for a
+            # selection to finish, the survivors the selection judge is shown.
+            missing_stems: list[str] = []
+            if state["stage"] == "judgment" and method is not None:
+                by_id = {row["id"]: row for row in rows}
+                for candidate_id in state["order"]:
+                    row = by_id.get(candidate_id)
+                    if row is None or row["status"] != "selected":
+                        continue  # published or refused meanwhile: no judgment left to ask
+                    stem = str(json.loads(row["payload_json"]).get("stem") or "")
+                    if unjudged(row, stem):
+                        missing_stems.append(stem)
+            survivors = []
+            for row in rows:
+                if row["status"] not in ("survivor", "selected", "not_selected"):
+                    continue
+                stem = str(json.loads(row["payload_json"]).get("stem") or "")
+                survivors.append({"stem": stem, "relation": row["final_relation"], "difficulty": row["difficulty"],
+                                  "verification": row["verification_check"], "unjudged": unjudged(row, stem)})
+            return {**state, "mint_request_id": request_id, "survivors": len(survivors),
+                    "survivor_inputs": survivors, "missing_judgments": len(missing_stems),
+                    "missing_stems": missing_stems}
+    return None
+
+
+def _plan_resume(vault: LoadedVault, family: ActivityFamily, parent: PracticeItem, path: str,
+                 options: GenerationOptions, roles: Mapping[str, list[RoleClient]],
+                 resume: Mapping[str, Any]) -> dict[str, Any]:
+    """The plan of a resumable job: only its unfinished work (round 3, F17/F20/F22).
+
+    At the judgment stage that is each selected variant's missing
+    required-method judgment (a judgment already ledgered is reused) and the
+    publication (no model call). A selection persisted without its marker is
+    finished first: the selection judge's request on the ensemble path, then
+    up to one judgment per slot. Nothing upstream (skeleton, generation,
+    filters, panel, freshness) runs again.
+    """
+    pf = vault.config.pf
+    slots = options.select or pf.select_per_family
+    plan: dict[str, Any] = {
+        "family_id": family.id, "parent_item_id": parent.id, "path": path, "candidates": 0, "freshness_pairs": 0,
+        "roles": {},
+        "resume": {"stage": resume["stage"], "mint_request_id": resume["mint_request_id"],
+                   "selected": len(resume.get("order") or ()), "missing_judgments": resume["missing_judgments"]},
+    }
+    method = getattr(parent, "required_method", None)
+    # Review F7 (method-explicit-3): each estimate reads the persisted input
+    # it stands for (the stem still to be judged, the survivors the
+    # selection judge is shown), never the parent's stem in its place, so a
+    # long variant cannot pass admission and then exceed the token cap.
+    per_stem = ([planned_tokens("variant", stem, method.name) for stem in resume.get("missing_stems") or ()]
+                if method is not None else [])
+    if resume["stage"] == "selection":
+        survivors = list(resume.get("survivor_inputs") or ())
+        # Up to one judgment per slot, of the survivors not judged yet: the
+        # largest ESTIMATES (re-review F9; an estimate grows with the stem's
+        # UTF-8 bytes, not its characters), an upper bound whichever the
+        # selection chooses.
+        per_stem = sorted((planned_tokens("variant", entry["stem"], method.name)
+                           for entry in survivors if entry.get("unjudged")),
+                          reverse=True)[:slots] if method is not None else []
+        if path == "ensemble":
+            entries = roles["selection"]
+            context = [{
+                "ref": f"c{index}", "stem": entry["stem"], "relation": entry.get("relation"),
+                "difficulty": entry.get("difficulty"), "verification": entry.get("verification"),
+                # The selection's own scores, as wide as the run writes them.
+                "mmr_score": 0.123456, "vendi_contribution": 0.123456,
+            } for index, entry in enumerate(survivors)] or [{"ref": "c0", "stem": parent.prompt}]
+            prompt = C.selection_prompt(family=_family_context(family), survivors=context, slots=slots)
+            tokens = estimate_tokens(prompt, C.SelectionVerdict, output_budget(
+                vault.config, ROLE_TASKS["selection"], provider=entries[0].provider if entries else None))
+            plan["roles"]["selection"] = {
+                "calls": 1, "tokens": tokens, "providers": [entry.provider for entry in entries],
+                "models": [entry.model for entry in entries],
+                "subscription": [entry.subscription for entry in entries], "per_call_tokens": tokens,
+                "per_entry": 1,
+            }
+    if per_stem:
+        plan["required_method_judgment"] = {
+            "calls": len(per_stem), "tokens": sum(per_stem), "per_call_tokens": max(per_stem),
+            "judge": "the Decider via ai.routing.rubric_phrasing_judge, else the LLM judge on it",
+            "billing": "metered (upper bound)",
+        }
+    return plan
+
 
 def _tier_routes(vault: LoadedVault, tier: str | None) -> list[str] | None:
     if tier is None:
@@ -1490,6 +1877,18 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
             "subscription": [entry.subscription for entry in entries],
             "per_call_tokens": tokens, "per_entry": per_entry,
         }
+    method = getattr(parent, "required_method", None)
+    if method is not None and path != "single_shot":
+        # The one-time publication judgment of each selected variant
+        # (redesign 2026-10-14): the Decider via ai.routing.rubric_phrasing_judge,
+        # else the LLM judge; an upper bound, counted as metered.
+        slots = options.select or pf.select_per_family
+        per_call = planned_tokens("variant", stem_proxy, method.name)
+        plan["required_method_judgment"] = {
+            "calls": slots, "tokens": per_call * slots, "per_call_tokens": per_call,
+            "judge": "the Decider via ai.routing.rubric_phrasing_judge, else the LLM judge on it",
+            "billing": "metered (upper bound)",
+        }
     return plan
 
 
@@ -1516,6 +1915,10 @@ def _plan_estimates(plans: list[dict[str, Any]], caller: PFCaller,
                 entry = entries[0]
                 totals[entry.subscription]["calls"] += info["calls"]
                 totals[entry.subscription]["tokens"] += info["tokens"]
+        judgment = plan.get("required_method_judgment")
+        if judgment:
+            totals[False]["calls"] += judgment["calls"]
+            totals[False]["tokens"] += judgment["tokens"]
     metered = caller.estimate(totals[False]["tokens"], subscription=False, calls=totals[False]["calls"])
     subscription = caller.estimate(totals[True]["tokens"], subscription=True, calls=totals[True]["calls"])
     metered = SpendEstimate(candidates=candidates, pairs=pairs, calls=metered.calls,
@@ -1613,15 +2016,33 @@ def generate_practice(
                 idea_statement="seed", retrieval_target="seed", created_at="", updated_at="")
             targets.append((placeholder, item))
     paths = {family.id: _resolve_path(vault, family, options.path) for family, _ in targets}
-    used_roles = {"skeleton", "panel", "structure", "freshness"}
-    if "generator" in paths.values():
+    # Round 3 (F17/F20/F22): a job of this round left retryable after its
+    # selection started is found BEFORE any route is resolved or budget
+    # planned, and planned as its unfinished work only (a missing judgment
+    # alone fits max_calls = 1); only the other jobs need the pipeline's routes.
+    now_iso = utc_now_iso(clock)
+    resumable = {
+        family.id: state for family, parent in targets
+        if (state := _resumable_job(vault, repository, family, parent, paths[family.id], options, round_id,
+                                    now_iso)) is not None
+    }
+    if resumable:
+        report["resumable"] = {family_id: {key: state[key] for key in ("stage", "mint_request_id",
+                                                                       "missing_judgments")}
+                               for family_id, state in resumable.items()}
+    fresh_paths = {family_id: path for family_id, path in paths.items() if family_id not in resumable}
+    used_roles = {"skeleton", "panel", "structure", "freshness"} if fresh_paths else set()
+    if "generator" in fresh_paths.values():
         used_roles |= {"program", "equivalence"}
-    if "ensemble" in paths.values():
+    if "ensemble" in fresh_paths.values():
         used_roles |= {"proposer", "equivalence", "selection"}
-    if "single_shot" in paths.values():
+    if "single_shot" in fresh_paths.values():
         used_roles |= {"single_shot", "equivalence"}
-    if "source_anchored" in paths.values():
+    if "source_anchored" in fresh_paths.values():
         used_roles |= {"source", "span_support", "closed_book", "equivalence"}
+    if any(state["stage"] == "selection" and paths[family_id] == "ensemble"
+           for family_id, state in resumable.items()):
+        used_roles.add("selection")
     try:
         if dry_run:
             roles = {role: (resolve_role_clients(vault, role, injected=clients[role])
@@ -1642,11 +2063,13 @@ def generate_practice(
     report["routes"] = {role: [{"provider": entry.provider, "model": entry.model,
                                 "billing": "subscription" if entry.subscription else "metered"}
                                for entry in entries] for role, entries in roles.items() if role in used_roles}
-    if "ensemble" in paths.values() and len(distinct_models(roles["proposer"])) < 2:
+    if "ensemble" in fresh_paths.values() and len(distinct_models(roles["proposer"])) < 2:
         report.update(status="refused",
                       reason="pf_proposers must name profiles with at least two distinct model slugs")
         return report
-    plans = [_plan_family(vault, family, parent, paths[family.id], options, roles, repository)
+    plans = [_plan_resume(vault, family, parent, paths[family.id], options, roles, resumable[family.id])
+             if family.id in resumable
+             else _plan_family(vault, family, parent, paths[family.id], options, roles, repository)
              for family, parent in targets]
     metered, subscription = _plan_estimates(plans, caller, roles)
     report["plan"] = plans
@@ -1679,7 +2102,8 @@ def generate_practice(
         try:
             for family, parent in targets:
                 run = _FamilyRun(ctx, ctx.vault.activity_families.get(family.id, family),
-                                 ctx.vault.practice_items[parent.id], paths[family.id])
+                                 ctx.vault.practice_items[parent.id], paths[family.id],
+                                 planned_resume=resumable.get(family.id))
                 try:
                     report["families"].append(run.execute())
                 except PFRefused as exc:
@@ -1724,7 +2148,11 @@ def _results_by_model(repository: Repository, run_id: str) -> dict[str, Any]:
 
 
 def publish_backlog(vault: LoadedVault, *, clock: Clock | None = None) -> dict[str, Any]:
-    """Publish selected-but-capped candidates under today's cap; no model calls."""
+    """Publish selected-but-capped candidates under today's cap; no model calls.
+
+    A variant of a parent with a required method is published only with the
+    one-time judgment its run recorded at selection (a contradicting stem is
+    refused; one with no verdict stays selected, ``unjudged_candidates``)."""
     if not vault.config.pf.generation_enabled:
         return {"status": "disabled", "reason": "pf.generation_enabled is off"}
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -1761,6 +2189,6 @@ def pf_status(vault: LoadedVault, *, clock: Clock | None = None) -> dict[str, An
 __all__ = [
     "FILTER_ORDER", "GATE_POLICY_VERSION", "GENERATOR_VERSIONS", "GenerationOptions",
     "MMR_SELECTION_POLICY", "PATHS",
-    "PFRefused", "family_targets", "generate_practice", "panel_difficulty", "pf_run_lock",
-    "pf_status", "publish_backlog",
+    "PFRefused", "RequiredMethodJudgmentIncomplete", "family_targets", "generate_practice", "panel_difficulty",
+    "pf_run_lock", "pf_status", "publish_backlog",
 ]

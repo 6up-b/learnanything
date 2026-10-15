@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/034_assessment_contract_snapshots.sql"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/answered_contracts.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/voi_forecasting.py"
   - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -96,7 +96,9 @@ Indexes and uniqueness:
 
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
@@ -121,6 +123,9 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_required_method_rereview.py`
+- `tests/test_required_method_round3_final_verify.py`
+- `tests/test_required_method_round3_rereview.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`

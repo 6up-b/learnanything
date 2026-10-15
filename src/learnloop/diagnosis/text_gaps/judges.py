@@ -67,6 +67,7 @@ from learnloop.matching.judge import SameOrDifferent
 from learnloop.matching.kinds import Subject
 from learnloop.tutor.ai_contracts import LearnerGap
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import presented_prompt
 
 #: model_call receipts of the pipeline's calls are owned by the learner text
 #: (the live daily cap counts them, ``jobs.calls_today``); a command's
@@ -347,7 +348,9 @@ def read_text(budget: TextBudget, client: Any, text: LearnerText) -> GapReading:
 def needed_context(vault: LoadedVault, item: Any, prerequisite_lo: Any) -> dict[str, Any]:
     owner = vault.learning_objects.get(item.learning_object_id)
     return {
-        "item": {"prompt": item.prompt, "learning_objective": getattr(owner, "title", None)},
+        # The question as presented (method-explicit-3 review F4).
+        "item": {"prompt": presented_prompt(item.prompt, getattr(item, "required_method", None)),
+                 "learning_objective": getattr(owner, "title", None)},
         "prerequisite": {"title": prerequisite_lo.title, "statement": prerequisite_lo.summary},
     }
 

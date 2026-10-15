@@ -853,6 +853,13 @@ def _variant_instructions(
                     if source_item.trace_contract is not None
                     else None
                 ),
+                # Method-explicit items: only when set, so other sources'
+                # instructions are unchanged.
+                **(
+                    {"required_method": source_item.required_method.model_dump(mode="json")}
+                    if source_item.required_method is not None
+                    else {}
+                ),
             },
             sort_keys=True,
         ),

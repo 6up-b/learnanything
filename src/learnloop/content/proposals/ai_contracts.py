@@ -17,6 +17,7 @@ from pydantic import (
 from learnloop.ai.schemas import WireModel, describe_wire_validation_error
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.attempt_types import AttemptType
+from learnloop.vault.required_method import CRITERIA_BY_FACT_GUIDANCE
 
 EntityType = Literal[
     "learning_object",
@@ -289,6 +290,23 @@ class RubricPatchPayload(WireModel):
             raise ValueError("rubric criterion points must sum to a positive integer")
         self.max_points = rounded
         return self
+
+
+class RequiredMethodPayload(WireModel):
+    """The method an item's statement requires (owner rule 2026-10-13).
+
+    Only on an item whose target is itself a method or technique (a learning
+    object or facet the context lists with ``required_method_targets``); the
+    writer drops it anywhere else, links it to its target and renders the
+    instruction ("Use {name} in your answer.") as the prompt's final paragraph
+    itself.
+    """
+
+    name: str = Field(description="The required method's name; LearnLoop appends 'Use {name} in your answer.'")
+    criterion_ids: list[str] = Field(
+        default_factory=list,
+        description="The ONLY rubric criteria that grade use of the method; every other criterion names a fact.",
+    )
 
 
 class TaskFeaturesPayload(WireModel):
@@ -653,6 +671,14 @@ class PracticeItemPatchPayload(WireModel):
     hints: list[str] | None = None
     hint_policy: dict | None = None
     tags: list[str] | None = None
+    required_method: RequiredMethodPayload | None = Field(
+        default=None,
+        description=(
+            "Leave null unless the item's target is itself a method (listed in the context's "
+            "required_method_targets) and executing it is the item's point: then the method's name "
+            "and the criteria grading its use. LearnLoop appends 'Use {name} in your answer.'"
+        ),
+    )
 
 
 class ConceptPatchPayload(WireModel):
@@ -768,9 +794,16 @@ class AuthoringProposal(WireModel):
     items: list[AuthoringProposalItem] = Field(default_factory=list)
 
 
-AUTHORING_PROMPT_VERSION = "mvp-0.9-criterion-total-scoring"
-DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.5-diagnostic-authoring"
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.3-expected-minutes"
+#: Method-explicit items (owner rule 2026-10-13): every prompt that carries
+#: ``_PRACTICE_METADATA_GUIDANCE`` (authoring, practice generation, diagnostic
+#: authoring, tutor promotion and learner-gap seeds, canonical ingest and exam
+#: imports) phrases criteria by fact and writes a required method only on a
+#: method target (``learnloop.vault.required_method``). The ``-v2`` versions
+#: (review F14 reopened): LearnLoop appends the instruction sentence; the
+#: model no longer writes it.
+AUTHORING_PROMPT_VERSION = "mvp-0.10-criteria-by-fact-v2"
+DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.6-diagnostic-authoring-criteria-by-fact-v2"
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.4-criteria-by-fact-v2"
 
 DIAGNOSTIC_AUTHORING_PROMPT = """\
 Author ONE diagnostic Practice Item that discriminates the target misconception \
@@ -815,7 +848,8 @@ _PRACTICE_METADATA_GUIDANCE = (
     "Set each grading rubric's `max_points` to the positive integral sum of its "
     "criterion points. Criterion points are the scoring authority; there is no "
     "global four-point ceiling. "
-    "`repair_targets` must name evidence facets or rubric fatal error ids."
+    "`repair_targets` must name evidence facets or rubric fatal error ids. "
+    + CRITERIA_BY_FACT_GUIDANCE
 )
 
 _FACET_VOCABULARY_GUIDANCE = (

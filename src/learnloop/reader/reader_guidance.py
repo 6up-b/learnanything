@@ -21,6 +21,7 @@ from typing import Any, Iterable, Mapping
 from learnloop.content.sources.exam_material import held_out_among, held_out_material
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
+from learnloop.vault.required_method import presented_prompt
 
 
 _SPAN_LOCATOR_RE = re.compile(r"^span:([^/]+)/(.+)$")
@@ -556,7 +557,9 @@ def _reviewed_placement_questions(
             "practice_item_id": item.id,
             "learning_object_id": learning_object.id,
             "learning_object_title": learning_object.title,
-            "prompt": item.prompt,
+            # The question as every answering surface shows it: a required
+            # method's instruction rendered after the statement (round 3).
+            "prompt": presented_prompt(item.prompt, item.required_method),
             "reason": question_reason,
             "learner_signal": signal,
             "goal_id": goal.id if goal is not None else None,

@@ -65,7 +65,7 @@ from learnloop.source_retrieval.corpus import Scope, exam_withheld, teaching_sco
 from learnloop.source_retrieval.find_sources import scope_for, span_keys
 from learnloop.source_retrieval.queries import Rewrite
 from learnloop.source_retrieval.search import SpanHit, SpanKey, SpanSearch, search_spans
-from learnloop.source_retrieval.verify import verification_route, verify_spans
+from learnloop.source_retrieval.verify import practice_question, verification_route, verify_spans
 from learnloop.tutor.context_delivery import SPAN_CHARS, BlockFilter, BlockSource, follow_references, predecessor_cut
 from learnloop.tutor.tutor_qa import span_leaks_expected
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -310,8 +310,11 @@ def tutor_pool(
                 + [hit for hit in hits if hit.pool_role not in (None, "dense")])
     else:
         hits = hits[: config.tutor_candidate_pool]
+    # The verifier reads the question as the learner is shown it (the
+    # required method's instruction rendered after the statement, whole:
+    # method-explicit-3 review F4/F5), never the stored statement alone.
     return TutorPool(hits, search, scope, withheld,
-                     item.prompt if item_bound and item is not None else None)
+                     practice_question(item, ellipsis=True) if item_bound and item is not None else None)
 
 
 class TutorSpanProvider:
@@ -427,7 +430,9 @@ class TutorSpanProvider:
             {"statement": getattr(m, "statement", ""), "correction": getattr(m, "correction_statement", "")}
             for m in misconceptions]}
         if item is not None:
-            context["practice_question"] = " ".join(item.prompt.split())[:700]
+            # Method-explicit-3 review F5: the statement is shortened, never
+            # the required method's instruction.
+            context["practice_question"] = practice_question(item)
         verify_started = time.monotonic()
         status, rows, picks, reason = _verify(
             vault, repository, intent="remediate", question=question_md, pool=pool,

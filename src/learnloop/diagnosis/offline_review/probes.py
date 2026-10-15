@@ -49,6 +49,7 @@ from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import OperationClient, execute_structured_operation, render_structured_prompt
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 from learnloop.attempts.answer_check import (  # moved to the attempts layer; re-exported
     RelationCheck,
     answers_differ as _answers_differ,
@@ -90,7 +91,8 @@ def _item_payload(vault: LoadedVault, item: PracticeItem) -> dict[str, Any]:
     expected = item.expected_answer
     return {
         "practice_item_id": item.id,
-        "prompt": item.prompt,
+        # The question as presented (method-explicit-3 review F4).
+        "prompt": presented_prompt(item.prompt, item.required_method),
         "reference_solution": expected if isinstance(expected, str) else json.dumps(expected, sort_keys=True),
         "rubric": [{"id": criterion.id, "points": criterion.points, "description": criterion.description} for criterion in rubric.criteria],
     }

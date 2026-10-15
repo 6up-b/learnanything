@@ -30,8 +30,11 @@ from learnloop.daily_plan.records import (
 )
 from learnloop.daily_plan.split import display_lane_minutes, split_line
 from learnloop.daily_plan.types import LANES
+from learnloop.vault.required_method import fit_presented_prompt
 
 MAX_PROJECTED_BLOCKS = 12
+#: Characters of an item's question a plan row previews.
+PROMPT_PREVIEW_CHARS = 140
 
 
 def project_blocks(
@@ -66,12 +69,16 @@ def _item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]:
     learning_object = vault.learning_objects.get(item.learning_object_id)
     practice_item = vault.practice_items.get(item.practice_item_id)
     prompt = str(getattr(practice_item, "prompt", "") or "")
+    # The question as presented (method-explicit items): a required method's
+    # instruction stays whole after the shortened statement.
+    preview = fit_presented_prompt(prompt, getattr(practice_item, "required_method", None), PROMPT_PREVIEW_CHARS,
+                                   lambda text, limit: text[:limit])
     return {
         "practice_item_id": item.practice_item_id,
         "learning_object_id": item.learning_object_id,
         "learning_object_title": learning_object.title if learning_object is not None else item.learning_object_id,
         "practice_mode": getattr(practice_item, "practice_mode", None),
-        "prompt_preview": prompt[:140],
+        "prompt_preview": preview,
         "lane": item.lane,
         "est_minutes": round(item.est_minutes, 4),
         "state": item.state,

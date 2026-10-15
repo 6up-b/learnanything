@@ -85,6 +85,11 @@ AITask = Literal[
     "router_llm",
     "llm_probability_decider",
     "llm_probability_llm",
+    # Method-explicit items (owner rule 2026-10-13): the judge that reads
+    # whether a rubric criterion is phrased by method (a decider or chat
+    # profile; `learnloop grading method-phrasing`), and makes the one-time
+    # required-method statement judgments at import and PF selection.
+    "rubric_phrasing_judge",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -96,7 +101,7 @@ DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_de
 #: (facet identity: one choice question per facet pair, owner 2026-10-12).
 #: Unlike DECIDER_TASKS they keep the ordinary chat-route resolution (an unset
 #: route is the active provider's, and a decider is chosen by naming one).
-DECIDER_ACCEPTING_TASKS: frozenset[str] = frozenset({"facet_identity_judge"})
+DECIDER_ACCEPTING_TASKS: frozenset[str] = frozenset({"facet_identity_judge", "rubric_phrasing_judge"})
 
 # Every structured operation explicitly inherits one configured task route.
 # This is documentation as executable data: feature callers no longer invent
@@ -180,6 +185,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "llm_probability_prediction": "llm_probability_llm",
     # Facet identity at ingest and in `learnloop facets dedupe`.
     "facet_identity_judgment": "facet_identity_judge",
+    # Method-explicit items: one item's criteria read for method phrasing, and
+    # the one-time judgment of a statement that must not be rewritten.
+    "rubric_phrasing_judgment": "rubric_phrasing_judge",
+    "required_method_statement": "rubric_phrasing_judge",
 }
 
 

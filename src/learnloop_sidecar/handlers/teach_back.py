@@ -21,6 +21,7 @@ from collections.abc import Callable
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
+from learnloop.vault.required_method import presented_prompt
 from learnloop.attempts.attempts import AttemptValidationError
 from learnloop.tutor.teach_back import (
     TEACH_BACK_PRACTICE_MODE,
@@ -171,7 +172,7 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
     return versioned(
         {
             "practice_item_id": item.id,
-            "prompt": item.prompt,
+            "prompt": presented_prompt(item.prompt, item.required_method),
             "learning_object_title": (
                 learning_object.title if learning_object is not None else item.learning_object_id
             ),

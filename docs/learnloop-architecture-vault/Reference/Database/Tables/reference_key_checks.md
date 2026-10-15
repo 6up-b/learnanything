@@ -3,8 +3,8 @@ title: "reference_key_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reference_key_checks"
@@ -109,7 +109,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_required_method_round3_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

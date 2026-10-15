@@ -658,6 +658,54 @@ class ActivityFamily(VaultModel):
     updated_at: str
 
 
+class RequiredMethod(VaultModel):
+    """The method an item's own statement requires (owner rule, 2026-10-13).
+
+    Rubric criteria name the FACT a step establishes, not the METHOD used to
+    establish it. The one exception is an item whose point IS a method: its
+    target learning object, facet or concept is that method or technique. Such
+    an item is presented with the instruction "Use {name} in your answer."
+    (rendered from this field; ``learnloop.vault.required_method``), and only
+    the criteria listed in
+    ``criterion_ids`` may grade use of it. From the method-explicit successor
+    on, the grader grades those criteria on use of the method; every other
+    criterion stays graded by the fact it establishes, on any valid route.
+
+    ``learning_object_id``, ``concept_id`` and ``facet_id`` link the method to
+    the target it serves when that is known.
+
+    **The one authority (redesign, 2026-10-14).** This field, frozen with the
+    assessment contract the learner answered, is the only thing grading,
+    regrading and replay read; no grader ever parses the prompt to decide
+    whether a method applies. The instruction is never stored in the prompt
+    (round 3): the one canonical sentence ("Use {name} in your answer.") is
+    rendered from this field as a separate block after the statement wherever
+    the item is shown or sent (the grader's question included, from the
+    frozen contract), and changing the field never edits the statement. By
+    ``statement``:
+
+    * ``instruction`` (the default, omitted): a generated statement; the
+      field was set by the writer that generated it, or by the owner;
+    * ``source``: a source-authored statement whose wording is never
+      rewritten (a textbook exercise). Whether it requires the method was
+      decided ONCE, when it was imported (``decided_by = judgment``, the
+      judgment's ``judgment_ledger`` row in ``judgment_id``), or by the owner
+      through an accepted proposal (``decided_by = owner``), and is never
+      re-derived from the text.
+    """
+
+    name: str = Field(min_length=1)
+    criterion_ids: list[str] = Field(default_factory=list)
+    learning_object_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    concept_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    facet_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    statement: Literal["instruction", "source"] = Field(
+        default="instruction", exclude_if=lambda value: value == "instruction"
+    )
+    decided_by: Literal["judgment", "owner"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    judgment_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
 class CanonicalExercise(VaultModel):
     """The textbook exercise a practice item presents (canonical sources S1, §7.4).
 
@@ -748,6 +796,12 @@ class PracticeItem(VaultModel):
     laddered_stem: LadderedStemContract | None = None
     repair_targets: list[str] = Field(default_factory=list)
     grading_rubric: Rubric | None = None
+    # Owner rule 2026-10-13 (method-explicit items): the method this item's
+    # statement requires, when its target IS that method. Omitted when null,
+    # so items without one serialize (and hash) exactly as before.
+    required_method: RequiredMethod | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     # Learner-owned lifecycle (Andy: readers control the prompts they collect).
     # `retired` items keep every attempt/evidence row but are never served again;
     # state_sync deactivates their scheduler state on the next sync.

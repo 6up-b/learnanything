@@ -110,7 +110,8 @@ def test_the_prompts_say_criterion_depends_on_names_sibling_criteria_only():
     assert "Never put a facet, blueprint, learning\nobject, recipe or client item id there" in SOURCE_SET_SYNTHESIS_PROMPT
     # The rule changed the request, so its version moved (no stale cache reuse).
     context = SourceSetSynthesisContext(source_set_id="set", subject_id="subject", mode="bootstrap")
-    assert "prompt_version: mvp-1.3-sibling-criterion-dependencies" in source_set_synthesis_prompt(context)
+    # (It moved again for method-explicit items: criteria by fact, rule 15.)
+    assert "prompt_version: mvp-1.4-sibling-criterion-dependencies-criteria-by-fact-v2" in source_set_synthesis_prompt(context)
     assert "names only the `id`s of sibling\ncriteria in the same practice item" in APPEND_RECONCILIATION_PROMPT
     assert "lock_reasons" not in APPEND_RECONCILIATION_PROMPT
 

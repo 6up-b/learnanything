@@ -19,8 +19,12 @@ verdict on the same input form a real pair. Nothing here makes a shadow call.
 
 Each judgment has its own switch under ``[decider_routes]`` (default on); a
 serving judgment is live only at ``mvp-0.22`` or later
-(:data:`~learnloop.algorithm_versions.DECIDER_TIER1_VERSIONS`), while the facet
-span-support check, a content path, follows its switch at every version. The
+(:data:`~learnloop.algorithm_versions.DECIDER_TIER1_VERSIONS`), while the content
+paths, the facet span-support check and the method-explicit items' one-time
+required-method statement judgment (registered at its merge onto mvp-0.24's
+main; :mod:`learnloop.content.proposals.method_statement_judge`, which asks
+the Decider through its own route, ``ai.routing.rubric_phrasing_judge``,
+defaulting to this module's), follow their switches at every version. The
 action router's ``router_decider`` is never a Tier-1 judgment: :func:`enabled`
 is false for it, so no generic fallback ever reaches it.
 """
@@ -48,8 +52,11 @@ SERVING_TASKS = (
     "learner_gap_judge", "learner_gap_kind", "misconception_match", "diagnosis_link_judgment",
     "field_question_classification", "contamination_leak_judgment", "contamination_reveal_judgment",
 )
-#: The content check, switched at every algorithm version.
-CONTENT_TASKS = ("facet_span_support",)
+#: The content checks, switched at every algorithm version: the facet
+#: span-support check, and the one-time judgment of a statement a required
+#: method is read from (a textbook exercise's at import, a PF variant's stem
+#: at selection; off, its LLM judge decides it).
+CONTENT_TASKS = ("facet_span_support", "required_method_statement")
 #: The verdict of a Decider row that holds no answer: never an option of any Tier-1 question.
 #: ``tied``: two or more options share its top probability, so the argmax
 #: names none of them (review F8); the judgment goes where a failure goes.

@@ -35,6 +35,7 @@ import { PlacementSection } from "./PlacementControls";
 import { ConceptAnimationSection } from "./ConceptAnimationSection";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
+import { ItemPresentation } from "./ItemPresentation";
 import { CommandOverlayFrame, commandOverlayActionStyle, learnloopShowOverlayWidth } from "./CommandOverlayFrame";
 import {
   CausalEpisodeInspector,
@@ -425,7 +426,14 @@ function PracticeItemBody({
       <SectionHeader>Prompt</SectionHeader>
       <div style={panelStyle}>
         <div className="markdown">
-          <MarkdownMath value={detail.prompt} />
+          {/* The question as presented (method-explicit-3 review F4): the
+              statement and, for a method item, the instruction rendered from
+              its required method, exactly as the practice screen shows it. */}
+          {detail.presentation ? (
+            <ItemPresentation presentation={detail.presentation} />
+          ) : (
+            <MarkdownMath value={detail.prompt} />
+          )}
         </div>
       </div>
 

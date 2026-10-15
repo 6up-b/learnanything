@@ -90,6 +90,8 @@ from learnloop.db.stores.source_block_fts import (
     section_header_titles,
 )
 from learnloop.db.stores.source_service import (
+    KEY_IDENTITY,
+    KEY_IDENTITY_FIELD,
     VERIFIED_STATUSES,
     import_row,
     insert_import,
@@ -392,6 +394,20 @@ def daily_cap_reason(vault: LoadedVault, repository: Repository, clock: Clock | 
     return None
 
 
+def _method_judge(vault: LoadedVault, clients: Mapping[str, Any]) -> Any:
+    """The one-time statement judge (``learnloop.content.proposals.
+    method_statement_judge``), resolved on first use: ``clients
+    ["required_method_judge"]`` when injected, else the Decider via its
+    route, else the LLM judge, a metered one priced at
+    ``source_service.llm_price_per_million``."""
+
+    from learnloop.content.proposals.method_statement_judge import LazyStatementJudge, resolve_statement_judge
+
+    price = vault.config.source_service.llm_price_per_million
+    injected = clients.get("required_method_judge")
+    return LazyStatementJudge(lambda: resolve_statement_judge(vault, clients=injected, price_per_million=price))
+
+
 def authoring_admission(vault: LoadedVault, repository: Repository, client: Any, *,
                         owner_id: str) -> Callable[[str, type], Any]:
     """Admit the authoring request under the import's caps before it is sent.
@@ -465,8 +481,9 @@ def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int =
     """A numerical upper-bound estimate of ``imports`` imports, for dry runs.
 
     Per import: one solution match, one authoring request, the solver panel
-    (each model ``pf.panel_solves_per_model`` times), one equivalence judge and
-    one span-support check, each priced at its route's output budget under
+    (each model ``pf.panel_solves_per_model`` times), one equivalence judge,
+    one span-support check and at most one required-method statement
+    judgment, each priced at its route's output budget under
     main's shared policy (``learnloop.ai.output_budget``, as the live calls
     reserve it) plus an input approximated from the statement and the role's
     fixed context. Family passes depend on the family found and are listed,
@@ -491,6 +508,10 @@ def plan_import_cost(vault: LoadedVault, *, statement_chars: int, imports: int =
         ("pf_solver_panel", solves, statement, pf_budget("panel")),
         ("pf_reference_verifier", 1, statement * 2, pf_budget("equivalence")),
         ("pf_span_support", 1, statement + 4000, pf_budget("span_support")),
+        # The one-time statement judgment (redesign 2026-10-14): at most one,
+        # only when the author proposes a required method on a method target
+        # (the Decider, else the LLM judge; priced here as an LLM call).
+        ("required_method_statement_judge", 1, statement + 1600, 400),
     ]
     rows = []
     calls = tokens = 0
@@ -628,13 +649,14 @@ def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: st
 
 
 def _insert_check(connection: Any, *, item_id: str, content_hash: str, result: LadderResult, trigger: str,
-                  started_at: str, import_id: str | None, clock: Clock | None) -> str:
+                  started_at: str, import_id: str | None, clock: Clock | None,
+                  legacy_identity: bool = False) -> str:
     check_id = "rkc_" + new_ulid()
     insert_key_check(
         connection, id=check_id, practice_item_id=item_id, import_id=import_id, content_hash=content_hash,
         key_status=result.key_status, rung=result.rung, trigger=trigger, started_at=started_at,
         created_at=utc_now_iso(clock), verification={**result.verification, "skip_reason": result.skip_reason},
-        ledger_ids=result.ledger_ids,
+        ledger_ids=result.ledger_ids, legacy_identity=legacy_identity,
     )
     return check_id
 
@@ -656,7 +678,9 @@ def _ladder_record(result: LadderResult, started_at: str, content_hash: str) -> 
 
     return {"key_status": result.key_status, "rung": result.rung, "verification": dict(result.verification),
             "ledger_ids": list(result.ledger_ids), "skip_reason": result.skip_reason, "started_at": started_at,
-            "content_hash": content_hash}
+            # The identity the hash was computed under (method-explicit-3
+            # re-review F1): a record without it predates the method-aware key.
+            "content_hash": content_hash, KEY_IDENTITY_FIELD: KEY_IDENTITY}
 
 
 def draft_content_hash(draft: AuthoredDraft, extra_payload: Mapping[str, Any] | None = None) -> str:
@@ -679,11 +703,12 @@ def _without_pending(verification: Mapping[str, Any], **extra: Any) -> dict[str,
 
 def _complete_check(connection: Any, *, import_id: str | None, item_id: str, content_hash: str,
                     result: LadderResult, trigger: str, started_at: str, clock: Clock | None,
-                    edited: bool = False) -> str:
+                    edited: bool = False, legacy_identity: bool = False) -> str:
     """The check row and the import's completion, in the caller's ONE transaction (F5)."""
 
     check_id = _insert_check(connection, item_id=item_id, content_hash=content_hash, result=result, trigger=trigger,
-                             started_at=started_at, import_id=import_id, clock=clock)
+                             started_at=started_at, import_id=import_id, clock=clock,
+                             legacy_identity=legacy_identity)
     current = import_row(connection, import_id) if import_id else None
     if current is not None:
         fields: dict[str, Any] = {"verification": _without_pending(current["verification"],
@@ -1205,6 +1230,9 @@ def _import_source_exercise(
                 source_id=source_id, revision_id=revision_id, learning_object_hint=learning_object_hint,
                 clock=clock, book_solution=book_solution,
                 admit=authoring_admission(vault, repository, author_client, owner_id=import_id),
+                # The one-time statement judgment (redesign 2026-10-14), receipted
+                # under this import so the service's daily cap counts it.
+                method_judge=_method_judge(vault, clients), method_judge_owner=(OWNER_KIND, str(import_id)),
             )
     except ExerciseAuthoringError as exc:
         return fail("failed", str(exc))
@@ -1369,7 +1397,7 @@ def _commit_written(repository: Repository, import_id: str, item: PracticeItem, 
         return _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=str(checked_hash),
                                result=_ladder_from_record(record), trigger="import",
                                started_at=str(record.get("started_at") or utc_now_iso(clock)), clock=clock,
-                               edited=edited)
+                               edited=edited, legacy_identity=record.get(KEY_IDENTITY_FIELD) != KEY_IDENTITY)
 
 
 def resume_import(root: Path, repository: Repository, import_id: str, *, clients: Mapping[str, Any] | None = None,

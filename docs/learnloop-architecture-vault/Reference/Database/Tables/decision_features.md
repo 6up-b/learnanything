@@ -3,8 +3,8 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/field/outcomes.py"
@@ -99,6 +100,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/outcomes.py`
 
@@ -131,6 +133,7 @@ Database triggers:
 - `tests/test_predictive_eig.py`
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
+- `tests/test_required_method_round3_review.py`
 - `tests/test_tutor_promotion_service.py`
 - `tests/test_voi_stopping.py`
 - `tests/test_voi_v2.py`
@@ -141,7 +144,6 @@ Database triggers:
 - `tests/test_probe_episodes.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
-- `tests/test_voi_forecasts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

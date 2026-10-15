@@ -3,8 +3,8 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/161_collection_contract.sql"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
@@ -88,6 +89,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`

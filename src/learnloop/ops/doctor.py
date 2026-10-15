@@ -210,6 +210,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_registered_facets(vault, issues)
     _check_facet_contract_completeness(vault, issues)
     _check_blueprints_and_criteria(vault, issues)
+    _check_required_methods(vault, issues)
     # Slice 2 T5: a cosine column beside the lexical scores (stored vectors only).
     nominator = review_nominator(vault)
     _check_concept_merge_candidates(vault, issues, nominator)
@@ -1930,6 +1931,76 @@ def _instrument_expected_text(item: Any) -> str:
     if isinstance(expected, dict):
         return " ".join(str(value) for value in expected.values())
     return str(expected or "")
+
+
+def _check_required_methods(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+    """Method-explicit items (owner rule 2026-10-13).
+
+    Rubric criteria name the fact a step establishes; only an item whose
+    target IS a method may require it (``required_method``). The field is the
+    one authority (redesign 2026-10-14): doctor checks its structure and never
+    decides anything from the prompt's phrasing, nor looks in the prompt for
+    the instruction, which is rendered from the field wherever the item is
+    shown or sent (round 3). Errors: a source statement with no recorded
+    decision (``required_method:undecided``), and a required method naming a
+    criterion its rubric lacks (``required_method:unknown_criterion``). Warnings: a
+    required method on a target the metadata does not read as a method
+    (``required_method:not_a_method_target``), and two ADVISORY flags of the
+    conservative heuristic (``judge = heuristic``; no model call, no effect on
+    grading): a prompt that may negate the method or leave it optional
+    (``required_method:statement_may_disagree``) and a criterion phrased by
+    method that is not the item's required method's
+    (``criterion:method_phrased``). ``learnloop grading method-phrasing``
+    reads every criterion with the Decider or an LLM judge and drafts repair
+    proposals; ``learnloop grading required-method`` proposes the owner's
+    change to an item's field.
+    """
+
+    from learnloop.vault.required_method import method_phrase, method_targets, required_method_problems
+
+    judge = {"judge": "heuristic"}
+    for mode, rubric in sorted(vault.default_rubrics.items()):
+        for criterion in rubric.criteria:
+            phrase = method_phrase(criterion.description)
+            if phrase is None:
+                continue
+            issues.append(_issue(
+                "warning", "criterion:method_phrased",
+                f"rubric:{mode} criterion {criterion.id!r} is phrased by method ({phrase.text!r}); "
+                "name the fact it establishes",
+                entity_id=f"rubric:{mode}",
+                details={**judge, "criterion_id": criterion.id, "method": phrase.method},
+            ))
+    for item in sorted(vault.practice_items.values(), key=lambda entry: entry.id):
+        if item.status == "retired":
+            continue  # never served again; its history keeps the rubric it had
+        rubric = vault.rubric_for_item(item)
+        own = item.grading_rubric is not None
+        for problem in required_method_problems(item, rubric):
+            if problem.code == "criterion:method_phrased" and not own:
+                continue  # the default rubric's criteria are reported once, above
+            issues.append(_issue(
+                problem.severity, problem.code, problem.message, entity_id=item.id,
+                details={
+                    **({"judge": problem.judge} if problem.judge else {}),
+                    "criterion_id": problem.criterion_id, "method": problem.method,
+                },
+            ))
+        method = item.required_method
+        if method is None:
+            continue
+        targets = method_targets(
+            vault, learning_object_id=item.learning_object_id, facet_ids=item.evidence_facets,
+            capability=item.capability,
+        )
+        if not any(target.matches(method.name) for target in targets):
+            issues.append(_issue(
+                "warning", "required_method:not_a_method_target",
+                f"{item.id} requires {method.name!r}, but its target is not that method by its metadata "
+                "(a learning object whose concept is a procedure, or a procedure_contract facet)",
+                entity_id=item.id,
+                details={"method": method.name, "targets": [target.as_context() for target in targets]},
+            ))
 
 
 def _check_criterion_target_dags(vault: LoadedVault, issues: list[HealthIssue]) -> None:

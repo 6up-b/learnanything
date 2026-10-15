@@ -84,6 +84,7 @@ from learnloop.practice_index.retrieval import (
 )
 from learnloop.practice_index.usage import sweep_practice_usage, usage_summary
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.required_method import fit_presented_prompt
 from learnloop.vault.paths import VaultPaths
 
 
@@ -160,7 +161,8 @@ def _seeds(vault: LoadedVault, corpus: Sequence[str], existing: set[tuple[str, s
             item = vault.practice_items[seed_id]
             learning_object = vault.learning_objects.get(item.learning_object_id)
             seeds.append({"kind": "item", "seed_id": seed_id, "context": {
-                "kind": "question", "question": _clip(item.prompt, LABEL_PROMPT_CHARS),
+                "kind": "question",
+                "question": fit_presented_prompt(item.prompt, item.required_method, LABEL_PROMPT_CHARS, _clip),
                 "learning_object": learning_object.title if learning_object else None,
             }})
     return seeds
@@ -271,7 +273,8 @@ def _candidate(vault: LoadedVault, item_id: str) -> dict[str, Any]:
     learning_object = vault.learning_objects.get(item.learning_object_id)
     return {"practice_mode": item.practice_mode,
             "learning_object": learning_object.title if learning_object else item.learning_object_id,
-            "prompt": _clip(item.prompt, LABEL_PROMPT_CHARS)}
+            # The question as presented, the instruction whole (method-explicit-3 F4/F5).
+            "prompt": fit_presented_prompt(item.prompt, item.required_method, LABEL_PROMPT_CHARS, _clip)}
 
 
 def label_id(query: str, item_id: str, item_hash: str, prompt_version: str, model: str) -> str:

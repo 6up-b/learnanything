@@ -5,8 +5,8 @@ aliases:
   - LearnLoop Pipeline MOC
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.24
-last_reviewed: 2026-10-14
+implementation_version: mvp-0.25
+last_reviewed: 2026-10-15
 source_commit: fc697aab4b9f6b5680e2cff7b0aecad45c693297
 source_commit_timestamp: "2026-10-13T20:34:01-04:00"
 source_paths:
@@ -38,6 +38,8 @@ source_paths:
   - src/learnloop/db/stores/plan_presentations.py
   - src/learnloop/attempts/blind_grading.py
   - src/learnloop/attempts/grading_support.py
+  - src/learnloop/vault/required_method.py
+  - src/learnloop/content/proposals/method_statement_judge.py
   - src/learnloop/held_grades.py
   - src/learnloop/diagnosis/split/diagnoser.py
   - src/learnloop/diagnosis/text_gaps/pipeline.py
@@ -71,7 +73,7 @@ Start with the loop, then open the stage you need. Arrows show data or control f
 
 Note-name nodes are clickable through `class NodeId internal-link;`, with the node text exactly matching the note name, as documented in [Obsidian's diagram-link convention](https://obsidian.md/help/advanced-syntax#Linking%20files%20in%20a%20diagram). Prose WikiLinks provide navigation and backlinks too. Existing notes remain the conceptual authorities; their recorded review dates may precede this map. In particular, older Reader defaults, scheduler propensity descriptions, and table counts should not be read as a new audit of this commit.
 
-**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.24` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`, router R2a's staged frame on Today at `mvp-0.23`, router R2b + R2c's model mixture and restraint at `mvp-0.24`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
+**Version authority:** `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) sets `LATEST_ALGORITHM_VERSION` to `mvp-0.25` through the successor chain: sources at `mvp-0.18`/`mvp-0.19`, own-route grading rules at `mvp-0.20`, VOI stopping at `mvp-0.21`, Decider tier-1 at `mvp-0.22`, router R2a's staged frame on Today at `mvp-0.23`, router R2b + R2c's model mixture and restraint at `mvp-0.24`, method-explicit items' required-method grading (`own-route-v2`) at `mvp-0.25`. Reviews sometimes retain branch placeholders; use their landing sections and this code. Individual vault upgrades and feature switches still gate serving.
 
 ## End-to-end loop
 
@@ -195,6 +197,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     A["Current answer + item + rubric"] --> B["Blind grader<br/>own-route rules"]
+    RM["Frozen required_method<br/>(assessment contract)"] -.-> B
     B --> U["Validated criteria<br/>unverified is unassessed"]
     U --> H{"Held grade?"}
     H -->|yes| HOLD["Provisional only<br/>regrade / adjudication"]
@@ -211,6 +214,7 @@ flowchart LR
 
 - [[Attempt Processing]] describes validation and application. `src/learnloop/attempts/blind_grading.py` ([source](../../../src/learnloop/attempts/blind_grading.py)) structurally excludes learner history from grading context; diagnosis gets history afterward. Raw tables include [[practice_attempts]], [[blind_grade_records]] and [[grading_evidence]].
 - `src/learnloop/attempts/grading_support.py` ([source](../../../src/learnloop/attempts/grading_support.py)) applies `mvp-0.20+` own-route rules inside one grading call: a divergent-route mark-down without a failing quote actually present in the answer becomes unverified/unassessed. The former separate route-check model call is removed from serving. `proof_check.enabled` gates new own-route grading; stored historical checks retain their meaning. See the [route-rules landing review](../../reviews/route-check-in-grader.md).
+- **Method-explicit items (`mvp-0.25+`, kill switch `required_method.enabled`).** Rubric criteria name the fact a step establishes; an item whose target IS a method records it as `PracticeItem.required_method`, the one authority, frozen with its assessment contract. "Use {method} in your answer." is never stored in the statement: `src/learnloop/vault/required_method.py` ([source](../../../src/learnloop/vault/required_method.py)) renders it from the field (`presented_prompt`; `fit_presented_prompt` keeps it whole when a surface shortens the question; `answered_prompt` renders a recorded answer's question from its graded contract) on every surface that shows the item, and into the grader's question from the frozen contract. At `own-route-v2` a criterion tied to the required method is graded on use of the method, so another route fails it without a quoted step. A textbook exercise's statement (at import) and a PF variant's stem (at selection) get a one-time judgment in `src/learnloop/content/proposals/method_statement_judge.py` ([source](../../../src/learnloop/content/proposals/method_statement_judge.py)): the Decider (a Tier-1 content task, `decider_routes.required_method_statement`; `ai.routing.rubric_phrasing_judge`, else the Tier-1 Decider's profile), else the LLM judge, ledgered in [[judgment_ledger]] (task `required_method_statement`); the owner overrides with `learnloop grading required-method`. The answer key's identity (`reference_content_hash`) includes the method, so changing only the method needs a fresh check. See the [method-explicit review](../../reviews/method-explicit-items.md).
 - `src/learnloop/held_grades.py` ([source](../../../src/learnloop/held_grades.py)) evaluates the shared predicate defined in `src/learnloop/outcome_contract.py` ([source](../../../src/learnloop/outcome_contract.py)): the latest blind record holds the grade **and** no current criterion is assessed. Held grades supply no evidence, FSRS review, success/failure or outcome label. Regrading or assessed owner adjudication can release them. See the [held-grade review](../../reviews/held-grade-evidence.md).
 - `src/learnloop/diagnosis/split/diagnoser.py` ([source](../../../src/learnloop/diagnosis/split/diagnoser.py)) assembles and validates a history-aware diagnosis; `src/learnloop/diagnosis/split/live.py` ([source](../../../src/learnloop/diagnosis/split/live.py)) handles the live path. [[attempt_diagnoses]] and [[causal_hypotheses]] retain interpretations; `src/learnloop/diagnosis/recurrence/live.py` ([source](../../../src/learnloop/diagnosis/recurrence/live.py)) and `src/learnloop/diagnosis/misconceptions.py` ([source](../../../src/learnloop/diagnosis/misconceptions.py)) connect recurrence groups and registry beliefs. See [[Diagnosis and Remediation]].
 - `src/learnloop/diagnosis/text_gaps/pipeline.py` ([source](../../../src/learnloop/diagnosis/text_gaps/pipeline.py)) reads questions, stuck answers and diagnoses into [[learner_text_gaps]], with actions/undo and earlier-check receipts; a named gap is not itself mastery evidence. See the [learner-text-gap review](../../reviews/learner-text-gaps.md).
@@ -288,7 +292,7 @@ flowchart LR
 - [[State and Persistence]] and [[Data and State Map]] distinguish durable authority from computed views. `src/learnloop/db/table_roles.py` ([source](../../../src/learnloop/db/table_roles.py)) is the current lifecycle registry; older catalog counts are snapshots, not this map's counts.
 - `src/learnloop/substrate/rebuild_orchestrator.py` ([source](../../../src/learnloop/substrate/rebuild_orchestrator.py)) validates exclusive derived-table ownership before rebuilding in dependency order. Its “R2 umbrella” comment refers to the rebuild refactor, not action-router R2. [[Rebuild and Shadow Compare]] explains the maintenance workflow.
 - Replayers reconstruct evidence, recurrence, memory, search indexes and outcome joins from recorded inputs. Paid generation, verification and diagnosis are not rerun. [[router_decisions]] is raw; [[router_outcomes]] is derived; [[voi_forecasts]] is a receipt. Key audit table: [[derived_state_rebuilds]].
-- `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) makes successor gates cumulative through `mvp-0.22`, while those successors retain the `mvp-0.8` projection namespace. Per-record meaning still matters: replay reads historical grade/diagnosis facts rather than applying today's serving switches retroactively. See [[Algorithm Versions and Reproducibility]].
+- `src/learnloop/algorithm_versions.py` ([source](../../../src/learnloop/algorithm_versions.py)) makes successor gates cumulative through `mvp-0.25`, while those successors retain the `mvp-0.8` projection namespace. Per-record meaning still matters: replay reads historical grade/diagnosis facts rather than applying today's serving switches retroactively. See [[Algorithm Versions and Reproducibility]].
 
 ### Where state lives
 
@@ -309,7 +313,7 @@ These links supply the recent details that the older concept notes do not yet co
 
 - **Decider tier-1 and facet span support:** [landing review](../../reviews/decider-migration.md).
 - **VOI stopping and live calibration:** [stopping](../../reviews/voi-stopping.md), [calibration](../../reviews/evsi-calibration.md).
-- **Own-route grading and held evidence:** [route rules](../../reviews/route-check-in-grader.md), [held-grade predicate](../../reviews/held-grade-evidence.md).
+- **Own-route grading and held evidence:** [route rules](../../reviews/route-check-in-grader.md), [held-grade predicate](../../reviews/held-grade-evidence.md), [method-explicit items](../../reviews/method-explicit-items.md) (required methods rendered from the field, `own-route-v2`, landed at `mvp-0.25`).
 - **Sources track and exam protection:** [sources](../../reviews/sources-spec.md), [source practice/probe spec](../../specs/spec_source_practice_and_probes_v1.md), [exam protection](../../reviews/exam-protection.md) (one predicate, landed after this map was first written).
 - **UX Phase 1 and RW1a:** [UX completion](../../reviews/ux-phase1-finish.md), [inquiry](../../reviews/rw1a-inquiry.md).
 - **DL1 and R1/R2:** [daily loop](../../reviews/daily-loop-dl1.md), [R1](../../reviews/router-r1.md), [R2a](../../reviews/router-r2a.md) (the staged frame, exact receipts and the stored card, landed at `mvp-0.23`), [R2b + R2c](../../reviews/router-r2bc.md) (the model mixture, the restraint, sensors, teach-back summaries and retrieval, landed at `mvp-0.24`), [R2 plan](../../specs/plan_router_r2_v1.md), [R2 spec](../../specs/spec_action_router_v1.md).

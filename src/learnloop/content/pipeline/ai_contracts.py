@@ -51,7 +51,10 @@ class CanonicalIngestContext:
     instructions: str | None = None
 
 
-CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.6-criterion-total-scoring"
+#: mvp-0.7: its practice metadata guidance phrases criteria by fact and writes
+#: a required method only on a method target (owner rule 2026-10-13).
+#: ``-v2`` (review F14 reopened): LearnLoop appends the instruction sentence.
+CANONICAL_INGEST_PROMPT_VERSION = "mvp-0.7-criteria-by-fact-v2"
 
 
 def canonical_ingest_prompt(context: CanonicalIngestContext) -> str:

@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/attempts/trace_evidence.py"
   - "src/learnloop/cli/router.py"
   - "src/learnloop/config/template.py"
-  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/content/proposals/method_phrasing.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
@@ -179,6 +179,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/router.py`
+- `src/learnloop/content/proposals/method_phrasing.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/router_card.py`

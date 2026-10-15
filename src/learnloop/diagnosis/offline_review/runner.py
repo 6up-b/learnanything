@@ -103,6 +103,7 @@ from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION, Diagnos
 from learnloop.ids import new_ulid
 from learnloop.vault.hashes import content_hash
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 RUN_FILE = "run.json"
 STAGES_FILE = "stages.json"
@@ -1402,7 +1403,11 @@ class ReviewRun:
     def _item_view(self, item: PracticeItem) -> dict[str, Any]:
         expected = item.expected_answer
         return {
-            "prompt": item.prompt,
+            # The question as presented (method-explicit-3 review F4): the
+            # statement, then a required method's instruction. The harness
+            # blind-grades and diagnoses the item as it is now, so its judge
+            # reads that same question.
+            "prompt": presented_prompt(item.prompt, item.required_method),
             "reference_solution": expected if isinstance(expected, str) else json.dumps(expected, sort_keys=True),
         }
 
@@ -1508,8 +1513,9 @@ class ReviewRun:
                 current={"item": self._item_view(item), "learner_answer_md": answer},
                 links={
                     label: {
-                        "earlier_item": self.vault.practice_items[cited_rows[cited].practice_item_id].prompt
-                        if cited_rows[cited].practice_item_id in self.vault.practice_items else "",
+                        # The question the diagnoser's history showed for
+                        # that answer (method-explicit-3 review F4).
+                        "earlier_item": cited_rows[cited].item_prompt,
                         "earlier_answer_md": cited_rows[cited].learner_answer_md,
                     }
                     for label, cited in labels.items()

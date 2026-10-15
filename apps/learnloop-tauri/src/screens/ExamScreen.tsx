@@ -329,7 +329,11 @@ function ItemReview({
       </div>
 
       <div style={{ marginTop: 10 }}>
-        {item ? (
+        {/* The question this answer was given (method-explicit-3 F3): the
+            graded contract's presentation when it differs from the item's. */}
+        {outcome.presentation ? (
+          <ItemPresentation presentation={outcome.presentation} />
+        ) : item ? (
           <ItemPresentation presentation={item.presentation} />
         ) : outcome.prompt ? (
           <MarkdownMath value={outcome.prompt} />

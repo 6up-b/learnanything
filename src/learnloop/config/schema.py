@@ -1285,6 +1285,18 @@ class AIRoutingConfig(BaseModel):
     router_llm: str | None = None
     llm_probability_decider: str | None = None
     llm_probability_llm: str | None = None
+    # Method-explicit items (owner rule 2026-10-13): the judge of `learnloop
+    # grading method-phrasing`, which reads whether a rubric criterion is
+    # phrased by method. A decider profile (typed choice questions) or a chat
+    # profile. Empty = the Tier-1 Decider (tier1_decider's profile, else the
+    # code-default openrouter_decider) when it is ready, else
+    # ai.active_provider; with neither ready the report falls back to the
+    # conservative heuristic and says so. The same judge makes the one-time
+    # required-method statement judgments (redesign 2026-10-14: a textbook
+    # statement at import, a PF variant's stem at selection; the Decider only
+    # while decider_routes.required_method_statement is on), with no heuristic
+    # fallback; grading never uses it.
+    rubric_phrasing_judge: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1984,6 +1996,26 @@ class ProofCheckConfig(BaseModel):
     enabled: bool = True
 
 
+class RequiredMethodConfig(BaseModel):
+    """Method-explicit items (owner rule 2026-10-13): the grading side.
+
+    ``enabled`` is the kill switch of the method-explicit successor
+    (``mvp-0.25``): the own-route rules grade a criterion tied to an item's
+    ``required_method`` (frozen with the assessment contract: the one
+    authority, never re-derived from the prompt) on use of that method
+    (``own-route-v2``), so another route fails it without a quoted wrong
+    step. Dormant below the successor and whenever the own-route rules
+    themselves are off (``proof_check.enabled``). Off, new answers grade
+    exactly as ``mvp-0.24``. Grades already recorded keep their meaning (the
+    blind record carries the rules and the method criteria; replay never reads
+    this switch). The generation side (criteria phrased by fact) and the
+    ``criterion:method_phrased`` doctor check are content paths, not gated
+    here.
+    """
+
+    enabled: bool = True
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -2633,7 +2665,8 @@ class DeciderRoutesConfig(BaseModel):
     judgment's predecessor LLM path exactly. The serving judgments act only at
     ``mvp-0.22`` or later (``algorithm_versions.DECIDER_TIER1_VERSIONS``);
     ``facet_span_support``, a content check on model-proposed facet rewords,
-    acts at every version. The Decider is ``ai.routing.tier1_decider`` (empty:
+    and ``required_method_statement``, the method-explicit items' one-time
+    statement judgment, act at every version. The Decider is ``ai.routing.tier1_decider`` (empty:
     the code-default ``openrouter_decider`` profile); learner-text gaps keep
     ``ai.routing.learner_gap_decider``. See ``learnloop.decider_judgments``.
     """
@@ -2654,6 +2687,12 @@ class DeciderRoutesConfig(BaseModel):
     contamination_reveal_judgment: bool = True
     #: The span-support check before a cited model reword of a facet applies.
     facet_span_support: bool = True
+    #: Method-explicit items (a content path, every version): the Decider's
+    #: one-time judgment of a statement a required method is read from (does
+    #: a textbook exercise's statement require its proposed method, at import;
+    #: does a PF variant's stem contradict its parent's, at selection). Off:
+    #: the LLM judge on ``ai.routing.rubric_phrasing_judge`` decides it.
+    required_method_statement: bool = True
 
 
 class LearnLoopConfig(BaseModel):
@@ -2711,6 +2750,7 @@ class LearnLoopConfig(BaseModel):
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
+    required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
 
     @model_validator(mode="before")
     @classmethod

@@ -3,8 +3,8 @@ title: "exam_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a9356f986852cd7f4d375066c7585179cb731923"
-source_commit_timestamp: "2026-10-15T00:31:37-04:00"
+source_commit: "2f3c36d0a8c286e8b49a0091931825e8036039fd"
+source_commit_timestamp: "2026-10-15T01:47:51-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_sessions"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_required_method_round3_review.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_protection_review.py`
 

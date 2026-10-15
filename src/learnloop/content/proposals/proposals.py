@@ -40,6 +40,14 @@ from learnloop.vault.models import (
     learning_object_facet_union,
 )
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.required_method import (
+    is_source_statement,
+    learning_object_method_targets,
+    method_targets,
+    normalize_required_method,
+    rewrites_decided_statement,
+    same_statement,
+)
 
 
 def request_authoring_proposal(
@@ -116,8 +124,9 @@ def build_authoring_context(
 
     facet_vocabulary = _vault_evidence_facet_unions(vault)
     surface_families = _vault_surface_family_unions(vault)
-    learning_objects = [
-        {
+
+    def _learning_object_entry(lo: Any) -> dict[str, Any]:
+        entry = {
             "id": lo.id,
             "title": lo.title,
             "concept": lo.concept,
@@ -125,6 +134,16 @@ def build_authoring_context(
             "existing_evidence_facets": facet_vocabulary.get(lo.id, []),
             "existing_surface_families": surface_families.get(lo.id, []),
         }
+        # Method-explicit items (owner rule 2026-10-13): a learning object
+        # whose target IS a method says so; only then may an item require it.
+        # Absent otherwise, so other learning objects' context is unchanged.
+        targets = learning_object_method_targets(vault, lo.id, facet_vocabulary.get(lo.id, []))
+        if targets:
+            entry["required_method_targets"] = targets
+        return entry
+
+    learning_objects = [
+        _learning_object_entry(lo)
         for lo in sorted(vault.learning_objects.values(), key=lambda lo: lo.id)
         if _in_scope(lo.subjects)
     ]
@@ -1422,6 +1441,8 @@ def proposal_item_row(
     payload = item.payload.model_dump(mode="json", exclude_none=True)
     if payload.get("id") is None and item.proposed_entity_id is not None:
         payload["id"] = item.proposed_entity_id
+    if item.item_type == "practice_item":
+        _hold_required_method_to_rule(payload, item, vault)
     selected_refs = _source_refs_for_item(proposal.source_refs, item.source_ref_ids)
     if item.item_type in {"learning_object", "practice_item"} and selected_refs:
         payload.setdefault("provenance", _provenance_for_refs(selected_refs, provider))
@@ -1447,6 +1468,63 @@ def proposal_item_row(
         "updated_at": now,
         "_auto_apply": validation_status == "valid" and review_policy == "auto_apply",
     }
+
+
+def _hold_required_method_to_rule(payload: dict[str, Any], item: AuthoringProposalItem, vault: LoadedVault) -> list[str]:
+    """Method-explicit items (owner rule 2026-10-13) on a generated practice item.
+
+    A ``required_method`` is kept only on an item whose target is that method
+    (``learnloop.vault.required_method.method_targets``: the learning object's
+    concept is a procedure, or one of its facets a procedure_contract), linked
+    to it, with its criteria in the rubric. Anything else drops it. The
+    prompt is never read to decide and never written: the instruction ("Use
+    {name} in your answer.") is rendered from the field wherever the item is
+    shown or sent (round 3), so a generated prompt (or an update's revised
+    prompt) is stored exactly as generated, whatever it quotes, and a field
+    that is renamed or kept never edits it.
+
+    A generated proposal never changes the required method of a
+    source-authored item (a textbook statement is never rewritten; its
+    requirement was decided once at import, and the owner changes it with
+    ``learnloop grading required-method``): the key is dropped and the item
+    keeps its field. Nor does it rewrite such an item's statement (review
+    F15): the decision binds the statement it judged, so a prompt that
+    differs only in whitespace is dropped (the verbatim statement stays) and
+    any other is reported by validation
+    (``required_method:source_statement_edited``) and refused at apply.
+    Deterministic; the persisted payload is what is checked.
+    """
+
+    existing = vault.practice_items.get(str(payload.get("id") or (item.target.entity_id if item.target else "")))
+    previous = existing.required_method if existing is not None else None
+    if previous is not None and previous.statement == "source" and "prompt" in payload \
+            and same_statement(payload["prompt"], existing.prompt):
+        payload.pop("prompt")
+    if existing is not None and "required_method" in payload and (
+        is_source_statement(existing)
+        or getattr(previous, "statement", "instruction") == "source"
+    ):
+        payload.pop("required_method", None)
+        return ["required_method:source_statement_unchanged"]
+    if not payload.get("required_method"):
+        payload.pop("required_method", None)
+        return []
+    learning_object_id = payload.get("learning_object_id") or (existing.learning_object_id if existing else None)
+    facets = payload.get("evidence_facets") or (list(existing.evidence_facets) if existing else [])
+    capability = payload.get("capability") or (existing.capability if existing else None)
+    targets = method_targets(vault, learning_object_id=learning_object_id, facet_ids=facets, capability=capability)
+    view = dict(payload)
+    rubric_ids = None
+    if not isinstance(view.get("grading_rubric"), dict) and existing is not None:
+        resolved = vault.rubric_for_item(existing)
+        rubric_ids = [criterion.id for criterion in resolved.criteria] if resolved is not None else []
+    notes = normalize_required_method(view, targets, rubric_criterion_ids=rubric_ids)
+    if "required_method" in view:
+        payload["required_method"] = view["required_method"]
+    else:
+        # A dropped field: the item (if any) keeps the one it has.
+        payload.pop("required_method", None)
+    return notes
 
 
 def _repair_invalid_proposal_items(
@@ -1640,9 +1718,21 @@ def _validation_errors(
         payload = item.payload.model_dump(mode="json", exclude_none=True)
         errors.extend(_attempt_type_validation_errors(payload))
         errors.extend(_practice_item_metadata_errors(payload, vault, proposal, generated=False))
+        errors.extend(_source_statement_edit_errors(
+            vault, payload, payload.get("id") or (item.target.entity_id if item.target else None)))
     if item.item_type == "concept_edge":
         errors.extend(_concept_edge_validation_errors(item.payload.model_dump(mode="json", exclude_none=True), vault, proposal))
     return errors
+
+
+def _source_statement_edit_errors(vault: LoadedVault, payload: dict[str, Any], entity_id: Any) -> list[str]:
+    """An update that would rewrite a statement whose required method was
+    decided on its wording (review F15; ``rewrites_decided_statement``)."""
+
+    existing = vault.practice_items.get(str(entity_id or ""))
+    if existing is None or not rewrites_decided_statement(existing, payload.get("prompt")):
+        return []
+    return ["required_method:source_statement_edited"]
 
 
 def _validation_warnings(
@@ -1721,6 +1811,9 @@ def _edited_payload_validation_errors(
     if item["item_type"] == "practice_item":
         errors.extend(_attempt_type_validation_errors(edited_payload))
         errors.extend(_practice_item_metadata_errors(edited_payload, vault, None, generated=False))
+        if item["operation"] == "update":
+            errors.extend(_source_statement_edit_errors(
+                vault, edited_payload, edited_payload.get("id") or item.get("target_entity_id")))
         if item["operation"] == "create":
             errors.extend(_instrument_gate_errors(edited_payload, vault, repository))
     if item["item_type"] == "concept_edge":

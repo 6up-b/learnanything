@@ -31,6 +31,7 @@ from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_guidance as RG
 from learnloop.source_retrieval.suggest import suggested_learning_objects
 from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
+from learnloop.vault.required_method import fit_presented_prompt
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -1341,7 +1342,10 @@ def reader_watch_plan(ctx: SidecarContext, params: ReaderWatchPlanInput) -> dict
                     "segment_start_seconds": round(start, 1),
                     "practice_item_id": item.id,
                     "learning_object_id": item.learning_object_id,
-                    "prompt_preview": (item.prompt or "").strip()[:120],
+                    # The question as presented: a required method's
+                    # instruction stays whole (method-explicit items).
+                    "prompt_preview": fit_presented_prompt(item.prompt or "", item.required_method, 120,
+                                                           lambda text, limit: text.strip()[:limit]),
                     "goal_id": goal.id if goal is not None else None,
                     "goal_title": goal.title if goal is not None else None,
                     "golden_path_run_id": golden_run.get("id") if golden_run else None,
@@ -2090,6 +2094,11 @@ def _require_cues(ctx: SidecarContext):
     return vault, repository
 
 
+def _check_me_clip(text: str, limit: int) -> str:
+    flat = " ".join(str(text or "").split())
+    return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
+
+
 def check_me_proposal(vault: Any, repository: Any, extraction_id: str, cue: dict[str, Any]) -> dict[str, Any]:
     """"Check me" on a cue (spec §6.1): one short item on the cue's Learning
     Object, through ``find_practice`` under the Reader's caller (the
@@ -2120,12 +2129,19 @@ def check_me_proposal(vault: Any, repository: Any, extraction_id: str, cue: dict
     item = next((entry for entry in result.get("items") or [] if entry.get("practice_item_id")), None)
     if item is None:
         return {"status": "none", "proposal_id": result.get("proposal_id")}
-    prompt = " ".join(str(item.get("prompt") or "").split())
+    # The question as presented (method-explicit items): find_practice's
+    # prompt carries a required method's instruction after the statement, so
+    # the clip shortens only the statement and keeps the sentence whole.
+    practice_item = vault.practice_items.get(str(item["practice_item_id"]))
+    if practice_item is not None:
+        prompt = fit_presented_prompt(practice_item.prompt, practice_item.required_method, 220, _check_me_clip)
+    else:
+        prompt = _check_me_clip(str(item.get("prompt") or ""), 220)
     return {
         "status": "found",
         "practice_item_id": item["practice_item_id"],
         "learning_object_id": item.get("learning_object_id") or cue.get("learning_object_id"),
-        "prompt": prompt if len(prompt) <= 220 else prompt[:219].rstrip() + "…",
+        "prompt": prompt,
         "proposal_id": result.get("proposal_id"),
     }
 

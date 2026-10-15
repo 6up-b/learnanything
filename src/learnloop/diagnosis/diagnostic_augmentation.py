@@ -46,6 +46,7 @@ from learnloop.content.authoring.persona_realism import (
 )
 from learnloop.ids import new_ulid
 from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.required_method import presented_prompt
 
 
 DIAGNOSTIC_EVAL_HARNESS_VERSION = "blind_planted_diagnostician_v1"
@@ -759,7 +760,7 @@ def _generated_trace(
         {
             "n_trials": 1,
             "max_answer_words": 120,
-            "item_prompt": item.prompt,
+            "item_prompt": presented_prompt(item.prompt, item.required_method),
             "expected_answer": (
                 item.expected_answer
                 if isinstance(item.expected_answer, str)

@@ -153,10 +153,20 @@ def current_attempt_for(
     vault: LoadedVault,
     attempt: Mapping[str, Any],
     record: Mapping[str, Any],
+    repository: Any = None,
 ) -> CurrentAttempt | None:
+    """The attempt to diagnose; with ``repository``, its question is the one
+    its graded contract froze (method-explicit-3 review F3)."""
+
     item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
     if item is None:
         return None
+    contract = None
+    if repository is not None:
+        from learnloop.db.stores.answered_contracts import answered_contracts
+
+        with repository.connection() as connection:
+            contract = answered_contracts(connection, [str(attempt["id"])]).get(str(attempt["id"]))
     return current_attempt_from(
         vault,
         item,
@@ -164,6 +174,7 @@ def current_attempt_for(
         completed_at=str(attempt.get("created_at") or ""),
         learner_answer_md=str(attempt.get("learner_answer_md") or ""),
         blind_grade=record,
+        contract=contract,
     )
 
 

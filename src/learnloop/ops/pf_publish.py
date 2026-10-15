@@ -24,8 +24,10 @@ import json
 import logging
 from typing import Any
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.content.proposals.method_statement_judge import CONTRADICTS, as_lazy, recorded_verdict
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.families import append_membership
 from learnloop.db.stores.judgments import append_judgment
@@ -38,6 +40,7 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.item_fingerprints import render_expected_answer
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
+from learnloop.vault.required_method import inherit_required_method
 from learnloop.vault.models import ActivityFamily, LoadedVault, PracticeItem
 from learnloop.vault.writer import upsert_practice_item
 from learnloop.vault_lock import vault_mutation_lock
@@ -74,6 +77,24 @@ class PublishRefused(ValueError):
     """The candidate may not be published (unverified, disabled, wrong state)."""
 
 
+class VariantContradictsRequiredMethod(PublishRefused):
+    """The one-time publication judgment found that the variant's stem
+    prohibits or contradicts the parent's required method, while the
+    parent's rubric (copied verbatim) grades use of it (review F10; redesign
+    2026-10-14): rejected, so a later run regenerates the variant."""
+
+
+class RequiredMethodUnjudged(PublishRefused):
+    """A variant of a parent with a required method has no recorded one-time
+    judgment of its stem yet (no judge was ready, or it refused or failed):
+    not published, never with an unchecked appended sentence. The candidate
+    stays selected; a later publication with a judge decides it."""
+
+
+#: The receipts of a variant judgment made outside a PF run (``learnloop pf publish``).
+PUBLISH_JUDGE_OWNER = ("pf_publish", "backlog")
+
+
 def utc_day_bounds(clock: Clock | None = None) -> tuple[str, str]:
     now = datetime.fromisoformat(utc_now_iso(clock).replace("Z", "+00:00")).astimezone(timezone.utc)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -94,8 +115,34 @@ def published_item_id(candidate_id: str) -> str:
     return "pi_pf_" + content_key(["pf_publish", candidate_id])[:24]
 
 
+def variant_method_verdict(connection: Any, row: Mapping[str, Any], parent: PracticeItem) -> str | None:
+    """The one-time publication judgment recorded for this candidate's stem
+    against the parent's required method (``consistent`` / ``contradicts``),
+    or None (the parent requires none, or nothing is recorded yet)."""
+
+    method = getattr(parent, "required_method", None)
+    if method is None:
+        return None
+    stem = str(json.loads(row["payload_json"])["stem"])
+    verdict = recorded_verdict(connection, question="variant", subject_kind="pf_candidate",
+                               subject_id=str(row["id"]), statement=stem, method=method.name)
+    return verdict.verdict if verdict is not None else None
+
+
 def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, Any],
-                       *, item_id: str, now_iso: str) -> dict[str, Any]:
+                       *, item_id: str, now_iso: str, method_verdict: str | None = None) -> dict[str, Any]:
+    """The published item's payload, copied from the parent's contract.
+
+    For a parent with a required method, ``method_verdict`` is the one-time
+    publication judgment of the stem (:func:`variant_method_verdict`):
+    ``contradicts`` refuses (:class:`VariantContradictsRequiredMethod`), a
+    missing one refuses too (:class:`RequiredMethodUnjudged`), and only a
+    ``consistent`` stem is published, inheriting the parent's required method
+    (its instruction is rendered from that field; the stem is stored as
+    generated, round 3). The stem's phrasing is never read here (redesign
+    2026-10-14).
+    """
+
     payload = json.loads(row["payload_json"])
     relation = row["final_relation"] or row["declared_relation"]
 
@@ -106,7 +153,7 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     if parent.evidence_fingerprint.solution_recipe_family and relation in {"same_target", "isomorph"}:
         fingerprint["solution_recipe_family"] = parent.evidence_fingerprint.solution_recipe_family
     keep_trace = relation in {"same_target", "isomorph"}
-    return {
+    item = {
         "schema_version": parent.schema_version,
         "id": item_id,
         "learning_object_id": parent.learning_object_id,
@@ -145,6 +192,27 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
         **({"canonical_exercise": {**parent.canonical_exercise.model_dump(mode="json"), "relation": "variant_of"}}
            if getattr(parent, "canonical_exercise", None) is not None else {}),
     }
+    # Method-explicit items (owner rule 2026-10-13): the variant keeps the
+    # parent's rubric verbatim, so it keeps its required method too; its
+    # stem is stored as generated and the instruction ("Use {method} in your
+    # answer.") is rendered from the field wherever it is shown (round 3).
+    # Whether the stem prohibits or contradicts the method was judged once
+    # at publication (redesign 2026-10-14; review F10): a contradicting or
+    # unjudged stem is refused before the variant is built.
+    method = getattr(parent, "required_method", None)
+    if method is not None:
+        if method_verdict is None:
+            raise RequiredMethodUnjudged(
+                f"No publication judgment of the variant's stem against the parent's required method "
+                f"{method.name!r} is recorded yet"
+            )
+        if method_verdict == CONTRADICTS:
+            raise VariantContradictsRequiredMethod(
+                f"The publication judgment found that the variant's stem prohibits or contradicts the parent's "
+                f"required method {method.name!r}"
+            )
+    inherit_required_method(item, parent)
+    return item
 
 
 def _contract_view(vault: LoadedVault, parent: PracticeItem) -> dict[str, Any]:
@@ -155,6 +223,8 @@ def _contract_view(vault: LoadedVault, parent: PracticeItem) -> dict[str, Any]:
         **{field: dumped.get(field) for field in _CONTRACT_FIELDS},
         "effective_rubric": rubric.model_dump(mode="json") if rubric is not None else None,
         "source_family": surface_group_id(parent),
+        # Only when set, so every other parent's contract view is unchanged.
+        **({"required_method": dumped["required_method"]} if dumped.get("required_method") else {}),
     }
 
 
@@ -256,7 +326,17 @@ def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: st
     family = vault.activity_families.get(row["family_id"])
     if parent is None or family is None:
         raise PublishRefused("The parent item or family no longer exists")
-    payload = build_item_payload(vault, parent, row, item_id=item_id, now_iso=now_iso)
+    method_verdict = None
+    if getattr(parent, "required_method", None) is not None:
+        # The authoritative verdict (§5.8): read from the ledger, never from the stem.
+        with repository.connection() as connection:
+            method_verdict = variant_method_verdict(connection, row, parent)
+    try:
+        payload = build_item_payload(vault, parent, row, item_id=item_id, now_iso=now_iso,
+                                     method_verdict=method_verdict)
+    except VariantContradictsRequiredMethod as exc:
+        _refuse_contradiction(repository, row, str(exc), now_iso)
+        raise
     PracticeItem.model_validate(payload)
     with repository.connection() as connection:
         if decided is None:
@@ -351,6 +431,23 @@ def _refuse_stale(repository: Repository, row: Mapping[str, Any], changed: list[
                          updated_at=now_iso)
 
 
+def _refuse_contradiction(repository: Repository, row: Mapping[str, Any], reason: str, now_iso: str) -> None:
+    """Ledger the refusal and reject the candidate (re-review F10; regenerate to retry)."""
+    with repository.connection() as connection:
+        refusal_id = "pfmethod_" + content_key([row["id"], row["content_hash"], PUBLISH_POLICY_VERSION])
+        if connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (refusal_id,)).fetchone() is None:
+            append_judgment(
+                connection, id=refusal_id, task="pf_publish", left_kind="pf_candidate", left_id=row["id"],
+                judge="verifier", prompt_version=PUBLISH_POLICY_VERSION, input_hash=row["content_hash"],
+                verdict="refuse_contradicts_required_method",
+                rationale=json.dumps({"reason": reason, "family_id": row["family_id"],
+                                      "parent_item_id": row["parent_item_id"]}, sort_keys=True),
+                created_at=now_iso,
+            )
+        update_candidate(connection, row["id"], status="rejected", rejection_filter="required_method_contradicted",
+                         updated_at=now_iso)
+
+
 def _check_ledger(row: dict[str, Any], verdicts: dict[str, Any]) -> None:
     """Publication reads the authoritative verdicts (§5.8), never workflow JSON.
 
@@ -379,12 +476,67 @@ def _initialize_scheduling(repository: Repository, item: PracticeItem, clock: Cl
     repository.initialize_practice_item_state(item.id, content_hash=practice_item_hash(item), clock=clock)
 
 
+def judge_variant_stem(vault: LoadedVault, repository: Repository, row: Mapping[str, Any], method_judge: Any, *,
+                       owner: tuple[str, str], clock: Clock | None = None, strict: bool = False) -> str | None:
+    """The one-time publication judgment of a variant's stem (redesign
+    2026-10-14): does it prohibit or contradict the parent's required method?
+
+    Made outside the vault mutation lock (it is a paid call), recorded in
+    ``judgment_ledger`` once (an earlier verdict on the same stem and method
+    is reused), and read back under the lock by :func:`_publish_locked`.
+    Returns the verdict, or None when the parent requires no method or no
+    judgment could be made (no judge ready, a refusal or a failure).
+
+    ``strict`` (a PF run, review F17) lets a refusal or failure propagate so
+    the run keeps its job retryable instead of completing with the variant
+    unjudged; a cancellation always propagates.
+    """
+
+    parent = vault.practice_items.get(str(row["parent_item_id"]))
+    method = getattr(parent, "required_method", None)
+    if method is None:
+        return None
+    # Method-explicit-3 review F6: a verdict already ledgered is read before
+    # any judge is resolved, so recovering a job whose every verdict is
+    # recorded (a crash after the last judgment, before publication) never
+    # depends on a judge being available; only a missing verdict needs one.
+    with repository.connection() as connection:
+        known = variant_method_verdict(connection, row, parent)
+    if known is not None:
+        return known
+    judge = as_lazy(method_judge).get()
+    if judge is None:
+        return None
+    try:
+        verdict = judge.judge(
+            repository, question="variant", subject_kind="pf_candidate", subject_id=str(row["id"]),
+            statement=str(json.loads(row["payload_json"])["stem"]), method=method.name, owner=owner,
+            right=("practice_item", parent.id), clock=clock,
+        )
+    except AIInterrupted:
+        raise
+    except Exception:  # noqa: BLE001 - no verdict: the candidate is not published yet
+        if strict:
+            raise
+        _LOGGER.warning("the required-method publication judgment failed for %s", row["id"], exc_info=True)
+        return None
+    return verdict.verdict
+
+
 def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: list[str], *,
-                     clock: Clock | None = None) -> tuple[LoadedVault, dict[str, Any]]:
-    """Publish in order while today's cap allows; the rest stay ``selected``."""
+                     clock: Clock | None = None, method_judge: Any = None,
+                     judge_owner: tuple[str, str] = PUBLISH_JUDGE_OWNER) -> tuple[LoadedVault, dict[str, Any]]:
+    """Publish in order while today's cap allows; the rest stay ``selected``.
+
+    A variant of a parent with a required method is judged once first
+    (:func:`judge_variant_stem`, by ``method_judge``): ``contradicts`` is
+    refused and rejected, and with no verdict it stays selected
+    (``unjudged_candidates``)."""
     published: list[str] = []
     capped: list[str] = []
     stale: list[str] = []
+    refused: list[str] = []
+    unjudged: list[str] = []
     for candidate_id in candidate_ids:
         with repository.connection() as connection:
             row = load_candidate(connection, candidate_id)
@@ -393,18 +545,28 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
         if remaining_publish_slots(vault, repository, clock) <= 0:
             capped.append(candidate_id)
             continue
+        if method_judge is not None:
+            judge_variant_stem(vault, repository, row, method_judge, owner=judge_owner, clock=clock)
         try:
             vault, item_id = publish_candidate(vault, repository, candidate_id, clock=clock)
         except StaleSelection:
             stale.append(candidate_id)
             continue
+        except VariantContradictsRequiredMethod:
+            refused.append(candidate_id)
+            continue
+        except RequiredMethodUnjudged:
+            unjudged.append(candidate_id)
+            continue
         published.append(item_id)
     return vault, {"published_item_ids": published, "capped_candidates": len(capped),
-                   "stale_candidates": len(stale), "cap": vault.config.pf.max_published_per_day}
+                   "stale_candidates": len(stale), "refused_candidates": len(refused),
+                   "unjudged_candidates": len(unjudged), "cap": vault.config.pf.max_published_per_day}
 
 
 __all__ = [
-    "JUDGED_INPUTS_VERSION", "PF_TAG", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS", "PublishRefused",
-    "StaleSelection", "build_item_payload", "judged_inputs", "publish_candidate", "publish_selected",
-    "published_item_id", "remaining_publish_slots", "stale_inputs", "utc_day_bounds",
+    "JUDGED_INPUTS_VERSION", "PF_TAG", "PUBLISH_JUDGE_OWNER", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS",
+    "PublishRefused", "RequiredMethodUnjudged", "StaleSelection", "VariantContradictsRequiredMethod",
+    "build_item_payload", "judge_variant_stem", "judged_inputs", "publish_candidate", "publish_selected",
+    "published_item_id", "remaining_publish_slots", "stale_inputs", "utc_day_bounds", "variant_method_verdict",
 ]

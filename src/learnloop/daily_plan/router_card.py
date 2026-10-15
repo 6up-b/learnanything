@@ -26,7 +26,10 @@ chunks, and the headline classification reads each topic's certification.
 * past work shows the question the learner answered: the prompt of the
   attempt's pinned assessment contract (the revision it was graded against),
   never today's edited prompt; an attempt whose revision cannot be
-  established shows no question (review F6).
+  established shows no question (review F6). A contract that froze a
+  required method shows its instruction ("Use {method} in your answer."),
+  rendered from the frozen field after the statement and kept whole when the
+  question is shortened (method-explicit items, ``presented_prompt``).
 
 A topic is ``demonstrated`` or ``assumed`` only by the Today headline's
 classification (capability-matched, unassisted certification credit; open
@@ -48,7 +51,8 @@ from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.daily_plan.types import BlockCandidate, PlanState
-from learnloop.router.card import CardInputs, LearnerStateCard, build_card
+from learnloop.router.card import STEM_LIMIT, CardInputs, LearnerStateCard, build_card, excerpt
+from learnloop.vault.required_method import fit_presented_prompt, method_instruction
 
 _LOG = logging.getLogger(__name__)
 
@@ -270,10 +274,13 @@ class CardGatherer:
     def _pinned_stems(connection: Any, attempts: Sequence[Mapping[str, Any]], unknowns: list[str]) -> dict[str, str]:
         """The question each attempt answered (review F6): the prompt of its
         pinned assessment contract, the one contract its current grading
-        evidence names, belonging to the attempt's item. Only the prompt is
-        read (``json_extract``), never the contract's answer key or rubric. An
-        attempt with no contract, or several, gets no stem: today's prompt is
-        never substituted for the revision the learner saw."""
+        evidence names, belonging to the attempt's item. Only the prompt and
+        the required method it froze are read (``json_extract``), never the
+        contract's answer key or rubric. An attempt with no contract, or
+        several, gets no stem: today's prompt is never substituted for the
+        revision the learner saw. A frozen required method's instruction is
+        rendered after the statement (method-explicit items), the statement
+        shortened to the card's stem limit so the sentence stays whole."""
 
         items = {str(row["id"]): row.get("practice_item_id") for row in attempts}
         if not items:
@@ -293,9 +300,10 @@ class CardGatherer:
                 return {}
             versions = sorted({str(value) for value in single.values()})
             prompts = {
-                str(row[0]): (row[1], row[2])
+                str(row[0]): (row[1], row[2], row[3])
                 for row in connection.execute(
-                    f"SELECT id, practice_item_id, json_extract(contract_json, '$.prompt') "
+                    f"SELECT id, practice_item_id, json_extract(contract_json, '$.prompt'), "
+                    f"json_extract(contract_json, '$.required_method') "
                     f"FROM assessment_contract_versions WHERE id IN ({_marks(versions)})",
                     versions,
                 )
@@ -306,9 +314,14 @@ class CardGatherer:
             return {}
         stems: dict[str, str] = {}
         for attempt_id, version_id in single.items():
-            item_id, prompt = prompts.get(str(version_id), (None, None))
+            item_id, prompt, frozen_method = prompts.get(str(version_id), (None, None, None))
             if item_id is not None and item_id == items.get(attempt_id) and isinstance(prompt, str) and prompt.strip():
-                stems[attempt_id] = prompt
+                method = _frozen_method(frozen_method)
+                # The question as presented: the statement, then the frozen
+                # method's sentence, whole within the card's stem limit (so the
+                # card's own clip is a no-op on it).
+                stems[attempt_id] = (fit_presented_prompt(prompt, method, STEM_LIMIT, excerpt)
+                                     if method_instruction(method) is not None else prompt)
         return stems
 
     def _classes(self, los: Sequence[str], now_iso: str, unknowns: list[str]) -> dict[str, str] | None:
@@ -609,6 +622,20 @@ class CardGatherer:
                 "answer": None if hidden else (row.get("learner_answer_md") or None),
             })
         return work
+
+
+def _frozen_method(value: Any) -> Any:
+    """A contract's frozen ``required_method`` as ``json_extract`` returns it
+    (a JSON text for an object), or None."""
+
+    if isinstance(value, str):
+        import json
+
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return None
+    return value if isinstance(value, Mapping) else None
 
 
 __all__ = ["CardGatherer", "RECENT_WORK_LIMIT"]

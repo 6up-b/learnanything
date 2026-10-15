@@ -60,6 +60,7 @@ from learnloop.practice_index.paid import (
 )
 from learnloop.vault.embedding_recipes import facet_content_hash
 from learnloop.vault.models import EvidenceFacet, LoadedVault, PracticeItem
+from learnloop.vault.required_method import fit_presented_prompt
 from learnloop.vault.paths import VaultPaths
 
 
@@ -253,7 +254,8 @@ def build_plans(vault: LoadedVault, repository: Repository, *,
             "source_spans": _spans(repository, reader, facet),
             "items": [
                 {"ref": f"i{index}", "practice_mode": item.practice_mode,
-                 "prompt": _clip(item.prompt, ITEM_CHARS)}
+                 # The question as presented, the instruction whole (method-explicit-3 F4/F5).
+                 "prompt": fit_presented_prompt(item.prompt, item.required_method, ITEM_CHARS, _clip)}
                 for index, item in enumerate(items, start=1)
             ],
             "rubric_criteria": _criteria(vault, facet_id, items),

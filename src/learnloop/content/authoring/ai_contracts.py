@@ -11,11 +11,13 @@ from learnloop.ai.transport import render_structured_prompt
 from learnloop.content.proposals.ai_contracts import (
     CriterionFacetWeightsPayload,
     FacetWeightPayload,
+    RequiredMethodPayload,
     RubricCriterionPayload,
     RubricPatchPayload,
     TaskFeaturesPayload,
     TraceContractPayload,
 )
+from learnloop.vault.required_method import CRITERIA_BY_FACT_GUIDANCE
 
 class ExerciseAuthoredItem(WireModel):
     """One selected textbook exercise completed into a full PracticeItem
@@ -55,6 +57,10 @@ class ExerciseAuthoredItem(WireModel):
     # own solution, a verbatim quote from it that states the answer (checked
     # in code against the solution passage); empty otherwise.
     cited_quote: str = ""
+    # Method-explicit items (owner rule 2026-10-13): only when the BOOK'S
+    # statement itself requires a method and the mapped object is that method;
+    # the statement is never rewritten, so the writer drops one it does not state.
+    required_method: RequiredMethodPayload | None = None
 
 BANNED_RESPONSE_MODES: tuple[str, ...] = (
     "multiple_choice",
@@ -146,7 +152,10 @@ class VideoStoryboard(WireModel):
     shots: list[VideoShot] = Field(default_factory=list)
 
 
-EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.2-criterion-total-scoring"
+#: mvp-0.3 (owner rule 2026-10-13): criteria by fact; a required method only
+#: when the book's own statement requires it on a method target. ``-v2``
+#: (review F14 reopened): the shared guidance leaves the sentence to LearnLoop.
+EXERCISE_AUTHORING_PROMPT_VERSION = "mvp-0.3-criteria-by-fact-v2"
 CONCEPT_ANIMATION_PROMPT_VERSION = "mvp-0.2-structured-explainer"
 VIDEO_STORYBOARD_PROMPT_VERSION = "mvp-0.1-video-storyboard"
 
@@ -193,7 +202,12 @@ none of which states the answer. `difficulty` in [0,1] is relative to a
 learner who just finished the surrounding section.
 7. Learner-facing prose only in statement/answer/hints: no ids, no
 meta-language about spans or this task.
+8. CRITERIA BY FACT: __CRITERIA_BY_FACT__ The statement here is the book's
+own: set `required_method` only when the statement ITSELF already requires the
+method (never add an instruction to it) and the mapped learning object lists
+that method in `required_method_targets`; otherwise leave it null.
 """
+EXERCISE_AUTHORING_PROMPT = EXERCISE_AUTHORING_PROMPT.replace("__CRITERIA_BY_FACT__", CRITERIA_BY_FACT_GUIDANCE)
 
 # The scene skeleton the model fills in. It fixes the things models get wrong
 # on their own: a pinned title, one helper per explanatory beat that clears
