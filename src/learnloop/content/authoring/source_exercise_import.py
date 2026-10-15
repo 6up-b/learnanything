@@ -89,6 +89,8 @@ from learnloop.db.stores.source_block_fts import (
     section_header_titles,
 )
 from learnloop.db.stores.source_service import (
+    KEY_IDENTITY,
+    KEY_IDENTITY_FIELD,
     VERIFIED_STATUSES,
     import_row,
     insert_import,
@@ -636,13 +638,14 @@ def run_key_ladder(vault: LoadedVault, repository: Repository, *, subject_id: st
 
 
 def _insert_check(connection: Any, *, item_id: str, content_hash: str, result: LadderResult, trigger: str,
-                  started_at: str, import_id: str | None, clock: Clock | None) -> str:
+                  started_at: str, import_id: str | None, clock: Clock | None,
+                  legacy_identity: bool = False) -> str:
     check_id = "rkc_" + new_ulid()
     insert_key_check(
         connection, id=check_id, practice_item_id=item_id, import_id=import_id, content_hash=content_hash,
         key_status=result.key_status, rung=result.rung, trigger=trigger, started_at=started_at,
         created_at=utc_now_iso(clock), verification={**result.verification, "skip_reason": result.skip_reason},
-        ledger_ids=result.ledger_ids,
+        ledger_ids=result.ledger_ids, legacy_identity=legacy_identity,
     )
     return check_id
 
@@ -664,7 +667,9 @@ def _ladder_record(result: LadderResult, started_at: str, content_hash: str) -> 
 
     return {"key_status": result.key_status, "rung": result.rung, "verification": dict(result.verification),
             "ledger_ids": list(result.ledger_ids), "skip_reason": result.skip_reason, "started_at": started_at,
-            "content_hash": content_hash}
+            # The identity the hash was computed under (method-explicit-3
+            # re-review F1): a record without it predates the method-aware key.
+            "content_hash": content_hash, KEY_IDENTITY_FIELD: KEY_IDENTITY}
 
 
 def draft_content_hash(draft: AuthoredDraft, extra_payload: Mapping[str, Any] | None = None) -> str:
@@ -687,11 +692,12 @@ def _without_pending(verification: Mapping[str, Any], **extra: Any) -> dict[str,
 
 def _complete_check(connection: Any, *, import_id: str | None, item_id: str, content_hash: str,
                     result: LadderResult, trigger: str, started_at: str, clock: Clock | None,
-                    edited: bool = False) -> str:
+                    edited: bool = False, legacy_identity: bool = False) -> str:
     """The check row and the import's completion, in the caller's ONE transaction (F5)."""
 
     check_id = _insert_check(connection, item_id=item_id, content_hash=content_hash, result=result, trigger=trigger,
-                             started_at=started_at, import_id=import_id, clock=clock)
+                             started_at=started_at, import_id=import_id, clock=clock,
+                             legacy_identity=legacy_identity)
     current = import_row(connection, import_id) if import_id else None
     if current is not None:
         fields: dict[str, Any] = {"verification": _without_pending(current["verification"],
@@ -1369,7 +1375,7 @@ def _commit_written(repository: Repository, import_id: str, item: PracticeItem, 
         return _complete_check(connection, import_id=import_id, item_id=item.id, content_hash=str(checked_hash),
                                result=_ladder_from_record(record), trigger="import",
                                started_at=str(record.get("started_at") or utc_now_iso(clock)), clock=clock,
-                               edited=edited)
+                               edited=edited, legacy_identity=record.get(KEY_IDENTITY_FIELD) != KEY_IDENTITY)
 
 
 def resume_import(root: Path, repository: Repository, import_id: str, *, clients: Mapping[str, Any] | None = None,

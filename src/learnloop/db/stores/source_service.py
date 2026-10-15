@@ -79,6 +79,16 @@ def reference_content_hash(item: Any) -> str:
     and the target it is linked to are not the question, so they are not in
     the key. Hashed only when present: every item without a required method
     keeps its hash, and with it every check and every recorded binding.
+
+    **Two identities (method-explicit-3 re-review F1).** Before review F1 a
+    method revision's hash left the method out (the *legacy identity*), so a
+    method revision and the same question with its method cleared shared one
+    hash. A check written now records the identity it was computed under
+    (:data:`KEY_IDENTITY_FIELD`). A check without it (every check on main,
+    and this branch's before the fix) is read under explicit compatibility
+    rules (:func:`applicable_checks`): it never verifies a question without
+    a method whose hash a method contract recorded under the legacy
+    identity, and it still binds that contract.
     """
 
     fields = {"prompt": item.prompt, "expected_answer": item.expected_answer,
@@ -282,18 +292,37 @@ def imported_regions(connection: sqlite3.Connection) -> list[tuple[str, list[str
                 "SELECT extraction_id, span_ids_json FROM source_exercise_imports WHERE status='written'")]
 
 
+#: ``verification_json`` key naming the key identity a check's
+#: ``content_hash`` was computed under (method-explicit-3 re-review F1).
+KEY_IDENTITY_FIELD = "key_identity"
+#: The identity of :func:`reference_content_hash`: a method revision's hash
+#: names its required method. A check without the field was recorded under
+#: the legacy identity, where a method revision's hash left the method out.
+KEY_IDENTITY = "method-aware"
+
+
+def _identity_fields(legacy_identity: bool = False) -> dict[str, str]:
+    return {} if legacy_identity else {KEY_IDENTITY_FIELD: KEY_IDENTITY}
+
+
 def insert_key_check(connection: sqlite3.Connection, *, id: str, practice_item_id: str,
                      content_hash: str, key_status: str, rung: str, trigger: str, started_at: str,
                      created_at: str, import_id: str | None = None,
                      verification: Mapping[str, Any] | None = None,
-                     ledger_ids: Sequence[str] = ()) -> None:
+                     ledger_ids: Sequence[str] = (), legacy_identity: bool = False) -> None:
+    """One append-only check row, recording the key identity its hash was
+    computed under. ``legacy_identity``: a hash persisted before identities
+    were recorded (a ladder result written before the fix and committed
+    after it) is recorded without one, and read as every check on main is."""
+
     if key_status not in CHECK_STATUSES:
         raise ValueError(f"key_status must be one of {', '.join(CHECK_STATUSES)}")
+    payload = {**dict(verification or {}), **_identity_fields(legacy_identity)}
     connection.execute(
         "INSERT INTO reference_key_checks (id,practice_item_id,import_id,content_hash,key_status,rung,"
         "verification_json,ledger_ids_json,trigger,started_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
         (id, practice_item_id, import_id, content_hash, key_status, rung,
-         _dumps(dict(verification or {})), _dumps(list(ledger_ids)), trigger, started_at, created_at),
+         _dumps(payload), _dumps(list(ledger_ids)), trigger, started_at, created_at),
     )
 
 
@@ -302,6 +331,65 @@ def _check(row: sqlite3.Row) -> dict[str, Any]:
     value["verification"] = _loads(value.pop("verification_json"), {})
     value["ledger_ids"] = _loads(value.pop("ledger_ids_json"), [])
     return value
+
+
+def identity_recorded(check: Mapping[str, Any]) -> bool:
+    """Whether a check row records the key identity of its hash (re-review F1)."""
+
+    return (check.get("verification") or {}).get(KEY_IDENTITY_FIELD) == KEY_IDENTITY
+
+
+def legacy_method_contents(connection: sqlite3.Connection, practice_item_id: str) -> set[str]:
+    """Every answer-key hash a method contract of the item recorded.
+
+    A contract frozen for a method revision before review F1 recorded the
+    legacy identity: the same hash as that question with its method cleared.
+    One frozen since records a method-aware hash, which no question without
+    a method has. So a hash in this set that a question WITHOUT a method also
+    has is a legacy method identity."""
+
+    if not table_exists(connection, "assessment_contract_versions"):
+        return set()
+    return {str(row[0]) for row in connection.execute(
+        "SELECT json_extract(contract_json, '$.reference_content_hash') FROM assessment_contract_versions "
+        "WHERE practice_item_id=? AND json_extract(contract_json, '$.required_method.name') IS NOT NULL "
+        "AND json_extract(contract_json, '$.reference_content_hash') IS NOT NULL", (practice_item_id,))}
+
+
+def applicable_checks(connection: sqlite3.Connection, practice_item_id: str, content_hash: str, *,
+                      method_revision: bool | None = None, legacy_hash: str | None = None,
+                      checks: Sequence[Mapping[str, Any]] | None = None) -> list[Mapping[str, Any]]:
+    """The checks of ONE revision, oldest first (method-explicit-3 re-review F1).
+
+    A check applies to the revision whose hash it carries. Two compatibility
+    rules read the checks recorded under the legacy identity
+    (:func:`identity_recorded` false):
+
+    * ``method_revision=False`` (the revision has no required method): such
+      a check does not apply when a method contract of the item recorded the
+      same hash (:func:`legacy_method_contents`). That hash was the method
+      revision's too, so the check may have verified the method question,
+      not this one. A check recorded since (with its identity) applies.
+      Without such a contract (every item on main) nothing changes;
+    * ``legacy_hash``: the revision's legacy identity (a method revision a
+      contract froze before the fix, or rebuilt from one). Such a check
+      carrying that hash applies too: it is the binding the contract had. A
+      check recorded since with that hash is of the question without a
+      method, so it does not apply.
+    """
+
+    rows = key_checks_for_item(connection, practice_item_id) if checks is None else list(checks)
+    excluded = method_revision is False and any(
+        row["content_hash"] == content_hash and not identity_recorded(row) for row in rows
+    ) and content_hash in legacy_method_contents(connection, practice_item_id)
+    applicable: list[Mapping[str, Any]] = []
+    for row in rows:
+        if row["content_hash"] == content_hash:
+            if identity_recorded(row) or not excluded:
+                applicable.append(row)
+        elif legacy_hash is not None and row["content_hash"] == legacy_hash and not identity_recorded(row):
+            applicable.append(row)
+    return applicable
 
 
 def key_checks_for_item(connection: sqlite3.Connection, practice_item_id: str) -> list[dict[str, Any]]:
@@ -350,19 +438,28 @@ def effective_key_status(connection: sqlite3.Connection, item: Any) -> str:
 
     if not is_exercise_import(connection, item):
         return "not_applicable"
-    return key_status_for_content(connection, item, reference_content_hash(item))
+    return key_status_for_content(connection, item, reference_content_hash(item),
+                                  method_revision=has_required_method(item))
 
 
-def key_status_for_content(connection: sqlite3.Connection, item: Any, content_hash: str) -> str:
+def has_required_method(item: Any) -> bool:
+    return required_method_key(getattr(item, "required_method", None)) is not None
+
+
+def key_status_for_content(connection: sqlite3.Connection, item: Any, content_hash: str, *,
+                           method_revision: bool | None = None, legacy_hash: str | None = None) -> str:
     """The key status of ONE revision of an exercise import (its
-    :func:`reference_content_hash`): the latest check of that content, else
-    ``changed_since_check``, ``checking`` or ``model_answer`` as
-    :func:`effective_key_status` reads them for the current content."""
+    :func:`reference_content_hash`): the latest of its checks
+    (:func:`applicable_checks`, which reads ``method_revision`` and
+    ``legacy_hash``), else ``changed_since_check``, ``checking`` or
+    ``model_answer`` as :func:`effective_key_status` reads them for the
+    current content."""
 
     if not is_exercise_import(connection, item):
         return "not_applicable"
     checks = key_checks_for_item(connection, item.id)
-    matching = [check for check in checks if check["content_hash"] == content_hash]
+    matching = applicable_checks(connection, item.id, content_hash, method_revision=method_revision,
+                                 legacy_hash=legacy_hash, checks=checks)
     if matching:
         return str(matching[-1]["key_status"])
     if checks:
@@ -373,10 +470,14 @@ def key_status_for_content(connection: sqlite3.Connection, item: Any, content_ha
     return "model_answer"
 
 
-def checked_content_hashes(connection: sqlite3.Connection, practice_item_id: str) -> list[str]:
-    """Every revision of an item that an answer-key check has recorded, oldest first."""
+def checked_content_hashes(connection: sqlite3.Connection, practice_item_id: str, *,
+                           legacy_identity: bool = False) -> list[str]:
+    """Every revision of an item that an answer-key check has recorded, oldest
+    first; with ``legacy_identity``, only those of checks recorded without
+    their identity (:func:`identity_recorded`)."""
 
-    return list(dict.fromkeys(check["content_hash"] for check in key_checks_for_item(connection, practice_item_id)))
+    return list(dict.fromkeys(check["content_hash"] for check in key_checks_for_item(connection, practice_item_id)
+                              if not (legacy_identity and identity_recorded(check))))
 
 
 def exercise_import_ids(connection: sqlite3.Connection, items: Iterable[Any]) -> set[str]:
@@ -432,7 +533,8 @@ AMBIGUOUS_DEFAULT_REVISION = "ambiguous_default"
 
 def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, item: Any, gated: bool,
                            grading: str, created_at: str, graded_contents: Sequence[str] | None = None,
-                           graded_revision: str = "current") -> str | None:
+                           graded_revision: str = "current", method_revision: bool | None = None,
+                           legacy_contents: Mapping[str, str] | None = None) -> str | None:
     """C3 for a grade that replaces an attempt's grade (§7.3a, "Replacement grades").
 
     A regrade, or an adjudication against the key, reads the item as it is
@@ -461,12 +563,24 @@ def bind_replacement_grade(connection: sqlite3.Connection, *, attempt_id: str, i
     a default rubric that cannot be recovered: no check can vouch for what it
     graded, so the grade is lowered whatever the candidates' statuses (an
     exercise import's; ``not_applicable`` content is never gated).
+
+    The key identities (method-explicit-3 re-review F1,
+    :func:`applicable_checks`): ``method_revision`` says whether the graded
+    revision has a required method (for the current content, the item's).
+    ``legacy_contents`` maps a candidate to its legacy identity, the hash a
+    contract frozen before review F1 recorded for it, so the checks recorded
+    under that identity still bind it.
     """
 
     if not gated or not column_exists(connection, "practice_attempts", "reference_status"):
         return None
-    contents = [reference_content_hash(item)] if graded_contents is None else list(dict.fromkeys(graded_contents))
-    statuses = {content: key_status_for_content(connection, item, content) for content in contents}
+    if graded_contents is None:
+        contents, method_revision = [reference_content_hash(item)], has_required_method(item)
+    else:
+        contents = list(dict.fromkeys(graded_contents))
+    legacy = dict(legacy_contents or {})
+    statuses = {content: key_status_for_content(connection, item, content, method_revision=method_revision,
+                                                legacy_hash=legacy.get(content)) for content in contents}
     unrecoverable = graded_contents is not None and graded_revision == AMBIGUOUS_DEFAULT_REVISION
     lowering = [content for content, status in statuses.items()
                 if status != "not_applicable" and (unrecoverable or status not in VERIFIED_STATUSES)]
@@ -1563,6 +1677,12 @@ __all__ = [
     "KEY_STATUS_LABELS",
     "VERIFIED_STATUSES",
     "checked_content_hashes",
+    "applicable_checks",
+    "has_required_method",
+    "identity_recorded",
+    "KEY_IDENTITY",
+    "KEY_IDENTITY_FIELD",
+    "legacy_method_contents",
     "effective_key_status",
     "reference_content_hash",
     "exercise_import_ids",

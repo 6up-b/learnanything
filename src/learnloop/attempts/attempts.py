@@ -1614,7 +1614,7 @@ class GradedContract:
     def graded_reference_contents(
         self, vault: LoadedVault, item: PracticeItem, connection: Any,
         attempt: Mapping[str, Any] | None = None,
-    ) -> tuple[list[str], str]:
+    ) -> tuple[list[str], str, dict[str, str]]:
         """The answer-key revision(s) a regrade under this contract graded (review F13, F19).
 
         A key check binds one revision of an item: its
@@ -1669,46 +1669,59 @@ class GradedContract:
           one): every revision a key check recorded may be it, the current
           one excepted when the frozen statement or answer differs from it:
           ``(hashes, "unresolved")``, bound fail closed.
+
+        **Legacy identities** (method-explicit-3 re-review F1). The third
+        value maps a returned method revision to its legacy identity: its
+        hash without the method, the identity contracts and checks carried
+        before review F1, whose checks still bind it
+        (``source_service.applicable_checks``). A recorded hash that is a
+        legacy identity (it equals a rebuild of the frozen revision without
+        its method) binds the method-aware revision with that mapping, so a
+        check of the question with its method cleared, which has the same
+        legacy hash, never reaches it.
         """
 
         from learnloop.db.stores.source_service import (
             AMBIGUOUS_DEFAULT_REVISION, checked_content_hashes, reference_content_hash,
         )
 
-        recorded = self.contract.get("reference_content_hash")
-        if isinstance(recorded, str) and recorded:
-            return [recorded], "frozen"
         frozen = {"prompt": self.contract.get("prompt"), "expected_answer": self.contract.get("expected_answer"),
                   # The method the learner was presented, not today's (F1).
                   "required_method": self.required_method}
         base = item.model_dump(mode="json")
+        legacy: dict[str, str] = {}
+
+        def view_with(rubric: Any) -> PracticeItem | None:
+            try:
+                return PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
+            except Exception:  # noqa: BLE001 - not a revision this item can have had
+                return None
+
+        def legacy_identity(view: PracticeItem) -> str:
+            return reference_content_hash(view.model_copy(update={"required_method": None}))
 
         def rebuild(rubric: Any) -> tuple[str | None, bool]:
             """The revision with ``rubric``: its key hash, and whether it
             reproduces the frozen contract."""
 
-            try:
-                view = PracticeItem.model_validate({**base, **frozen, "grading_rubric": rubric})
-            except Exception:  # noqa: BLE001 - not a revision this item can have had
+            view = view_with(rubric)
+            if view is None:
                 return None, False
             try:
                 compiled = compile_assessment_contract(vault, view, rubric=resolved_rubric(vault, view))
             except Exception:  # noqa: BLE001 - no rubric resolves (no default for the mode today)
                 compiled = None
-            return reference_content_hash(view), compiled is not None and self._froze(compiled)
+            content = reference_content_hash(view)
+            if self.required_method is not None:
+                legacy[content] = legacy_identity(view)
+            return content, compiled is not None and self._froze(compiled)
+
+        def bound(contents: list[str], revision: str) -> tuple[list[str], str, dict[str, str]]:
+            return contents, revision, {content: legacy[content] for content in contents if content in legacy}
 
         def same_question(data: Mapping[str, Any]) -> bool:
             return data.get("prompt") == frozen["prompt"] and data.get("expected_answer") == frozen["expected_answer"]
 
-        pinned = _attempt_time_revision(connection, attempt, item.id)
-        if pinned is not None and same_question(pinned):
-            content, matches = rebuild(pinned.get("grading_rubric"))
-            if content is not None and matches:
-                return [content], "frozen"
-            if content is not None and pinned.get("grading_rubric") is None:
-                return [content], AMBIGUOUS_DEFAULT_REVISION
-            # The rubric changed between the selection and the submission:
-            # rebuilt below from what else is known.
         try:
             stored = connection.execute(
                 "SELECT item_json FROM practice_item_snapshots WHERE practice_item_id = ? ORDER BY created_at DESC",
@@ -1724,17 +1737,47 @@ class GradedContract:
                 continue
             if isinstance(data, Mapping):
                 snapshots.append(data)
-        rubrics: list[Any] = [base.get("grading_rubric"), *[data.get("grading_rubric") for data in snapshots]]
+        rubrics: list[Any] = [base.get("grading_rubric"), *[data.get("grading_rubric") for data in snapshots], None]
+
+        recorded = self.contract.get("reference_content_hash")
+        if isinstance(recorded, str) and recorded:
+            if self.required_method is not None:
+                # Recorded before review F1 (the legacy identity)? Then the
+                # revision is the method-aware one with exactly that hash
+                # without its method.
+                seen: list[str] = []
+                for rubric in rubrics:
+                    key = json.dumps(rubric, sort_keys=True, default=str)
+                    view = None if key in seen else view_with(rubric)
+                    seen.append(key)
+                    if view is not None and legacy_identity(view) == recorded:
+                        content = reference_content_hash(view)
+                        return [content], "frozen", {content: recorded}
+            return [recorded], "frozen", {}
+
+        pinned = _attempt_time_revision(connection, attempt, item.id)
+        if pinned is not None and same_question(pinned):
+            content, matches = rebuild(pinned.get("grading_rubric"))
+            if content is not None and matches:
+                return bound([content], "frozen")
+            if content is not None and pinned.get("grading_rubric") is None:
+                return bound([content], AMBIGUOUS_DEFAULT_REVISION)
+            # The rubric changed between the selection and the submission:
+            # rebuilt below from what else is known.
         inherited, _matches = rebuild(None)
         checked = set(checked_content_hashes(connection, item.id))
+        legacy_checked = set(checked_content_hashes(connection, item.id, legacy_identity=True))
+
+        def is_checked(content: str) -> bool:
+            return content in checked or legacy.get(content, "") in legacy_checked
+
         # A revision of the graded question is known to have inherited a
         # default (the current item or a snapshot with the frozen statement
         # and answer and no rubric of its own, or a key check of exactly that
         # revision): the inherited revision may be the one graded (F8).
         inheritance_possible = any(data.get("grading_rubric") is None
                                    for data in (base, *snapshots) if same_question(data)) \
-            or (inherited is not None and inherited in checked)
-        rubrics.append(None)
+            or (inherited is not None and is_checked(inherited))
         tried: list[str] = []
         matched: list[str] = []
         unrecovered: str | None = None
@@ -1754,12 +1797,12 @@ class GradedContract:
                 # default the inherited revision was graded under is unknown.
                 unrecovered = content
         if unrecovered is not None:
-            return [unrecovered, *[content for content in matched if content != unrecovered]], \
-                AMBIGUOUS_DEFAULT_REVISION
+            return bound([unrecovered, *[content for content in matched if content != unrecovered]],
+                         AMBIGUOUS_DEFAULT_REVISION)
         if len(matched) == 1:
-            return matched, "frozen"
+            return bound(matched, "frozen")
         if matched:
-            return [content for content in matched if content in checked] or matched, "ambiguous"
+            return bound([content for content in matched if is_checked(content)] or matched, "ambiguous")
         current = reference_content_hash(item)
         same_text = frozen["prompt"] == item.prompt and frozen["expected_answer"] == item.expected_answer
         candidates = [content for content in checked_content_hashes(connection, item.id)
@@ -1771,7 +1814,7 @@ class GradedContract:
                 candidates = [reference_content_hash(PracticeItem.model_validate({**base, **frozen}))]
             except Exception:  # noqa: BLE001 - an identity no check carries
                 candidates = [f"unrebuilt:{self.contract.get('item_content_hash')}"]
-        return candidates, "unresolved"
+        return candidates, "unresolved", {}
 
 
 def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedContract | None:

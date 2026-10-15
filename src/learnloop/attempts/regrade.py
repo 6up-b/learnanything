@@ -596,10 +596,13 @@ def _publish_regrade(
     # dispute of the revision graded does.
     connection = repository.connection()
     gated = vault.config.algorithms.algorithm_version in SOURCE_REFERENCE_GATE_VERSIONS
-    graded_contents, graded_revision = (
+    # The key identities (method-explicit-3 re-review F1): whether the
+    # revision graded has a method, and the legacy identity a contract
+    # frozen before that review recorded for it.
+    graded_contents, graded_revision, legacy_contents = (
         bind_frozen.graded_reference_contents(vault, item, connection, attempt=attempt)
         if bind_frozen is not None and gated
-        else (None, "current")
+        else (None, "current", {})
     )
     bind_replacement_grade(
         connection,
@@ -610,6 +613,8 @@ def _publish_regrade(
         created_at=utc_now_iso(clock),
         graded_contents=graded_contents,
         graded_revision=graded_revision,
+        method_revision=bind_frozen.required_method is not None if bind_frozen is not None else None,
+        legacy_contents=legacy_contents,
     )
     if content_events:
         repository.record_content_events(content_events)

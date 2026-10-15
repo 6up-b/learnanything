@@ -1753,13 +1753,17 @@ def _plan_resume(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
     # it stands for (the stem still to be judged, the survivors the
     # selection judge is shown), never the parent's stem in its place, so a
     # long variant cannot pass admission and then exceed the token cap.
-    judged_stems = list(resume.get("missing_stems") or ())
+    per_stem = ([planned_tokens("variant", stem, method.name) for stem in resume.get("missing_stems") or ()]
+                if method is not None else [])
     if resume["stage"] == "selection":
         survivors = list(resume.get("survivor_inputs") or ())
         # Up to one judgment per slot, of the survivors not judged yet: the
-        # longest ones, an upper bound whichever the selection chooses.
-        judged_stems = sorted((entry["stem"] for entry in survivors if entry.get("unjudged")),
-                              key=len, reverse=True)[:slots] if method is not None else []
+        # largest ESTIMATES (re-review F9; an estimate grows with the stem's
+        # UTF-8 bytes, not its characters), an upper bound whichever the
+        # selection chooses.
+        per_stem = sorted((planned_tokens("variant", entry["stem"], method.name)
+                           for entry in survivors if entry.get("unjudged")),
+                          reverse=True)[:slots] if method is not None else []
         if path == "ensemble":
             entries = roles["selection"]
             context = [{
@@ -1777,8 +1781,7 @@ def _plan_resume(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                 "subscription": [entry.subscription for entry in entries], "per_call_tokens": tokens,
                 "per_entry": 1,
             }
-    if method is not None and judged_stems:
-        per_stem = [planned_tokens("variant", stem, method.name) for stem in judged_stems]
+    if per_stem:
         plan["required_method_judgment"] = {
             "calls": len(per_stem), "tokens": sum(per_stem), "per_call_tokens": max(per_stem),
             "judge": "the Decider via ai.routing.rubric_phrasing_judge, else the LLM judge on it",
