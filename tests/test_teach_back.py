@@ -1432,7 +1432,7 @@ def test_teach_back_stays_weakly_schedulable_on_solid_knowledge(tmp_path):
 # ── migration ─────────────────────────────────────────────────────────────────
 
 
-def test_migration_020_allows_teach_back_on_existing_db(tmp_path):
+def test_migration_020_allows_teach_back_on_existing_db(tmp_path, migration_upgrade_allowed):
     sqlite_path = tmp_path / "state.sqlite"
     old_migrations = tmp_path / "old_migrations"
     old_migrations.mkdir()

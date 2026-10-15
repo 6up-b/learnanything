@@ -273,7 +273,7 @@ def test_subject_scoping_excludes_other_subjects(tmp_path):
     assert find_exam_items(loaded, subject="another-subject") == {}
 
 
-def test_migration_018_allows_exam_evidence_on_existing_db(tmp_path):
+def test_migration_018_allows_exam_evidence_on_existing_db(tmp_path, migration_upgrade_allowed):
     sqlite_path = tmp_path / "state.sqlite"
     old_migrations = tmp_path / "old_migrations"
     old_migrations.mkdir()

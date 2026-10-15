@@ -1302,7 +1302,7 @@ def test_only_post_attempt_displays_cross_the_same_second_boundary(tmp_path):
     assert repository.fetch_practice_attempt(retry.attempt_id)["primed"] == 0
 
 
-def test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger(tmp_path):
+def test_migration_179_widens_the_reveal_kinds_and_keeps_the_ledger(tmp_path, migration_upgrade_allowed):
     """Built as migration 173 and renumbered 179 at the merge. On a populated
     ledger holding every kind main writes (tutor answers and cited source
     spans from tutor_qa, repair displays, and the reserved guided_redo), the

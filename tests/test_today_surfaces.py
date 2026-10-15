@@ -278,7 +278,7 @@ def test_decay_pressure_already_below_target_crosses_at_zero(monkeypatch):
 # --- F5 overconfidence probe origin (§4.3) -----------------------------------
 
 
-def test_overconfidence_probe_records_origin(tmp_path):
+def test_overconfidence_probe_records_origin(tmp_path, migration_upgrade_allowed):
     root = Path("fixtures/linear_algebra")
     vault = load_vault(root)
     scratch = tmp_path / "state.sqlite"
@@ -296,7 +296,7 @@ def test_overconfidence_probe_records_origin(tmp_path):
     assert fetched.trigger == "goal_diagnostic"
 
 
-def test_overconfidence_probe_origin_survives_target_selection(tmp_path):
+def test_overconfidence_probe_origin_survives_target_selection(tmp_path, migration_upgrade_allowed):
     """Driving the real target-selection flow overwrites target_decision_json but
     must not erase the origin (spec §4.3)."""
 
@@ -323,7 +323,7 @@ def test_overconfidence_probe_origin_survives_target_selection(tmp_path):
     assert fetched.origin == "overconfidence_list"  # origin still durable
 
 
-def test_probe_episode_without_origin_is_null(tmp_path):
+def test_probe_episode_without_origin_is_null(tmp_path, migration_upgrade_allowed):
     """A legacy/ordinary episode entered with no origin keeps NULL origin."""
 
     root = Path("fixtures/linear_algebra")

@@ -577,7 +577,7 @@ def _stamp(midnight: datetime, seconds: int) -> str:
     return (midnight + timedelta(seconds=seconds)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def test_an_upgrade_counts_every_request_and_reports_the_unprovable_overlap(tmp_path):
+def test_an_upgrade_counts_every_request_and_reports_the_unprovable_overlap(tmp_path, migration_upgrade_allowed):
     """A vault at migration 194 has today's service receipts from before the
     ledger ($0.30), requests whose ledger rows were settled before receipts
     named their reservation (a $0.20 import whose receipt names nothing, and
@@ -713,7 +713,7 @@ def _unmigrated_and_upgraded(sqlite_path) -> tuple[dict, dict, Repository]:
     return unmigrated, SS.service_spend_today(_vault(1.0), repository), repository
 
 
-def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path):
+def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path, migration_upgrade_allowed):
     """Codex's reproduction: a pre-ledger $0.80 receipt starts at …50.100; a
     $0.10 reservation is made later that second (stamped …50Z, to the second)
     and its own receipt starts at …50.600. Migration 195 marks the reservation
@@ -743,7 +743,7 @@ def test_a_same_second_pre_ledger_receipt_is_not_a_legacy_requests_own(tmp_path)
     assert _admits(wider, 0.20)
 
 
-def test_overlapping_legacy_requests_cover_no_receipt(tmp_path):
+def test_overlapping_legacy_requests_cover_no_receipt(tmp_path, migration_upgrade_allowed):
     """Two legacy requests overlap in time, and a receipt from another path
     starts while both are in flight. Before the first fix all three receipts
     were covered ($0.50, not the $0.65 spent); the first fix let each row
@@ -771,7 +771,7 @@ def test_overlapping_legacy_requests_cover_no_receipt(tmp_path):
         assert legacy["uncertain_usd"] == pytest.approx(0.60)
 
 
-def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path):
+def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path, migration_upgrade_allowed):
     """Two receipts of the same cost start during one legacy request: either
     could be its own, or neither. Nothing is covered (the day may count up to
     $0.20 twice, never less than it spent), and the report says how much is
@@ -792,7 +792,7 @@ def test_an_ambiguous_legacy_request_counts_conservatively_and_says_so(tmp_path)
         assert legacy["uncertain_requests"] == 2 and legacy["uncertain_usd"] == pytest.approx(0.20)
 
 
-def test_a_legacy_row_never_suppresses_a_receipt_it_only_matches_by_amount(tmp_path):
+def test_a_legacy_row_never_suppresses_a_receipt_it_only_matches_by_amount(tmp_path, migration_upgrade_allowed):
     """Codex verify (20261013-125339-TBEVSp): a legacy embedding reservation
     settled at its $0.10 estimate; its own receipt (a practice_query_embedding,
     outside the service's receipt kinds) reports $0.09; an unrelated service

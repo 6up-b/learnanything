@@ -59,7 +59,7 @@ def _voi_objects(connection: sqlite3.Connection) -> list[tuple]:
     ))
 
 
-def test_migration_196_upgrades_a_195_vault_keeping_actions_and_the_forecast_log(tmp_path):
+def test_migration_196_upgrades_a_195_vault_keeping_actions_and_the_forecast_log(tmp_path, migration_upgrade_allowed):
     assert [m.version for m in discover_migrations() if m.version >= 195][:3] == [195, 196, 197]
     sqlite_path = tmp_path / "state.sqlite"
     apply_migrations(sqlite_path, migrations_dir=_migrations_through(tmp_path, 195))

@@ -305,7 +305,7 @@ def _legacy_body(attempt_id):
     }
 
 
-def test_migration_201_backfills_a_legacy_follow_up_receipt_once(tmp_path):
+def test_migration_201_backfills_a_legacy_follow_up_receipt_once(tmp_path, migration_upgrade_allowed):
     """F12: a follow-up value decision recorded on its ``decision_features``
     row before migration 201 is read by ``followup_receipt`` afterwards, with
     a stable identity and its source-attempt link; it is counted once, and a

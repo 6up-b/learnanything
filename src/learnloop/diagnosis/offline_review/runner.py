@@ -51,7 +51,7 @@ from learnloop.attempts.grading import (
 )
 from learnloop.db.connection import connect
 from learnloop.db.copies import backup_database
-from learnloop.db.migrate import apply_migrations
+from learnloop.db.migrate import UPGRADE_SCRATCH_COPY, apply_migrations, upgrade_allowance
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.diagnosis_review import (
     ensure_review_schema,
@@ -793,9 +793,11 @@ class ReviewRun:
         if not has_ledger:
             # Bring the COPY to migration head so the ledger exists; the vault
             # itself is never migrated by a review. A scratch copy is no vault,
-            # so it is upgraded directly (the one such upgrade the coordinated
-            # migration guard allows: tests/test_coordinated_migrations.py).
-            apply_migrations(self.scratch_path)
+            # so it is upgraded directly, under its own named allowance (the one
+            # such upgrade the coordinated migration guard allows:
+            # tests/test_coordinated_migrations.py).
+            with upgrade_allowance(UPGRADE_SCRATCH_COPY):
+                apply_migrations(self.scratch_path)
             self.repository = Repository.attach(self.scratch_path)
         with closing(connect(self.scratch_path)) as connection, connection:
             ensure_review_schema(connection, run_id=self.run_id)

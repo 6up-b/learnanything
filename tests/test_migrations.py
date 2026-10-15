@@ -11,6 +11,10 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 
+#: These tests build older databases and upgrade them directly: the test
+#: suite's named allowance (F8 of the coordinated-migration verify).
+pytestmark = pytest.mark.usefixtures("migration_upgrade_allowed")
+
 
 def test_discover_finds_initial_migration():
     migrations = discover_migrations()

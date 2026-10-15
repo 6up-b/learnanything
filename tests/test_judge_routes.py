@@ -262,7 +262,7 @@ def test_judgment_ledger_accepts_the_decider_with_provenance(tmp_path):
             connection.execute("UPDATE judgment_ledger SET verdict='changed'")
 
 
-def test_migration_175_preserves_every_judgment_and_its_references(tmp_path):
+def test_migration_175_preserves_every_judgment_and_its_references(tmp_path, migration_upgrade_allowed):
     """Rebuilding the append-only ledger keeps rows, ids, triggers and the FK graph."""
 
     import shutil

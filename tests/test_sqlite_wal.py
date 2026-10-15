@@ -238,7 +238,7 @@ def test_wal_reset_fix_matches_the_advisory(version, fixed):
     assert wal_reset_bug_fixed(version) is fixed
 
 
-def test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why(tmp_path, monkeypatch):
+def test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why(tmp_path, monkeypatch, migration_upgrade_allowed):
     from learnloop.ops.doctor import run_doctor
     from tests.helpers import create_basic_vault, report_sqlite_version
 

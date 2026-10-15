@@ -177,7 +177,7 @@ def test_a_fresh_vault_has_the_identity_delete_paths_through_177(tmp_path):
         assert "extraction_id = OLD.extraction_id AND span_id = OLD.span_id" in triggers[name]
 
 
-def test_migration_177_indexes_a_176_vaults_existing_blocks(tmp_path):
+def test_migration_177_indexes_a_176_vaults_existing_blocks(tmp_path, migration_upgrade_allowed):
     """Upgrading a vault at 176 (main's head before T6) applies 177 (and only
     the migrations after it) and indexes the blocks it already holds, page
     furniture excepted."""

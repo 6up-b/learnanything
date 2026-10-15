@@ -647,7 +647,7 @@ def test_a_textbook_with_held_out_signals_made_as_a_textbook_is_unaffected(exam_
 
 
 @pytest.mark.durability  # the marking's transaction and the backfill, under WAL too
-def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank_book):
+def test_migration_225_backfills_each_signal_on_the_reading_it_was_made_on(blank_book, migration_upgrade_allowed):
     """A cached row never rebound was written by the model run on its own
     extraction: its signals mark that reading. A rebound row (its usage names
     the inventory it was rebound from) or one whose usage cannot be read
@@ -898,7 +898,7 @@ _TWO_QUESTIONS = {"x0": ("SectionHeader", 1, ["Question 1"], "Question 1"), "x1"
                   "x2": ("SectionHeader", 2, ["Question 2"], "Question 2"), "x3": ("Text", 2, ["Question 2"], _Q2)}
 
 
-def test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin(blank_book):
+def test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_origin(blank_book, migration_upgrade_allowed):
     """Identity review F2: before migration 204, A's inventories held out Q1
     (u1) and Q2 (u2); a cache hit for B reused only Q2's, which moved that
     cache row to B. The backfill keeps Q1 on A and records Q2's reading as
@@ -944,7 +944,7 @@ def test_identity_review_f2_an_unbound_signal_never_lets_a_known_one_mark_its_or
     assert marks.marked == () and set(marks.unmarked) == {"extXA", "extXB"} and "signal" in marks.ambiguous
 
 
-def test_identity_review_a_signal_of_unknown_reading_is_named_plainly(exam_book):
+def test_identity_review_a_signal_of_unknown_reading_is_named_plainly(exam_book, migration_upgrade_allowed):
     """The card and doctor say why a book whose only unclear mark is a signal
     of unknown reading is held back, in plain words (LearnLoop found the
     questions; nobody marked them), and offer the marking."""
@@ -972,7 +972,7 @@ def test_identity_review_a_signal_of_unknown_reading_is_named_plainly(exam_book)
 
 
 @pytest.mark.parametrize("qualified_by", ["outline_pick", "outline_pick_after_upgrade"])
-def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_leaving(blank_book, qualified_by):
+def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_leaving(blank_book, qualified_by, migration_upgrade_allowed):
     """Identity review F3 (the database side): a signal backfilled by 204
     named no role, so it protected only while its book was exam material,
     and it was released without any decision once that ended. An inventory
@@ -1008,7 +1008,7 @@ def test_identity_review_f3_an_upgraded_exam_signal_survives_its_qualification_l
 
 
 @pytest.mark.parametrize("change", ["re_role", "remove", "scope_removed"])
-def test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changing(exam_book, change):
+def test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changing(exam_book, change, migration_upgrade_allowed):
     """Identity review F3 (the vault side): a backfilled signal on an exam
     member (or a book with an exam scope) stopped counting once the member
     left the set, was re-roled or lost its scope. The vault writer records
@@ -1040,7 +1040,7 @@ def test_identity_review_f3_a_legacy_signal_survives_its_exam_membership_changin
     assert "src_x" in EM.source_marks(vault, repo)
 
 
-def test_identity_review_f3_an_unchanged_membership_records_nothing(exam_book):
+def test_identity_review_f3_an_unchanged_membership_records_nothing(exam_book, migration_upgrade_allowed):
     """The writer records nothing for a book that never is exam material
     (the owner's textbook signals keep protecting nothing), nor while its
     exam membership stays as it is. A write that makes it exam material
@@ -1230,7 +1230,7 @@ _SCOPED_MEMBER = {"source_id": "src_x", "revision_id": "rev_x", "default_role": 
 @pytest.mark.parametrize("upgrade", ["by_the_app", "path_only_then_opened"])
 @pytest.mark.parametrize("change", ["re_role", "remove", "scope_removed"])
 def test_identity_rereview_f3_a_hand_edit_never_releases_a_signal_its_membership_qualified(exam_book, upgrade,
-                                                                                           change):
+                                                                                           change, migration_upgrade_allowed):
     """Codex re-review F3: a ``combined``-profile signal backfilled by 204
     names no role, so it protected A's question only while its book was exam
     material in ``source_sets.yaml``. The vault writer recorded it before a
@@ -1285,7 +1285,7 @@ def test_identity_rereview_f3_opening_records_only_what_membership_qualifies(exa
 
 
 @pytest.mark.parametrize("read", ["migrated", "not_yet_migrated"])
-def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_book, read):
+def test_identity_rereview_f7_an_assessment_profile_is_not_an_exam_role(exam_book, read, migration_upgrade_allowed):
     """Codex re-review F7: the inventory profile is configurable apart from
     the role (``learnloop inventory --role primary_textbook --profile
     assessment``). The 204 backfill took an ``assessment`` profile for the

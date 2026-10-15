@@ -27,7 +27,7 @@ def _migrations_before_cutover(tmp_path: Path) -> Path:
     return trimmed
 
 
-def test_migration_closes_in_progress_phases_as_superseded(tmp_path):
+def test_migration_closes_in_progress_phases_as_superseded(tmp_path, migration_upgrade_allowed):
     sqlite_path = tmp_path / "state.sqlite"
     apply_migrations(sqlite_path, _migrations_before_cutover(tmp_path), clock=FrozenClock(NOW))
 

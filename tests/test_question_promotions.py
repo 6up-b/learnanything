@@ -50,7 +50,7 @@ def test_question_promotions_schema_available_on_fresh_db(tmp_path):
     assert "UNIQUE" in decision_sql
 
 
-def test_027_rebuild_preserves_existing_rows(tmp_path):
+def test_027_rebuild_preserves_existing_rows(tmp_path, migration_upgrade_allowed):
     sqlite_path = tmp_path / "state.sqlite"
     old_migrations = tmp_path / "old_migrations"
     old_migrations.mkdir()

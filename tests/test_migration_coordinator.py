@@ -104,10 +104,12 @@ def _pause_after_first_statement(
                 release.wait(timeout=30)
 
     migration_module._iter_sql_statements = pausing_iterator
-    migration_module.apply_migrations(
-        Path(sqlite_path),
-        migrations_dir=Path(migrations_dir),
-    )
+    # The forked child upgrades directly, under the tests' named allowance.
+    with migration_module.upgrade_allowance(migration_module.UPGRADE_TEST_HELPER):
+        migration_module.apply_migrations(
+            Path(sqlite_path),
+            migrations_dir=Path(migrations_dir),
+        )
 
 
 def test_coordinator_locks_the_vault_for_a_relocated_database(tmp_path):

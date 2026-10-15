@@ -167,6 +167,21 @@ def pytest_runtest_teardown(item, nextitem):
     _set_sqlite_test_mode(durable=_session_durable)
 
 
+@pytest.fixture
+def migration_upgrade_allowed():
+    """The test suite's named allowance to upgrade an existing database
+    (``db.migrate.UPGRADE_TEST_HELPER``; F8 of the coordinated-migration
+    verify). Outside the migration coordinator, ``apply_migrations`` refuses to
+    upgrade a database with migrations pending; a test that builds an older
+    database and upgrades it directly requests this fixture (by name, or with
+    ``pytestmark = pytest.mark.usefixtures("migration_upgrade_allowed")``)."""
+
+    from learnloop.db.migrate import UPGRADE_TEST_HELPER, upgrade_allowance
+
+    with upgrade_allowance(UPGRADE_TEST_HELPER):
+        yield
+
+
 @pytest.fixture(scope="session", autouse=True)
 def basic_vault_template(tmp_path_factory):
     from tests import helpers

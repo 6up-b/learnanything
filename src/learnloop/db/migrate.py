@@ -4,7 +4,8 @@ import logging
 import os
 import re
 import sqlite3
-from contextlib import closing
+from contextlib import closing, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -53,6 +54,50 @@ class UncoordinatedMigrationError(RuntimeError):
         )
 
 
+#: The named allowances under which an existing database may be upgraded
+#: (F8 of the coordinated-migration verify: enforced at run time, so an
+#: aliased, wrapped or getattr'd call of an upgrade function is refused just
+#: like a direct one). Each is entered with :func:`upgrade_allowance` and
+#: nowhere else; ``tests/test_coordinated_migrations.py`` pins who enters
+#: which.
+#:
+#: * ``UPGRADE_BY_COORDINATOR``: the vault's migration coordinator
+#:   (``learnloop.migration_coordinator.migrate_vault``), for the duration of
+#:   its locked, qualifying upgrade;
+#: * ``UPGRADE_SCRATCH_COPY``: an offline review upgrading its own scratch
+#:   copy of a vault's database (never the vault);
+#: * ``UPGRADE_TEST_HELPER``: the test suite's ``migration_upgrade_allowed``
+#:   fixture, for tests that build an older database and upgrade it.
+UPGRADE_BY_COORDINATOR = "migration_coordinator"
+UPGRADE_SCRATCH_COPY = "offline_review_scratch_copy"
+UPGRADE_TEST_HELPER = "test_helper"
+_UPGRADE_ALLOWANCES = frozenset({UPGRADE_BY_COORDINATOR, UPGRADE_SCRATCH_COPY, UPGRADE_TEST_HELPER})
+_UPGRADE_AUTHORITY: ContextVar[str | None] = ContextVar("learnloop_migration_upgrade_authority", default=None)
+#: Set by :func:`_migrate` while it builds a database that had no migration
+#: applied yet (an existing empty file): creating is not upgrading.
+_CREATING: ContextVar[bool] = ContextVar("learnloop_migration_creating", default=False)
+
+
+@contextmanager
+def upgrade_allowance(name: str) -> Iterator[str]:
+    """Allow upgrades of existing databases in this context (this thread or
+    task), under one of the named allowances, for the ``with`` block only."""
+
+    if name not in _UPGRADE_ALLOWANCES:
+        raise ValueError(f"unknown migration upgrade allowance {name!r}")
+    token = _UPGRADE_AUTHORITY.set(name)
+    try:
+        yield name
+    finally:
+        _UPGRADE_AUTHORITY.reset(token)
+
+
+def upgrade_authority() -> str | None:
+    """The allowance this context upgrades under, or ``None``."""
+
+    return _UPGRADE_AUTHORITY.get()
+
+
 @dataclass(frozen=True)
 class Migration:
     version: int
@@ -97,9 +142,14 @@ def apply_migrations(
 
     Upgrading a vault's database belongs to the vault's migration coordinator
     (``learnloop.migration_coordinator.migrate_vault``), which also records
-    what the vault's files qualify; ``tests/test_coordinated_migrations.py``
-    pins every other caller. :func:`create_or_attach_current` is the
-    vault-less entry (``Repository(path)``).
+    what the vault's files qualify. The upgrade itself runs only under an
+    :func:`upgrade_allowance` (the coordinator's, an offline review's scratch
+    copy, the tests' fixture): outside one, an existing database with
+    migrations pending raises :class:`UncoordinatedMigrationError` and is left
+    byte-identical, however this function was reached (F8). Creating a
+    database, or attaching a current one, needs no allowance.
+    :func:`create_or_attach_current` is the vault-less entry
+    (``Repository(path)``), which never upgrades.
     """
 
     return _migrate(Path(sqlite_path), discover_migrations(migrations_dir), clock, upgrade=True)
@@ -126,21 +176,27 @@ def _migrate(sqlite_path: Path, migrations: list[Migration], clock: Clock | None
     if not sqlite_path.exists():
         return _apply_fresh(sqlite_path, migrations, clock)
     already_applied = applied_versions(sqlite_path)
-    if not upgrade and already_applied:
+    if already_applied:
         pending = [migration for migration in migrations if migration.version not in already_applied]
-        if pending:
+        # Refused before anything opens the file for writing (no WAL switch):
+        # an uncoordinated upgrade leaves the database byte-identical.
+        if pending and (not upgrade or _UPGRADE_AUTHORITY.get() is None):
             raise UncoordinatedMigrationError(sqlite_path, max(already_applied), pending)
     applied: list[Migration] = []
-    # Closed explicitly: an open WAL connection holds the database open, and a
-    # later exclusive operation in this process must not wait for the garbage
-    # collector to release it.
-    with closing(connect(sqlite_path)) as connection:
-        switch_to_wal(connection, sqlite_path)
-        for migration in migrations:
-            if migration.version in already_applied:
-                continue
-            if _apply_incremental_migration(connection, migration, clock):
-                applied.append(migration)
+    creating = _CREATING.set(not already_applied)
+    try:
+        # Closed explicitly: an open WAL connection holds the database open, and a
+        # later exclusive operation in this process must not wait for the garbage
+        # collector to release it.
+        with closing(connect(sqlite_path)) as connection:
+            switch_to_wal(connection, sqlite_path)
+            for migration in migrations:
+                if migration.version in already_applied:
+                    continue
+                if _apply_incremental_migration(connection, migration, clock):
+                    applied.append(migration)
+    finally:
+        _CREATING.reset(creating)
     return applied
 
 
@@ -230,6 +286,10 @@ def _apply_incremental_migration(
     migration and its ledger receipt commit together.
     """
 
+    if _UPGRADE_AUTHORITY.get() is None and not _CREATING.get():
+        # Reached without :func:`_migrate`'s checks (an alias or a direct
+        # call): the same refusal, before anything is written.
+        _refuse_unauthorized(connection, migration)
     sql = migration.path.read_text(encoding="utf-8")
     foreign_keys_off = bool(_FOREIGN_KEYS_OFF_RE.search(sql))
     if connection.in_transaction:
@@ -274,6 +334,21 @@ def _apply_incremental_migration(
                 raise RuntimeError(
                     f"migration {migration.version} did not restore foreign_keys=ON"
                 )
+
+
+def _refuse_unauthorized(connection: sqlite3.Connection, migration: Migration) -> None:
+    """Raise :class:`UncoordinatedMigrationError` for an upgrade of an existing
+    database outside every :func:`upgrade_allowance` (F8). A database with no
+    migration applied yet is being created, which needs no allowance."""
+
+    ledger = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
+    ).fetchone()
+    current = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] if ledger else None
+    if current is None:
+        return
+    path = next((row[2] for row in connection.execute("PRAGMA database_list") if row[1] == "main"), "") or ""
+    raise UncoordinatedMigrationError(Path(path), int(current), [migration])
 
 
 def _migration_is_applied(connection: sqlite3.Connection, version: int) -> bool:

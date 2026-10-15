@@ -308,7 +308,7 @@ def test_router_r1_logs_plan_block_decisions_through_the_boundary_hook(tmp_path)
     assert json.dumps(first.detail)  # serializable for R1's row
 
 
-def test_migration_180_widens_the_field_serving_origins_and_keeps_its_rows(tmp_path):
+def test_migration_180_widens_the_field_serving_origins_and_keeps_its_rows(tmp_path, migration_upgrade_allowed):
     """The field's DERIVED read model accepts ``daily_plan`` after 180, with
     its rows, columns, key and index unchanged and every other origin still
     checked."""

@@ -10,7 +10,7 @@ import yaml
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
-from learnloop.db.migrate import Migration, apply_migrations
+from learnloop.db.migrate import UPGRADE_BY_COORDINATOR, Migration, apply_migrations, upgrade_allowance
 from learnloop.db.stores.held_out_signals import (
     exam_member_sources,
     pending_unrecorded_sources,
@@ -41,14 +41,17 @@ def migrate_vault(
     persistence-to-domain dependency on the shared vault lock.
 
     Under the same lock it then records the held-out signals the vault's exam
-    membership qualifies (:func:`record_member_exam_signals`).
+    membership qualifies (:func:`record_member_exam_signals`). The upgrade
+    runs under the coordinator's allowance (``db.migrate.upgrade_allowance``)
+    for exactly that locked, qualifying step: outside it, ``apply_migrations``
+    refuses to upgrade an existing database however it is reached (F8).
     """
 
     with vault_mutation_lock(
         Path(vault_root),
         purpose="database_migrate",
         timeout_s=timeout_s,
-    ):
+    ), upgrade_allowance(UPGRADE_BY_COORDINATOR):
         applied = apply_migrations(
             Path(sqlite_path),
             migrations_dir=migrations_dir,
