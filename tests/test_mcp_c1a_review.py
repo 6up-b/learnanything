@@ -64,14 +64,12 @@ from learnloop.vault.yaml_io import write_yaml
 from learnloop_mcp.server import build_server
 from tests.helpers import NOW_ISO
 from tests.mcp_world import (
-    CANDIDATE,
     EDITED_OLD_PROMPT,
     GENERATED_TITLE,
     HISTORICAL_KEY,
     HYPOTHESIS,
     HYPOTHESIS_COLD,
     LEGACY_KEY,
-    MISCONCEPTION,
     OWN_ANSWER,
     PEER,
     PEER_ANSWER,

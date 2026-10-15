@@ -270,6 +270,9 @@ what it read, as a `WriteProvenance` the read model's `ProvenanceSource` reads:
   augmented".
 - **Regrades keep event-id lineage** (Q9), so a belief that lists a replaced event can still be followed.
 - **`question_events` record the item contract** (or snapshot hash) a question was asked about (Q10).
+- **What of an item a writer saw.** The (c) check filters a text against the answer keys of every item
+  and topic its record names. A writer that read an item's rubric or reference solution must record that
+  too, and the check must filter against it (or refuse the record) before any producer is switched on.
 
 Until then (c) releases nothing and the table in §4.6 is what chat shows.
 

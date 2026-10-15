@@ -9,7 +9,12 @@ text) was reproduced and fixed by one guarded renderer in `3e1725836`; the revie
 ([mcp-c1a-f4-codex-review.md](mcp-c1a-f4-codex-review.md)) raised F1-F3 (diagnosis context lost through derived
 beliefs, generated topic names and ids, malformed provenance lists), all reproduced and fixed; its re-review
 confirmed F3 and reopened F1 (a history answer's grading) and F2 (a shown belief's generated topic id), both
-reproduced and fixed in round 5. The F4 round 5 gate there supersedes the ones below.
+reproduced and fixed in round 5. **Narrowed (owner decision 2026-10-14, "land narrow, then fix source"):**
+the last verify reopened F1 and F2 a fifth time (diagnoses read the whole-vault snapshot without recording
+what they opened), so `learning_context`, `today` and `progress` now show only authored vault text, the
+learner's own pinned answers and structure; everything a model wrote is held back until a write-time record
+says what it was written from ([mcp-c1a-narrow.md](mcp-c1a-narrow.md): what chat shows now, the follow-up
+stage, the gate that supersedes the ones below and in the F4 record).
 **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already works with Claude chat and
 ChatGPT chat (D1); latent learner state (misconceptions, answer traces) must be shared seamlessly between the
 local LearnLoop and the chat frontend through the existing telemetry.
@@ -25,7 +30,7 @@ local LearnLoop and the chat frontend through the existing telemetry.
 | Grounded passages (find_sources under a server-derived caller, extra withholding, full blocks, citations) | `src/learnloop/remote/sources.py` |
 | Telemetry in `interaction_events` and exposure in `source_exposure_events`; the activity report | `src/learnloop/remote/telemetry.py` |
 | The secret endpoint token (machine-local) | `src/learnloop/remote/endpoint_token.py` |
-| **The shared latent-state read model** (misconceptions and candidates, open hypotheses with evidence for/against and repairs tried, recurrence groups, answer traces, open learner-text gaps, retention risks) with the G5 leakage rules | `src/learnloop/learner_context.py` |
+| **The shared latent-state read model** (misconceptions and candidates, open hypotheses with evidence for/against and repairs tried, recurrence groups, answer traces, open learner-text gaps, retention risks) with the G5 leakage rules; since the narrow stage one structural text rule (`TextGuard`) | `src/learnloop/learner_context.py` |
 | `learnloop mcp serve | token show | token rotate | activity` | `src/learnloop/cli/mcp.py`, `learnloop.app_launch.serve_mcp` |
 | Migration **210 (placeholder)**: `interaction_events.kind` += `chat_tool_call`, `origin` += `chat_host` | `migrations/210_chat_mcp_interaction_events.sql`, `fixtures/migration_head_210/` |
 | R2a's `open_learner_state_hypotheses`, applied byte-identically from `router/r2a` (so the merge is clean either way) | `src/learnloop/db/stores/daily_plans.py` |
