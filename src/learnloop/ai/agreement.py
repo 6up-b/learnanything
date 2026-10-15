@@ -22,7 +22,8 @@ shadow stages): it reports what the ordinary course already produced.
   ``supersedes_id`` chain, else by the same input, else by the same question
   (the task and its two entities), except for a task whose entities do not
   name what was judged (:data:`UNNAMED_CONTENT_TASKS`: one facet's checks of
-  different wordings, one learning object's different statements), where a
+  different wordings, one learning object's different statements, one item's
+  required method judged on different statements or variant stems), where a
   label binds only explicitly or by the same input (review F3).
   Calibration (the multiclass Brier score and top-probability bins) is
   computed only where the Decider's full distribution and an option-valued
@@ -46,10 +47,13 @@ FAILURES = frozenset({"unavailable", "refused", "failed", "tied"})
 LLM_JUDGES = frozenset({"llm", "diagnoser"})
 LABEL_JUDGES = frozenset({"owner", "verifier"})
 #: Tasks whose ledger entities do not identify the judged content: a facet's
-#: span-support checks (``facet:<id>``, whatever the wording) and a learning
-#: object's misconception matches (whatever the statement). A label binds to
-#: one of their rows only explicitly or on the same input hash.
-UNNAMED_CONTENT_TASKS = frozenset({"facet_span_support", "misconception_match"})
+#: span-support checks (``facet:<id>``, whatever the wording), a learning
+#: object's misconception matches (whatever the statement) and a required
+#: method's statement judgments (an item and a method name, whatever the
+#: statement or the PF variant's stem; method-explicit items, registered at
+#: their merge). A label binds to one of their rows only explicitly or on the
+#: same input hash.
+UNNAMED_CONTENT_TASKS = frozenset({"facet_span_support", "misconception_match", "required_method_statement"})
 _TEXT_PROBABILITIES = re.compile(r"([^,]+?) ([01](?:\.\d+)?)(?:,|$)")
 
 

@@ -287,3 +287,24 @@ def test_the_leakage_screen_reads_the_rendered_question():
     assert surfaces.startswith("Compute det(A).\n\nUse cofactor expansion in your answer.")
     # Without a method the screened text is unchanged.
     assert _payload_surfaces({"prompt": "Compute det(A).", "expected_answer": "13"}) == "Compute det(A).\n13"
+
+
+def test_the_agreement_report_binds_a_statement_label_only_explicitly_or_on_the_same_input():
+    """A statement judgment's entities (an item, a method name) do not name the
+    statement judged, so an owner verdict never binds a Decider row about
+    another statement by the same question (as for the span check)."""
+
+    from learnloop.ai.agreement import UNNAMED_CONTENT_TASKS, agreement_report
+
+    assert "required_method_statement" in UNNAMED_CONTENT_TASKS
+    base = {"task": "required_method_statement", "left_kind": "practice_item", "left_id": "pi_x",
+            "right_kind": "required_method", "right_id": "cofactor expansion", "supersedes_id": None}
+    rows = [
+        {**base, "id": "j1", "judge": "decider", "verdict": "requires", "input_hash": "stmt-1",
+         "rationale": json.dumps({"probabilities": {"requires": 0.8, "allows": 0.15, "prohibits": 0.05}}),
+         "created_at": "2026-10-15T00:00:00Z"},
+        {**base, "id": "j2", "judge": "owner", "verdict": "allows", "input_hash": "stmt-2",
+         "rationale": "{}", "created_at": "2026-10-15T00:01:00Z"},
+    ]
+    task = agreement_report(rows)["tasks"]["required_method_statement"]
+    assert task["labels"] == 0
