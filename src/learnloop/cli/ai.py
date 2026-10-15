@@ -440,7 +440,7 @@ def ai_latency(
 def ai_compare(
     vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts land here); with --copy-from, the new copy's directory.")],
     profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. codex,chatgpt).")],
-    copy_from: Annotated[Path | None, typer.Option("--copy-from", help="Copy this vault to --vault first (backup API); the original is only read.")] = None,
+    copy_from: Annotated[Path | None, typer.Option("--copy-from", help="Copy this vault to --vault first (backup API; also with --dry-run); the original is only read.")] = None,
     attempts: Annotated[int, typer.Option("--attempts", min=0, max=20, help="Attempts to blind-grade per profile (latest non-pass and pass first).")] = 3,
     attempt_id: Annotated[list[str] | None, typer.Option("--attempt", help="An attempt to grade (repeatable; replaces the automatic choice).")] = None,
     diagnosis_attempt: Annotated[str | None, typer.Option("--diagnosis-attempt", help="The attempt to diagnose (default: the latest non-pass that needs one).")] = None,
@@ -489,9 +489,7 @@ def ai_compare(
     copied: list[str] = []
     try:
         if copy_from is not None:
-            if dry_run:
-                _fail("--copy-from makes the copy; run it without --dry-run, then dry-run on the copy.",
-                      json_output=json_output, code="copy_in_dry_run")
+            # A local copy sends nothing, so a dry run makes it too; run live on --vault next.
             copied = [str(path) for path in copy_vault(copy_from, vault)]
         loaded = load_vault(vault.resolve())
         reason = tracked_database_reason(loaded)
@@ -501,7 +499,7 @@ def ai_compare(
         repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
         if dry_run:
             plan = plan_compare(loaded, repository, request)
-            payload = {"version": 1, "dry_run": True, **plan}
+            payload = {"version": 1, "dry_run": True, "vault": str(loaded.root), "copied": copied, **plan}
             if json_output:
                 typer.echo(_dump(payload))
                 return
@@ -516,6 +514,8 @@ def ai_compare(
             typer.echo(f"{plan['calls_per_profile']} calls per profile, {plan['max_calls']} at most")
             for note in targets["notes"]:
                 typer.echo(f"note: {note}")
+            if copied:
+                typer.echo(f"copied to {loaded.root}; run without --copy-from and --dry-run to compare live")
             return
         report = run_compare(loaded, repository, request,
                              progress=None if json_output else (lambda message: typer.echo(message, err=True)))

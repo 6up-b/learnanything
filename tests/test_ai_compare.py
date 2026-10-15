@@ -263,13 +263,18 @@ def test_metered_unknown_and_non_generation_profiles_are_refused(source, profile
     assert result.exit_code == 1 and payload["error"] == code
 
 
-def test_copy_from_needs_a_live_run_and_a_new_directory(source, tmp_path):
+def test_a_dry_run_may_make_the_copy_and_copy_from_needs_a_new_directory(source, server, tmp_path):
+    database = VaultPaths(source, load_vault(source).config).sqlite_path
+    before = _digest(database)
     result, payload = _invoke("--copy-from", str(source), "--vault", str(tmp_path / "new"), "--profiles", "chatgpt",
                               "--dry-run")
-    assert result.exit_code == 1 and payload["error"] == "copy_in_dry_run"
-    assert not (tmp_path / "new").exists()
-    result, payload = _invoke("--copy-from", str(source), "--vault", str(source), "--profiles", "chatgpt")
+    assert result.exit_code == 0 and payload["dry_run"] is True and payload["copied"]
+    assert (tmp_path / "new" / "learnloop.toml").exists() and server.requests == []
+    assert _digest(database) == before
+    result, payload = _invoke("--copy-from", str(source), "--vault", str(tmp_path / "new"), "--profiles", "chatgpt")
     assert result.exit_code == 1 and payload["error"] == "copy_destination_exists"
+    result, payload = _invoke("--copy-from", str(source), "--vault", str(source / "inner"), "--profiles", "chatgpt")
+    assert result.exit_code == 1 and payload["error"] == "copy_inside_source"
 
 
 def test_a_failed_diagnosis_keeps_its_reason_in_the_report(source, server, tmp_path):

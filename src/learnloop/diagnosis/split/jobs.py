@@ -266,8 +266,8 @@ def default_diagnosis_client(vault: LoadedVault) -> Any | None:
     config = getattr(vault.config, "diagnosis", None)
     resolved = ready_client_for_task(
         vault.root, vault.config, "diagnosis",
-        # Codex turns take the async diagnoser's own deadline (other provider
-        # types keep their profile timeout).
+        # Turn transports (Codex, the ChatGPT plan) take the async diagnoser's
+        # own deadline; other provider types keep their profile timeout.
         timeout_seconds=int(getattr(config, "timeout_seconds", 300)),
     )
     return resolved.client if resolved.ready else None
