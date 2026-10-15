@@ -49,6 +49,7 @@ from mcp import Client
 from learnloop.learner_context import (
     HELD_BACK,
     KEY_WITHHELD,
+    KEY_WITHHELD_BEHIND,
     REVISION_UNKNOWN_BEHIND,
     TOPIC_WITHHELD,
     WITHHELD_UNKNOWN_ITEM,
@@ -309,16 +310,29 @@ def test_answers_and_diagnoses_are_filtered_against_the_key_they_were_graded_by(
     assert unpinned["answer"] is None and "revision" in unpinned["answer_note"]
     assert HISTORICAL_KEY not in payload_text(context)
     _no_protected([result])
-    # A write-time record does not lift the key filter: the summary and the
-    # hypothesis restate the key the edited item had when it was graded.
+    # A write-time record does not lift the key filter. The answer it names
+    # restates the key the edited item had when it was graded, so (b) withholds
+    # it and nothing written from it is released (review F2), whatever the
+    # text says (the summary and the hypothesis restate that key too).
     edited_record = WriteProvenance(complete=True, answers=("att_edited",))
     recorded = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30),
                                 provenance=lambda _c, _k, _r: edited_record)
     trace = next(t for t in recorded["recent_answer_traces"] if t["attempt_id"] == "att_edited")
-    assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == KEY_WITHHELD
+    assert trace["diagnosis"]["summary"] is None and trace["diagnosis"]["summary_note"] == KEY_WITHHELD_BEHIND
     hypothesis = next(h for h in recorded["open_hypotheses"] if h.get("attempt_id") == "att_edited")
-    assert hypothesis["statement"] is None and hypothesis["statement_note"] == KEY_WITHHELD
+    assert hypothesis["statement"] is None and hypothesis["statement_note"] == KEY_WITHHELD_BEHIND
     assert HISTORICAL_KEY not in payload_text(recorded)
+    # Safe answers, and the edited item named as read: a text restating the
+    # key that item was graded by is filtered against it.
+    with world.repository.connection() as connection:
+        misconception_row(connection, "mc_edited", f"Thinks {HISTORICAL_KEY} always", '["e1"]', None)
+        connection.commit()
+    item_record = WriteProvenance(complete=True, answers=("att_own",), items=("pi_edited",))
+    by_item = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30),
+                               provenance=lambda _c, kind, _r: item_record if kind == "misconception" else None)
+    edited_belief = next(m for m in by_item["misconceptions"] if m["misconception_id"] == "mc_edited")
+    assert edited_belief["statement"] is None and edited_belief["statement_note"] == KEY_WITHHELD
+    assert HISTORICAL_KEY not in payload_text(by_item)
 
 
 # -- F5 ------------------------------------------------------------------------------

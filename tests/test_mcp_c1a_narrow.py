@@ -23,6 +23,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import inspect
+import json
 import re
 from typing import Any
 
@@ -36,6 +37,7 @@ from learnloop_mcp.server import build_server
 from tests.helpers import NOW_ISO
 from tests.mcp_world import (
     CANDIDATE,
+    CONTRACT_KEY,
     GAP_TEXT,
     GENERATED_TITLE,
     HYPOTHESIS,
@@ -412,6 +414,57 @@ def test_generated_topics_are_aliased_everywhere_and_accepted_back(world):
         assert los["tainted"] not in _text(result) and "8841" not in _text(result).replace("8841 negates", "")
 
 
+def _as_guessed(result, guess: str) -> dict:
+    """The structured result with the request's own id and the time taken out."""
+
+    payload = json.loads(json.dumps(result.structured_content).replace(guess, "<guess>"))
+    payload.pop("as_of", None)
+    return payload
+
+
+def test_a_raw_generated_id_cannot_confirm_a_guessed_title(world):
+    """Review F1 (Codex job ``20261015-013013-6suEC4``): a host that sees
+    ``att_legacy`` and guesses the drafted title can derive the raw id (``lo_ltg_``,
+    the title's slug, the source's hash: ``text_gaps.actions.creation_ids``).
+    Naming that id, to ``learning_context`` or to ``find_sources``, must answer
+    exactly as a wrong guess does; only the opaque alias names a withheld topic."""
+
+    from learnloop.diagnosis.text_gaps.actions import slug
+
+    los = generated_world(world)
+    suffix = los["tainted"].rsplit("_", 1)[1]
+    right = f"lo_ltg_{slug(GENERATED_TITLE)}_{suffix}"
+    wrong = f"lo_ltg_{slug(GENERATED_TITLE.replace('8841', '8842'))}_{suffix}"
+    assert right == los["tainted"] and wrong != right
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    sources = {"query": "why does a row swap change the determinant", "dry_run": True}
+    by_right, by_wrong, sources_right, sources_wrong, everything = _call_all(server, [
+        ("learning_context", {"learning_object_ids": [right]}),
+        ("learning_context", {"learning_object_ids": [wrong]}),
+        ("find_sources", {**sources, "learning_object_ids": [right]}),
+        ("find_sources", {**sources, "learning_object_ids": [wrong]}),
+        ("learning_context", {}),
+    ])
+    for result in (by_right, by_wrong, sources_right, sources_wrong):
+        assert not result.is_error, result.content
+    assert _as_guessed(by_right, right) == _as_guessed(by_wrong, wrong)
+    scope = by_right.structured_content["scope"]
+    assert scope["learning_object_count"] == 0 and scope["learning_object_ids"] == []
+    assert scope["unknown_ids"] == [right]
+    assert _as_guessed(sources_right, right) == _as_guessed(sources_wrong, wrong)
+    assert sources_right.structured_content["unknown_learning_object_ids"] == [right]
+    # The alias still names it, in both tools.
+    alias = next(gap["learning_object_id"] for gap in everything.structured_content["open_learner_text_gaps"]
+                 if gap["gap_id"] == "gap_gen")
+    by_alias, sources_alias = _call_all(server, [("learning_context", {"learning_object_ids": [alias]}),
+                                                 ("find_sources", {**sources, "learning_object_ids": [alias]})])
+    assert by_alias.structured_content["scope"]["learning_object_ids"] == [alias]
+    assert sources_alias.structured_content["unknown_learning_object_ids"] == []
+    # An authored topic's id is still accepted as itself.
+    (authored,) = _call_all(server, [("learning_context", {"learning_object_ids": ["lo_matrices"]})])
+    assert authored.structured_content["scope"]["learning_object_ids"] == ["lo_matrices"]
+
+
 # -- (c): the write-time provenance hook ---------------------------------------------------------
 
 
@@ -443,11 +496,12 @@ def test_a_recorded_complete_provenance_with_safe_inputs_releases_a_derived_text
 
 @pytest.mark.parametrize("case", ["incomplete", "empty", "unpinned_answer", "protected_answer", "unknown_answer",
                                   "protected_item", "generated_topic", "unknown_topic", "states_a_key",
-                                  "malformed", "source_fails"])
+                                  "answer_states_a_key", "malformed", "source_fails"])
 def test_a_recorded_provenance_releases_nothing_unless_complete_and_safe(world, case):
     from learnloop.learner_context import WriteProvenance, learning_context
 
     los = generated_world(world)
+    pinned_answer(world, "att_keyed", f"I think it is {CONTRACT_KEY}", "2026-09-21T10:00:00Z")
     record: Any = {
         "incomplete": WriteProvenance(complete=False, answers=("att_own",)),
         "empty": WriteProvenance(complete=True),
@@ -458,6 +512,7 @@ def test_a_recorded_provenance_releases_nothing_unless_complete_and_safe(world, 
         "generated_topic": WriteProvenance(complete=True, answers=("att_own",), topics=(los["tainted"],)),
         "unknown_topic": WriteProvenance(complete=True, answers=("att_own",), topics=("lo_nowhere",)),
         "states_a_key": WriteProvenance(complete=True, answers=("att_own",)),
+        "answer_states_a_key": WriteProvenance(complete=True, answers=("att_own", "att_keyed")),
         "malformed": WriteProvenance(complete=True, answers=("att_own", "")),  # type: ignore[arg-type]
     }.get(case)
     statement = f"Thinks the key is {'CONTRACT_KEY_9134 never shown' if case == 'states_a_key' else 'a row swap'}"
@@ -475,6 +530,38 @@ def test_a_recorded_provenance_releases_nothing_unless_complete_and_safe(world, 
     assert hooked["statement"] is None, case
     assert hooked["statement_note"], case
     assert "CONTRACT_KEY_9134" not in payload_text(context)
+
+
+def test_a_recorded_input_answer_that_states_its_key_releases_nothing(world):
+    """Review F2 (Codex job ``20261015-013013-6suEC4``): ``att_keyed`` is pinned
+    and unprotected, and its stored text reproduces its item's key, so (b)
+    withholds it. A complete record naming it must not release the text
+    derived from it (§4.7(c): every answer it names passes (b)'s checks), even
+    when the derived text itself states no key."""
+
+    from learnloop.learner_context import KEY_WITHHELD, WriteProvenance, learning_context
+
+    pinned_answer(world, "att_keyed", f"I think it is {CONTRACT_KEY}", "2026-09-21T10:00:00Z")
+    statement = "Thinks a row swap leaves the value alone"
+    with world.repository.connection() as connection:
+        misconception_row(connection, "mc_keyed", statement, '["e1"]', None)
+        connection.commit()
+    clean = WriteProvenance(complete=True, answers=("att_own",), items=("pi_own",), topics=("lo_matrices",))
+    keyed = WriteProvenance(complete=True, answers=("att_own", "att_keyed"), items=("pi_own",),
+                            topics=("lo_matrices",))
+    vault = load_vault(world.root)
+
+    def hooked(record):
+        context = learning_context(vault, world.repository,
+                                   provenance=_recorded({("misconception", "mc_keyed"): record}))
+        assert CONTRACT_KEY not in payload_text(context)
+        trace = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_keyed")
+        assert trace["answer"] is None and trace["answer_note"] == KEY_WITHHELD
+        return next(m for m in context["misconceptions"] if m["misconception_id"] == "mc_keyed")
+
+    assert hooked(clean)["statement"] == statement
+    withheld = hooked(keyed)
+    assert withheld["statement"] is None and withheld["statement_note"]
 
 
 def test_a_recorded_provenance_releases_a_generated_topic_s_name(world):
@@ -527,6 +614,65 @@ def test_the_server_keeps_its_alias_key_beside_the_endpoint_token(world):
     assert stat.S_IMODE(os.stat(alias_key_path(world.root)).st_mode) == 0o600
     assert ensure_alias_key(world.root) == key and len(key) == 32
     assert RemoteRuntime.attach(world.root, load_environment=False).alias_key() == key
+
+
+def test_a_second_first_start_keeps_the_alias_key_already_installed(tmp_path, monkeypatch):
+    """Review F3 (Codex job ``20261015-013013-6suEC4``): two ``serve`` processes
+    start on a vault with no alias key and both read "missing". A installs its
+    key and serves (its runtime caches it); B must then find A's key, not
+    replace it. B's read before A's install is replayed: its first read says
+    missing although A's key is on disk."""
+
+    from learnloop.remote import endpoint_token
+
+    first = endpoint_token.ensure_alias_key(tmp_path)  # process A
+    real = endpoint_token.read_alias_key
+    reads: list[Any] = []
+
+    def before_a_installed(root):
+        reads.append(root)
+        return None if len(reads) == 1 else real(root)
+
+    monkeypatch.setattr(endpoint_token, "read_alias_key", before_a_installed)
+    second = endpoint_token.ensure_alias_key(tmp_path)  # process B
+    assert second == first and real(tmp_path) == first
+
+
+def test_simultaneous_first_starts_agree_on_one_alias_key(tmp_path, monkeypatch):
+    """Review F3: first starts racing on one vault all end with the same key,
+    the one on disk (the check and the install are one critical section)."""
+
+    import secrets
+    import threading
+    import time
+    from types import SimpleNamespace
+
+    from learnloop.remote import endpoint_token
+
+    def slow_key(size):
+        time.sleep(0.05)  # widen the window between the check and the install
+        return secrets.token_bytes(size)
+
+    monkeypatch.setattr(endpoint_token, "secrets", SimpleNamespace(
+        token_bytes=slow_key, token_hex=secrets.token_hex, token_urlsafe=secrets.token_urlsafe))
+    barrier = threading.Barrier(4)
+    keys: list[bytes] = []
+    failures: list[BaseException] = []
+
+    def start():
+        try:
+            barrier.wait(timeout=10)
+            keys.append(endpoint_token.ensure_alias_key(tmp_path))
+        except BaseException as exc:  # noqa: BLE001 - reported below
+            failures.append(exc)
+
+    threads = [threading.Thread(target=start) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert not failures and len(keys) == 4
+    assert len(set(keys)) == 1 and endpoint_token.read_alias_key(tmp_path) == keys[0]
 
 
 # -- the schema: every text field is (a), (b) or withheld without (c) --------------------------------

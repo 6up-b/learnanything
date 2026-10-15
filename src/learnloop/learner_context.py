@@ -40,8 +40,9 @@ diagnosis summaries and their hypotheses, what a learner-text gap was matched
 to, the words of a question the learner asked (no pinned answer behind them),
 and every generated topic's name, id and seeded question. The entries keep
 their structure: ids (a generated topic's id as an opaque keyed alias,
-accepted back as a named id), statuses, counts, dates, evidence counts and
-held state; recurrence-group keys are keyed digests too (Q13).
+accepted back as a named id; its raw id is answered as unknown), statuses,
+counts, dates, evidence counts and held state; recurrence-group keys are
+keyed digests too (Q13).
 
 Why no output-side provenance: earlier rounds followed each text's provenance
 from the output back to the answers behind it, and five reviews in a row found
@@ -112,6 +113,9 @@ KEY_WITHHELD = "withheld: it states the answer key"
 KEYS_UNREADABLE = "withheld: the answer keys could not be read"
 REVISION_UNKNOWN = "withheld: the question revision this answer was graded against is not recorded"
 REVISION_UNKNOWN_BEHIND = "withheld: the question revision an answer behind it was graded against is not recorded"
+KEY_WITHHELD_BEHIND = "withheld: an answer it was written from states the answer key"
+#: (b)'s reasons for an answer shown, as named for a text written from that answer.
+_BEHIND = {REVISION_UNKNOWN: REVISION_UNKNOWN_BEHIND, KEY_WITHHELD: KEY_WITHHELD_BEHIND}
 STEM_UNRECORDED = "question revision not recorded"
 ANSWER_UNRECORDED = "an answer it was drawn from is not on record"
 PINS_UNREADABLE = ("the question revisions past answers were graded against could not be read: no question or "
@@ -562,9 +566,9 @@ def _keyed(key: bytes | None, kind: str, value: str) -> str:
 def lo_alias(lo_id: str, key: bytes | None = None) -> str:
     """The opaque id that stands for a generated topic while its name is
     withheld: a keyed digest (HMAC-SHA256 with the vault's alias key), stable
-    for one key, accepted back as a named id (:func:`resolve_scope`). An
-    unkeyed digest of the id would let a client that guessed the title (the
-    id's slug) confirm it."""
+    for one key, accepted back as a named id (:func:`resolve_scope`; the raw
+    id is not). An unkeyed digest of the id would let a client that guessed
+    the title (the id's slug) confirm it."""
 
     return LO_ALIAS_PREFIX + _keyed(key, "learning_object", str(lo_id))
 
@@ -616,7 +620,7 @@ class TextGuard:
 
     A generated topic's name is (c) text: while it is withheld the entry shows
     :data:`TOPIC_WITHHELD` and its id an opaque keyed alias (:func:`lo_alias`),
-    and a topic search does not match its words.
+    a topic search does not match its words, and its raw id names nothing.
 
     ``withheld`` and the key book are read when first needed (the ``today`` and
     ``progress`` views name topics only). Lookups are cached for one read;
@@ -702,22 +706,33 @@ class TextGuard:
         self._load([attempt_id])
         return self._pinned.get(str(attempt_id))
 
+    def _answer_reason(self, attempt_id: Any, text: Any) -> str | None:
+        """(b)'s checks, the one predicate: why this answer, with this text,
+        may not leave LearnLoop, or None. Used for an answer shown
+        (:meth:`answer`) and for every answer a write-time record names
+        (:meth:`_unsafe`, with the text the attempt records)."""
+
+        reason = self.attempt_reason(attempt_id)
+        if reason:
+            return f"withheld: {reason}"
+        if self.book.unreadable:
+            return KEYS_UNREADABLE
+        row = self._attempts[str(attempt_id)] or {}
+        if text is not None and leaks_key(str(text), self.book.item(row.get("item"))):
+            return KEY_WITHHELD
+        if str(attempt_id) not in self._pinned:
+            return REVISION_UNKNOWN
+        return None
+
     def answer(self, attempt_id: Any, text: Any, limit: int) -> tuple[AnswerText | None, str | None]:
         """(b) THE renderer of the learner's own answer: ``(text, None)``
         released, ``(None, why)``, or ``(None, None)`` for no text."""
 
         if text is None or not str(text).strip():
             return None, None
-        reason = self.attempt_reason(attempt_id)
+        reason = self._answer_reason(attempt_id, text)
         if reason:
-            return None, f"withheld: {reason}"
-        if self.book.unreadable:
-            return None, KEYS_UNREADABLE
-        row = self._attempts[str(attempt_id)] or {}
-        if leaks_key(str(text), self.book.item(row.get("item"))):
-            return None, KEY_WITHHELD
-        if str(attempt_id) not in self._pinned:
-            return None, REVISION_UNKNOWN
+            return None, reason
         return AnswerText(excerpt(text, limit), _RELEASE), None
 
     def answer_of(self, attempt_id: Any, limit: int) -> tuple[AnswerText | None, str | None]:
@@ -825,8 +840,13 @@ class TextGuard:
             return HELD_BACK
         if self.book.unreadable:
             return KEYS_UNREADABLE
-        if any(answer not in self._pinned for answer in answers):
-            return REVISION_UNKNOWN_BEHIND
+        # Every answer it names passes (b)'s checks on the text the attempt
+        # records: a pinned, unprotected answer that states its item's key is
+        # withheld when shown, so nothing written from it is released either.
+        for answer in answers:
+            reason = self._answer_reason(answer, (self._attempts.get(answer) or {}).get("answer"))
+            if reason:
+                return _BEHIND.get(reason, reason)
         return None
 
     # -- topic names and ids -------------------------------------------------------------
@@ -907,8 +927,11 @@ class TextGuard:
         return {lo_alias(lo_id, self._key): lo_id for lo_id in self._generated_ids()}
 
     def searchable(self, lo_id: Any) -> bool:
-        """Whether a topic search may match this topic's words: not while a
-        generated name is withheld (the match would confirm its words)."""
+        """Whether a request may name this topic by its words (a topic search)
+        or by its raw id: not while a generated name is withheld. Either would
+        confirm a guessed title (the id is ``lo_ltg_``, the title's slug and
+        the source's hash: ``text_gaps.actions.creation_ids``); while withheld
+        only its alias names it."""
 
         return not self.generated(lo_id) or self._name(str(lo_id))[0] is not None
 
@@ -1054,13 +1077,20 @@ def resolve_scope(vault: Any, *, learning_object_ids: Sequence[str] | None = Non
     ``aliases`` (:meth:`TextGuard.aliases`) resolve the opaque id a generated
     topic is shown under while its name is withheld; ``searchable``
     (:meth:`TextGuard.searchable`) keeps a topic search from matching the
-    words of a withheld name (a match would confirm them)."""
+    words of a withheld name, and its raw id from naming it: that id is
+    answered exactly as an id the vault does not have (either would confirm
+    a guessed title)."""
 
     los = vault.learning_objects
     if learning_object_ids:
         requested = list(dict.fromkeys(learning_object_ids))
-        resolved = {lo: (aliases or {}).get(lo, lo) for lo in requested}
-        known = list(dict.fromkeys(resolved[lo] for lo in requested if resolved[lo] in los))
+        resolved: dict[str, str | None] = {}
+        for lo in requested:
+            if lo in (aliases or {}):
+                resolved[lo] = (aliases or {})[lo]
+            else:
+                resolved[lo] = lo if searchable is None or searchable(lo) else None
+        known = list(dict.fromkeys(str(resolved[lo]) for lo in requested if resolved[lo] in los))
         unknown = [lo for lo in requested if resolved[lo] not in los]
         return {"learning_object_ids": known, "matched_by": "ids", "unknown_ids": unknown}
     if topic and topic.strip():
@@ -1714,6 +1744,7 @@ __all__ = [
     "GROUP_ALIAS_PREFIX",
     "HELD_BACK",
     "KEY_WITHHELD",
+    "KEY_WITHHELD_BEHIND",
     "LO_ALIAS_PREFIX",
     "PROTECTION_UNKNOWN",
     "RECORDED",

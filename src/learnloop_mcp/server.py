@@ -567,6 +567,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
                 planned = plan_passages(
                     vault, runtime.read_repository(), query, intent=intent, learning_object_ids=learning_object_ids,
                     misconception_id=misconception_id, verify=verify, limit=limit, char_budget=char_budget,
+                    alias_key=runtime.alias_key(),
                 )
                 plan = planned["plan"]
                 return Outcome(_checked(SourcesOut, planned), summary={
@@ -576,7 +577,7 @@ def build_server(runtime: RemoteRuntime, *, transport: str = "in_process", clock
             found = find_passages(
                 vault, runtime.repository, query, call_id=call_id, intent=intent,
                 learning_object_ids=learning_object_ids, misconception_id=misconception_id, verify=verify,
-                limit=limit, char_budget=char_budget, clock=clock,
+                limit=limit, char_budget=char_budget, clock=clock, alias_key=runtime.alias_key(),
             )
             return Outcome(_checked(SourcesOut, found.payload), summary={"passages": len(found.payload["passages"]),
                                                     "withheld": found.payload["withheld"], "intent": intent},

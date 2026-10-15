@@ -21,7 +21,14 @@ import os
 import re
 import secrets
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+
+try:  # POSIX advisory locks; the app targets local-first POSIX hosts.
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX degradation
+    fcntl = None  # type: ignore[assignment]
 
 TOKEN_DIRECTORY = (".learnloop", "mcp")
 TOKEN_FILE = "endpoint-token"
@@ -110,9 +117,12 @@ def endpoint_path(token: str) -> str:
 # per-vault secret kept beside the token, so a client cannot recompute one from
 # a guessed title or statement (Q13). Made by ``learnloop mcp serve`` (never by
 # a read), never printed; rotating the token leaves it alone (aliases stay
-# stable for the hosts that hold them).
+# stable for the hosts that hold them). Two first starts on one vault make it
+# once: the check and the install hold one lock, so a second start finds the
+# first's key instead of replacing it under a runtime that already uses it.
 
 ALIAS_KEY_FILE = "alias-key"
+ALIAS_KEY_LOCK = ".alias-key.lock"
 _ALIAS_KEY_RE = re.compile(r"[0-9a-f]{64}")
 
 
@@ -131,26 +141,50 @@ def read_alias_key(vault_root: Path) -> bytes | None:
     return bytes.fromhex(value) if _ALIAS_KEY_RE.fullmatch(value) else None
 
 
+@contextmanager
+def _alias_key_lock(directory: Path) -> Iterator[None]:
+    """One maker of the alias key at a time, across processes: an advisory
+    lock beside it, released when its holder exits or dies."""
+
+    if fcntl is None:  # pragma: no cover - non-POSIX: no cross-process lock
+        yield
+        return
+    descriptor = os.open(directory / ALIAS_KEY_LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(descriptor)  # releases the lock
+
+
 def ensure_alias_key(vault_root: Path) -> bytes:
-    """The vault's alias key, made on first use (0600, beside the token)."""
+    """The vault's alias key, made on first use (0600, beside the token).
+
+    Made under :func:`_alias_key_lock` and checked again there: a start that
+    read "missing" while another was making it returns that key, so every
+    process on the vault keys aliases alike."""
 
     existing = read_alias_key(vault_root)
     if existing is not None:
         return existing
-    key = secrets.token_bytes(32)
     directory = _prepare_directory(vault_root)
-    temporary = directory / f".{ALIAS_KEY_FILE}.{secrets.token_hex(4)}.tmp"
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-            stream.write(key.hex() + "\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, alias_key_path(vault_root))
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
-    return key
+    with _alias_key_lock(directory):
+        existing = read_alias_key(vault_root)
+        if existing is not None:
+            return existing
+        key = secrets.token_bytes(32)
+        temporary = directory / f".{ALIAS_KEY_FILE}.{secrets.token_hex(4)}.tmp"
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+                stream.write(key.hex() + "\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, alias_key_path(vault_root))
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        return key
 
 
 class TokenStore:

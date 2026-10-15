@@ -185,7 +185,7 @@ statuses, counts and dates show, the wording does not.
 | The question as graded (the pinned contract's prompt) | Diagnosis summaries (the status still shows) |
 | Topic names and ids the learner or an authored vault file wrote | What a learner-text gap was matched to (a belief's statement); a generated topic it created or matched shows a fixed label |
 | A gap's words when they are a pinned answer (a diagnosis's or a stuck answer's gap: the answer as the attempt records it) | A gap's words when they are a question the learner asked (no pinned answer behind them, Q10) |
-| Retention risks, with authored topic names | Every generated topic's name (a fixed label) and id (an opaque keyed alias, accepted back as a named id; a topic search does not match its words), and the question of an item seeded on one |
+| Retention risks, with authored topic names | Every generated topic's name (a fixed label) and id (an opaque keyed alias, accepted back as a named id by `learning_context` and `find_sources`; its raw id is answered as unknown and a topic search does not match its words), and the question of an item seeded on one |
 | Recurrence groups, each under an opaque keyed key (Q13) | |
 
 The output schema types and closes every field (F4 round 3), and every text field is classified
@@ -228,12 +228,14 @@ chat host, also takes the narrow text rule is an owner question (record, Q16).
    `lo_ltg_` id, or a gap recording its creation) has a name drafted from the learner's words and an id
    carrying a slug of it, so both are (c): while held back the entry shows `a topic named from the learner's
    own words (…)` and an opaque alias `lo_withheld_<HMAC>`. **Aliases are keyed** (HMAC-SHA256 under a
-   per-vault secret, `.learnloop/mcp/alias-key`, 0600 beside the endpoint token, made by `learnloop mcp
-   serve`, never printed; without it a process key): an unkeyed digest let a client that guessed a title or
-   a root statement confirm it (the old `sha256(id)` alias, Q13's group key). **`today` and `progress`**
-   name topics through the same guard (Q12): plan block topics, goal topics, the assumed list and retention
-   risks; a plan block's why, which embeds the titles it was built with, is shown only when it was computed
-   and touches no generated topic.
+   per-vault secret, `.learnloop/mcp/alias-key`, 0600 beside the endpoint token, made once by `learnloop mcp
+   serve` under a lock, never printed; without it a process key): an unkeyed digest let a client that
+   guessed a title or a root statement confirm it (the old `sha256(id)` alias, Q13's group key). A raw
+   generated id names nothing while its name is held back (`learning_context` and `find_sources` answer it
+   as an id the vault does not have): it is the title's slug, so accepting it would confirm a guess.
+   **`today` and `progress`** name topics through the same guard (Q12): plan block topics, goal topics, the
+   assumed list and retention risks; a plan block's why, which embeds the titles it was built with, is shown
+   only when it was computed and touches no generated topic.
 
    **Why no output-side provenance any more.** Rounds 3 to 5 of F4 followed each text's provenance from the
    output back to the answers behind it (error events, episodes, promotions, gaps, a diagnosis's context

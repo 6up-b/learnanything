@@ -115,12 +115,30 @@ def _protected_spans(vault: Any, repository: Any, withheld: Any) -> tuple[frozen
     return frozenset(spans), frozenset(whole)
 
 
+def _named_los(vault: Any, repository: Any, learning_object_ids: Sequence[str],
+               alias_key: bytes | None) -> tuple[list[str], list[str]]:
+    """The topics a request names, read as ``learning_context`` reads them
+    (spec §4.7): an authored topic's id, or a generated topic's opaque alias.
+    A withheld generated topic's raw id names nothing, as an id the vault
+    does not have (accepting it would confirm a guessed title)."""
+
+    if not learning_object_ids:
+        return [], []
+    from learnloop.learner_context import TextGuard, resolve_scope
+
+    with repository.connection() as connection:
+        guard = TextGuard(connection, vault, repository, alias_key=alias_key)
+        scope = resolve_scope(vault, learning_object_ids=learning_object_ids, aliases=guard.aliases(),
+                              searchable=guard.searchable)
+    return list(scope["learning_object_ids"]), list(scope["unknown_ids"])
+
+
 def _scope(vault: Any, repository: Any, intent: str, learning_object_ids: Sequence[str],
-           misconception_id: str | None) -> tuple[list[str], list[str], list[dict[str, Any]]]:
+           misconception_id: str | None,
+           alias_key: bytes | None = None) -> tuple[list[str], list[str], list[dict[str, Any]]]:
     if intent not in CHAT_INTENTS:
         raise InvalidRequest(f"intent must be one of {', '.join(CHAT_INTENTS)}")
-    los = [lo for lo in dict.fromkeys(learning_object_ids) if lo in vault.learning_objects]
-    unknown_los = [lo for lo in dict.fromkeys(learning_object_ids) if lo not in vault.learning_objects]
+    los, unknown_los = _named_los(vault, repository, learning_object_ids, alias_key)
     targets: list[dict[str, Any]] = []
     if misconception_id:
         if repository.misconception(misconception_id) is None:
@@ -142,10 +160,12 @@ def find_passages(
     limit: int = 6,
     char_budget: int = DEFAULT_CHAR_BUDGET,
     clock: Clock | None = None,
+    alias_key: bytes | None = None,
 ) -> PassageResult:
     """Passages for ``query`` under the server-derived policy, recorded as
     exposure (in the same transaction as the final protection read) before
-    they are returned."""
+    they are returned. ``alias_key`` keys the aliases a named topic may be
+    sent as (``learning_context``'s)."""
 
     from learnloop.instructional.policy import caller_for
     from learnloop.instructional.sources import propose_sources
@@ -153,7 +173,7 @@ def find_passages(
     from learnloop.source_retrieval.policy import PolicyRefused
 
     budget = max(1_000, min(int(char_budget), MAX_CHAR_BUDGET))
-    los, unknown_los, targets = _scope(vault, repository, intent, learning_object_ids, misconception_id)
+    los, unknown_los, targets = _scope(vault, repository, intent, learning_object_ids, misconception_id, alias_key)
     # Refuse before anything is paid for when protection cannot be read.
     if not withheld_items(vault, repository).available:
         raise SourcesUnavailable(*_UNREADABLE)
@@ -347,6 +367,7 @@ def plan_passages(
     verify: bool = False,
     limit: int = 6,
     char_budget: int = DEFAULT_CHAR_BUDGET,
+    alias_key: bytes | None = None,
 ) -> dict[str, Any]:
     """Dry run of :func:`find_passages`: what it would pay for, at what cost.
 
@@ -360,7 +381,7 @@ def plan_passages(
     from learnloop.source_retrieval.policy import derive_policy
 
     budget = max(1_000, min(int(char_budget), MAX_CHAR_BUDGET))
-    los, unknown_los, targets = _scope(vault, repository, intent, learning_object_ids, misconception_id)
+    los, unknown_los, targets = _scope(vault, repository, intent, learning_object_ids, misconception_id, alias_key)
     policy, derived_from = derive_policy(caller_for(repository, "agent", "dry_run", learning_object_ids=los))
     search = plan_library_search(vault, repository, query=query, deep=True)
     verification = _plan_verification(vault, repository, query, intent=intent, policy=policy, verify=verify,
