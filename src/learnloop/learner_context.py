@@ -451,6 +451,9 @@ _CHUNK = 500
 #: The id the learner-text pipeline gives a prerequisite it creates
 #: (``text_gaps.actions.creation_ids``: ``lo_ltg_<slug of its title>_<hash>``).
 _GENERATED_LO_PREFIX = "lo_ltg_"
+#: The shortest slug (with an underscore) a model's text is taken to name a
+#: generated topic by, without its prefix and hash (F4 round 5, F2).
+_SLUG_MIN = 12
 #: What stands for a generated topic's id while its name is withheld (F4 round 4).
 LO_ALIAS_PREFIX = "lo_withheld_"
 #: What stands for a generated topic's name while it is withheld; the note
@@ -518,10 +521,12 @@ class Origin:
 #: through :meth:`AnswerTextGuard.topic` and :meth:`AnswerTextGuard.lo_ref`.
 _AUTHORED = Origin()
 
-#: A provenance node: ``(kind, key)``. ``graded`` (an answer's grading and
-#: diagnoses), ``diagnosis``, ``hypothesis``, ``episode``, ``event``,
-#: ``belief`` (a registry id of any kind), ``misconception``, ``candidate``,
-#: ``gap`` (what a gap's reading drew on) and ``title`` (a generated topic).
+#: A provenance node: ``(kind, key)``. ``grading`` (an answer's grading as
+#: its grader wrote it), ``graded`` (that and the answer's diagnoses),
+#: ``diagnosis``, ``hypothesis``, ``episode``, ``event``, ``shown`` (a belief
+#: as a diagnosis's context showed it, with its topic id), ``misconception``,
+#: ``candidate``, ``gap`` (what a gap's reading drew on) and ``title`` (a
+#: generated topic).
 _Node = tuple[str, str]
 
 
@@ -594,10 +599,12 @@ class AnswerTextGuard:
 
     **Provenance** is a graph (:meth:`closure`), followed transitively with
     cycles (a diagnosis shown a hypothesis whose answer's diagnosis was shown
-    the first one) handled: an answer's grading reaches every live diagnosis
-    of it and its joint grader's history; a diagnosis reaches everything its
-    context receipt says it was shown (answers, hypotheses, recorded beliefs,
-    generated topics in its neighbourhood); a belief reaches its error events,
+    the first one) handled: text drawn from an answer's grading reaches every
+    live diagnosis of it and its joint grader's history; a diagnosis reaches
+    everything its context receipt says it was shown (the grading of every
+    answer in it, hypotheses and recorded beliefs with their topic ids,
+    generated topics in its neighbourhood or named in its text: F4 round 5);
+    a belief reaches its error events,
     promotions, error hunts and the gaps that created it; a gap reaches the
     diagnosis it read; a generated topic reaches the gaps that created it.
 
@@ -913,32 +920,42 @@ class AnswerTextGuard:
             self._nodes[node] = (local, tuple(dict.fromkeys(successors)))
         return self._nodes[node]
 
-    def _local_graded(self, attempt_id: str) -> tuple[Origin, list[_Node]]:
-        """Text drawn from an answer's grading or diagnosis (a cause on its
-        error events, a hypothesis, a belief normalized from them): the
-        answer, the prior answers its joint grader was shown (the C4 history),
-        its topic's name when that topic was generated, and everything each of
-        its completed live diagnoses was shown. The
-        overlay lays a diagnosis's causes on the answer's events, the factor
-        projection, the normalizer and the gap pipeline read them, and what an
-        earlier diagnosis supplied stays in the beliefs drawn from it, so a
-        superseded diagnosis counts too."""
+    def _local_grading(self, attempt_id: str) -> tuple[Origin, list[_Node]]:
+        """An answer's grading as its grader wrote it (its error events as
+        stored, its fatal errors, its blind grade): the answer, the prior
+        answers its joint grader was shown (the C4 history) and its topic's
+        name when that topic was generated (the grader was shown it). This is
+        what a diagnosis is shown of an answer in its history (F4 round 5,
+        F1): the history store reads the events as written, never a
+        diagnosis's overlay."""
 
         history = self._map("c4_history").get(attempt_id, [])
         origin = Origin(attempts=_ids([attempt_id]) | _ids(history or ()), missing=not attempt_id or history is None)
-        successors: list[_Node] = [("diagnosis", str(diagnosis)) for diagnosis in self._map(
-            "diagnoses_by_attempt").get(attempt_id, ())]
-        # Its grader was shown its topic: a generated topic's name is drawn on too.
         self._load([attempt_id])
         lo_id = (self._attempts.get(attempt_id) or {}).get("lo")
-        if lo_id and self.generated(lo_id):
-            successors.append(("title", lo_id))
-        return origin, successors
+        return origin, [("title", lo_id)] if lo_id and self.generated(lo_id) else []
+
+    def _local_graded(self, attempt_id: str) -> tuple[Origin, list[_Node]]:
+        """Text drawn from an answer's grading or diagnosis (a cause on its
+        error events, a hypothesis, a belief normalized from them): its
+        grading, and everything each of its completed live diagnoses was
+        shown. The overlay lays a diagnosis's causes on the answer's events,
+        the factor projection, the normalizer and the gap pipeline read them,
+        and what an earlier diagnosis supplied stays in the beliefs drawn from
+        it, so a superseded diagnosis counts too."""
+
+        successors: list[_Node] = [("grading", attempt_id)]
+        successors += [("diagnosis", str(diagnosis)) for diagnosis in self._map(
+            "diagnoses_by_attempt").get(attempt_id, ())]
+        return Origin(missing=not attempt_id), successors
 
     def _local_diagnosis(self, diagnosis_id: str) -> tuple[Origin, list[_Node]]:
-        """What one diagnosis was shown, from its context receipt: its answer,
-        the answers it saw, cited or names, the hypotheses and recorded beliefs
-        it was given, and the generated topics in its neighbourhood. No
+        """What one diagnosis was shown, from its context receipt: the
+        grading of its own answer and of every answer it saw, cited or names
+        (a history row carries its grader's error types, fatal errors and
+        first-divergence quotes: F4 round 5, F1), the hypotheses and recorded
+        beliefs it was given, each with its topic id (F4 round 5, F2), and the
+        generated topics in its neighbourhood or named in its text. No
         receipt, or a list in it that cannot be read: what it saw is not
         recorded (a missing link)."""
 
@@ -967,15 +984,17 @@ class AnswerTextGuard:
             return replace(own, missing=True), []
         proposal = _loads(row[1], None)
         analysis = proposal.get("analysis_md") if isinstance(proposal, Mapping) else None
-        named = set(_RECORD_ID.findall(analysis if isinstance(analysis, str) else ""))
+        text = analysis if isinstance(analysis, str) else ""
+        named = set(_RECORD_ID.findall(text))
         self._load(named)
-        answers = [*(failures or ()), *(successes or ()), *(history or ()), *(cited or ()),
-                   *(record for record in named if self._attempts.get(record) is not None)]
-        successors: list[_Node] = [("hypothesis", hypothesis) for hypothesis in hypotheses or ()]
-        successors += [("belief", record) for record in registry or ()]
-        successors += [("title", lo_id) for lo_id in [*(neighbours or ()), *(prerequisites or ())]
-                       if self.generated(lo_id)]
-        return own | Origin(attempts=_ids(answers)), successors
+        answers = [*([str(row[0])] if row[0] else []), *(failures or ()), *(successes or ()), *(history or ()),
+                   *(cited or ()), *(record for record in named if self._attempts.get(record) is not None)]
+        successors: list[_Node] = [("grading", answer) for answer in answers]
+        successors += [("shown", f"hypothesis:{hypothesis}") for hypothesis in hypotheses or ()]
+        successors += [("shown", f"registry:{record}") for record in registry or ()]
+        topics = [*(neighbours or ()), *(prerequisites or ()), *self._named_topics(text)]
+        successors += [("title", lo_id) for lo_id in topics if self.generated(lo_id)]
+        return own, successors
 
     def _local_hypothesis(self, hypothesis_id: str) -> tuple[Origin, list[_Node]]:
         """A hypothesis statement: its answer's grading, its own error event
@@ -1015,11 +1034,35 @@ class AnswerTextGuard:
         answer = self._event_answer(event_id)
         return (Origin(missing=True), []) if answer is None else (Origin(), [("graded", answer)])
 
-    def _local_belief(self, record_id: str) -> tuple[Origin, list[_Node]]:
-        """A registry id as a diagnosis's context lists it (any kind)."""
+    def _local_shown(self, key: str) -> tuple[Origin, list[_Node]]:
+        """A belief as a diagnosis's context showed it (``hypothesis:<id>``, a
+        prior hypothesis; ``registry:<id>``, a registry record of any kind):
+        its statement's provenance, and its topic's name when that topic was
+        generated. The rendered context carries each belief's
+        ``learning_object_id``, and the whole-vault registry shortlist reaches
+        beyond the neighbourhood (F4 round 5, F2). Not on record: a missing
+        link."""
 
-        found = self._belief(None, record_id)
-        return (Origin(missing=True), []) if found is None else (Origin(), [found[2]])
+        kind, _, record_id = key.partition(":")
+        found = self._belief("hypothesis" if kind == "hypothesis" else None, record_id)
+        if found is None:
+            return Origin(missing=True), []
+        _statement, lo_id, node = found
+        return Origin(), [node, *([("title", str(lo_id))] if lo_id and self.generated(lo_id) else [])]
+
+    def _named_topics(self, text: str) -> list[str]:
+        """The generated topics a model's text names by id (or by the slug of
+        its drafted title the id carries): it was shown each one."""
+
+        if not text:
+            return []
+        named: list[str] = []
+        for lo_id in sorted(self._generated_ids()):
+            core = lo_id[len(_GENERATED_LO_PREFIX):].rsplit("_", 1)[0] if lo_id.startswith(
+                _GENERATED_LO_PREFIX) else ""
+            if lo_id in text or ("_" in core and len(core) >= _SLUG_MIN and core in text):
+                named.append(lo_id)
+        return named
 
     def _local_misconception(self, misconception_id: str) -> tuple[Origin, list[_Node]]:
         """A recorded misconception (statement and correction): the error
@@ -1119,18 +1162,18 @@ class AnswerTextGuard:
                                      (key[1],)).fetchone()
             if row is not None:
                 found = row[0], row[1], ("misconception", key[1])
-        if found is None and key[1] and kind in ("candidate", None):
-            if self._has("misconception_candidates"):
-                row = connection.execute(
-                    "SELECT statement, learning_object_id FROM misconception_candidates WHERE id = ?", (key[1],),
-                ).fetchone()
-                if row is not None:
-                    found = row[0], row[1], ("candidate", key[1])
-            if found is None and self._has("causal_hypotheses"):
-                row = connection.execute("SELECT statement, learning_object_id FROM causal_hypotheses WHERE id = ?",
-                                         (key[1],)).fetchone()
-                if row is not None:
-                    found = row[0], row[1], ("hypothesis", key[1])
+        if found is None and key[1] and kind in ("candidate", None) and self._has("misconception_candidates"):
+            row = connection.execute(
+                "SELECT statement, learning_object_id FROM misconception_candidates WHERE id = ?", (key[1],),
+            ).fetchone()
+            if row is not None:
+                found = row[0], row[1], ("candidate", key[1])
+        # A hypothesis: as a candidate projects it, or as a diagnosis's context listed it.
+        if found is None and key[1] and kind in ("candidate", "hypothesis", None) and self._has("causal_hypotheses"):
+            row = connection.execute("SELECT statement, learning_object_id FROM causal_hypotheses WHERE id = ?",
+                                     (key[1],)).fetchone()
+            if row is not None:
+                found = row[0], row[1], ("hypothesis", key[1])
         self._beliefs[key] = found
         return found
 

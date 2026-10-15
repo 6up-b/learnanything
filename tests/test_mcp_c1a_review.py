@@ -1306,3 +1306,141 @@ def test_text_a_model_wrote_while_shown_a_withheld_topic_name_follows_it(world):
     trace = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_gen_pinned")
     assert trace["answer"] == "GEN_PINNED_7710 equal" and trace["topic"].startswith(TOPIC_WITHHELD)
     assert "8841" not in payload_text(context)
+
+
+# -- F4 round 5: the re-review of round 4 (Codex job 20261014-194615-xeJ3ee) -----------------
+
+#: A pinned answer with a record-id-shaped id, so a diagnosis's text can name it.
+PEER = "01JAPEER" + "0" * 18
+
+
+def _c4(connection, attempt_id: str, history: list[str]) -> None:
+    """The joint grader's Phase-C receipt: the prior answers (C4 history) it was shown."""
+
+    import json as _json
+
+    connection.execute(
+        "INSERT INTO diagnostic_augmentation_receipts(id, attempt_id, grading_prompt_version, "
+        "c1_repair_before_structure, c2_verifier_observations_json, c3_sample_count, c3_agreement_support, "
+        "c3_disagreement_causes_json, c4_history_attempt_ids_json, hypotheses_json, revert_criteria_json, "
+        "created_at) VALUES (?, ?, 'test', 0, '[]', 1, 1.0, '[]', ?, '[]', '[]', ?)",
+        (f"dar_{attempt_id}", attempt_id, _json.dumps(history), NOW_ISO))
+
+
+@pytest.mark.parametrize("shown", ["failure", "success", "history", "citation", "named", "own"])
+def test_a_diagnosis_follows_the_grading_of_every_answer_it_was_shown(world, shown):
+    """Round 5, F1: a diagnosis is shown each history answer's grading (its
+    error types, fatal errors and first-divergence quotes, written by its
+    grader), not only its words. A pinned answer whose joint grader was shown
+    the unpinned ``att_legacy`` (its C4 history) carries that answer into the
+    diagnosis's summary and into every belief the diagnosis's causes reach;
+    so does the diagnosed answer's own grading."""
+
+    _legacy_answer(world)
+    _pinned_answer(world, PEER, "PEER_WORDS_5521 the sign flips per swap", "2026-09-21T09:00:00Z")
+    with world.repository.connection() as connection:
+        _c4(connection, "att_own" if shown == "own" else PEER, ["att_legacy"])
+        # The blind grader's event on the diagnosed answer: a location, no cause of its own.
+        _error_event(connection, "ev_own", "att_own", None)
+        connection.commit()
+    cause = f"Believes {LEGACY_KEY} for every matrix"
+    receipt: dict[str, Any] = {
+        "failure": {"failure_attempt_ids": [PEER]},
+        "success": {"success_attempt_ids": [PEER]},
+        "history": {"retrieval": {"history_attempt_ids": [PEER]}},
+        "citation": {"validated_citations": [{"claim_index": 0, "attempt_id": PEER}]},
+        "named": {},
+        "own": {},
+    }[shown]
+    diagnosis_id = _live_diagnosis(
+        world.repository, "att_own", f"As in answer {PEER}, the learner wrote {LEGACY_KEY}.",
+        view={"events": {"ev_own": {"misconception_statement": cause, "is_misconception": True}}}, receipt=receipt)
+    with world.repository.connection() as connection:
+        _misconception(connection, "mc_diag", cause, '["ev_own"]', None)
+        connection.commit()
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    context = result.structured_content
+    assert LEGACY_KEY not in _text(result)
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["answer"] == OWN_ANSWER
+    assert own["diagnosis"]["summary"] is None and "revision" in own["diagnosis"]["summary_note"]
+    diag = next(m for m in context["misconceptions"] if m["misconception_id"] == "mc_diag")
+    assert diag["statement"] is None and "revision" in diag["statement_note"]
+    assert diag["status"] == "active" and diag["evidence_count"] == 1
+    from learnloop.learner_context import AnswerTextGuard, Withheld, key_book
+
+    with world.repository.connection() as connection:
+        unknowns: list[str] = []
+        vault = load_vault(world.root)
+        guard = AnswerTextGuard(connection, Withheld(), key_book(connection, vault, unknowns), unknowns, vault=vault)
+        assert "att_legacy" in guard.closure(("diagnosis", diagnosis_id)).attempts
+
+
+def test_a_diagnosis_shown_a_pinned_answer_s_grading_does_not_inherit_that_answer_s_diagnoses(world):
+    """Round 5, F1, the other side: a history answer's row carries its grading
+    only (the history store reads its error events as written, never a
+    diagnosis's overlay), so a diagnosis shown it does not follow that
+    answer's own diagnoses. Its summary still shows when the answer and its
+    grading are pinned, though a diagnosis of that answer was shown the
+    unpinned one."""
+
+    _legacy_answer(world)
+    _pinned_answer(world, PEER, "PEER_WORDS_5521 the sign flips per swap", "2026-09-21T09:00:00Z")
+    _live_diagnosis(world.repository, PEER, "Seen with an old answer.", receipt={"failure_attempt_ids": ["att_legacy"]})
+    summary = "The learner flipped the sign once per swap, as in an earlier answer."
+    _live_diagnosis(world.repository, "att_own", summary, receipt={"failure_attempt_ids": [PEER]})
+    context = learning_context(load_vault(world.root), world.repository, limits=ContextLimits(traces=30))
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    assert own["diagnosis"]["summary"] == summary
+    peer = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == PEER)
+    assert peer["diagnosis"]["summary"] is None and "revision" in peer["diagnosis"]["summary_note"]
+
+
+def _hypothesis_of(world, episode_key: str) -> str:
+    with world.repository.connection() as connection:
+        return str(connection.execute("SELECT id FROM causal_hypotheses WHERE episode_key = ?",
+                                      (episode_key,)).fetchone()[0])
+
+
+@pytest.mark.parametrize("shown", ["registry_misconception", "registry_candidate", "hypothesis", "named", "safe"])
+def test_a_diagnosis_shown_a_belief_on_a_generated_topic_follows_its_name(world, shown):
+    """Round 5, F2: a diagnosis's context shows each registry belief and prior
+    hypothesis with its ``learning_object_id``, and the whole-vault registry
+    shortlist reaches beyond the neighbourhood. A belief supported by a pinned
+    answer, on a topic drafted from the unpinned answer, hands the diagnosis
+    that topic's id (``lo_ltg_<slug of the drafted title>_<hash>``); the
+    summary follows the topic's name, as does a diagnosis that names the id
+    outright. A belief on a topic whose name shows (``safe``) leaves the
+    summary shown."""
+
+    los = _generated_world(world)
+    tainted_slug = los["tainted"].split("lo_ltg_", 1)[1].rsplit("_", 1)[0]
+    with world.repository.connection() as connection:
+        # A recorded belief on the control topic, drawn from the pinned answer's event.
+        connection.execute(
+            "INSERT INTO misconceptions(id, learning_object_id, statement, severity, status, "
+            "source_error_event_ids_json, created_at, updated_at) VALUES ('mc_safe', ?, "
+            "'Thinks parity ignores the swap count', 0.5, 'active', '[\"e1\"]', ?, ?)", (los["safe"], NOW_ISO, NOW_ISO))
+        connection.commit()
+    topic = los["safe"] if shown == "safe" else los["tainted"]
+    receipt: dict[str, Any] = {"retrieval": {"neighborhood_learning_object_ids": ["lo_matrices"]}}
+    receipt.update({
+        "registry_misconception": {"registry_candidate_ids": ["mc_gen"]},
+        "registry_candidate": {"registry_candidate_ids": ["mcand_gen"]},
+        "hypothesis": {"hypothesis_ids": [_hypothesis_of(world, "ep_gen")]},
+        "named": {},
+        "safe": {"registry_candidate_ids": ["mc_safe"]},
+    }[shown])
+    summary = f"The learner's slip matches the belief recorded on {topic}."
+    _live_diagnosis(world.repository, "att_own", summary, receipt=receipt)
+    server = build_server(RemoteRuntime.attach(world.root, load_environment=False))
+    (result,) = _call_all(server, [("learning_context", {"max_traces": 30})])
+    context = result.structured_content
+    text = _text(result)
+    assert "8841" not in text and tainted_slug not in text and los["tainted"] not in text
+    own = next(t for t in context["recent_answer_traces"] if t["attempt_id"] == "att_own")
+    if shown == "safe":
+        assert own["diagnosis"]["summary"] == summary
+    else:
+        assert own["diagnosis"]["summary"] is None and "revision" in own["diagnosis"]["summary_note"]

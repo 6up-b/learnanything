@@ -7,8 +7,9 @@ and fixed in `e0fdfef36`; the re-review confirmed F1-F3, reopened F4 and raised 
 fixed in `8c42bfecf`; F4 round 3 (the verify of `4493140a2` reopened F4 for misconception, candidate and gap
 text) was reproduced and fixed by one guarded renderer in `3e1725836`; the review of that fix
 ([mcp-c1a-f4-codex-review.md](mcp-c1a-f4-codex-review.md)) raised F1-F3 (diagnosis context lost through derived
-beliefs, generated topic names and ids, malformed provenance lists), all reproduced and fixed. The F4 round 4
-gate there supersedes the ones below.
+beliefs, generated topic names and ids, malformed provenance lists), all reproduced and fixed; its re-review
+confirmed F3 and reopened F1 (a history answer's grading) and F2 (a shown belief's generated topic id), both
+reproduced and fixed in round 5. The F4 round 5 gate there supersedes the ones below.
 **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already works with Claude chat and
 ChatGPT chat (D1); latent learner state (misconceptions, answer traces) must be shared seamlessly between the
 local LearnLoop and the chat frontend through the existing telemetry.

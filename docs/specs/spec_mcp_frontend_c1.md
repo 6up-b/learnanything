@@ -211,9 +211,13 @@ sections from this module (one predicate set, one leakage rule set).
    cycles handled (`AnswerTextGuard.closure`): a belief drawn from an answer's error events follows that
    answer's grading, so every completed live diagnosis of it (the diagnosis overlay lays its causes on the
    answer's events; a superseded one counts too), the joint grader's C4 history and the answer's topic name
-   when that topic was generated; a diagnosis follows everything its context receipt says it was shown
-   (answers, hypotheses, recorded beliefs, generated topics in its neighbourhood); a gap follows the
-   diagnosis it read (`source_id`) and a generated topic it is anchored on. An id list with any member that
+   when that topic was generated; a diagnosis follows everything its context receipt says it was shown:
+   the grading of its own answer and of every answer it saw, cited or names (a history row carries that
+   answer's grader output, so its C4 history too, but not that answer's own diagnoses, which the history
+   store never reads; F4 round 5), the hypotheses and recorded beliefs it was given together with their
+   topic ids (a generated topic's name follows, wherever the whole-vault registry shortlist found the
+   belief; F4 round 5), and the generated topics in its neighbourhood or named in its text; a gap follows
+   the diagnosis it read (`source_id`) and a generated topic it is anchored on. An id list with any member that
    is not a nonempty string, or a citation that names no answer, cannot be read as a whole. **Topic names
    and ids (F4 round 4):** the learner-text pipeline drafts a missing prerequisite's titles from the
    learner's text and derives its ids from them (`lo_ltg_<slug>_<hash>`), so every topic name and id in the
