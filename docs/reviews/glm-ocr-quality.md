@@ -13,6 +13,8 @@ It adds no migration and no successor, and it changes no Reader or sidecar code.
 
 **Paid calls: none. Network: none.** The re-validation below re-reads the 39 answers the live check saved.
 
+> **Amended by the Codex review** (`docs/reviews/glm-ocr-quality-codex-review.md`): split numbers need evidence (2c), currency beside maths (2d), exact bookmarks first (2b), running lines by position, equation numbers beside a formula's own brackets, and pdfium in a worker process (3). The rules below are as amended; the measurements are as first recorded, and the review re-ran them.
+
 ## What changed
 
 1. **Estimate: 6,000 → 3,500 tokens a page** (`ESTIMATED_TOKENS_PER_PAGE`).
@@ -37,15 +39,16 @@ It adds no migration and no successor, and it changes no Reader or sidecar code.
      - otherwise, one level under the last heading placed.
 
      The document title is the root. With an outline, numbering that would climb to or above the last bookmarked heading is a result's label, such as Axler's "1.4 example: …" under a bookmarked subsection. Such a heading nests under that subsection instead of popping it. Numbering below the bookmark is still trusted, so in Blitzstein "1.4.2" is a sibling of "1.4.1" under the bookmarked section 1.4.
-   - **(c) Split numbers are joined** (`_collapse_split_number`). "1. 11 definition:" becomes "1.11 definition:".
-     - This also applies to "1. 39", "3. 6 `$…$`", "1. 4.11 (Name)" and "2. 4.1. When …", but only where the number is a label. That means it is followed by a lower-case word or a kind, a colon, a parenthesis, maths, the end, or a full stop and a new sentence.
-     - An enumerated item ("1. Write …") and a course code ("6. 012XY") are unchanged.
-     - It applies to Text and SectionHeader blocks.
+   - **(c) Split numbers are joined** (`_join_split_labels`). "1. 11 definition:" becomes "1.11 definition:".
+     - Only the shapes a label takes: the number is followed by a lower-case word or a kind, a colon, a parenthesis, maths, the end, or a full stop and a new sentence.
+     - A list's items take the same shapes ("1. 5 people arrive.", "2. 3 is prime"), so the number is joined only when something vouches for it: an environment word after it, or the document's own numbering. That means the label read just before it numbers the same way and at most 3 lower ("1.37 example" then "1. 39"; the section "1.4" or the label "1.4.10" then "1. 4.11 (Name)"), the next label that is not a heading is not at or below it, and no neighbour opens the item before or after it ("2. " beside "1. 5 …").
+     - An enumerated item ("1. Write …"), a course code ("6. 012XY") and a list's item are unchanged.
+     - It applies to Text and SectionHeader blocks, judged across the whole document in reading order.
    - **(d) Currency dollars are escaped** (`_escape_currency`), in Text, SectionHeader, Caption and Footnote blocks. Each span is judged where remark-math would pair it. A dollar before a number opens maths only when all of these hold:
      - the span it would close holds no prose word;
-     - that closing dollar does not itself open something. "$18-$7" fails because a digit follows the closing dollar. "$2, ..., $n" fails because the closing dollar has a space before it and a word right after it.
+     - that closing dollar does not itself open something. "$18-$7" fails because a digit follows the closing dollar. "$2, ..., $n" fails because the closing dollar has a space before it and a word right after it. "$5 ($x$ each)" fails because the closing dollar follows a bracket and opens whole maths. "$ 5 and $ 10" fails because the closing dollar opens another amount with prose between.
 
-     A spaced amount ("$ 18,000", which the service writes for "$18,000") needs two prose words before it is escaped, because the service pads real maths the same way ("$ 0 \in … $"). The prose test ignores `\text{…}`, `\mathrm{…}`, environment names and operator names (range, null, span, dim, …).
+     Otherwise a spaced amount ("$ 18,000", which the service writes for "$18,000") needs two prose words before it is escaped, because the service pads real maths the same way ("$ 0 \in … $"). The prose test ignores `\text{…}`, `\mathrm{…}`, environment names and operator names (range, null, span, dim, …).
    - **(e) `algorithm` regions are Code only when they hold code** (`_holds_code`).
      - Code signs: R assignment, pipes or comparisons; a call on a line of its own; calls or indexing with no run of words; a fence; a leading `#` comment line.
      - Maths in dollars is never code.
@@ -57,7 +60,7 @@ It adds no migration and no successor, and it changes no Reader or sidecar code.
      - it is below every region of its column;
      - it starts at that column's left edge, so a margin note is excluded;
      - it is set off from the region above by a gap, so a line the answer dropped is excluded;
-     - it is not a page number, and not a running line repeated across the pages read (digits stand for any number);
+     - it is not a page number or a bare number ("33.", an exercise's number in the margin), and not a running line: a line of at most 100 characters in the top or bottom 12% of the page that comes back within 2 pt of the same height on another page read (digits stand for any number). The same words in a page's body never make a footnote line running;
      - its text is not already in the page's blocks, by letters and digits or by word pairs, so LaTeX and Unicode maths agree.
 
      Raised marks become superscripts ("¹ See …"). Lines join into one footnote, and a hyphen at a line end joins its word. The footnote is placed after the page's last block, under the same heading (`glm/page/N/text_layer/K`).
@@ -66,8 +69,9 @@ It adds no migration and no successor, and it changes no Reader or sidecar code.
      - be inside no other region, with no other region between it and the display (the next column);
      - be the only such number for that display, and that display the only one for it.
 
-     A display that already carries a number is left alone, and nothing is guessed.
-   - **Health flags.** `glm_ocr_footnotes_from_text_layer` and `glm_ocr_equation_numbers_from_text_layer` record recoveries. `glm_ocr_no_text_layer` marks a scan or an image, `glm_ocr_text_layer_missing_on_some_pages` a partial scan, and `glm_ocr_text_layer_unavailable` a missing pypdfium2 or a PDF pdfium can't open. These are document flags, not page flags, so a recovery or a scan never makes a "difficult page".
+     A display that already carries its number is left alone: a `\tag`, or recognised text ending with that very number while the number lies inside the display's region. A formula's own brackets ("f(0)") never stop the tag, and nothing is guessed.
+   - **Health flags.** `glm_ocr_footnotes_from_text_layer` and `glm_ocr_equation_numbers_from_text_layer` record recoveries. `glm_ocr_no_text_layer` marks a scan or an image, `glm_ocr_text_layer_missing_on_some_pages` a partial scan, and `glm_ocr_text_layer_unavailable` a missing pypdfium2, a PDF pdfium can't open, or a pdfium worker that failed.
+   - **pdfium runs in a worker process.** pdfium is not thread-safe and the Reader renders with it in the sidecar's process, so the text layer (and a local server's page images) is read by a worker of its own; a crash or a timeout stays there. These are document flags, not page flags, so a recovery or a scan never makes a "difficult page".
 4. **Fixtures** (`tests/fixtures/glm_ocr/`, attribution in its README and in the test module):
    - `arxiv_2302_11517_trimmed.json` is z.ai's recorded answer for Wei Tang, Kangning Cui and Raymond H. Chan, arXiv:2302.11517v2, licensed CC BY 4.0. It is trimmed, and its kept regions are unmodified.
    - `synthetic_book_window.json` reproduces the book patterns with invented text: div wrappers, flat headings, split numbers, currency, `algorithm` boxes and R, `vision_footnote` credits, and no footnote regions.
@@ -188,9 +192,9 @@ The only new blocks are the recovered footnotes, each after its page's last bloc
 - **Axler's epigraph is typed Footnote.** The server dropped it; it sits at the foot of the chapter's opening page. Marker's reading typed it Footnote too. Keeping its words seemed better than losing them.
 - **Dropped body lines are not recovered.** One Axler line (p. 319) runs on from its region with no gap. It is recognised as such and left out, never typed as a footnote, so the server's recall loss stands. Recovering such lines into their region would be a change to the region text, not done here.
 - **Footnotes are plain text.** Maths in a footnote reads as the PDF's text layer has it, as on Blitzstein p. 351, where subscripts come out as plain characters. A dollar in a footnote is escaped.
-- **Joining split numbers is a judgement call.** An enumerated exercise that starts "1. 5 people …" would also be joined ("1.5 people"). None occurred in the 39 answers.
+- **Joining split numbers needs evidence.** A list's item ("1. 5 people …") stays as read unless the label before it numbers 1.2–1.4, nothing at or below 1.5 follows, and no item "2. …" sits beside it. A label whose neighbours went unread (more than 3 apart) stays split; one Axler result read twice (heading and body, both "7.9") keeps its label on the heading only.
 - **The outline beats numbering.** Under an outline, an unbookmarked numbered heading at or above the last bookmarked level nests under it. That is right for result labels. A section heading the server misread badly enough to miss its bookmark would nest one level too deep.
-- **A running footer needs two pages.** It is recognised by repeating across the pages read, so a one-page import could keep a running footer as a footnote. Page numbers are always recognised.
+- **A running footer needs two pages.** It is recognised by coming back at the same height in the margin across the pages read, so a one-page import could keep a running footer as a footnote. Page numbers are always recognised.
 - **No card line for scans.** The live report suggested saying on the Library card that a scan's footnotes and equation numbers can't be recovered. This stage records it in health only (`glm_ocr_no_text_layer`), to stay inside the extractor and leave `add_source.py` to the re-read safety stage. See open questions.
 
 ## Gate (final tree; code at `347ba844a`; no network, `--offline`)
@@ -215,7 +219,7 @@ The only new blocks are the recovered footnotes, each after its page's last bloc
 ## Files
 
 - `src/learnloop/ingest/extractors/glm_ocr.py`: the estimate; `MAP_VERSION` 2; `model_versions` gains `text_layer`; `_unwrap_html`, `_collapse_split_number`, `_escape_currency`, `_holds_code`, `_Headings`; and the text layer wired into `responses_to_ir` and `extract`.
-- `src/learnloop/ingest/extractors/glm_text_layer.py` (new): pdfium text runs in the Reader's points, footnotes, equation numbers and health flags.
+- `src/learnloop/ingest/extractors/glm_text_layer.py` (new): pdfium text runs in the Reader's points (read in a worker process), footnotes, equation numbers and health flags.
 - `tests/test_glm_ocr.py` and `tests/fixtures/glm_ocr/` (README with attribution).
 - `docs/specs/spec_source_ingestion_v2.md`, `docs/reviews/glm-ocr-ingest.md`, `docs/learnloop-architecture-vault/_scripts/db_generate_reference.py`, and the two config reference notes whose content changed (`Config - ingest.md`, `Config - schema_version.md`).
 - Not committed (gitignored, third-party content): `fixtures-local/glm-live-run/out/quality/revalidate.json` and the saved answers.

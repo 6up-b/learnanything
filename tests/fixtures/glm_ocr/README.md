@@ -26,7 +26,8 @@ owner's textbooks:
 
 - titles and captions wrapped in `<div align="center">`;
 - every heading at `##`;
-- split labels such as `1. 11 definition:` and `1. 4.11 (…)`;
+- split labels such as `1. 11 definition:`, then `1. 5` and `1. 6 (…)` after the
+  label `1.4`, so the book's own numbering vouches for each;
 - currency dollars in prose;
 - `algorithm` regions that hold either boxed results or R code;
 - `vision_footnote` credits;

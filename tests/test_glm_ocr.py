@@ -1688,19 +1688,33 @@ def test_q2b_heading_depth_comes_from_the_outline_else_the_numbering():
 def test_q2c_split_numbering_is_collapsed_where_it_is_a_label():
     from learnloop.ingest.block_roles import numbered_label
 
-    assert glm._collapse_split_number("1. 11 definition: tuple") == "1.11 definition: tuple"
-    assert glm._collapse_split_number("1. 39") == "1.39"
-    assert glm._collapse_split_number("3. 6 $ \\mathcal{T}(A, B) $ is a set of maps") == (
+    def joined(*texts, heading=()):
+        return glm._join_split_labels([("SectionHeader" if i in heading else "Text", t) for i, t in enumerate(texts)])
+
+    # An environment word vouches for it on its own.
+    assert joined("1. 11 definition: tuple") == ["1.11 definition: tuple"]
+    assert joined("2. 4.1. Example. A tally") == ["2.4.1. Example. A tally"]
+    # Otherwise the label before it, numbered the same way a little lower (Axler's
+    # "1. 39" after "1.37 example"), or the section it opens ("1. 4.2." under "1.4").
+    assert joined("1.37 example: sums", "1. 39") == ["1.37 example: sums", "1.39"]
+    assert joined("3.5 definition: maps", "3. 6 $ \\mathcal{T}(A, B) $ is a set of maps")[1] == (
         "3.6 $ \\mathcal{T}(A, B) $ is a set of maps")
-    assert glm._collapse_split_number("1. 4.11 (Naming things). Picking") == "1.4.11 (Naming things). Picking"
-    assert glm._collapse_split_number("2. 4.1. When we count") == "2.4.1. When we count"
+    assert joined("1.4.10 (Counting things). Words.", "1. 4.11 (Naming things). Picking")[1] == (
+        "1.4.11 (Naming things). Picking")
+    assert joined("2.4 Conditional things", "2. 4.1. When we count", heading={0})[1] == "2.4.1. When we count"
+    # A run of them, each vouching for the next.
+    assert joined("1.25 definition: sums", "1. 26 unique zero", "1. 27 unique inverse", "1. 29") == [
+        "1.25 definition: sums", "1.26 unique zero", "1.27 unique inverse", "1.29"]
     for unchanged in ("1. Write each of the following", "6. 012XY Invented Course", "1.10 notation",
                       "Then 1. 5 is wrong"):
-        assert glm._collapse_split_number(unchanged) == unchanged
+        assert joined("1.37 example: sums", unchanged)[1] == unchanged
+    # Too far ahead, or under another number: no evidence.
+    assert joined("1.4 example: sums", "1. 39")[1] == "1. 39"
+    assert joined("2.38 example: sums", "1. 39")[1] == "1. 39"
 
     ir = book_ir(text_layer=None)
     labels = {(label.kind, label.number) for label in (numbered_label(b.text, b.block_type) for b in ir.blocks) if label}
-    assert {("definition", "1.11"), (None, "1.39"), (None, "1.4.11"), ("example", "1.4")} <= labels
+    assert {("definition", "1.11"), (None, "1.5"), (None, "1.6"), ("example", "1.4")} <= labels
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -2014,21 +2028,199 @@ def test_q3_text_layer_boxes_follow_the_rotated_crop_box_the_reader_draws_in():
     page.cropbox.upper_right = (550, 700)  # 500 x 600 points shown
     out = io.BytesIO()
     writer.write(out)
-    unrotated = glm._open_text_layer(out.getvalue())[0]
-    try:
-        (words,) = [s for s in unrotated(0) if s.text.strip() == "Marker words"]
-    finally:
-        unrotated.close()
+    unrotated, flag = glm._read_text_layer(out.getvalue(), [0])
+    assert flag is None
+    (words,) = [s for s in unrotated(0) if s.text.strip() == "Marker words"]
     # Baseline 600 from the bottom of the media box: 100 from the crop box's top.
     assert 48 <= words.x0 <= 52 and 90 <= words.top <= 100 and 98 <= words.bottom <= 104
 
     page.rotate(90)  # shown 600 x 500: the crop box's left edge is now its top
     out = io.BytesIO()
     writer.write(out)
-    rotated = glm._open_text_layer(out.getvalue())[0]
-    try:
-        (turned,) = [s for s in rotated(0) if s.text.strip() == "Marker words"]
-    finally:
-        rotated.close()
+    rotated = glm._read_text_layer(out.getvalue(), [0])[0]
+    (turned,) = [s for s in rotated(0) if s.text.strip() == "Marker words"]
     assert 48 <= turned.top <= 52 and turned.bottom > turned.top + 40  # runs down the page
     assert 496 <= turned.x0 <= 504 and turned.x1 <= 512
+
+
+# -- the Codex review of the content-quality stage (docs/reviews/glm-ocr-quality-codex-review.md) --
+
+
+def _drain_beside_the_reader(extract, path):
+    """Run ``extract`` on a thread named like the import drain while the
+    Reader keeps rendering ``path``'s first page on this one; returns what
+    ``extract`` returned and how many pages the Reader rendered meanwhile."""
+
+    from learnloop.reader import span_view
+
+    done, read = threading.Event(), {}
+
+    def drain():
+        try:
+            read["value"] = extract()
+        except BaseException as exc:  # noqa: BLE001 - re-raised below, on the test's thread
+            read["error"] = exc
+        finally:
+            done.set()
+
+    worker = threading.Thread(target=drain, name="learnloop-ingest-drain")
+    worker.start()
+    renders = 0
+    while not done.is_set() or not renders:
+        image, _ = span_view._local_pdf_page_render(path, 0)
+        assert image and image.startswith("data:image/png;base64,")
+        renders += 1
+    worker.join()
+    if "error" in read:
+        raise read["error"]
+    return read["value"], renders
+
+
+def _footnote_pdf_answer(body):
+    return {"layout_details": [[region(0, "text", "Body words of the first page.", [140, 176, 700, 210])]],
+            "data_info": {"pages": [{"width": 1224, "height": 1584}]}}
+
+
+def test_cr_f1_extraction_never_enters_pdfium_in_this_process_while_the_reader_renders(monkeypatch, tmp_path):
+    """pdfium is not thread-safe, and the Reader renders with it in the
+    sidecar's process: an import reads the text layer (and renders pages for
+    a local server) in a worker process of its own."""
+
+    pdfium = pytest.importorskip("pypdfium2")
+    raw = text_pdf([[(72, 100, 11, "Body words of the first page."), (72, 702, 6, "1"),
+                     (76, 706, 9, "A generated footnote.")]])
+    path = tmp_path / "book.pdf"
+    path.write_bytes(raw)
+    record(monkeypatch, _footnote_pdf_answer)
+    extractor = api(monkeypatch)
+    entered = []
+    opened = pdfium.PdfDocument
+
+    def watched(*args, **kwargs):
+        entered.append(threading.current_thread().name)
+        return opened(*args, **kwargs)
+
+    monkeypatch.setattr(pdfium, "PdfDocument", watched)
+    ir, renders = _drain_beside_the_reader(lambda: extractor.extract(raw, ok()), path)
+
+    assert renders >= 1
+    assert set(entered) == {threading.current_thread().name}  # only the Reader entered pdfium here
+    (footnote,) = [b for b in ir.blocks if b.block_type == "Footnote"]  # the worker read the text layer
+    assert footnote.text == "¹ A generated footnote."
+    assert "glm_ocr_footnotes_from_text_layer" in ir.health.flags
+
+    entered.clear()
+    images, _ = _drain_beside_the_reader(lambda: glm._render_pages(raw, [0]), path)
+    assert base64.b64decode(images[0].split(",", 1)[1]).startswith(b"\x89PNG")
+    assert "learnloop-ingest-drain" not in entered
+
+
+def test_cr_f1_a_worker_that_crashes_or_hangs_is_recorded_and_the_reading_goes_on(monkeypatch):
+    pytest.importorskip("pypdfium2")
+    from learnloop.ingest.extractors import glm_text_layer
+
+    raw = text_pdf([[(72, 100, 11, "Body words of the first page."), (72, 702, 6, "1"),
+                     (76, 706, 9, "A generated footnote.")]])
+    record(monkeypatch, _footnote_pdf_answer)
+    monkeypatch.setattr(glm_text_layer, "_WORKER", "import os; os.abort()")  # a native crash
+    crashed = api(monkeypatch).extract(raw, ok())
+    assert "glm_ocr_text_layer_unavailable" in crashed.health.flags
+    assert [b.text for b in crashed.blocks] == ["Body words of the first page."]
+    with pytest.raises(glm.GlmOcrExtractionError, match="render"):
+        glm._render_pages(raw, [0])
+
+    monkeypatch.setattr(glm_text_layer, "_WORKER", "import time; time.sleep(60)")
+    monkeypatch.setattr(glm_text_layer, "_WORKER_MIN_SECONDS", 0.5)
+    hung = api(monkeypatch).extract(raw, ok())
+    assert "glm_ocr_text_layer_unavailable" in hung.health.flags
+
+
+def _label_texts(*texts, outline=()):
+    page = [region(i, "text", text, [100, 100 + 60 * i, 1100, 140 + 60 * i],
+                   native="paragraph_title" if text.startswith("## ") else None)
+            for i, text in enumerate(texts)]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 1584.0)], outline=list(outline),
+                             version="t")
+    return [b.text for b in ir.blocks]
+
+
+def test_cr_f2_list_items_keep_their_numbers_without_the_documents_numbering_behind_them():
+    from learnloop.ingest.block_roles import numbered_label
+
+    # A list in chapter 3: nothing numbers "1.5" or "2.3" there.
+    texts = _label_texts("3.14 definition: tallies", "1. 5 people arrive.", "2. 3 is prime", "3. 7", "1. 39")
+    assert texts == ["3.14 definition: tallies", "1. 5 people arrive.", "2. 3 is prime", "3. 7", "1. 39"]
+    assert numbered_label(texts[0], "Text").number == "3.14"
+    for text in texts[1:]:
+        assert numbered_label(text, "Text") is None, text
+    # Among chapter 1's labels: the next label is 1.5 itself, or the items run on as a list.
+    assert _label_texts("1.4 example: tallies", "1. 5 people arrive.", "1.5 definition: lists")[1] == (
+        "1. 5 people arrive.")
+    assert _label_texts("1.4 example: tallies", "1. 5 people arrive.", "2. 3 is prime", "1.9 definition: lists")[1:3] == [
+        "1. 5 people arrive.", "2. 3 is prime"]
+    assert _label_texts("1. 5 people arrive.") == ["1. 5 people arrive."]  # nothing at all behind it
+
+
+def test_cr_f3_currency_never_takes_the_opening_dollar_of_maths_beside_it():
+    assert glm._escape_currency("$5 ($x$ each)") == r"\$5 ($x$ each)"
+    assert glm._escape_currency("costs $5 ($ x $ each)") == r"costs \$5 ($ x $ each)"
+    assert glm._escape_currency("$ 5 and $ 10") == r"\$ 5 and \$ 10"
+    assert glm._escape_currency("between $ 5 and $ 10 a day") == r"between \$ 5 and \$ 10 a day"
+    for kept in ("$x$", "$5x$", r"$\$5$", r"so $ 2 \leq j $ 10 times", "pay $5x$ or $(1+y)$ now",
+                 "you get $n$ instead of $2^{n}$ when"):
+        assert glm._escape_currency(kept) == kept, kept
+    assert _math_spans(glm._escape_currency("$5 ($x$ each)")) == ["x"]
+    assert _math_spans(glm._escape_currency("costs $5 ($ x $ each)")) == [" x "]
+    assert _math_spans(glm._escape_currency("$ 5 and $ 10")) == []
+
+
+def test_cr_f4_an_exact_bookmark_beats_one_that_matches_only_without_its_numbering():
+    page = [
+        region(0, "text", "## 1 Matrices", [100, 100, 900, 140], native="paragraph_title"),
+        region(1, "text", "## 1.1 Matrices", [100, 160, 900, 200], native="paragraph_title"),
+        region(2, "text", "Words.", [100, 220, 900, 260]),
+    ]
+    outline = [{"title": "1 Matrices", "heading_level": 1, "page_id": 0},
+               {"title": "1.1 Matrices", "heading_level": 2, "page_id": 0},
+               {"title": "1.2 Maps", "heading_level": 2, "page_id": 1}]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=outline, version="t")
+    assert by_text(ir, "Words.").section_path == ["1 Matrices", "1.1 Matrices"]
+
+
+def test_cr_f5_a_formulas_own_brackets_never_stop_an_equation_number_from_coming_back():
+    from learnloop.ingest.block_roles import numbered_label
+
+    page = [
+        region(0, "formula", "$$\ny = f(0)\n$$", [400, 200, 900, 260]),  # [200, 100, 450, 130]: "(3)" beyond it
+        region(1, "formula", "$$\na = b \\quad (4)\n$$", [400, 400, 1200, 460]),  # [200, 200, 600, 230]: holds "(4)"
+        region(2, "formula", "$$\nz = g(5)\n$$", [400, 600, 900, 660]),  # [200, 300, 450, 330]: "(5)" beyond it
+    ]
+    segments = [
+        seg(250, 108, 300, 122, "y = f(0)"), seg(520, 109, 532, 121, "(3)"),
+        seg(250, 208, 300, 222, "a = b"), seg(580, 209, 592, 221, "(4)"),
+        seg(250, 308, 300, 322, "z = g(5)"), seg(520, 309, 532, 321, "(5)"),
+    ]
+    ir = glm.responses_to_ir([({"layout_details": [page]}, [0])], sizes=[(612.0, 792.0)], outline=[], version="t",
+                             text_layer=layer({0: segments}))
+    texts = [b.text for b in ir.blocks]
+    assert texts == ["$$\ny = f(0) \\tag{3}\n$$", "$$\na = b \\quad (4)\n$$", "$$\nz = g(5) \\tag{5}\n$$"]
+    assert [numbered_label(text, "Equation").number for text in texts] == ["3", "4", "5"]
+
+
+def test_cr_f6_a_footnote_line_that_the_body_repeats_elsewhere_is_kept():
+    pages = [[region(0, "text", "Body words. See Chapter 2 for the proof.", [100, 100, 1100, 300])],
+             [region(0, "text", "More body words.", [100, 100, 1100, 300])]]
+    segments = {
+        0: [seg(50, 52, 500, 62, "Body words."), seg(50, 64, 300, 74, "See Chapter 2 for the proof."),
+            seg(200, 770, 400, 779, "An Invented Running Footer")],
+        1: [seg(50, 52, 500, 62, "More body words."),
+            seg(50, 690, 52, 694, "1"), seg(54, 690, 400, 699, "A note on tallies that runs on."),
+            seg(50, 701, 300, 710, "See Chapter 2 for the proof."),
+            seg(200, 770, 400, 779, "An Invented Running Footer")],
+    }
+    ir = glm.responses_to_ir([({"layout_details": pages}, [0, 1])], sizes=[(612.0, 792.0)] * 2, outline=[],
+                             version="t", text_layer=layer(segments))
+    (footnote,) = [b for b in ir.blocks if b.block_type == "Footnote"]
+    assert footnote.text == "¹ A note on tallies that runs on. See Chapter 2 for the proof."
+    assert footnote.bbox == [50.0, 690.0, 400.0, 710.0]
+    assert not any("Running Footer" in b.text for b in ir.blocks)  # a real running line still goes

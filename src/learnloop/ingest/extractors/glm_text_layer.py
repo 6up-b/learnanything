@@ -9,23 +9,36 @@ block boxes), give back:
 
 - footnotes: lines below every region of their column, near the page's foot,
   set off from the region above and starting at its left edge, that no
-  region read, that are not page numbers or running lines repeated across
-  the pages read, and whose text is not already in the page's blocks;
+  region read, that are not page numbers or running lines (short lines in
+  the top or bottom margin, at the same height on several of the pages
+  read), and whose text is not already in the page's blocks;
 - display-equation numbers: one "(n)" beside a display region, in its band
   and inside no other region, becomes the equation's ``\\tag{n}`` (what
   ``block_roles.numbered_label`` reads). Two candidates are never guessed
-  between, and an equation that already carries a number is left alone.
+  between, and an equation whose recognised text already ends with that
+  number is left alone.
+
+pdfium is not thread-safe, and the Reader renders PDF pages with it in the
+sidecar's own process while an import reads in the background: so the
+import's pdfium work (this text layer, and the page images a self-hosted
+server is shown) runs in a worker process of its own (``pdfium_worker``).
 
 A scan has no text layer: nothing is recovered and the reading says so.
 Everything here is local and best-effort: a page pdfium can't read counts
-as a page without a text layer, never as a failed extraction.
+as a page without a text layer, and a worker that fails, crashes or runs
+out of time recovers nothing, never failing the extraction.
 """
 
 from __future__ import annotations
 
+import base64
 import importlib.util
+import io
+import json
 import re
 import statistics
+import subprocess
+import sys
 import unicodedata
 from collections import Counter
 from collections.abc import Callable, Sequence
@@ -39,13 +52,24 @@ EQUATION_NUMBERS_RECOVERED = "glm_ocr_equation_numbers_from_text_layer"
 
 # A footnote starts in the lower part of the page (fraction of its height).
 _FOOTNOTE_ZONE = 0.6
+# A running line (header or footer) sits in the top or bottom margin
+# (fraction of the page's height), is short, and comes back at the same
+# height (points) on another page read.
+_RUNNING_MARGIN = 0.12
+_RUNNING_CHARS = 100
+_RUNNING_HEIGHT = 2.0
 _SUPERSCRIPT = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 _MARKER = re.compile(r"^(?:\d{1,3}|[*∗†‡§¶]{1,3}|[a-z])$")
 _SYMBOL_MARK = re.compile(r"^(?:[*∗†‡§¶]{1,3}|[⁰¹²³⁴⁵⁶⁷⁸⁹]{1,3})\s*\S")
+# A page number ("7", "- 7 -", "Page 7 of 9"), or a bare number like it ("33.",
+# an exercise's number set in the margin): never a footnote's text.
 _PAGE_NUMBER = re.compile(
-    r"^(?:page\s+)?[\[(\-–—\s]*(?:\d{1,4}|[ivxlcdm]{1,8})[\])\-–—\s]*(?:(?:of|/)\s*\d{1,4})?$", re.IGNORECASE
+    r"^(?:page\s+)?[\[(\-–—\s]*(?:\d{1,4}|[ivxlcdm]{1,8})[\]).\-–—\s]*(?:(?:of|/)\s*\d{1,4})?$", re.IGNORECASE
 )
 _EQUATION_NUMBER = re.compile(r"^\(\s*(\d+(?:\.\d+)*[a-z]?|[A-Z]\.\d+(?:\.\d+)*)\s*\)$")
+# A display's recognised text ending with a number in brackets: its label,
+# or its own maths ("f(0)").
+_TRAILING_NUMBER = re.compile(r"\(\s*(\d+(?:\.\d+)*[a-z]?|[A-Z]\.\d+(?:\.\d+)*)\s*\)\s*(?:\$\$|\\\])$")
 _DISPLAY_ENVIRONMENT = re.compile(r"\\begin\{(?:align|equation|gather|multline|eqnarray|flalign)\*?\}")
 _ALNUM = re.compile(r"[^0-9a-z]+")
 
@@ -88,7 +112,8 @@ def text_layer_engine() -> str:
 
 class PdfTextLayer:
     """``layer(page)``: the zero-based page's text segments, None when pdfium
-    can't read the page. ``close()`` releases the document."""
+    can't read the page. ``close()`` releases the document. Inside the
+    pdfium worker only (``read_text_layer``)."""
 
     def __init__(self, document: Any):
         self._document = document
@@ -140,17 +165,124 @@ def _clean(text: str) -> str:
     return unicodedata.normalize("NFC", " ".join(text.split()))
 
 
-def open_text_layer(raw: bytes) -> tuple[PdfTextLayer | None, str | None]:
-    """The PDF's text layer, or None and the health flag saying why not."""
+def read_text_layer(raw: bytes, pages: Sequence[int]) -> tuple[PageTextLayer | None, str | None]:
+    """The PDF's text layer on ``pages`` (zero-based), read by pdfium in a
+    worker process; or None and the health flag saying why not (pypdfium2
+    missing, a PDF pdfium can't open, a worker that crashed or ran out of
+    time)."""
 
+    if text_layer_engine() == "none":
+        return None, TEXT_LAYER_UNAVAILABLE
+    try:
+        answer = pdfium_worker("text", raw, pages)
+        read = {
+            int(page): None if segments is None else [
+                TextSegment(*(float(value) for value in segment[:4]), str(segment[4])) for segment in segments
+            ]
+            for page, segments in answer.items()
+        }
+    except (PdfiumWorkerError, AttributeError, TypeError, ValueError, IndexError):
+        return None, TEXT_LAYER_UNAVAILABLE
+    return read.get, None
+
+
+# -- pdfium, in a worker process ----------------------------------------------------------
+#
+# pdfium is not thread-safe (pypdfium2: "PDFium is inherently not
+# thread-safe"), and the Reader renders PDF pages with it in the sidecar's own
+# process (reader/span_view.py) while an import runs on the ingest drain's
+# thread. Two threads inside pdfium at once crashed the process with a
+# segmentation fault (docs/reviews/glm-ocr-quality-codex-review.md, F1), which
+# no Python exception handler contains. So the import never enters pdfium in
+# this process: each reading starts one worker (``sys.executable``, the same
+# environment), hands it the file on stdin and reads JSON back. A crash, a
+# failure or a timeout stays in the worker.
+
+_WORKER = "from learnloop.ingest.extractors.glm_text_layer import _worker_main; _worker_main()"
+# Generous: Axler's 404 pages read in about 3 s in one process.
+_WORKER_MIN_SECONDS = 120.0
+_WORKER_SECONDS_PER_PAGE = 1.0
+
+
+class PdfiumWorkerError(RuntimeError):
+    """The worker could not do the pdfium work (pypdfium2 missing, a PDF
+    pdfium can't open, a crash, a failure or a timeout)."""
+
+
+def pdfium_worker(task: str, raw: bytes, pages: Sequence[int], **options: Any) -> Any:
+    """Run ``task`` on the PDF ``raw`` in a worker process: "text", each
+    page's text segments by page; "render", each page as a PNG data URI at
+    ``scale``."""
+
+    pages = [int(page) for page in pages]
+    request = json.dumps({"task": task, "pages": pages, **options})
+    timeout = max(_WORKER_MIN_SECONDS, _WORKER_SECONDS_PER_PAGE * len(pages))
+    try:
+        # -P: nothing in the working directory can stand in for a module.
+        done = subprocess.run(
+            [sys.executable, "-P", "-c", _WORKER, request], input=raw, capture_output=True, timeout=timeout,
+            check=False, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:  # TimeoutExpired: run() kills the worker
+        raise PdfiumWorkerError(f"the pdfium worker did not finish ({type(exc).__name__})") from None
+    if done.returncode != 0:
+        raise PdfiumWorkerError(f"the pdfium worker stopped (exit {done.returncode})")
+    try:
+        answer = json.loads(done.stdout)
+    except ValueError:
+        raise PdfiumWorkerError("the pdfium worker's answer is not JSON") from None
+    if not isinstance(answer, dict) or "result" not in answer:
+        reason = answer.get("error") if isinstance(answer, dict) else None
+        raise PdfiumWorkerError(f"the pdfium worker could not do it ({reason or 'no result'})")
+    return answer["result"]
+
+
+def _worker_main() -> None:
+    """The worker's side: the request in ``sys.argv[1]``, the PDF on stdin,
+    ``{"result": ...}`` or ``{"error": ...}`` on stdout."""
+
+    request = json.loads(sys.argv[1])
+    raw = sys.stdin.buffer.read()
     try:
         import pypdfium2 as pdfium
     except ImportError:
-        return None, TEXT_LAYER_UNAVAILABLE
+        sys.stdout.write(json.dumps({"error": "pypdfium2 is not installed"}))
+        return
     try:
-        return PdfTextLayer(pdfium.PdfDocument(raw)), None
-    except Exception:  # noqa: BLE001 - pdfium can't open it: nothing to recover from
-        return None, TEXT_LAYER_UNAVAILABLE
+        document = pdfium.PdfDocument(raw)
+    except Exception:  # noqa: BLE001 - pdfium can't open it
+        sys.stdout.write(json.dumps({"error": "pdfium can't open the PDF"}))
+        return
+    try:
+        result: Any
+        if request["task"] == "text":
+            layer = PdfTextLayer(document)
+            result = {}
+            for index in request["pages"]:
+                segments = layer(index)
+                result[str(index)] = None if segments is None else [list(segment) for segment in segments]
+        elif request["task"] == "render":
+            result = []
+            for index in request["pages"]:
+                page = document[index]
+                try:
+                    bitmap = page.render(scale=float(request["scale"]))
+                    try:
+                        out = io.BytesIO()
+                        bitmap.to_pil().save(out, format="PNG")
+                    finally:
+                        bitmap.close()
+                finally:
+                    page.close()
+                result.append("data:image/png;base64," + base64.b64encode(out.getvalue()).decode("ascii"))
+        else:
+            raise ValueError(f"unknown task {request['task']!r}")
+    except Exception as exc:  # noqa: BLE001 - reported to the caller, which decides
+        sys.stdout.write(json.dumps({"error": type(exc).__name__}))
+        return
+    finally:
+        document.close()
+    sys.stdout.write(json.dumps({"result": result}))
 
 
 def _placed(left: float, bottom: float, right: float, top: float, text: str,
@@ -249,10 +381,13 @@ def _run(segments: list[TextSegment]) -> TextRun:
 
 class PageTexts:
     """The text segments and runs of every page read, and the running lines
-    that repeat across them (headers and footers: digits stand for any
-    number)."""
+    among them: headers and footers, short lines in the top or bottom margin
+    that come back at the same height on another page read (digits stand for
+    any number). The same words in a page's body never make a line running
+    (a footnote's "See Chapter 2 for the proof." that the text also says
+    elsewhere stays in the footnote)."""
 
-    def __init__(self, layer: PageTextLayer, pages: Sequence[int]):
+    def __init__(self, layer: PageTextLayer, pages: Sequence[int], heights: Callable[[int], float]):
         self._pages: dict[int, tuple[list[TextSegment], list[TextRun]] | None] = {}
         for page in dict.fromkeys(pages):
             try:
@@ -260,10 +395,29 @@ class PageTexts:
             except Exception:  # noqa: BLE001 - best-effort, as for an unreadable page
                 segments = []
             self._pages[page] = (segments, text_runs(segments)) if segments else None
-        counts: Counter[str] = Counter()
-        for read in self._pages.values():
-            counts.update({_running_key(run.text) for run in (read[1] if read else ())})
-        self._repeated = {key for key, count in counts.items() if count >= 2 and key}
+        marginal: dict[str, list[tuple[float, int]]] = {}
+        for page, read in self._pages.items():
+            height = heights(page)
+            for run in read[1] if read else ():
+                key = _running_key(run.text)
+                if key and len(run.text) <= _RUNNING_CHARS and (
+                    run.bottom <= _RUNNING_MARGIN * height or run.top >= (1 - _RUNNING_MARGIN) * height
+                ):
+                    marginal.setdefault(key, []).append((run.top, page))
+        # key -> the heights it runs at (on two pages or more)
+        self._running: dict[str, list[float]] = {}
+        for key, places in marginal.items():
+            places.sort()
+            start = 0
+            for top, page in places:
+                while places[start][0] < top - _RUNNING_HEIGHT:
+                    start += 1
+                other = start
+                while other < len(places) and places[other][0] <= top + _RUNNING_HEIGHT:
+                    if places[other][1] != page:
+                        self._running.setdefault(key, []).append(top)
+                        break
+                    other += 1
 
     def segments(self, page: int) -> list[TextSegment] | None:
         read = self._pages.get(page)
@@ -273,8 +427,12 @@ class PageTexts:
         read = self._pages.get(page)
         return read[1] if read else None
 
-    def is_furniture(self, text: str) -> bool:
-        return bool(_PAGE_NUMBER.match(text.strip())) or _running_key(text) in self._repeated
+    def is_furniture(self, run: TextRun) -> bool:
+        """A page number, or a running line where it runs."""
+
+        if _PAGE_NUMBER.match(run.text.strip()):
+            return True
+        return any(abs(run.top - top) <= _RUNNING_HEIGHT for top in self._running.get(_running_key(run.text), ()))
 
 
 def _running_key(text: str) -> str:
@@ -319,11 +477,20 @@ def _set_apart(segment: TextSegment, segments: Sequence[TextSegment]) -> bool:
     return True
 
 
+class EquationNumber(NamedTuple):
+    """A display's number from the text layer, and whether it lies beside
+    the display's region rather than in it (then the recognised text can't
+    hold it)."""
+
+    number: str
+    beside: bool
+
+
 def equation_numbers(
     segments: Sequence[TextSegment] | None,
     equations: dict[int, Sequence[float]],
     boxes: Sequence[Sequence[float] | None],
-) -> dict[int, str]:
+) -> dict[int, EquationNumber]:
     """The number to tag each display region with, by region position.
 
     ``equations``: position -> box of each display region; ``boxes``: every
@@ -356,28 +523,34 @@ def equation_numbers(
             if any(min(other[3], box[3]) > max(other[1], box[1]) and other[0] < segment.x0 and other[2] > box[2]
                    for other in others):
                 continue  # another region (the next column) lies between them
-            found.append((index, number))
+            found.append((index, EquationNumber(number, not _inside(segment, box))))
         candidates[position] = found
         claimed.update(index for index, _ in found)
     return {position: found[0][1] for position, found in candidates.items()
             if len(found) == 1 and claimed[found[0][0]] == 1}
 
 
-def with_equation_tag(text: str, number: str) -> str | None:
+def with_equation_tag(text: str, number: EquationNumber) -> str | None:
     """``text`` (a display, ``$$...$$`` or ``\\[...\\]``) tagged with
-    ``number``, or None when it already carries a number or can't take one."""
+    ``number``, or None when it already carries a number or can't take one.
+
+    A display carries its number when it has a ``\\tag``, or when it ends
+    with that very number in brackets and the number lies in its region (the
+    recognition read it). Its own maths ending in brackets ("f(0)") is no
+    number: then the tag goes on."""
 
     stripped = text.strip()
-    if "\\tag" in stripped or re.search(r"\(\s*\d+(?:\.\d+)*[a-z]?\s*\)\s*(?:\$\$|\\\])$", stripped):
+    if "\\tag" in stripped or _DISPLAY_ENVIRONMENT.search(stripped):
         return None
-    if _DISPLAY_ENVIRONMENT.search(stripped):
+    trailing = _TRAILING_NUMBER.search(stripped)
+    if trailing and not number.beside and trailing[1].replace(" ", "") == number.number:
         return None
     for opener, closer in (("$$", "$$"), ("\\[", "\\]")):
         if stripped.startswith(opener) and stripped.endswith(closer) and len(stripped) > len(opener) + len(closer):
             body = stripped[len(opener):-len(closer)]
             if body.endswith("\n"):
-                return f"{opener}{body[:-1]} \\tag{{{number}}}\n{closer}"
-            return f"{opener}{body} \\tag{{{number}}}{closer}"
+                return f"{opener}{body[:-1]} \\tag{{{number.number}}}\n{closer}"
+            return f"{opener}{body} \\tag{{{number.number}}}{closer}"
     return None
 
 
@@ -390,7 +563,7 @@ def footnotes(
     page_size: tuple[float, float],
     present: str,
     *,
-    is_furniture: Callable[[str], bool],
+    is_furniture: Callable[[TextRun], bool],
 ) -> list[tuple[list[float], str]]:
     """Footnotes the answer lacks on one page, as (box, text) in reading order.
 
@@ -418,7 +591,7 @@ def footnotes(
             continue  # a note beside the text (a margin note), not under its column
         if run.top - column[3] < 0.5 * (run.bottom - run.top):
             continue  # it runs on from the region above (a line the answer dropped), set off by no gap
-        if is_furniture(run.text) or _EQUATION_NUMBER.match(run.text):
+        if is_furniture(run) or _EQUATION_NUMBER.match(run.text):
             continue
         if _already_read(_lead_stripped(run), seen):
             continue
@@ -492,14 +665,17 @@ __all__ = [
     "FOOTNOTES_RECOVERED",
     "NO_TEXT_LAYER",
     "PARTIAL_TEXT_LAYER",
+    "EquationNumber",
     "PageTexts",
     "PdfTextLayer",
+    "PdfiumWorkerError",
     "TEXT_LAYER_UNAVAILABLE",
     "TextRun",
     "TextSegment",
     "equation_numbers",
     "footnotes",
-    "open_text_layer",
+    "pdfium_worker",
+    "read_text_layer",
     "text_layer_engine",
     "text_runs",
     "with_equation_tag",
