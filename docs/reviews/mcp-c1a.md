@@ -15,6 +15,9 @@ what they opened), so `learning_context`, `today` and `progress` now show only a
 learner's own pinned answers and structure; everything a model wrote is held back until a write-time record
 says what it was written from ([mcp-c1a-narrow.md](mcp-c1a-narrow.md): what chat shows now, the follow-up
 stage, the gate that supersedes the ones below and in the F4 record).
+**Landed on main (2026-10-15)** with migration **203** (the placeholder 210 renumbered) and one model-context
+protection shared with router R2a's card (Q16): see "Landing onto main" at the end. The sections above it describe
+the branch as built and keep its placeholder wording.
 **Owner direction (2026-10-13):** start C1; Tailscale Funnel is fine and already works with Claude chat and
 ChatGPT chat (D1); latent learner state (misconceptions, answer traces) must be shared seamlessly between the
 local LearnLoop and the chat frontend through the existing telemetry.
@@ -195,3 +198,243 @@ Run on the branch head (commit `d5e82e929` and its parents), TMPDIR in the workt
   LearnLoop with 443 restored?
 - **Q4:** OAuth before C1b's writes (capture, confirms, chat questions), or before C2 only?
 - **Q5:** migration 210 is a placeholder: renumber at merge alongside the other in-flight stages.
+
+## Landing onto main
+
+**Branch:** `merge/mcp-c1a-onto-main` (worktree `learnanything-merge2`), from main `b9fcaf121`. Main had, since this
+branch's base `9c5c62df9`:
+- router R2a (`mvp-0.23`: `LearnerStateCardV1`, `plan_presentations`, migration 202), R2b + R2c (`mvp-0.24`) and
+  method-explicit items (`mvp-0.25`, LATEST);
+- RW3a, the tutor delivery fixes, GLM-OCR and its quality pass, plan determinism;
+- the storage and adaptive-difficulty specs (docs only);
+- migrations to 202 (head fixture `fixtures/migration_head_202`) and seventeen defaults snapshots (mvp-0.9 .. mvp-0.25).
+
+The merge is a real `--no-ff` merge of `mcp/c1-read-context` (`c84c30e9d`, unchanged). Not pushed. Single phase. The
+sections above, [mcp-c1a-narrow.md](mcp-c1a-narrow.md) and the three Codex review records describe the branch as
+built and keep its placeholder wording (210).
+
+**No algorithm version.** The adapter writes only telemetry and exposure rows. The convergence changes what the
+router's card withholds, a model-context protection that replay never reads. R2a's exam-protection composition and
+method-explicit's card stems were landed the same way.
+**Paid calls:** none ($0.00); no network, no key read. **`apps/`:** unchanged, so no frontend or `cargo` gate.
+
+| Commit | What |
+|---|---|
+| `024b1d9ea` | the merge: the renumber and head fixture, the convergence (`learnloop.learner_protection`), the compositions, the landing tests, the CLI help snapshot, the regenerated references, the Pipeline Map |
+| (this commit) | this section, and the references' source stamps on the merge commit (stamps only, 374 notes) |
+
+### Renumbered: 210 → 203 (Q5, done)
+
+- `migrations/210_chat_mcp_interaction_events.sql` is `203_chat_mcp_interaction_events.sql`. Its header names both
+  numbers ("built on mcp/c1-read-context as 210 ... renumbered 203 at its landing after main's 202"); the temporary
+  table is `interaction_events__203`.
+- Main's 202 does not touch `interaction_events`. So the rebuilt CHECKs (all of main's kinds plus `chat_tool_call`;
+  `origin` plus `chat_host`) are a superset.
+- No new table: `interaction_events` is already RAW_LEDGER in `table_roles.py`, so it needs no replayer.
+- **Head fixture:** main's `fixtures/migration_head_202` was renamed `migration_head_203` (the branch's
+  `migration_head_210` was dropped). Its `state.sqlite` was rebuilt as follows:
+  - a backup-API copy of main's 202 database (`learnloop.db.copies.backup_database`);
+  - only 203 applied by `apply_migrations`; then `wal_checkpoint(TRUNCATE)` → `(0, 0, 0)` and
+    `journal_mode=DELETE`;
+  - `integrity_check` ok, `foreign_key_check` empty;
+  - then copied back into place with the backup API.
+  The README gains the 203 paragraph and the build chain.
+- **Hard-coded head paths:** 24 test files (main added `test_mvp023/024_upgrade`, `test_plan_determinism` and
+  `test_method_explicit_upgrade` since the base). Also the two `_scripts/db_*_reference.py` (both
+  `SCHEMA_PATH`, `SCHEMA_HEAD = 203` and the generator's two other mentions), the max-migration assertion
+  (`test_route_rules_in_grader.py`: 203) and `docs/decider-tier1-migration.md`.
+- The branch's own tests pinned no 210 beyond those. `remote/telemetry.py` and the C1 spec's telemetry row now say
+  203.
+- `docs/specs/spec_storage_sync_v1.md` is left as written. It cites main at `bffe086ec`, so its `migration_head_202`
+  is today's `migration_head_203`: the same content plus 203's CHECK widening, and S0/S3's sanitization scope is
+  unchanged.
+
+### Converged: one protection, two text rules (Q16, as built)
+
+New module **`src/learnloop/learner_protection.py`**, the one authority for what of the learner's past work a model
+context may show. Router R2a's `LearnerStateCardV1` (`daily_plan/router_card.py`), R2c's teach-back summaries
+(`daily_plan/router_teach_back.py`) and the chat's read model (`learner_context.py`) all read it. Each reader keeps its
+own **text rule** as a parameter of `past_work_text` / `statement_text` (`TextRule`):
+- **The card: `router_card.CardText`, G5.** Its reader is the router model, so it shows the learner's own answers
+  (pinned or not) and the statements LearnLoop's diagnosers wrote.
+- **The chat: `learner_context.TextGuard`, unchanged.** It shows authored text, pinned answers that state no key,
+  and (c) text only with a write-time record.
+
+| Predicate | Card before (main) | Chat before (branch) | Now, shared (`learner_protection`) |
+|---|---|---|---|
+| Withheld items | exam material by the one exam predicate, unreleased exam pools and reserved surfaces; failure → none shown | the same, plus held-out items, open cold checks and repair cold retries, probes, items the vault cannot read, untrusted protection metadata (`protection_issues`) | `withheld_items` → `Withheld` (the chat's set, with reasons); the card's `_withheld_items` delegates to it |
+| An attempt's own protection | `exam_attempt` or a withheld item | `TextGuard.attempt_reason` (+ `exam_evidence`, a probe attempt or presentation, unknown item) | `attempt_protection`, through `PastWork.attempt_reason` |
+| Held grades | `held_for_review_attempts`, `_result` | the same, its own `_result` | `attempt_result`, `PastWork.held` → THE predicate (`held_grades`) |
+| Pinned revisions | `_pinned_stems` (`$.prompt` + `$.required_method`, `fit_presented_prompt`) | `_pins` (`$.prompt` only) | `pinned_contracts` → `PinnedContract.question`. Chunked, own-item, exactly one live contract; the frozen statement, then the frozen method's sentence, kept whole within the limit |
+| Statements written from protected work | a diagnosed cause on exam or reserved work (its head's attempt only); gap words never checked | `TextGuard._protected` over every answer of the episode, and over a gap's answer and item | `PastWork.evidence_reason` via `statement_text`, with `hypothesis_answers` (every version's answer in the episode) |
+| R2c teach-back summaries | `CardGatherer._withheld_items` (frozenset or None) | — | `withheld_items` + `attempt_protection` when summarizing; `summaries_for` takes a `Withheld` |
+
+**The method-explicit merge note is applied.** The chat's question as graded is `PinnedContract.question`, the card's
+rendering: the contract's frozen pair, which is `answered_question`'s contract branch, never the item's current
+prompt. For an item without a required method, the chat's stems are byte-identical to the branch's.
+
+**What the card now does differently** (a stricter model context; its text rule is unchanged):
+- **Newly withheld past work.** It withholds questions and answers on items held by an open cold check or repair
+  cold retry, on probes and probe attempts, on `exam_evidence` work and on items the vault can no longer read.
+- **Newly withheld statements.** It withholds a cause's statement when any answer of its episode is protected (not
+  only its head's). It withholds a learner-named gap's words when they rest on a protected answer or item; gap
+  entries gain a `withheld` key.
+- **Reasons and notes.** `withheld` names the shared reason: "exam or held-out material" (was "exam or reserved
+  material"), "reserved for an assessment", "a check waiting in the app", "a diagnostic check", "the protection rules
+  could not be read". A protection failure's unknown is the shared "which material is protected could not be read: no
+  question or answer is shown". Unreadable pins give the shared `PINS_UNREADABLE`.
+
+**Unchanged on both readers.** Nothing in the chat's output changed: the 129 branch tests pass unmodified. The card
+is otherwise unchanged too: answers whole, the builder's clips, the stored-card format.
+
+- **Tests updated (wording and API only):** `test_router_card.py` (2: the exam reason, the failure unknown),
+  `test_router_r2a_landing.py` (3: `Withheld.item_ids`, the reason, its text) and `test_router_r2c_teach_back.py` (1:
+  it patches `learner_protection.withheld_items`).
+- **New: `tests/test_mcp_c1a_landing.py` (6):**
+  - the card and the chat withhold the same past work for the same reasons (exam work, a cold-retry item, a deleted
+    item);
+  - both render the pinned question with its frozen method;
+  - a statement written from protected work is withheld by both (an episode revised from an exam answer, a gap on an
+    exam answer);
+  - the text rule is each reader's own (the card shows a cause and an unpinned answer; the chat holds both back);
+  - a teach-back on a cold-check item is never summarized;
+  - no reader keeps a protection of its own: an AST check of names and SQL outside docstrings, and the chat's
+    re-exports are the shared objects.
+- **Fail first:** the six were run against the pre-convergence code. In an isolated overlay of `src/` (main's
+  `router_card.py` and `router_teach_back.py`, the branch's `learner_context.py`, with `-o pythonpath=` and its own
+  `migrations/`), **5 of 6 failed** on their divergence or leak assertions. The text-rule test passed: it pins what
+  the convergence keeps.
+- **Import-linter:** a 22nd contract, `learner-protection-sits-below-its-readers`. `learnloop.learner_protection`
+  imports neither reader (`learner_context`, `daily_plan`, `router`, `remote`) nor any adapter.
+
+### Compositions
+
+| File | Resolution |
+|---|---|
+| `pyproject.toml` | main's `glm-ocr` extra beside the branch's `mcp` extra (`mcp==2.3.0`, also in `dev`); the branch's packages, root packages and four contracts |
+| `uv.lock` | both extras and `provides-extras = ["mobile", "dev", "pdf", "glm-ocr", "mcp"]`; `uv lock --check --offline` passes (178 packages); `uv sync --offline` installed the SDK from the cache |
+| `source_retrieval/find_sources.py` | The branch's public verification helpers (the MCP dry run's) are kept, composed with main's tutor delivery fixes. `verification_candidates(vault, pool)` judges main's complete passage (`judged_passage`). `widest_candidates(vault)` fills each passage to the vault's limit (`verify.passage_limit`; 900 with `complete_passages` off). `verification_context` uses main's `practice_question` (review F5: the statement shortened, never the method's sentence). Main's prompt-sized caps on `_verify` are kept; the branch's `PASSAGE_CHARS = 900` is dropped |
+| `remote/sources.py` (auto-merged, composed) | the dry run's caps are sized like the live call's: `verify_caps(..., input_tokens=estimated_call_tokens(widest prompt))` (main's delivery-fix rule), so its worst case matches the live bound |
+| 20 test files, the two `db_*_reference.py` scripts | main's side, then 202 → 203 (above) |
+| 24 head-fixture files (rename/rename) | main's `migration_head_202` kept, the branch's `migration_head_210` dropped; then renamed and rebuilt (above) |
+| 370 notes under `Reference/`, `tests/cli_help_snapshot.json` | main's side, then regenerated |
+
+### Generated files
+
+- **Defaults snapshots:** no config change, so all seventeen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries were recomputed
+  (template `.pyc` deleted, file touched) and all match. Unchanged.
+- **CLI help snapshot** (`--write`): gains `mcp`, `mcp serve`, `mcp token`, `mcp token show`, `mcp token rotate` and
+  `mcp activity`; the root's help changes; nothing else.
+- **References:** `db_generate_reference.py`, then `db_validate_reference.py`: `errors: []`, schema head 203, 321
+  table notes. The prose counts needed no change: no table and no config leaf was added.
+- **Mobile allowlist pins:** none. MCP is not a sidecar RPC; `src/learnloop_sidecar`, `src/learnloop_mobile` and
+  `apps/` are unchanged by the merge, and `tests/test_mobile_allowlist.py` passes unchanged.
+- **Pipeline Map:** the chat frontend is no longer "planned". A new bullet covers its six read tools, transports and
+  gate, what it shows and what it holds back, its telemetry, and the shared protection. The card's paragraph and the
+  "Protection rules" box name the shared protection. `validate_vault.py` passed (1,106 notes, 22,144 links).
+
+### Gate
+
+At `024b1d9ea` (the merge), with `TMPDIR=<worktree>/fixtures-local/tmp`. Logs:
+`fixtures-local/c1a-landing-fullsuite.log` and `c1a-landing-durability.log`, each headed by the commit.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` · `uv pip install pypdfium2` | ok (`--offline` after the merge: the SDK and 15 dependencies from the cache; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **22 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,658 passed**, 0 failed, 16 warnings (19 min 28 s). The reading-sweep timing flake (`test_d_work_the_cli_finishes_leaves_the_request_due_for_the_sweep`) did not appear; nothing needed a rerun |
+| `flock ... uv run pytest -m durability -n auto` | **101 passed** (34 s). It includes the two-process stdio test, `test_mcp_runtime.py::test_a_second_process_serves_the_vault_beside_the_desktop_sidecar` |
+| The C1a tests alone (seven files) | 135 (the branch's 129 and the 6 landing tests), all in the full run |
+| Before the commit | the router, MCP, method-explicit, exam-protection, plan-determinism, teach-back, migration, table-role, rebuild, shadow, CLI-help, mobile-allowlist, fixture, copy, config and source-retrieval files: 926 passed |
+| npm / cargo | not applicable: nothing under `apps/` changed |
+
+### Parity
+
+**Setup.** Backup-API copies (`copy_tree_with_databases`) of this worktree's tracked `fixtures/linear_algebra` and
+`fixtures/probability` (both `mvp-0.8`), in `fixtures-local/c1a-parity`.
+- Each was migrated by its own code (`migration_coordinator.migrate_vault`). On main's side, `b9fcaf121` was exported
+  with `git archive` and put first on `PYTHONPATH` (the probe printed the archive's `learnloop/__init__.py`): 47
+  migrations to 202. The merge's side: 48 to 203.
+- On each copy, `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` an
+  empty directory.
+- Shadows were compared structurally after setting aside ULIDs, timestamps, ids, hashes and paths. Doctor reports
+  were compared both positionally and as issue multisets.
+
+| Check | Fixture | Shadow (facet / mastery / schedule) | Shadow differences | Doctor main → merge |
+|---|---|---|---:|---|
+| own version (`mvp-0.8`) | linear algebra | 22 / 6 / 47 both sides | **0** | 107 → 107 issues (1 error both); multiset identical |
+| | probability | 2 / 1 / 1 both sides | **0** | 138 → 138 (49 errors, 46 `criterion:unknown_dependency`, both); identical |
+| **`mvp-0.25`** (`upgrade --to mvp-0.9`, then `--to mvp-0.25`, each side by its own code; `rebuild-derived-state` twice) | linear algebra | 0 / 0 / 0 both sides | **0** | 57 → 57 (1 error); identical |
+| | probability | 0 / 0 / 0 both sides | **0** | 102 → 102 (49 errors); identical |
+
+`live_database.unchanged` is true on every shadow. Each copy's `state.sqlite` hash is identical before and after its
+shadow and doctor. Doctor exits 1 on both sides, as on main. The tracked fixtures were only copied: their hashes
+(`a3972c00…`, `0ac51001…`) are the same before and after, and `git status fixtures/` is clean; `arxiv_v2` was not
+opened.
+
+### Manual MCP run (the merged copies, in-process, no network)
+
+**Setup.**
+- A backup-API copy of each merged own-version copy (at 203) was attached with
+  `RemoteRuntime.attach(load_environment=False)`, every `*_API_KEY` blanked and every model client refused (a
+  service's paid route recorded and given no client).
+- Every tool was called through the official SDK `Client` in-process. Nothing was bound to any port; the probe
+  service on 8768 and `scripts/mcp_probe/state` were not touched; no `tailscale` command ran.
+- Outputs: `fixtures-local/c1a-manual/`; report `fixtures-local/c1a-manual-report.json`.
+
+| Tool | linear algebra | probability |
+|---|---|---|
+| `status` (ms) | ok (110) | ok (115) |
+| `today` | plan off, 23 due now (316) | plan off, 1 due now (119) |
+| `progress` | 7 retention risks, no goals (286) | 1 risk (222) |
+| `library` | 3 sources (274) | 4 sources (316) |
+| `learning_context` (all) | 12 traces: 5 questions and 4 answers shown, 1 answer withheld ("it states the answer key"), 7 exam work (no question, no answer); 2 open hypotheses, **both statements withheld** (one "a diagnostic check", one "Held back until LearnLoop records what this was written from"); 7 risks (288) | 2 traces, 2 questions and 2 answers; 1 risk (173) |
+| `learning_context` (topic) | "eigenvalues": nothing matched, named in `unknowns` (82) | "conditional probability": 2 traces (155) |
+| `find_sources` | 4 passages, 2 held for a check; unverified (491) | 6 passages (480) |
+
+**Withheld text stays withheld.** Every derived text on record was searched for in every output:
+- linear algebra: 1 misconception statement, 1 correction, 1 candidate, 3 hypothesis statements; none appears;
+- probability: nothing derived on record.
+
+This matches the narrow stage's run on the same data.
+
+**The tools wrote only their audit rows**, on the throwaway copies: `interaction_events` +7 each, and
+`source_exposure_events` +4 and +6. The parity copies' hashes were unchanged. Paid routes asked for:
+`source_query_rewrite`, given no client. **Paid calls: 0; cost: $0.**
+
+### Owner runbook: storage spec §6.10
+
+The deployment runbook is now [spec_storage_sync_v1.md](../specs/spec_storage_sync_v1.md) §6.10. It supersedes the
+443 runbook above and answers Q3:
+- **Funnel port 8443** (D7) instead of 443, with the unit's Host allowlist changed in the same step:
+  `--public-host <hub>.<tailnet>.ts.net:8443` (otherwise every request through the new port gets a 421).
+- The unit runs from the deployment checkout (D13), and the vault lives under the data root (D5).
+- The owner re-points the claude.ai and ChatGPT connector URLs to `https://<hub>.<tailnet>.ts.net:8443/<token>/mcp`
+  (`learnloop mcp token show`) and refreshes each host's tool list.
+- The spec did not verify that both connectors accept port 8443; if either refuses, its fallback swaps the ports.
+- Agents run no `tailscale` command. A vault the desktop has not opened since this landing is at 202, and
+  `learnloop mcp serve` refuses it (exit 78) until migration 203 runs.
+
+### Open questions (defaults applied)
+
+- **Q15 (learner questions):** a question the learner typed during a pinned attempt stays (c), held back, until
+  `question_events` record the item contract it was asked about (Q10, in the follow-up stage). Applied: unchanged.
+- **Q16 (R2a convergence):** as built above. The predicates and the protection are shared in
+  `learnloop.learner_protection`, and the text rule is a parameter: the card keeps G5, the chat keeps `TextGuard`.
+  The card withholds the chat's whole protected set; the chat shows exactly what it did.
+- **Q5 (the renumber):** done, 210 → 203.
+- **The follow-up stage "diagnosis input provenance" (spec §4.8)** is still to come; it unlocks the prose. Each writer
+  records what it read, in the transaction that writes the text: diagnoses, C4 receipts inside the grading
+  transaction, regrade lineage, `question_events`' item contract, and what of an item a writer saw. A
+  `ProvenanceSource` reading those records then replaces `no_write_provenance`. Neither reader needs another change,
+  and the card's text rule is unaffected.
+- Q1 (`find_sources` not read-only), Q2 (the chat's answer-states-the-key rule) and Q4 (OAuth before C1b or C2) are
+  unchanged. Q3 is answered by the storage spec (8443).
+
+### Safety
+
+- No paid call, no subscription call, no network. Nothing bound but in-process transports. No key, credential, `.env`
+  or `settings.env` file was read, nor `~/.config/learnloop/` or `scripts/mcp_probe/state`.
+- The main checkout and `mcp/c1-read-context` (worktree `learnanything-mcp`) were not touched. This worktree's
+  tracked `linear_algebra` and `probability` were opened only by the backup API (hashed before and after: unchanged);
+  `arxiv_v2` not at all. Nothing was pushed or stashed.
