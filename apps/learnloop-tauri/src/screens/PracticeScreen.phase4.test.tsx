@@ -195,3 +195,17 @@ it("labels primed practice quietly as with help", async () => {
   render(<PracticeScreen {...props({ primed: true })} />);
   expect(await screen.findByText("◌ with help")).toBeTruthy();
 });
+
+it("never sends an untouched self-grade on a second ^↵: only Got it, Partly or Missed submit", async () => {
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  fireEvent.change(answer, { target: { value: "first row" } });
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  });
+  expect(await screen.findByRole("button", { name: "Got it" })).toBeTruthy();
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  });
+  expect(api.submitAttempt).not.toHaveBeenCalled();
+});

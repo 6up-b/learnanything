@@ -722,6 +722,10 @@ export function PracticeScreen({
       setSelfGradeVisible(true);
       return;
     }
+    // Phase 4's plain self-grade submits only through Got it / Partly /
+    // Missed (or the detailed numbers): a second ^↵ must never send the
+    // untouched all-zero grade as if the learner had chosen "Missed".
+    if (simple && fallbackRequired && !gradeOverride && !selfGradeDetailsOpen && !emptyStuck) return;
     const validation = emptyStuck ? {} : validateSelfGrade(item, grade, fallbackRequired);
     setFieldErrors(validation);
     if (Object.keys(validation).length) return;
@@ -1866,7 +1870,7 @@ function PlainSelfGrade({
                 </label>
               ))}
               <div style={{ marginTop: 8 }}>
-                <PrimaryAction hotkey="↵" onClick={onDonePartly} disabled={submitting}>Done</PrimaryAction>
+                <PrimaryAction onClick={onDonePartly} disabled={submitting}>Done</PrimaryAction>
               </div>
             </div>
           ) : null}

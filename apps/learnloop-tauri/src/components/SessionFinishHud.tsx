@@ -95,6 +95,8 @@ function SessionFinishCard({ summary, onDismiss }: { summary: SessionEndSummary;
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Enter" && event.key !== "Escape") return;
+      const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
       event.preventDefault();
       event.stopPropagation();
       onDismiss();
