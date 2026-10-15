@@ -311,3 +311,241 @@ under load. Rerun alone it passed (11/11), and it passed in the full `npm test` 
 - Python: 9 in `tests/test_reread_safety.py` (two parametrized two ways), so 11 cases. The file now collects 56.
 - Desktop: 4 vitest cases, 2 in `ReaderScreen.guide.test.tsx` and 2 in `readerHooks.parity.test.tsx`. Four existing
   saved-place expectations now include `toExtractionId`.
+
+## Protection redesign
+
+The final Codex verify (job `20261015-011515-uLjC1L`, `d97237136..9b933cc21`) confirmed F3 and F10 fixed, reopened
+F1 and F2, and found F11 (High). All three concern one mechanism: carrying exam and held-out protection to a new
+reading by matching its content. This was the third round on that mechanism (labels, then aliases, then the verified
+carry), so the orchestrator decided to redesign rather than patch, consistent with the owner's fail-closed and
+one-authority principles. Main was not merged here.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | Label-only protection on unpinned revisions (reopened) | fixed by the redesign | `5fb11639f` | `test_redesign_f1_a_moved_question_on_a_new_revisions_reread_is_never_unprotected`, `test_redesign_f1_a_moved_question_under_a_held_out_mark_is_never_unprotected` |
+| F2 | High | One exact alias counted as complete protection (reopened) | fixed by the redesign | `5fb11639f` | `test_redesign_f2_duplicate_and_fragment_copies_are_never_unprotected[held_out_mark, exam_scope]` |
+| F11 | High | Verification erases mathematical operators | fixed by the redesign | `5fb11639f` | `test_redesign_f11_operators_are_never_erased_into_a_release` |
+| F3, F10 | High, Medium | (earlier rounds) | confirmed fixed by the verify; no change | `0eacfc61d`, `9f1023b49` | the earlier rounds' tests |
+
+`55059e4af` regenerates the DB and config references (provenance, moved `doctor.py` and `jobs.py` lines, and
+`exam_marking.py` among the readers of the source tables). `d47a94f44` updates one more test the first full run
+found: the source-retrieval guard that expected an exam override to reach a re-import by its label.
+
+### The rule, as built
+
+**Protection never carries to another reading** by content, alias or label matching. The one predicate,
+`content/sources/exam_material.py`, decides it as its new rule 4; every consumer already reads that module.
+
+- **A protected source.** Any extraction of any revision of the source carries positional protection:
+  - an exam scope (a source-set scope entry overridden to `exam`, rule 2);
+  - a held-out mark (`held_out_evaluation` in a unit selection, rule 3);
+  - or a held-out assessment signal of an exam unit's inventory.
+
+  A whole-source exam role (an exam member, an outline pick of `exam`, rule 1) names no reading, so it still reaches
+  every extraction as before.
+- **Withheld wholesale.** Every extraction of a protected source with no protection marked directly on it is added
+  whole to the held-out partition (reason `unmarked_reading`), and so to exam material. That covers each reading of a
+  new revision too. Because every consumer already reads the predicate, a held-back reading gets:
+  - no Reader Ask, dialogue, preset or check: `held_out_material`;
+  - no teaching or tutor context, generation or retrieval: `exam_material` and the corpus exclusions;
+  - no leakage-gate pass: `held_out_spans` fingerprints every block;
+  - no `find_sources` hit;
+  - no margin cue.
+
+  The Library's own keyword search, the learner looking through their own books with no model involved, is unchanged,
+  as it is for any exam material.
+- **Marked.** An extraction is marked when the owner's protection is on it:
+  - the reading an exam scope names. That is the first completed top-level reading of the member's pinned revision.
+    A re-read only ever adds later readings, so this binding never moves.
+  - a held-out mark in its own unit selection;
+  - the owner's "Mark exam material on this reading", recorded as `exam_paper_metadata.protection_marked` in that
+    reading's selection. It marks the reading even when nothing on it is held out.
+
+  A held-out signal marks the reading it was made on only when the source carries no owner's mark at all. So an
+  inventory that a build makes on a held-back reading never releases it.
+- **Exactly as marked.** A marked reading is protected by its own marks only, by unit id:
+  - rule 2 resolves on the scope's reading only;
+  - rule 3 resolves on the marking extraction only;
+  - signals hold on their own reading only.
+
+  The earlier cross-extraction carries are gone: labels for other revisions and page repairs, label occurrence and
+  content hash, and the verified carry. So is the scope's "every reading is a possible origin" union.
+  - A held-out mark that does not resolve withholds its own extraction.
+  - An exam scope that does not resolve on its reading, or whose pinned revision has no reading, withholds every
+    extraction of the source, as on main.
+- **Removed.**
+  - `span_aliases.SpanCarrier` with its word normalisation and the furniture rule;
+  - `_Reader.carry_into`, `origins` and `pinned`;
+  - the label-occurrence logic and `unresolved_signal`.
+
+  Aliases now serve references only: progress, citations, notes, links and the saved place. Those, E1's stored
+  bytes, the page scope, the earlier doctor checks and the card's estimate are unchanged.
+
+**The owner's action** (`content/pipeline/exam_marking.py`):
+
+- **The card.** While the reading the Reader opens is held back, the card says "This reading is held back until you
+  mark its exam material" (tone `problem`), with one action, "Mark exam material on this reading"
+  (`source_action mark_exam_material`). Its details say: "You marked exam material in another reading of this book.
+  LearnLoop doesn't guess where that material is in this reading, so it keeps the whole reading out of explanations,
+  questions and search until you mark its exam material here. The other reading stays protected as you marked it."
+  The line comes after the E1 repair and "Finish moving them", and before every other line.
+- **The confirmation.** The first call returns a confirmation and writes nothing. It names what will be held out, for
+  example "Held out as exam material: 3 Exam review." with "These are suggested from what you marked in the other
+  reading: check them. The rest of this reading becomes available for explanations, questions and search." The
+  buttons are "Mark them" (or "Mark it") and "Not now". The desktop's existing confirmation dialog shows it: the
+  Library uses an alert dialog, and the preparing view uses the same confirm.
+- **The suggestion.** It is non-authoritative and deliberately over-inclusive. It is drawn from every marked reading
+  of the book: their held-out spans and their exam-scope units. A unit of the new reading is suggested when any of
+  these holds:
+  - `reread.unit_map` maps a protected unit to it;
+  - a protected span's alias (the same text or the same place) lands in it;
+  - it has a block on the same page as a protected block.
+- **The marking.** Confirmed, the action finishes any carry-over the re-read still owes, so that the study map's
+  chapters arrive. It then writes the suggested units as `held_out_evaluation` and the owner's mark into the reading's
+  own selection. A scope's exam units are held out there too, which is stricter than the exam role they have on the
+  first reading. The earlier reading keeps its own marks untouched.
+- **Doctor.** `source:reading_held_back` is a warning naming each book whose current reading is held back, and
+  counting its older held-back readings. Only the owner can mark, so `--fix-state` never does.
+- **The Reader's refusals.** On a held-back reading the four refusal paths and the section check say "This reading of
+  the book is held back until you mark its exam material (on the book's card in the Library), so LearnLoop won't
+  explain it or make questions from it yet." They no longer say "an exam you'll sit later" (`held_out_refusal`).
+- **The re-read confirmation.** For a protected book it adds "Your exam material isn't moved: the new reading stays
+  out of explanations, questions and search until you mark its exam material on the book's card", and always asks.
+
+**Two supporting changes**, without which a mark would not stay where the owner put it:
+
+- `save_unit_selection` keeps the stored exam use modes and paper metadata when the caller names none. The desktop's
+  and the CLI's study-map saves name none. Before, such a save erased every held-out mark (a release on main too) and
+  would have erased the owner's mark. An explicit `{}` still clears them.
+- `revision_refresh` no longer advances a member whose scope overrides units to `exam`. Its unit ids would name other
+  units on the new revision's reading, which is a carry by position. The member stays pinned, and `RefreshResult`
+  reports it in `kept_pinned` (an additive key). The new revision's readings are held back until marked.
+
+`carry_selection` carries chapters, boundary overrides and paper metadata, and never exam use modes or the owner's
+mark. If the owner's marking made the new reading's selection before the carry-over ran, the carry-over fills in its
+chapters and keeps its marks.
+
+### Reproduction first
+
+Each reproduction uses only APIs that both designs have. All five cases were run against `9b933cc21`, with its `src`
+and `migrations` first on the path, and failed for the verify's reason:
+
+| Case | Unprotected copies on `9b933cc21` |
+|---|---|
+| F1: the scope pins R1; R2's B1 keeps the question under "Exam" and B2 moves it to a Questions unit | `('extR2B2', 'z2')` |
+| F1, held-out variant | `('extR2B2', 'z2')` |
+| F2: an exact copy plus split copies, held-out mark | `('extPB', 'y3')`, `('extPB', 'y4')` |
+| F2: an exact copy plus split copies, exam scope | `('extPB', 'y3')`, `('extPB', 'y4')` |
+| F11: `Solve x+1=2. Solve x-1=2.` held out, re-segmented past the notes | `('extPB', 'b3')` |
+
+In F11's scenario, the old code's Reader refusal predicate returned `[]` for `b3`, `held_out_items` omitted an item
+made from `b3`, and the partition held only `b1`. Now the predicate returns `['b3']`, the item is held out, and
+`extPB` is withheld whole. On the new code every case leaves no unprotected copy. Each also checks that the reading
+the protection was marked on stays exactly as marked: A's Theory, appendix and unprotected question stay usable.
+
+**New tests** (`tests/test_reread_safety.py`, 11 cases; the file now collects 67):
+
+- the five reproductions above;
+- `test_redesign_marking_the_new_reading_makes_it_usable`. It covers, in order:
+  - the card line and its action;
+  - the doctor warning;
+  - the plain refusal;
+  - the plan writes nothing;
+  - the marking holds out only "3 Exam review", keeps the carried study map, and leaves A as marked;
+  - the warning and the line are gone, and nothing is left to mark.
+- `test_redesign_a_study_map_save_keeps_the_owners_marks`;
+- `test_redesign_an_unprotected_book_is_unaffected`: nothing is withheld for it, even beside a protected book;
+- `test_redesign_a_reading_of_a_new_revision_is_held_back_until_marked`: marking the current revision's reading
+  holds out the moved question and releases its Theory; the other R2 reading stays held back, and doctor counts it;
+- `test_redesign_a_signal_a_build_makes_on_a_held_back_reading_never_releases_it`;
+- `test_redesign_a_refresh_keeps_an_exam_scoped_member_on_its_revision`.
+
+The card's full flow was added to `test_the_reread_keeps_the_page_scope_and_carries_the_selection`: the re-read
+confirmation's line, the held-back line, the confirmation, the marking, and the reading usable afterwards.
+
+Desktop: one vitest case in `LibraryPlace.reread.test.tsx`. A held-back card's action asks, names what it holds out,
+and calls again with `confirmed`.
+
+**Tests changed by the rule** (their protective intent kept):
+
+- `test_reread_safety.py`. Selections no longer carry exam use modes, in four places: progress and selection, the
+  coarser reading, the card's selection, and F7's finished carry-over. Also changed:
+  - `test_held_out_material_stays_withheld_on_the_new_reading`: B is withheld whole with `unmarked_reading`, and A
+    exactly as marked;
+  - the margin cue: none on the held-back reading; after marking, only `b1`;
+  - three re-review tests now assert the held-back reading, then the owner's marking: the question that moved to a
+    Questions unit is held out and Theory is usable; both halves of a split are held out and the appendix is usable;
+    the merged block is held out with the rest of B.
+- `test_exam_protection_review.py`, the exam-protection stage's F2 tests. Two extractions that each carry marks are
+  each held by their own marks exactly; neither's mark reaches the other by label. A third extraction with no marks is
+  withheld whole.
+  - `test_held_out_marks_in_two_extractions_each_reach_the_other` is now
+    `..._each_hold_their_own_extraction_exactly`.
+  - `test_the_same_occurrence_with_other_content_is_not_the_same_unit` is now
+    `test_a_second_extraction_marked_by_the_owner_is_held_by_its_own_marks_only`.
+- `test_source_retrieval_guards.py` (`d47a94f44`). `test_a_unit_override_is_resolved_in_every_extraction_by_label`
+  is now `..._resolved_on_its_reading_and_an_unmarked_reimport_is_held_back_whole`. The override holds on its
+  reading, and the re-import is in `teaching_exclusions` whole. That assertion fails on `9b933cc21`, where only
+  `ext_exam` was there.
+
+### The owner's vaults
+
+Backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) were made of the main checkout's
+`fixtures/linear_algebra` and `fixtures/probability`, opened only to copy. They are under the worktree's gitignored
+`fixtures-local/protection-redesign/copies/`, as `old/` and `new/`. The same probe ran on each: `9b933cc21` on `old/`,
+this redesign on `new/`.
+
+Both vaults have no exam member, no exam scope entry, no held-out or exam-pick selection, and no exam inventory. Each
+has 4 completed readings. With both codes:
+
+- exam material, the held-out partition and held-out items are empty and identical;
+- the redesign finds no protected source and no held-back reading.
+
+Nothing changes for them. The main checkout's `git status fixtures/` was identical before and after. Only the mtime of
+the gitignored `-shm` index changed; the databases' size and mtime are the same, and each `-wal` is still empty.
+
+### Persisted meaning, RPCs, cost
+
+- There is no migration or schema change (head 202), no config change and no algorithm successor.
+- The writes are to `source_unit_selections` (WORKFLOW) and `sources/source_sets.yaml` (a member kept pinned), and
+  replay reads neither. Read paths write nothing.
+- `source_action` gains the action `mark_exam_material` and a `marked` result; `get_source_library` gains the
+  held-back line; `RefreshResult` gains `kept_pinned`. All are additive and desktop-only. No RPC was added, so the
+  mobile pins are unchanged; only their comment names the action.
+- CLI help and the sidecar serializer snapshots are unchanged.
+- Cost: the predicate no longer loads both readings' IR. A protected book costs one selection query and its exam
+  members' inventories per build. Only the confirmation and the marking compute the suggestion, which uses the alias
+  map, the unit map and pages.
+- No paid calls ($0.00).
+
+### Open questions for the owner
+
+- **A (still open): binding a scope to its reading.** A scope names the first completed reading of its pinned
+  revision. A scope hand-written after a re-read with the later reading's unit ids would be read on the first reading.
+  The later reading stays held back whole, so the reading the Reader opens is never released this way. Exam role
+  overrides are written only by hand or through `upsert_source_set` (no desktop surface writes them), and the owner's
+  books have none. A `source_sets.yaml` field naming the reading would close it.
+- **B (superseded): the cost of failing closed.** It is now one tap on the card, which says why in plain words.
+- **C (new): editing the suggestion.** The marking holds out the whole suggestion, which is over-inclusive. There is
+  no per-unit editor for exam use modes on the desktop, as before. To narrow it, the owner would need one.
+
+### Gate
+
+Run on `d47a94f44`, the final code tree. Only this record was committed after it, along with five corrected lines in
+`reread-safety.md` that described the retired carry. `TMPDIR` was the worktree's `fixtures-local/tmp`. No paid calls
+were made ($0.00), and every test uses fakes.
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 17 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **11,035 passed**, 0 failed (10 min 50 s). An earlier run on `55059e4af` had 11,034 passed and 1 failed: the retrieval guard above, a behaviour test (not a timing failure), updated in `d47a94f44`. |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **100 passed**, 10,935 deselected |
+| `apps/learnloop-tauri`: `npm install`, `npm run typecheck` | ok, no errors |
+| `npm test` (vitest) | **591 passed** in 82 files (590 before, plus 1 new) |
+| `npm run frontend:build` | built |
+| `cargo check` | not required: nothing under `src-tauri` changed |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated (`55059e4af`); validation passes, with no errors (schema head 202, 321 table notes) |
+| `validate_vault.py` | passes |
+| `module_validate.py`, `desktop_validate.py` | Both fail before and after, and neither is part of this gate. `module_validate.py` reports missing module notes for hundreds of modules (it fails the same way on `9b933cc21`); `exam_marking.py` adds one. `desktop_validate.py` fails on the unclassified `src/copy/denyList.ts`, as recorded in earlier rounds. |
+| CLI help / snapshots / RPC pins | `test_cli_help_snapshot.py`, `test_sidecar_serializer_snapshot.py` and `test_controller_snapshot.py` pass unchanged. No RPC was added; the mobile allowlist's comment names the new action. |

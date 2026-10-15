@@ -5,7 +5,7 @@
 | Item | What | Where |
 |---|---|---|
 | 1 (E1, High) | A re-read, and any import naming an existing book, reads the current revision's own bytes (originals store first, then the recorded files), hash-checked, never re-classifying the book's path; refuses plainly otherwise; a revision becomes current only once it has a completed reading; one-tap repair for a library already in the E1 state | `content/pipeline/reread.py`, `jobs.handle_import`, `source_library.register_source_revision`, `source_outline.resolve_extraction_id`, card line + `source_action restore_reading` |
-| 2 | The re-read keeps the previous reading's pages and carries the unit selection, exam use modes included | `source_action text_recognition`, `reread.carry_selection` |
+| 2 | The re-read keeps the previous reading's pages and carries the unit selection (since the protection redesign, never its exam use modes) | `source_action text_recognition`, `reread.carry_selection` |
 | 3 | One alias authority (`content/sources/span_aliases.py`: `reanchor_spans` persisted in `source_span_reanchors`) that every reader of old span ids goes through: progress, Guide, LO highlights, links, citations, annotations, the saved reading place, source conflicts, margin cues | `span_aliases`, `reread.carry_over`, reader, retrieval and conflict readers, `reader.saved_place`, desktop |
 | 4 | Doctor: an error for the E1 state (fixed by `--fix-state`), warnings for changed citations and for links pinned to a reading that is no longer current | `ops/doctor._check_reread_state` |
 | 5 | The card's z.ai OK line and the re-read's confirmation name the pages and the estimated cost (`glm_ocr.estimate`) | `jobs.glm_upload_estimate`, `add_source._import_failure_line`, `reread.reread_plan` |
@@ -56,9 +56,9 @@ The book then resolved to no reading: `reader.render_view` and the outline said 
 - The re-read sends the previous top-level reading's `page_selection`.
 - `reread.carry_selection` moves the selection to the new reading through the unit map:
   - Selected units and boundary overrides go to the units they map to.
-  - Where two old units land in one new unit, the more protective exam mode wins.
+  - Exam use modes are not carried (protection redesign, `reread-safety-codex-review.md`): the owner marks each reading.
   - A unit that doesn't map is listed in `needs_review`.
-- Held-out material can't be released along the way. `exam_material` reads every held-out mark on every reading of the source, by label, and withholds the whole reading when a label doesn't resolve (fail closed).
+- Held-out material can't be released along the way. As first built, `exam_material` read every held-out mark on every reading of the source, by label. Since the protection redesign (`reread-safety-codex-review.md`), no protection carries to another reading: a reading of a book with exam or held-out material marked elsewhere is withheld whole until the owner marks it ("Mark exam material on this reading" on its card).
 
 The unit map (`reread.unit_map`) tries these in order:
 1. the same unit id with the same label;
@@ -105,7 +105,7 @@ A pair of readings with nothing recorded (a re-read made by an older build) is c
 | Saved reading place (desktop `localStorage`) | stored as `{extractionId, spanId}`. A place saved on another reading, or a bare legacy span id once the book was read again, is translated by `reader.saved_place`. "This book was read again: you're near where you left off." when approximate; the reading history resumes when stale |
 | **Source conflicts** (`list_source_conflicts`, Maintenance "open in source") | **new in this round:** the screen opened the revision's latest reading with the locator's span id. Each side now resolves through `span_aliases.locator_key`, and the screen opens the span the sidecar names |
 | **Margin cues** (RW3a, `reader_cues`) | **new in this round:** only a passage whose cited words are there gets a margin mark. A flagged passage stays in the rail, flagged |
-| Exam material (`exam_material`) | held-out marks are read on every reading, by label, failing closed. **Not safe as first claimed** (Codex review F1, F2; fixed in `reread-safety-codex-review.md`): a source-set exam scope's reused unit id and a held-out inventory signal's old span id resolved on the latest reading |
+| Exam material (`exam_material`) | held-out marks are read on every reading, by label, failing closed. **Not safe as first claimed** (Codex review F1, F2, then the re-review and the final verify; `reread-safety-codex-review.md`). Since the protection redesign the aliases carry no protection at all: a reading with none marked on it is withheld whole until the owner marks it |
 
 Until all this was in, the card asked before re-reading. It still does for any book with study state: a confirmation names the pages, the cost and what moves to the new reading, with "Read it again" and "Not now". It also asks when z.ai would read the book with its OK already given, since then no OK line would show the cost.
 
@@ -211,7 +211,7 @@ None of these books holds held-out exam material (`exam_use_modes` `{}`), so the
 ## Residual and open questions
 
 1. **Old blocks in library search.** Both readings' blocks stay in `source_block_fts`, but library search's scope (`corpus.library_scope`) is the books' current readings only, so it never hits an old reading (Codex review: the premise did not hold). What remained was a hit found before a re-read completed and opened after it; it now carries its reading (Codex review F8).
-2. **Exam-unit scopes on source sets.** Corrected by Codex review F1: a reused unit id resolved (to another unit) instead of failing, so the exam material was released. Every completed reading of the pinned revision is now a possible origin of the scope and each interpretation is withheld (`reread-safety-codex-review.md`). Over-protective until the scope records its reading.
+2. **Exam-unit scopes on source sets.** Corrected by Codex review F1: a reused unit id resolved (to another unit) instead of failing, so the exam material was released. Since the protection redesign a scope names the first completed reading of its pinned revision, and every other reading of the book is withheld whole until the owner marks it (`reread-safety-codex-review.md`). Recording the scope's reading in `source_sets.yaml` remains open.
 3. **Links aren't given successor rows.** They resolve through the alias table (the report's alternative to successor rows) and are left pinned, YAML locators included. Doctor's `links_on_old_reading` counts what still needs placing. Still open (Codex review confirmed): no action places them again; annotations have their re-anchor action, the Guide shows moved passages flagged, and stale links simply don't show.
 4. **Desktop reference.** `docs/learnloop-architecture-vault/_scripts/desktop_validate.py` fails on main too: `apps/learnloop-tauri/src/copy/denyList.ts`, from UX Phase 1, is unclassified. Not touched here.
 
