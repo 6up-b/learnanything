@@ -19275,12 +19275,12 @@ class Repository(
             connection.commit()
 
     def block_content_hashes(self, extraction_id: str) -> dict[str, str]:
-        """``{span_id: content_hash}`` of a reading's blocks, without loading
-        its IR (the Reader asks on every annotation refresh)."""
+        """``{span_id: content_hash}`` of a reading's blocks in reading order,
+        without loading its IR (the Reader asks on every annotation refresh)."""
 
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT span_id, content_hash FROM source_document_blocks WHERE extraction_id = ?",
+                "SELECT span_id, content_hash FROM source_document_blocks WHERE extraction_id = ? ORDER BY ordinal",
                 (extraction_id,),
             ).fetchall()
         return {str(row["span_id"]): str(row["content_hash"]) for row in rows}

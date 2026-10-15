@@ -632,7 +632,7 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
     # still needs the page to jump to a section, follow the reading position
     # through the original and resume it.
     page_spans: list[dict[str, Any]] = []
-    ir = repository.load_document_ir(resolved) if not preparing else None
+    ir = repository.load_document_ir(resolved) if available and not preparing else None
     if available and not preparing:
         for block in sorted(ir.blocks, key=lambda b: b.ordinal) if ir is not None else []:
             if block.page is not None:
@@ -653,11 +653,13 @@ def reader_pdf_view(ctx: SidecarContext, params: ReaderPdfViewInput) -> dict[str
                 }
             )
     # reader-pdf-selection: the held-out passages (or the whole reading, rule 4)
-    # a selection on the original offers no model action on.
+    # a selection on the original offers no model action on. With no original
+    # stored the span ids come from a narrow query, not a long book's whole IR.
     protection = None
     if not preparing:
-        protection = RG.reading_protection(vault, repository, resolved,
-                                           [block.span_id for block in ir.blocks] if ir is not None else [])
+        span_ids = ([block.span_id for block in ir.blocks] if ir is not None
+                    else list(repository.block_content_hashes(resolved)))
+        protection = RG.reading_protection(vault, repository, resolved, span_ids)
     return versioned(
         {
             "available": available,
