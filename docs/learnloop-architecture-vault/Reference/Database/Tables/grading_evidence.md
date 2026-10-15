@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "937ad2954447c95a6c4a54c99a2e28bed6f6837f"
-source_commit_timestamp: "2026-10-15T16:23:15-04:00"
+source_commit: "880aef2b33171c22d39b9dc1508490dde868a991"
+source_commit_timestamp: "2026-10-15T18:13:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/diagnosis/forecast_receipts.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/diagnosis/split/reports.py`
@@ -180,13 +181,13 @@ Indexes and uniqueness:
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_field_split_outcomes.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_method_explicit_landing.py`
-- `tests/test_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

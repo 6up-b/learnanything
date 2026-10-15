@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "937ad2954447c95a6c4a54c99a2e28bed6f6837f"
-source_commit_timestamp: "2026-10-15T16:23:15-04:00"
+source_commit: "880aef2b33171c22d39b9dc1508490dde868a991"
+source_commit_timestamp: "2026-10-15T18:13:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/learner_protection.py"
-  - "src/learnloop/placement/state.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`

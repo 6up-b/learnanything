@@ -3,8 +3,8 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "937ad2954447c95a6c4a54c99a2e28bed6f6837f"
-source_commit_timestamp: "2026-10-15T16:23:15-04:00"
+source_commit: "880aef2b33171c22d39b9dc1508490dde868a991"
+source_commit_timestamp: "2026-10-15T18:13:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/plan_presentations.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/router/outcomes.py"
 tags:

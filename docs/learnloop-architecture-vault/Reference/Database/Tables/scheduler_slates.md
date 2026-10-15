@@ -3,8 +3,8 @@ title: "scheduler_slates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "937ad2954447c95a6c4a54c99a2e28bed6f6837f"
-source_commit_timestamp: "2026-10-15T16:23:15-04:00"
+source_commit: "880aef2b33171c22d39b9dc1508490dde868a991"
+source_commit_timestamp: "2026-10-15T18:13:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slates"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 
 ### Direct SQL writers
 
@@ -127,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_migrations.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_probability_prep.py`
@@ -143,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_scheduler.py`
-- `tests/test_show.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
