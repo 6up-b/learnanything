@@ -3,8 +3,8 @@ title: "coldness_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2954a443a3e8d5db528ffc0f1fa00d4fe44c4177"
-source_commit_timestamp: "2026-10-16T04:23:47-04:00"
+source_commit: "28d5ee45ad35a66a953fcba321b9236cf464381c"
+source_commit_timestamp: "2026-10-16T07:19:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite coldness_receipts"
@@ -132,6 +132,7 @@ None found by exact static reference scan.
 - `tests/test_coldness_receipt.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_held_grade_evidence.py`
+- `tests/test_ux_phase4_feedback.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`

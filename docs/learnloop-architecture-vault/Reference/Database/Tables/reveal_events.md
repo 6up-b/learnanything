@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2954a443a3e8d5db528ffc0f1fa00d4fe44c4177"
-source_commit_timestamp: "2026-10-16T04:23:47-04:00"
+source_commit: "28d5ee45ad35a66a953fcba321b9236cf464381c"
+source_commit_timestamp: "2026-10-16T07:19:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/scheduling/scheduler.py"
+  - "src/learnloop/reveal_coverage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -118,6 +118,7 @@ Database triggers:
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/reveal_ledger.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/reveal_coverage.py`
 - `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary

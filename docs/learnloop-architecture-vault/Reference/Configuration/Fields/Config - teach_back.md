@@ -3,8 +3,8 @@ title: "Config - teach_back"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2954a443a3e8d5db528ffc0f1fa00d4fe44c4177"
-source_commit_timestamp: "2026-10-16T04:23:47-04:00"
+source_commit: "28d5ee45ad35a66a953fcba321b9236cf464381c"
+source_commit_timestamp: "2026-10-16T07:19:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml teach_back"
@@ -48,7 +48,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `teach_back.max_followups` | `4` | integer | modeled default or validator seed | Caps followups allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:665`; `src/learnloop/tutor/teach_back.py:323`; `src/learnloop_sidecar/handlers/teach_back.py:179` |
 | `teach_back.transfer_evidence_multiplier` | `0.5` | number | modeled default or validator seed | Scales the contribution of transfer evidence in teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:666`; `src/learnloop/attempts/attempts.py:3839` |
-| `teach_back.session_cap` | `1` | integer | modeled default or validator seed | Caps session allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:669`; `src/learnloop/scheduling/scheduler.py:1270` |
+| `teach_back.session_cap` | `1` | integer | modeled default or validator seed | Caps session allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:669`; `src/learnloop/scheduling/scheduler.py:1279` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

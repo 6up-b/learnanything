@@ -271,9 +271,14 @@ READER_PDF_SELECTION_EXTENDED_RPCS = ("reader.source_annotations", "reader.pdf_v
 # with a session, plan_learner_pick), deferring it while a routine display
 # covers it, and only a session serve opens a cold administration
 # (get_practice_item without a session never does); get_probe_contract
-# commits no probe inside that coverage (active false), and
-# causal_probe_offer_action can answer probe_item_answer_shown. Nothing is
-# refused (round 5's cold_check_unavailable was withdrawn). Desktop only.
+# commits no probe inside that coverage (active false, reason
+# probe_item_answer_shown), and causal_probe_offer_action can answer
+# probe_item_answer_shown. Nothing is refused (round 5's
+# cold_check_unavailable was withdrawn). Round 7: the plan RPCs
+# (get_daily_plan, next_plan_item, plan_reading_ended; pinned by name for
+# R2a above too) can answer a waiting step, and their plan view carries
+# waiting (until, minutes, item, topic) when a routine-display hold lifts
+# later today. Desktop only.
 UX_PHASE4_RPCS = ("record_answer_display", "record_self_grade_disclosure")
 UX_PHASE4_EXTENDED_RPCS = (
     "trigger_regrade",
@@ -287,6 +292,9 @@ UX_PHASE4_EXTENDED_RPCS = (
     "plan_learner_pick",
     "get_probe_contract",
     "causal_probe_offer_action",
+    "get_daily_plan",
+    "next_plan_item",
+    "plan_reading_ended",
 )
 #: The book card's actions (source_action): UX Phase 1's, GLM-OCR's
 #: allow_upload, and re-read safety's restore_reading (the E1 repair) and

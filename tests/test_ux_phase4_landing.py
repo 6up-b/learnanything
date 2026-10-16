@@ -29,7 +29,11 @@ compose, through the sidecar RPC itself:
 * the serve-time revalidation (rounds 5 and 6) defers a cold check on the
   direct opens (``open_queue_item``, ``get_practice_item`` with a session)
   only while a routine display covers it; any other reveal keeps main's
-  serving behaviour (round 6 withdrew round 5's typed refusal).
+  serving behaviour (round 6 withdrew round 5's typed refusal);
+* round 7's waiting plan composes with the router's receipts: a waiting
+  boundary writes nothing (no block, no plan presentation, no router
+  decision, no stop), and the item served once the hold lifts binds to its
+  plan presentation as any served plan item does.
 
 Fakes only; no network, no paid call.
 """
@@ -295,3 +299,42 @@ def test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_dis
     assert _administration_receipts(repository) == before
     assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
     assert repository.followup_task(task["id"])["not_before"] > task["not_before"]
+
+
+def test_a_waiting_plan_writes_nothing_and_the_served_item_binds_its_presentation(tmp_path):
+    """Round 7's PlanWaiting against the plan's receipts (router R2a's
+    ``plan_presentations``, the ``router_decisions`` ledger, the block events):
+    the waiting step is decided again on every call and writes none of them,
+    so no decision or presentation stands for a block that was never chosen.
+    When the hold lifts, the same plan serves the item, and the serve writes
+    its plan presentation, which an answer binds to."""
+
+    from datetime import timedelta
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from tests.test_ux_phase4_feedback import _one_item_plan, _served_items
+
+    def counts(env) -> dict[str, int]:
+        with env.repository.connection() as connection:
+            return {
+                table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+                for table in ("attention_blocks", "plan_presentations", "router_decisions")
+            }
+
+    env, clock = _one_item_plan(tmp_path, timedelta(hours=25) - timedelta(seconds=30))
+    record = get_or_create_today(env)
+    before = counts(env)
+    for _call in range(2):
+        record, step = advance(env, serve=True)
+        assert step["kind"] == "waiting" and record.status == "open"
+    assert counts(env) == before
+    assert _served_items(env) == []
+
+    clock.instant = clock.instant + timedelta(seconds=31)
+    record, step = advance(env, serve=True)
+    assert step["kind"] == "item" and step["practice_item_id"] == "pi_cold"
+    with env.repository.connection() as connection:
+        bound = connection.execute(
+            "SELECT practice_item_id FROM plan_presentations WHERE practice_item_id = 'pi_cold'"
+        ).fetchall()
+    assert len(bound) == 1

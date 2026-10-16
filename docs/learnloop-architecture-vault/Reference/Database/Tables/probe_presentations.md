@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2954a443a3e8d5db528ffc0f1fa00d4fe44c4177"
-source_commit_timestamp: "2026-10-16T04:23:47-04:00"
+source_commit: "28d5ee45ad35a66a953fcba321b9236cf464381c"
+source_commit_timestamp: "2026-10-16T07:19:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -170,6 +170,7 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_router_probe_ties.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_ux_phase4_feedback.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/test_voi_stopping.py`
