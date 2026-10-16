@@ -1587,6 +1587,17 @@ def plan_precommitted_block(
     size = max(2, min(size, block_config.max_block_size))
 
     candidates = eligible_instruments(vault, repository, episode)
+    # UX Phase 4 round 7: the block's members are decided before anything is
+    # committed. An item whose answer a routine display covers is not one, so
+    # the block's size and indices are its real members'.
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    now_iso = utc_now_iso(clock)
+    candidates = [
+        entry
+        for entry in candidates
+        if not routine_displays_covering(repository, practice_item_id=entry.item.id, at=now_iso)
+    ]
     if not candidates:
         return []
     live = episode_posterior(vault, repository, episode)
@@ -1678,27 +1689,31 @@ def plan_precommitted_block(
         ] if total_weight > 0 else branches
 
     presentations: list[ProbePresentationRecord] = []
-    for index, (candidate, conditional_eig) in enumerate(picked):
-        try:
-            presentation = commit_presentation(
-                vault,
-                repository,
-                episode,
-                candidate,
-                candidates=candidates,
-                supersede_active=not presentations,
-                extra_selection_components={
-                    "joint_block": True,
-                    "block_index": index,
-                    "block_size": len(picked),
-                    "conditional_eig": conditional_eig,
-                },
-                clock=clock,
-            )
-        except RoutineDisplayCovered:
-            # Its answer was just shown: left out of the block (round 6).
-            continue
-        presentations.append(presentation)
+    try:
+        # One transaction: a member refused at its commit (its answer shown
+        # since the members were decided) takes the whole block back, so no
+        # committed member names a size the block cannot reach.
+        with repository.atomic():
+            for index, (candidate, conditional_eig) in enumerate(picked):
+                presentations.append(
+                    commit_presentation(
+                        vault,
+                        repository,
+                        episode,
+                        candidate,
+                        candidates=candidates,
+                        supersede_active=index == 0,
+                        extra_selection_components={
+                            "joint_block": True,
+                            "block_index": index,
+                            "block_size": len(picked),
+                            "conditional_eig": conditional_eig,
+                        },
+                        clock=clock,
+                    )
+                )
+    except RoutineDisplayCovered:
+        return []
     return presentations
 
 
