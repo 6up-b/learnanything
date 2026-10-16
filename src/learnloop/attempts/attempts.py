@@ -1491,12 +1491,9 @@ def current_epoch_reading(
         return CurrentEpochReading(rows=epoch.rows, contract_version_id=contract_version_id)
     score = int(attempt.get("rubric_score") or 0)
     if only_grade(repository.fetch_grading_evidence(attempt_id, include_superseded=True)):
-        # The attempt's only grade, made before contracts: the compatibility
-        # reading of the item it always had, unless its score no longer fits
-        # today's maximum (never a correctness above 1). Only one write
-        # qualifies: a superseded row or a second grading run under the same
-        # revision-less key is a later write in the original's second (review
-        # F3), which is held like any other uncited later epoch.
+        # The attempt's only grade (one write: review F3), made before
+        # contracts: the compatibility reading of the item it always had,
+        # unless its score no longer fits today's maximum (never above 1).
         item = vault.practice_items.get(str(attempt.get("practice_item_id")))
         rubric = vault.rubric_for_item(item) if item is not None else None
         if rubric is None or score <= max(int(rubric.max_points), 1):
