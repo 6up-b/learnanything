@@ -3,8 +3,8 @@ title: "source_annotation_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_versions"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `tests/test_reader_capture.py`
 - `tests/test_annotations.py`
 - `tests/test_p3_journeys.py`
+- `tests/test_reader_pdf_selection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
