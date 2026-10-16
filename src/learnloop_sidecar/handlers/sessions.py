@@ -469,7 +469,7 @@ def settle_self_grade_disclosure(repository, checkpoint: dict[str, Any] | None) 
     disclosure = draft_self_grade_disclosure(checkpoint)
     if disclosure is None:
         return
-    from learnloop.attempts.reveal_ledger import record_self_grade_disclosure_reveal
+    from learnloop.attempts.reveal_ledger import frozen_trace_hash, record_self_grade_disclosure_reveal
 
     try:
         attempt = repository.practice_attempt_by_submission_id(disclosure["submission_id"])
@@ -482,6 +482,7 @@ def settle_self_grade_disclosure(repository, checkpoint: dict[str, Any] | None) 
         learning_object_id=disclosure["learning_object_id"]
         or (str(attempt.get("learning_object_id") or "") or None if committed else None),
         submission_id=disclosure["submission_id"],
+        frozen_hash=frozen_trace_hash(disclosure["answer_md"], disclosure["explanation_md"]),
         attempt_id=str(attempt["id"]) if committed else None,
     )
 

@@ -374,6 +374,7 @@ def _retrieval_cold(connection, repository, attempt, policy, since):
         repository, practice_item_id=attempt["practice_item_id"],
         learning_object_id=attempt["learning_object_id"],
         since=since, produced_at=attempt["created_at"], strict=True,
+        production_id=attempt["id"],
     ).admissible
 
 

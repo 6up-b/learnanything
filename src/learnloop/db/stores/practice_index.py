@@ -345,13 +345,19 @@ def attempts_after(connection: sqlite3.Connection, *, practice_item_ids: Collect
 
 def items_revealed_between(connection: sqlite3.Connection, *, since: str,
                            until: str) -> set[str]:
-    """Items whose answer the reveal ledger recorded in (since, until]."""
+    """Items whose answer the reveal ledger recorded in (since, until]; a
+    routine full-answer display by its coverage instead: from the renewal
+    grace before ``since``, and also when stamped after ``until`` (the clock
+    went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4)."""
     if not table_exists(connection, "reveal_events"):
         return set()
+    from learnloop.reveal_coverage import routine_display_sql, routine_window_start
+
+    routine, routine_parameters = routine_display_sql()
     return {str(row[0]) for row in connection.execute(
         "SELECT DISTINCT practice_item_id FROM reveal_events "
-        "WHERE created_at > ? AND created_at <= ?",
-        (since, until),
+        f"WHERE (created_at > ? AND created_at <= ?) OR ({routine} AND created_at > ?)",
+        (since, until, *routine_parameters, routine_window_start(since)),
     )}
 
 

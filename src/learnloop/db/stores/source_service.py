@@ -767,9 +767,15 @@ def serve_time_exposure(connection: sqlite3.Connection, *, practice_item_id: str
         reasons.append("attempted")
     if table_exists(connection, "reveal_events"):
         marks = ",".join("?" for _ in family)
+        # A routine full-answer display counts by its coverage
+        # (``learnloop.reveal_coverage``, UX Phase 4 round 4).
+        from learnloop.reveal_coverage import routine_display_sql, routine_window_start
+
+        routine, routine_parameters = routine_display_sql()
         reveals = connection.execute(
-            f"SELECT id, practice_item_id FROM reveal_events WHERE practice_item_id IN ({marks}) AND created_at >= ?",
-            (*family, since)).fetchall()
+            f"SELECT id, practice_item_id FROM reveal_events WHERE practice_item_id IN ({marks}) "
+            f"AND (created_at >= ? OR ({routine} AND created_at >= ?))",
+            (*family, since, *routine_parameters, routine_window_start(since))).fetchall()
         if reveals:
             reasons.append("revealed" if any(row[1] == practice_item_id for row in reveals) else "family_revealed")
             inputs["reveal_ids"] = [str(row[0]) for row in reveals]

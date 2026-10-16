@@ -1007,6 +1007,7 @@ def evaluate_independence(
             learning_object_id=answer.learning_object_id,
             produced_at=answer.created_at,
             since=since,
+            production_id=answer.attempt_id,
         )
         receipt_veto = _final_receipt_veto(connection, answer.attempt_id)
         reason = admissibility.reason or receipt_veto

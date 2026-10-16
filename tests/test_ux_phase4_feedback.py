@@ -1720,7 +1720,7 @@ def test_f1g_a_pending_self_grade_disclosure_is_an_exposure_for_every_other_prod
     vault, _repository = ctx.require_vault()
     assert production_admissibility(
         repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
-        produced_at=committed["created_at"],
+        produced_at=committed["created_at"], production_id=committed["id"],
     ).admissible
     # And it counts against the next attempt.
     assert _next_attempt_primed(repository, submission_id="sub_next")
@@ -1846,3 +1846,177 @@ def test_f9g_a_contract_cited_epoch_stays_exact_whatever_was_served_since(ctx):
     assert bundle["answeredSource"] == "contract"
     assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
     assert bundle["answeredMaxPoints"] == 4
+
+
+# == Round 4 (docs/reviews/ux-phase4-feedback-codex-review.md §10) ==============================
+
+
+# -- F1-2: the frozen trace's exemption matches exact identity ----------------------------------
+
+
+def test_f1i_a_changed_trace_under_the_frozen_key_is_primed_once_the_checkpoint_moved_on(ctx):
+    """The verifier's (a): the key was shown for draft ``sub_a``, the checkpoint
+    then moved to another item (settling the disclosure as abandoned), and a
+    CHANGED trace is sent under ``sub_a``. Nothing in the checkpoint compares
+    it any more, so the exemption itself must: it covers only rows naming the
+    hash of the trace that was frozen, which this trace does not have."""
+
+    from tests.helpers import add_followup_item
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _shown_disclosure(ctx, session_id, submission_id="sub_a")
+    add_followup_item(ctx.paths.root)
+    ctx.load(ctx.paths.root)
+    _draft(ctx, session_id, submission_id="sub_b", item="pi_svd_define_002")
+    _vault, repository = ctx.require_vault()
+
+    result = _submit_self_graded(ctx, session_id, submission_id="sub_a", answer="Rewritten with the key in view")
+
+    assert repository.fetch_practice_attempt(result["attemptId"])["primed"]
+
+
+def test_f1i_the_unchanged_frozen_trace_stays_exempt_after_the_checkpoint_moved_on(ctx):
+    """The control: the frozen trace itself, sent under its key after the
+    checkpoint moved on, was written before the key was shown: clean."""
+
+    from tests.helpers import add_followup_item
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _shown_disclosure(ctx, session_id, submission_id="sub_a")
+    add_followup_item(ctx.paths.root)
+    ctx.load(ctx.paths.root)
+    _draft(ctx, session_id, submission_id="sub_b", item="pi_svd_define_002")
+    _vault, repository = ctx.require_vault()
+
+    result = _submit_self_graded(ctx, session_id, submission_id="sub_a")
+
+    assert not repository.fetch_practice_attempt(result["attemptId"])["primed"]
+
+
+def test_f1i_only_the_commit_itself_is_exempt_never_another_response_in_its_second(ctx):
+    """The verifier's (b): after the clean frozen commit, a DIFFERENT response
+    on the item assessed in the same second is not independent; the commit,
+    named by its attempt id, is."""
+
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _shown_disclosure(ctx, session_id, submission_id="sub_p")
+    committed = repository.fetch_practice_attempt(
+        _submit_self_graded(ctx, session_id, submission_id="sub_p")["attemptId"]
+    )
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+
+    another = production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+        produced_at=committed["created_at"],
+    )
+    assert another.admissible is False
+
+    itself = production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+        produced_at=committed["created_at"], production_id=committed["id"],
+    )
+    assert itself.admissible is True
+
+
+# -- F1-3: a row stamped ahead of the clock is never invisible ----------------------------------
+
+
+def test_f1i_a_display_stamped_ahead_of_the_clock_still_covers(ctx):
+    """The verifier's clock rollback: a row was written, then the wall clock
+    went back two minutes. A production now is still not independent (the
+    row is stamped after it, but no later than... the clock that wrote it)."""
+
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    _exposure(ctx, attempt_id, "display_ahead", clock=_later(minutes=2))
+
+    assert _next_attempt_primed(repository)
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        produced_at=_iso(_later(seconds=1)),
+    ).admissible is False
+
+
+def test_f1i_a_display_after_a_production_does_not_count_against_it(ctx):
+    """The control: a past production judged later is not contaminated by a
+    display written after it (its own feedback's, say) once the clock has
+    passed that display's stamp."""
+
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _feedback_answer(ctx, then=_later(hours=-2))
+    _exposure(ctx, attempt_id, "display_after", clock=_later(hours=-1))
+
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        produced_at=_iso(_later(hours=-2)),
+    ).admissible is True
+
+
+# -- NEW: serving agrees with submit on routine displays ----------------------------------------
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_f1i_the_scheduler_never_serves_a_cold_retry_that_submit_would_refuse(tmp_path, seed):
+    """A property over display and cold-task timings: routine display rows on
+    the cold item at random moments around the cold task's creation, and the
+    queue built at random later moments. Whenever the cold lane serves the
+    task, a submission at that moment is not primed, so it is not refused
+    ("a cold retry must be unassisted and unprimed"). One coverage, D + G,
+    for both."""
+
+    import random
+
+    from learnloop.attempts.attempts import auto_primed_draft
+    from tests.test_remediation_cold_retry import NOW, _cold_lane_ids, _drive_to_cold_scheduled, _setup
+
+    rng = random.Random(seed)
+    vault, repository, misconception_id = _setup(tmp_path)
+    _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    displays = [NOW + timedelta(minutes=rng.randint(-600, 3000)) for _ in range(rng.randint(1, 4))]
+    events = [("display", moment) for moment in displays]
+    events += [("serve", NOW + timedelta(minutes=rng.randint(1440, 4400))) for _ in range(8)]
+    # And inside each display's last hour of coverage, where serve and submit
+    # disagreed (the cold delay is D, the coverage D + G).
+    events += [("serve", moment + timedelta(days=1, minutes=rng.randint(1, 59))) for moment in displays]
+    for index, (kind, moment) in enumerate(sorted(events, key=lambda event: event[1])):
+        clock = FrozenClock(moment)
+        if kind == "display":
+            repository.insert_reveal_event(
+                {
+                    "practice_item_id": cold_item, "learning_object_id": "lo_svd_definition",
+                    "source_kind": "answer_display", "amount": 1.0,
+                    "basis": f"feedback_full_answer:desktop:display_{seed}_{index}",
+                },
+                clock=clock,
+            )
+            continue
+        if cold_item in _cold_lane_ids(vault, repository, clock):
+            draft, _total = auto_primed_draft(
+                repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="U Sigma V^T"), clock=clock,
+            )
+            assert not draft.primed, f"served at {moment} but submit would be primed"
+
+
+def test_f1i_an_independent_check_is_not_offered_inside_a_display_s_coverage(ctx):
+    """Another server-side eligibility read: a full answer shown 24 h 30 min ago
+    still covers the item (D + G), so it is not offered as an independent
+    check, as submit would not count it as one."""
+
+    from learnloop.instructional.exposure import independent_check_eligibility
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _feedback_answer(ctx, then=_later(days=-3))
+    _exposure(ctx, attempt_id, "display_old", clock=_later(hours=-24, minutes=-30))
+
+    verdict = independent_check_eligibility(
+        vault, repository, {"practice_item_id": ITEM}, intent="retention", at=_stamp(_later()),
+    )
+
+    assert "revealed" in verdict["reasons"]

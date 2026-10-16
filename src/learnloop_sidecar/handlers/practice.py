@@ -581,7 +581,11 @@ def _record_disclosure_display(repository, item, params: SelfGradeDisclosureInpu
     (``disclosure_not_pending``) and the screen keeps the key hidden. Nothing
     written is ``display_not_recorded`` (retryable)."""
 
-    from learnloop.attempts.reveal_ledger import DisplayNotRecorded, record_self_grade_disclosure_display
+    from learnloop.attempts.reveal_ledger import (
+        DisplayNotRecorded,
+        frozen_trace_hash,
+        record_self_grade_disclosure_display,
+    )
 
     disclosure = draft_self_grade_disclosure(repository.fetch_session_checkpoint(params.session_id))
     if (
@@ -595,6 +599,9 @@ def _record_disclosure_display(repository, item, params: SelfGradeDisclosureInpu
             repository,
             practice_item_id=params.practice_item_id,
             submission_id=submission_id,
+            # The trace the checkpoint froze: the row carries its hash, the
+            # durable proof a later commit is that trace (round 4, F1-2).
+            frozen_hash=frozen_trace_hash(disclosure["answer_md"], disclosure["explanation_md"]),
             display_id=str(params.display_id),
             learning_object_id=item.learning_object_id,
         )

@@ -1698,6 +1698,57 @@ _INTERVENTION_FOLLOWUP_KINDS: frozenset[str] = frozenset(
 REPAIR_JOURNEY_TASK_KINDS: frozenset[str] = frozenset({"cold_retry"})
 
 
+def _cold_task_reveals(
+    repository: Repository,
+    *,
+    item_id: str,
+    learning_object_id: str | None,
+    since: str,
+    now_iso: str,
+) -> list[tuple[dict[str, Any], str]]:
+    """The reveals that hold a cold task back now, each with the moment it stops
+    counting (ledger format), oldest first.
+
+    Every reveal kind except the routine displays: one on the task's item or
+    learning object after the task was created, counting for the lane's own
+    retrieval delay (the reveals before it were visible to the scheduling
+    decision). A routine full-answer display counts by its coverage, the one
+    definition the submit path reads too (``learnloop.reveal_coverage``, UX
+    Phase 4 round 4): whenever it was stamped, until its coverage ends, and
+    also when stamped after now (the clock went back). So the queue never
+    serves a cold task whose submission auto-prime would refuse ("a cold retry
+    must be unassisted and unprimed").
+    """
+
+    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+    from learnloop.reveal_coverage import is_routine_display, routine_counts_until
+
+    held: dict[str, tuple[dict[str, Any], str]] = {}
+    for row in repository.reveal_events_for_target(
+        practice_item_id=item_id or None,
+        learning_object_id=learning_object_id,
+        since=since or None,
+        until=now_iso,
+    ):
+        if is_routine_display(row.get("source_kind"), row.get("basis")):
+            continue
+        stamped = parse_utc(str(row.get("created_at") or ""))
+        if stamped is None:
+            continue
+        until = (stamped.astimezone(UTC) + COLD_RETRIEVAL_DELAY).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        held[str(row.get("id"))] = (row, until)
+    for row in repository.reveal_events_for_target(
+        practice_item_id=item_id or None,
+        learning_object_id=learning_object_id,
+    ):
+        if not is_routine_display(row.get("source_kind"), row.get("basis")):
+            continue
+        until = routine_counts_until(str(row.get("created_at") or ""))
+        if until is not None and until > now_iso:
+            held[str(row.get("id"))] = (row, until)
+    return sorted(held.values(), key=lambda pair: (str(pair[0].get("created_at") or ""), str(pair[0].get("id") or "")))
+
+
 def _defer_revealed_cold_followups(
     vault: LoadedVault,
     repository: Repository,
@@ -1777,29 +1828,20 @@ def _defer_revealed_cold_followups(
         # would defer every cold retry the moment its own repair spent budget.
         since = str(task.get("created_at") or "")
         try:
-            reveals = repository.reveal_events_for_target(
-                practice_item_id=item_id or None,
-                learning_object_id=learning_object_id,
-                since=since or None,
-                until=now_iso,
+            held = _cold_task_reveals(
+                repository, item_id=item_id, learning_object_id=learning_object_id, since=since, now_iso=now_iso,
             )
         except Exception:  # pragma: no cover - a ledger read must not break the queue
             kept.append(pending)
             continue
-        if not reveals:
+        if not held:
             kept.append(pending)
             continue
+        reveals = [row for row, _until in held]
         last_at = max(str(row.get("created_at") or "") for row in reveals)
-        last_dt = parse_utc(last_at)
-        if last_dt is None:
-            kept.append(pending)
-            continue
-        deferred_to = (
-            (last_dt.astimezone(UTC) + COLD_RETRIEVAL_DELAY)
-            .replace(microsecond=0)
-            .isoformat()
-            .replace("+00:00", "Z")
-        )
+        # Pushed to when the last reveal stops counting: the lane's delay after
+        # an ordinary reveal, a routine display's coverage (round 4).
+        deferred_to = max(until for _row, until in held)
         if deferred_to <= now_iso:
             # The delay has already elapsed since the last reveal: the task is
             # cold again on its own terms and is served normally.
@@ -1884,12 +1926,16 @@ def deferred_cold_followups(
                 else (str(task.get("learning_object_id") or "") or None)
             )
             try:
-                reveals = repository.reveal_events_for_target(
-                    practice_item_id=item_id or None,
-                    learning_object_id=learning_object_id,
-                    since=str(task.get("created_at") or "") or None,
-                    until=now_iso,
-                )
+                reveals = [
+                    row
+                    for row, _until in _cold_task_reveals(
+                        repository,
+                        item_id=item_id,
+                        learning_object_id=learning_object_id,
+                        since=str(task.get("created_at") or ""),
+                        now_iso=now_iso,
+                    )
+                ]
             except Exception:  # pragma: no cover - ledger read is advisory here
                 continue
             if not reveals:
