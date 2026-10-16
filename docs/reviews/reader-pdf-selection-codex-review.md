@@ -135,7 +135,7 @@ at its first assertion as described above.
 ## Gate
 
 The gate was run on 2026-10-15, after the last restart, on the final fix
-tree `10562d526` plus this record. That tree is on branch
+tree `10562d526` plus this record (`e2abcec51`, docs only). That tree is on branch
 `reader/pdf-selection`, on base `37a2a7e5f`, and main was not merged in.
 Versions: Python 3.12.14, SQLite 3.53.1, Node 26.11.1, npm 12.2.0, cargo
 1.99.0. `TMPDIR` was the worktree's `fixtures-local/tmp`. No paid call was
@@ -147,7 +147,7 @@ made and no vault was touched.
 | Import contracts | `uv run lint-imports --no-cache` | **22 kept, 0 broken** |
 | Targeted (no lock) | `tests/test_reader_pdf_selection.py`, `test_mobile_allowlist.py`, `test_coordinated_migrations.py` | **176 passed** |
 | Full suite | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **11860 passed, 1 failed** (16 warnings), 15:00. The failure was `test_chatgpt_plan_provider.py::test_the_deadline_shuts_a_stalled_stream`, a timing test under the machine's load: the stream broke on a `TimeoutError` before the deadline's own error. Rerun alone it passed **3 of 3** times. This stage does not touch the ChatGPT plan provider. |
-| Durability | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | pending: waiting for the shared lock when this record was first committed |
+| Durability | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 11755 deselected, 1:56 |
 | Frontend | `npm install`; `npm run typecheck`; `npm test`; `npm run frontend:build` | typecheck clean; build ok (Vite's usual chunk-size notice). Vitest: **671 passed in 90 files**. A first run alongside the full suite timed out one test at 5 s (`ReaderScreen.inquiry.test.tsx`, the detour-strip test). That file passed 10 of 10 twice alone, and the whole of vitest passed on the rerun. |
 | Tauri | `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | ok (`src-tauri` is unchanged since the reviewed commit; the `reader_restore_annotation` passthrough forwards its input as it is, `deleteEventId` included) |
 | DB references | none | not run: no schema change (head stays 204 on this base) |
