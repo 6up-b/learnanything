@@ -574,14 +574,15 @@ export const api = {
             : { attemptId, learnerReason, ...(contestId ? { contestId } : {}) }
       })
     ),
-  /** UX Phase 4 (Codex review F1): feedback showed the full answer; the
-   *  sidecar charges the reveal ledger once per exposure. `displayId` names
-   *  the exposure (re-review F1, final verification F1: a new one whenever the
-   *  answer comes back on screen, at least hourly while it stays there, and
-   *  when it leaves; `screens/feedback/answerExposure.ts`); a retry of its
-   *  write reuses it. */
+  /** UX Phase 4 (Codex review F1, round 3): one routine display row for the
+   *  full answer on feedback, written before the answer shows and at each
+   *  renewal (`screens/feedback/answerExposure.ts`). The response says what
+   *  the ledger holds: its stamp, and whether a retry of the same display id
+   *  found it; a write that failed is an error (`display_not_recorded`). */
   recordAnswerDisplay: (attemptId: string, displayId: string) =>
-    call<{ recorded: boolean }>("record_answer_display", { input: { attemptId, displayId } }),
+    call<{ recorded: boolean; alreadyRecorded?: boolean; recordedAt?: string }>("record_answer_display", {
+      input: { attemptId, displayId }
+    }),
   /** UX Phase 4 (Codex review F1): freeze the whole trace before the plain
    *  self-grade shows a full answer. Resolve before showing it. */
   recordSelfGradeDisclosure: (input: {
@@ -590,7 +591,14 @@ export const api = {
     submissionId: string;
     answerMd: string;
     explanationMd: string | null;
-  }) => call<{ frozen: boolean }>("record_self_grade_disclosure", { input }),
+    /** Round 3 F1: one display of the key for the draft already frozen (the
+     *  screen writes one before the key shows and at each renewal). */
+    displayId?: string;
+  }) =>
+    call<{ frozen: boolean; recorded?: boolean; alreadyRecorded?: boolean; recordedAt?: string }>(
+      "record_self_grade_disclosure",
+      { input }
+    ),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     mutating([TAG.review, TAG.maintenance, TAG.errors], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
   // A forced follow-up queues a diagnostic item ahead of the rest, so Today's

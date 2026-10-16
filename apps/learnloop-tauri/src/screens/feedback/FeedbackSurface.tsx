@@ -29,7 +29,7 @@ import { criterionAssessed } from "../../api/dto";
 import type { DiagnosisCardState } from "../../components/DiagnosisCard";
 import { ItemPresentation } from "../../components/ItemPresentation";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../../components/PlainParts";
-import { useAnswerExposure } from "./answerExposure";
+import { useAnswerExposure, type ExposureStatus } from "./answerExposure";
 import { COLOR } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import {
@@ -80,27 +80,32 @@ function fmtDay(iso: string | null): string {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The question has changed since it was graded, and nothing recorded gives
- *  back the key, criteria or maximum it was graded against (final
- *  verification F9): show none of the later question's. */
-export function questionChangedSinceGraded(f: FeedbackBundle): boolean {
-  return f.answeredSource === "changed";
+/** Nothing recorded says which version of the question this grade read
+ *  (round 3 F9, `answeredSource: "unrecorded"`): no key, criteria or maximum
+ *  is presented as graded. */
+export function gradedVersionUnrecorded(f: FeedbackBundle): boolean {
+  return f.answeredSource === "unrecorded";
 }
 
-/** The plain line that says so. */
-export const QUESTION_CHANGED_LINE =
-  "This question has changed since it was graded, so the answer it was graded against isn't shown.";
+/** The plain line that says so, and the label of the current answer shown instead. */
+export const UNRECORDED_VERSION_LINE = "The version of this question it was graded against wasn't kept.";
+export const CURRENT_ANSWER_TITLE = "The answer as the question reads now";
+export const CURRENT_ANSWER_NOTE = "It may not be the one this was graded against.";
 
 /** The full answer the grade stands on, as the bundle sends it (the contract
- *  its grading epoch cites, or the item as it is now when that is what it
- *  read); none when the question changed since. Only a bundle that sends no
- *  key (an older sidecar) leaves the screen to read the item, which it re-reads
- *  after a regrade (final verification F9). */
+ *  its grading epoch cites, or what a regrade that just ran read); none when
+ *  that is unrecorded. Only a bundle that sends no source (an older sidecar)
+ *  leaves the screen to read the item, which it re-reads after a regrade. */
 export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string {
-  if (questionChangedSinceGraded(f)) return "";
+  if (gradedVersionUnrecorded(f)) return "";
   const frozen = f.answeredExpectedAnswer;
   if (frozen !== undefined && frozen !== null) return expectedAnswerText(frozen).trim();
   return item ? expectedAnswerText(item.expectedAnswer).trim() : "";
+}
+
+/** The current answer, shown (labelled as such) when the graded one is unrecorded. */
+export function currentAnswerForUnrecorded(f: FeedbackBundle, item: PracticeItemDetail | null): string {
+  return gradedVersionUnrecorded(f) && item ? expectedAnswerText(item.expectedAnswer).trim() : "";
 }
 
 /** The criteria rows with the descriptions and points the grade stands on
@@ -119,12 +124,11 @@ export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDt
 }
 
 /** The maximum the grade is out of: the one the bundle sends (re-review F9);
- *  without one, the item's, unless the question changed since it was graded,
- *  when there is none to give (never the later question's: final
- *  verification F9). */
+ *  without one, the item's, unless the graded version is unrecorded, when only
+ *  a maximum recorded with the grade is given (never the item's: round 3 F9). */
 export function answeredMaxPoints(f: FeedbackBundle): number | null {
   if (typeof f.answeredMaxPoints === "number") return f.answeredMaxPoints;
-  return questionChangedSinceGraded(f) ? null : f.maxPoints;
+  return gradedVersionUnrecorded(f) ? null : f.maxPoints;
 }
 
 /** "6 / 8", or "6 points" when no maximum is known. */
@@ -132,6 +136,27 @@ export function scoreOutOf(score: number, max: number | null, digits = 0): strin
   const points = digits > 0 ? score.toFixed(digits) : String(score);
   if (max !== null) return `${points} / ${digits > 0 ? max.toFixed(digits) : String(max)}`;
   return `${points} point${score === 1 ? "" : "s"}`;
+}
+
+/** What shows in the answer's place while no committed row covers it. */
+export function AnswerWaiting({ status, onShow }: { status: ExposureStatus; onShow: () => void }) {
+  if (status === "away") {
+    return (
+      <span style={{ color: COLOR.textDim, fontSize: 13 }}>
+        Hidden while you were away.{" "}
+        <button type="button" style={quietLink} onClick={onShow}>Show it ▸</button>
+      </span>
+    );
+  }
+  if (status === "unavailable") {
+    return (
+      <span style={{ color: COLOR.textDim, fontSize: 13 }}>
+        It can't be shown right now.{" "}
+        <button type="button" style={quietLink} onClick={onShow}>Try again ▸</button>
+      </span>
+    );
+  }
+  return <span style={{ color: COLOR.textDim, fontSize: 13 }}>One moment…</span>;
 }
 
 /** The quiet honesty lines that qualify the grade, in a few plain words. */
@@ -198,20 +223,28 @@ export function FeedbackSurface({
   onShowProvisional: () => void;
   detailsOpen: boolean;
   onToggleDetails: () => void;
-  /** Charge the reveal ledger for one exposure of the full answer (its
-   *  display id names the exposure; a retry reuses it). */
+  /** Write one routine display row for the full answer (its display id names
+   *  the row; a retry reuses it). The answer shows only while a committed row
+   *  covers it (round 3 F1). */
   recordAnswerDisplay?: (attemptId: string, displayId: string) => Promise<unknown>;
   /** An overlay covers the surface (the repair step, the inspector, Ask). */
   answerCovered?: boolean;
 }) {
   const held = verdict === "held";
-  const changed = questionChangedSinceGraded(f);
+  const unrecorded = gradedVersionUnrecorded(f);
   const presentation = f.answeredPresentation ?? item?.presentation ?? null;
   const fullAnswer = answeredFullAnswer(f, item);
+  const currentAnswer = currentAnswerForUnrecorded(f, item);
+  const shownAnswer = fullAnswer || currentAnswer;
   const criteria = answeredCriterionRows(f);
   const learnerAnswer = (f.learnerAnswerMd ?? "").trim();
-  // The full answer is an exposure for as long as it is on screen.
-  useAnswerExposure(f.attemptId, Boolean(fullAnswer) && !answerCovered, recordAnswerDisplay);
+  // The answer shown (the graded one, or the current one labelled as such) is
+  // an exposure: it is on screen only while a committed row covers it.
+  const exposure = useAnswerExposure(
+    f.attemptId,
+    Boolean(shownAnswer) && !answerCovered,
+    recordAnswerDisplay ? (displayId) => recordAnswerDisplay(f.attemptId, displayId) : undefined
+  );
   const diagnosisSummary =
     diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null;
   const sentence = diagnosisSummary
@@ -277,8 +310,8 @@ export function FeedbackSurface({
       {honestyLines(f).map((line) => (
         <div key={line} style={{ ...quietLine, marginTop: 4 }}>{line}</div>
       ))}
-      {changed ? (
-        <div style={{ ...quietLine, marginTop: 4 }} data-testid="question-changed">{QUESTION_CHANGED_LINE}</div>
+      {unrecorded ? (
+        <div style={{ ...quietLine, marginTop: 4 }} data-testid="graded-version-unrecorded">{UNRECORDED_VERSION_LINE}</div>
       ) : null}
 
       {/* "I think I was right": one line, the regrade in place. */}
@@ -335,16 +368,25 @@ export function FeedbackSurface({
             </div>
           ) : null}
         </VoicePanel>
-        {fullAnswer ? (
-          <VoicePanel mark="◇" title="A full answer">
-            <MarkdownMath value={fullAnswer} />
+        {shownAnswer ? (
+          <VoicePanel mark="◇" title={fullAnswer ? "A full answer" : CURRENT_ANSWER_TITLE}>
+            {exposure.shown ? (
+              <>
+                <MarkdownMath value={shownAnswer} />
+                {fullAnswer ? null : (
+                  <div style={{ marginTop: 6, color: COLOR.textDim, fontSize: 12 }}>{CURRENT_ANSWER_NOTE}</div>
+                )}
+              </>
+            ) : (
+              <AnswerWaiting status={exposure.status} onShow={exposure.show} />
+            )}
           </VoicePanel>
         ) : null}
       </div>
 
       {/* The criteria as plain ✓ / ✗ lines; a criterion the answer's route
           never exercised is a quiet "·" line. */}
-      {!held && !changed && criteria.length > 0 ? (
+      {!held && !unrecorded && criteria.length > 0 ? (
         <div style={{ marginTop: 14, display: "grid", gap: 4, fontSize: 13 }}>
           {criteria.map((row) => {
             const assessed = criterionAssessed(row);
