@@ -3,13 +3,13 @@ title: "voi_forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite voi_forecasts"
   - "table voi_forecasts"
-schema_head: 206
+schema_head: 205
 table_name: "voi_forecasts"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/184_voi_forecasts.sql"
-  - "src/learnloop/cli/diagnosis.py"
   - "src/learnloop/cli/evsi.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/db/stores/forecast_receipts.py"
   - "src/learnloop/db/stores/voi_forecasts.py"
+  - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
+  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/184_voi_forecasts.sql`.
-- **Schema touched by:** `184_voi_forecasts.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`.
+- **Schema touched by:** `184_voi_forecasts.sql`, `201_followup_value_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -128,7 +128,6 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_evsi_router_composition.py`
 - `tests/test_facet_rewords_migration.py`
-- `tests/test_forecast_receipts.py`
 - `tests/test_sources_merge_composition.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`

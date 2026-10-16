@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 206
-table_count: 325
+schema_head: 205
+table_count: 324
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_206/state.sqlite"
+  - "fixtures/migration_head_205/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-206"
+  - "learnloop/database/schema-head-205"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 325 user tables at migration head 206. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 324 user tables at migration head 205. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 325 user tables at migration head 206. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 146 |
 | [[Table Roles#Derived|`derived`]] | 19 |
-| [[Table Roles#Receipt|`receipt`]] | 68 |
+| [[Table Roles#Receipt|`receipt`]] | 67 |
 | [[Table Roles#Workflow|`workflow`]] | 82 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 325 user tables at migration head 206. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 312 |
+| `active` | 311 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -367,7 +367,6 @@ Goals, forecasts, exams, and cold certification. This is a navigational grouping
 - [[Reference/Database/Tables/exam_pool_items|exam_pool_items]] — `workflow` · `active` · Gives exam pool item a stable database identity so goal progress and held-out certification remain tied to the contract and evidence that produced them. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `practice_item_id`, `facet_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/exam_predictions|exam_predictions]] — `receipt` · `active` · Records predictions for exam before their outcomes are known so goal progress and held-out certification remain tied to the contract and evidence that produced them. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `practice_item_id`, `predicted_correctness`, making the operational relationship explicit.
 - [[Reference/Database/Tables/exam_sessions|exam_sessions]] — `workflow` · `active` · Tracks a held-out exam session from reservation through completion. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `status`, `started_at`, making the operational relationship explicit.
-- [[Reference/Database/Tables/forecast_receipts|forecast_receipts]] — `receipt` · `active` · Keeps every saved forecast a decision states before its outcome is known (saved diagnosis forecasts, migration 206): a completed diagnosis's prediction of the next unaided observation of each facet it explains, and a scheduled repair cold check's predicted cold outcome, each written in its decision's transaction with its forecaster, scope, inputs as of when, the forecast payload (the voi_forecasts body) and its exact binding, or the reason it has none (censored at birth). Resolutions are derived at read time by `learnloop diagnosis calibration`; nothing serving, scoring or scheduling reads it and no rebuild writes or clears it. Append-only (an update or delete aborts); kill switch diagnosis.forecast_receipts. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `facet_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/forecasts|forecasts]] — `workflow` · `active` · Gives forecast a stable database identity so goal progress and held-out certification remain tied to the contract and evidence that produced them. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `algorithm_version`, `resolution_rule_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/goal_contract_drafts|goal_contract_drafts]] — `workflow` · `active` · Gives goal contract draft a stable database identity so goal progress and held-out certification remain tied to the contract and evidence that produced them. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `predecessor_version_id`, `rejection_reason`, making the operational relationship explicit.
 - [[Reference/Database/Tables/goal_contract_heads|goal_contract_heads]] — `workflow` · `active` · Points workflow consumers at the current goal-contract version. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `goal_id`, `head_version_id`, `head_version`, making the operational relationship explicit.

@@ -3,13 +3,13 @@ title: "causal_cold_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_outcomes"
   - "table causal_cold_outcomes"
-schema_head: 206
+schema_head: 205
 table_name: "causal_cold_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,14 +21,13 @@ source_paths:
   - "migrations/145_causal_cold_outcomes.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
-  - "src/learnloop/diagnosis/forecast_receipts.py"
   - "src/learnloop/diagnosis/guided_redo.py"
-  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop_sidecar/handlers/serializers.py"
+  - "src/learnloop_sidecar/handlers/sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
-  - "src/learnloop_sidecar/handlers/serializers.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -109,8 +108,6 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/diagnosis/forecast_receipts.py`
-- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
 ### Direct SQL writers
@@ -131,7 +128,6 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_causal_cold_outcomes.py`
-- `tests/test_forecast_receipts.py`
 - `tests/test_guided_redo.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`

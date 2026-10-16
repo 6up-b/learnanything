@@ -3,13 +3,13 @@ title: "source_annotation_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_events"
   - "table source_annotation_events"
-schema_head: 206
+schema_head: 205
 table_name: "source_annotation_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,11 +20,9 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/content/pipeline/reread.py"
-  - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
-  - "src/learnloop/reader/reader_restoration.py"
+  - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -79,10 +77,10 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.annotation_history()`
-- `Repository.annotations_for_source()`
 - `Repository.append_annotation_event()`
 - `Repository.append_annotation_version()`
 - `Repository.capture_local_transaction()`
+- `Repository.withdraw_annotation_delete()`
 
 ### Direct SQL readers
 
@@ -94,11 +92,8 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/pipeline/reread.py`
-- `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
-- `src/learnloop/reader/reader_restoration.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -108,8 +103,7 @@ Indexes and uniqueness:
 
 - `tests/test_annotations.py`
 - `tests/test_reader_capture.py`
-- `tests/test_reread_safety.py`
-- `tests/test_source_deletion.py`
+- `tests/test_reader_pdf_selection.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

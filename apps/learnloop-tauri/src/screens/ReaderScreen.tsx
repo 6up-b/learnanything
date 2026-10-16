@@ -33,6 +33,7 @@ import type {
   ReaderArcDto,
   ReaderCoachLintDto,
   SourceLibraryCard,
+  ReaderAnnotationPlacementDto,
 } from "../api/dto";
 import { COLOR, Card, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, TermSelect } from "../components/term";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -40,6 +41,8 @@ import { SecondaryButton } from "../components/goldenpath/shared";
 import { readerRenderViewFixture } from "../fixtures/readerRenderView";
 import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
+import { highlightFromPlacement, kindLabel, type PdfHighlight } from "../components/pdfSelection/highlights";
+import { exactNode } from "../components/pdfSelection/model";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
 import { type AuthoredQuestionStatus } from "./reader/authoredQuestion";
@@ -76,8 +79,12 @@ import { AskRail } from "./reader/AskRail";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import {
+  askGroundingSpans,
   clip,
+  groundingProtected,
+  placedSpanIds,
   selectionNodes,
+  selectionProtected,
   type AnnotationSegment,
   type MarginAnnotation,
   type ReaderSelection,
@@ -120,15 +127,19 @@ const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfConte
 // it on every block reads as an error state; only suspect/failed warrant a pill.
 const BADGED_HEALTH = new Set(["suspect", "failed"]);
 
-/** A durably painted annotation region in the PDF surface (one per anchored
- *  segment with geometry). needs_reanchor annotations are never painted. */
-export interface AnnotationTrail {
-  annotationId: string | null;
-  kind: string;
-  spanId: string;
-  page: number;
-  bbox: number[];
+/** A highlight the learner just removed: the Reader offers to undo it, on
+ *  the reading it was removed from only (Codex review F4). */
+interface RemovedAnnotation {
+  annotation: MarginAnnotation;
+  at: number;
+  /** The delete's own event: the undo withdraws that one and no other. */
+  deleteEventId: string;
+  sourceId: string;
+  extractionId: string;
 }
+
+/** How long "undo" stays offered after a highlight is removed. */
+const UNDO_REMOVE_MS = 10_000;
 
 function newKey(): string {
   try {
@@ -259,6 +270,11 @@ export function ReaderScreen({
   // Inline annotation maintenance (edit note / delete tombstone) in the rail.
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [editingAnnotationText, setEditingAnnotationText] = useState("");
+  // The highlight just removed, while its undo is offered.
+  const [removed, setRemoved] = useState<RemovedAnnotation | null>(null);
+  // Bumps whenever the open book changes (resetSourceState): an annotation
+  // read or write that answers after it never touches the new book's list.
+  const sourceEpochRef = useRef(0);
   // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
   // original PDF in PreparingView; the full Reader takes over when it is ready.
   const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
@@ -303,6 +319,10 @@ export function ReaderScreen({
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
     [render],
   );
+  const renderBlocksBySpan = useMemo(
+    () => new Map(blocks.flatMap((block) => (block.spanId ? [[block.spanId, block] as const] : []))),
+    [blocks],
+  );
 
   // The visit and the funnel's bookkeeping (RW1a; screens/reader/useReaderVisit).
   const visit = useReaderVisit({ render, offline, inquiry, pdfView });
@@ -333,10 +353,17 @@ export function ReaderScreen({
 
   const refreshAnnotations = useCallback(async () => {
     if (!render || offline) return;
+    const epoch = sourceEpochRef.current;
     try {
-      const result = await cachedSourceRead(render.sourceId, ["reader_source_annotations", render.sourceId], () =>
-        api.readerSourceAnnotations({ sourceId: render.sourceId })
+      // With the open reading, each annotation also says where it lands on it
+      // (span_aliases decides): the original PDF draws it on its words there.
+      const result = await cachedSourceRead(
+        render.sourceId,
+        ["reader_source_annotations", render.sourceId, render.extractionId],
+        () => api.readerSourceAnnotations({ sourceId: render.sourceId, extractionId: render.extractionId }),
       );
+      // Another book opened meanwhile: these rows are not its annotations.
+      if (epoch !== sourceEpochRef.current) return;
       const rows = (result.annotations as Array<Record<string, unknown>>) ?? [];
       setAnnotations(
         rows.map((r) => {
@@ -344,12 +371,14 @@ export function ReaderScreen({
           const segments = (r.segments as Array<Record<string, unknown>>) ?? [];
           const anchor = (r.anchor as Record<string, unknown>) ?? {};
           const annotation = (r.annotation as Record<string, unknown>) ?? {};
+          const placement = r.placement as ReaderAnnotationPlacementDto | undefined;
           return {
             annotationId: (annotation.id as string) ?? null,
             quote: (segments[0]?.exactQuote as string) ?? "",
             status: (anchor.status as string) ?? null,
             learnerText: (version.learnerText as string) ?? "",
             kind: (version.annotationType as string) ?? "highlight",
+            ...(placement ? { placement } : {}),
             segments: segments.map((s) => {
               // geometry_json rides as a JSON string: {"page": n, "bbox": [x0,y0,x1,y1]}.
               let page: number | null = null;
@@ -588,6 +617,9 @@ export function ReaderScreen({
     setTagMenu(null);
     setEditingAnnotationId(null);
     setEditingAnnotationText("");
+    // A removal's undo belongs to the book it was removed from.
+    setRemoved(null);
+    sourceEpochRef.current += 1;
     resetVisitState();
   }, [resetProgress, resetInquiryState, resetVisitState]);
 
@@ -740,24 +772,34 @@ export function ReaderScreen({
 
   const activeBlock = useMemo(() => blocks.find((block) => block.spanId === activeSpan) ?? null, [blocks, activeSpan]);
 
-  // Durable annotation trails for the PDF surface: one painted region per
-  // anchored segment with geometry. needs_reanchor is shown in the rail only —
-  // a region we can no longer vouch for is never painted (no false attachment).
-  const trails: AnnotationTrail[] = useMemo(() => {
-    const list: AnnotationTrail[] = [];
-    for (const a of annotations) {
-      if (a.status === "needs_reanchor") continue;
-      for (const s of a.segments) {
-        if (s.page !== null && s.bbox && s.bbox.length === 4) {
-          list.push({ annotationId: a.annotationId, kind: a.kind, spanId: s.spanId, page: s.page, bbox: s.bbox });
-        }
+  // The learner's highlights and notes on the original PDF, drawn from their
+  // anchors on the open reading (reader-pdf-selection): where the sidecar
+  // placed each one through span_aliases (here, moved after a re-read, or
+  // flagged where its words changed). A capture made just now is drawn from
+  // its own offsets until the sidecar's placement arrives. needs_reanchor and
+  // annotations on no block of this reading are shown in the rail only: a
+  // region we can no longer vouch for is never painted (no false attachment).
+  const pdfHighlights: PdfHighlight[] = useMemo(() => {
+    const list: PdfHighlight[] = [];
+    annotations.forEach((a, index) => {
+      if (removed?.annotation === a) return;
+      const base = { id: a.annotationId ?? `local-${index}`, kind: a.kind, quote: a.quote, note: a.learnerText };
+      if (a.placement) {
+        const placed = highlightFromPlacement(base, a.placement);
+        if (placed) list.push(placed);
+        return;
       }
-    }
+      if (a.status === "needs_reanchor") return;
+      const segments = a.segments.flatMap((s) =>
+        typeof s.start === "number" && typeof s.end === "number" ? [{ spanId: s.spanId, start: s.start, end: s.end }] : [],
+      );
+      if (segments.length) list.push({ ...base, state: "here", segments, flagSpanId: null });
+    });
     return list;
-  }, [annotations]);
+  }, [annotations, removed]);
   const annotatedSpans = useMemo(
-    () => new Set(annotations.filter((a) => a.status !== "needs_reanchor").flatMap((a) => a.segments.map((s) => s.spanId))),
-    [annotations],
+    () => new Set(annotations.filter((a) => removed?.annotation !== a).flatMap((a) => placedSpanIds(a))),
+    [annotations, removed],
   );
   const boundaryBlock = useMemo(() => blocks.find((b) => (b.blockType ?? "") !== "Section") ?? null, [blocks]);
 
@@ -774,11 +816,17 @@ export function ReaderScreen({
   }, [guidePlan, revealedSections, annotatedSpans]);
   const revealedGuidanceSpans = useMemo(() => new Set(revealedPassages.keys()), [revealedPassages]);
 
-  // Blocks of the committed selection, painted in the PDF pane until cleared.
-  const selectedSpanSet = useMemo(
-    () => new Set((selection ? selectionNodes(selection) : []).map((node) => node.spanId)),
-    [selection],
-  );
+  // What the reading's protection holds out (exam_material decides): a
+  // selection touching it offers no model action (rule 4 holds a whole
+  // reading back until it is marked).
+  const protection = (pdfView && pdfView.extractionId === render?.extractionId ? pdfView.protection : null) ?? render?.protection ?? null;
+  const protectedSelection = selectionProtected(protection, selection);
+  const protectionMessage = protectedSelection ? protection?.message ?? "This passage is held out of LearnLoop's models." : null;
+  // The Ask is held back by what it would send now (Codex review F2): an
+  // inherited thread's passage, the selection, or with neither the active
+  // passage; on a reading held back whole, always.
+  const askProtected = groundingProtected(protection, askGroundingSpans(inquiry ? parentExchange : null, selection, activeSpan));
+  const askProtectionMessage = askProtected ? protection?.message ?? "This passage is held out of LearnLoop's models." : null;
 
   // Rewrite the captured passage as one combined text (OCR fix). The per-block
   // nodes stay untouched — they keep anchoring the original blocks — while the
@@ -861,30 +909,85 @@ export function ReaderScreen({
   }, [render, selection, onError, refreshAnnotations]);
 
   // Deletion is a tombstone disposition event server-side (§4.1) — history is
-  // kept; the listing honors the intent, so the card leaves the rail.
+  // kept; the listing honors the intent, so the card leaves the rail. Undo
+  // (reader-pdf-selection) withdraws the delete: the annotation comes back
+  // with its anchor and history, on the page and in the rail.
   const deleteAnnotation = useCallback(async (annotationId: string) => {
+    const target = annotations.find((a) => a.annotationId === annotationId);
+    const reading = render ? { sourceId: render.sourceId, extractionId: render.extractionId } : null;
+    const epoch = sourceEpochRef.current;
     setBusy(true);
     try {
-      await api.readerDeleteIntentAnnotation({ annotationId });
+      const { eventId } = await api.readerDeleteIntentAnnotation({ annotationId });
+      // Another book opened meanwhile: its list and its undo are its own.
+      if (epoch !== sourceEpochRef.current) return;
       setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
+      if (target && reading && eventId) setRemoved({ annotation: target, at: Date.now(), deleteEventId: eventId, ...reading });
       void refreshAnnotations();
     } catch (error) {
       onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
-  }, [onError, refreshAnnotations]);
+  }, [annotations, render, onError, refreshAnnotations]);
+  const undoRemove = useCallback(async () => {
+    const last = removed;
+    if (!last?.annotation.annotationId) return;
+    setRemoved(null);
+    // Only on the reading it was removed from: its placement means nothing
+    // on another book's (or another reading's) blocks.
+    if (!render || render.sourceId !== last.sourceId || render.extractionId !== last.extractionId) return;
+    const epoch = sourceEpochRef.current;
+    try {
+      const result = await api.readerRestoreAnnotation({ annotationId: last.annotation.annotationId, deleteEventId: last.deleteEventId });
+      if (epoch !== sourceEpochRef.current) return;
+      // Drawn again at once, unless another delete of it still stands.
+      if (result.listed) {
+        setAnnotations((list) => (list.some((a) => a.annotationId === last.annotation.annotationId) ? list : [last.annotation, ...list]));
+      }
+      void refreshAnnotations();
+    } catch (error) {
+      onError(errorMessage(error));
+    }
+  }, [removed, render, onError, refreshAnnotations]);
+  useEffect(() => {
+    if (!removed) return;
+    const timer = window.setTimeout(() => setRemoved(null), Math.max(0, removed.at + UNDO_REMOVE_MS - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [removed]);
+  // Ctrl+Z undoes the removal while it is offered (never inside a text field).
+  useEffect(() => {
+    if (!removed) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.key.toLowerCase() !== "z") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+      event.preventDefault();
+      void undoRemove();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [removed, undoRemove]);
+  // A highlight's "open note" on the page: its card in Notes, its note open.
+  const openAnnotationNote = useCallback((annotationId: string) => {
+    const target = annotations.find((a) => a.annotationId === annotationId);
+    if (!target) return;
+    setRailCollapsed(false);
+    setRailTab("notes");
+    setEditingAnnotationId(annotationId);
+    setEditingAnnotationText(target.learnerText);
+  }, [annotations]);
 
   // Split the live selection into one sub-quote per covered [data-span-id]
   // block, in document order. Anchoring works per block, so a quote must never
   // cross a block boundary — the old single-anchor capture silently failed on
   // any multi-block selection (every transcript selection, in practice).
-  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string }> => {
+  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
     const sel = window.getSelection();
     const container = bodyRef.current;
     if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !container) return [];
     const range = sel.getRangeAt(0);
-    const nodes: Array<{ spanId: string; quote: string }> = [];
+    const nodes: Array<{ spanId: string; quote: string; start?: number; end?: number }> = [];
     const seen = new Set<string>();
     for (const el of Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"))) {
       const spanId = el.dataset.spanId;
@@ -907,11 +1010,14 @@ export function ReaderScreen({
       const quote = sub.toString().replace(/\s+/g, " ").trim();
       if (quote) {
         seen.add(spanId);
-        nodes.push({ spanId, quote });
+        // The same node the original PDF sends when the quote is found once
+        // in the block's own text (one selection model on both views).
+        const block = renderBlocksBySpan.get(spanId);
+        nodes.push(block && !block.sanitized ? exactNode(block.markdown, { spanId, quote }) : { spanId, quote });
       }
     }
     return nodes;
-  }, []);
+  }, [renderBlocksBySpan]);
 
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
@@ -1173,12 +1279,18 @@ export function ReaderScreen({
   // Optimistic segment for a just-captured annotation: geometry from the pdf
   // manifest (when open) makes the trail paint immediately; the authoritative
   // segments arrive with the next refreshAnnotations.
+  // A node with offsets (the original PDF's selection model, or the
+  // extracted text when its quote is found once) is drawn on its words at once.
   const optimisticSegments = useCallback(
-    (spanIds: string | string[]): AnnotationSegment[] => {
-      const ids = Array.isArray(spanIds) ? spanIds : [spanIds];
-      return ids.map((spanId) => {
+    (nodes: string | Array<string | { spanId: string; start?: number; end?: number }>): AnnotationSegment[] => {
+      const list = Array.isArray(nodes) ? nodes : [nodes];
+      return list.map((node) => {
+        const spanId = typeof node === "string" ? node : node.spanId;
         const geometry = pdfView?.blocks.find((b) => b.spanId === spanId);
-        return { spanId, page: geometry?.page ?? null, bbox: geometry?.bbox ?? null };
+        const offsets = typeof node === "string" || typeof node.start !== "number" || typeof node.end !== "number"
+          ? {}
+          : { start: node.start, end: node.end };
+        return { spanId, page: geometry?.page ?? null, bbox: geometry?.bbox ?? null, ...offsets };
       });
     },
     [pdfView],
@@ -1202,7 +1314,7 @@ export function ReaderScreen({
         const multi = collectSelectionNodes();
         return multi.length ? multi : [{ spanId: target.spanId, quote: target.quote }];
       })();
-      const optimisticIds = quotedNodes ? quotedNodes.map((n) => n.spanId) : [target.spanId];
+      const optimisticIds = quotedNodes ?? [target.spanId];
       if (offline) {
         setAnnotations((a) => [
           { annotationId: null, quote: displayQuote, status: "exact", learnerText: "", kind: action, segments: optimisticSegments(optimisticIds) },
@@ -1315,10 +1427,9 @@ export function ReaderScreen({
       if (!render || !selection) return;
       const nodes = selectionNodes(selection);
       const editedText = selection.editedText?.trim();
-      const nodeSpanIds = nodes.map((n) => n.spanId);
       if (offline) {
         setAnnotations((a) => [
-          { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: preset, segments: optimisticSegments(nodeSpanIds) },
+          { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: preset, segments: optimisticSegments(nodes) },
           ...a,
         ]);
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
@@ -1339,7 +1450,7 @@ export function ReaderScreen({
           subjectId: selection.spanId,
         });
         setAnnotations((a) => [
-          { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus, learnerText: note, kind: preset, segments: optimisticSegments(nodeSpanIds) },
+          { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus, learnerText: note, kind: preset, segments: optimisticSegments(nodes) },
           ...a,
         ]);
         // §10.2 / Journey 2: a commit shows a durable, immediately visible arc.
@@ -1375,10 +1486,9 @@ export function ReaderScreen({
   const captureHighlight = useCallback(async () => {
     if (!render || !selection) return;
     const nodes = selectionNodes(selection);
-    const nodeSpanIds = nodes.map((n) => n.spanId);
     if (offline) {
       setAnnotations((a) => [
-        { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodeSpanIds) },
+        { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodes) },
         ...a,
       ]);
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
@@ -1398,7 +1508,7 @@ export function ReaderScreen({
         learnerText: note,
       });
       setAnnotations((a) => [
-        { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodeSpanIds) },
+        { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodes) },
         ...a,
       ]);
       logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight" });
@@ -2007,11 +2117,13 @@ export function ReaderScreen({
               ref={paneRef}
               fileUrl={convertFileSrc(pdfView.fileName ?? "", "llpdf")}
               blocks={pdfView.blocks}
-              trails={trails}
+              highlights={pdfHighlights}
               guidanceSpans={revealedGuidanceSpans}
-              selectedSpans={selectedSpanSet}
+              selection={selection}
               activeSpan={activeSpan}
               onTextSelection={(sel) => {
+                // The payload is the capture itself (its nodes carry exact
+                // offsets), so the pane keeps painting the words it drew.
                 setSelection(sel);
                 setSelectionActions([]);
                 setEditingCapture(false);
@@ -2019,12 +2131,34 @@ export function ReaderScreen({
                 noteSelection(sel.nodes?.length ?? 1, "pdf");
                 setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
               }}
+              onSelectionCleared={clearSelection}
+              onHighlightOpen={openAnnotationNote}
+              onHighlightRemove={(id) => void deleteAnnotation(id)}
               onTagMenu={setTagMenu}
               onError={onError}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("pdf")}
               onPageLayout={setPdfLayout}
             />
+          ) : null}
+          {removed ? (
+            // A removed highlight's undo (reader-pdf-selection): quiet, at the
+            // foot of the reading column, for a few seconds; Ctrl+Z works too.
+            <div
+              role="status"
+              data-undo-remove={removed.annotation.annotationId ?? ""}
+              style={{ position: "sticky", bottom: 0, zIndex: 6, background: COLOR.bg, padding: "6px 0", display: "flex", gap: 10, alignItems: "center", fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}
+            >
+              <span>{kindLabel(removed.annotation.kind)} removed.</span>
+              <button
+                type="button"
+                onClick={() => void undoRemove()}
+                style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                undo
+              </button>
+              <Faint style={{ fontSize: 10 }}>ctrl+z</Faint>
+            </div>
           ) : null}
           {pdfOfferSection ? (
             // The original PDF's own section break (usability round 1, U5): the
@@ -2307,6 +2441,7 @@ export function ReaderScreen({
             reanchorAnnotation={reanchorAnnotation}
             manualAnchorToSelection={manualAnchorToSelection}
             reanchorNotes={reanchorNotes}
+            protectionMessage={protectionMessage}
             editingAnnotationId={editingAnnotationId}
             setEditingAnnotationId={setEditingAnnotationId}
             editingAnnotationText={editingAnnotationText}
@@ -2316,6 +2451,7 @@ export function ReaderScreen({
           />
 
           <AskRail
+            protectionMessage={askProtectionMessage}
             visible={railTab === "ask"}
             enabled={enabled}
             inquiry={inquiry}

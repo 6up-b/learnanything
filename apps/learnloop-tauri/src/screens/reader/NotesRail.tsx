@@ -124,7 +124,15 @@ export interface NotesRailProps {
   setEditingAnnotationText: Dispatch<SetStateAction<string>>;
   saveAnnotationEdit: () => void | Promise<void>;
   deleteAnnotation: (annotationId: string) => void | Promise<void>;
+  /** The selection touches material held out of LearnLoop's models (exam
+   *  protection decides): the reason. Highlights, notes and marks stay; no
+   *  action that would show it to a model is offered. */
+  protectionMessage?: string | null;
 }
+
+/** The palette groups that send the selection to a model (background
+ *  requests, remember-later synthesis); "Mark" stays local. */
+const MODEL_GROUPS: ReadonlySet<string> = new Set(["Request · answered in background", "Remember later"]);
 
 export function NotesRail(props: NotesRailProps) {
   const {
@@ -141,7 +149,7 @@ export function NotesRail(props: NotesRailProps) {
     arc, pauseArc, setArcPolicy,
     annotations, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
     editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText,
-    saveAnnotationEdit, deleteAnnotation,
+    saveAnnotationEdit, deleteAnnotation, protectionMessage = null,
   } = props;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
@@ -151,7 +159,7 @@ export function NotesRail(props: NotesRailProps) {
           <Card style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Faint style={{ fontSize: 11 }}>
-                selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : selection.spanId}
+                selected · {selection.nodes && selection.nodes.length > 1 ? `${selection.nodes.length} passages` : "1 passage"}
               </Faint>
               <button
                 type="button"
@@ -220,7 +228,12 @@ export function NotesRail(props: NotesRailProps) {
           <PrimaryButton onClick={() => captureHighlight()} disabled={busy || selectionActions.includes("highlight")}>
             {selectionActions.includes("highlight") ? "highlighted ✓" : "highlight"}
           </PrimaryButton>
-          {!offline ? (
+          {protectionMessage ? (
+            <span data-capture-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
+              {protectionMessage} You can still highlight it, mark it and keep notes.
+            </span>
+          ) : null}
+          {!offline && !protectionMessage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>EXERCISES</Faint>
               <PrimaryButton
@@ -234,7 +247,7 @@ export function NotesRail(props: NotesRailProps) {
               </MeaningLabel>
             </div>
           ) : null}
-          {PALETTE.map((grp) => (
+          {PALETTE.filter((grp) => !protectionMessage || !MODEL_GROUPS.has(grp.group)).map((grp) => (
             <div key={grp.group} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>{grp.group.toUpperCase()}</Faint>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -250,7 +263,7 @@ export function NotesRail(props: NotesRailProps) {
       ) : (
         <Faint style={{ fontSize: 12 }}>
           {pdfSurfaceActive
-            ? "drag to select text like a browser · hold ctrl and drag one or more boxes, release ctrl to capture their union (best for exercises) · alt+drag to sweep whole blocks · right-click to tag."
+            ? "drag to select · double-click a word, triple-click a passage · click a formula or table to take it whole · shift+arrows extend a selection · hold ctrl and drag boxes, release ctrl to take them together (best for exercises) · alt+drag for whole passages · right-click to tag."
             : "select text to capture it · hold ctrl and drag one or more boxes, release ctrl to capture their union."}
         </Faint>
       )}
@@ -561,6 +574,11 @@ export function NotesRail(props: NotesRailProps) {
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
               <Pill color="cyan">{a.kind}</Pill>
               {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
+              {a.placement?.state === "moved" ? (
+                <span data-placement="moved" style={{ fontSize: 10, color: COLOR.amberLink }}>moved here when the book was read again</span>
+              ) : a.placement?.state === "flagged" ? (
+                <Pill color="amber">its words changed when the book was read again</Pill>
+              ) : null}
             </div>
             <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span>
             {a.status === "needs_reanchor" && a.annotationId && !offline ? (

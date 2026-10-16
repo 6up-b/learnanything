@@ -3,13 +3,13 @@ title: "exam_answers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_answers"
   - "table exam_answers"
-schema_head: 206
+schema_head: 205
 table_name: "exam_answers"
 table_role: "raw_ledger"
 functionality_status: "active"

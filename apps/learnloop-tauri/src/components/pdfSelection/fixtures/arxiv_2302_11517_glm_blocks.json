@@ -1,0 +1,255 @@
+{
+ "credit": "Wei Tang, Kangning Cui, Raymond H. Chan, \"Optimized Hard Exudate Detection with Supervised Contrastive Learning\", arXiv:2302.11517v2 (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/). Block geometry and text from z.ai's recorded GLM-OCR answer for its pages 1-5 (tests/fixtures/glm_ocr/arxiv_2302_11517_trimmed.json), read by learnloop.ingest.extractors.glm_ocr.responses_to_ir.",
+ "pages": [
+  [
+   612.0,
+   792.0
+  ],
+  [
+   612.0,
+   792.0
+  ],
+  [
+   612.0,
+   792.0
+  ],
+  [
+   612.0,
+   792.0
+  ],
+  [
+   612.0,
+   792.0
+  ]
+ ],
+ "blocks": [
+  {
+   "spanId": "s1",
+   "page": 0,
+   "bbox": [
+    80.4,
+    94.5,
+    532.8,
+    122.4
+   ],
+   "blockType": "SectionHeader",
+   "text": "OPTIMIZED HARD EXUDATE DETECTION WITH SUPERVISED CONTRASTIVE LEARNING"
+  },
+  {
+   "spanId": "s2",
+   "page": 0,
+   "bbox": [
+    175.2,
+    137.1,
+    438.3,
+    151.8
+   ],
+   "blockType": "Text",
+   "text": "Wei Tang $ ^{1,2} $ , Kangning Cui $ ^{1,2} $ $ ^{*} $ , Raymond H. Chan $ ^{1,2} $"
+  },
+  {
+   "spanId": "s3",
+   "page": 0,
+   "bbox": [
+    147.6,
+    220.2,
+    204.9,
+    231.6
+   ],
+   "blockType": "SectionHeader",
+   "text": "ABSTRACT"
+  },
+  {
+   "spanId": "s4",
+   "page": 0,
+   "bbox": [
+    51.0,
+    239.1,
+    300.3,
+    477.9
+   ],
+   "blockType": "Text",
+   "text": "Diabetic retinopathy (DR) is a leading global cause of blindness. Early detection of hard exudates plays a crucial role in identifying DR, which aids in treating diabetes and preventing vision loss. However, the unique characteristics of hard exudates, ranging from their inconsistent shapes to indistinct boundaries, pose significant challenges to existing segmentation techniques. To address these issues, we present a novel supervised contrastive learning framework to optimize hard exudate segmentation. Specifically, we introduce a patchwise density contrasting scheme to distinguish between areas with varying lesion concentrations, and therefore improve the model's proficiency in segmenting small lesions. To handle the ambiguous boundaries, we develop a discriminative edge inspection module to dynamically analyze the pixels that lie around the boundaries and accurately delineate the exudates. Upon evaluation using the IDRiD dataset and comparison with state-of-the-art frameworks, our method exhibits its effectiveness and shows potential for computer-assisted hard exudate detection. The code to replicate experiments is available at github.com/wetang7/HECL/."
+  },
+  {
+   "spanId": "s5",
+   "page": 0,
+   "bbox": [
+    128.4,
+    526.2,
+    224.1,
+    537.0
+   ],
+   "blockType": "SectionHeader",
+   "text": "1. INTRODUCTION"
+  },
+  {
+   "spanId": "s6",
+   "page": 0,
+   "bbox": [
+    384.9,
+    573.9,
+    489.3,
+    585.0
+   ],
+   "blockType": "SectionHeader",
+   "text": "2. RELATED WORKS"
+  },
+  {
+   "spanId": "s7",
+   "page": 0,
+   "bbox": [
+    312.9,
+    597.3,
+    461.4,
+    608.7
+   ],
+   "blockType": "SectionHeader",
+   "text": "2.1. Medical Image Segmentation"
+  },
+  {
+   "spanId": "s8",
+   "page": 0,
+   "bbox": [
+    311.7,
+    616.5,
+    561.3,
+    725.4
+   ],
+   "blockType": "Text",
+   "text": "Deep learning has significantly enhanced medical image segmentation that helps with diagnosis [5, 6, 12, 13, 14, 15]. UNet stands out for its integration of both a contracting and expansive path, effectively combining structure and context [5]. UNet++ introduces nested blocks and deep supervision to improve segmentation accuracy [6] while CE-Net counters UNet's potential spatial detail loss with dense atrous convolution and multi-kernel pooling [12]. The CogSeg network refines segmentation through improved resolution and edge de-"
+  },
+  {
+   "spanId": "s9",
+   "page": 1,
+   "bbox": [
+    71.1,
+    72.0,
+    277.8,
+    169.8
+   ],
+   "blockType": "Figure",
+   "text": ""
+  },
+  {
+   "spanId": "s10",
+   "page": 1,
+   "bbox": [
+    51.6,
+    175.2,
+    299.7,
+    199.5
+   ],
+   "blockType": "Caption",
+   "text": "Fig.1. Illustration of hard exudates in a fundus image. The red pixels in the right image locate the hard exudate lesions."
+  },
+  {
+   "spanId": "s11",
+   "page": 1,
+   "bbox": [
+    386.7,
+    400.8,
+    486.3,
+    411.9
+   ],
+   "blockType": "SectionHeader",
+   "text": "3. METHODOLOGY"
+  },
+  {
+   "spanId": "s12",
+   "page": 1,
+   "bbox": [
+    369.9,
+    551.4,
+    503.1,
+    564.0
+   ],
+   "blockType": "Equation",
+   "text": "$$\n\\mathcal {L} _ {t o t a l} = \\mathcal {L} _ {s u p} + \\alpha \\left(\\mathcal {L} _ {p d} + \\mathcal {L} _ {d e}\\right).\n$$"
+  },
+  {
+   "spanId": "s13",
+   "page": 2,
+   "bbox": [
+    78.9,
+    213.9,
+    272.7,
+    243.6
+   ],
+   "blockType": "Equation",
+   "text": "$$\nf _ {i, c} ^ {p} = \\frac {\\sum_ {j = 1} ^ {h} \\sum_ {k = 1} ^ {w} F _ {i , c , j , k} ^ {p}}{h \\times w}, \\quad c = 1, 2, \\dots , C.\n$$"
+  },
+  {
+   "spanId": "s14",
+   "page": 2,
+   "bbox": [
+    392.1,
+    417.6,
+    482.1,
+    429.0
+   ],
+   "blockType": "SectionHeader",
+   "text": "4. EXPERIMENTS"
+  },
+  {
+   "spanId": "s15",
+   "page": 3,
+   "bbox": [
+    96.3,
+    72.3,
+    250.8,
+    135.0
+   ],
+   "blockType": "Table",
+   "text": "| Model | IoU | F1score | AUC | Recall |\n| --- | --- | --- | --- | --- |\n| H-DenseUNet | 44.59 | 59.71 | 98.50 | 52.13 |\n| Att-UNet | 51.81 | 66.75 | 95.67 | 59.66 |\n| DeepLabv3+ | 41.10 | 58.21 | 84.07 | 47.81 |\n| HED | 52.68 | 68.96 | 38.98 | 65.50 |\n| CogSeg | 46.63 | 63.44 | 63.36 | 55.56 |\n| Ours | 55.69 | 69.64 | 96.59 | 65.65 |"
+  },
+  {
+   "spanId": "s16",
+   "page": 3,
+   "bbox": [
+    51.9,
+    145.2,
+    299.4,
+    205.2
+   ],
+   "blockType": "Caption",
+   "text": "Table 1. Comparative performance of our method with state-of-the-art networks on hard exudates segmentation. Bold values indicate the best performance for each metric, while underlined values denote the second-best. For a fair comparison, we list the best performance of each model."
+  },
+  {
+   "spanId": "s17",
+   "page": 3,
+   "bbox": [
+    51.9,
+    524.7,
+    173.4,
+    536.1
+   ],
+   "blockType": "SectionHeader",
+   "text": "4.2. Results and Discussion"
+  },
+  {
+   "spanId": "s18",
+   "page": 4,
+   "bbox": [
+    138.3,
+    180.3,
+    213.9,
+    191.1
+   ],
+   "blockType": "SectionHeader",
+   "text": "8. REFERENCES"
+  },
+  {
+   "spanId": "s19",
+   "page": 4,
+   "bbox": [
+    58.2,
+    201.3,
+    299.1,
+    233.4
+   ],
+   "blockType": "Text",
+   "text": "[1] W. L. Alyoubi, W. M. Shalash, and M. F. Abulkhair, \"Diabetic retinopathy detection through deep learning techniques: A review,\" Inform. Med. Unlocked, vol. 20, pp. 100377, 2020."
+  }
+ ]
+}

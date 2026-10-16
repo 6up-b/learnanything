@@ -1323,11 +1323,20 @@ export const api = {
     mutatingReader(call<ReaderAnnotationResultDto>("reader_edit_annotation", { input })),
   readerDeleteIntentAnnotation: (input: { annotationId: string; reason?: string | null }) =>
     mutatingReader(call<{ eventId: string }>("reader_delete_intent_annotation", { input })),
+  /** Undo a delete (reader-pdf-selection): the one delete `deleteEventId`
+   *  names (the `eventId` the delete returned) is withdrawn; `listed` says
+   *  whether the annotation is listed again (another delete may stand). */
+  readerRestoreAnnotation: (input: { annotationId: string; deleteEventId: string }) =>
+    mutatingReader(
+      call<{ annotationId: string; restored: boolean; eventId: string | null; listed: boolean }>("reader_restore_annotation", { input }),
+    ),
   readerReanchor: (input: { annotationId: string; newExtractionId: string }) =>
     mutatingReader(call<ReaderAnnotationResultDto>("reader_reanchor", { input })),
   readerAnnotationHistory: (input: { annotationId: string }) =>
     call<Record<string, unknown>>("reader_annotation_history", { input }),
-  readerSourceAnnotations: (input: { sourceId: string }) =>
+  /** With the open reading (reader-pdf-selection), each annotation also says
+   *  where it lands on it (`placement`, through span_aliases). */
+  readerSourceAnnotations: (input: { sourceId: string; extractionId?: string | null }) =>
     call<{ annotations: unknown[] }>("reader_source_annotations", { input }),
   readerOutboxStatus: (input: { clientIdempotencyKey: string }) =>
     call<{ outbox: Record<string, unknown> | null }>("reader_outbox_status", { input }),

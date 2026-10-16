@@ -6714,6 +6714,32 @@ export interface ReaderRenderViewDto {
    *  (re-read safety, Codex review F5): a bare saved span id is this
    *  reading's only when there are none. */
   otherReadings?: string[];
+  /** What of this reading the model actions must not touch (exam_material
+   *  decides; reader-pdf-selection). Absent from older sidecars. */
+  protection?: ReaderProtectionDto | null;
+}
+
+/** The held-out partition on a reading, for its selection surfaces
+ *  (reader-pdf-selection): the whole reading when it is held back until it is
+ *  marked (rule 4) or held out whole, else its held-out passages. A selection
+ *  touching any of it offers no model action; `message` is the refusal the
+ *  sidecar would give. */
+export interface ReaderProtectionDto {
+  withheld: boolean;
+  heldOutSpanIds: string[];
+  message: string | null;
+}
+
+/** Where a saved annotation lands on the reading the Reader has open
+ *  (reader.source_annotations with extractionId; span_aliases decides):
+ *  `here` as made, `moved` carried over by a re-read (drawn on its words,
+ *  labelled), `flagged` (its words changed: shown at the passage that took
+ *  its place, never drawn as text) or `elsewhere` (rail only). Segment
+ *  offsets are code points into that block's own text. */
+export interface ReaderAnnotationPlacementDto {
+  state: "here" | "moved" | "flagged" | "elsewhere";
+  segments: Array<{ spanId: string; codepointStart: number; codepointEnd: number; exactQuote: string }>;
+  flagSpanId: string | null;
 }
 
 /** Where a saved reading place lands on the book's current reading
@@ -7021,6 +7047,9 @@ export interface ReaderPdfViewDto {
    *  text-only extraction has no boxes, but the Reader still jumps to,
    *  follows and resumes a page. Absent from older sidecars. */
   pageSpans?: Array<{ spanId: string; page: number }>;
+  /** The held-out partition on this reading (reader-pdf-selection); null
+   *  while the book is still being prepared, absent from older sidecars. */
+  protection?: ReaderProtectionDto | null;
 }
 
 /** A raw display-coordinate selection captured by TS (design §A.2). */

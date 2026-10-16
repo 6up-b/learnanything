@@ -3,13 +3,13 @@ title: "source_artifacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
-source_commit_timestamp: "2026-10-15T22:32:05-04:00"
+source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
+source_commit_timestamp: "2026-10-15T21:55:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_artifacts"
   - "table source_artifacts"
-schema_head: 206
+schema_head: 205
 table_name: "source_artifacts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -143,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_keep_local_retired.py`
 - `tests/test_migrations.py`
 - `tests/test_quick_add.py`
+- `tests/test_reader_pdf_selection.py`
 - `tests/test_reading_hardening_landing.py`
 - `tests/test_reread_safety.py`
 - `tests/test_sidecar_reader_pdf_view.py`
@@ -152,7 +153,6 @@ Indexes and uniqueness:
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/test_ux_phase1_landing.py`
-- `tests/test_exam_protection_identity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
