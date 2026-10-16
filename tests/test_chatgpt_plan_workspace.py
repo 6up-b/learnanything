@@ -575,9 +575,14 @@ def test_active_chatgpt_falls_back_to_codex_while_the_plan_is_paused(server, tmp
     resolved = ready_client_for_task(vault, config, "diagnosis", timeout_seconds=300)
     assert (resolved.provider_name, resolved.fallback_from) == ("codex", "chatgpt")
     assert resolved.client.provider_type == "codex_sdk" and resolved.client.supports(READ_ONLY_WORKSPACE)
-    # A route pinned to the plan never falls back.
-    pinned = ready_client_for_task(vault, config, "diagnosis", explicit="chatgpt")
-    assert not pinned.ready and pinned.fallback_from is None
+    # A route that [ai.routing] points at the plan falls back too (a routed
+    # selection is not an explicit one)...
+    routed = ready_client_for_task(vault, config, "grading", timeout_seconds=300)
+    assert (routed.provider_name, routed.fallback_from) == ("codex", "chatgpt")
+    # ...while an explicit selection of the plan (a command's named profile,
+    # such as `ai compare`'s) never falls back.
+    explicit = ready_client_for_task(vault, config, "diagnosis", explicit="chatgpt")
+    assert not explicit.ready and explicit.fallback_from is None
     PlanSession().resume()
     assert ready_client_for_task(vault, config, "diagnosis").provider_name == "chatgpt"
 

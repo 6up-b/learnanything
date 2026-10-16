@@ -457,11 +457,14 @@ def ai_compare(
     For deciding whether a route moves from Codex to the ChatGPT plan: a few
     attempts blind-graded, one snapshot diagnosis (the plan's read-only
     workspace is served by LearnLoop and recorded exactly) and one teach-back
-    authoring draft, per profile. The report holds ids and numbers only:
-    agreement, structured-output validity, latency, tokens per call and plan
-    allowance (pause state, usage-limit errors). Nothing is written to the
-    vault but model-call receipts. Subscription profiles only; a vault whose
-    database git tracks (a working vault) is refused: pass --copy-from.
+    authoring draft, per profile. The report holds ids, numbers and local
+    explanations only (a failure as its code, never the provider's message):
+    agreement, structured-output validity, latency, tokens per call, spend
+    (estimated_only) and plan allowance (pause state, usage-limit errors).
+    The vault gets model-call receipts and the comparison's own verdicts in
+    its judgment ledger (never evidence). Subscription profiles only; a vault
+    whose database git tracks (a working vault) or lies outside it is refused:
+    pass --copy-from, which also copies a relocated database.
     """
 
     from datetime import datetime, timezone
@@ -472,6 +475,7 @@ def ai_compare(
         CompareRefused,
         CompareRequest,
         copy_vault,
+        database_location_reason,
         plan_compare,
         run_compare,
         tracked_database_reason,
@@ -492,7 +496,11 @@ def ai_compare(
             # A local copy sends nothing, so a dry run makes it too; run live on --vault next.
             copied = [str(path) for path in copy_vault(copy_from, vault)]
         loaded = load_vault(vault.resolve())
-        reason = tracked_database_reason(loaded)
+        # Both before the database is opened (which migrates it).
+        reason = database_location_reason(loaded)
+        if reason is not None:
+            raise CompareRefused(reason, code="database_outside_vault")
+        reason = tracked_database_reason(loaded, fresh_copy=copy_from is not None)
         if reason is not None:
             raise CompareRefused(reason, code="working_vault")
         bind_command_vault(loaded.root)
@@ -512,6 +520,16 @@ def ai_compare(
             typer.echo(f"diagnosis ({plan['diagnosis_mode']}): {targets['diagnosis'] or '-'}")
             typer.echo(f"generation (teach-back authoring): {targets['generation_item'] or '-'}")
             typer.echo(f"{plan['calls_per_profile']} calls per profile, {plan['max_calls']} at most")
+            typer.echo("estimate (subscription: estimated_only, no dollar cost, no physical-request bound):")
+            for name, estimate in plan["estimate"]["profiles"].items():
+                typer.echo(
+                    f"  {name}: {estimate['calls']} calls, ~{estimate['estimated_total_tokens']} tokens "
+                    f"(input ~{estimate['estimated_input_tokens']}"
+                    + (f", snapshot export ~{estimate['estimated_workspace_tokens']}"
+                       if estimate["estimated_workspace_tokens"] else "")
+                    + f", output up to {estimate['estimated_output_tokens']})")
+                for planned in estimate["planned"]:
+                    typer.echo(f"    {planned['kind']} {planned['target']}: ~{planned['total_tokens']} tokens")
             for note in targets["notes"]:
                 typer.echo(f"note: {note}")
             if copied:
@@ -536,7 +554,8 @@ def ai_compare(
     for row in report["results"]:
         summary = row.get("summary")
         if not summary:
-            typer.echo(f"{row['provider']}: {row.get('error') or 'not run'}")
+            hint = (row.get("failure") or {}).get("hint")
+            typer.echo(f"{row['provider']}: {row.get('error') or 'not run'}" + (f": {hint}" if hint else ""))
             continue
         typer.echo(
             f"{row['provider']} ({row['model']}): {summary['valid']}/{summary['calls']} valid, median "
@@ -550,7 +569,15 @@ def ai_compare(
             ("diagnosis", row.get("diagnosis")), ("generation", row.get("generation"))]
             if call and call.get("error")]
         for label, call in failures:
-            typer.echo(f"  {label}: {call['error']}" + (f": {call['detail']}" if call.get("detail") else ""))
+            failure = call.get("failure") or {}
+            codes = ", ".join(str(failure[key]) for key in ("code", "http_status", "param") if failure.get(key))
+            typer.echo(f"  {label}: {call['error']}" + (f" ({codes})" if codes else "")
+                       + (f": {call['rejection']}" if call.get("rejection") else "")
+                       + (f": {failure['hint']}" if failure.get("hint") else ""))
+        spend = row.get("spend") or {}
+        if spend:
+            typer.echo(f"  spend: {spend['used']['calls']} calls, {spend['reported_total_tokens']} tokens reported "
+                       f"(estimated_only; planned ~{spend['estimated_total_tokens']})")
         if row.get("allowance_after"):
             typer.echo(f"  plan allowance: {row['allowance_after']['state']}"
                        + (f", paused until {row['allowance_after']['paused_until']}"

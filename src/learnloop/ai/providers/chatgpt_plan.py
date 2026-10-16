@@ -452,8 +452,22 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         self.record_token_usage(input_tokens or 0, output_tokens or 0)
 
     def _classify(self, error: ResponsesError) -> Exception:
-        """Map a ChatGPT-plan error to LearnLoop's taxonomy; records pause/eligibility state."""
+        """Map a ChatGPT-plan error to LearnLoop's taxonomy; records pause/eligibility state.
 
+        The exception also carries the error's structured fields as
+        ``provider_error`` (status, code, param, request id and the local
+        remedy, if any), so a report can keep codes without the provider's
+        prose, which may quote the request (``learnloop ai compare``).
+        """
+
+        exc, remedy = self._classified(error)
+        exc.provider_error = {  # type: ignore[attr-defined]
+            "status": error.status, "code": error.code or None, "param": error.param or None,
+            "request_id": error.request_id, "remedy": remedy,
+        }
+        return exc
+
+    def _classified(self, error: ResponsesError) -> tuple[Exception, str | None]:
         code = error.code or ""
         where = f"HTTP {error.status}" if error.status not in (None, 200) else (
             "stream" if error.status == 200 else "network")
@@ -464,36 +478,39 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             return ChatGPTPlanUsageExhausted(
                 f"ChatGPT plan usage exhausted ({detail}): LearnLoop pauses plan requests for "
                 f"{self.pause_minutes} minutes. Manage usage: {MANAGE_USAGE_URL}"
-            )
+            ), None
         if code == "subscription_sharing_user_not_eligible":
             self.session.note_not_eligible(code=code, request_id=error.request_id)
             return ChatGPTPlanNotEligible(
                 f"ChatGPT plan usage is unavailable for this account, workspace or policy ({detail})."
-            )
+            ), None
         if code == "subscription_sharing_invalid_user" or error.status == 401:
             self.session.note_unauthorized()
             return ChatGPTPlanUnauthorized(
                 f"The ChatGPT plan did not accept the access token ({detail}); LearnLoop refreshes it before the "
                 "next request. If this repeats, sign in again: `learnloop ai signin chatgpt`."
-            )
+            ), None
         if code in _CONFIG_CODES or (error.status == 403 and not code) or error.status == 400:
             hint = ""
+            remedy = None
             param_name = error.param or ""
             if code == "subscription_sharing_unsupported_capability" and param_name.startswith("text"):
                 hint = (f' This route rejected structured output; set response_format = "json_object" on '
                         f"[ai.providers.{self.provider_name}].")
+                remedy = "json_object"
             elif param_name.startswith(("tools", "include")) or (
                     param_name.startswith("input") and "function call" in str(error).lower()):
                 # Only a read-only-workspace turn declares tools or resends calls.
                 hint = (f" This route rejected the read-only workspace's function calls; set workspace_mode = "
                         f'"inline" on [ai.providers.{self.provider_name}] to send the workspace in the request.')
+                remedy = "workspace_inline"
             param = f" param {error.param!r}." if error.param else ""
             return ChatGPTPlanRequestRejected(
                 f"The ChatGPT plan rejected this request ({detail}): {error}.{param}{hint}"
-            )
+            ), remedy
         if code in _TRANSIENT_CODES or error.status is None or (error.status in _TRANSIENT_STATUSES):
-            return ChatGPTPlanTransient(f"The ChatGPT plan request failed ({detail}): {error}")
-        return AIProviderUnavailable(f"The ChatGPT plan request failed ({detail}): {error}")
+            return ChatGPTPlanTransient(f"The ChatGPT plan request failed ({detail}): {error}"), None
+        return AIProviderUnavailable(f"The ChatGPT plan request failed ({detail}): {error}"), None
 
 
 def list_plan_models(base_url: str = CHATGPT_PLAN_API_BASE_URL, *, session: PlanSession | None = None,
