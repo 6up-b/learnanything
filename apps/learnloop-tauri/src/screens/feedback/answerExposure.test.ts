@@ -33,6 +33,8 @@ interface Simulated {
   now: number;
   committed: Map<string, number>;
   inflight: { due: number; settle: () => void }[];
+  /** The order in which each display id was first sent. */
+  sent: Map<string, number>;
 }
 
 /** The simulated ledger: a write lands after `latency`, or fails (nothing
@@ -42,6 +44,7 @@ interface Simulated {
 function ledger(sim: Simulated, random: () => number, failRate: number) {
   return (displayId: string) =>
     new Promise<{ recordedAt: string; alreadyRecorded: boolean }>((resolve, reject) => {
+      if (!sim.sent.has(displayId)) sim.sent.set(displayId, sim.sent.size + 1);
       const latency = random() < 0.9 ? 20 + random() * 400 : 2 * SECOND + random() * 20 * SECOND;
       sim.inflight.push({
         due: sim.now + latency,
@@ -75,8 +78,12 @@ async function settleDue(sim: Simulated): Promise<void> {
   for (let i = 0; i < 6; i += 1) await Promise.resolve();
 }
 
-function coveredByLedger(sim: Simulated): boolean {
-  for (const stamp of sim.committed.values()) {
+/** A committed row covers now, and (round 4) its write began after the last
+ *  interruption (a lifecycle signal or a clock discontinuity): `interruptedAt`
+ *  counts the writes begun before it. */
+function coveredByLedger(sim: Simulated, interruptedAt = 0): boolean {
+  for (const [id, stamp] of sim.committed) {
+    if ((sim.sent.get(id) ?? 0) <= interruptedAt) continue;
     if (stamp <= sim.now && sim.now + EXPOSURE.tickMs < stamp + EXPOSURE.renewalGraceMs) return true;
   }
   return false;
@@ -95,11 +102,12 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
     "never lets the answer be on screen without a committed row that covers it (seed %i)",
     async (seed) => {
       const random = rng(seed + 1);
-      const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [] };
+      const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [], sent: new Map() };
       const gate = new AnswerExposureGate(ledger(sim, random, 0.15 + random() * 0.3), () => sim.now);
       let wanted = true;
       let checks = 0;
       let shownChecks = 0;
+      let interruptedAt = 0;
       const end = sim.now + (2 + Math.floor(random() * 3)) * 24 * HOUR;
       while (sim.now < end) {
         const roll = random();
@@ -109,6 +117,14 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
         } else if (roll < 0.0035) {
           // A crash: this window's run ends here; nothing more is written.
           break;
+        } else if (roll < 0.01) {
+          // A lifecycle signal (hidden, pagehide, freeze, blur, minimized).
+          gate.interrupt();
+          interruptedAt = sim.sent.size;
+        } else if (roll < 0.012) {
+          // The wall clock goes back (up to five minutes): a discontinuity.
+          sim.now -= Math.floor(random() * 5 * MINUTE);
+          interruptedAt = sim.sent.size;
         } else if (roll < 0.05) {
           wanted = !wanted;
           if (wanted) gate.activity();
@@ -121,9 +137,9 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
         checks += 1;
         if (shown) {
           shownChecks += 1;
-          expect(coveredByLedger(sim)).toBe(true);
+          expect(coveredByLedger(sim, interruptedAt)).toBe(true);
         }
-        if (gate.covered()) expect(coveredByLedger(sim)).toBe(true);
+        if (gate.covered()) expect(coveredByLedger(sim, interruptedAt)).toBe(true);
       }
       expect(checks).toBeGreaterThan(0);
       // Not trivially safe: the answer is on screen for part of the run.
@@ -133,7 +149,7 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
 
   it("keeps an answer in use on screen, renewing before its grace ends", async () => {
     const random = rng(99);
-    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [] };
+    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [], sent: new Map() };
     const gate = new AnswerExposureGate(ledger(sim, random, 0), () => sim.now);
     let shown = 0;
     let checks = 0;
@@ -153,7 +169,7 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
 
   it("lets an unattended screen's row lapse: hidden as away, one row, then back on return", async () => {
     const random = rng(7);
-    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [] };
+    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [], sent: new Map() };
     const gate = new AnswerExposureGate(ledger(sim, random, 0), () => sim.now);
     for (let step = 0; step < (3 * HOUR) / EXPOSURE.tickMs; step += 1) {
       sim.now += EXPOSURE.tickMs;
@@ -172,7 +188,7 @@ describe("the full answer's exposure gate (round 3 F1)", () => {
   });
 
   it("stops on a refusal (the self-grade's draft is done with) and keeps the answer hidden", async () => {
-    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [] };
+    const sim: Simulated = { now: Date.UTC(2026, 9, 1, 8), committed: new Map(), inflight: [], sent: new Map() };
     let calls = 0;
     const gate = new AnswerExposureGate(
       () => {

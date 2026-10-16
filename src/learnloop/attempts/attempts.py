@@ -2374,6 +2374,7 @@ def reveal_total_for_submission(
     until: str | None = None,
     clock: Clock | None = None,
     submission_id: str | None = None,
+    learner_answer_md: str | None = None,
 ) -> float:
     """Summed answer exposure on this item since the learner last attempted it.
 
@@ -2389,9 +2390,10 @@ def reveal_total_for_submission(
     coverage instead (UX Phase 4, Codex review F1, round 3): within the cold
     retrieval delay plus the screens' renewal grace before the submission,
     whatever attempts came between, since a full answer can stay on screen
-    across them. The submitting draft's own self-grade disclosure
-    (``submission_id``) is exempt: its trace was frozen before the key was
-    shown."""
+    across them, and also when stamped after now (the clock went back after it
+    was written). The submitting draft's own self-grade disclosure is exempt
+    only for exactly the trace it froze: rows naming its retry key AND the
+    hash of the trace submitted (round 4, F1-2), never the key alone."""
 
     from learnloop.attempts.reveal_ledger import (
         ROUTINE_ANSWER_DISPLAY_BASES,
@@ -2401,7 +2403,7 @@ def reveal_total_for_submission(
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
-    exempt_bases, exempt_prefixes = own_disclosure_bases(submission_id)
+    exempt_bases, exempt_prefixes = own_disclosure_bases(submission_id, learner_answer_md)
     return repository.total_reveal_amount(
         practice_item_id,
         since=since,
@@ -2437,7 +2439,11 @@ def auto_primed_draft(
         return draft, 0.0
     try:
         total = reveal_total_for_submission(
-            repository, draft.practice_item_id, clock=clock, submission_id=draft.submission_id
+            repository,
+            draft.practice_item_id,
+            clock=clock,
+            submission_id=draft.submission_id,
+            learner_answer_md=draft.learner_answer_md,
         )
     except Exception:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning(

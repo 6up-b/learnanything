@@ -2443,6 +2443,9 @@ def _probe_production_admissibility(
         practice_item_id=str(attempt.get("practice_item_id") or "") or None,
         learning_object_id=str(attempt.get("learning_object_id") or "") or None,
         produced_at=str(attempt.get("created_at") or "") or None,
+        # The production judged, by id (UX Phase 4 round 4): only its own
+        # frozen self-grade disclosure is exempt, never one matched by time.
+        production_id=probe_attempt_id,
     )
 
 

@@ -16,9 +16,15 @@
 // Together: s <= v <= T and T <= v + D < s + G + D. The gate needs no closing
 // row and no flush before an action: whatever ends the screen (a crash, a
 // kill, navigating to an attempt), the row that made the answer visible
-// already covers the next D. A machine that slept with the answer open shows
-// its last frame until the page's first check after waking (one tick at
-// most), which hides it until a new row is committed.
+// already covers the next D.
+//
+// Round 4: every signal that may precede a suspend or a loss of attention
+// (the document hidden, pagehide, freeze, window blur, the shell's window
+// unfocused or minimized) hides the answer synchronously, and it shows again
+// only after a fresh row is acknowledged; so does a clock discontinuity (the
+// wall clock going back, or a check long after the last one: a wake). The
+// residual: an OS suspend that delivers none of those signals keeps the last
+// frame on screen until the page's first check after waking (one tick).
 //
 // Rows are written, each under a new display id:
 // * before the answer first appears, and whenever it is wanted again after its
@@ -32,6 +38,8 @@
 // sidecar records each id once and says when); a refused one stops.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import contract from "./exposureContract.json";
 
 /** The numbers the screen and the readers share (a test pins them equal). */
@@ -59,11 +67,18 @@ interface Row {
   stampMs: number;
   /** When this display id was first sent (client clock). */
   sentMs: number;
+  /** The gate's epoch when it was first sent (round 4: rows from before an
+   *  interruption never show the answer again). */
+  epoch: number;
+  /** The presence count when it was first sent. */
+  presence: number;
 }
 
 interface Pending {
   id: string;
   firstSentMs: number;
+  epoch: number;
+  presence: number;
   sending: boolean;
   failures: number;
 }
@@ -81,7 +96,10 @@ function refused(error: unknown): boolean {
 export class AnswerExposureGate {
   private latest: Row | null = null;
   private pending: Pending | null = null;
-  private activityMs: number;
+  /** Counts the learner's returns and inputs (never compared with clock times). */
+  private presence = 1;
+  /** Counts interruptions: a row sent in an earlier epoch never shows the answer. */
+  private epoch = 0;
   private lastCheckMs: number | null = null;
   private stopped = false;
 
@@ -89,23 +107,34 @@ export class AnswerExposureGate {
     private readonly record: RecordDisplay,
     private readonly now: () => number = () => Date.now(),
     private readonly onChange: () => void = () => undefined
-  ) {
-    this.activityMs = now();
-  }
+  ) {}
 
-  /** A committed row covers the answer being on screen at `at`. */
+  /** A committed row, sent since the last interruption, covers the answer
+   *  being on screen at `at`. A clock that went back since the last check is
+   *  never covered (round 4, F1-3: a discontinuity, like a wake). */
   covered(at: number = this.now()): boolean {
-    return this.latest !== null && at < this.latest.stampMs + EXPOSURE.renewalGraceMs - EXPOSURE.showMarginMs;
+    const latest = this.latest;
+    if (latest === null || latest.epoch !== this.epoch) return false;
+    if (this.lastCheckMs !== null && at < this.lastCheckMs) return false;
+    return at >= latest.sentMs - EXPOSURE.tickMs && at < latest.stampMs + EXPOSURE.renewalGraceMs - EXPOSURE.showMarginMs;
   }
 
   /** The learner is here: input, focus, the page shown, the answer asked for. */
   activity(): void {
-    this.activityMs = this.now();
+    this.presence += 1;
+  }
+
+  /** A lifecycle signal that may precede a suspend or a loss of attention
+   *  (hidden, pagehide, freeze, blur, minimized), or a clock discontinuity:
+   *  the answer is hidden at once and shows again only after a fresh row,
+   *  sent after this, is acknowledged (round 4, F1-1). */
+  interrupt(): void {
+    this.epoch += 1;
   }
 
   /** The learner was present since the latest row was sent. */
   private present(): boolean {
-    return this.latest === null || this.activityMs > this.latest.sentMs;
+    return this.latest === null || this.latest.epoch !== this.epoch || this.presence > this.latest.presence;
   }
 
   /** One check while the answer is wanted on screen (`wanted` false: it is
@@ -113,9 +142,13 @@ export class AnswerExposureGate {
    *  whether the answer may be on screen now. */
   check(wanted: boolean): boolean {
     const at = this.now();
-    // A check long after the last one is the machine waking (no timer ran
-    // while it slept): a return, like the page shown again.
-    if (this.lastCheckMs !== null && at - this.lastCheckMs > 3 * EXPOSURE.tickMs) this.activityMs = at;
+    if (this.lastCheckMs !== null && (at < this.lastCheckMs || at - this.lastCheckMs > 3 * EXPOSURE.tickMs)) {
+      // The clock went back, or a check long after the last one (the machine
+      // waking: no timer ran while it slept). A discontinuity: hide until a
+      // fresh row, and count it as a return.
+      this.interrupt();
+      this.activity();
+    }
     this.lastCheckMs = at;
     if (!wanted || this.stopped) return false;
     const covered = this.covered(at);
@@ -132,7 +165,10 @@ export class AnswerExposureGate {
   }
 
   private write(at: number): void {
-    const pending = this.pending ?? { id: newDisplayId(), firstSentMs: at, sending: false, failures: 0 };
+    if (this.pending !== null && this.pending.epoch !== this.epoch) this.pending = null;
+    const pending = this.pending ?? {
+      id: newDisplayId(), firstSentMs: at, epoch: this.epoch, presence: this.presence, sending: false, failures: 0
+    };
     this.pending = pending;
     if (pending.sending) return;
     pending.sending = true;
@@ -145,8 +181,10 @@ export class AnswerExposureGate {
     call
       .then((receipt) => {
         const stampMs = this.stampOf(receipt, pending.firstSentMs);
-        if (this.latest === null || stampMs >= this.latest.stampMs) {
-          this.latest = { id: pending.id, stampMs, sentMs: pending.firstSentMs };
+        if (this.latest === null || pending.epoch > this.latest.epoch || stampMs >= this.latest.stampMs) {
+          this.latest = {
+            id: pending.id, stampMs, sentMs: pending.firstSentMs, epoch: pending.epoch, presence: pending.presence
+          };
         }
         if (this.pending === pending) this.pending = null;
       })
@@ -208,10 +246,22 @@ export function useAnswerExposure(
   wantedRef.current = wanted;
 
   useEffect(() => {
+    // A signal that may precede a suspend or a loss of attention: hide the
+    // answer synchronously (so the frame a suspend keeps is the hidden one),
+    // and show it again only after a fresh row is acknowledged (round 4).
+    const hide = () => {
+      gate.interrupt();
+      flushSync(bump);
+    };
     const onVisibility = () => {
       const isVisible = documentVisible();
-      if (isVisible) gate.activity();
-      setVisible(isVisible);
+      if (isVisible) {
+        gate.activity();
+        setVisible(true);
+      } else {
+        gate.interrupt();
+        flushSync(() => setVisible(false));
+      }
     };
     const back = () => {
       gate.activity();
@@ -227,10 +277,38 @@ export function useAnswerExposure(
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("freeze", hide);
     document.addEventListener("resume", back);
+    window.addEventListener("blur", hide);
+    window.addEventListener("pagehide", hide);
     window.addEventListener("focus", back);
     window.addEventListener("pageshow", back);
     for (const name of PRESENCE_EVENTS) window.addEventListener(name, present, { passive: true });
+    // The desktop window's own signals, where the shell provides them: focus
+    // lost and minimized (no-ops outside the Tauri shell).
+    let disposed = false;
+    const unlisten: (() => void)[] = [];
+    const keep = (listener: Promise<() => void>) => {
+      listener
+        .then((stop) => (disposed ? stop() : unlisten.push(stop)))
+        .catch(() => undefined);
+    };
+    try {
+      const appWindow = getCurrentWindow();
+      keep(appWindow.onFocusChanged(({ payload: focused }) => (focused ? back() : hide())));
+      keep(
+        appWindow.onResized(() => {
+          appWindow
+            .isMinimized()
+            .then((minimized) => {
+              if (minimized) hide();
+            })
+            .catch(() => undefined);
+        })
+      );
+    } catch {
+      // Not in the shell (a browser, a test): the DOM signals above suffice.
+    }
     // The wall clock, every tick: a renewal that is due, a retry, and the
     // answer hidden once its row stops covering it (also after a sleep).
     const timer = window.setInterval(() => {
@@ -238,9 +316,14 @@ export function useAnswerExposure(
       bump();
     }, EXPOSURE.tickMs);
     return () => {
+      disposed = true;
+      for (const stop of unlisten) stop();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("freeze", hide);
       document.removeEventListener("resume", back);
+      window.removeEventListener("blur", hide);
+      window.removeEventListener("pagehide", hide);
       window.removeEventListener("focus", back);
       window.removeEventListener("pageshow", back);
       for (const name of PRESENCE_EVENTS) window.removeEventListener(name, present);
