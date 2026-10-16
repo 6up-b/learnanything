@@ -209,10 +209,16 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 
 ## 9. Landing onto main
 
-**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`), built in two phases.
+**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`), built in three phases.
 
-- **Stage:** base `37a2a7e5f`. Phase 1 landed the stage at `3caa7501d`; phase 2 added round 3 at `4186c6cc3` (`6978cde0a`, `a5fa07b2c`, `f01cffbc7`, `c4e450f1e`, `4186c6cc3`).
-- **Main:** phase 1 branched from `495c7437f`, which already had diagnosis input provenance (migration 205), the Reader's PDF selection and saved diagnosis forecasts (migration 206). Phase 2 merged `b80aeca8c`, the ChatGPT-plan peer landing.
+- **Stage:** base `37a2a7e5f`.
+  - Phase 1 landed the stage at `3caa7501d`.
+  - Phase 2 added round 3 at `4186c6cc3` (`6978cde0a`, `a5fa07b2c`, `f01cffbc7`, `c4e450f1e`, `4186c6cc3`).
+  - Phase 3 added round 4 at `a23b06385` (`76e6b97fb` sidecar, `e09935dc1` desktop, `a23b06385` record).
+- **Main:**
+  - Phase 1 branched from `495c7437f`, which already had diagnosis input provenance (migration 205), the Reader's PDF selection and saved diagnosis forecasts (migration 206).
+  - Phase 2 merged `b80aeca8c`, the ChatGPT-plan peer landing.
+  - Phase 3 merged `213b76076`, the Codex isolation fix.
 - **No migration and no successor.** The stage adds `[ui] practice_feedback`, which is display only: replay never reads it.
 
 ### 9.1 Conflicts and how they were composed
@@ -242,6 +248,21 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 - **Defaults snapshots:** main's template change is comment lines only, and the plan profile's workspace fields add no effective leaf. All 17 snapshots verify unchanged against the combined template (0 mismatches), so none was recomputed in phase 2.
 - **Pipeline Map:** the UX Phase 4 bullet was updated to round 3's reveal rule (the answer shows only while covered; a row counts for the horizon plus the renewal grace) and the answered source (contract, live or unrecorded).
 
+**Phase 3, round 4** (`8aacf9384`, stage `a23b06385`): a clean merge. The round touches no file main changed after the phase 2 main merge.
+
+- **Import contracts:** round 4's `src/learnloop/reveal_coverage.py` is a stdlib-only leaf, and `lint-imports` keeps all 22 contracts.
+- **Allowlist pins:** unchanged; round 4 adds no RPC.
+- **Composition test:** the first four tests still hold. A fifth pins the one reveal reader main added (§9.2, §9.3).
+
+**Phase 3, main** (`c385163e3`, main `213b76076`):
+
+- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
+- **Main's changes:** `ai/isolation.py`, `ai/providers/codex.py`, their tests and a Pipeline Map entry. No migration and no config change. The 17 snapshots verify unchanged (0 mismatches), and the CLI help snapshot regenerates identically.
+- **Pipeline Map:** the UX Phase 4 bullet now states round 4:
+  - the answer hides at once on every lifecycle signal;
+  - one coverage definition, `reveal_coverage.py` (added to the map's source paths), serves every reader that judges or serves by reveals;
+  - readers that ask whether a reveal ever happened count every row.
+
 ### 9.2 Composition test
 
 `tests/test_ux_phase4_landing.py` drives the `trigger_regrade` RPC on split vaults with fake graders and checks four things:
@@ -250,37 +271,58 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 2. **A contest the regrade does not uphold** is queued for review but never held, so the forecast stays resolved (`same_error`).
 3. **A held grade** shows "held for review" and the forecast is `held`. A contest whose regrade releases it clears both.
 4. **Round 3's F9 agrees with forecasts' F2:** a regrade that cites no contract shows `live` in its own response and `unrecorded` on any later read, and the forecast is censored (`graded_contract_unknown`).
+5. **Provenance's reveal reader** (phase 3, §9.3): a routine full-answer display written by the stage's own writer marks a later learner question's record as solution-seen (`solution_items`). The mark holds days after the display's coverage (D + G) has ended for admissibility, auto-prime and serving.
 
-### 9.3 Regenerated on the combined tree
+### 9.3 The reveal readers main added (phase 3)
+
+Round 4 gives every reveal-ledger reader in the stage's inventory one coverage definition (Codex review §10.7). The inventory was taken on the stage's tree, so the readers main added since the stage's base were checked on the combined tree. A grep for the ledger's tables and functions across `src/` finds **one** file on the combined tree that the stage's tree lacks: `diagnosis/text_gaps/provenance.py` (diagnosis input provenance).
+
+- **Diagnosis input provenance** (`text_gaps.provenance._revealed_before`) asks whether the learner could have seen an item's solution before asking about it. If so, the question's record carries the item's solution as an input, and chat holds the text back until it is safe.
+  - The question is "ever, before the question", with no window, like exam protection's shown items, which the stage left unchanged for the same reason.
+  - So it does not need the coverage. A routine display counts there forever, which is stricter than D + G and the conservative direction for a release rule.
+  - Test 5 pins this.
+  - A residual, shared with every "before this stamp" reader: a routine row stamped after the question by a clock that went back is not counted. Round 4's "stamped ahead counts as covering now" rule does not carry over, because a row stamped after the question can also be a genuine later display. The chat release that would act on the record is off (`diagnosis.chat_shows_recorded_text = false`), so it releases nothing today.
+- **Saved forecasts** read no ledger row. `effective_cold_outcome` reads the held predicate, the assessed rows and the correctness. The unaided rule reads the attempt's recorded `primed` flag, which auto-prime set at submit through the same coverage. A cold follow-up's later serve (round 4's scheduler deferral) changes when its task is served, never its binding.
+- **The Reader's PDF selection, the ChatGPT-plan peer and the Codex isolation fix** read no reveal ledger. Main changed no other reader in the inventory except to add rows (`learner_context` counts rows, Q13).
+
+### 9.4 Regenerated on the combined tree
 
 - **References:** `db_generate_reference.py` at schema head 206 gives 325 table notes and 860 effective config leaves in 52 top-level sections, with the new `Config - ui` note. `db_validate_reference.py` reports 0 errors. The prose counts in `Configuration.md` and `Database.md` were updated (from 859 leaves and 51 sections).
 - **`validate_vault.py`:** passes.
 - **Validators that already fail on main:**
-  - `module_validate.py`: 763 issues and coverage 474/846, identical to main. The stage adds no Python module.
+  - `module_validate.py`: 765 issues and coverage 474/847, against main's 763 and 474/846. With the 100-line truncation lifted, the 2 extra issues are the missing note for round 4's new module `reveal_coverage.py` and its "no module note" twin. That is the same stale-catalog kind as main's.
   - `desktop_validate.py`: stops on `pdfSelection/testing/syntheticBook.ts`, identically on main. Listing every unclassified source gives the same four files on both trees (`syntheticBook.ts`, `syntheticPdf.ts`, `copy/denyList.ts`, `testNodeShims.d.ts`). The stage's new desktop sources are all reachable from the app entry.
   - No new kind of failure.
 
-### 9.4 Gate (final tree)
+### 9.5 Gate (final tree)
 
-Run on the final tree (`b47a3aa88`, the main merge), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
+Run on the final tree (`c385163e3`, the phase 3 main merge), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
 
 | Check | Result |
 |---|---|
-| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
-| `pytest -n auto` | 12146 passed, 2 xfailed, 0 failed (19 min 35 s). The 2 xfails are main's strict xfails for the provenance release path (`test_diagnosis_input_provenance_landing` F2 and F3, switch off). |
-| `pytest -m durability` | 106 passed, 12042 deselected |
-| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 100 files, 796 passed; build succeeds (the usual chunk-size warning) |
-| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | clean (cold build, 0 warnings): the stage's two passthroughs beside main's `reader_restore_annotation` |
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken (with round 4's stdlib-only `reveal_coverage.py`) |
+| `pytest -n auto` | 12200 passed, 2 xfailed, 0 failed (19 min 50 s). The 2 xfails are main's strict xfails for the provenance release path (`test_diagnosis_input_provenance_landing` F2 and F3, switch off). |
+| `pytest -m durability` | 106 passed, 12096 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 100 files, 802 passed; build succeeds (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | not rerun: nothing under `src-tauri` changed since phase 2's clean cold build on `b47a3aa88` (0 warnings; the stage's two passthroughs beside main's `reader_restore_annotation`) |
 | DB/config references | regenerated; `db_validate_reference.py`: 0 errors; `validate_vault.py` passes |
 
 Nothing needed a rerun: no lane had a failure, timing-sensitive or otherwise.
 
-Phase 1 (before round 3 and the new main) ran a targeted selection of 48 files instead: the stage's tests, the provenance and forecasts tests and their landing tests, the reveal-ledger, held-grade and regrade tests, the allowlist, CLI-help and defaults-snapshot tests, and the migration, fixture and architecture checks. It gave 1047 passed and 2 xfailed. Vitest gave 99 files, 764 passed.
+**Earlier phases.**
+- **Phase 2** (`b47a3aa88`; stage at `4186c6cc3`, main `b80aeca8c`): full suite 12146 passed and 2 xfailed; durability 106 passed; vitest 100 files, 796 passed; `cargo check` clean.
+- **Phase 1** (before round 3 and the new main) ran a targeted selection of 48 files: the stage's tests, the provenance and forecasts tests and their landing tests, the reveal-ledger, held-grade and regrade tests, the allowlist, CLI-help and defaults-snapshot tests, and the migration, fixture and architecture checks. It gave 1047 passed and 2 xfailed. Vitest gave 99 files, 764 passed.
 
-### 9.5 Parity (backup-API copies; no model call)
+### 9.6 Parity (backup-API copies; no model call)
 
-- **The copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied with `copy_tree_with_databases` into `fixtures-local/landing-ux4/orig/`, including probability's `.learnloop/state.sqlite`. Each original was read once; every per-side copy (`main/`, `merge/`, `shadow/`) was made from `orig/` with the same helper. `arxiv_v2` was not opened.
-- **The two codes.** Main's code is `b80aeca8c`, from `git archive` (fixtures excluded), first on `PYTHONPATH`. The merge's code is the worktree's own. `pyproject.toml`, `uv.lock` and `migrations/` are identical on both.
+Run twice, each time on fresh copies:
+- **Phase 2:** main `b80aeca8c` against the merge with the stage at `4186c6cc3`, in `fixtures-local/landing-ux4/`.
+- **Phase 3:** main `213b76076` against the final tree with the stage at `a23b06385`, in `fixtures-local/landing-ux4-p3/`.
+
+Both runs gave the same results; the table is phase 3's.
+
+- **The copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied with `copy_tree_with_databases` into `<run>/orig/`, including probability's `.learnloop/state.sqlite`. Each original was read once per run, and every per-side copy (`main/`, `merge/`, `shadow/`) was made from `orig/` with the same helper. `arxiv_v2` was not opened.
+- **The two codes.** Main's code is the main tip from `git archive` (fixtures excluded), first on `PYTHONPATH`. The merge's code is the worktree's own. `pyproject.toml`, `uv.lock` and `migrations/` are identical on both.
 - **The run.** `LEARNLOOP_CONFIG_DIR` was empty (and stayed empty), and `LEARNLOOP_AI_PROVIDER` was unset. Every copy has 0 `model_call_receipts` afterwards.
 
 | Check | linear_algebra | probability |
@@ -290,10 +332,11 @@ Phase 1 (before round 3 and the new main) ran a targeted selection of 48 files i
 | `doctor --json`, main vs merge | 0 differences (57 issues, 1 error: `layout:missing_directory`) | 0 differences (101 issues, 48 errors, 46 `criterion:unknown_dependency`) |
 | upgrade shadow: main's code upgrades a copy, then the merge's code opens it | applies 0 migrations; shadow and doctor equal main's | applies 0; shadow and doctor equal main's |
 
-The only fields that differ between runs are per-run identifiers: each copy's own live-database sha256 (a different file per side; before and after are equal on every side) and the shadow rebuild's fresh `marker_id`. No migration was expected and none differs: `ui.practice_feedback` is display only and replay never reads it. The shadow and doctor runs left every live database byte-identical. The doctor issues are the vaults' own content and match main's (and the previous landing's).
+The only fields that differ between runs are per-run identifiers: each copy's own live-database sha256 (a different file per side; before and after are equal on every side) and the shadow rebuild's fresh `marker_id`. No migration was expected and none differs. `ui.practice_feedback` is display only, and replay never reads it. Round 4's coverage changes serve-time eligibility (the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, retrieval), which replay never runs. Auto-prime and admissibility are read at write time and replay keeps what they recorded, so the shadow rebuild's deltas are identical on both codes. The schedule deltas (8, and 1) are main's own: the same on both codes and in the previous landings. The shadow and doctor runs left every live database byte-identical. The doctor issues are the vaults' own content and match main's (and the previous landing's).
 
-### 9.6 Open items
+### 9.7 Open items
 
-- **Owner questions Q1–Q21**, each with its default applied: Q1–Q7 in §8 above; Q8–Q21 in the Codex review (§6, §7.10, §8.8, §9.7).
+- **Owner questions Q1–Q24**, each with its default applied: Q1–Q7 in §8 above; Q8–Q24 in the Codex review (§6, §7.10, §8.8, §9.7, §10.11).
+- **Provenance's stamped-ahead residual** (§9.3): for the owner or the provenance follow-up, before the chat release is switched on.
 - **The regrade and replay contract mismatch** (Codex review §8.4) is the brief for its own stage. It needs an algorithm successor. An ordinary regrade still cites no contract; replay takes the first live row's contract; and an answer regraded above its item's later maximum can fail `rebuild` on `correctness <= 1`. That code was left alone here. Until that stage lands, Q21's unrecorded label stands.
-- **Process note.** An earlier stage-gate wrapper of this branch was killed by another stage's agent. The gate in §9.4 was run on the final landing tree under the shared full-suite lock, and it is the authoritative one.
+- **Process note.** An earlier stage-gate wrapper of this branch was killed by another stage's agent. The gate in §9.5 was run on the final landing tree under the shared full-suite lock, and it is the authoritative one.
