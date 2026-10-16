@@ -29,6 +29,7 @@ from learnloop.attempts.post_attempt import (
 )
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
 from learnloop.diagnosis.probe_episodes import (
+    RoutineDisplayCovered,
     commit_item_presentation,
     enter_episode,
     episode_contract,
@@ -403,7 +404,12 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
             practice_item_id=item.id,
         )
         if validation.valid:
-            serve_presentation(repository, active.id)
+            try:
+                serve_presentation(repository, active.id)
+            except RoutineDisplayCovered:
+                # Committed before the item's answer was shown on a routine
+                # display: ended, and the item is ordinary practice (round 7).
+                return versioned({"active": False, "reason": "answer_shown"})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
             return versioned({"active": True, "presentation_id": active.id, **contract})
         if validation.reason == "item_mismatch":

@@ -1214,12 +1214,11 @@ def commit_presentation(
     slate is supplied, shadow-policy rankings are logged onto the presentation
     (§13.3, Checkpoint 5.1).
 
-    The administration choke point for probes and placement (UX Phase 4
-    round 6): an item whose answer a routine display still covers is never
-    committed (:class:`RoutineDisplayCovered`, before anything is written).
+    An item whose answer a routine display still covers is never committed
+    (UX Phase 4 rounds 6 and 7): the payload builder refuses it
+    (:class:`RoutineDisplayCovered`) before anything is written.
     """
 
-    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     payload = presentation_commit_payload(
         vault,
         repository,
@@ -1318,8 +1317,13 @@ def presentation_commit_payload(
     The routine scheduler passes this payload into ``record_scheduler_slate``
     so the candidate and presentation are committed atomically. Dialogue and
     direct/TUI selections use ``commit_presentation`` with the same builder.
+
+    So this is the one guard every new probe presentation row passes (UX
+    Phase 4 round 7): an item whose answer a routine display still covers
+    raises :class:`RoutineDisplayCovered` before any row exists.
     """
 
+    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     if episode.status != "in_progress":
         raise ValueError(f"episode {episode.id} is {episode.status}; cannot commit a presentation")
     if episode.active_state_segment_id is None:
@@ -1416,6 +1420,19 @@ def _robust_channel_pin(
 
 
 def serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None = None) -> None:
+    """Mark a committed presentation served: the administration itself, and
+    the only path to ``served``. A presentation committed before its item's
+    answer was shown on a routine display that still covers now is ended
+    (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
+    Phase 4 round 7)."""
+
+    presentation = repository.probe_presentation(presentation_id)
+    if presentation is not None:
+        try:
+            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock)
+        except RoutineDisplayCovered:
+            repository.end_probe_presentation(presentation_id, end_reason="invalidated", clock=clock)
+            raise
     repository.mark_probe_presentation_served(presentation_id, clock=clock)
 
 
@@ -1536,10 +1553,10 @@ def commit_item_presentation(
             extra_selection_components=extra_selection_components,
             clock=clock,
         )
+        serve_presentation(repository, presentation.id, clock=clock)
     except RoutineDisplayCovered:
-        # Its answer was just shown: ordinary practice, not a probe (round 6).
+        # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7).
         return None
-    serve_presentation(repository, presentation.id, clock=clock)
     return presentation
 
 

@@ -325,10 +325,10 @@ def next_dialogue_turn(
             },
             clock=clock,
         )
+        serve_presentation(repository, presentation.id, clock=clock)
     except RoutineDisplayCovered:
-        # UX Phase 4 round 6 (a turn's instance is new, so in practice never).
+        # UX Phase 4 rounds 6 and 7 (a turn's instance is new, so in practice never).
         return state, None
-    serve_presentation(repository, presentation.id, clock=clock)
     turn = DialogueTurn(
         kind=kind,
         practice_item_id=payload["id"],

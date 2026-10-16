@@ -26,6 +26,7 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
     EpisodePosterior,
+    RoutineDisplayCovered,
     administered_surface_exclusions,
     eligible_instruments,
     episode_hypothesis_set,
@@ -978,16 +979,24 @@ def build_due_queue(
                                     served_ref=selected.practice_item_id, served_by=served_by
                                 ),
                             }
-                        probe_presentation = presentation_commit_payload(
-                            vault,
-                            repository,
-                            episode,
-                            eligible,
-                            candidates=list(eligible_by_id.values()),
-                            extra_selection_components=extra_components,
-                            clock=clock,
-                        )
-                        probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
+                        try:
+                            probe_presentation = presentation_commit_payload(
+                                vault,
+                                repository,
+                                episode,
+                                eligible,
+                                candidates=list(eligible_by_id.values()),
+                                extra_selection_components=extra_components,
+                                clock=clock,
+                            )
+                        except RoutineDisplayCovered:
+                            # UX Phase 4 round 7: its answer was just shown on
+                            # a routine display. No presentation is committed;
+                            # the slate still records and the item is served
+                            # as ordinary practice.
+                            probe_presentation = None
+                        else:
+                            probe_forecast_context = (episode.learning_object_id, len(eligible_by_id))
         ability_by_lo: dict[str, dict[str, object]] = {}
         # The decision_features receipt reads the error events through the
         # diagnosis overlay (owner decision 2026-10-12/13, the Guide-fix
