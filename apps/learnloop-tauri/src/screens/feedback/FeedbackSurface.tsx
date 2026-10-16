@@ -12,11 +12,13 @@
 // A grade held for review is the grader's provisional score and counts for
 // nothing: it says "Held for review" and never shows a score.
 //
-// The question, the full answer and the criteria all come from the assessment
-// contract the answer was graded under when the bundle carries it (Codex
-// review F5), never today's key beside the question as it was given. Showing
-// the full answer is an exposure: the screen charges the reveal ledger
-// (`onFullAnswerShown`, Codex review F1).
+// The question is the one the learner was given. The full answer and the
+// criteria are the ones the grade stands on: the assessment contract its
+// grading epoch cites when the bundle carries it (Codex review F5), never
+// today's key beside an older grade, nor the original key beside a regrade
+// that read the corrected item (re-review F9). Showing the full answer is an
+// exposure: the screen charges the reveal ledger on every visit
+// (`onFullAnswerShown`, Codex review F1, re-review F1).
 import { useRef, useEffect } from "react";
 import type { CriterionEvidenceRowDto, FeedbackBundle, PracticeItemDetail } from "../../api/dto";
 import { criterionAssessed } from "../../api/dto";
@@ -73,27 +75,35 @@ function fmtDay(iso: string | null): string {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The full answer to the question as it was given: the graded contract's
- *  key when the bundle carries one, else the item's (an answer graded before
- *  contracts). */
+/** The full answer the grade stands on: the key of the contract its grading
+ *  epoch cites when the bundle carries one, else the item's (an answer graded
+ *  before contracts, or regraded under the item as it is now: Codex
+ *  re-review F9). */
 export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string {
   const frozen = f.answeredExpectedAnswer;
   if (frozen !== undefined && frozen !== null) return expectedAnswerText(frozen).trim();
   return item ? expectedAnswerText(item.expectedAnswer).trim() : "";
 }
 
-/** The criteria rows with the descriptions and points the graded contract
+/** The criteria rows with the descriptions and points the grading contract
  *  froze (Codex review F5); a criterion the contract does not name keeps the
- *  row's own. */
+ *  row's own. Matched on the id each frozen row carries (re-review F8). */
 export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[] {
   const frozen = f.answeredCriteria;
   if (!frozen) return f.criterionEvidence;
+  const byId = new Map(frozen.map((criterion) => [criterion.criterionId, criterion]));
   return f.criterionEvidence.map((row) => {
-    const criterion = frozen[row.criterionId];
+    const criterion = byId.get(row.criterionId);
     return criterion
       ? { ...row, criterionDescription: criterion.description, pointsPossible: criterion.pointsPossible }
       : row;
   });
+}
+
+/** The maximum the grade is out of: the grading contract's when the bundle
+ *  carries one (re-review F9), else the bundle's (the item's rubric). */
+export function answeredMaxPoints(f: FeedbackBundle): number {
+  return typeof f.answeredMaxPoints === "number" ? f.answeredMaxPoints : f.maxPoints;
 }
 
 /** The quiet honesty lines that qualify the grade, in a few plain words. */

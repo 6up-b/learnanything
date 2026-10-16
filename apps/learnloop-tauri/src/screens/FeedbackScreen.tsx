@@ -54,7 +54,7 @@ import {
   VERDICT_TEXT,
   verdictOf
 } from "../app/practiceFeedback";
-import { FeedbackSurface, answeredCriterionRows, type FeedbackNextStep } from "./feedback/FeedbackSurface";
+import { FeedbackSurface, answeredCriterionRows, answeredMaxPoints, type FeedbackNextStep } from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -1250,9 +1250,10 @@ function gradeSide(f: FeedbackBundle): RegradeSide {
   return { score: f.rubricScore, max: f.maxPoints, held: f.heldForReview === true, correctness: f.correctness };
 }
 
-function newContestKey(): string {
+/** A client-minted identity (a contest key, a display visit). */
+function newClientKey(prefix: "contest" | "display"): string {
   const random = globalThis.crypto?.randomUUID?.();
-  return `contest_${random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`;
+  return `${prefix}_${random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`;
 }
 
 /** The plain regrade history: numbers between two counted grades, words when
@@ -1605,12 +1606,18 @@ export function FeedbackScreen({
   const [contestNote, setContestNote] = useState<string | null>(null);
   // One key per contest until the sidecar confirms it (Codex review F7): a
   // retry after a failed or unknown delivery reuses it, so the contest is
-  // recorded and queued once.
-  const contestKey = useRef<string | null>(null);
+  // recorded and queued once. The key is bound to the reason it was first
+  // sent with (re-review F10): an edited reason is a new contest with a new
+  // key, and cancelling or opening a contest starts a new identity.
+  const contestKey = useRef<{ key: string; reason: string } | null>(null);
   const [causalNotRight, setCausalNotRight] = useState(false);
   // The full answer this screen showed, charged to the reveal ledger once
-  // per attempt (Codex review F1).
+  // per visit (Codex review F1). Each visit is a fresh exposure (re-review
+  // F1: a feedback reopened a day later shows the answer again), so the
+  // visit has its own id, minted when it first shows the answer; a retry of
+  // the write reuses it. A remount (feedback reopened) is a new visit.
   const answerShownFor = useRef<string | null>(null);
+  const displayVisit = useRef<{ attemptId: string; id: string } | null>(null);
   useEffect(() => {
     setDetailsOpen(false);
     setWhyOpen(false);
@@ -1623,8 +1630,11 @@ export function FeedbackScreen({
   const recordAnswerShown = useCallback(() => {
     if (answerShownFor.current === attemptId) return;
     answerShownFor.current = attemptId;
+    if (displayVisit.current?.attemptId !== attemptId) {
+      displayVisit.current = { attemptId, id: newClientKey("display") };
+    }
     // Best effort, like every ledger write: the screen never waits on it.
-    api.recordAnswerDisplay(attemptId).catch(() => {
+    api.recordAnswerDisplay(attemptId, displayVisit.current.id).catch(() => {
       answerShownFor.current = null;
     });
   }, [attemptId]);
@@ -1862,7 +1872,9 @@ export function FeedbackScreen({
   // it), and the regrade happens in place; what the look did not settle goes
   // to the owner's grade review (Codex review F3). Only a confirmed record
   // says the note is kept (F7): a failed or unknown delivery keeps the box and
-  // the reason, and a retry sends the same contest key, so nothing doubles.
+  // the reason, and a retry of the same reason sends the same contest key, so
+  // nothing doubles. An edited reason is a new contest under a new key
+  // (re-review F10): the sidecar would refuse it under the old one.
   const handleContest = async () => {
     if (!feedback || contesting) return;
     setContesting(true);
@@ -1871,10 +1883,12 @@ export function FeedbackScreen({
       score: feedback.rubricScore, max: feedback.maxPoints, correctness: feedback.correctness, held: feedback.heldForReview === true
     });
     const prior = gradeSide(feedback);
-    const key = contestKey.current ?? newContestKey();
-    contestKey.current = key;
+    const reason = contestReason.trim();
+    const bound = contestKey.current;
+    const key = bound && bound.reason === reason ? bound.key : newClientKey("contest");
+    contestKey.current = { key, reason };
     try {
-      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, contestReason.trim(), key));
+      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, reason, key));
       contestKey.current = null;
       setFeedback(updated);
       const outcome = updated.contest;
@@ -2252,11 +2266,15 @@ export function FeedbackScreen({
               reason: contestReason,
               busy: contesting,
               note: contestNote,
+              // A new contest is a new identity (re-review F10): the key a
+              // failed send kept dies with its box.
               onOpen: () => {
+                contestKey.current = null;
                 setContestNote(null);
                 setContestOpen(true);
               },
               onCancel: () => {
+                contestKey.current = null;
                 setContestOpen(false);
                 setContestReason("");
               },
@@ -2283,7 +2301,7 @@ export function FeedbackScreen({
                   </div>
                 ) : (
                   <div data-testid="details-score" style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>{`${f.rubricScore} / ${f.maxPoints}`}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>{`${f.rubricScore} / ${answeredMaxPoints(f)}`}</span>
                     <Dim>{f.gradingSource === "self" ? "graded by you" : "graded by AI"}</Dim>
                     {f.gradingSource !== "self" ? (
                       <Faint>how sure the grader was: {f.graderConfidence.toFixed(2)}</Faint>

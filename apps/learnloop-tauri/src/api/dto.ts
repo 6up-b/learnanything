@@ -1481,11 +1481,15 @@ export interface FeedbackBundle {
    *  instruction, or the frozen statement of an item edited since); null
    *  otherwise. */
   answeredPresentation?: ItemPresentationDto | null;
-  /** Codex review F5: the answer key and criteria that question was given
-   *  with, from the same assessment contract. Null for an answer graded before
-   *  contracts (feedback then reads the item). */
+  /** Codex review F5, re-review F9: the answer key, criteria and maximum the
+   *  grade stands on, from the assessment contract its grading epoch cites.
+   *  Null for an answer graded before contracts, or regraded under the item
+   *  as it is now (feedback then reads the item, which that regrade graded
+   *  against). The criteria are rows carrying their id (re-review F8: a map
+   *  keyed by id had its keys camel-cased). */
   answeredExpectedAnswer?: unknown;
-  answeredCriteria?: Record<string, { description: string; pointsPossible: number }> | null;
+  answeredCriteria?: { criterionId: string; description: string; pointsPossible: number }[] | null;
+  answeredMaxPoints?: number | null;
   /** "I think I was right" (Codex review F3/F7): present on a contest's
    *  response. `recorded`: the learner's note is kept; `regraded`: the grader
    *  looked again; `reviewRequested`: the grade went to the owner's review. */

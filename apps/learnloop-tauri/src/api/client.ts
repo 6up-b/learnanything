@@ -575,9 +575,11 @@ export const api = {
       })
     ),
   /** UX Phase 4 (Codex review F1): feedback showed the full answer; the
-   *  sidecar charges the reveal ledger once per attempt. */
-  recordAnswerDisplay: (attemptId: string) =>
-    call<{ recorded: boolean }>("record_answer_display", { input: { attemptId } }),
+   *  sidecar charges the reveal ledger once per visit (re-review F1: each
+   *  visit is a fresh exposure). `displayId` names the visit; a retry of its
+   *  write reuses it. */
+  recordAnswerDisplay: (attemptId: string, displayId: string) =>
+    call<{ recorded: boolean }>("record_answer_display", { input: { attemptId, displayId } }),
   /** UX Phase 4 (Codex review F1): freeze the whole trace before the plain
    *  self-grade shows a full answer. Resolve before showing it. */
   recordSelfGradeDisclosure: (input: {
