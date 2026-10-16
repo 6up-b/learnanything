@@ -209,152 +209,109 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 
 ## 9. Landing onto main
 
-**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`), built in four phases.
+**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`). The stage's base is `37a2a7e5f`, and the branch was built in six phases, while the stage's fix rounds were verified. The main it lands on is `213b76076`. There is no migration and no algorithm successor: `[ui] practice_feedback` is display only, and replay never reads it.
 
-- **Stage:** base `37a2a7e5f`.
-  - Phase 1 landed the stage at `3caa7501d`.
-  - Phase 2 added round 3 at `4186c6cc3` (`6978cde0a`, `a5fa07b2c`, `f01cffbc7`, `c4e450f1e`, `4186c6cc3`).
-  - Phase 3 added round 4 at `a23b06385` (`76e6b97fb` sidecar, `e09935dc1` desktop, `a23b06385` record).
-  - Phase 4 added round 5 at `fe47ba6eb` (`1125d5a12`, `c4573a5cc`, `81d54b825`, `e14166caf`, `fe47ba6eb`).
-- **Main:**
-  - Phase 1 branched from `495c7437f`, which already had diagnosis input provenance (migration 205), the Reader's PDF selection and saved diagnosis forecasts (migration 206).
-  - Phase 2 merged `b80aeca8c`, the ChatGPT-plan peer landing.
-  - Phase 3 merged `213b76076`, the Codex isolation fix.
-  - In phase 4 main had not moved (`213b76076`), so nothing was merged from it.
-- **No migration and no successor.** The stage adds `[ui] practice_feedback`, which is display only: replay never reads it.
+### 9.1 Phases, merges and conflicts
 
-### 9.1 Conflicts and how they were composed
+| Phase | Merged | Commit | Conflicts |
+|---|---|---|---|
+| 1 | stage `3caa7501d` onto main `495c7437f` (diagnosis input provenance, migration 205; the Reader's PDF selection; saved diagnosis forecasts, migration 206) | `0bf12f73a` | `config/template.py` (17 snapshot blocks); 378 generated reference notes |
+| 2 | round 3 `4186c6cc3`; then main `b80aeca8c` (the ChatGPT-plan peer) | `23e4e02e0`, `b47a3aa88` | round 3: none; main: the 378 generated notes |
+| 3 | round 4 `a23b06385`; then main `213b76076` (the Codex isolation fix) | `8aacf9384`, `c385163e3` | round 4: none; main: the 378 generated notes |
+| 4 | round 5 `fe47ba6eb` (main had not moved) | `2954a443a` | none |
+| 5 | round 6 `699b44956` (main had not moved); targeted tests only | `2c8362ece` | none |
+| final | round 7 `f56e2b652` (main had not moved) | `28d5ee45a` | none |
 
-**Phase 1** (`0bf12f73a`, main `495c7437f` + stage `3caa7501d`):
+How the conflicts were composed:
 
-- **`src/learnloop/config/template.py`** was the only code conflict: 17 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` blocks. Each keeps main's comments (provenance, saved forecasts) followed by the stage's. All seventeen fingerprints were recomputed from the combined defaults (`defaults_fingerprint_for_version`, after deleting the template `.pyc` and touching the file) and verify with 0 mismatches.
-- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
-- **Files both sides changed that merged without conflict:** `db/repositories.py`, `attempts/attempts.py`, `config/schema.py`, `api/client.ts`, `api/dto.ts`, `styles/app.css`, `src-tauri/src/commands.rs`, `src-tauri/src/main.rs` and `_scripts/db_generate_reference.py`. Each is exactly main plus the stage's additions (equal diff line counts against each side). Both sides' repository methods are present: the Reader's `annotations_for_source`, `withdraw_annotation_delete` and `block_content_hashes`, the provenance hooks, and the stage's `session_attempt_rows`, `open_session_checkpoints_except` and the routine-display coverage in `total_reveal_amount`.
+- **`config/template.py`** (phase 1). Each of the 17 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` blocks keeps main's comments (provenance, saved forecasts) followed by the stage's. All seventeen fingerprints were recomputed from the combined defaults (`defaults_fingerprint_for_version`, after deleting the template `.pyc` and touching the file). In later phases they verify unchanged (0 mismatches): main's later template change is comment lines only, and the ChatGPT-plan profile's fields add no effective leaf.
+- **Generated references.** Main's side was taken each time, then regenerated (§9.4).
+- **Files both sides changed that merged without conflict** (phase 1): `db/repositories.py`, `attempts/attempts.py`, `config/schema.py`, `api/client.ts`, `api/dto.ts`, `styles/app.css`, `src-tauri/src/commands.rs`, `src-tauri/src/main.rs` and `_scripts/db_generate_reference.py`. Each was exactly main plus the stage's additions (equal diff line counts against each side). Both sides' repository methods are present: the Reader's `annotations_for_source`, `withdraw_annotation_delete` and `block_content_hashes`, the provenance hooks, and the stage's session and reveal methods.
 - **How the behaviours compose:**
   - **A contest records provenance.** "I think I was right" regrades through main's `regrade_attempt`, which the stage does not change. So a contest's in-place regrade writes provenance's grading record (Q14) and the error-event lineage (Q9) like any regrade.
   - **A review flag is not a hold.** `flag_observation_for_review` appends a `review_flag` interpretation head with the same authority and never writes `blind_grade_records`. The saved forecasts' resolver, which reads the held predicate, therefore resolves on the grade as it stands.
   - **One held predicate.** The feedback bundle's `heldForReview`, the short-check result, the session finish and the forecast resolver all read `learnloop.held_grades`.
-- **`tests/test_mobile_allowlist.py`** keeps main's pins (including `reader.restore_annotation`). It adds `UX_PHASE4_RPCS` (`record_answer_display`, `record_self_grade_disclosure`) as desktop-only, plus `UX_PHASE4_EXTENDED_RPCS` for the six desktop RPCs the stage extends.
-- **CLI help snapshot:** regenerates identically (the stage adds no CLI).
-- **Pipeline Map:** gains a UX Phase 4 grading bullet, the review links and two source paths (`reveal_ledger.py`, `grade_resolution.py`).
+- **`tests/test_mobile_allowlist.py`** keeps main's pins, including `reader.restore_annotation`.
+  - `UX_PHASE4_RPCS` adds `record_answer_display` and `record_self_grade_disclosure` as desktop-only.
+  - `UX_PHASE4_EXTENDED_RPCS` lists the desktop RPCs the stage extends, with a note on each: `trigger_regrade`, `get_feedback`, `submit_attempt`, `end_session`, `start_session`, `clear_session_checkpoint`, `open_queue_item`, `get_practice_item`, `plan_learner_pick`, `get_probe_contract`, `causal_probe_offer_action`, `get_daily_plan`, `next_plan_item` and `plan_reading_ended`.
+  - Round 5's `cold_check_unavailable` was pinned in phase 4. When round 6 withdrew it, the pin was removed.
 
-**Phase 2, round 3** (`23e4e02e0`, stage `4186c6cc3`): a clean merge. The round touches no file main changed after the phase 1 merge.
+### 9.2 Composition tests
 
-- **Allowlist pins:** they are by name, so they still hold. The note now describes `display_not_recorded` and `record_self_grade_disclosure`'s display id.
-- **Composition test:** still holds. It also checks round 3's F9 against the forecast resolver (see §9.2).
+`tests/test_ux_phase4_landing.py`, six tests, fakes only:
 
-**Phase 2, main** (`b47a3aa88`, main `b80aeca8c`):
+1. **An upheld contest** (through `trigger_regrade`):
+   - writes the regrade's provenance record and the lineage;
+   - never shows the grader the reason;
+   - re-resolves the saved forecast to `pass`;
+   - shows `answeredSource == "contract"`, the contract the resolver reads.
+2. **A contest the regrade does not uphold** is flagged for review but never held, so the forecast stays resolved (`same_error`).
+3. **A held grade** shows "held for review" and the forecast is `held`; a contest whose regrade releases it clears both. A regrade that cites no contract shows `live` in its own response and `unrecorded` on any later read, and the forecast is censored (`graded_contract_unknown`): round 3's F9 agrees with forecasts' F2.
+4. **Provenance's reveal reader** (`text_gaps.provenance._revealed_before`) treats both kinds of routine display as a solution seen before a later question, days after the display's coverage has ended: a feedback display, and round 5's v2 self-grade disclosure row (its parsed identity checked).
+5. **A cold check on the direct opens** (`open_queue_item`, `get_practice_item` with a session):
+   - after a non-routine reveal it is served as on main: no error, not deferred, the administration opened, submit primes;
+   - under a routine display, the open defers it and opens no administration.
+6. **The waiting plan:**
+   - while it waits for a hold that lifts today, it writes no block, plan presentation, router decision or stop;
+   - after the hold lifts, the same plan serves the item and writes its `plan_presentations` row, which main's forecasts and the router's outcome joins bind to.
 
-- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
-- **`config/schema.py`, `config/template.py` and the Pipeline Map** merged without conflict.
-- **Defaults snapshots:** main's template change is comment lines only, and the plan profile's workspace fields add no effective leaf. All 17 snapshots verify unchanged against the combined template (0 mismatches), so none was recomputed in phase 2.
-- **Pipeline Map:** the UX Phase 4 bullet was updated to round 3's reveal rule (the answer shows only while covered; a row counts for the horizon plus the renewal grace) and the answered source (contract, live or unrecorded).
+### 9.3 Main's code against the stage's readers, serve paths and writers
 
-**Phase 3, round 4** (`8aacf9384`, stage `a23b06385`): a clean merge. The round touches no file main changed after the phase 2 main merge.
+The stage's inventories (Codex review §10.7, §11.4, §13.2) were taken on its own tree. Main's code since the stage's base was checked against each.
 
-- **Import contracts:** round 4's `src/learnloop/reveal_coverage.py` is a stdlib-only leaf, and `lint-imports` keeps all 22 contracts.
-- **Allowlist pins:** unchanged; round 4 adds no RPC.
-- **Composition test:** the existing tests still hold. A new test pins the one reveal reader main added (§9.2, §9.3).
+- **Reveal readers.** One file reads the ledger on the combined tree and not on the stage's: `diagnosis/text_gaps/provenance.py` (`_revealed_before`).
+  - It asks whether the solution was *ever* shown before a learner's question, with no window, and it filters by item and stamp only, never by `basis`. So it needs no coverage, and v2 identity rows count (test 4).
+  - Its residual: a routine row stamped after the question by a clock that went back is not counted. The chat release that would act on the record is off (`diagnosis.chat_shows_recorded_text = false`).
+  - Saved forecasts read no ledger row: they read the recorded `primed` and `hints_used`, which auto-prime set through the same coverage.
+  - The Reader, the ChatGPT-plan peer and the Codex isolation fix read none.
+- **Serve paths.** Main serves no practice item outside the stage's inventory.
+  - Its only follow-up-task change: saved forecasts keep a handle on the cold task they create, so the repair receipt can bind to it. That schedules a task; it doesn't serve one.
+  - MCP and the remote views are read-only, and the Reader's quick-check offers are in the stage's inventory.
+  - Main added no `practice_item_detail` caller and no presentation writer. A refused or deferred serve neither consumes nor rebinds a cold task, so the repair forecast's binding (the task's consumed attempt) is unaffected.
+- **The waiting plan and the router.** `PlanWaiting` is raised after `decide`, so a pending router decision (`DecisionPending`, raised inside `decide`) always comes first. With nothing feasible the router answers `single_option` and asks no model, so a waiting boundary leaves no request out and writes nothing (test 6). Two behaviours of round 7's waiting were found here (§9.9).
 
-**Phase 3, main** (`c385163e3`, main `213b76076`):
+### 9.4 Regenerated on the final tree
 
-- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
-- **Main's changes:** `ai/isolation.py`, `ai/providers/codex.py`, their tests and a Pipeline Map entry. No migration and no config change. The 17 snapshots verify unchanged (0 mismatches), and the CLI help snapshot regenerates identically.
-- **Pipeline Map:** the UX Phase 4 bullet now states round 4:
-  - the answer hides at once on every lifecycle signal;
-  - one coverage definition, `reveal_coverage.py` (added to the map's source paths), serves every reader that judges or serves by reveals;
-  - readers that ask whether a reveal ever happened count every row.
-
-**Phase 4, round 5** (`2954a443a`, stage `fe47ba6eb`): a clean merge. Main had not moved.
-
-- **Round 5's changes:**
-  - a structured, versioned disclosure identity inside the existing `basis` column (no migration);
-  - one inclusive endpoint convention in `reveal_coverage`;
-  - `scheduler.cold_check_serve_hold` on every serve path, with the typed `cold_check_unavailable` refusal;
-  - the desktop's synchronous hide on shell resize, scale and focus.
-- **Composition test:**
-  - Round 5 replaced `reveal_coverage.routine_counts_until` with `routine_row_covers`, so the provenance pin test was moved to it.
-  - The pin test now also covers a v2 self-grade disclosure row.
-  - A new test drives `cold_check_unavailable` through the RPCs (§9.2, §9.3).
-- **Allowlist:** `open_queue_item`, `get_practice_item` and `plan_learner_pick` join `UX_PHASE4_EXTENDED_RPCS`; they now carry the refusal. Desktop only.
-- **Regenerated:**
-  - **References:** only the stamps changed, plus the generated test and source lists of four table notes (`reveal_events`, `followup_tasks`, `cold_measurement_opportunity_decisions`, `attention_block_events`) for the new tests and round 5's `daily_plan/engine.py`. Head 206, 325 notes, 860 leaves in 52 sections; `db_validate_reference.py` reports 0 errors.
-  - **Unchanged:** the 17 snapshots (no config change; 0 mismatches) and the CLI help snapshot.
-  - **Pipeline Map:** the UX Phase 4 bullet now states the inclusive endpoint, the structured identity and serve-time revalidation.
-  - **Validators:** `validate_vault.py` passes; module and desktop validators as in phase 3 (765 issues; the same four unclassified files).
-
-### 9.2 Composition test
-
-`tests/test_ux_phase4_landing.py` drives the `trigger_regrade` RPC on split vaults with fake graders and checks four things:
-
-1. **An upheld contest** writes the regrade's provenance record and the lineage. The reason appears in no grader prompt. The saved forecast re-resolves to `pass`, and the bundle shows `answeredSource == "contract"`: the same contract the resolver reads.
-2. **A contest the regrade does not uphold** is queued for review but never held, so the forecast stays resolved (`same_error`).
-3. **A held grade** shows "held for review" and the forecast is `held`. A contest whose regrade releases it clears both.
-4. **Round 3's F9 agrees with forecasts' F2:** a regrade that cites no contract shows `live` in its own response and `unrecorded` on any later read, and the forecast is censored (`graded_contract_unknown`).
-5. **Provenance's reveal reader** (phase 3, §9.3): a routine full-answer display written by the stage's own writer marks a later learner question's record as solution-seen (`solution_items`). The mark holds days after the display's coverage (D + G) has ended for admissibility, auto-prime and serving. Phase 4 adds round 5's v2 self-grade disclosure row (written by `record_self_grade_disclosure_display`; its parsed identity checked), which marks a question on another item the same way.
-6. **`cold_check_unavailable` through the RPCs** (phase 4): a due cold retry whose answer submit would prime is refused on `open_queue_item` and on `get_practice_item` with a session. The reveal is a tutor answer after the item's last attempt but before the task was created: the queue's deferral reads non-routine reveals only since the task's creation, so the task stays due and only the serve-time check catches it.
-   - The refusal goes out through the generic mapping (`errors.sidecar_error`): JSON-RPC application error -32001, with `data` = `{code: "cold_check_unavailable", retryable: false, details: {practice_item_id}}`.
-   - The task stays open and due: it was neither administered nor deferred.
-   - No error registry or desktop mapping is needed: every `SidecarError` code reaches the client as `data.code`, and the desktop's generic error path shows the sidecar's learner-facing message ("This check can't be taken right now: its answer was shown recently.").
-
-### 9.3 The reveal readers main added (phase 3)
-
-Round 4 gives every reveal-ledger reader in the stage's inventory one coverage definition (Codex review §10.7). The inventory was taken on the stage's tree, so the readers main added since the stage's base were checked on the combined tree. A grep for the ledger's tables and functions across `src/` finds **one** file on the combined tree that the stage's tree lacks: `diagnosis/text_gaps/provenance.py` (diagnosis input provenance).
-
-- **Diagnosis input provenance** (`text_gaps.provenance._revealed_before`) asks whether the learner could have seen an item's solution before asking about it. If so, the question's record carries the item's solution as an input, and chat holds the text back until it is safe.
-  - The question is "ever, before the question", with no window, like exam protection's shown items, which the stage left unchanged for the same reason.
-  - So it does not need the coverage. A routine display counts there forever, which is stricter than D + G and the conservative direction for a release rule.
-  - Test 5 pins this.
-  - A residual, shared with every "before this stamp" reader: a routine row stamped after the question by a clock that went back is not counted. Round 4's "stamped ahead counts as covering now" rule does not carry over, because a row stamped after the question can also be a genuine later display. The chat release that would act on the record is off (`diagnosis.chat_shows_recorded_text = false`), so it releases nothing today.
-- **Saved forecasts** read no ledger row. `effective_cold_outcome` reads the held predicate, the assessed rows and the correctness. The unaided rule reads the attempt's recorded `primed` flag, which auto-prime set at submit through the same coverage. A cold follow-up's later serve (round 4's scheduler deferral) changes when its task is served, never its binding.
-- **The Reader's PDF selection, the ChatGPT-plan peer and the Codex isolation fix** read no reveal ledger. Main changed no other reader in the inventory except to add rows (`learner_context` counts rows, Q13).
-
-**Phase 4 (round 5):**
-
-- **Provenance still counts v2 disclosure rows.** `_revealed_before` filters by item and stamp, never by `basis`, so the versioned identity changes nothing there. Test 5 now pins it with a v2 row.
-- **No serve path on main is outside the stage's inventory** (Codex review §11.4). Main's source changes since the stage's base were searched for serve and follow-up-task entry points:
-  - the only hit is saved forecasts keeping the cold task it creates (`remediation.record_remediation_attempt`), so the repair receipt can bind to it. That schedules a task, it does not serve one;
-  - the MCP and remote views (provenance's text guard), the Reader's selection RPCs, the tutor, teach-back, the ChatGPT-plan provider and the Codex isolation fix serve no practice item;
-  - the stage's own inventory already lists MCP (read-only) and the Reader's quick-check offers (opening one is a session serve).
-- **Forecast bindings are unaffected.** A refused or deferred serve neither consumes nor rebinds a cold task, and the repair forecast resolves on the task's consumed attempt.
-
-### 9.4 Regenerated on the combined tree
-
-- **References:** `db_generate_reference.py` at schema head 206 gives 325 table notes and 860 effective config leaves in 52 top-level sections, with the new `Config - ui` note. `db_validate_reference.py` reports 0 errors. The prose counts in `Configuration.md` and `Database.md` were updated (from 859 leaves and 51 sections).
-- **`validate_vault.py`:** passes.
+- **References:** `db_generate_reference.py` at schema head 206 gives 325 table notes and 860 effective config leaves in 52 top-level sections, with the stage's `Config - ui` note. `db_validate_reference.py` reports 0 errors. The prose counts in `Configuration.md` and `Database.md` were updated in phase 1 (from 859 leaves and 51 sections). Later phases changed only the stamps and the generated test and source lists.
+- **Unchanged:** the CLI help snapshot (the stage adds no CLI) and the 17 snapshots (§9.1).
+- **Pipeline Map:** its UX Phase 4 bullet describes the final state (§9.7), points to the out-of-scope brief, and adds `reveal_ledger.py`, `grade_resolution.py` and `reveal_coverage.py` to its source paths. `validate_vault.py` passes.
 - **Validators that already fail on main:**
-  - `module_validate.py`: 765 issues and coverage 474/847, against main's 763 and 474/846. With the 100-line truncation lifted, the 2 extra issues are the missing note for round 4's new module `reveal_coverage.py` and its "no module note" twin. That is the same stale-catalog kind as main's.
-  - `desktop_validate.py`: stops on `pdfSelection/testing/syntheticBook.ts`, identically on main. Listing every unclassified source gives the same four files on both trees (`syntheticBook.ts`, `syntheticPdf.ts`, `copy/denyList.ts`, `testNodeShims.d.ts`). The stage's new desktop sources are all reachable from the app entry.
+  - `module_validate.py`: 765 issues (main: 763). With the 100-line truncation lifted, the two extra issues are the missing note for round 4's new module `reveal_coverage.py` and its "no module note" twin, the stale catalog's known kind.
+  - `desktop_validate.py`: stops on main's `pdfSelection/testing/syntheticBook.ts`. Listed in full, the same four unclassified files as main.
   - No new kind of failure.
 
 ### 9.5 Gate (final tree)
 
-Run on the final tree (`ab0c0d546`; stage `fe47ba6eb`, main `213b76076`), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
+Run on `c3b166263` (stage `f56e2b652`, main `213b76076`), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
 
 | Check | Result |
 |---|---|
 | `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
-| `pytest -n auto` | 12222 passed, 2 xfailed, 0 failed (15 min 10 s). The 2 xfails are main's strict xfails for the provenance release path (`test_diagnosis_input_provenance_landing` F2 and F3, switch off). |
-| `pytest -m durability` | 106 passed, 12118 deselected |
-| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 100 files, 806 passed; build succeeds (the usual chunk-size warning) |
-| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | not rerun: nothing under `src-tauri` changed since phase 2's clean cold build on `b47a3aa88` (round 5's shell events are the existing `@tauri-apps/api` JS) |
+| `pytest -n auto` | 12253 passed, 2 xfailed, 0 failed (15 min 51 s) |
+| `pytest -m durability` | 106 passed, 12149 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 101 files, 816 passed; build succeeds (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | clean on phase 2's cold build (`b47a3aa88`, 0 warnings); nothing under `src-tauri` changed after it (rounds 4 to 7 use the existing `@tauri-apps/api` JS) |
 | DB/config references | regenerated; `db_validate_reference.py`: 0 errors; `validate_vault.py` passes |
 
 Nothing needed a rerun: no lane had a failure, timing-sensitive or otherwise.
 
-**Earlier phases.**
-- **Phase 3** (`c385163e3`; stage at `a23b06385`): full suite 12200 passed and 2 xfailed; durability 106 passed; vitest 100 files, 802 passed.
-- **Phase 2** (`b47a3aa88`; stage at `4186c6cc3`, main `b80aeca8c`): full suite 12146 passed and 2 xfailed; durability 106 passed; vitest 100 files, 796 passed; `cargo check` clean.
-- **Phase 1** (before round 3 and the new main) ran a targeted selection of 48 files: the stage's tests, the provenance and forecasts tests and their landing tests, the reveal-ledger, held-grade and regrade tests, the allowlist, CLI-help and defaults-snapshot tests, and the migration, fixture and architecture checks. It gave 1047 passed and 2 xfailed. Vitest gave 99 files, 764 passed.
+**Earlier phases**, each on its own final tree:
+
+| Phase | Full suite | Durability | Vitest |
+|---|---|---|---|
+| 2 | 12146 passed, 2 xfailed | 106 passed | 100 files, 796 passed (`cargo check` clean) |
+| 3 | 12200 passed, 2 xfailed | 106 passed | 100 files, 802 passed |
+| 4 | 12222 passed, 2 xfailed | 106 passed | 100 files, 806 passed |
+
+Two phases ran targeted selections instead:
+- **Phase 1:** 48 files, 1047 passed and 2 xfailed; vitest 99 files, 764 passed.
+- **Phase 5:** 128 files, 2505 passed and 2 xfailed.
+
+In every lane, the 2 xfails are main's strict xfails for the provenance release path (`test_diagnosis_input_provenance_landing` F2 and F3, switch off).
 
 ### 9.6 Parity (backup-API copies; no model call)
 
-Run three times, each time on fresh copies:
-- **Phase 2:** main `b80aeca8c` against the merge with the stage at `4186c6cc3`, in `fixtures-local/landing-ux4/`.
-- **Phase 3:** main `213b76076` against the merge with the stage at `a23b06385`, in `fixtures-local/landing-ux4-p3/`.
-- **Phase 4:** main `213b76076` against the final tree with the stage at `fe47ba6eb`, in `fixtures-local/landing-ux4-p4/`.
-
-All three runs gave the same results; the table is phase 4's.
+Run in phases 2, 3 and 4 and again on the final tree, each time on fresh copies (`fixtures-local/landing-ux4/`, `-p3/`, `-p4/`, `-final/`). Every run gave the same results; the table is the final run's (main `213b76076` against `c3b166263`).
 
 - **The copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied with `copy_tree_with_databases` into `<run>/orig/`, including probability's `.learnloop/state.sqlite`. Each original was read once per run, and every per-side copy (`main/`, `merge/`, `shadow/`) was made from `orig/` with the same helper. `arxiv_v2` was not opened.
 - **The two codes.** Main's code is the main tip from `git archive` (fixtures excluded), first on `PYTHONPATH`. The merge's code is the worktree's own. `pyproject.toml`, `uv.lock` and `migrations/` are identical on both.
@@ -367,11 +324,96 @@ All three runs gave the same results; the table is phase 4's.
 | `doctor --json`, main vs merge | 0 differences (57 issues, 1 error: `layout:missing_directory`) | 0 differences (101 issues, 48 errors, 46 `criterion:unknown_dependency`) |
 | upgrade shadow: main's code upgrades a copy, then the merge's code opens it | applies 0 migrations; shadow and doctor equal main's | applies 0; shadow and doctor equal main's |
 
-The only fields that differ between runs are per-run identifiers: each copy's own live-database sha256 (a different file per side; before and after are equal on every side) and the shadow rebuild's fresh `marker_id`. No migration was expected and none differs. `ui.practice_feedback` is display only, and replay never reads it. Rounds 4 and 5 change serve-time eligibility (the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, retrieval, and round 5's serve-time revalidation, which persists a deferral push only when an item is served), and replay never runs any of it. Parity serves nothing. Auto-prime and admissibility are read at write time and replay keeps what they recorded, so the shadow rebuild's deltas are identical on both codes. The schedule deltas (8, and 1) are main's own: the same on both codes and in the previous landings. The shadow and doctor runs left every live database byte-identical. The doctor issues are the vaults' own content and match main's (and the previous landing's).
+The only fields that differ between runs are per-run identifiers: each copy's own live-database sha256 (a different file per side; before and after are equal on every side) and the shadow rebuild's fresh `marker_id`. The shadow and doctor runs left every live database byte-identical.
 
-### 9.7 Open items
+No difference was expected:
+- **Display only:** `ui.practice_feedback` is display only, and replay never reads it.
+- **Serve time:** rounds 4 to 7 change serve-time eligibility (the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, retrieval, the serve-time revalidation, the probe guard, the waiting plan). Replay never runs any of it, and parity serves nothing.
+- **Write time:** auto-prime and admissibility are read at write time, and replay keeps what they recorded.
 
-- **Owner questions Q1–Q27**, each with its default applied: Q1–Q7 in §8 above; Q8–Q27 in the Codex review (§6, §7.10, §8.8, §9.7, §10.11, §11.9).
-- **Provenance's stamped-ahead residual** (§9.3): for the owner or the provenance follow-up, before the chat release is switched on.
-- **The regrade and replay contract mismatch** (Codex review §8.4) is the brief for its own stage. It needs an algorithm successor. An ordinary regrade still cites no contract; replay takes the first live row's contract; and an answer regraded above its item's later maximum can fail `rebuild` on `correctness <= 1`. That code was left alone here. Until that stage lands, Q21's unrecorded label stands.
+The schedule deltas (8, and 1) and the doctor issues are main's own. They are the same on both codes and match the previous landings.
+
+### 9.7 Final state: what lands
+
+- **The switch.** `[ui] practice_feedback = "simple"` (default) or `"classic"`, which restores the screens exactly. The desktop reads it; no grading, scheduling, evidence, projection or replay path does, so there is no successor.
+- **The screens.**
+  - **Practice card and inspector:** a cleaner practice card, and an inspector that hides answers for unanswered items.
+  - **Self-grade:** the plain self-grade.
+  - **Feedback:** one verdict and the full answer, with Details on demand.
+  - **Short checks and repair:** the short-check results and the repair step overlay.
+  - **Session finish:** the calm session finish, naming the topics practised in the ○ ◌ ● vocabulary.
+  - **Grade contests:** "I think I was right" keeps the learner's reason in `learner_claims` (never shown to the grader), regrades in place through the ordinary learner-blind regrade, and sends a grade the regrade did not uphold to the grade-review queue. The flag is a `review_flag` head with the same authority, not a hold.
+  - **Held grades:** feedback, short-check results and the session finish say "held for review" by the one held predicate.
+  - **What a grade stands on:** `answered_source` is `contract` (the contract its grading cites), `live` (the content a regrade just read, in that regrade's own response only) or `unrecorded`, never inferred.
+- **The answer-exposure invariant.**
+  - **The coverage.** Every routine full-answer display (feedback's, and a plain self-grade's) is a `reveal_events` row. The screen shows the answer only while a committed row stamped within the one-hour renewal grace exists, and renews it. A row stamped s covers every T with s ≤ T ≤ s + D + G (D the one-day cold retrieval delay, G the grace; one inclusive endpoint convention). A row stamped ahead of the reader's clock covers. The definition is `reveal_coverage.py` (stdlib only; the desktop's numbers are `exposureContract.json`, pinned equal).
+  - **The readers.** Every reader that judges or serves by reveals reads it: auto-prime, `production_admissibility`, the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, practice-index retrieval, the probe guard and the plan hold.
+  - **The hide.** The screen hides the answer synchronously on every lifecycle signal (hidden document, `pagehide`, `freeze`, blur, shell unfocus, minimize, resize and scale) and shows it again only after a fresh row is acknowledged.
+  - **The residual:** an OS suspend that delivers none of those signals keeps the last frame for at most one 5-second tick after waking (Q23).
+- **The identity rules.**
+  - **Format.** A plain self-grade's disclosure row carries `self_grade_disclosure:v2:` with canonical JSON: exactly the fields `v` (the int 2), `submission`, `trace` (the frozen trace's hash) and `display`.
+  - **Exemption.** It is parsed and compared field by field. It exempts only its own exact frozen trace at submit, and `production_admissibility` exempts only the production its `production_id` names.
+  - **What exempts nothing.** A row in any other shape (legacy, malformed, a duplicate key, a mistyped `v`) counts like every routine display.
+- **The cold-check and plan-waiting rules.**
+  - **Revalidated at every serve.** A cold check is revalidated at the moment it is served: the plan's blocks, `plan_learner_pick`, `get_practice_item` with a session, `open_queue_item` and the TUI's open. Every due task is judged.
+  - **Deferral only.** While a routine display covers the item (or its learning object), the task is deferred (the push persisted) and the item is served, if at all, as an ordinary answer. Every other reveal kind keeps main's serving, and nothing is refused.
+  - **Administration.** Only a real serve opens a cold administration (`practice_item_detail(administer=False)` by default).
+  - **The waiting plan.** A plan whose only remaining work is held by a display that lifts later the same local day does not finish. It waits (`PlanWaiting`; a `waiting` step and view; the desktop says "Back in N min"), writes nothing, and serves the item once the hold lifts. A hold past midnight finishes the plan as before.
+- **The guarded presentation payload.** No probe or placement presentation is administered inside a routine display's coverage.
+  - **The writers.** `probe_episodes.presentation_commit_payload` raises `RoutineDisplayCovered` for every probe presentation writer (`commit_presentation`, the scheduler's slate, which catches it and serves the item as ordinary practice, the dialogue turn, the precommitted block and the sim).
+  - **Stale presentations.** A presentation committed before the display is ended at its serve.
+  - **The answers.** `get_probe_contract` and the causal probe offer answer `probe_item_answer_shown`; a refused causal offer changes nothing.
+  - **The quick check** excludes covered items upstream.
+
+### 9.8 Open questions for the owner, with the defaults applied
+
+Q1–Q7 are in §8 above; Q8–Q34 are in the Codex review record (§6, §7.10, §8.8, §9.7, §10.11, §11.9, §12.13, §13.10).
+
+| Q | Question | Default applied |
+|---|---|---|
+| Q1 | The inspector's unanswered-item rule under `"classic"`? | follows the switch |
+| Q2 | A desktop screen for the grade-review queue? | the CLI only |
+| Q3 | "Next time: finish §N" on the session finish? | omitted |
+| Q4 | The repair step's "about 4 min": fixed, or from the learner's durations? | fixed |
+| Q5 | Name a topic ● on any certification credit, or only a fully right answer? | the model's own measure |
+| Q6 | The measured grading wait and "Grade it yourself" fallback? | deferred |
+| Q7 | Merge notes (snapshots, the feedback screens) | done at this landing |
+| Q8 | A routine display's horizon; the same horizon for other reveal kinds? | the delay (now D + G, Q18); other kinds unchanged |
+| Q9 | Hold the full answer behind a click while a diagnosis is pending? | shown (spec W5b) |
+| Q10 | A desktop list of the grade-review queue? | the CLI only |
+| Q11 | The open spec-conformance items (Codex review §3) | recorded, not built |
+| Q12 | One charge per feedback mount? | settled by §8.2: an exposure lasts while the answer is on screen |
+| Q13 | Summed reveal amounts in receipts count every renewal row? | each row counts |
+| Q14 | The renewal cadence | as built (40-min renewal, 59-min visible bound, Q19) |
+| Q15 | The "changed" label | superseded by round 3's F9 (no inference; Q21) |
+| Q16 | `"classic"` reads the item and its maximum | unchanged (classic restores the screens exactly) |
+| Q17 | A pre-contract answer whose key alone was edited | shows the current key, labelled current |
+| Q18 | Coverage is D + G (up to 25 h) | as built |
+| Q19 | The idle hide ("Hidden while you were away") | 40-min renewal, 59-min visible bound |
+| Q20 | Auto-prime counts a routine display across an attempt in between | as built |
+| Q21 | The unrecorded label until regrades cite their contract | as built; the §8.4 successor removes most of it |
+| Q22 | Hide on every window blur (a row and "One moment…" per return) | as built |
+| Q23 | The OS-suspend residual (one tick) | accepted and documented |
+| Q24 | A display before a cold task's creation also holds it | as built |
+| Q25, Q26 | Round 5's plan exclusion and typed refusal | withdrawn (round 6, ruling 2) |
+| Q27 | A drag resize hides the answer for the drag plus 300 ms | as built |
+| Q28 | The probe guard reads the item's own displays; the cold hold its learning object | as built |
+| Q29 | The shell's state question on every hide signal | as built |
+| Q30 | `open_queue_item` opens the cold administration, as on main | as built |
+| Q31 | The plan waits only for a hold that lifts on its own day | as built |
+| Q32 | A note when `get_probe_contract` refuses a covered item | no note |
+| Q33 | Past-clock callers count displays stamped after their instant | unchanged; queued for the eligibility stage |
+| Q34 | A refused precommitted-block member takes the whole block back | as built |
+
+### 9.9 Open items
+
+- **Round 7's waiting plan overrides a chosen stop.** Found at this landing and reproduced with fakes in a scratch test, now removed.
+  - **The trigger.** `_boundary` raises `PlanWaiting` whenever `decision.candidate is None` and a held item lifts today. But `candidate` is None also when the chooser *validly chooses* `STOP_FOR_TODAY`, which is offered once fewer than 5 minutes remain, even with feasible work.
+  - **The reproduction.** A 4-minute plan, a feasible `pi_a` (1.5 min), a cold check `pi_cold` held for 30 more seconds, and a chooser that stops when offered. The plan stays open with a `waiting` step instead of completing. The stop decision is not logged: `_close(..., log_decision=True, router_record=...)` never runs.
+  - **The consequence under router R2b.** STOP is in the mixture's support when offered (`router_chooser.support_order`), so at `mvp-0.24` a drawn stop with its exact propensity, and the model calls behind it, would be dropped. On each later call the cached entry would draw the same stop and wait again.
+  - **A smaller one.** With 1 minute left, the plan says "Back in 1 min" for a 1.5-minute held item, then finishes without serving it when the hold lifts. The waiting step doesn't check that the held item fits the minutes left.
+  - **For the stage:** wait only when nothing was feasible and the held item would fit.
+- **The out-of-scope brief:** "one serve/administration eligibility decision" (Codex review §12.9, with the past-clock callers in §13.6). Main's scheduler cold lane and submit disagree on non-routine reveals, the CLI's `attempt` prompts before it validates, and every serve path should ask one function. Pre-existing on main and left alone here (ruling 4); Q33 is queued there.
+- **The regrade and replay contract mismatch** (Codex review §8.4), the brief for its own stage. It needs an algorithm successor. An ordinary regrade cites no contract, replay takes the first live row's contract, and an answer regraded above its item's later maximum can fail `rebuild` on `correctness <= 1`. Until it lands, Q21's unrecorded label stands.
+- **Provenance's stamped-ahead residual** (§9.3), before the chat release is switched on.
 - **Process note.** An earlier stage-gate wrapper of this branch was killed by another stage's agent. The gate in §9.5 was run on the final landing tree under the shared full-suite lock, and it is the authoritative one.
