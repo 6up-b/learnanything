@@ -87,6 +87,19 @@ default rubric cannot be recovered binds unverified. See
 `docs/reviews/method-explicit-items.md` and
 `docs/reviews/method-explicit-items-codex-review.md` ("Redesign").
 
+Recorded rule, 2026-10-16 (regrade contracts, successor mvp-0.26): a grade is
+replayed against the contract it was graded under, never against the item as it
+is at replay time. Every writer of a grading epoch (a first grade, a regrade, an
+adjudication's evidence revision) cites the assessment contract it graded
+against on every row, in its own transaction, and stamps the attempt's next
+`grading_revision`; a regrade or an adjudication supersedes every live row, so
+an attempt has one current epoch. `learnloop.grading_epochs` is the one
+definition of the epochs and of the current one (chosen among the live rows,
+never by a first-seen stamp); replay, the projection, the facet timeline and
+every reader that needs "the grade now" read it there. An epoch with no contract
+on record is held for review rather than divided by today's maximum (and never
+clamped). See `docs/reviews/regrade-contract-replay.md`.
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.

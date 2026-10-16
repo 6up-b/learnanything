@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68f97956a80ba103503852c3b1a84f2d1064947b"
-source_commit_timestamp: "2026-10-16T08:22:19-04:00"
+source_commit: "8e529218954fcf26cc284a07612cf76f2f430d67"
+source_commit_timestamp: "2026-10-16T10:17:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
+- `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_rereview.py`
 - `tests/test_required_method_round3_final_verify.py`
 - `tests/test_required_method_round3_rereview.py`

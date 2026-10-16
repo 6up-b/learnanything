@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68f97956a80ba103503852c3b1a84f2d1064947b"
-source_commit_timestamp: "2026-10-16T08:22:19-04:00"
+source_commit: "8e529218954fcf26cc284a07612cf76f2f430d67"
+source_commit_timestamp: "2026-10-16T10:17:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -21,12 +21,12 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grading_support.py"
+  - "src/learnloop/attempts/regrade.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -135,7 +135,6 @@ Indexes and uniqueness:
 - `src/learnloop/held_grades.py`
 - `src/learnloop/placement/state.py`
 - `src/learnloop/substrate/canonical_projection.py`
-- `src/learnloop_sidecar/handlers/serializers.py`
 
 ### Direct SQL writers
 
