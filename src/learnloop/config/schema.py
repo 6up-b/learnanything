@@ -1113,13 +1113,21 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
 
     Sign in once per machine with ``learnloop ai signin chatgpt``; the tokens
     live in the machine's LearnLoop config directory, never in a vault. Each
-    request is one streamed Responses call with ``store=false`` and no tools.
-    ``model`` is a slug from ``learnloop ai models chatgpt``. ``enabled =
-    false`` is the per-profile kill switch: the profile reads as not ready, so
-    routes that allow fallback fall back. ``response_format`` is
-    ``json_schema`` (strict structured output) or ``json_object`` (JSON mode
-    plus one repair). After a usage-limit error the plan is paused for
-    ``usage_limit_pause_minutes`` before LearnLoop tries it again.
+    request is one streamed Responses call with ``store=false``; only a
+    read-only-workspace turn declares tools (below). ``model`` is a slug from
+    ``learnloop ai models chatgpt``. ``enabled = false`` is the per-profile
+    kill switch: the profile reads as not ready, so routes that allow fallback
+    fall back. ``response_format`` is ``json_schema`` (strict structured
+    output) or ``json_object`` (JSON mode plus one repair). After a
+    usage-limit error the plan is paused for ``usage_limit_pause_minutes``
+    before LearnLoop tries it again.
+
+    A read-only workspace (a snapshot diagnosis's as-of export) is served by
+    LearnLoop itself (``learnloop.ai.chatgpt_plan.workspace``):
+    ``workspace_mode = "tools"`` (Responses function calling: at most
+    ``max_tool_rounds`` rounds of calls, ``max_entry_chars`` per read and
+    ``max_workspace_chars`` served in all) or ``"inline"`` (every file in the
+    request; refused when the files exceed ``max_workspace_chars``).
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -1128,6 +1136,10 @@ class ChatGPTPlanProviderConfig(AIProviderConfig):
     enabled: bool = True
     response_format: Literal["json_schema", "json_object"] = "json_schema"
     usage_limit_pause_minutes: int = Field(default=15, ge=1, le=24 * 60)
+    workspace_mode: Literal["tools", "inline"] = "tools"
+    max_tool_rounds: int = Field(default=16, ge=1, le=64)
+    max_entry_chars: int = Field(default=24_000, ge=1_000, le=1_000_000)
+    max_workspace_chars: int = Field(default=400_000, ge=10_000, le=4_000_000)
 
     @field_validator("base_url")
     @classmethod

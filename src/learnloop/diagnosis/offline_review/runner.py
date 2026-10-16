@@ -353,7 +353,7 @@ def unavailable_arms(*, embedding_ready: bool, workspace_ready: bool) -> dict[st
     if not embedding_ready:
         skipped["c"] = "no ready embedding route (embedding.enabled and an openai_embedding profile)"
     if not workspace_ready:
-        skipped["e"] = "the diagnosis provider lacks READ_ONLY_WORKSPACE (Codex SDK only in M1)"
+        skipped["e"] = "the diagnosis provider lacks READ_ONLY_WORKSPACE (a Codex SDK or chatgpt_plan profile serves it)"
     return skipped
 
 
@@ -1298,7 +1298,7 @@ class ReviewRun:
         if "c" in options.arms and retriever is None:
             self.notes["arm_c"] = "skipped: no ready embedding route (embedding.enabled and a ready openai_embedding profile are required)"
         if "e" in options.arms and diagnosis_client is not None and not supports_snapshot(diagnosis_client):
-            self.notes["arm_e"] = "skipped: the diagnosis provider lacks READ_ONLY_WORKSPACE (Codex SDK only in M1)"
+            self.notes["arm_e"] = "skipped: the diagnosis provider lacks READ_ONLY_WORKSPACE (a Codex SDK or chatgpt_plan profile serves it)"
         if retriever is not None:
             prepared = [attempt for attempt in real_store.all_attempts() if attempt.non_pass]
             for case in planted.values():

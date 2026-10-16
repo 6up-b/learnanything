@@ -20,8 +20,12 @@
     "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
   },
   "ai": {
-    "bytes": 2437,
-    "sha256": "ee20c39e6b525e84c9e5ddfe06ac7004a75a3763e1714d0b92d6c2891cd5f423"
+    "bytes": 2607,
+    "sha256": "692d42454f465c21a71dc35a05914822ce842797c0701224c406ebce0fabeb5a"
+  },
+  "ai compare": {
+    "bytes": 6345,
+    "sha256": "a288e3031055f428c5b453ea3db9733a438e14e0d39ea223b013493b83b13c58"
   },
   "ai latency": {
     "bytes": 4319,

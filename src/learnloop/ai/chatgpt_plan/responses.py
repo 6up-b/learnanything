@@ -10,7 +10,16 @@ preview-limitations, errors-and-recovery; re-verified 2026-10-12):
   ``max_tool_calls``, ``metadata``, ``moderation``, ``multi_agent``,
   ``prompt``, ``prompt_cache_retention``, ``safety_identifier``,
   ``temperature``, ``top_logprobs``, ``top_p``, ``truncation``, ``user``,
-  ``previous_response_id``, and no tools at all.
+  ``previous_response_id`` (and LearnLoop's own ``tool_choice``).
+* Tools (re-read 2026-10-15): function tools only, grouped in a namespace
+  (``{"type": "namespace", "name", "description", "tools": [functions]}``);
+  hosted tools (file search, code interpreter, image generation, computer
+  use, hosted MCP, ``tool_search``) are unsupported. LearnLoop declares tools
+  only on a read-only-workspace turn (``learnloop.ai.chatgpt_plan.workspace``).
+  With ``store: false`` and no ``previous_response_id``, each round resends
+  the whole history in ``input``: the model's reasoning items (requested with
+  ``include: ["reasoning.encrypted_content"]``, so they need no stored id),
+  its function calls, and LearnLoop's ``function_call_output`` items.
 * Success is only ``response.completed``. ``response.failed`` (usage limits
   can arrive mid-stream), ``response.incomplete``, ``error`` events and a
   stream that ends early are failures. Before a stream opens, an error body
@@ -33,13 +42,27 @@ import time
 from typing import Any
 import urllib.parse
 
-#: Body fields the ChatGPT-plan route rejects (preview-limitations). Kept as
-#: data so a test can assert none is ever sent.
+#: Body fields the ChatGPT-plan route rejects (preview-limitations), plus
+#: ``tool_choice``, which LearnLoop never sends. Kept as data so a test can
+#: assert none is ever sent.
 UNSUPPORTED_FIELDS = frozenset({
     "background", "conversation", "max_output_tokens", "max_tool_calls", "metadata", "moderation",
     "multi_agent", "prompt", "prompt_cache_retention", "safety_identifier", "temperature",
-    "top_logprobs", "top_p", "truncation", "user", "previous_response_id", "tools", "tool_choice",
+    "top_logprobs", "top_p", "truncation", "user", "previous_response_id", "tool_choice",
 })
+#: What a tool round asks to be returned so its reasoning can be resent with
+#: ``store: false`` (an item id alone names nothing stored).
+REASONING_INCLUDE = "reasoning.encrypted_content"
+#: Output item types a tool round resends as input, and the fields kept of
+#: each: ids and statuses are dropped (with ``store: false`` an id names
+#: nothing the server kept). A reasoning item travels as its
+#: ``encrypted_content`` (the state) and its ``summary`` (a required field);
+#: its raw ``content`` is never resent.
+_ECHOED_FIELDS = {
+    "reasoning": ("type", "summary", "encrypted_content"),
+    "function_call": ("type", "call_id", "name", "namespace", "arguments"),
+    "message": ("type", "role", "content"),
+}
 _ERROR_TEXT_LIMIT = 300
 
 
@@ -83,16 +106,34 @@ class StreamResult:
     events: int = 0
     refusal: str | None = None
     event_types: list[str] = field(default_factory=list)
+    #: ``response.output_item.done`` items in stream order: the fallback when
+    #: the terminal response carries no ``output``.
+    output_items: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def output(self) -> list[dict[str, Any]]:
+        """The response's output items (the terminal response's, else the streamed ones)."""
+
+        items = self.response.get("output")
+        if isinstance(items, list) and items:
+            return [dict(item) for item in items if isinstance(item, Mapping)]
+        return list(self.output_items)
 
 
 def request_body(
-    *, model: str, instructions: str, prompt: str, text_format: Mapping[str, Any] | None,
-    reasoning_effort: str | None = None,
+    *, model: str, instructions: str, prompt: str | None = None, text_format: Mapping[str, Any] | None,
+    reasoning_effort: str | None = None, input_items: list[Mapping[str, Any]] | None = None,
+    tools: list[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    """One request body. ``input_items`` (a tool round's whole history) replaces ``prompt``."""
+
+    if (prompt is None) == (input_items is None):
+        raise ValueError("pass exactly one of prompt and input_items")
     body: dict[str, Any] = {
         "model": model,
         "instructions": instructions,
-        "input": [{"role": "user", "content": prompt}],
+        "input": [dict(item) for item in input_items] if input_items is not None
+        else [{"role": "user", "content": prompt}],
         "store": False,
         "stream": True,
     }
@@ -100,7 +141,54 @@ def request_body(
         body["text"] = {"format": dict(text_format)}
     if reasoning_effort:
         body["reasoning"] = {"effort": reasoning_effort}
+    if tools:
+        validate_tools(tools)
+        body["tools"] = [dict(tool) for tool in tools]
+        body["include"] = [REASONING_INCLUDE]
     return body
+
+
+def validate_tools(tools: list[Mapping[str, Any]]) -> None:
+    """The plan route takes function tools grouped in namespaces, and nothing hosted."""
+
+    for tool in tools:
+        if not isinstance(tool, Mapping) or tool.get("type") != "namespace" or not tool.get("name"):
+            raise ValueError("the ChatGPT plan takes function tools only inside a namespace")
+        functions = tool.get("tools")
+        if not isinstance(functions, list) or not functions:
+            raise ValueError(f"namespace {tool.get('name')!r} declares no functions")
+        for function in functions:
+            if not isinstance(function, Mapping) or function.get("type") != "function" or not function.get("name"):
+                raise ValueError(f"namespace {tool.get('name')!r} may hold function tools only")
+
+
+def function_calls(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The ``function_call`` items of a response's output, in order."""
+
+    return [dict(item) for item in output if isinstance(item, Mapping) and item.get("type") == "function_call"]
+
+
+def echo_items(output: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """A tool round's output as the next request's input (see :data:`_ECHOED_FIELDS`).
+
+    A reasoning item without ``encrypted_content`` cannot be resent with
+    ``store: false`` and is dropped; any other item type is not resent.
+    """
+
+    echoed = []
+    for item in output:
+        if not isinstance(item, Mapping):
+            continue
+        fields = _ECHOED_FIELDS.get(str(item.get("type")))
+        if fields is None:
+            continue
+        if item.get("type") == "reasoning" and not item.get("encrypted_content"):
+            continue
+        kept = {key: item[key] for key in fields if item.get(key) is not None}
+        if kept["type"] == "reasoning":
+            kept.setdefault("summary", [])
+        echoed.append(kept)
+    return echoed
 
 
 def iter_sse(readline: Callable[[], bytes]) -> Iterator[tuple[str | None, str]]:
@@ -268,6 +356,7 @@ class ResponsesStream:
     def _read_stream(self, response: http.client.HTTPResponse, *, request_id: str | None, started: float,
                      headers_at: float, on_event: Callable[[str, Mapping[str, Any]], None] | None) -> StreamResult:
         deltas: list[str] = []
+        items: list[dict[str, Any]] = []
         first_event: float | None = None
         count = 0
         types: list[str] = []
@@ -291,13 +380,16 @@ class ResponsesStream:
                 on_event(kind, event)
             if kind == "response.output_text.delta" and isinstance(event.get("delta"), str):
                 deltas.append(event["delta"])
+            elif kind == "response.output_item.done" and isinstance(event.get("item"), Mapping):
+                items.append(dict(event["item"]))
             elif kind == "response.completed":
                 final = event.get("response") if isinstance(event.get("response"), Mapping) else {}
-                text, refusal = output_text(final)
+                text, refusal = output_text(final if final.get("output") else {"output": items})
                 return StreamResult(
                     response=dict(final), text=text or "".join(deltas), request_id=request_id, status=200,
                     seconds_to_headers=headers_at, seconds_to_first_event=first_event,
                     seconds_total=time.monotonic() - started, events=count, refusal=refusal, event_types=types,
+                    output_items=items,
                 )
             elif kind == "response.failed":
                 final = event.get("response") if isinstance(event.get("response"), Mapping) else {}
@@ -318,14 +410,18 @@ class ResponsesStream:
 
 
 __all__ = [
+    "REASONING_INCLUDE",
     "ResponsesError",
     "ResponsesStream",
     "StreamCancelled",
     "StreamIncomplete",
     "StreamResult",
     "UNSUPPORTED_FIELDS",
+    "echo_items",
     "error_fields",
+    "function_calls",
     "iter_sse",
     "output_text",
     "request_body",
+    "validate_tools",
 ]
