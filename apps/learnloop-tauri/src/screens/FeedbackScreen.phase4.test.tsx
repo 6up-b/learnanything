@@ -150,6 +150,7 @@ beforeEach(() => {
   api.getAttemptTrace.mockRejectedValue(new Error("no trace"));
   api.getAttemptTraceEvidence.mockRejectedValue(new Error("no evidence"));
   api.getGradingClarification.mockResolvedValue({ clarification: null });
+  api.recordAnswerDisplay.mockReset();
   api.recordAnswerDisplay.mockResolvedValue({ version: 1, recorded: true });
 });
 afterEach(() => {
@@ -666,10 +667,16 @@ it("F10: cancelling an unconfirmed contest and opening a new one gets a new key"
   expect(second[2]).not.toBe(first[2]);
 });
 
-// == Final verification reopen (docs/reviews/ux-phase4-feedback-codex-review.md §8) ==========
+// == Round 3 (docs/reviews/ux-phase4-feedback-codex-review.md §9) ==========================
+//
+// F1: the full answer is on screen only while a committed display row covers
+// it (`feedback/answerExposure.ts`; its property test drives random timelines).
+// F9: the grade's key and maximum come from its contract, from the regrade that
+// just ran ("live"), or nowhere ("unrecorded", labelled).
 
 const KEY = "Five equally likely outcomes; one has first = 3: 1/5.";
-const MINUTE = 60_000;
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
@@ -694,124 +701,162 @@ async function setVisibility(state: DocumentVisibilityState) {
   await flush();
 }
 
-/** The display ids written, each with the (fake) time it was sent. */
-function displayWrites(): { id: string; at: number }[] {
-  return api.recordAnswerDisplay.mock.calls.map(([, id], index) => ({
-    id: String(id),
-    at: Number(api.recordAnswerDisplay.mock.results[index]?.value?.at ?? 0)
-  }));
-}
-
+/** Writes that land at once, stamped when they land (as the sidecar stamps). */
 function stampWrites() {
-  api.recordAnswerDisplay.mockImplementation(() => Object.assign(Promise.resolve({ version: 1, recorded: true }), { at: Date.now() }));
+  api.recordAnswerDisplay.mockImplementation(() =>
+    Promise.resolve({ version: 1, recorded: true, alreadyRecorded: false, recordedAt: new Date(Date.now()).toISOString() })
+  );
 }
 
-it("F1 (final): returning to feedback still mounted after the cold delay renews the exposure under a new display", async () => {
+/** The next write waits until `release()`. */
+function holdNextWrite(): { release: () => void } {
+  let release = () => undefined as void;
+  api.recordAnswerDisplay.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = () => resolve({ version: 1, recorded: true, recordedAt: new Date(Date.now()).toISOString() });
+      })
+  );
+  return { release: () => release() };
+}
+
+function displayIds(): string[] {
+  return api.recordAnswerDisplay.mock.calls.map(([, id]) => String(id));
+}
+
+it("F1 (round 3): the full answer appears only once its display row is committed", async () => {
   vi.useFakeTimers();
+  const held = holdNextWrite();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(screen.getByText("A full answer")).toBeTruthy();
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(1);
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+});
+
+it("F1 (round 3): a write that failed is never taken as shown, and is retried under the same display", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  api.recordAnswerDisplay.mockRejectedValueOnce({ code: "display_not_recorded", message: "not recorded", retryable: true });
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(screen.getByText(/can't be shown right now/)).toBeTruthy();
+  await advance(5 * SECOND);
+  expect(screen.getByText(KEY)).toBeTruthy();
+  const [first, retry] = displayIds();
+  expect(retry).toBe(first);
+  await advance(10 * MINUTE);
+  expect(displayIds()).toHaveLength(2);
+});
+
+it("F1 (round 3): returning after the row's grace writes a new row before the answer shows again", async () => {
+  vi.useFakeTimers();
+  stampWrites();
   render(<FeedbackScreen {...props()} />);
   await flush();
   expect(screen.getByText(KEY)).toBeTruthy();
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
-
-  // Backgrounded without unmounting: nothing is on screen, nothing is written.
   await setVisibility("hidden");
   await advance(2 * DAY);
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
-
-  // Back: the answer is read again, so a fresh exposure under a new id.
+  expect(displayIds()).toHaveLength(1);
+  const held = holdNextWrite();
   await setVisibility("visible");
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
-  const [[, mounted], [, returned]] = api.recordAnswerDisplay.mock.calls;
-  expect(returned).toMatch(/^display_/);
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(2);
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  const [mounted, returned] = displayIds();
   expect(returned).not.toBe(mounted);
 });
 
-it("F1 (final): focus regained renews the exposure, but not within a minute of the last one", async () => {
-  vi.useFakeTimers();
-  render(<FeedbackScreen {...props()} />);
-  await flush();
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
-  await advance(20_000);
-  await act(async () => { fireEvent(window, new Event("focus")); });
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
-  await advance(10 * MINUTE);
-  await act(async () => { fireEvent(window, new Event("focus")); });
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
-  const ids = api.recordAnswerDisplay.mock.calls.map(([, id]) => id);
-  expect(new Set(ids).size).toBe(2);
-});
-
-it("F1 (final): an answer left on screen past the cold delay never lapses", async () => {
+it("F1 (round 3): a machine that slept with the answer open hides it at its first check, until a new row lands", async () => {
   vi.useFakeTimers();
   stampWrites();
   render(<FeedbackScreen {...props()} />);
   await flush();
-  const start = Date.now();
-  await advance(50 * HOUR);
-  const writes = displayWrites();
-  // A row at least hourly (each a new display), so the latest is never older
-  // than an hour while the answer is on screen: well inside the one-day delay.
-  expect(writes.length).toBeGreaterThanOrEqual(50);
-  expect(new Set(writes.map((write) => write.id)).size).toBe(writes.length);
-  const stamps = [start, ...writes.slice(1).map((write) => write.at), Date.now()];
-  const gaps = stamps.slice(1).map((at, index) => at - stamps[index]);
-  expect(Math.max(...gaps)).toBeLessThanOrEqual(HOUR + MINUTE);
+  expect(screen.getByText(KEY)).toBeTruthy();
+  // Asleep for two days: the wall clock moves, no timer runs.
+  vi.setSystemTime(Date.now() + 2 * DAY);
+  const held = holdNextWrite();
+  await advance(5 * SECOND);
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(2);
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
 });
 
-it("F1 (final): the renewal stays well inside the cold retrieval delay", async () => {
-  const { EXPOSURE_FRESH_MS, EXPOSURE_RENEW_MS, EXPOSURE_TICK_MS } = await import("./feedback/answerExposure");
-  expect(EXPOSURE_RENEW_MS).toBeLessThanOrEqual(HOUR);
-  expect(EXPOSURE_TICK_MS).toBeLessThanOrEqual(MINUTE);
-  expect(EXPOSURE_FRESH_MS).toBeLessThanOrEqual(MINUTE);
-});
-
-it("F1 (final): a write that failed is retried under the same display, once it lands nothing more", async () => {
+it("F1 (round 3): an answer in use stays on screen for 50 hours, always covered by a row no older than its grace", async () => {
   vi.useFakeTimers();
-  api.recordAnswerDisplay.mockRejectedValueOnce(new Error("sidecar busy"));
+  const stamps: number[] = [];
+  api.recordAnswerDisplay.mockImplementation(() => {
+    stamps.push(Date.now());
+    return Promise.resolve({ version: 1, recorded: true, recordedAt: new Date(Date.now()).toISOString() });
+  });
   render(<FeedbackScreen {...props()} />);
   await flush();
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
-  await advance(MINUTE);
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
-  await advance(20 * MINUTE);
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
-  const [[, first], [, retry]] = api.recordAnswerDisplay.mock.calls;
-  expect(retry).toBe(first);
+  for (let minute = 0; minute < 50 * 60; minute += 10) {
+    fireEvent.pointerDown(window);
+    await advance(10 * MINUTE);
+    if (screen.queryByText(KEY)) {
+      const latest = Math.max(...stamps.filter((at) => at <= Date.now()));
+      expect(Date.now() - latest).toBeLessThan(HOUR);
+    }
+  }
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(stamps.length).toBeGreaterThanOrEqual(70);
+  expect(new Set(displayIds()).size).toBe(stamps.length);
 });
 
-it("F1 (final): feedback re-shown when an overlay over it closes is a new exposure", async () => {
+it("F1 (round 3): an unattended screen hides the answer as away, writes nothing more, and shows it again on request", async () => {
   vi.useFakeTimers();
+  stampWrites();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  await advance(3 * HOUR);
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(screen.getByText(/Hidden while you were away/)).toBeTruthy();
+  expect(displayIds()).toHaveLength(1);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Show it/ }));
+  });
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(displayIds()).toHaveLength(2);
+});
+
+it("F1 (round 3): an overlay closed within the row's grace shows the answer at once; after it, a new row first", async () => {
+  vi.useFakeTimers();
+  stampWrites();
   const base = props();
   const view = render(<FeedbackScreen {...base} answerCovered={false} />);
   await flush();
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
   view.rerender(<FeedbackScreen {...base} answerCovered />);
   await flush();
-  await advance(2 * DAY);
-  // Covered: the answer is not on screen, so nothing is written meanwhile.
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText(KEY)).toBeNull();
+  await advance(10 * MINUTE);
   view.rerender(<FeedbackScreen {...base} answerCovered={false} />);
   await flush();
-  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
-  const [[, before], [, after]] = api.recordAnswerDisplay.mock.calls;
-  expect(after).not.toBe(before);
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(displayIds()).toHaveLength(1);
+  view.rerender(<FeedbackScreen {...base} answerCovered />);
+  await advance(2 * DAY);
+  expect(displayIds()).toHaveLength(1);
+  const held = holdNextWrite();
+  view.rerender(<FeedbackScreen {...base} answerCovered={false} />);
+  await flush();
+  expect(screen.queryByText(KEY)).toBeNull();
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(new Set(displayIds()).size).toBe(2);
 });
 
-it("F1 (final): leaving feedback after reading it a while closes the exposure with a row stamped then", async () => {
-  vi.useFakeTimers();
-  stampWrites();
-  const view = render(<FeedbackScreen {...props()} />);
-  await flush();
-  await advance(10 * MINUTE);
-  view.unmount();
-  await flush();
-  const writes = displayWrites();
-  expect(writes).toHaveLength(2);
-  expect(writes[1].id).not.toBe(writes[0].id);
-  expect(writes[1].at - writes[0].at).toBe(10 * MINUTE);
-});
-
-const CHANGED = {
+const UNRECORDED = {
   ...BUNDLE,
   rubricScore: 6,
   maxPoints: 10,
@@ -819,7 +864,7 @@ const CHANGED = {
   criterionEvidence: [
     { criterionId: "setup", criterionDescription: "Today's 10-point criterion", pointsAwarded: 6, pointsPossible: 10, evidence: null, notes: null, graderTier: 3 }
   ],
-  answeredSource: "changed",
+  answeredSource: "unrecorded",
   answeredExpectedAnswer: null,
   answeredCriteria: null,
   answeredMaxPoints: null,
@@ -829,14 +874,16 @@ const CHANGED = {
   }
 } as unknown as FeedbackBundle;
 
-it("F9 (final): a question changed since its regrade says so, shows no full answer and never the later maximum", async () => {
-  api.getFeedback.mockResolvedValue(CHANGED);
+it("F9 (round 3): an unrecorded version says so, labels the current answer as current, charges it, and never shows the item's maximum", async () => {
+  api.getFeedback.mockResolvedValue(UNRECORDED);
   render(<FeedbackScreen {...props()} />);
   await screen.findByText("Partly right");
-  expect(screen.getByText(/This question has changed since it was graded/)).toBeTruthy();
+  expect(screen.getByText("The version of this question it was graded against wasn't kept.")).toBeTruthy();
   expect(screen.queryByText("A full answer")).toBeNull();
-  expect(screen.queryByText(KEY)).toBeNull();
-  expect(api.recordAnswerDisplay).not.toHaveBeenCalled();
+  expect(screen.getByText("The answer as the question reads now")).toBeTruthy();
+  expect(await screen.findByText(KEY)).toBeTruthy();
+  expect(screen.getByText("It may not be the one this was graded against.")).toBeTruthy();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: /details/ }));
   expect(screen.getByTestId("details-score").textContent).toContain("6 points");
   expect(bodyText()).not.toMatch(/\/ 10/);
@@ -844,11 +891,11 @@ it("F9 (final): a question changed since its regrade says so, shows no full answ
   expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 points.");
 });
 
-it("F9 (final): a changed question's grade is scored out of the maximum recorded with it", async () => {
+it("F9 (round 3): an unrecorded version's grade is scored out of the maximum recorded with it", async () => {
   api.getFeedback.mockResolvedValue({
-    ...CHANGED,
+    ...UNRECORDED,
     answeredMaxPoints: 8,
-    regrade: { ...(CHANGED.regrade as object), newMaxPoints: 8 }
+    regrade: { ...(UNRECORDED.regrade as object), newMaxPoints: 8 }
   });
   render(<FeedbackScreen {...props()} />);
   await screen.findByText("Partly right");
@@ -858,11 +905,11 @@ it("F9 (final): a changed question's grade is scored out of the maximum recorded
   expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 / 8.");
 });
 
-it("F9 (final): an item unchanged since it was graded carries no label", async () => {
+it.each(["contract", "live"] as const)("F9 (round 3): a %s grade shows its own key with no label", async (source) => {
   api.getFeedback.mockResolvedValue({
     ...BUNDLE,
-    answeredSource: "item",
-    answeredExpectedAnswer: KEY,
+    answeredSource: source,
+    answeredExpectedAnswer: "The graded key: 1/5.",
     answeredCriteria: [
       { criterionId: "setup", description: "Set up the conditional probability", pointsPossible: 2 },
       { criterionId: "restrict", description: "Restricted the sample space to the condition", pointsPossible: 2 }
@@ -870,15 +917,36 @@ it("F9 (final): an item unchanged since it was graded carries no label", async (
     answeredMaxPoints: 4
   });
   render(<FeedbackScreen {...props()} />);
-  expect(await screen.findByText(KEY)).toBeTruthy();
-  expect(screen.queryByText(/has changed since it was graded/)).toBeNull();
+  expect(await screen.findByText("The graded key: 1/5.")).toBeTruthy();
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(screen.queryByText(/wasn't kept/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /details/ }));
   expect(screen.getByTestId("details-score").textContent).toContain("2 / 4");
 });
 
+it("F9 (round 3): a regrade in place shows what it read, from its own response", async () => {
+  api.triggerRegrade.mockResolvedValue({
+    ...BUNDLE,
+    rubricScore: 6,
+    maxPoints: 8,
+    correctness: 0.75,
+    answeredSource: "live",
+    answeredExpectedAnswer: "The corrected key: 1/5, from five outcomes.",
+    answeredCriteria: [{ criterionId: "setup", description: "Set up and restricted", pointsPossible: 8 }],
+    answeredMaxPoints: 8,
+    contest: { recorded: true, regraded: true, reviewRequested: true }
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText(KEY)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await sendContest("All five outcomes are there");
+  expect(await screen.findByText("The corrected key: 1/5, from five outcomes.")).toBeTruthy();
+  expect(screen.queryByText(KEY)).toBeNull();
+});
+
 it("F9 (final): after a regrade in place the screen re-reads the item, never keeping the one it loaded with", async () => {
-  // A sidecar that sends no key with the regrade (the old shape): the screen
-  // still shows what the regrade graded against, the item as it is now.
+  // A sidecar that sends no source with the regrade (the old shape): the
+  // screen re-reads the item rather than keep the one it loaded with.
   api.getPracticeItem
     .mockResolvedValueOnce(ITEM)
     .mockResolvedValue({ ...ITEM, expectedAnswer: "The corrected key: 1/5, from five outcomes." });
@@ -903,7 +971,7 @@ it("F9 (final): the regrade history scores each side out of its own grade's maxi
     rubricScore: 6,
     maxPoints: 8,
     correctness: 0.75,
-    answeredSource: "item",
+    answeredSource: "contract",
     answeredMaxPoints: 8,
     regrade: {
       oldScore: 2, newScore: 6, maxPoints: 8, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: false,

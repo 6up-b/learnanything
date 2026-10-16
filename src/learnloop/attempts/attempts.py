@@ -2373,6 +2373,7 @@ def reveal_total_for_submission(
     *,
     until: str | None = None,
     clock: Clock | None = None,
+    submission_id: str | None = None,
 ) -> float:
     """Summed answer exposure on this item since the learner last attempted it.
 
@@ -2384,26 +2385,33 @@ def reveal_total_for_submission(
     even when stamped in the attempt's own second.
 
     A routine full-answer display (the plain surface's feedback and
-    self-grade, ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_BASES``) counts only
-    within the cold retrieval delay before the submission (UX Phase 4, Codex
-    review F1): a retry while the answer is fresh is primed, a review after
-    the delay is a retrieval again."""
+    self-grade, ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_BASES``) counts by its
+    coverage instead (UX Phase 4, Codex review F1, round 3): within the cold
+    retrieval delay plus the screens' renewal grace before the submission,
+    whatever attempts came between, since a full answer can stay on screen
+    across them. The submitting draft's own self-grade disclosure
+    (``submission_id``) is exempt: its trace was frozen before the key was
+    shown."""
 
     from learnloop.attempts.reveal_ledger import (
         ROUTINE_ANSWER_DISPLAY_BASES,
+        own_disclosure_bases,
         routine_display_lapsed_before,
     )
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
+    exempt_bases, exempt_prefixes = own_disclosure_bases(submission_id)
     return repository.total_reveal_amount(
         practice_item_id,
         since=since,
         until=until,
         linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
         linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
-        lapsing_basis_prefixes=ROUTINE_ANSWER_DISPLAY_BASES,
-        lapsed_before=routine_display_lapsed_before(until or utc_now_iso(clock)),
+        routine_basis_prefixes=ROUTINE_ANSWER_DISPLAY_BASES,
+        routine_covered_from=routine_display_lapsed_before(until or utc_now_iso(clock)),
+        exempt_bases=exempt_bases,
+        exempt_basis_prefixes=exempt_prefixes,
     )
 
 
@@ -2428,7 +2436,9 @@ def auto_primed_draft(
     if draft.primed:
         return draft, 0.0
     try:
-        total = reveal_total_for_submission(repository, draft.practice_item_id, clock=clock)
+        total = reveal_total_for_submission(
+            repository, draft.practice_item_id, clock=clock, submission_id=draft.submission_id
+        )
     except Exception:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning(
             "reveal ledger read failed for %s; not auto-priming",

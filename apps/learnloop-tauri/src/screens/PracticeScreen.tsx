@@ -30,6 +30,8 @@ import { MathLiveEditor } from "../render/MathLiveEditor";
 import { errorMessage, getCommandError } from "../errors";
 import { expectedAnswerText, simplePracticeFeedback } from "../app/practiceFeedback";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
+import { useAnswerExposure, type RecordDisplay } from "./feedback/answerExposure";
+import { AnswerWaiting } from "./feedback/FeedbackSurface";
 
 type CommittedAttemptRecovery = {
   attemptId: string;
@@ -1483,6 +1485,20 @@ export function PracticeScreen({
                 // contract's answerRevealDisabled): grade without it there.
                 // Elsewhere it shows only once the trace is frozen (F1).
                 showFullAnswer={!probeActive && disclosed !== null && !disclosureFailed}
+                exposureKey={submissionId.current}
+                recordDisplay={
+                  disclosed
+                    ? (displayId) =>
+                        api.recordSelfGradeDisclosure({
+                          sessionId: session.sessionId,
+                          practiceItemId: item.id,
+                          submissionId: submissionId.current,
+                          answerMd: disclosed.answerMd,
+                          explanationMd: disclosed.explanationMd,
+                          displayId
+                        })
+                    : undefined
+                }
                 submitting={submitting}
                 partlyOpen={partlyOpen}
                 partsGot={partsGot}
@@ -1872,6 +1888,8 @@ function PlainSelfGrade({
   item,
   answer,
   showFullAnswer,
+  exposureKey,
+  recordDisplay,
   submitting,
   partlyOpen,
   partsGot,
@@ -1887,6 +1905,10 @@ function PlainSelfGrade({
   item: PracticeItemDetail;
   answer: string;
   showFullAnswer: boolean;
+  /** The draft's retry key: the key's display rows belong to it. */
+  exposureKey: string;
+  /** One display row for the key on this pending draft (round 3 F1). */
+  recordDisplay?: RecordDisplay;
   submitting: boolean;
   partlyOpen: boolean;
   partsGot: Record<string, boolean>;
@@ -1901,6 +1923,11 @@ function PlainSelfGrade({
 }) {
   const criteria = item.rubric?.criteria ?? [];
   const fullAnswer = expectedAnswerText(item.expectedAnswer).trim();
+  // The key is an exposure from the moment it shows (round 3 F1): on screen
+  // only while a committed row covers it, written while the draft is pending
+  // so every other production is judged against it; this draft's own
+  // frozen trace is exempt.
+  const exposure = useAnswerExposure(exposureKey, showFullAnswer && Boolean(fullAnswer), recordDisplay);
   return (
     <div style={{ marginTop: 14 }} data-testid="plain-self-grade">
       <div style={{ fontSize: 13, color: COLOR.text }}>Grade this one yourself</div>
@@ -1911,7 +1938,11 @@ function PlainSelfGrade({
             {answer.trim() ? <MarkdownMath value={answer} /> : <span style={{ color: COLOR.textDim }}>(nothing written)</span>}
           </VoicePanel>
           <VoicePanel mark="◇" title="A full answer">
-            <MarkdownMath value={fullAnswer} />
+            {exposure.shown ? (
+              <MarkdownMath value={fullAnswer} />
+            ) : (
+              <AnswerWaiting status={exposure.status} onShow={exposure.show} />
+            )}
           </VoicePanel>
         </div>
       ) : null}

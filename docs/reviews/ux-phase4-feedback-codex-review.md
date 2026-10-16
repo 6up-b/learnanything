@@ -249,6 +249,8 @@ The code was final at `0fb2e6910`; only this record and the claim in `docs/revie
 
 ### 8.2 F1: an exposure lasts as long as the answer is on screen (High)
 
+*Superseded by §9.2: the round-3 verification reopened this design (the closing row was the safety mechanism, a crash lost it, and a failed write was acknowledged). The gate in §9.2 replaces it.*
+
 **The finding.** "Remounting now records a fresh exposure, but returning to still-mounted feedback does not." Feedback was opened, the app backgrounded without unmounting it, two days passed, and the learner came back and read the answer. Dispatching focus and visibility events wrote no second display. The production readers then returned `primed=False` and `admissible=True`. Remounting was the passing control.
 
 **The design.** The routine display horizon (§1) runs from each row's stamp. So the ledger has to hold a row no older than the last moment the learner could read the answer. A row from when the screen first showed it is not enough. `screens/feedback/answerExposure.ts` (`AnswerExposure`, `useAnswerExposure`) keeps that true, using three rules:
@@ -293,6 +295,8 @@ Two more rules keep the writes in check:
   - `test_f1f_a_retry_within_one_exposure_writes_once`.
 
 ### 8.3 F9: what the grade stands on (Medium)
+
+*Superseded by §9.3: the `item` and `changed` sources inferred which version a grade read from snapshot first-seen order, which the round-3 verification showed does not establish it. The sources are now `contract`, `live` and `unrecorded`, and the item snapshot `trigger_regrade` took for the inference is gone. What §8.3 lists the database records per epoch still holds.*
 
 **The finding.** "Ordinary regrades still lack durable grading metadata, and the desktop fallback can remain stale."
 - Live: after a successful regrade in place, the handler replaced `feedback` but never refetched `item`, so the original key stayed on screen.
@@ -398,3 +402,151 @@ The code was final at `ece7ee132`; only this record and `docs/reviews/ux-phase4.
 - **Q15 (F9).** A regrade outside the feedback screen under an item edited after its last serve is labelled "changed" although it read the item now. *Default: the cautious label until regrades cite their contract (§8.4).*
 - **Q16 (F9).** Classic still reads the item and its maximum, so the 6/8 then 6/10 case shows there. *Default: unchanged (classic restores the screens exactly).*
 - **Q17 (F9).** An answer graded before contracts (or on an mvp-0.6 vault) whose key alone was edited since shows the current key. *Default: shown; nothing recorded says otherwise.*
+
+## 9. Round 3
+
+**Verification:** the Codex verification of `3caa7501d`. Verdict REOPENED: F1 (High) and F9 (Medium). F2 to F8 and F10 were confirmed, with no regressions.
+**Fix:** `6978cde0a` (sidecar F1), `a5fa07b2c` (sidecar F9), `f01cffbc7` (desktop F1 and F9), `c4e450f1e` (docstrings). Nothing in grading, scoring, scheduling or replay changed. There is no migration, no config change and no new RPC (`record_self_grade_disclosure` takes an optional display id). The replay mismatch stays out of scope (§8.4; the verifier confirmed its numbers).
+**How this round was done:** to stop the patch-per-case loop, F1 is designed to one invariant and tested as that invariant, and F9 stops inferring which version a grade read.
+
+### 9.1 Findings
+
+| ID | Severity | What the verifier found | Verdict | Commits | Tests |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | The exposure ended before the delay after the last look (a crash before the closing row; a visit under a minute writes none; a sleep); a failed write was acknowledged; a pending self-grade disclosure was invisible to other windows | **fixed** | `6978cde0a`, `f01cffbc7` | `test_f1g_*` (16 cases incl. the 10-seed reader property test); `answerExposure.test.ts` (28, incl. the 24-seed gate property test); vitest "F1 (round 3): …" (7 + 3 self-grade) |
+| F9 | Medium (reopened) | Snapshot first-seen order does not establish which version was in force (A/B/A/B); "no contradiction" was taken as proof | **fixed** | `a5fa07b2c`, `f01cffbc7` | `test_f9g_*` (2), the reworked `test_f9_*`/`test_f9f_*`/F5 tests (10 cases); vitest "F9 (round 3): …" (5) |
+
+**Reproduced first** (runs recorded in this step):
+- **Sidecar F1, against `3caa7501d`:** all 13 new tests failed.
+  - The crash reproduction (renewals through hour 50, reading to 50:59, a read at 74:30): `primed=False`.
+  - The short-visit reproduction (30 s, then an attempt 24 h 0 min 15 s after opening): `primed=False`.
+  - The false acknowledgement: no error was raised, `{recorded: true}` was returned with no row written.
+  - The pending disclosure and its refusal: the display id was not accepted.
+  - The contract pin and the property test: the coverage constant did not exist.
+  - The property test, rerun with the coverage defined locally (D + 1 h) against the old readers: **8 of 10 seeds failed**. The old readers lapse a row at D and ignore a row from before the last attempt.
+- **Sidecar F9, against the unchanged serializer:** 10 of 12 failed. The verifier's A/B/A/B step 3 reproduced exactly: the regrade's own response said `changed` right after grading unchanged A. The 2 that passed are the contract controls.
+- **Desktop, against `3caa7501d`'s desktop with the new tests copied in:**
+  - `answerExposure.test.ts`: 28 of 28 failed. The old module has no gate, and the old screen showed the answer whatever the ledger held.
+  - The two Phase 4 screen files: 12 of 62 failed: F1 ×7, the unrecorded label ×2, the self-grade display ×2, and the resumed draft's display row.
+  - The 50 that passed include the controls: a contract or live grade with no label, the live response's key, the re-read item, the per-side history.
+- **A mutation check of the gate property test:** loosening `covered()` by the margin (`+` instead of `-`) fails 12 of its 28 cases.
+
+### 9.2 F1: one invariant
+
+**The invariant.** For any attempt, or any other admissibility read, at time T: if the full answer was on screen in any window at some moment v in [T − D, T], the ledger already holds a committed row that the reader counts at T. Here D is the routine display horizon, one day, and the admissibility readers are auto-prime (`attempts.reveal_total_for_submission`) and `reveal_ledger.production_admissibility`. Those are the two whose verdict is recorded on a production (`primed`, `admissible_as_independent`).
+
+It is the conjunction of two properties, each built and tested on its own side:
+- **Q, the readers** (`6978cde0a`): a committed routine display row stamped s counts at every T with s ≤ T ≤ s + D + G, whatever attempts came between and whatever window a caller reads. G is the renewal grace, one hour (`ROUTINE_DISPLAY_RENEWAL_GRACE`; coverage `ROUTINE_ANSWER_DISPLAY_COVERAGE` = D + G).
+  - Auto-prime now counts routine rows by their coverage instead of "since the last attempt". A full answer still on screen in another window after an attempt is an exposure for the next one; before, the row was absorbed into the attempt in between.
+  - `production_admissibility` adds routine rows stamped before a caller's `since` (placement and field outcomes pass one).
+  - The only exception is a plain self-grade's own disclosure: the commit of the trace frozen before its key was shown (§9.2.3).
+- **P, the screen** (`f01cffbc7`, `AnswerExposureGate`): the full answer is on screen at v only while a committed row stamped s exists with s ≤ v and v < s + G − m, where m is a margin of one minute.
+
+**Proof.** Let the answer be on screen at v, with v in [T − D, T]. By P there is a committed row s with s ≤ v and v < s + G − m. Then s ≤ v ≤ T, and T ≤ v + D < s + G + D. So T lies in the row's coverage, and by Q the reader counts it at T. The row was committed before v, so before T. ∎
+
+What this argument does not need:
+- **A closing row.** However the screen ends (a crash, a kill, a navigation to an attempt), the row that made the answer visible already covers the next D.
+- **A flush before an attempt-leading action.** Every moment the answer is visible is already covered when it is visible, so there is nothing pending to flush. A retry started from feedback starts after a visible moment that is already covered.
+- **Rows written on every return.** A return within the grace of the latest row is covered by that row. A return after it is not covered, so the gate writes first and shows only once the new row is committed.
+
+**What P rests on, stated as assumptions:**
+1. **One clock.** The desktop and its sidecar run on one machine. The gate compares its own clock with the stamp the sidecar returns (`recorded_at`), floored to the second and never taken later than the client's now.
+2. **Timers run in a visible window.** The gate checks every tick (5 s, below m), so an answer can outlive its row's `G − m` by at most one tick: well inside G.
+3. **A sleeping machine.** It shows its last frame until the page's first check after waking. That is one tick at most, since a check long after the last one is itself read as a wake, and it hides the answer until a new row is committed. This frozen frame is the one residual outside any page code's control.
+4. **A hidden document is not on screen.** While hidden, the answer is not rendered. When the document becomes visible again, it is rendered only if a row still covers it.
+
+**The screen's rules** (`screens/feedback/answerExposure.ts`; the numbers are in `exposureContract.json`, read by both sides and pinned equal by `test_f1g_the_screen_and_the_ledger_share_one_exposure_contract`):
+- **When a row is written.** Each row has a new display id. One is written before the answer first appears, and whenever the answer is wanted again after its row stopped covering it: the document visible again, an overlay closed, the machine awake. While the answer stays on screen and the learner is present (input, focus or the page shown since the last row), it is renewed every 40 minutes.
+- **An unattended screen.** It lets its row lapse and shows "Hidden while you were away. Show it ▸", so an idle window writes nothing more. This is the growth bound: about one row per 40 minutes of real use, and one row in total for a window left open unattended. The verifier counted 51 rows over 50 idle hours before.
+- **Confirmation and failure.** A row counts as confirmed only once the ledger's stamp comes back. A failure keeps the answer hidden ("It can't be shown right now") and is retried under the same display id every tick. A refusal stops the retries.
+- **Overlays.** App passes `answerCovered` for the repair step, the inspector and Ask.
+
+**What the writer now reports.** The verifier's injected `sqlite3.OperationalError` produced `{recorded: true}` with no row. `record_answer_display` now returns `recorded_at` and `already_recorded`, the latter when a retry of the same display finds its row. A row that could not be written is `display_not_recorded` (retryable), never an acknowledgement (`reveal_ledger._record_routine_display` raises `DisplayNotRecorded`). The best-effort writers elsewhere are unchanged.
+
+**9.2.3 The pending self-grade disclosure.** The key on a plain self-grade goes through the same gate.
+- **How its rows are written.** `record_self_grade_disclosure` with a display id writes a row for the pending draft (`self_grade_disclosure:<retry key>:<display id>`, unlinked) before the key shows, and at each renewal. A display for a draft that is no longer pending is `disclosure_not_pending`, and the key stays hidden.
+- **Other productions see it at once.** Every other production is judged against those rows straight away: an attempt in another window is primed, and an unaided answer on the learning object is not independent.
+- **The frozen trace's own commit is exempt.** The exemption covers rows whose basis names its retry key (`own_disclosure_bases`):
+  - in auto-prime, by the submitting draft's `submission_id`;
+  - in `production_admissibility`, when the production judged is the attempt that committed that retry key on that item at that moment, unprimed.
+  
+  A trace changed after the key was shown is recorded primed, as before (§1), so it gets no exemption.
+- **The settle rows** at commit or abandonment are kept. They are no longer the safety mechanism.
+
+**Tests.**
+- Sidecar (`tests/test_ux_phase4_feedback.py`, `test_f1g_*`), through the production writers and readers:
+  - **The property test (Q):** `test_f1g_every_committed_display_row_counts_until_its_coverage_ends[0..9]`. Random timelines of attempts and display rows, with reads at random later moments; each read sees only what was written by then. It checks that a read is primed, and not independent with or without a `since`, exactly when some row covers it, whatever attempts came between.
+  - **The verifier's reproductions:** the crash after reading to 50:59 (covered at 74:30); the 30-second visit with no closing row (covered at 24 h 0 min 15 s); the false acknowledgement (no ack and no row, then one row on the same-id retry and `already_recorded` on the next); the pending disclosure (another window primed, a production not independent, the frozen commit clean and admissible as its own production, the next attempt primed); and the refusal.
+  - **The shared contract pin.**
+- Desktop:
+  - **The property test (P),** `answerExposure.test.ts`. The production gate runs against a simulated clock and ledger over 24 seeded runs of 2 to 4 days. Writes land late, fail, or land with their acknowledgement lost. The answer is wanted and not, the learner present and away, the machine asleep for up to two days with no ticks, and runs end in a crash. At every check, whenever the gate lets the answer be on screen, the ledger holds a committed row stamped s ≤ now with now + one tick < s + G.
+  - The same file also checks liveness (an answer in use is on screen all but its first check for 50 hours, with 70 to 80 rows), the unattended screen (1 row, then away, then back), a refusal, and the shared numbers.
+  - Component tests: the answer appears only once its row is committed; a failed write is never shown and is retried under the same id; a return after the grace writes first; a sleep hides the answer at the first check; 50 hours in use, always covered; unattended means away and no more rows; an overlay; and the self-grade's key (shown only after its display row; a refusal keeps it hidden).
+  - The remount control still passes ("F1 (re-review): reopening the feedback is a fresh exposure…").
+
+### 9.3 F9: no inference
+
+**The sources** (`serializers.GRADING_RECORD_SOURCES`):
+- **`contract`:** the grading epoch cites the contract it read (a first grade, a method-explicit regrade, an adjudication carrying its rows' contract). Exact.
+- **`live`:** only in the response of a regrade that has just run. It is the content that regrade read: the item and its resolved rubric, taken from the vault it graded with (`serializers.live_grading_record`, captured by `trigger_regrade` before the regrade). It is never persisted as proof. The next load of the same feedback is `unrecorded`.
+- **`unrecorded`:** every other epoch, such as an ordinary regrade reopened later or an answer graded before contracts. No key or criteria are presented as graded, and the only maximum given is one recorded with the grade, a blind record's.
+
+The snapshot-order selector (`_item_version_in_force`, `_epoch_contradicts_item`) is gone, and so is the item snapshot `trigger_regrade` took for it.
+
+**On the desktop:**
+- **The label.** An unrecorded grade says "The version of this question it was graded against wasn't kept."
+- **No graded criteria lines.** There are no ✓/✗ lines, and details give the points alone, or out of a recorded maximum.
+- **The current answer.** It offers the current answer under "The answer as the question reads now", with "It may not be the one this was graded against." That display goes through the same gate as any answer display, so it is charged.
+- **A contract or live grade** shows its own key, with no label.
+- **The regrade history** keeps each side's own maximum, as recorded.
+- **After a regrade in place** the item is still re-read (for an older sidecar).
+
+**What this costs, and when it goes away.** Every ordinary regrade, and every answer graded before contracts, now reads as unrecorded once its feedback is reopened, even when the item never changed. Round 2 had asked that an unchanged item show no label; this round's direction supersedes that, since nothing recorded proves "unchanged". When the successor stage makes regrades cite the contract they read (§8.4), new regrades become `contract` and `unrecorded` becomes rare.
+
+**Tests.**
+- Sidecar:
+  - `test_f9g_the_a_b_a_b_sequence_never_presents_a_version_as_graded_without_a_record` (the verifier's sequence with the production snapshot writer: `live` with A's key in the regrade's response, `unrecorded` after, and B never presented as graded);
+  - `test_f9g_a_contract_cited_epoch_stays_exact_whatever_was_served_since`;
+  - `test_f5_an_answer_with_no_contract_is_unrecorded` (the no-snapshot case);
+  - the reworked live (`[regrade|contest]`), historical (`[blind|joint]`), unchanged-reopened, blind and outside-the-screen (`[later|same_second]`) cases.
+- vitest:
+  - an unrecorded grade (the label, the current answer labelled and charged, no "/ 10");
+  - its recorded maximum;
+  - a contract or live grade with no label (×2);
+  - the live response's key.
+
+### 9.4 Claims corrected
+
+- **§8.2 and §8.3** are marked superseded in place.
+- **§8.8 Q14** (the cadences): now 40-minute renewals while present, a one-hour grace, a one-minute margin and a 5-second tick, with no closing row. **Q15** (the cautious "changed" label) and **Q17** (a legacy key-only edit) are replaced by `unrecorded`, which claims neither.
+- **`docs/reviews/ux-phase4.md`:**
+  - §1: the bundle's sources, and no item snapshot on regrade.
+  - §4.1: the self-grade key's display rows.
+  - §4.2: the gate, the "away" state, and the unrecorded label and current answer.
+
+### 9.5 Paid calls
+
+None. Every test uses fakes. The fail-first runs used temporary copies of `3caa7501d`'s source, since removed. No owner vault was opened.
+
+### 9.6 Gate (final tree)
+
+Run on `c4e450f1e` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2` (done in §8.7; no dependency changed since):
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11922 passed, 0 failed (13 min 25 s): §8.7's 11905, plus 16 `test_f1g_*` cases and 2 `test_f9g_*`, less the removed cannot-place test |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11816 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 94 files, 724 passed (692, plus the gate's 28 property and unit cases, plus the reworked and new screen cases); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed (`record_self_grade_disclosure` passes its input through) |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged: no CLI, RPC, schema or config change (both test files ran in the full suite) |
+
+The code was final at `c4e450f1e`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure.
+
+### 9.7 Open questions for the owner (defaults applied)
+
+- **Q18 (F1).** The coverage is the delay plus a one-hour grace, so a routine display primes for up to 25 hours after the row that last covered it, not 24. *Default: as built (conservative by construction).*
+- **Q19 (F1).** An answer left on screen with no input for about an hour hides itself ("Hidden while you were away"), and one click shows it again. Shorter or longer? *Default: a 40-minute renewal and a 59-minute visible bound.*
+- **Q20 (F1).** Auto-prime now counts a routine display by its coverage even across an attempt in between, so a retry the same day after a full answer stays "with help". *Default: as built (the invariant needs it).*
+- **Q21 (F9).** Until regrades cite their contract, every reopened ordinary regrade, and every pre-contract answer, shows the unrecorded label and the current answer labelled as current. *Default: as built. The successor stage (§8.4) removes most of it.*
+- **Q13 and Q16** stand: summed reveal amounts in receipts count each row, and classic is unchanged.

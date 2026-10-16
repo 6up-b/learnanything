@@ -58,7 +58,7 @@ import {
   FeedbackSurface,
   answeredCriterionRows,
   answeredMaxPoints,
-  questionChangedSinceGraded,
+  gradedVersionUnrecorded,
   scoreOutOf,
   type FeedbackNextStep
 } from "./feedback/FeedbackSurface";
@@ -437,9 +437,9 @@ function CriterionRow({
 }: {
   row: CriterionEvidenceRowDto;
   showTier?: boolean;
-  /** False when the question changed since it was graded and nothing recorded
-   *  gives the criterion's maximum then: the points alone, never out of the
-   *  later question's (UX Phase 4, final verification F9). */
+  /** False when nothing recorded says which version the grade read, so its
+   *  criterion maxima are unknown: the points alone, never out of the current
+   *  question's (UX Phase 4, round 3 F9). */
   maxKnown?: boolean;
 }) {
   // PF-c: a criterion the learner's verified route never exercised is not
@@ -2383,7 +2383,7 @@ export function FeedbackScreen({
                       key={row.criterionId}
                       row={held ? { ...row, assessed: false } : row}
                       showTier={showTier}
-                      maxKnown={!questionChangedSinceGraded(f)}
+                      maxKnown={!gradedVersionUnrecorded(f)}
                     />
                   ))}
                   <div style={{ borderTop: `1px solid ${C.border}` }} />

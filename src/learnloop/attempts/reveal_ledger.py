@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock, parse_utc
+from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 
 logger = logging.getLogger(__name__)
@@ -56,8 +56,9 @@ SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
 #: The ROUTINE full-answer displays: the plain surface shows the expected
 #: answer on every feedback and every plain self-grade (spec §7.5), not as an
 #: exception a learner asked for. An ``answer_display`` row whose basis starts
-#: with one of these counts against a later production only within
-#: :data:`ROUTINE_ANSWER_DISPLAY_HORIZON`.
+#: with one of these counts against a production within
+#: :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE` of its stamp (the horizon plus the
+#: renewal grace), whatever attempts came between.
 ROUTINE_ANSWER_DISPLAY_BASES = (f"{FEEDBACK_FULL_ANSWER_BASIS}:", f"{SELF_GRADE_DISCLOSURE_BASIS}:")
 
 #: How long a routine display counts: the cold retrieval delay
@@ -75,6 +76,18 @@ ROUTINE_ANSWER_DISPLAY_BASES = (f"{FEEDBACK_FULL_ANSWER_BASIS}:", f"{SELF_GRADE_
 #: answer. Every other reveal keeps its window exactly.
 ROUTINE_ANSWER_DISPLAY_HORIZON = timedelta(days=1)
 
+#: How much longer than the horizon a routine display row counts (UX Phase 4,
+#: round 3, F1). The screens that show a routine full answer show it only
+#: while a committed row stamped at most this long ago exists, and renew it
+#: well before (``apps/learnloop-tauri/src/screens/feedback/exposureContract.json``,
+#: pinned equal by a test). So a row stamped s counts at every T in
+#: [s, s + horizon + grace]: for any moment v the answer was on screen there is
+#: a row with s <= v < s + grace, and every read within the horizon after v
+#: falls inside that row's coverage, however the screen ended (a crash, a
+#: kill, a machine put to sleep) and whatever attempts came between.
+ROUTINE_DISPLAY_RENEWAL_GRACE = timedelta(hours=1)
+ROUTINE_ANSWER_DISPLAY_COVERAGE = ROUTINE_ANSWER_DISPLAY_HORIZON + ROUTINE_DISPLAY_RENEWAL_GRACE
+
 
 def is_routine_answer_display(row: Mapping[str, Any]) -> bool:
     """Is this ledger row one of the plain surface's routine full-answer displays?"""
@@ -89,8 +102,9 @@ def is_routine_answer_display(row: Mapping[str, Any]) -> bool:
 
 def routine_display_lapsed_before(at: str | None) -> str | None:
     """The instant (ledger timestamp format) before which a routine display no
-    longer counts against a production at ``at``; None when ``at`` is unknown
-    (nothing lapses: fail closed)."""
+    longer counts against a production at ``at`` (its coverage,
+    :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE`, has ended); None when ``at`` is
+    unknown (nothing lapses: fail closed)."""
 
     try:
         parsed = parse_utc(at) if at else None
@@ -98,8 +112,31 @@ def routine_display_lapsed_before(at: str | None) -> str | None:
         return None
     if parsed is None:
         return None
-    cutoff = parsed - ROUTINE_ANSWER_DISPLAY_HORIZON
+    cutoff = parsed - ROUTINE_ANSWER_DISPLAY_COVERAGE
     return cutoff.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def own_disclosure_bases(submission_id: str | None) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(exact bases, basis prefixes) of the plain self-grade disclosure rows a
+    draft under ``submission_id`` wrote: its settle row and every display row
+    (``self_grade_disclosure:<retry key>`` and ``…:<retry key>:<display>``).
+
+    They are that draft's own exposure, shown only AFTER its trace was frozen,
+    so they never count against the frozen trace's commit (UX Phase 4, round 3
+    F1); they count against every other production."""
+
+    if not submission_id:
+        return (), ()
+    basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}"
+    return (basis,), (f"{basis}:",)
+
+
+def _disclosure_submission(row: Mapping[str, Any]) -> str | None:
+    basis = row.get("basis")
+    prefix = f"{SELF_GRADE_DISCLOSURE_BASIS}:"
+    if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(prefix):
+        return None
+    return basis[len(prefix):].split(":", 1)[0] or None
 
 
 def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
@@ -208,8 +245,10 @@ def production_admissibility(
     exposure too. ``since`` defaults to open-ended: any reveal at all before the
     production contaminates it, which is the fail-closed reading. The one
     exception is a routine full-answer display (:func:`is_routine_answer_display`),
-    which counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` before the
-    production.
+    which counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE` before the
+    production, also when stamped before ``since`` (round 3 F1), except the
+    production's own self-grade disclosure (the attempt that committed the
+    trace frozen before the key was shown).
 
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
@@ -219,6 +258,7 @@ def production_admissibility(
 
     if not produced_at or not (practice_item_id or learning_object_id):
         return ProductionAdmissibility(True, None)
+    cutoff = routine_display_lapsed_before(produced_at)
     try:
         reveals = repository.reveal_events_for_target(
             practice_item_id=practice_item_id,
@@ -226,6 +266,32 @@ def production_admissibility(
             since=since,
             until=produced_at,
         )
+        if since is not None:
+            # A routine display counts by its coverage, whatever window the
+            # caller reads (round 3 F1): a full answer still on screen when
+            # the window opened is as much an exposure as one shown after.
+            seen = {str(row.get("id")) for row in reveals}
+            reveals = sorted(
+                [
+                    *reveals,
+                    *(
+                        row
+                        for row in repository.reveal_events_for_target(
+                            practice_item_id=practice_item_id,
+                            learning_object_id=learning_object_id,
+                            until=produced_at,
+                        )
+                        if is_routine_answer_display(row) and str(row.get("id")) not in seen
+                    ),
+                ],
+                key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
+            )
+        reveals = [
+            row
+            for row in reveals
+            if not _lapsed_routine_display(row, cutoff)
+            and not _own_disclosure_of_production(repository, row, practice_item_id, produced_at)
+        ]
     except Exception:  # pragma: no cover - defensive
         if strict:
             raise
@@ -235,11 +301,10 @@ def production_admissibility(
             exc_info=True,
         )
         return ProductionAdmissibility(True, None)
-    # A routine full-answer display counts only within its horizon (Codex
-    # review F1): an unaided answer while it is fresh is not independent, one
-    # after the cold retrieval delay is again.
-    cutoff = routine_display_lapsed_before(produced_at)
-    reveals = [row for row in reveals if not _lapsed_routine_display(row, cutoff)]
+    # A routine full-answer display counts only within its coverage (Codex
+    # review F1, round 3): an unaided answer while it is fresh is not
+    # independent, one after the cold retrieval delay (and the grace the
+    # screens renew within) is again.
     if not reveals:
         return ProductionAdmissibility(True, None)
     # Oldest first; the FIRST reveal is the one that broke independence, and
@@ -251,6 +316,27 @@ def production_admissibility(
         reason="post_reveal_not_independent",
         reveal_event_id=str(first.get("id") or "") or None,
         reveal_amount=total,
+    )
+
+
+def _own_disclosure_of_production(
+    repository: Repository, row: Mapping[str, Any], practice_item_id: str | None, produced_at: str
+) -> bool:
+    """Is ``row`` the plain self-grade disclosure of the very production being
+    judged: the attempt that committed that draft's frozen trace (same retry
+    key, same item, produced at ``produced_at``, not primed)? Its trace was
+    written before the key was shown, so its own disclosure never counts
+    against it (round 3 F1)."""
+
+    submission_id = _disclosure_submission(row)
+    if submission_id is None or not practice_item_id:
+        return False
+    attempt = repository.practice_attempt_by_submission_id(submission_id)
+    return bool(
+        attempt is not None
+        and str(attempt.get("practice_item_id") or "") == practice_item_id
+        and str(attempt.get("created_at") or "") == produced_at
+        and not attempt.get("primed")
     )
 
 
@@ -362,6 +448,67 @@ def record_answer_display_reveal(
     )
 
 
+@dataclass(frozen=True)
+class DisplayReceipt:
+    """A routine display row the ledger holds: its id, its stamp (ledger
+    format), and whether it was already there (a retry of the same display)."""
+
+    row_id: str
+    recorded_at: str
+    already_recorded: bool
+
+
+class DisplayNotRecorded(Exception):
+    """The display row could not be written: the screen must not show the
+    answer on its strength, and retries under the same display id."""
+
+
+def _record_routine_display(
+    repository: Repository,
+    *,
+    basis: str,
+    practice_item_id: str,
+    learning_object_id: str | None,
+    attempt_id: str | None,
+    clock: Clock | None,
+) -> DisplayReceipt:
+    """Write one routine display row, or find it already written; raise
+    :class:`DisplayNotRecorded` on any failure (round 3 F1).
+
+    Unlike the best-effort writers above, the screen gates the full answer on
+    this row (it shows the answer only while a committed row covers it), so
+    a failure is reported, never swallowed: an acknowledgement means a row
+    is in the ledger. Idempotent per basis, which names the display."""
+
+    try:
+        rows = (
+            repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display")
+            if attempt_id
+            else repository.reveal_events(practice_item_id=practice_item_id, source_kind="answer_display")
+        )
+        existing = next((row for row in rows if row.get("basis") == basis), None)
+        if existing is not None:
+            return DisplayReceipt(str(existing["id"]), str(existing["created_at"]), True)
+        created_at = utc_now_iso(clock)
+        row_id = repository.insert_reveal_event(
+            {
+                "practice_item_id": practice_item_id,
+                "learning_object_id": learning_object_id,
+                "remediation_episode_id": reveal_episode_id(repository, practice_item_id),
+                "source_kind": "answer_display",
+                "amount": 1.0,
+                "basis": basis,
+                "attempt_id": attempt_id,
+                "created_at": created_at,
+            },
+            clock=clock,
+        )
+    except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+        logger.warning("routine display %s was not recorded for item %s", basis, practice_item_id, exc_info=True)
+        raise DisplayNotRecorded(basis) from exc
+    return DisplayReceipt(str(row_id), created_at, False)
+
+
 def record_feedback_answer_display_reveal(
     repository: Repository,
     *,
@@ -371,43 +518,56 @@ def record_feedback_answer_display_reveal(
     learning_object_id: str | None = None,
     surface: str = "desktop",
     clock: Clock | None = None,
-) -> str | None:
-    """Debit the ledger for one EXPOSURE of the full answer on a feedback screen.
+) -> DisplayReceipt:
+    """Record one display of the full answer on a feedback screen.
 
-    The plain surface's feedback shows the expected answer on every visit, so
-    each exposure is its own row (Codex re-review F1). A routine display
-    counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` of when it was
-    shown, so charging an attempt once let the first visit's row lapse while
-    the learner read the answer again later. One row per exposure, stamped
-    when it was written, so the horizon runs from the latest. ``display_id``
-    names the exposure: the desktop mints a new one whenever the answer comes
-    back on screen, at least hourly while it stays there, and when it leaves
-    the screen (UX Phase 4 final verification F1,
-    ``apps/learnloop-tauri/src/screens/feedback/answerExposure.ts``); a retry
-    of the same exposure's write records nothing new. Linked to the attempt,
-    like every feedback display: it counts against the NEXT attempt. Best
-    effort, like every writer here.
+    The plain surface's feedback shows the expected answer on every visit, and
+    it shows it only while a committed row covers it (round 3 F1): the desktop
+    writes a row under a new ``display_id`` before the answer first appears,
+    whenever it comes back after its row's grace ran out, and at least every
+    renewal interval while it stays on screen and in use
+    (``apps/learnloop-tauri/src/screens/feedback/answerExposure.ts``). Each
+    row counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE` of its stamp. A
+    retry of the same display returns the row already written. Linked to the
+    attempt, like every feedback display: it counts against the NEXT attempt.
+    Raises :class:`DisplayNotRecorded` when nothing could be written.
     """
 
-    basis = f"{FEEDBACK_FULL_ANSWER_BASIS}:{surface}:{display_id}"
-    try:
-        if any(
-            row.get("basis") == basis
-            for row in repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display")
-        ):
-            return None
-    except Exception:  # pragma: no cover - defensive
-        logger.warning("feedback answer-display lookup failed for %s", attempt_id, exc_info=True)
-        return None
-    return record_reveal(
+    return _record_routine_display(
         repository,
+        basis=f"{FEEDBACK_FULL_ANSWER_BASIS}:{surface}:{display_id}",
         practice_item_id=practice_item_id,
         learning_object_id=learning_object_id,
-        remediation_episode_id=reveal_episode_id(repository, practice_item_id),
-        source_kind="answer_display",
-        amount=1.0,
-        basis=basis,
         attempt_id=attempt_id,
+        clock=clock,
+    )
+
+
+def record_self_grade_disclosure_display(
+    repository: Repository,
+    *,
+    practice_item_id: str,
+    submission_id: str,
+    display_id: str,
+    learning_object_id: str | None = None,
+    clock: Clock | None = None,
+) -> DisplayReceipt:
+    """Record one display of the key on a pending plain self-grade (round 3 F1).
+
+    Written while the draft is still pending, so every other production (an
+    attempt in another window, an unaided answer on the learning object) is
+    judged against it at once. The frozen trace's own commit is exempt
+    (:func:`own_disclosure_bases`): it was written before the key appeared.
+    Unlinked (the draft has no attempt yet); idempotent per display; raises
+    :class:`DisplayNotRecorded` when nothing could be written.
+    """
+
+    return _record_routine_display(
+        repository,
+        basis=f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}:{display_id}",
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        attempt_id=None,
         clock=clock,
     )
 
@@ -437,8 +597,11 @@ def record_self_grade_disclosure_reveal(
       its learning object, was produced after the answer was seen.
 
     Either way it is a routine display (:data:`ROUTINE_ANSWER_DISPLAY_BASES`):
-    it counts within the cold retrieval delay. Idempotent per retry key; best
-    effort, like every writer here.
+    it counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE`, and never against
+    the draft's own commit (:func:`own_disclosure_bases`). While the draft is
+    pending, the key's display rows (:func:`record_self_grade_disclosure_display`)
+    already count against every other production (round 3 F1). Idempotent per
+    retry key; best effort, like every writer here.
     """
 
     basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}"

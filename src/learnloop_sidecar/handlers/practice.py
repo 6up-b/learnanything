@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from pydantic import Field
+
 from learnloop.clock import utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.config import CODEX_PROVIDER_NAMES
@@ -103,6 +105,10 @@ class SelfGradeDisclosureInput(ParamsModel):
     submission_id: str
     answer_md: str
     explanation_md: str | None = None
+    # Round 3 F1: with a display id this is not a freeze but one display of
+    # the key for the draft frozen already (the screen writes one before the
+    # key appears and at each renewal); a retry of that write reuses it.
+    display_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 class PracticeSubmissionRecoveryInput(ParamsModel):
@@ -536,6 +542,8 @@ def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosur
     submission_id = _submission_id(params.submission_id, None)
     if submission_id is None:
         raise SidecarError("validation_error", "submissionId must not be blank.", details={"field": "submissionId"})
+    if params.display_id is not None:
+        return _record_disclosure_display(repository, item, params, submission_id)
     explanation_md = (params.explanation_md or "").strip() or None
     patch_checkpoint(
         repository,
@@ -560,6 +568,48 @@ def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosur
         has_explanation=explanation_md is not None,
     )
     return versioned({"frozen": True})
+
+
+def _record_disclosure_display(repository, item, params: SelfGradeDisclosureInput, submission_id: str) -> dict[str, Any]:
+    """One display of the key on a pending plain self-grade (UX Phase 4,
+    round 3 F1): a routine display row written while the draft is pending, so
+    every other production is judged against it at once; the frozen trace's
+    own commit is exempt (``reveal_ledger.own_disclosure_bases``).
+
+    Only for the draft frozen in the checkpoint now (same item, same retry
+    key): a display for a draft already committed or abandoned is refused
+    (``disclosure_not_pending``) and the screen keeps the key hidden. Nothing
+    written is ``display_not_recorded`` (retryable)."""
+
+    from learnloop.attempts.reveal_ledger import DisplayNotRecorded, record_self_grade_disclosure_display
+
+    disclosure = draft_self_grade_disclosure(repository.fetch_session_checkpoint(params.session_id))
+    if (
+        disclosure is None
+        or disclosure["practice_item_id"] != params.practice_item_id
+        or disclosure["submission_id"] != submission_id
+    ):
+        raise SidecarError("disclosure_not_pending", "This self-grade is no longer open.")
+    try:
+        receipt = record_self_grade_disclosure_display(
+            repository,
+            practice_item_id=params.practice_item_id,
+            submission_id=submission_id,
+            display_id=str(params.display_id),
+            learning_object_id=item.learning_object_id,
+        )
+    except DisplayNotRecorded as exc:
+        raise SidecarError(
+            "display_not_recorded", "The full answer couldn't be recorded. Try again.", retryable=True
+        ) from exc
+    return versioned(
+        {
+            "frozen": True,
+            "recorded": True,
+            "already_recorded": receipt.already_recorded,
+            "recorded_at": receipt.recorded_at,
+        }
+    )
 
 
 def _changed_after_disclosure(repository, session_id: str, practice_item_id: str, submission_id: str | None,

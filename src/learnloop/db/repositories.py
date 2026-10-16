@@ -4591,8 +4591,10 @@ class Repository(
         until: str | None = None,
         linked_attempt_id: str | None = None,
         linked_kinds: Sequence[str] = (),
-        lapsing_basis_prefixes: Sequence[str] = (),
-        lapsed_before: str | None = None,
+        routine_basis_prefixes: Sequence[str] = (),
+        routine_covered_from: str | None = None,
+        exempt_bases: Sequence[str] = (),
+        exempt_basis_prefixes: Sequence[str] = (),
     ) -> float:
         """Summed reveal amount for one item in a window.
 
@@ -4605,34 +4607,60 @@ class Repository(
         that attempt (the one at ``since``) were written after it by
         construction, so they count even when stamped in its own second.
 
-        ``lapsing_basis_prefixes``/``lapsed_before``: ``answer_display`` rows
-        whose basis starts with one of the prefixes and that were stamped
-        before ``lapsed_before`` are left out (the plain surface's routine
-        displays, ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``)."""
+        ``routine_basis_prefixes``/``routine_covered_from`` (UX Phase 4): an
+        ``answer_display`` row whose basis starts with one of the prefixes (the
+        plain surface's routine displays) counts by its coverage instead of the
+        window: when stamped at or after ``routine_covered_from``, whatever
+        attempts came between (a full answer still on screen after the last
+        attempt is an exposure for the next), unless its basis is one of
+        ``exempt_bases`` or starts with one of ``exempt_basis_prefixes`` (the
+        submitting draft's own disclosure, shown after its trace was frozen).
+        Every other row keeps the window."""
+
+        def prefix_match(prefixes: Sequence[str]) -> tuple[str, list[Any]]:
+            # A prefix match without LIKE (its "_" is a wildcard).
+            clause = " OR ".join("substr(COALESCE(basis, ''), 1, ?) = ?" for _ in prefixes)
+            values: list[Any] = []
+            for prefix in prefixes:
+                values.extend([len(prefix), prefix])
+            return clause, values
+
+        window = ""
+        window_parameters: list[Any] = []
+        if since is not None and linked_attempt_id is not None and linked_kinds:
+            marks = ", ".join("?" for _ in linked_kinds)
+            window = "(created_at > ? OR (attempt_id = ? AND source_kind IN (" + marks + ") AND created_at >= ?))"
+            window_parameters = [since, linked_attempt_id, *linked_kinds, since]
+        elif since is not None:
+            window = "created_at > ?"
+            window_parameters = [since]
 
         query = "SELECT COALESCE(SUM(amount), 0.0) AS total FROM reveal_events WHERE practice_item_id = ?"
         parameters: list[Any] = [practice_item_id]
-        if lapsing_basis_prefixes and lapsed_before is not None:
-            # A prefix match without LIKE (its "_" is a wildcard).
-            matches = " OR ".join("substr(COALESCE(basis, ''), 1, ?) = ?" for _ in lapsing_basis_prefixes)
-            query += f" AND NOT (source_kind = 'answer_display' AND created_at < ? AND ({matches}))"
-            parameters.append(lapsed_before)
-            for prefix in lapsing_basis_prefixes:
-                parameters.extend([len(prefix), prefix])
-        if since is not None and linked_attempt_id is not None and linked_kinds:
-            marks = ", ".join("?" for _ in linked_kinds)
-            query += (
-                " AND (created_at > ? OR (attempt_id = ? AND source_kind IN ("
-                + marks
-                + ") AND created_at >= ?))"
-            )
-            parameters.extend([since, linked_attempt_id, *linked_kinds, since])
-        elif since is not None:
-            query += " AND created_at > ?"
-            parameters.append(since)
         if until is not None:
             query += " AND created_at <= ?"
             parameters.append(until)
+        if routine_basis_prefixes and routine_covered_from is not None:
+            routine_clause, routine_values = prefix_match(routine_basis_prefixes)
+            routine = f"(source_kind = 'answer_display' AND ({routine_clause}))"
+            exempt_parts: list[str] = []
+            exempt_values: list[Any] = []
+            if exempt_bases:
+                exempt_parts.append("COALESCE(basis, '') IN (" + ", ".join("?" for _ in exempt_bases) + ")")
+                exempt_values.extend(exempt_bases)
+            if exempt_basis_prefixes:
+                clause, values = prefix_match(exempt_basis_prefixes)
+                exempt_parts.append(f"({clause})")
+                exempt_values.extend(values)
+            exempt = " OR ".join(exempt_parts) or "0"
+            query += (
+                f" AND (({routine} AND created_at >= ? AND NOT ({exempt}))"
+                f" OR (NOT {routine}" + (f" AND {window}" if window else "") + "))"
+            )
+            parameters.extend([*routine_values, routine_covered_from, *exempt_values, *routine_values, *window_parameters])
+        elif window:
+            query += f" AND {window}"
+            parameters.extend(window_parameters)
         with self.connection() as connection:
             row = connection.execute(query, parameters).fetchone()
         return float(row["total"]) if row is not None else 0.0

@@ -1,49 +1,71 @@
-// UX Phase 4 (Codex review F1, re-review F1, final verification F1): the full
-// answer on feedback is an exposure, charged to the reveal ledger.
+// UX Phase 4 (Codex review F1, re-review F1, final verification F1, round 3):
+// a routine full answer (feedback's "A full answer", the plain self-grade's
+// key) is an exposure, and the screen shows it only while the reveal ledger
+// already holds a committed row that covers it.
 //
-// A routine display counts only within the cold retrieval delay (one day) of
-// the row that records it (`reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON`). So
-// the ledger must hold a row no older than the last time the learner could
-// read the answer, not just one from when the screen first showed it:
+// The invariant (docs/reviews/ux-phase4-feedback-codex-review.md §9): for any
+// attempt or admissibility read at T, if the answer was on screen in any
+// window at a moment v in [T - D, T], a committed row the reader counts at T
+// exists. It is two properties:
 //
-// * An exposure starts whenever the answer comes (back) on screen: the screen
-//   mounts with it, the document becomes visible again, the window regains
-//   focus, the page is shown or resumed, or an overlay over it closes. Each
-//   start is a new display id, so a new row stamped then.
-// * While it stays on screen it is renewed at least hourly (a new display id),
-//   well inside the delay, so an answer left open for days never lapses.
-//   The check runs on wall-clock time, so a machine that slept with the answer
-//   open renews within a minute of waking.
-// * When it leaves the screen (hidden, covered, the screen unmounted) after
-//   more than a minute, a closing row is written, so the delay runs from the
-//   last moment the answer was on screen. A retry or unaided attempt started
-//   from feedback therefore always follows a row at most a minute old.
-// * Within a minute of the latest row nothing new is written (that row already
-//   covers the moment), and a write that failed is retried under the SAME
-//   display id until it is confirmed: the sidecar records each id once.
+// * the readers count a routine row stamped s at every T in [s, s + D + G]
+//   (`reveal_ledger.ROUTINE_ANSWER_DISPLAY_COVERAGE`; G is the renewal grace);
+// * this gate: the answer is on screen at v only while a committed row stamped
+//   s <= v with v < s + G - margin exists (`AnswerExposureGate.covered`).
 //
-// Every row is amount 1.0. Auto-prime compares the total against a threshold
-// one row already crosses, so renewals change no `primed`; the receipts that
-// sum amounts (the router's coldness covariates, the cold-task deferral) count
-// each renewal, as they already counted each visit.
+// Together: s <= v <= T and T <= v + D < s + G + D. The gate needs no closing
+// row and no flush before an action: whatever ends the screen (a crash, a
+// kill, navigating to an attempt), the row that made the answer visible
+// already covers the next D. A machine that slept with the answer open shows
+// its last frame until the page's first check after waking (one tick at
+// most), which hides it until a new row is committed.
+//
+// Rows are written, each under a new display id:
+// * before the answer first appears, and whenever it is wanted again after its
+//   row stopped covering it (the document visible again, an overlay closed,
+//   the machine awake again);
+// * every `renewAfterMs` while it stays on screen AND the learner is present
+//   (input, focus, the page shown, since the last row). An unattended screen
+//   lets its row lapse and hides the answer ("away") until the learner is
+//   back, so an open window writes nothing more while nobody uses it.
+// A write that fails is retried under the same display id until it lands (the
+// sidecar records each id once and says when); a refused one stops.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import contract from "./exposureContract.json";
 
-/** Renew an exposure still on screen at least this often (well inside the one-day delay). */
-export const EXPOSURE_RENEW_MS = 60 * 60 * 1000;
-/** A row this recent already covers the answer coming back or leaving. */
-export const EXPOSURE_FRESH_MS = 60 * 1000;
-/** How often the open screen checks its exposure (wall clock). */
-export const EXPOSURE_TICK_MS = 60 * 1000;
+/** The numbers the screen and the readers share (a test pins them equal). */
+export const EXPOSURE = contract as {
+  horizonMs: number;
+  renewalGraceMs: number;
+  showMarginMs: number;
+  renewAfterMs: number;
+  tickMs: number;
+};
 
-type RecordDisplay = (attemptId: string, displayId: string) => Promise<unknown>;
+/** What the ledger says about one display row (`record_answer_display`). */
+export interface DisplayReceipt {
+  recordedAt?: string | null;
+  alreadyRecorded?: boolean;
+}
 
-interface Exposure {
-  attemptId: string;
+export type RecordDisplay = (displayId: string) => Promise<DisplayReceipt | unknown>;
+
+export type ExposureStatus = "shown" | "waiting" | "away" | "unavailable";
+
+interface Row {
   id: string;
-  stampedAt: number;
-  confirmed: boolean;
+  /** The row's stamp (the sidecar's, floored to the second). */
+  stampMs: number;
+  /** When this display id was first sent (client clock). */
+  sentMs: number;
+}
+
+interface Pending {
+  id: string;
+  firstSentMs: number;
   sending: boolean;
+  failures: number;
 }
 
 function newDisplayId(): string {
@@ -51,58 +73,101 @@ function newDisplayId(): string {
   return `display_${random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`;
 }
 
-/** The exposure bookkeeping, apart from React (one per mounted feedback surface). */
-export class AnswerExposure {
-  private current: Exposure | null = null;
+function refused(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { retryable?: unknown }).retryable === false);
+}
 
-  constructor(private readonly record: RecordDisplay, private readonly now: () => number = () => Date.now()) {}
+/** The gate for one answer on one screen (the clock and the writer are injected). */
+export class AnswerExposureGate {
+  private latest: Row | null = null;
+  private pending: Pending | null = null;
+  private activityMs: number;
+  private lastCheckMs: number | null = null;
+  private stopped = false;
 
-  /** The answer came (back) on screen: a new exposure unless the latest row is fresh. */
-  show(attemptId: string): void {
-    this.refresh(attemptId, EXPOSURE_FRESH_MS);
+  constructor(
+    private readonly record: RecordDisplay,
+    private readonly now: () => number = () => Date.now(),
+    private readonly onChange: () => void = () => undefined
+  ) {
+    this.activityMs = now();
   }
 
-  /** The answer is still on screen: renew a stale exposure, retry an unconfirmed one. */
-  tick(attemptId: string): void {
-    this.refresh(attemptId, EXPOSURE_RENEW_MS);
+  /** A committed row covers the answer being on screen at `at`. */
+  covered(at: number = this.now()): boolean {
+    return this.latest !== null && at < this.latest.stampMs + EXPOSURE.renewalGraceMs - EXPOSURE.showMarginMs;
   }
 
-  /** The answer left the screen: close the exposure with a row stamped now, unless the latest is fresh. */
-  end(): void {
-    const current = this.current;
-    if (current === null) return;
-    if (this.now() - current.stampedAt >= EXPOSURE_FRESH_MS) this.open(current.attemptId);
-    else this.send(current);
+  /** The learner is here: input, focus, the page shown, the answer asked for. */
+  activity(): void {
+    this.activityMs = this.now();
   }
 
-  private refresh(attemptId: string, staleAfter: number): void {
-    const current = this.current;
-    if (current === null || current.attemptId !== attemptId || this.now() - current.stampedAt >= staleAfter) {
-      this.open(attemptId);
-    } else {
-      this.send(current);
+  /** The learner was present since the latest row was sent. */
+  private present(): boolean {
+    return this.latest === null || this.activityMs > this.latest.sentMs;
+  }
+
+  /** One check while the answer is wanted on screen (`wanted` false: it is
+   *  not, so nothing is written). Starts the write a row needs; returns
+   *  whether the answer may be on screen now. */
+  check(wanted: boolean): boolean {
+    const at = this.now();
+    // A check long after the last one is the machine waking (no timer ran
+    // while it slept): a return, like the page shown again.
+    if (this.lastCheckMs !== null && at - this.lastCheckMs > 3 * EXPOSURE.tickMs) this.activityMs = at;
+    this.lastCheckMs = at;
+    if (!wanted || this.stopped) return false;
+    const covered = this.covered(at);
+    const due = !covered || at - (this.latest?.sentMs ?? Number.NEGATIVE_INFINITY) >= EXPOSURE.renewAfterMs;
+    if (due && this.present()) this.write(at);
+    return covered;
+  }
+
+  status(): ExposureStatus {
+    if (this.covered()) return "shown";
+    if (this.stopped) return "unavailable";
+    if (!this.present()) return "away";
+    return (this.pending?.failures ?? 0) > 0 ? "unavailable" : "waiting";
+  }
+
+  private write(at: number): void {
+    const pending = this.pending ?? { id: newDisplayId(), firstSentMs: at, sending: false, failures: 0 };
+    this.pending = pending;
+    if (pending.sending) return;
+    pending.sending = true;
+    let call: Promise<unknown>;
+    try {
+      call = Promise.resolve(this.record(pending.id));
+    } catch (error) {
+      call = Promise.reject(error);
     }
-  }
-
-  private open(attemptId: string): void {
-    const exposure: Exposure = { attemptId, id: newDisplayId(), stampedAt: this.now(), confirmed: false, sending: false };
-    this.current = exposure;
-    this.send(exposure);
-  }
-
-  private send(exposure: Exposure): void {
-    if (exposure.confirmed || exposure.sending) return;
-    exposure.sending = true;
-    // Best effort, like every ledger write: the screen never waits on it. A
-    // failure is retried under the same id on the next tick, show or end.
-    this.record(exposure.attemptId, exposure.id)
-      .then(() => {
-        exposure.confirmed = true;
+    call
+      .then((receipt) => {
+        const stampMs = this.stampOf(receipt, pending.firstSentMs);
+        if (this.latest === null || stampMs >= this.latest.stampMs) {
+          this.latest = { id: pending.id, stampMs, sentMs: pending.firstSentMs };
+        }
+        if (this.pending === pending) this.pending = null;
       })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        pending.failures += 1;
+        // Refused (the self-grade's draft is done with): stop; the answer stays hidden.
+        if (refused(error)) this.stopped = true;
+      })
       .finally(() => {
-        exposure.sending = false;
+        pending.sending = false;
+        this.onChange();
       });
+  }
+
+  /** The row's stamp: the sidecar's, never later than now on this clock.
+   *  Without one (an older sidecar), the id's first send: the row was written
+   *  no earlier, so its grace ends no earlier than this says. */
+  private stampOf(receipt: unknown, fallbackMs: number): number {
+    const at = receipt && typeof receipt === "object" ? (receipt as DisplayReceipt).recordedAt : null;
+    const parsed = typeof at === "string" ? Date.parse(at) : Number.NaN;
+    return Number.isFinite(parsed) ? Math.min(parsed, this.now()) : fallbackMs;
   }
 }
 
@@ -110,45 +175,92 @@ function documentVisible(): boolean {
   return typeof document === "undefined" || document.visibilityState !== "hidden";
 }
 
-/** Keep the reveal ledger charged for as long as the full answer is on screen. */
-export function useAnswerExposure(attemptId: string, onScreen: boolean, record: RecordDisplay | undefined): void {
+const PRESENCE_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
+
+/** Gate a routine full answer on its ledger rows. `key` names the answer (a
+ *  new key is a new gate); `onScreen` is whether the screen would show it now
+ *  (rendered, not covered by an overlay). Returns whether it may be shown,
+ *  its status, and `show()` for the learner asking for it after "away". */
+export function useAnswerExposure(
+  key: string,
+  onScreen: boolean,
+  record: RecordDisplay | undefined
+): { shown: boolean; status: ExposureStatus; show: () => void } {
   const recordRef = useRef(record);
   recordRef.current = record;
-  const exposure = useRef<AnswerExposure | null>(null);
-  if (exposure.current === null) {
-    exposure.current = new AnswerExposure((attempt, displayId) =>
-      recordRef.current ? recordRef.current(attempt, displayId) : Promise.resolve()
-    );
-  }
-  const [visible, setVisible] = useState(documentVisible);
-  useEffect(() => {
-    const onVisibility = () => setVisible(documentVisible());
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
-  const shown = onScreen && visible && record !== undefined;
-  useEffect(() => {
-    if (!shown) return;
-    const tracker = exposure.current!;
-    tracker.show(attemptId);
-    const again = () => {
-      if (documentVisible()) tracker.show(attemptId);
+  const [, setVersion] = useState(0);
+  const bump = useCallback(() => setVersion((value) => value + 1), []);
+  const gates = useRef<{ key: string; gate: AnswerExposureGate } | null>(null);
+  if (gates.current === null || gates.current.key !== key) {
+    gates.current = {
+      key,
+      gate: new AnswerExposureGate(
+        (displayId) => (recordRef.current ? recordRef.current(displayId) : Promise.reject(new Error("no writer"))),
+        () => Date.now(),
+        bump
+      )
     };
-    const away = () => tracker.end();
-    const timer = window.setInterval(() => tracker.tick(attemptId), EXPOSURE_TICK_MS);
-    window.addEventListener("focus", again);
-    window.addEventListener("pageshow", again);
-    window.addEventListener("pagehide", away);
-    document.addEventListener("resume", again);
-    document.addEventListener("freeze", away);
+  }
+  const gate = gates.current.gate;
+  const [visible, setVisible] = useState(documentVisible);
+  const wanted = onScreen && visible && record !== undefined;
+  const wantedRef = useRef(wanted);
+  wantedRef.current = wanted;
+
+  useEffect(() => {
+    const onVisibility = () => {
+      const isVisible = documentVisible();
+      if (isVisible) gate.activity();
+      setVisible(isVisible);
+    };
+    const back = () => {
+      gate.activity();
+      gate.check(wantedRef.current);
+      bump();
+    };
+    const present = () => {
+      gate.activity();
+      // Back after "away": write at once rather than at the next tick.
+      if (wantedRef.current && !gate.covered()) {
+        gate.check(true);
+        bump();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("resume", back);
+    window.addEventListener("focus", back);
+    window.addEventListener("pageshow", back);
+    for (const name of PRESENCE_EVENTS) window.addEventListener(name, present, { passive: true });
+    // The wall clock, every tick: a renewal that is due, a retry, and the
+    // answer hidden once its row stops covering it (also after a sleep).
+    const timer = window.setInterval(() => {
+      gate.check(wantedRef.current);
+      bump();
+    }, EXPOSURE.tickMs);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener("focus", again);
-      window.removeEventListener("pageshow", again);
-      window.removeEventListener("pagehide", away);
-      document.removeEventListener("resume", again);
-      document.removeEventListener("freeze", away);
-      tracker.end();
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("resume", back);
+      window.removeEventListener("focus", back);
+      window.removeEventListener("pageshow", back);
+      for (const name of PRESENCE_EVENTS) window.removeEventListener(name, present);
     };
-  }, [attemptId, shown]);
+  }, [gate, bump]);
+
+  // The answer becoming wanted again (mounted, an overlay closed, the
+  // document visible again) is the learner returning to it: it writes at once
+  // when no row covers it.
+  useEffect(() => {
+    if (!wanted) return;
+    gate.activity();
+    gate.check(true);
+  }, [gate, wanted]);
+
+  const show = useCallback(() => {
+    gate.activity();
+    gate.check(wantedRef.current);
+    bump();
+  }, [gate, bump]);
+  // Rendering reads the gate only: the answer is on screen while covered.
+  return { shown: wanted && gate.covered(), status: gate.status(), show };
 }

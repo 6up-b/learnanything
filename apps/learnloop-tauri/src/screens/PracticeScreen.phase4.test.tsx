@@ -244,6 +244,40 @@ it("F1: freezes the answer and the volunteered line before it shows a full answe
   expect(sent).toMatchObject({ answerMd: "det(A) = -3", explanationMd: "first row has zeros", submissionId: frozen.submissionId });
 });
 
+it("F1 (round 3): the self-grade's key shows only once its display row for the pending draft is committed", async () => {
+  api.getPracticeItem.mockResolvedValue(item({ elicitation: ELICIT }));
+  let release!: (value: unknown) => void;
+  api.recordSelfGradeDisclosure
+    .mockResolvedValueOnce({ version: 1, frozen: true })
+    .mockReturnValueOnce(new Promise((done) => { release = done; }));
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "det(A) = -3" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  await waitFor(() => expect(api.recordSelfGradeDisclosure).toHaveBeenCalledTimes(2));
+  const [[freeze], [display]] = api.recordSelfGradeDisclosure.mock.calls;
+  expect(freeze.displayId).toBeUndefined();
+  expect(display).toMatchObject({ submissionId: freeze.submissionId, answerMd: "det(A) = -3", displayId: expect.stringMatching(/^display_/) });
+  expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
+  await act(async () => release({ version: 1, frozen: true, recorded: true, recordedAt: new Date().toISOString() }));
+  expect(await screen.findByText("Expand along the first row: det(A) = -3.")).toBeTruthy();
+});
+
+it("F1 (round 3): a display refused because the draft is done with keeps the key hidden, with no retry", async () => {
+  api.recordSelfGradeDisclosure
+    .mockResolvedValueOnce({ version: 1, frozen: true })
+    .mockRejectedValueOnce({ code: "disclosure_not_pending", message: "no longer open", retryable: false });
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "-3" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  expect(await screen.findByText(/can't be shown right now/)).toBeTruthy();
+  expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
+  expect(api.recordSelfGradeDisclosure).toHaveBeenCalledTimes(2);
+});
+
 it("F1: a freeze that is not confirmed grades without showing the full answer", async () => {
   api.recordSelfGradeDisclosure.mockRejectedValueOnce(new Error("sidecar gone"));
   render(<PracticeScreen {...props({ gradingReady: false })} />);
@@ -271,7 +305,12 @@ it("F1: a resumed draft whose full answer was shown reopens locked to its frozen
   const line = screen.getByRole("textbox", { name: /why this approach/ }) as HTMLInputElement;
   expect(line.disabled).toBe(true);
   expect(line.value).toBe("first row has zeros");
-  expect(api.recordSelfGradeDisclosure).not.toHaveBeenCalled();
+  // No new freeze: only the key's display row for the draft already frozen
+  // (round 3 F1), before the key showed.
+  expect(api.recordSelfGradeDisclosure.mock.calls.length).toBeGreaterThan(0);
+  for (const [input] of api.recordSelfGradeDisclosure.mock.calls) {
+    expect(input).toMatchObject({ submissionId: "key_1", answerMd: "det(A) = -3", displayId: expect.stringMatching(/^display_/) });
+  }
   unmount();
   // The in-memory mirror carries the frozen trace for the next remount.
   expect(onDraftSaved).toHaveBeenCalledWith(expect.objectContaining({ selfGradeDisclosure: disclosure }));

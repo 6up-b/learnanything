@@ -837,21 +837,18 @@ def _set_canonical_state(paths):
     set_algorithm_version(paths, sorted(CANONICAL_STATE_VERSIONS)[0])
 
 
-def test_f5_an_answer_with_no_contract_carries_the_items_key_when_nothing_says_it_changed(ctx):
+def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
     """An answer graded before contracts cites none, and nothing recorded says
-    the item differs from what it was graded against: the bundle carries the
-    item's own key, criteria and maximum (final verification F9: sent directly,
-    never left for the screen to read off an item it may have loaded earlier)."""
+    what it was graded against (round 3 F9: no inference from the item as it
+    is now): no key, criteria or maximum presented as graded."""
 
     vault, repository = ctx.require_vault()
     attempt_id = _self_graded(ctx, answer="U Sigma V^T")
     bundle = feedback_bundle(vault, repository, attempt_id)
-    assert bundle["answeredSource"] == "item"
-    assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
-    assert bundle["answeredCriteria"] == [
-        {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
-    ]
-    assert bundle["answeredMaxPoints"] == 4
+    assert bundle["answeredSource"] == "unrecorded"
+    assert bundle["answeredExpectedAnswer"] is None
+    assert bundle["answeredCriteria"] is None
+    assert bundle["answeredMaxPoints"] is None
 
 
 # -- F6: a released hold never shows its provisional score in the history --------------------
@@ -1233,75 +1230,37 @@ def _correct_the_item(ctx, *, prompt=None) -> None:
 
 
 @pytest.mark.parametrize("after", [timedelta(seconds=5), timedelta(0)], ids=["later", "same_second"])
-def test_f9_a_regrade_under_the_corrected_item_shows_its_key_and_rubric(ctx, after):
-    """The re-review's scenario: an ordinary answer graded under its contract
-    (4 points), then the item's key and rubric are corrected (8 points) and
-    the answer is regraded, which reads the item as it is now. Feedback shows
-    the corrected key and the 8-point criterion the six points were given
-    under, never the superseded key or the original 4-point maximum. The
-    question stays the one the learner was given. A regrade stamped in the
-    original's own second is still the later grade (its rows carry no
-    grading revision to order them by)."""
+def test_f9_a_regrade_outside_the_screen_is_the_current_grade_and_unrecorded(ctx, after):
+    """An ordinary answer graded under its contract (4 points), the item then
+    corrected (8 points) and regraded outside the feedback screen (the CLI,
+    the deferred self-grade regrades). The regrade is the current grade, also
+    when stamped in the original's own second (its rows carry no grading
+    revision to order them by), and it cites no contract, so nothing recorded
+    says what it read (round 3 F9): no key or criteria presented as graded,
+    never the superseded 4-point ones, and the maximum only as the blind
+    regrade recorded it. The question stays the one the learner was given."""
 
     from learnloop.clock import parse_utc
-
-    from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
     attempt_id = _contract_answer(ctx, points={"correctness": 2})
     _correct_the_item(ctx, prompt="Define SVD for a 3x2 matrix.")
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(attempt_id)
-    regraded_at = FrozenClock(parse_utc(attempt["created_at"]) + after)
-    # The corrected item was served before the regrade (the feedback screen
-    # serves it, and a regrade from that screen snapshots what it reads), so
-    # the ledger knows the item now is what the regrade graded (final
-    # verification F9). A regrade that never had it served is in the next test.
-    snapshot_for_presentation(repository, vault, vault.practice_items[ITEM], clock=regraded_at)
-
     regrade_attempt(
         vault, repository, attempt, runtime=ReadyRuntime(), client=_SixPointGrader(), grading_source="ai",
-        clock=regraded_at,
+        clock=FrozenClock(parse_utc(attempt["created_at"]) + after),
     )
 
     bundle = feedback_bundle(vault, repository, attempt_id)
 
     assert bundle["rubricScore"] == 6
     [row] = bundle["criterionEvidence"]
-    assert (row["pointsAwarded"], row["pointsPossible"]) == (6.0, 8.0)
-    # The regrade's key and criteria are the item's as it is now, sent
-    # directly: never the original contract's, never left to the screen.
-    assert bundle["answeredSource"] == "item"
-    assert bundle["answeredExpectedAnswer"] == CORRECTED_KEY
-    assert bundle["answeredCriteria"] == [
-        {"criterionId": "correctness", "description": "Names all three factors.", "pointsPossible": 8.0}
-    ]
+    assert row["pointsAwarded"] == 6.0
+    assert bundle["answeredSource"] == "unrecorded"
+    assert (bundle["answeredExpectedAnswer"], bundle["answeredCriteria"]) == (None, None)
     assert bundle["answeredMaxPoints"] == 8
     prompts = [b["markdown"] for b in bundle["answeredPresentation"]["blocks"] if b["kind"] == "prompt"]
     assert prompts == ["Define SVD."]
-
-
-def test_f9_a_regrade_the_ledger_cannot_place_says_the_question_changed(ctx):
-    """The cautious side (final verification F9): a regrade run outside the
-    feedback screen (the CLI, the deferred self-grade regrades) under an item
-    corrected after it was last served. The latest snapshot by the regrade's
-    time is the original, which differs from the item now, and nothing the
-    regrade recorded ties it to the corrected item: the bundle says the
-    question changed rather than vouch for a key it cannot place. The
-    maximum is the one the blind regrade recorded with it."""
-
-    attempt_id = _contract_answer(ctx, points={"correctness": 2})
-    _correct_the_item(ctx)
-    vault, repository = ctx.require_vault()
-    regrade_attempt(
-        vault, repository, repository.fetch_practice_attempt(attempt_id), runtime=ReadyRuntime(),
-        client=_SixPointGrader(), grading_source="ai", clock=_later(seconds=5),
-    )
-
-    bundle = feedback_bundle(vault, repository, attempt_id)
-
-    assert (bundle["answeredSource"], bundle["answeredExpectedAnswer"], bundle["answeredMaxPoints"]) == (
-        "changed", None, 8,
-    )
 
 
 def test_f9_an_answer_not_regraded_keeps_the_key_and_maximum_it_was_graded_under(ctx):
@@ -1315,6 +1274,7 @@ def test_f9_an_answer_not_regraded_keeps_the_key_and_maximum_it_was_graded_under
 
     bundle = feedback_bundle(vault, repository, attempt_id)
 
+    assert bundle["answeredSource"] == "contract"
     assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
     assert bundle["answeredCriteria"] == [
         {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
@@ -1435,9 +1395,9 @@ def test_f1f_feedback_returned_to_after_the_cold_delay_is_a_renewed_exposure(ctx
 def test_f1f_a_full_answer_left_on_screen_past_the_cold_delay_stays_an_exposure(ctx, renewed):
     """Feedback mounted 50 hours ago and on screen since. With the hourly
     renewals the open screen writes, the next attempt is primed and an unaided
-    production is not independent, until the cold delay has passed since the
-    last renewal. With only the mount's row (the reopened finding), the
-    exposure had silently expired."""
+    production is not independent, until the coverage (the cold delay plus the
+    renewal grace, round 3) has passed since the last renewal. With only the
+    mount's row (the reopened finding), the exposure had silently expired."""
 
     _vault, repository = ctx.require_vault()
     mounted = _later(hours=-50)
@@ -1450,8 +1410,8 @@ def test_f1f_a_full_answer_left_on_screen_past_the_cold_delay_stays_an_exposure(
     assert _next_attempt_primed(repository) is renewed
     assert _admissible_now(ctx) is (not renewed)
     if renewed:
-        assert _next_attempt_primed(repository, clock=_later(hours=22))
-        assert not _next_attempt_primed(repository, clock=_later(hours=24))
+        assert _next_attempt_primed(repository, clock=_later(hours=23))
+        assert not _next_attempt_primed(repository, clock=_later(hours=25))
 
 
 def test_f1f_a_retry_within_one_exposure_writes_once(ctx):
@@ -1520,15 +1480,15 @@ def _regraded_under_the_corrected_item(ctx, monkeypatch, how: str) -> tuple[str,
 @pytest.mark.parametrize("how", ["regrade", "contest"])
 def test_f9f_a_regrade_in_place_returns_the_key_criteria_and_maximum_it_graded_against(ctx, monkeypatch, how):
     """The live reproduction: the regrade's response itself carries what that
-    regrade graded against (the corrected item), so the screen never keeps the
-    item it loaded with. The regrade history scores each side out of its own
-    grade's maximum."""
+    regrade read (the corrected item), source ``live``, so the screen never
+    keeps the item it loaded with. The regrade history scores each side out of
+    its own grade's maximum."""
 
     _attempt_id, bundle = _regraded_under_the_corrected_item(ctx, monkeypatch, how)
 
     assert bundle["rubricScore"] == 6
     assert bundle["answeredExpectedAnswer"] == CORRECTED_KEY
-    assert bundle["answeredSource"] == "item"
+    assert bundle["answeredSource"] == "live"
     assert bundle["answeredCriteria"] == [
         {"criterionId": "correctness", "description": "Names all three factors.", "pointsPossible": 8.0}
     ]
@@ -1558,7 +1518,7 @@ def test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_o
     bundle = _reopened_later(ctx, attempt_id)
 
     recorded = 8 if grading == "blind" else None
-    assert bundle["answeredSource"] == "changed"
+    assert bundle["answeredSource"] == "unrecorded"
     assert bundle["answeredExpectedAnswer"] is None
     assert bundle["answeredCriteria"] is None
     assert bundle["answeredMaxPoints"] == recorded
@@ -1566,22 +1526,22 @@ def test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_o
     assert (bundle["regrade"]["oldMaxPoints"], bundle["regrade"]["newMaxPoints"]) == (4, recorded)
 
 
-def test_f9f_an_item_unchanged_since_its_regrade_is_not_labelled(ctx, monkeypatch):
-    """The control: regraded under the item as it was answered, reopened a day
-    later with nothing changed. The item is what the regrade read: its key,
-    criteria and maximum, and no label."""
+def test_f9f_an_ordinary_regrade_reopened_later_is_unrecorded_even_unchanged(ctx, monkeypatch):
+    """Regraded under the item as it was answered, reopened a day later with
+    nothing changed. Nothing recorded proves the item now is what the regrade
+    read (round 3 F9: content-addressed first-seen stamps do not establish
+    which version was in force), so the bundle claims neither "unchanged" nor
+    "changed": ``unrecorded``, with the maximum the blind regrade recorded."""
 
     attempt_id = _contract_answer(ctx, points={"correctness": 2})
     _ready_grader(monkeypatch, _SixPointGrader())
-    _call(ctx, "trigger_regrade", {"attemptId": attempt_id})
+    live = _call(ctx, "trigger_regrade", {"attemptId": attempt_id})
+    assert live["answeredSource"] == "live"
 
     bundle = _reopened_later(ctx, attempt_id)
 
-    assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
-    assert bundle["answeredSource"] == "item"
-    assert bundle["answeredCriteria"] == [
-        {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
-    ]
+    assert bundle["answeredSource"] == "unrecorded"
+    assert (bundle["answeredExpectedAnswer"], bundle["answeredCriteria"]) == (None, None)
     assert bundle["answeredMaxPoints"] == 4
     assert (bundle["regrade"]["oldMaxPoints"], bundle["regrade"]["newMaxPoints"]) == (4, 4)
 
@@ -1612,5 +1572,277 @@ def test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_questi
 
     bundle = feedback_bundle(vault, repository, "att_g")
 
-    assert bundle["answeredSource"] == "changed"
+    assert bundle["answeredSource"] == "unrecorded"
     assert (bundle["rubricScore"], bundle["answeredMaxPoints"], bundle["maxPoints"]) == (4, 4, 8)
+
+
+# == Round 3 (docs/reviews/ux-phase4-feedback-codex-review.md §9) ==============================
+
+
+# -- F1: one invariant -------------------------------------------------------------------------
+#
+# For any attempt or admissibility read at T, if the full answer was on screen in
+# any window at some moment in [T - D, T] (D = the routine display horizon), the
+# ledger already holds a committed row the reader counts at T. It is the
+# conjunction of two properties, each tested on its own side:
+#
+# * the readers (here): a committed routine display row stamped s counts at every
+#   T in [s, s + D + G], whatever attempts came between (G = the renewal grace);
+# * the screen (vitest, ``answerExposure.test.ts``): the full answer is on screen
+#   at v only while a committed row stamped s <= v with v < s + G exists.
+#
+# Then for v in [T - D, T]: s <= v <= T and T <= v + D < s + G + D.
+
+
+def _stamp(clock: FrozenClock):
+    from learnloop.clock import parse_utc
+
+    return parse_utc(_iso(clock))
+
+
+def test_f1g_the_screen_and_the_ledger_share_one_exposure_contract():
+    """The desktop's gate and the readers' coverage read the same numbers."""
+
+    import json
+    from pathlib import Path
+
+    from learnloop.attempts.reveal_ledger import (
+        ROUTINE_ANSWER_DISPLAY_COVERAGE,
+        ROUTINE_ANSWER_DISPLAY_HORIZON,
+        ROUTINE_DISPLAY_RENEWAL_GRACE,
+    )
+
+    contract_path = Path(__file__).resolve().parents[1] / "apps/learnloop-tauri/src/screens/feedback/exposureContract.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert contract["horizonMs"] == ROUTINE_ANSWER_DISPLAY_HORIZON.total_seconds() * 1000
+    assert contract["renewalGraceMs"] == ROUTINE_DISPLAY_RENEWAL_GRACE.total_seconds() * 1000
+    assert ROUTINE_ANSWER_DISPLAY_COVERAGE == ROUTINE_ANSWER_DISPLAY_HORIZON + ROUTINE_DISPLAY_RENEWAL_GRACE
+    # The screen hides the answer before a row's grace ends, renews well before.
+    assert contract["showMarginMs"] > 0
+    assert contract["renewAfterMs"] + contract["showMarginMs"] < contract["renewalGraceMs"]
+
+
+def test_f1g_reading_until_a_crash_is_covered_until_the_delay_after_the_last_look(ctx):
+    """The verifier's first reproduction: renewals through hour 50, reading
+    until 50:59, then the app is killed (no closing row). At 74:30, 23 h 31 min
+    after the last look, a retry is primed and an unaided production is not
+    independent: the 50:00 row covers until 75:00."""
+
+    _vault, repository = ctx.require_vault()
+    start = _later(hours=-74, minutes=-30)
+    attempt_id = _feedback_answer(ctx, then=start)
+    for hour in range(0, 51):
+        _exposure(ctx, attempt_id, f"display_{hour}", clock=FrozenClock(_stamp(start) + timedelta(hours=hour)))
+
+    assert _next_attempt_primed(repository)
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+
+
+def test_f1g_a_short_visit_closed_without_a_closing_row_is_covered(ctx):
+    """The second reproduction: feedback shown for 30 seconds and closed (no
+    closing row), then an attempt 24 h 0 min 15 s after it opened."""
+
+    _vault, repository = ctx.require_vault()
+    opened = _later(hours=-24, seconds=-15)
+    attempt_id = _feedback_answer(ctx, then=opened)
+    _exposure(ctx, attempt_id, "display_short", clock=opened)
+
+    assert _next_attempt_primed(repository)
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+
+
+def test_f1g_a_display_that_failed_to_persist_is_never_acknowledged(ctx, monkeypatch):
+    """The false acknowledgement: the insert raises, so the RPC reports a
+    retryable failure and nothing is recorded (both readers still clean, as
+    they must be, since nothing was written). The retry under the same id
+    records it once and says when; a further retry says it was already."""
+
+    import sqlite3
+
+    from learnloop.db.repositories import Repository
+
+    _vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    real_insert = Repository.insert_reveal_event
+
+    def failing(self, event, *, clock=None):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(Repository, "insert_reveal_event", failing)
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+    assert raised.value.code == "display_not_recorded"
+    assert raised.value.retryable is True
+    assert _reveals(repository, source_kind="answer_display") == []
+
+    monkeypatch.setattr(Repository, "insert_reveal_event", real_insert)
+    first = _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+    again = _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+
+    [row] = _reveals(repository, source_kind="answer_display")
+    assert (first["recorded"], first["alreadyRecorded"], first["recordedAt"]) == (True, False, row["created_at"])
+    assert (again["recorded"], again["alreadyRecorded"], again["recordedAt"]) == (True, True, row["created_at"])
+    assert _next_attempt_primed(repository)
+
+
+def _shown_disclosure(ctx, session_id: str, *, submission_id: str, display_id: str = "display_sg") -> dict:
+    """A plain self-grade froze its trace and is showing the key: the freeze,
+    then the display row the screen writes before the key appears."""
+
+    _draft(ctx, session_id, submission_id=submission_id)
+    _disclose(ctx, session_id, submission_id=submission_id)
+    return _call(ctx, "record_self_grade_disclosure", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": submission_id,
+        "answerMd": "U Sigma V^T", "explanationMd": None, "displayId": display_id,
+    })
+
+
+def test_f1g_a_pending_self_grade_disclosure_is_an_exposure_for_every_other_production(ctx):
+    """The third reproduction: the key is on screen and the draft still
+    pending. Another window's attempt on the item is primed and an unaided
+    production on its learning object is not independent; the frozen trace's
+    own commit stays clean (it was written before the key was shown)."""
+
+    _vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    receipt = _shown_disclosure(ctx, session_id, submission_id="sub_pending")
+
+    [row] = _reveals(repository, source_kind="answer_display")
+    assert receipt["recordedAt"] == row["created_at"]
+    assert _next_attempt_primed(repository, submission_id="sub_other_window")
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+    # The frozen trace commits clean, and stays admissible as its own production.
+    result = _submit_self_graded(ctx, session_id, submission_id="sub_pending")
+    committed = repository.fetch_practice_attempt(result["attemptId"])
+    assert not committed["primed"]
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, _repository = ctx.require_vault()
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        produced_at=committed["created_at"],
+    ).admissible
+    # And it counts against the next attempt.
+    assert _next_attempt_primed(repository, submission_id="sub_next")
+
+
+def test_f1g_a_disclosure_display_needs_its_pending_draft(ctx):
+    """A display write for a draft that is no longer pending (committed,
+    abandoned, or never frozen) is refused: the screen then hides the key."""
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _draft(ctx, session_id, submission_id="sub_nf")
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "record_self_grade_disclosure", {
+            "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "sub_nf",
+            "answerMd": "U Sigma V^T", "explanationMd": None, "displayId": "display_nf",
+        })
+    assert raised.value.code == "disclosure_not_pending"
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_f1g_every_committed_display_row_counts_until_its_coverage_ends(ctx, seed):
+    """The readers' half of the invariant, on random timelines: attempts on the
+    item, feedback display rows written at random moments, and reads at random
+    later moments (each read sees only what was written by then). A read at T
+    is primed, and an unaided production at T is not independent, exactly when
+    some row stamped s has s <= T <= s + D + G, whatever attempts came between,
+    and with or without a window start (``since``) as placement passes."""
+
+    import random
+
+    from learnloop.attempts.reveal_ledger import ROUTINE_ANSWER_DISPLAY_COVERAGE, production_admissibility
+
+    rng = random.Random(seed)
+    vault, repository = ctx.require_vault()
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+    start = _stamp(_later(days=-6))
+    moment = start
+    stamps: list = []
+    latest_attempt: str | None = None
+    checked = 0
+    for step in range(40):
+        moment += timedelta(minutes=rng.choice([1, 7, 40, 90, 300, 900, 1300, 1450, 1500, 1600]))
+        clock = FrozenClock(moment)
+        if moment >= _stamp(_later(minutes=-1)):
+            break
+        kind = rng.random()
+        if kind < 0.25 or latest_attempt is None:
+            latest_attempt = complete_self_graded_attempt(
+                vault, repository,
+                AttemptDraft(practice_item_id=ITEM, learner_answer_md=f"answer {step}", attempt_type="independent_attempt"),
+                SelfGradeInput(criterion_points={"correctness": 0}, confidence=3), clock=clock,
+            ).attempt_id
+        elif kind < 0.55:
+            _exposure(ctx, latest_attempt, f"display_{seed}_{step}", clock=clock)
+            stamps.append(_stamp(clock))
+        else:
+            boundary = min(
+                [abs((moment - (stamp + ROUTINE_ANSWER_DISPLAY_COVERAGE)).total_seconds()) for stamp in stamps] or [9e9]
+            )
+            if boundary < 5:
+                continue
+            covered = any(stamp <= moment <= stamp + ROUTINE_ANSWER_DISPLAY_COVERAGE for stamp in stamps)
+            assert _next_attempt_primed(repository, submission_id=f"probe_{seed}_{step}", clock=clock) is covered
+            since = _iso(FrozenClock(moment - timedelta(minutes=rng.choice([5, 120, 2000]))))
+            for window in (None, since):
+                assert production_admissibility(
+                    repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+                    produced_at=_iso(clock), since=window,
+                ).admissible is (not covered)
+            checked += 1
+    assert checked > 0
+
+
+# -- F9: no inference about which version a grade read ----------------------------------------
+
+
+def _set_item_key(ctx, key: str) -> None:
+    from learnloop.vault.writer import upsert_practice_item
+
+    data = load_vault(ctx.paths.root).practice_items[ITEM].model_dump(mode="json")
+    data["expected_answer"] = key
+    upsert_practice_item(ctx.paths.root, data)
+    ctx.load(ctx.paths.root)
+
+
+def test_f9g_the_a_b_a_b_sequence_never_presents_a_version_as_graded_without_a_record(ctx, monkeypatch):
+    """The verifier's reproduction with the production snapshot writer:
+    key A is served (snapshotted), then key B; A is restored and the answer
+    regraded against A (A's snapshot keeps its first-seen stamp); then B is
+    restored without a regrade. The regrade's own response is ``live`` with
+    A's key, what it read; every later bundle is ``unrecorded``, so neither
+    "changed" right after grading unchanged A nor B presented as graded."""
+
+    key_a = "A matrix factorization into U, Sigma, and V transpose."
+    key_b = "A = U Sigma V^T with U, V orthogonal."
+    attempt_id = _contract_answer(ctx, points={"correctness": 2})  # serves A
+    _set_item_key(ctx, key_b)
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM})  # serves B
+    _set_item_key(ctx, key_a)
+    _ready_grader(monkeypatch, _SixPointGrader())
+
+    live = _call(ctx, "trigger_regrade", {"attemptId": attempt_id})
+    assert (live["answeredSource"], live["answeredExpectedAnswer"]) == ("live", key_a)
+    assert _call(ctx, "get_feedback", {"attemptId": attempt_id})["answeredSource"] == "unrecorded"
+
+    _set_item_key(ctx, key_b)
+    later = _reopened_later(ctx, attempt_id)
+    assert later["answeredSource"] == "unrecorded"
+    assert later["answeredExpectedAnswer"] is None
+
+
+def test_f9g_a_contract_cited_epoch_stays_exact_whatever_was_served_since(ctx):
+    """An answer graded under its contract keeps its contract's key, criteria
+    and maximum (``contract``) after other versions were served."""
+
+    attempt_id = _contract_answer(ctx, points={"correctness": 3})
+    _correct_the_item(ctx)
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM})
+    vault, repository = ctx.require_vault()
+
+    bundle = feedback_bundle(vault, repository, attempt_id)
+
+    assert bundle["answeredSource"] == "contract"
+    assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
+    assert bundle["answeredMaxPoints"] == 4

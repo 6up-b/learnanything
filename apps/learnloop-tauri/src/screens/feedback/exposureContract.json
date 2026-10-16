@@ -1,0 +1,7 @@
+{
+  "horizonMs": 86400000,
+  "renewalGraceMs": 3600000,
+  "showMarginMs": 60000,
+  "renewAfterMs": 2400000,
+  "tickMs": 5000
+}

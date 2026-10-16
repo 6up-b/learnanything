@@ -11,7 +11,12 @@ from learnloop.substrate.instrument_serving import unservable_refusal
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.handlers.serializers import attempt_detail, feedback_bundle, practice_item_detail
+from learnloop_sidecar.handlers.serializers import (
+    attempt_detail,
+    feedback_bundle,
+    live_grading_record,
+    practice_item_detail,
+)
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
 
@@ -49,10 +54,10 @@ class TriggerRegradeInput(ParamsModel):
 
 class AnswerDisplayInput(ParamsModel):
     attempt_id: str
-    # The exposure of the full answer (Codex re-review F1, final verification
-    # F1): the client mints a new one whenever the answer comes back on
-    # screen, at least hourly while it stays there, and when it leaves; a
-    # retry of its write reuses it. Each is its own row.
+    # One display of the full answer (Codex re-review F1, round 3): the
+    # client mints a new id for each row it needs (before the answer first
+    # appears, when it returns after its row's grace, at each renewal), and a
+    # retry of that row's write reuses it. Each is its own row.
     display_id: str = Field(min_length=1, max_length=128)
 
 
@@ -489,12 +494,14 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
     if params.learner_reason is not None:
         return _contest_grade(ctx, vault, repository, attempt, params)
-    _run_regrade(ctx, vault, repository, attempt)
-    return feedback_bundle(vault, repository, params.attempt_id)
+    live = _run_regrade(ctx, vault, repository, attempt)
+    return feedback_bundle(vault, repository, params.attempt_id, live_record=live)
 
 
-def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> None:
-    """The existing regrade (learner-blind), or ``ai_unavailable``."""
+def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> dict[str, Any]:
+    """The existing regrade (learner-blind), or ``ai_unavailable``. Returns the
+    content it read (``serializers.live_grading_record``): its response's
+    ``live`` grading record, unless its rows cite a contract."""
 
     from learnloop.attempts.regrade import regrade_attempt
     from learnloop_sidecar.handlers.ai_providers import (
@@ -512,7 +519,9 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
     if client is None:
         label = provider_label(provider_name)
         raise SidecarError("ai_unavailable", f"{label} client is unavailable; regrade requires an AI provider.")
-    _snapshot_item_regraded(vault, repository, str(attempt["practice_item_id"]))
+    # The content this regrade reads, from the vault it grades with: what its
+    # own response says it graded against (``live``, round 3 F9).
+    live = live_grading_record(vault, vault.practice_items[str(attempt["practice_item_id"])])
     regrade_attempt(
         vault,
         repository,
@@ -522,34 +531,7 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
         grading_source=grading_source_for_provider(provider_name),
         clock=None,
     )
-
-
-def _snapshot_item_regraded(vault, repository, practice_item_id: str) -> None:
-    """Snapshot the item an ordinary regrade reads (UX Phase 4, final verification F9).
-
-    The same content-addressed snapshot every serve of the item takes
-    (``practice_item_detail``), from the vault the regrade is about to read (a
-    method-explicit regrade reads its frozen contract and cites it instead). It
-    changes no grading: an ordinary regrade still cites no contract and replay
-    reads what it read before. It lets feedback tell later that the item now is
-    the one this regrade graded (``serializers._epoch_grading_record``), even
-    when the item was edited after the screen last served it. Best effort: a
-    failed snapshot only makes that feedback more cautious.
-    """
-
-    from learnloop.attempts.grading import resolved_rubric
-    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
-
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
-    item = vault.practice_items.get(practice_item_id)
-    if item is None:
-        return
-    try:
-        # The rubric the regrade reads (``regrade_attempt``: ``resolved_rubric``).
-        snapshot_for_presentation(repository, vault, item, rubric=resolved_rubric(vault, item))
-    except Exception:  # noqa: BLE001 - bookkeeping never blocks the regrade
-        logging.getLogger(__name__).warning("item snapshot before regrade failed for %s", practice_item_id, exc_info=True)
+    return live
 
 
 def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any],
@@ -595,8 +577,9 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
             "contest_not_recorded", "Your note couldn't be saved. Try again.", retryable=True
         ) from exc
     regraded = True
+    live: dict[str, Any] | None = None
     try:
-        _run_regrade(ctx, vault, repository, attempt)
+        live = _run_regrade(ctx, vault, repository, attempt)
     except SidecarError as exc:
         if exc.code != "ai_unavailable":
             raise
@@ -604,7 +587,7 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
     except Exception:  # noqa: BLE001 - the contest is kept; the owner reviews it
         logging.getLogger(__name__).warning("contest regrade failed for %s", attempt_id, exc_info=True)
         regraded = False
-    bundle = feedback_bundle(vault, repository, attempt_id)
+    bundle = feedback_bundle(vault, repository, attempt_id, live_record=live if regraded else None)
     review_requested = False
     if not _contest_upheld(bundle):
         review_requested = _request_grade_review(repository, attempt_id, contest_id, presentation_id)
@@ -717,35 +700,41 @@ def _kept_contest_reason(payload: Any) -> str | None:
 
 @method("record_answer_display", AnswerDisplayInput)
 def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]:
-    """Feedback's plain surface showed the full answer (UX Phase 4, Codex
-    review F1): debit the reveal ledger, once per exposure.
+    """Feedback's plain surface is about to show, or keeps showing, the full
+    answer (UX Phase 4, Codex review F1, round 3): one routine display row.
 
     The expected answer itself (amount 1.0), linked to the attempt whose
-    feedback showed it. It is a routine display, shown on every feedback, so
-    it counts within the cold retrieval delay
-    (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
-    that time is primed and an unaided response is not independent; a review
-    after it is a retrieval again. Each exposure is its own row (Codex
-    re-review F1: reopening the feedback a day later shows the answer again;
-    final verification F1: so does returning to it, and so does leaving it
-    open), so the delay runs from the latest; a retry of one exposure's write
-    records nothing new (``reveal_ledger.record_feedback_answer_display_reveal``).
+    feedback shows it. The screen shows the answer only while a committed row
+    stamped within the renewal grace exists, so the response says what is in
+    the ledger: ``recorded_at`` (the row's stamp, which starts that grace) and
+    ``already_recorded`` (a retry of the same display found its row). Nothing
+    written is ``display_not_recorded`` (retryable: the screen keeps the answer
+    hidden and retries under the same display id), never an acknowledgement.
+    Each row counts against every production within
+    ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_COVERAGE`` of its stamp.
     """
 
-    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
+    from learnloop.attempts.reveal_ledger import DisplayNotRecorded, record_feedback_answer_display_reveal
 
     _vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
-    record_feedback_answer_display_reveal(
-        repository,
-        attempt_id=params.attempt_id,
-        practice_item_id=str(attempt["practice_item_id"]),
-        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
-        display_id=params.display_id,
+    try:
+        receipt = record_feedback_answer_display_reveal(
+            repository,
+            attempt_id=params.attempt_id,
+            practice_item_id=str(attempt["practice_item_id"]),
+            learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+            display_id=params.display_id,
+        )
+    except DisplayNotRecorded as exc:
+        raise SidecarError(
+            "display_not_recorded", "The full answer couldn't be recorded. Try again.", retryable=True
+        ) from exc
+    return versioned(
+        {"recorded": True, "already_recorded": receipt.already_recorded, "recorded_at": receipt.recorded_at}
     )
-    return versioned({"recorded": True})
 
 
 @method("trigger_followup", TriggerFollowupInput)

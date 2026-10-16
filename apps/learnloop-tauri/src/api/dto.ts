@@ -1481,18 +1481,16 @@ export interface FeedbackBundle {
    *  instruction, or the frozen statement of an item edited since); null
    *  otherwise. */
   answeredPresentation?: ItemPresentationDto | null;
-  /** Codex review F5, re-review F9, final verification F9: the answer key,
-   *  criteria and maximum the grade stands on, sent directly. `answeredSource`
-   *  says where they come from: the assessment contract its grading epoch
-   *  cites (exact), the item as it is now (an ordinary regrade, or an answer
-   *  graded before contracts, when nothing recorded says the item differs
-   *  from what it graded), or "changed": the question changed since it was
-   *  graded and nothing recorded gives that version back, so there is no key
-   *  or criteria, and a maximum only when one was recorded with the grade.
-   *  Absent from an older sidecar (feedback then reads the item, re-read
-   *  after a regrade). The criteria are rows carrying their id (re-review F8:
-   *  a map keyed by id had its keys camel-cased). */
-  answeredSource?: "contract" | "item" | "changed";
+  /** Codex review F5, re-review F9, round 3 F9: the answer key, criteria and
+   *  maximum the grade stands on, sent directly. `answeredSource` says where
+   *  they come from: the assessment contract its grading epoch cites (exact),
+   *  "live" (only in the response of a regrade that has just run: what it
+   *  read), or "unrecorded": nothing recorded says which version it read, so
+   *  there is no key or criteria, and a maximum only when one was recorded
+   *  with the grade. Absent from an older sidecar (feedback then reads the
+   *  item, re-read after a regrade). The criteria are rows carrying their id
+   *  (re-review F8: a map keyed by id had its keys camel-cased). */
+  answeredSource?: "contract" | "live" | "unrecorded";
   answeredExpectedAnswer?: unknown;
   answeredCriteria?: { criterionId: string; description: string; pointsPossible: number }[] | null;
   answeredMaxPoints?: number | null;
@@ -1922,9 +1920,10 @@ export interface PersistedRegradeDto {
   /** Codex review F6: the grade the regrade replaced was held for review (its
    *  score was provisional and is never shown). Absent from an older sidecar. */
   oldHeld?: boolean;
-  /** UX Phase 4 (final verification F9): each side's own maximum, the one its
-   *  grade stands on; null when none is known. `maxPoints` stays the item's
-   *  (classic shows it). Absent from an older sidecar. */
+  /** UX Phase 4 (final verification F9, round 3): each side's own maximum,
+   *  the one its grade stands on (its contract's, a live regrade's, or one
+   *  recorded with the grade); null when none is known. `maxPoints` stays the
+   *  item's (classic shows it). Absent from an older sidecar. */
   oldMaxPoints?: number | null;
   newMaxPoints?: number | null;
 }
