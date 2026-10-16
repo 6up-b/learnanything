@@ -46,7 +46,7 @@ REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_
 POST_ATTEMPT_REVEAL_KINDS = ("answer_display",)
 
 #: The basis of the full answer the desktop's plain feedback shows (UX Phase 4,
-#: Codex review F1), one per visit (``feedback_full_answer:desktop:<visit>``,
+#: Codex review F1), one per exposure (``feedback_full_answer:desktop:<display>``,
 #: :func:`record_feedback_answer_display_reveal`), and of the full answer a
 #: plain self-grade shows, one per draft retry key
 #: (:func:`record_self_grade_disclosure_reveal`).
@@ -372,18 +372,21 @@ def record_feedback_answer_display_reveal(
     surface: str = "desktop",
     clock: Clock | None = None,
 ) -> str | None:
-    """Debit the ledger for one VISIT of a feedback screen that showed the full answer.
+    """Debit the ledger for one EXPOSURE of the full answer on a feedback screen.
 
     The plain surface's feedback shows the expected answer on every visit, so
-    each visit is its own exposure (Codex re-review F1). A routine display
+    each exposure is its own row (Codex re-review F1). A routine display
     counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` of when it was
     shown, so charging an attempt once let the first visit's row lapse while
-    the learner read the answer again on a later one. One row per visit,
-    stamped when the answer was shown, so the horizon runs from the latest
-    exposure. ``display_id`` names the visit (the client mints it when the
-    screen first shows the answer); a retry of the same visit's write records
-    nothing new. Linked to the attempt, like every feedback display: it
-    counts against the NEXT attempt. Best effort, like every writer here.
+    the learner read the answer again later. One row per exposure, stamped
+    when it was written, so the horizon runs from the latest. ``display_id``
+    names the exposure: the desktop mints a new one whenever the answer comes
+    back on screen, at least hourly while it stays there, and when it leaves
+    the screen (UX Phase 4 final verification F1,
+    ``apps/learnloop-tauri/src/screens/feedback/answerExposure.ts``); a retry
+    of the same exposure's write records nothing new. Linked to the attempt,
+    like every feedback display: it counts against the NEXT attempt. Best
+    effort, like every writer here.
     """
 
     basis = f"{FEEDBACK_FULL_ANSWER_BASIS}:{surface}:{display_id}"

@@ -49,9 +49,10 @@ class TriggerRegradeInput(ParamsModel):
 
 class AnswerDisplayInput(ParamsModel):
     attempt_id: str
-    # The feedback visit that showed the full answer (Codex re-review F1): the
-    # client mints one per visit, and a retry of its write reuses it. Each
-    # visit is its own exposure.
+    # The exposure of the full answer (Codex re-review F1, final verification
+    # F1): the client mints a new one whenever the answer comes back on
+    # screen, at least hourly while it stays there, and when it leaves; a
+    # retry of its write reuses it. Each is its own row.
     display_id: str = Field(min_length=1, max_length=128)
 
 
@@ -717,18 +718,18 @@ def _kept_contest_reason(payload: Any) -> str | None:
 @method("record_answer_display", AnswerDisplayInput)
 def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]:
     """Feedback's plain surface showed the full answer (UX Phase 4, Codex
-    review F1): debit the reveal ledger, once per visit.
+    review F1): debit the reveal ledger, once per exposure.
 
     The expected answer itself (amount 1.0), linked to the attempt whose
     feedback showed it. It is a routine display, shown on every feedback, so
     it counts within the cold retrieval delay
     (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
     that time is primed and an unaided response is not independent; a review
-    after it is a retrieval again. Each visit that shows it is a fresh
-    exposure (Codex re-review F1: reopening the feedback a day later shows the
-    answer again), so the delay runs from the latest visit; a retry of one
-    visit's write records nothing new
-    (``reveal_ledger.record_feedback_answer_display_reveal``).
+    after it is a retrieval again. Each exposure is its own row (Codex
+    re-review F1: reopening the feedback a day later shows the answer again;
+    final verification F1: so does returning to it, and so does leaving it
+    open), so the delay runs from the latest; a retry of one exposure's write
+    records nothing new (``reveal_ledger.record_feedback_answer_display_reveal``).
     """
 
     from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
