@@ -114,6 +114,21 @@ Two more facts the fix relies on:
 
 ## 4. The fix
 
+> **Corrected after the Codex review (2026-10-16,
+> `docs/reviews/codex-isolation-app-servers-codex-review.md`, commit `08da634f5`).**
+> Three statements in this section did not hold.
+>
+> * Step 2: already-disabled servers are now pinned off too (F1).
+> * Step 3, "the exact launch set": an `sdk_launch_command`'s options after
+>   `app-server` are now part of that set (F2).
+> * "Not cached": under bubblewrap the check now runs **inside** the sandbox, in
+>   the turn's directory. On the host it could see a layer the sandbox lacks, such
+>   as a trusted ancestor project's `.codex/config.toml` (F1). So "can load no more
+>   than was checked" and "Nothing was loosened" were wrong as written.
+>
+> The probes also run inside the request's deadline and stop on interrupt (F3).
+> The text below is the stage as first written.
+
 `SdkCodexClient._verified_isolated_overrides(root, shell=...)` replaces
 `_configured_mcp_server_ids` on the isolated launch path (`_run_sdk_turn`):
 
