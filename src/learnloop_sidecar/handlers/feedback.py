@@ -511,6 +511,7 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
     if client is None:
         label = provider_label(provider_name)
         raise SidecarError("ai_unavailable", f"{label} client is unavailable; regrade requires an AI provider.")
+    _snapshot_item_regraded(vault, repository, str(attempt["practice_item_id"]))
     regrade_attempt(
         vault,
         repository,
@@ -520,6 +521,34 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
         grading_source=grading_source_for_provider(provider_name),
         clock=None,
     )
+
+
+def _snapshot_item_regraded(vault, repository, practice_item_id: str) -> None:
+    """Snapshot the item an ordinary regrade reads (UX Phase 4, final verification F9).
+
+    The same content-addressed snapshot every serve of the item takes
+    (``practice_item_detail``), from the vault the regrade is about to read (a
+    method-explicit regrade reads its frozen contract and cites it instead). It
+    changes no grading: an ordinary regrade still cites no contract and replay
+    reads what it read before. It lets feedback tell later that the item now is
+    the one this regrade graded (``serializers._epoch_grading_record``), even
+    when the item was edited after the screen last served it. Best effort: a
+    failed snapshot only makes that feedback more cautious.
+    """
+
+    from learnloop.attempts.grading import resolved_rubric
+    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
+
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
+        return
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        return
+    try:
+        # The rubric the regrade reads (``regrade_attempt``: ``resolved_rubric``).
+        snapshot_for_presentation(repository, vault, item, rubric=resolved_rubric(vault, item))
+    except Exception:  # noqa: BLE001 - bookkeeping never blocks the regrade
+        logging.getLogger(__name__).warning("item snapshot before regrade failed for %s", practice_item_id, exc_info=True)
 
 
 def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any],
