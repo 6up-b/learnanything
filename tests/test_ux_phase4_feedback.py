@@ -2919,3 +2919,176 @@ def test_f1l_a_hold_that_lifts_after_today_finishes_the_plan_as_before(tmp_path)
     assert record.status == "complete"
     _record, step = advance(env, serve=False)
     assert step["kind"] == "done"
+
+
+# == Round 8 (docs/reviews/ux-phase4-feedback-codex-review.md §14) ==============================
+
+
+def _held_plan_env(tmp_path, others, *, lift_in=timedelta(minutes=60), policy=None, plan_toml=None, reentry=False,
+                   cold_minutes=1.0, cold_lane="repair"):
+    """A plan pool with ``pi_cold`` (a due cold retry whose answer a routine
+    display covers until ``lift_in`` from now) beside ordinary reviews
+    ``others`` = [(item_id, expected_minutes)]."""
+
+    from learnloop.daily_plan.engine import DEFAULT_POLICY
+    from tests.daily_plan_fakes import NOW, MovableClock, iso, make_env, scheduled, seed_due
+    from tests.helpers import create_daily_plan_vault
+
+    los = {"lo_c": [("pi_cold", cold_minutes)], **{f"lo_{item_id}": [(item_id, minutes)] for item_id, minutes in others}}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=plan_toml)
+    clock = MovableClock(NOW)
+    # The scheduler names a cold retry a follow-up (the repair lane); the hold
+    # reads the open task either way, so ``cold_lane="maintain"`` puts the same
+    # held check in a lane the other work leaves room in.
+    cold = (
+        scheduled("pi_cold", "lo_c", forgetting_risk=0.9, followup_kind="cold_retry")
+        if cold_lane == "repair"
+        else scheduled("pi_cold", "lo_c", forgetting_risk=0.9)
+    )
+    items = [cold] + [
+        scheduled(item_id, f"lo_{item_id}", forgetting_risk=0.7) for item_id, _minutes in others
+    ]
+    env = make_env(paths.root, items, clock=clock, session_id="s_held", policy=policy or DEFAULT_POLICY)
+    for item_id in ["pi_cold", *[item_id for item_id, _minutes in others]]:
+        seed_due(env.repository, item_id, due=NOW - timedelta(days=2), last=NOW - timedelta(days=9))
+    if reentry:
+        with env.repository.connection() as connection:
+            connection.execute(
+                "INSERT INTO sessions(id, started_at, ended_at, available_minutes) VALUES ('s_old', ?, ?, 40)",
+                (iso(NOW - timedelta(days=12, minutes=30)), iso(NOW - timedelta(days=12))),
+            )
+            connection.commit()
+    env.repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_held",
+        not_before=_iso(FrozenClock(NOW - timedelta(hours=1))), expires_at=_iso(FrozenClock(NOW + timedelta(days=30))),
+        selected_item_id="pi_cold", clock=FrozenClock(NOW - timedelta(days=1)),
+    )
+    env.repository.insert_reveal_event(
+        {"practice_item_id": "pi_cold", "learning_object_id": "lo_c", "source_kind": "answer_display",
+         "amount": 1.0, "basis": "feedback_full_answer:desktop:display_held"},
+        clock=FrozenClock(NOW - timedelta(hours=25) + lift_in),
+    )
+    return env, clock
+
+
+def _answer_through(env, clock, item_ids):
+    from learnloop.daily_plan.engine import advance
+    from tests.daily_plan_fakes import record_attempt
+
+    for expected in item_ids:
+        _record, step = advance(env, serve=True)
+        assert step["kind"] == "item" and step["practice_item_id"] == expected, step
+        clock.advance(2)
+        # No latency: the plan's estimates stay as built (an answer's latency
+        # would re-estimate the remaining items).
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.now(),
+                       latency_seconds=None, session_id="s_held")
+        clock.advance(1)
+    return advance(env, serve=False)
+
+
+def test_f1m_a_plan_with_no_minutes_left_finishes_instead_of_waiting(tmp_path):
+    """(a) A normal plan whose minutes are spent: the held item could not fit
+    when its hold lifts, so the plan finishes as before (not "waiting")."""
+
+    from learnloop.daily_plan.engine import build_plan
+
+    env, clock = _held_plan_env(tmp_path, [("pi_a", 2.5)])
+    build_plan(env, kind="normal", budget=3.0, remembered=3, minutes_source="chip")
+    record, step = _answer_through(env, clock, ["pi_a"])
+
+    assert record.minutes_left() == pytest.approx(0.0)
+    assert step["kind"] == "done" and record.status == "complete"
+
+
+def test_f1m_a_reentry_plan_with_no_item_slots_left_finishes_instead_of_waiting(tmp_path):
+    """(b) A re-entry plan whose item allowance is used up: the held item
+    could not be placed when its hold lifts, so the plan finishes."""
+
+    from learnloop.daily_plan.engine import get_or_create_today
+
+    env, clock = _held_plan_env(tmp_path, [("pi_a", 1.0)], plan_toml="[plan]\nreentry_max_items = 1\n", reentry=True)
+    record = get_or_create_today(env)
+    assert record.kind == "reentry"
+    record, step = _answer_through(env, clock, ["pi_a"])
+
+    assert record.minutes_left() > 2.0
+    assert step["kind"] == "done" and record.status == "complete"
+
+
+def test_f1m_back_in_n_min_is_never_promised_for_an_item_that_will_not_fit(tmp_path):
+    """The landing agent's case: one minute left, and the held item (1.5
+    minutes) lifts within the minute. It could not be placed then, so the
+    plan never says "Back in 1 min": it finishes as before."""
+
+    from learnloop.daily_plan.engine import build_plan
+
+    env, clock = _held_plan_env(tmp_path, [("pi_a", 2.5)], lift_in=timedelta(seconds=210), cold_lane="maintain")
+    build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+    record, step = _answer_through(env, clock, ["pi_a"])
+
+    assert record.minutes_left() == pytest.approx(1.0)
+    assert env.vault.practice_items["pi_cold"].expected_minutes == 1.0  # 1.5 minutes with its feedback
+    assert step["kind"] == "done" and record.status == "complete"
+
+
+@pytest.mark.parametrize(
+    ("other_minutes", "lift_in"),
+    [(3.0, timedelta(minutes=60)), (1.0, timedelta(seconds=30))],
+    ids=["verifier", "landing_agent"],
+)
+def test_f1m_a_valid_stop_with_work_feasible_is_kept(tmp_path, other_minutes, lift_in):
+    """(c) Four minutes, one feasible ordinary item (3.5 min; or 1.5 min with
+    the hold lifting in 30 s, the landing agent's case), and a valid sampled
+    stop_for_today (propensity 0.5, as the R2b mixture may sample): the stop
+    is the decision, closed and logged with its receipt and propensity as
+    before, not replaced by waiting."""
+
+    from dataclasses import dataclass
+
+    from learnloop.daily_plan.engine import PlanPolicy, build_plan, legacy_source
+    from learnloop.daily_plan.types import STOP_FOR_TODAY, BlockChoice
+
+    @dataclass
+    class StoppingChooser:
+        name: str = "fake_router"
+
+        def choose(self, state, feasible):
+            return BlockChoice(STOP_FOR_TODAY, "mixture", 0.5, "stop here", "model_written", "rd_stop")
+
+    env, _clock = _held_plan_env(
+        tmp_path, [("pi_s", other_minutes)], lift_in=lift_in,
+        policy=PlanPolicy("fake_source", StoppingChooser(), legacy_source),
+    )
+    record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+
+    assert record.status == "complete" and not record.blocks
+    (stop,) = record.stops()
+    assert stop.chosen["candidate_id"] == STOP_FOR_TODAY and stop.chosen["propensity"] == 0.5
+    assert stop.chosen_by == "mixture" and stop.decision_ref == "rd_stop" and stop.chosen["fallback"] is False
+    assert stop.chosen["feasible_ids"]
+
+
+@pytest.mark.parametrize("after_other_work", [False, True], ids=["only_item", "after_other_work"])
+def test_f1m_a_plan_waits_when_coverage_is_the_only_obstacle_then_serves_it(tmp_path, after_other_work):
+    """The positive case: minutes, slots and lane room are left, and the only
+    thing between the plan and the held item is its coverage (alone in the
+    plan, or after an ordinary item is done). The plan waits, then serves it
+    once the hold lifts."""
+
+    from learnloop.daily_plan.engine import advance, build_plan
+
+    others = [("pi_a", 1.0)] if after_other_work else []
+    env, clock = _held_plan_env(
+        tmp_path, others, lift_in=timedelta(minutes=10), cold_lane="maintain" if after_other_work else "repair",
+    )
+    # 20 minutes: the maintain lane's share (30 %) still holds the check after
+    # the ordinary item.
+    build_plan(env, kind="normal", budget=20.0, remembered=20, minutes_source="chip")
+    record, step = _answer_through(env, clock, [item_id for item_id, _minutes in others])
+
+    assert step["kind"] == "waiting" and step["practice_item_id"] == "pi_cold" and record.status == "open"
+    assert step["minutes"] == (8 if after_other_work else 11)
+    clock.instant = clock.instant + timedelta(minutes=11)
+    record, step = advance(env, serve=True)
+    assert step["kind"] == "item" and step["practice_item_id"] == "pi_cold"

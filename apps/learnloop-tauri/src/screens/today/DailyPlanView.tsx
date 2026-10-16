@@ -8,7 +8,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../../api/dto";
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
-import { aboutMinutes, minutesPerDay, waitingLine, wholeMinutes } from "../../app/dailyPlan";
+import { aboutMinutes, minutesPerDay, waitingLine, waitingMinutes, wholeMinutes } from "../../app/dailyPlan";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -194,6 +194,8 @@ export function DailyPlanView({
   const plan = data.plan;
   const done = plan ? plan.status !== "open" : false;
   const current = plan?.blocks.find((block) => block.id === plan.currentBlockId) ?? null;
+  // UX Phase 4 round 8: waiting for a hold to lift, there is nothing to begin.
+  const waiting = !done && !current && plan?.waiting ? plan.waiting : null;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -202,7 +204,7 @@ export function DailyPlanView({
       if (event.key === "Enter") {
         event.preventDefault();
         if (done) onKeepGoing();
-        else onContinue();
+        else if (!waiting) onContinue();
       } else if (event.key === "l") {
         event.preventDefault();
         onShowList();
@@ -219,7 +221,7 @@ export function DailyPlanView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, done, onContinue, onDone, onKeepGoing, onSetMinutes, onShowList, plan]);
+  }, [busy, done, onContinue, onDone, onKeepGoing, onSetMinutes, onShowList, plan, waiting]);
 
   if (!plan) return null;
   const day = data.day;
@@ -341,12 +343,18 @@ export function DailyPlanView({
                 { key: "d", label: "done" },
                 { key: "l", label: "full list" }
               ]
-            : [
-                { key: "↵", label: current?.startedAt ? "continue" : "begin" },
-                { key: "←/→", label: "minutes" },
-                { key: "l", label: "full list" }
-              ]
+            : waiting
+              ? [
+                  { key: "←/→", label: "minutes" },
+                  { key: "l", label: "full list" }
+                ]
+              : [
+                  { key: "↵", label: current?.startedAt ? "continue" : "begin" },
+                  { key: "←/→", label: "minutes" },
+                  { key: "l", label: "full list" }
+                ]
         }
+        right={waiting ? { key: "", label: `back in ${waitingMinutes(waiting.until, waiting.minutes)} min` } : null}
       />
     </div>
   );

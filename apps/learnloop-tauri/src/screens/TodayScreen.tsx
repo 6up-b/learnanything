@@ -678,6 +678,9 @@ export function TodayScreen({
   }
 
   async function continuePlan() {
+    // UX Phase 4 round 8: a plan waiting for a hold to lift has nothing to
+    // begin; no session is started for it (Today reads it again on the lift).
+    if (planData?.plan?.waiting) return;
     if (!session) {
       const budget = planData?.plan?.minutesBudget;
       if (!onBeginSession || budget == null) {

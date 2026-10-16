@@ -195,3 +195,31 @@ it("R2: Today's begin starts today's plan itself instead of sending the learner 
   expect(props.onRequireSession).not.toHaveBeenCalled();
   expect(props.onError).not.toHaveBeenCalled();
 });
+
+it("UX Phase 4 round 8: a waiting plan offers no Begin; Enter starts no session and serves nothing", async () => {
+  const waiting = body({
+    kind: "normal",
+    blocks: [],
+    currentBlockId: null,
+    firstBlock: null,
+    deciding: false,
+    waiting: { until: new Date(Date.now() + 5 * 60_000).toISOString(), minutes: 5, practiceItemId: "pi_cold", learningObjectTitle: "Eigenvalues" }
+  });
+  const props = show(plan(waiting), null);
+  await flush();
+
+  expect(screen.getByTestId("plan-waiting").textContent).toContain("Back in 5 min: a question on Eigenvalues.");
+  expect(screen.queryByRole("button", { name: "begin ↵" })).toBeNull();
+  expect(screen.queryByText("begin")).toBeNull();
+  expect(screen.getByText("back in 5 min")).toBeTruthy();
+
+  await act(async () => {
+    fireEvent.keyDown(window, { key: "Enter" });
+  });
+  await flush();
+
+  expect(api.startSession).not.toHaveBeenCalled();
+  expect(api.nextPlanItem).not.toHaveBeenCalled();
+  expect(props.onBeginSession).not.toHaveBeenCalled();
+  expect(props.onRequireSession).not.toHaveBeenCalled();
+});
