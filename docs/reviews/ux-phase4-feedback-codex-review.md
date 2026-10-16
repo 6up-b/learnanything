@@ -29,7 +29,7 @@ No finding was rejected. Seven fixed, one of them High.
 **What was wrong.** The plain surface shows the expected answer on feedback and on the plain self-grade. Neither display wrote the reveal ledger. An unaided answer written right after reading the solution ("One question, unaided") was admitted as independent, and a retry with the answer in view was clean. The self-grade's lock was component state: it reset on remount and didn't cover the optional line.
 
 **The fix.**
-- **Feedback:** showing "A full answer" calls the new `record_answer_display` RPC. It runs once per attempt (the screen sends once, and the existing idempotent `reveal_ledger.record_answer_display_reveal` writes once). *Re-review F1: now once per visit, §7.2.* The row is `answer_display`, amount 1.0, linked to the attempt, with basis `feedback_full_answer:desktop`.
+- **Feedback:** showing "A full answer" calls the new `record_answer_display` RPC. It runs once per attempt (the screen sends once, and the existing idempotent `reveal_ledger.record_answer_display_reveal` writes once). *Re-review F1: now once per visit, §7.2. Final verification F1: once per exposure, §8.2.* The row is `answer_display`, amount 1.0, linked to the attempt, with basis `feedback_full_answer:desktop`.
 - **Plain self-grade:** before any full answer shows, `record_self_grade_disclosure` freezes the whole trace in the session checkpoint: the answer exactly as Submit sends it, and the optional line apart, under the draft's retry key. Only a confirmed freeze shows the full answer. An unconfirmed one grades without it.
   - The answer and the line stay locked, across navigation (the draft mirror) and a restart (the checkpoint, `checkpoint_dto.selfGradeDisclosure`). Submit sends exactly the frozen trace.
   - A submit whose trace differs from the frozen one is recorded primed.
@@ -166,7 +166,7 @@ No finding was rejected. Four fixed, one of them High.
 **The fix.**
 - **The RPC** takes a required `display_id` (1 to 128 characters). It writes one row per visit through the new `reveal_ledger.record_feedback_answer_display_reveal`, with basis `feedback_full_answer:desktop:<display_id>`. Only a retry of the same visit's write is deduplicated.
 - **The horizon runs from the latest exposure.** Each row is stamped when its visit showed the answer, and the horizon is applied per row, so the newest visit decides. The readers are unchanged.
-- **The desktop** mints the visit id when the screen first shows the answer to an attempt. A remount (the feedback reopened) is a new visit. If the write fails, the next try on the same visit reuses its id. Re-renders, details and the bundle's re-reads charge nothing.
+- **The desktop** mints the visit id when the screen first shows the answer to an attempt. A remount (the feedback reopened) is a new visit. If the write fails, the next try on the same visit reuses its id. Re-renders, details and the bundle's re-reads charge nothing. *Superseded by §8.2: the id names an exposure, renewed while the screen stays mounted.*
 - **`record_answer_display_reveal`** (the TUI's worked answer and the committed self-grade disclosure) now dedupes by basis, not by any row on the attempt. A lapsing routine row can no longer stand in for the worked answer, which never lapses. This hazard came from §1's horizon, which is why it is fixed here.
 - **The plain self-grade** needs no change. Its row is written when the frozen draft is settled, at commit or abandonment. That is never earlier than the answer it showed.
 
@@ -176,10 +176,10 @@ No finding was rejected. Four fixed, one of them High.
 
 ### 7.4 F9: the key and rubric the grade stands on
 
-- **The key, criteria and maximum** come from the contract cited by the grade's current epoch (`serializers._active_epoch_contract`). A first grade, and a method-explicit regrade, cite the contract they read. An ordinary regrade reads the item as it is now and cites none (canonical sources §7.3a). Then the three fields are null, and the screen reads the item and the regrade's own rows: what the regrade graded against.
+- **The key, criteria and maximum** come from the contract cited by the grade's current epoch (`serializers._active_epoch_contract`). A first grade, and a method-explicit regrade, cite the contract they read. An ordinary regrade reads the item as it is now and cites none (canonical sources §7.3a). Then the three fields are null, and the screen reads the item and the regrade's own rows: what the regrade graded against. *Superseded by §8.3: the screen kept the item it loaded with, and a later edit of the item showed as what the regrade graded against. The bundle now sends the three fields itself and says when the question has changed since.*
 - **The current epoch** is the one holding the most recently written evidence row, by `(created_at, id)`. The ids are ULIDs. A regrade row carries no `grading_revision`, so its epoch key (`legacy:<created_at>`) sorts before an original's `revision:0` when both share a second.
 - **The question** stays the one presented (`answered_presentation`, from the contract the answer was first graded under).
-- **New field `answered_max_points`:** the grading contract's maximum. The details' score line reads "4 / 4" for an answer still graded under its 4-point contract after the item moved to 8. Classic mode, the regrade receipt and the contest's "upheld" check still read the bundle's `max_points`, unchanged.
+- **New field `answered_max_points`:** the grading contract's maximum. The details' score line reads "4 / 4" for an answer still graded under its 4-point contract after the item moved to 8. Classic mode, the regrade receipt and the contest's "upheld" check still read the bundle's `max_points`, unchanged. *§8.3: the plain regrade history now scores each side out of its own grade's maximum; classic and the "upheld" check are unchanged.*
 
 ### 7.5 F10: a contest key is bound to its reason
 
@@ -196,6 +196,7 @@ No finding was rejected. Four fixed, one of them High.
 - **Regrade and replay of a model-graded answer after its maximum rose.** An ordinary regrade supersedes only the self-grade tier (`supersede_tiers=(1,)`), so a model-graded original's rows stay live. `attempts.replay_existing_attempt` takes the contract from the first live row that cites one, and `_resolve_attempt_target` scores against that contract's rubric. A regrade under a raised maximum is therefore replayed against the original one.
   - Probe (split vault, criteria 2+2 changed to 2+6, regraded to 6 points): the regrade's own replay failed the `correctness <= 1` CHECK (6 / 4).
   - This is core regrade code (`attempts`, `regrade`), not this stage's. The F9 tests use a self-graded original, whose rows the regrade supersedes.
+  - *§8.4 reproduces it in full and answers whether it can fail `rebuild` (it can, by another route).*
 - **Same-second epoch order.** `Repository.attempt_regrade_marker` and this stage's `_regrade_replaced_held` (F6) order epochs by (first timestamp, key), as the regrade history always has. So a regrade written in its original's second sorts before it. No AI regrade completes that fast. `_regrade_replaced_held` is left matching the marker, so the two never disagree.
 
 ### 7.8 Paid calls
@@ -220,4 +221,180 @@ The code was final at `0fb2e6910`; only this record and the claim in `docs/revie
 
 ### 7.10 Open question for the owner (default applied)
 
-- **Q12 (F1).** A visit is one mount of the feedback screen. A feedback left open on screen across the one-day horizon, without being reopened, is charged once, when it first showed the answer. *Default: one charge per mount.* Re-charging on refocus would need a visibility signal the screen doesn't read today.
+- **Q12 (F1).** A visit is one mount of the feedback screen. A feedback left open on screen across the one-day horizon, without being reopened, is charged once, when it first showed the answer. *Default: one charge per mount.* Re-charging on refocus would need a visibility signal the screen doesn't read today. *Settled by §8.2: the final verification reopened F1 on exactly this; the screen now reads it.*
+
+## 8. Final verification reopen
+
+**Verification:** the final Codex verification of §7's fixes. Verdict REOPENED: F1 (High) and F9 (Medium). Their text is quoted in §8.2 and §8.3.
+**Fix:** `5b7d826a7` (sidecar), `a02519f3e` (desktop), `ece7ee132` (docstrings). The scope is unchanged: the Phase 4 screens and their handlers. Nothing in grading, scoring, scheduling or replay changed, and there is no migration, config change or new RPC. The replay mismatch is out of scope and reproduced in §8.4, as the brief for its own stage.
+
+### 8.1 Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | Returning to still-mounted feedback records no fresh exposure | **fixed** | `a02519f3e` (`5b7d826a7`: the ledger tests) | vitest "F1 (final): …" (7); `test_f1f_*` (4) |
+| F9 | Medium (reopened) | Ordinary regrades lack durable grading metadata; the desktop fallback can stay stale | **fixed** (live), **labelled** (historical) | `5b7d826a7`, `a02519f3e` | `test_f9f_*` (6 cases), `test_f9_*` (3 cases: two changed, one new), the F5 no-contract test (changed); vitest "F9 (final): …" (5) |
+
+**Reproduced first.**
+- **The new and changed sidecar tests, run against `8899a8ada`'s source** (`git archive 8899a8ada src migrations`, `PYTHONPATH` plus `-o pythonpath=`): 10 of 15 failed, every F9 one.
+  - F9 live, as a plain regrade and as a contest: `answeredExpectedAnswer` was None, not the corrected key. The screen then read the item it had loaded before the regrade.
+  - F9 historical, 6/8 then 6/10 (blind and joint): there was no way to say the question had changed (`answeredSource` absent), and `answeredMaxPoints` was None, so the screen fell back to the item's 10.
+  - F9 unchanged, the no-contract answer and §7's corrected-item test (both orders): `answeredExpectedAnswer` was None, not the key graded against.
+  - F9 blind recorded maximum: None, not the 4 recorded with the grade. The cannot-place case: no `answeredSource`.
+  - The 5 that passed are the 4 F1 ledger tests and the F9 control (an answer not regraded keeps its contract). The F1 tests are contract tests: the sidecar already wrote one row per display id (§7.2). F1's defect was that the desktop never sent a second id while the screen stayed mounted.
+- **The new vitest cases, run against `8899a8ada`'s desktop** (the new test cases added, and the new exposure module present but unused): 10 of 12 failed.
+  - F1 ×6: returning after the delay (1 write, not 2), focus regained (1, not 2), left on screen for 50 hours (1 write, not 50 or more), the retry under the same id (1, not 2), an overlay closed (1, not 2), leaving after ten minutes (1, not 2).
+  - F9 ×4: no label on a changed question; "6 / 10" where the grade recorded 8; the item loaded before the regrade still shown after it; "2 / 8 → 6 / 8" for a regrade from a 4-point grade.
+  - The 2 that passed are the cadence pin (the new module already existed) and the unchanged-item control.
+
+### 8.2 F1: an exposure lasts as long as the answer is on screen (High)
+
+**The finding.** "Remounting now records a fresh exposure, but returning to still-mounted feedback does not." Feedback was opened, the app backgrounded without unmounting it, two days passed, and the learner came back and read the answer. Dispatching focus and visibility events wrote no second display. The production readers then returned `primed=False` and `admissible=True`. Remounting was the passing control.
+
+**The design.** The routine display horizon (§1) runs from each row's stamp. So the ledger has to hold a row no older than the last moment the learner could read the answer. A row from when the screen first showed it is not enough. `screens/feedback/answerExposure.ts` (`AnswerExposure`, `useAnswerExposure`) keeps that true, using three rules:
+- **A new exposure whenever the answer comes back on screen**, each with a new display id:
+  - the surface mounts with the answer;
+  - the document becomes visible again (`visibilitychange`);
+  - the window regains focus;
+  - the page is shown or resumed (`pageshow`, `resume`);
+  - an overlay over it closes. App passes `answerCovered` for the repair step, the inspector and Ask.
+- **Renewal at least hourly** while the answer stays on screen and the document is visible, each renewal under a new id. The check runs every minute on wall-clock time, so a machine that slept with the answer open renews within a minute of waking.
+- **A closing row when the answer leaves the screen** after more than a minute: hidden, covered, or the screen unmounted (`pagehide` and `freeze` too). It is stamped then, so the delay runs from the last moment the answer was on screen.
+
+Two more rules keep the writes in check:
+- Within a minute of the latest row nothing new is written, because that row already covers the moment.
+- A write that failed is retried under the same id (on the next tick, show or end) until it is confirmed. The sidecar records each id once.
+
+**Why this design.** The brief offered two options: renew on a timer while the answer is visible, or charge when a retry or unaided attempt starts from a feedback screen that shows the answer. Charging at attempt start covers only attempts started from that screen. An answer read and then left behind (for the queue, a plan step that probes its learning object, or the Reader) would still lapse. The closing row covers every way off the screen, including a retry started from feedback, because that unmounts it. The hourly renewal covers what a closing row can't: the app closed or killed with the answer open.
+- With a closing row, the delay runs from the last moment the answer was on screen, give or take a minute.
+- Without one (the app quit), it runs from no more than an hour before that.
+
+**What the extra rows do.** Every row is amount 1.0.
+- Auto-prime compares the total against a threshold one row already crosses, so renewals change no `primed`.
+- Admissibility is decided by the presence of a row within the delay.
+- Receipts that sum amounts (the router's coldness covariates, the cold-task deferral receipt) count each renewal, as they already counted each visit (open question Q13).
+- An open screen writes about one row an hour, plus one per return after more than a minute away, plus one when it closes.
+
+**The sidecar.** No code change. The per-display writer (§7.2) already records each exposure once. Its docstrings now say exposure (`ece7ee132`).
+
+**Tests.**
+- vitest, fake timers plus visibility and focus events (`FeedbackScreen.phase4.test.tsx`, "F1 (final): …"):
+  - returning after two days hidden writes a second display under a new id, and nothing is written while hidden;
+  - focus regained after ten minutes renews, but not within a minute of the last row;
+  - an answer left on screen for 50 hours writes at least 50 distinct displays, never more than an hour and a minute apart;
+  - a failed write is retried under the same id, then nothing more until the next renewal;
+  - an overlay closed after two days covered is a new exposure, and nothing is written while covered;
+  - leaving after ten minutes closes the exposure with a row stamped then;
+  - a pin that the cadences stay well inside the one-day delay.
+- The remount control still passes: "F1 (re-review): reopening the feedback is a fresh exposure…", and `test_f1r_feedback_reopened_after_the_cold_delay_is_a_fresh_exposure`.
+- sidecar, through the production readers (`auto_primed_draft`, `production_admissibility`):
+  - `test_f1f_feedback_returned_to_after_the_cold_delay_is_a_renewed_exposure`: the verifier's control first (clean before the return), then primed and not admissible after the renewed display;
+  - `test_f1f_a_full_answer_left_on_screen_past_the_cold_delay_stays_an_exposure[renewed_hourly|mount_only]`: hourly renewals over 50 hours stay primed and not admissible until the delay passes after the last one. With the mount's row alone, the exposure has lapsed (the finding);
+  - `test_f1f_a_retry_within_one_exposure_writes_once`.
+
+### 8.3 F9: what the grade stands on (Medium)
+
+**The finding.** "Ordinary regrades still lack durable grading metadata, and the desktop fallback can remain stale."
+- Live: after a successful regrade in place, the handler replaced `feedback` but never refetched `item`, so the original key stayed on screen.
+- Historical: a regrade to 6 under an 8-point rubric, then the item changed again with no regrade. Feedback used the later, ungraded key and maximum: 6/8 became 6/10.
+
+**What the database records per grading epoch** (the brief's question 3):
+- **`grading_evidence` rows:** per criterion, `criterion_id`, `points_awarded`, `grader_tier`, `agent_run_id`, `created_at`, the supersession pointers, and `grading_revision` (first grades). They store no criterion maximum and no total maximum.
+- **`assessment_contract_version_id`:** set on a first grade's rows (and only with contracts, mvp-0.7 on) and on a method-explicit regrade's rows. An adjudication carries over the contract of the rows it revises. An ordinary regrade and a legacy grade cite none.
+- **`assessment_contract_versions`:** content-addressed snapshots of the item's contract: prompt, expected answer, criteria with their maxima, total maximum. Each is stamped when that content was first seen. They are written by every serve of the item (`practice_item_detail`, on canonical-state vaults) and by a first grade. Not by an ordinary regrade, and not linked to it.
+- **`practice_attempts`:** only the current grade's `rubric_score` and `correctness`, and every replay rewrites `correctness` (§8.4). So it is not a record of what an epoch was graded out of.
+- **`blind_grade_records`:** per blind-graded epoch (split vaults; linked by `agent_run_id`), the grade's total `max_points` and its points per criterion. No key, no criterion maxima.
+- **`agent_runs`:** `input_context_hash`, a hash of the grading context, which includes the key and rubric but also the diagnostic history. It is a fingerprint, not content, and can't be recomputed later.
+- **`practice_item_snapshots`:** item revisions the scheduler scored, first-seen stamps, not linked to grades. **`judgment_ledger`** reference bindings: a content hash, only when a grade was lowered.
+- **Conclusion:** an epoch that cites a contract is exactly recoverable. An ordinary regrade's key, criteria and criterion maxima are not recoverable from anything stored. Its total maximum is recorded only in a blind record.
+
+**The fix.**
+- **The bundle sends what the grade stands on**, directly (`serializers._epoch_grading_record`). `answered_source` says where it comes from:
+  - **`contract`:** the current epoch cites one. Its key, criteria and maximum, exactly (as §7.4).
+  - **`item`:** it cites none, and the item's version in force at the epoch matches the item now, with nothing the epoch recorded contradicting that. The version in force is its latest snapshot first seen by the epoch's time. A contradiction would be a criterion the item no longer has, points above a criterion's current maximum, or a recorded maximum other than the item's. The item's key, criteria and maximum are sent, so the screen never reads them off an item it loaded earlier.
+  - **`changed`:** otherwise. No key and no criteria, and `answered_max_points` only when a blind record kept one, never the item's.
+- **The live part.** The regrade's own response is built from the vault it just graded with, so it carries what it graded against. A regrade from the feedback screen first snapshots the item it reads (`feedback._snapshot_item_regraded`, the same snapshot every serve takes), so later loads place it exactly, even when the item was edited after the screen last served it. The desktop also re-reads the item after every regrade in place, plain or contest, so nothing on the screen keeps the item it loaded with.
+- **The historical part.** On `changed`, the surface says "This question has changed since it was graded, so the answer it was graded against isn't shown." It shows no full answer (so nothing is charged to the ledger) and no ✓/✗ lines. In details, the score reads "6 points", or "6 / 8" with a recorded maximum. Each criterion reads its points alone, with a neutral mark.
+- **The regrade history** scores each side out of its own grade's maximum (`regrade.old_max_points`, `regrade.new_max_points`). A regrade under a corrected rubric reads "Looked at again: 2 / 4 → 6 / 8." A side with no known maximum shows its points alone. Before, both sides used the item's maximum.
+- **Classic** is unchanged: it reads the item and the bundle's `max_points` (Q16).
+
+**Limits, each on the cautious side unless said.**
+- **An item edited and restored between a snapshot and a regrade.** The version in force then looks different from the item now, so the bundle says changed.
+- **A regrade outside the feedback screen** (the CLI, the deferred self-grade regrades), under an item edited after its last serve. The latest snapshot by then is the earlier version, so the bundle says changed although the regrade read the item now. `test_f9_a_regrade_the_ledger_cannot_place_says_the_question_changed` pins it. The successor in §8.4 removes it.
+- **An answer graded before contracts, or on a vault without snapshots** (mvp-0.6). Only the contradictions apply. A key-only edit since its grade can't be seen, and feedback shows the item's key, as every feedback before Phase 4 did (Q17).
+
+**Tests.**
+- sidecar:
+  - `test_f9f_a_regrade_in_place_returns_the_key_criteria_and_maximum_it_graded_against[regrade|contest]` (live, through `trigger_regrade`, the item corrected after the screen loaded);
+  - `test_f9f_a_question_changed_after_its_regrade_is_labelled_never_scored_out_of_the_later_maximum[blind|joint]` (6/8 then 6/10: `changed`, no key or criteria; the maximum is 8 from the blind record, or none for a joint regrade; never 10);
+  - `test_f9f_an_item_unchanged_since_its_regrade_is_not_labelled`;
+  - `test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_question_changed`;
+  - `test_f9_a_regrade_the_ledger_cannot_place_says_the_question_changed` (new).
+- Changed, because §7's expectations no longer hold:
+  - `test_f9_a_regrade_under_the_corrected_item_shows_its_key_and_rubric[later|same_second]`: the corrected item served before the regrade, then the corrected key, criteria and 8 are sent, where §7 sent nulls;
+  - `test_f5_an_answer_with_no_contract_carries_the_items_key_when_nothing_says_it_changed`: was `…_carries_no_frozen_key`, and now expects the item's key, not None.
+- vitest ("F9 (final): …"):
+  - a changed question says so, shows no full answer and charges nothing, and never shows "/ 10" (details "6 points", criterion "6.0 points", history "2 / 4 → 6 points.");
+  - a recorded maximum scores it "6 / 8";
+  - an unchanged item carries no label;
+  - after a regrade in place the item is re-read, and the key it loaded with is gone;
+  - the history reads "2 / 4 → 6 / 8."
+
+### 8.4 Out of stage: the regrade and replay contract mismatch (the brief for its own stage)
+
+Not fixed here: it is core regrade and replay code, and changing which contract replay reads changes persisted meaning, so it needs an algorithm successor (`docs/algorithm-change-playbook.md`). The saved-forecasts stage found the same gap. Reproduced with fakes in a split vault at the route-rules version: `pi_svd_compute_001`, criteria setup 2 + result 2, the scenarios run in `fixtures-local/tmp` and since removed.
+
+1. **A model-graded original, then a regrade above the original maximum.**
+   - Steps: the original is graded 2/4 under its contract (tier-3 rows citing the contract, `test_held_grade_evidence._graded_apply`). `result` is raised to 6 points (maximum 8). `regrade_attempt` then gives an assessed 6 (2 + 4).
+   - What runs:
+     - `regrade_attempt` reads the item (`regrade_reads_contract` is false) and writes rows citing no contract.
+     - `_publish_regrade` → `Repository.insert_regrade_evidence(supersede_tiers=(1,))` supersedes only the self-grade tier, so the original's tier-3 rows stay live.
+     - `update_attempt_grade` writes correctness 6/8. Then `replay_learning_object` → `replay_existing_attempt` takes `assessment_contract_version_id` from the first live row that cites one: the original's.
+     - `_resolve_attempt_target` → `rubric_from_contract` gives maximum 4. `apply_attempt(replace_existing=True)` → `replace_attempt_derived_outcome` writes correctness 6/4 = 1.5.
+   - Result: `IntegrityError: CHECK constraint failed: correctness … <= 1.0`. The publish transaction rolls back, so the regrade can't be made at all. From the screen, a contest says the grader couldn't look again, and a plain regrade shows an error.
+2. **The same original, then a regrade within the original maximum** (3: 1 + 2). It commits, with both epochs' rows live. Replay still resolves the 4-point contract, so the recorded correctness is 0.75 (3/4), not the 0.375 (3/8) the regrade wrote.
+3. **A self-graded original** (tier 1, which the regrade supersedes).
+   - Steps: regraded to 6 under the raised rubric. It commits: no live row cites a contract, so replay reads the item, 6/8. Then `result` is lowered to 2 (maximum 4).
+   - Result: `substrate.rebuild_orchestrator.rebuild_all_derived_state` fails the same CHECK (6/4). Its single transaction rolls back and live state is intact. Every later regrade of any attempt on that learning object fails too, because its `replay_learning_object` includes this attempt.
+   - With `result` at 4 instead (maximum 6), the rebuild succeeds and silently rescores the regraded answer from 0.75 to 1.0.
+
+**Can it make `rebuild` fail on `correctness <= 1`?** Yes. Not through case 1, because that regrade never commits. It fails through case 3: an answer regraded ordinarily, with no live row citing a contract, whose recorded score is above its item's later maximum. Replay then reads the item as it is at rebuild time.
+
+**What the successor needs:** an ordinary regrade snapshots the contract it reads (`snapshot_for_presentation` of the item it grades, as `trigger_regrade` now does for display) and cites it on its rows. Replay takes the contract from the current grading epoch's rows, not the first live row. The stage also has to decide whether an ordinary regrade of a model grade supersedes the model tier. With that, §8.3's `item` and `changed` inference reduces to `contract` for every new regrade.
+
+### 8.5 Claims corrected
+
+- **§1, F1, "once per attempt" and §7.2 "a remount is a new visit":** now once per exposure (§8.2), annotated in place.
+- **§7.4, "the three fields are null, and the screen reads the item":** the bundle sends them, or says the question changed (§8.3), annotated in place.
+- **§7.4, the regrade receipt reading `max_points`:** the plain history now uses each side's own maximum, annotated in place.
+- **§7.10, Q12:** settled by §8.2.
+- **`docs/reviews/ux-phase4.md`:**
+  - §1: the bundle's grading-record fields and the regrade's item snapshot.
+  - §4.2: the full answer is the one the grade stands on, charged while on screen; the changed-question line; details' score and history maxima.
+
+### 8.6 Paid calls
+
+None. Every test uses fakes. The reproductions ran in test vaults under `fixtures-local/tmp`, since removed. No owner vault was opened. Cost $0.
+
+### 8.7 Gate (final tree)
+
+Run on `ece7ee132` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11905 passed, 0 failed (13 min 32 s): §7.9's 11894 plus the 11 new sidecar cases (the 3 changed ones are counted in the 11894) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11799 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 93 files, 692 passed (680 plus 12 new); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged: no CLI, RPC, schema or config change (both test files ran in the full suite) |
+
+The code was final at `ece7ee132`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure, so nothing needed a rerun alone.
+
+### 8.8 Open questions for the owner (defaults applied)
+
+- **Q13 (F1).** Each renewal is a 1.0 row, so summed reveal amounts in receipts (the router's coldness covariates, the cold-task deferral receipt) grow with how long feedback stays open. Should routine renewals count once per exposure chain in those sums? *Default: each row counts, as visits did.*
+- **Q14 (F1).** The cadences: renew at least hourly, and close after a minute on screen. *Default: as built.* Hourly bounds the slack to an hour only when the app quits with the answer open.
+- **Q15 (F9).** A regrade outside the feedback screen under an item edited after its last serve is labelled "changed" although it read the item now. *Default: the cautious label until regrades cite their contract (§8.4).*
+- **Q16 (F9).** Classic still reads the item and its maximum, so the 6/8 then 6/10 case shows there. *Default: unchanged (classic restores the screens exactly).*
+- **Q17 (F9).** An answer graded before contracts (or on an mvp-0.6 vault) whose key alone was edited since shows the current key. *Default: shown; nothing recorded says otherwise.*
