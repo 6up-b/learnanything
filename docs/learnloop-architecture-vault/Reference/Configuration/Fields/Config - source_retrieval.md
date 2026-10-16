@@ -3,8 +3,8 @@ title: "Config - source_retrieval"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "90e8b400ec88a17e7d27bb23aeb54ed456ca9216"
-source_commit_timestamp: "2026-10-16T00:42:10-04:00"
+source_commit: "f1262b7556022fd56854737fb3ae459536858e71"
+source_commit_timestamp: "2026-10-16T02:39:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_retrieval"
@@ -30,6 +30,7 @@ source_paths:
   - "src/learnloop/source_retrieval/find_sources.py"
   - "src/learnloop/source_retrieval/queries.py"
   - "src/learnloop/source_retrieval/verify.py"
+  - "tests/codex_cli_fakes.py"
   - "tests/marker_fakes.py"
   - "tests/mcp_world.py"
   - "tests/pf_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_block_chooser_interface.py"
   - "tests/test_capability_residual.py"
   - "tests/test_capture_domain.py"
-  - "tests/test_capture_originals_race.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-retrieval"
@@ -89,6 +89,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/codex_cli_fakes.py`
 - `tests/marker_fakes.py`
 - `tests/mcp_world.py`
 - `tests/pf_fakes.py`
@@ -100,7 +101,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_block_chooser_interface.py`
 - `tests/test_capability_residual.py`
 - `tests/test_capture_domain.py`
-- `tests/test_capture_originals_race.py`
 
 ## Extension and modification guidance
 
