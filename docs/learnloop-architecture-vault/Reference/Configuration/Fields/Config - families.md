@@ -3,8 +3,8 @@ title: "Config - families"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
-source_commit_timestamp: "2026-10-15T23:28:03-04:00"
+source_commit: "94b8398c6e80ff717a6ffa56df99099b568cec9e"
+source_commit_timestamp: "2026-10-16T02:35:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml families"
@@ -41,8 +41,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `families.max_exhaustive_items` | `40` | integer | modeled default or validator seed | Caps exhaustive items allowed by explicit-command offline family authoring, not live scheduling. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2086`; `src/learnloop/ops/family_proposals.py:159`; `src/learnloop/ops/pf_generation.py:1423` |
-| `families.blocking_top_k` | `20` | integer | modeled default or validator seed | Controls blocking top k in explicit-command offline family authoring, not live scheduling, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2087`; `src/learnloop/ops/family_proposals.py:187` |
+| `families.max_exhaustive_items` | `40` | integer | modeled default or validator seed | Caps exhaustive items allowed by explicit-command offline family authoring, not live scheduling. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2098`; `src/learnloop/ops/family_proposals.py:159`; `src/learnloop/ops/pf_generation.py:1423` |
+| `families.blocking_top_k` | `20` | integer | modeled default or validator seed | Controls blocking top k in explicit-command offline family authoring, not live scheduling, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2099`; `src/learnloop/ops/family_proposals.py:187` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

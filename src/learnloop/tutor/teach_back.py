@@ -1042,6 +1042,47 @@ def _teach_back_authoring_context(
     return context, source_criteria
 
 
+def teach_back_authoring_context(
+    vault: LoadedVault,
+    source_item: PracticeItem,
+    learning_object,
+    *,
+    quest_sentence: str | None = None,
+) -> tuple[TeachBackAuthoringContext, list[dict[str, Any]]]:
+    """The teach-back authoring context exactly as the tutor builds it (and its source criteria).
+
+    Public for callers outside the tutor that run the same request without
+    writing anything, such as ``learnloop ai compare``.
+    """
+
+    return _teach_back_authoring_context(vault, source_item, learning_object, quest_sentence=quest_sentence)
+
+
+def validate_teach_back_authoring(
+    authored: TeachBackAuthoring,
+    *,
+    source_criteria: list[dict[str, Any]],
+    source_item: PracticeItem,
+    learning_object,
+    quest_sentence: str | None,
+) -> None:
+    """The tutor's own check of an AI authoring draft; raises :class:`TeachBackError`.
+
+    The same validator, facet allowance (the source item's evidence facets)
+    and title that decide whether the tutor keeps a draft or falls back
+    (``_run_teach_back_authoring``'s caller). Public for callers that judge a
+    draft without writing anything, such as ``learnloop ai compare``.
+    """
+
+    _validate_teach_back_authoring(
+        authored,
+        source_criteria=source_criteria,
+        allowed_facet_ids=set(source_item.evidence_facets),
+        quest_sentence=quest_sentence,
+        learning_object_title=learning_object.title,
+    )
+
+
 def _run_teach_back_authoring(
     client: Any | None,
     context: TeachBackAuthoringContext,

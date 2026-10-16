@@ -1,9 +1,12 @@
-"""`learnloop ai`: provider sign-in, status and a latency check.
+"""`learnloop ai`: provider sign-in, status, a latency check and a side-by-side comparison.
 
 `learnloop ai signin chatgpt` is "Continue with ChatGPT" for the terminal: it
 opens the system browser on OpenAI's sign-in page, listens on 127.0.0.1 for
 the callback, and saves the validated sign-in outside every vault (the
-LearnLoop config directory). Nothing here prints a token.
+LearnLoop config directory). Nothing here prints a token. `learnloop ai
+compare` runs the same grading, diagnosis and generation on several
+subscription profiles (Codex and the ChatGPT plan) on a vault copy
+(``learnloop.cli.ai_compare``).
 """
 from __future__ import annotations
 
@@ -431,6 +434,169 @@ def ai_latency(
         for run in row["runs"]:
             if not run.get("ok"):
                 typer.echo(f"  call {run['n']}: {run.get('error') or 'unexpected answer'}")
+
+
+@ai_app.command("compare")
+def ai_compare(
+    vault: Annotated[Path, typer.Option("--vault", help="A backup-API copy of a vault (receipts land here); with --copy-from, the new copy's directory.")],
+    profiles: Annotated[list[str], typer.Option("--profiles", help="Subscription profiles to compare, comma-separated or repeated (e.g. codex,chatgpt).")],
+    copy_from: Annotated[Path | None, typer.Option("--copy-from", help="Copy this vault to --vault first (backup API; also with --dry-run); the original is only read.")] = None,
+    attempts: Annotated[int, typer.Option("--attempts", min=0, max=20, help="Attempts to blind-grade per profile (latest non-pass and pass first).")] = 3,
+    attempt_id: Annotated[list[str] | None, typer.Option("--attempt", help="An attempt to grade (repeatable; replaces the automatic choice).")] = None,
+    diagnosis_attempt: Annotated[str | None, typer.Option("--diagnosis-attempt", help="The attempt to diagnose (default: the latest non-pass that needs one).")] = None,
+    diagnosis_mode: Annotated[str, typer.Option("--diagnosis-mode", help="History mode of the diagnosis: snapshot (default), full or exact.")] = "snapshot",
+    no_diagnosis: Annotated[bool, typer.Option("--no-diagnosis", help="Skip the diagnosis.")] = False,
+    no_generation: Annotated[bool, typer.Option("--no-generation", help="Skip the structured generation.")] = False,
+    timeout: Annotated[int, typer.Option("--timeout", min=30, max=3600, help="Seconds per call (a workspace turn's rounds included).")] = 900,
+    output: Annotated[Path, typer.Option("--output", help="Directory for the JSON report (outside the vault).")] = Path("fixtures-local/reports/ai-compare"),
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show the plan; build no client and send nothing.")] = False,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run the same grading, diagnosis and generation on each profile and compare them.
+
+    For deciding whether a route moves from Codex to the ChatGPT plan: a few
+    attempts blind-graded, one snapshot diagnosis (the plan's read-only
+    workspace is served by LearnLoop and recorded exactly) and one teach-back
+    authoring draft, per profile. The report holds ids, numbers and local
+    explanations only (a failure as its code, never the provider's message):
+    agreement, structured-output validity, latency, tokens per call, spend
+    (estimated_only) and plan allowance (pause state, usage-limit errors).
+    The vault gets model-call receipts and the comparison's own verdicts in
+    its judgment ledger (never evidence). Subscription profiles only; a vault
+    whose database git tracks (a working vault) or lies outside it is refused:
+    pass --copy-from, which also copies a relocated database.
+    """
+
+    from datetime import datetime, timezone
+    import json
+
+    from learnloop.ai.errors import AIInterrupted
+    from learnloop.cli.ai_compare import (
+        CompareRefused,
+        CompareRequest,
+        copy_vault,
+        database_location_reason,
+        plan_compare,
+        run_compare,
+        tracked_database_reason,
+    )
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.repository import open_vault_repository
+
+    names = tuple(dict.fromkeys(part.strip() for value in profiles for part in value.split(",") if part.strip()))
+    request = CompareRequest(
+        profiles=names, grading_attempts=attempts, attempt_ids=tuple(attempt_id or ()),
+        diagnosis=not no_diagnosis, diagnosis_attempt_id=diagnosis_attempt, diagnosis_mode=diagnosis_mode,
+        generation=not no_generation, timeout_seconds=timeout,
+    )
+    copied: list[str] = []
+    try:
+        if copy_from is not None:
+            # A local copy sends nothing, so a dry run makes it too; run live on --vault next.
+            copied = [str(path) for path in copy_vault(copy_from, vault)]
+        loaded = load_vault(vault.resolve())
+        # Both before the database is opened (which migrates it).
+        reason = database_location_reason(loaded)
+        if reason is not None:
+            raise CompareRefused(reason, code="database_outside_vault")
+        reason = tracked_database_reason(loaded, fresh_copy=copy_from is not None)
+        if reason is not None:
+            raise CompareRefused(reason, code="working_vault")
+        bind_command_vault(loaded.root)
+        repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
+        if dry_run:
+            plan = plan_compare(loaded, repository, request)
+            payload = {"version": 1, "dry_run": True, "vault": str(loaded.root), "copied": copied, **plan}
+            if json_output:
+                typer.echo(_dump(payload))
+                return
+            for row in plan["profiles"]:
+                flag = "ready" if row["ready"] else f"not ready: {row['message']}"
+                workspace = "workspace" if row["read_only_workspace"] else "no workspace"
+                typer.echo(f"{row['provider']} ({row['type']}, {row['model']}, {workspace}): {flag}")
+            targets = plan["targets"]
+            typer.echo(f"grading: {', '.join(targets['grading']) or '-'}")
+            typer.echo(f"diagnosis ({plan['diagnosis_mode']}): {targets['diagnosis'] or '-'}")
+            typer.echo(f"generation (teach-back authoring): {targets['generation_item'] or '-'}")
+            typer.echo(f"{plan['calls_per_profile']} calls per profile, {plan['max_calls']} at most")
+            typer.echo("estimate (subscription: estimated_only, no dollar cost, no physical-request bound):")
+            for name, estimate in plan["estimate"]["profiles"].items():
+                typer.echo(
+                    f"  {name}: {estimate['calls']} calls, ~{estimate['estimated_total_tokens']} tokens "
+                    f"(input ~{estimate['estimated_input_tokens']}"
+                    + (f", snapshot export ~{estimate['estimated_workspace_tokens']}"
+                       if estimate["estimated_workspace_tokens"] else "")
+                    + f", output up to {estimate['estimated_output_tokens']})")
+                for planned in estimate["planned"]:
+                    typer.echo(f"    {planned['kind']} {planned['target']}: ~{planned['total_tokens']} tokens")
+            for note in targets["notes"]:
+                typer.echo(f"note: {note}")
+            if copied:
+                typer.echo(f"copied to {loaded.root}; run without --copy-from and --dry-run to compare live")
+            return
+        report = run_compare(loaded, repository, request,
+                             progress=None if json_output else (lambda message: typer.echo(message, err=True)))
+    except CompareRefused as exc:
+        _fail(str(exc), json_output=json_output, code=exc.code)
+        return
+    except AIInterrupted:
+        _fail("Comparison interrupted.", json_output=json_output, code="interrupted")
+        return
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output.mkdir(parents=True, exist_ok=True)
+    # Named after the run (its judgments' compare_run_id): two runs in one
+    # second never share a file, and "x" never overwrites an earlier report.
+    path = output / f"{stamp}-{report['run_id']}.json"
+    payload = {"version": 1, "dry_run": False, "vault": str(loaded.root), "copied": copied, **report}
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n")
+    if json_output:
+        typer.echo(_dump({**payload, "report_path": str(path)}))
+        return
+    for row in report["results"]:
+        summary = row.get("summary")
+        if not summary:
+            hint = (row.get("failure") or {}).get("hint")
+            typer.echo(f"{row['provider']}: {row.get('error') or 'not run'}" + (f": {hint}" if hint else ""))
+            continue
+        typer.echo(
+            f"{row['provider']} ({row['model']}): {summary['valid']}/{summary['calls']} valid, median "
+            f"{summary['seconds_median']}s, {summary['tokens_per_call']} tokens/call, "
+            f"{summary['physical_requests']} requests"
+            + (f", errors {', '.join(summary['errors'])}" if summary["errors"] else "")
+            + (f"; stopped: {row['stopped']}" if row.get("stopped") else "")
+        )
+        failures = [(label, call) for label, call in [
+            *((f"grading {attempt}", call) for attempt, call in (row.get("grading") or {}).items()),
+            ("diagnosis", row.get("diagnosis")), ("generation", row.get("generation"))]
+            if call and call.get("error")]
+        for label, call in failures:
+            failure = call.get("failure") or {}
+            codes = ", ".join(str(failure[key]) for key in ("code", "http_status", "param") if failure.get(key))
+            typer.echo(f"  {label}: {call['error']}" + (f" ({codes})" if codes else "")
+                       + (f": {call['rejection']}" if call.get("rejection") else "")
+                       + (f": {failure['hint']}" if failure.get("hint") else ""))
+        spend = row.get("spend") or {}
+        if spend:
+            typer.echo(f"  spend: {spend['used']['calls']} calls, {spend['reported_total_tokens']} tokens reported "
+                       f"(estimated_only; planned ~{spend['estimated_total_tokens']})")
+        if row.get("allowance_after"):
+            typer.echo(f"  plan allowance: {row['allowance_after']['state']}"
+                       + (f", paused until {row['allowance_after']['paused_until']}"
+                          if row["allowance_after"].get("paused_until") else ""))
+    for pair in report["agreement"]:
+        grading = pair["grading"]
+        line = (f"{' vs '.join(pair['profiles'])}: grading {grading['compared']} compared, exact "
+                f"{grading['exact_rate']}, criteria {grading['criterion_agreement']}")
+        if pair.get("diagnosis"):
+            diagnosis = pair["diagnosis"]
+            line += (f"; diagnosis same classes {diagnosis['same_causal_classes']}, cited-attempt overlap "
+                     f"{diagnosis['evidence_jaccard']}")
+        if pair.get("generation"):
+            line += f"; generation both valid {pair['generation']['both_valid']}"
+        typer.echo(line)
+    typer.echo(f"report: {path}")
 
 
 __all__ = ["ai_app"]

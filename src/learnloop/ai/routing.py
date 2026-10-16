@@ -18,6 +18,15 @@ if TYPE_CHECKING:  # pragma: no cover
 
 MANUAL_PROVIDER = "manual"
 EMBEDDING_PROFILE_TYPE = "openai_embedding"
+#: Profile types whose client serves a read-only workspace (a snapshot
+#: diagnosis): Codex reads it in its sandbox; the ChatGPT plan is served it by
+#: LearnLoop (``learnloop.ai.chatgpt_plan.workspace``). The client's
+#: ``supports(READ_ONLY_WORKSPACE)`` stays authoritative; this answers the
+#: same question from configuration alone (a dry run builds no client).
+WORKSPACE_PROFILE_TYPES: frozenset[str] = frozenset({"codex_sdk", "chatgpt_plan"})
+#: Profile types that take a caller's whole-operation deadline
+#: (:func:`client_for_provider`).
+TURN_DEADLINE_PROFILE_TYPES: frozenset[str] = frozenset({"codex_sdk", "chatgpt_plan"})
 
 AITask = Literal[
     "embedding",
@@ -398,6 +407,13 @@ def is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool:
     return profile is not None and profile.type.strip().lower() == DECIDER_PROFILE_TYPE
 
 
+def serves_read_only_workspace(config: LearnLoopConfig, provider_name: str | None) -> bool:
+    """Whether the profile ``provider_name`` can serve a read-only workspace (by its type)."""
+
+    profile = config.ai.providers.get(provider_name or "")
+    return profile is not None and profile.type.strip().lower() in WORKSPACE_PROFILE_TYPES
+
+
 def is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool:
     """Whether a configured name can serve a chat/generation route.
 
@@ -459,9 +475,12 @@ def client_for_provider(
     from learnloop.ai.client import make_ai_provider_client
 
     profile = config.ai.providers.get(provider_name)
+    # A turn transport's deadline spans the whole operation (Codex's turn, or
+    # a ChatGPT-plan workspace turn's rounds and retries), so it takes the
+    # caller's; a chat profile keeps its own per-request timeout.
     provider_timeout = (
         timeout_seconds
-        if profile is not None and profile.type.strip().lower() == "codex_sdk"
+        if profile is not None and profile.type.strip().lower() in TURN_DEADLINE_PROFILE_TYPES
         else None
     )
     return make_ai_provider_client(
@@ -602,6 +621,8 @@ __all__ = [
     "AIProviderSelection",
     "AITask",
     "ResolvedClient",
+    "TURN_DEADLINE_PROFILE_TYPES",
+    "WORKSPACE_PROFILE_TYPES",
     "client_for_provider",
     "fallback_provider_for",
     "is_decider_profile",
@@ -614,4 +635,5 @@ __all__ = [
     "ready_client_for_task",
     "route_profile_mismatch",
     "runtime_for_provider",
+    "serves_read_only_workspace",
 ]

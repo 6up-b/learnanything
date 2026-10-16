@@ -184,6 +184,7 @@ def diagnose_run(
         run_review,
         unavailable_arms,
     )
+    from learnloop.ai.routing import WORKSPACE_PROFILE_TYPES
     from learnloop.diagnosis.offline_review.spend import ReviewSpend
     from learnloop.diagnosis.split.settings import DiagnosisSettings
     from learnloop.ids import new_ulid
@@ -238,7 +239,7 @@ def diagnose_run(
             profiles = {**profiles, DECIDER_ROUTE: decider}
         skip = unavailable_arms(
             embedding_ready=profiles["embedding"]["enabled"],
-            workspace_ready=profiles["diagnosis"]["profile_type"] == "codex_sdk",
+            workspace_ready=str(profiles["diagnosis"]["profile_type"] or "").strip().lower() in WORKSPACE_PROFILE_TYPES,
         )
         plan = plan_review(loaded, Repository.attach(sqlite_path, read_only=True), options, skip_arms=skip)
         estimate = estimate_spend(plan, spend)

@@ -3,8 +3,8 @@ title: "text_write_provenance"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
-source_commit_timestamp: "2026-10-15T23:28:03-04:00"
+source_commit: "94b8398c6e80ff717a6ffa56df99099b568cec9e"
+source_commit_timestamp: "2026-10-16T02:35:20-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite text_write_provenance"
@@ -102,10 +102,12 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_forecast_receipts_landing.py`
+- `tests/test_ux_phase4_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
