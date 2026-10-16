@@ -272,7 +272,7 @@ def test_unlisted_mcp_servers_fail_closed(tmp_path, monkeypatch):
     _fake_sdk(monkeypatch, captured)
     client = _client(tmp_path, monkeypatch)
 
-    def broken(_cwd, _overrides, *_subcommand):
+    def broken(_cwd, _overrides, *_subcommand, **_launch_context):
         raise CodexUnavailable("cannot list MCP servers")
 
     monkeypatch.setattr(client, "_codex_probe", broken)

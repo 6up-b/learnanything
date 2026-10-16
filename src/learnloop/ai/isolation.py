@@ -311,7 +311,8 @@ def _command_line_settings(arguments: Iterable[str], key: str) -> Iterator[tuple
 
 
 def _refuse_state_outside_the_home(
-    home: Path, workdir: Path, mounted: Iterable[Path], binds_over_home: Iterable[Path], arguments: Iterable[str]
+    home: Path, workdir: Path, mounted: Iterable[Path], binds_over_home: Iterable[Path], arguments: Iterable[str],
+    start: Path | None = None,
 ) -> None:
     """Refuse a launch whose configuration moves the agent's run state out of its private home.
 
@@ -319,22 +320,26 @@ def _refuse_state_outside_the_home(
     legacy managed files, the user's (bound into the home), project files in
     the working directory and in any visible parent, and ``-c`` overrides. A
     relative value is resolved as Codex resolves it: against the directory of
-    the file that sets it, or the working directory for an override. The
-    location must be in the in-memory home and under none of the host binds
-    on top of it (``binds_over_home``): its effective mount is then the home.
+    the file that sets it, or the directory the agent starts in (``start``,
+    default the working directory) for an override. The location must be in
+    the in-memory home and under none of the host binds on top of it
+    (``binds_over_home``): its effective mount is then the home.
     """
 
+    start = workdir if start is None else start
     binds_over_home = list(binds_over_home)
     roots = [root.resolve() for root in mounted]
     files = [*AGENT_SYSTEM_CONFIG, home / "config.toml", workdir / "config.toml"]
+    if start != workdir:
+        files.append(start / "config.toml")
     files += [
         directory / ".codex" / "config.toml"
-        for directory in (workdir, *workdir.parents)
+        for directory in (start, *start.parents)
         if any(_contains(root, directory) for root in roots)
     ]
     for key in AGENT_STATE_SETTINGS:
         settings = [(f"{key} in {path}", *_setting(path, key), path.parent) for path in files]
-        settings += [(f"{key} override -c {override!r}", True, value, workdir)
+        settings += [(f"{key} override -c {override!r}", True, value, start)
                      for override, value in _command_line_settings(arguments, key)]
         for where, present, value, base in settings:
             if not present:
@@ -365,11 +370,14 @@ def sandbox_arguments(
     executables: Iterable[Path] = (),
     home: Path | None = None,
     arguments: Iterable[str] = (),
+    chdir: Path | None = None,
 ) -> list[str]:
     """bubblewrap options (without the program) for one isolated process.
 
     ``arguments`` are the program's own arguments, checked for ``-c``
-    overrides of the agent's state locations. Raises
+    overrides of the agent's state locations. ``chdir`` is where the program
+    starts (default: the working directory); it must be the working directory
+    or inside it, the one host directory the sandbox mounts. Raises
     :class:`ToolIsolationUnavailable` when a hidden path holds something the
     sandbox must mount, when a mount would cover the private agent home, when
     the working directory lies inside that home, or when the configuration
@@ -377,6 +385,12 @@ def sandbox_arguments(
     """
 
     workdir = Path(isolation.workdir).resolve()
+    start = workdir if chdir is None else Path(chdir).resolve()
+    if not _contains(workdir, start):
+        raise ToolIsolationUnavailable(
+            f"the directory {start} is outside the working directory {workdir}, the one host directory the sandbox "
+            "mounts, so the agent could not start there"
+        )
     # Absolute, so the in-memory home and the agent's $CODEX_HOME are one path.
     home = Path(os.path.abspath((home or agent_home()).expanduser()))
     hidden = [Path(path).expanduser().resolve() for path in isolation.hidden]
@@ -424,7 +438,7 @@ def sandbox_arguments(
     args += ["--bind", str(workdir), str(workdir)]
     binds_over_home.append(workdir)
     mounted.append(workdir)
-    _refuse_state_outside_the_home(home, workdir, mounted, binds_over_home, arguments)
+    _refuse_state_outside_the_home(home, workdir, mounted, binds_over_home, arguments, start)
     for root in mounted:
         needed.append((f"the mounted tree {root}", root.resolve()))
     for path in hidden:
@@ -445,7 +459,7 @@ def sandbox_arguments(
         args += ["--setenv", name, str(home)]
     for name in AGENT_ENV_UNSET:
         args += ["--unsetenv", name]
-    args += ["--setenv", "TMPDIR", "/tmp", "--chdir", str(workdir)]
+    args += ["--setenv", "TMPDIR", "/tmp", "--chdir", str(start)]
     return args
 
 
@@ -454,8 +468,10 @@ def sandboxed_command(
     command: list[str],
     *,
     home: Path | None = None,
+    chdir: Path | None = None,
 ) -> list[str]:
-    """``command`` wrapped in bubblewrap; raises when bubblewrap is unavailable."""
+    """``command`` wrapped in bubblewrap, started in ``chdir`` (default: the
+    working directory); raises when bubblewrap is unavailable."""
 
     reason = isolation_unavailable_reason()
     bwrap = bubblewrap_path()
@@ -468,7 +484,7 @@ def sandboxed_command(
         node = shutil.which("node")
         if node:
             needed.append(Path(node))
-    options = sandbox_arguments(isolation, executables=needed, home=home, arguments=command[1:])
+    options = sandbox_arguments(isolation, executables=needed, home=home, arguments=command[1:], chdir=chdir)
     if not _inside(Path(executable), (*_SYSTEM_READ_ONLY, *_SYSTEM_LINKS)):
         # Only the resolved file (or its package) is mounted, not a link to it.
         executable = str(Path(executable).resolve())
@@ -480,8 +496,9 @@ def write_launcher(directory: Path, isolation: ToolIsolation, executable: str, *
 
     For SDKs that take a program path and append their own arguments. Those
     arguments are not known here, so a ``-c`` override among them is not
-    checked; LearnLoop's Codex client passes none (``app-server --listen
-    stdio://`` only).
+    checked; LearnLoop's Codex client passes only an isolated turn's own
+    overrides (none names a state location) before ``app-server --listen
+    stdio://``.
     """
 
     command = sandboxed_command(isolation, [executable], home=home)

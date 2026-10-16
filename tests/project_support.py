@@ -239,7 +239,7 @@ def project_fake(monkeypatch):
 
 
 def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}', spawn: bool = False,
-                           launch_failure_raises: bool = False) -> dict[str, Any]:
+                           launch_failure_raises: bool = False, turn_seconds: float = 0.0) -> dict[str, Any]:
     """A stand-in ``openai_codex`` SDK that records what a turn is started with.
 
     It captures the ``CodexConfig`` kwargs (``codex_bin``,
@@ -250,18 +250,23 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     app-server --listen stdio://``, in ``cwd``) and keeps its output, so a test
     can run a fake agent program through the exact launch path. With
     ``launch_failure_raises`` a launch that exits non-zero raises the real
-    SDK's ``Codex process closed stdout. stderr_tail=...``.
+    SDK's ``Codex process closed stdout. stderr_tail=...``. With
+    ``turn_seconds`` a turn takes that long to answer unless it is
+    interrupted (or the app server closed) first, which makes it raise.
     """
 
     import sys
+    import threading
     from enum import Enum
     from types import ModuleType, SimpleNamespace
 
     captured: dict[str, Any] = {"turns": []}
+    stopped = threading.Event()
 
     class FakeCodex:
         def __init__(self, config):
             captured["app_config"] = config.kwargs
+            stopped.clear()
             if spawn:
                 kwargs = config.kwargs
                 flags = [part for override in kwargs.get("config_overrides", ()) for part in ("--config", override)]
@@ -280,7 +285,7 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
             return None
 
         def close(self):
-            return None
+            stopped.set()
 
         def thread_start(self, **kwargs):
             captured["thread_start"] = kwargs
@@ -293,10 +298,12 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
 
     class FakeTurn:
         def run(self):
+            if turn_seconds and stopped.wait(timeout=turn_seconds):
+                raise RuntimeError("turn stopped")
             return SimpleNamespace(final_response=final_response)
 
         def interrupt(self):
-            return None
+            stopped.set()
 
     class SdkAppConfig:
         def __init__(self, **kwargs):

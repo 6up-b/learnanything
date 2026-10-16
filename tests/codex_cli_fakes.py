@@ -10,7 +10,14 @@ parts the check reads (found 2026-10-15, docs/reviews/codex-isolation-app-server
   creates a table without a transport, and every subcommand (the app-server
   launch included) then fails with ``invalid transport in `mcp_servers.<name>```;
 * ``features list`` prints ``name  stage  true|false`` rows; an unknown
-  ``-c features.<key>`` is ignored.
+  ``-c features.<key>`` is ignored;
+* ``-c``/``--config`` (as ``-c V``, ``-cV``, ``-c=V``, ``--config V``,
+  ``--config=V``), ``--enable`` and ``--disable`` are global options, read
+  wherever they stand (after ``app-server`` too); a later ``-c`` wins, and the
+  feature toggles apply after every ``-c`` (enables, then disables), as
+  0.163.0's ``cli/src/main.rs`` folds them in;
+* ``app-server`` prints what it would load: the MCP servers left on and the
+  features left on.
 
 ``stub_isolation_probe`` is the same model in process, for tests that only
 need the check to pass.
@@ -33,14 +40,32 @@ import time
 from pathlib import Path
 
 spec = json.loads(Path(__file__).with_name("codex-spec.json").read_text(encoding="utf-8"))
-args = sys.argv[1:]
-overrides = []
-while len(args) >= 2 and args[0] in ("-c", "--config"):
-    overrides.append(args[1])
-    args = args[2:]
+argv = sys.argv[1:]
+overrides, toggles, args = [], [], []
+index = 0
+while index < len(argv):
+    arg = argv[index]
+    if arg in ("-c", "--config", "--enable", "--disable") and index + 1 < len(argv):
+        value, index = argv[index + 1], index + 2
+    elif arg.startswith(("--config=", "--enable=", "--disable=")):
+        arg, value = arg.split("=", 1)
+        index += 1
+    elif arg.startswith("-c") and not arg.startswith("--"):
+        arg, value = "-c", arg[2:][1:] if arg[2:].startswith("=") else arg[2:]
+        index += 1
+    else:
+        args.append(arg)
+        index += 1
+        continue
+    if arg in ("-c", "--config"):
+        overrides.append(value)
+    else:
+        toggles.append([arg[2:], value])
 with open(spec["log"], "a", encoding="utf-8") as log:
-    log.write(json.dumps({"overrides": overrides, "command": args}) + "\n")
-values = dict(override.split("=", 1) for override in overrides)
+    log.write(json.dumps({"overrides": overrides, "toggles": toggles, "command": args}) + "\n")
+effective = overrides + ["features.%s=true" % f for kind, f in toggles if kind == "enable"]
+effective += ["features.%s=false" % f for kind, f in toggles if kind == "disable"]
+values = dict(override.split("=", 1) for override in effective)
 off = {key.split(".", 1)[1] for key, value in values.items() if key.startswith("features.") and value == "false"}
 off -= set(spec.get("ignored_features", ()))
 config = spec.get("config_servers", {})
@@ -60,6 +85,8 @@ command = " ".join(args[:2])
 behaviour = spec.get("behaviour", {}).get(command, "ok")
 if behaviour == "hang":
     time.sleep(30)
+if behaviour == "slow":
+    time.sleep(spec.get("slow_seconds", 0.5))
 if behaviour == "fail":
     sys.stderr.write("Error: failed to load configuration\n    secret = \"LEAKED-CONFIG-LINE\"\n")
     sys.exit(2)
@@ -67,16 +94,19 @@ if behaviour == "garbage":
     print("not json")
     sys.exit(0)
 
+servers = dict(spec.get("builtin_servers", {}))
+if "plugins" not in off:
+    servers.update(spec.get("plugin_servers", {}))
+servers.update(config)
+for name in config:
+    setting = values.get("mcp_servers.%s.enabled" % name)
+    if setting is not None:
+        servers[name] = setting == "true"
+
 if command == "mcp list":
-    servers = dict(spec.get("builtin_servers", {}))
-    if "plugins" not in off:
-        servers.update(spec.get("plugin_servers", {}))
-    servers.update(config)
     entries = []
     for name in sorted(servers):
         enabled = servers[name]
-        if name in config and values.get("mcp_servers.%s.enabled" % name) == "false":
-            enabled = False
         entry = {"name": name, "enabled": enabled, "transport": {"type": "stdio", "command": "SECRET-COMMAND"}}
         if not spec.get("old_shape"):
             entry.update({"disabled_reason": None, "startup_timeout_sec": None, "tool_timeout_sec": None,
@@ -88,7 +118,8 @@ elif command == "features list":
         if feature not in spec.get("missing_features", ()):
             print("%-24s stable   %s" % (feature, "false" if feature in off else "true"))
 elif args[:1] == ["app-server"]:
-    print(json.dumps({"launched": True}))
+    print(json.dumps({"launched": True, "servers_on": sorted(name for name, on in servers.items() if on),
+                      "features_on": sorted(f for f in spec["features"] if f not in off)}))
 else:
     sys.stderr.write("unknown command %r\n" % (args,))
     sys.exit(2)
@@ -102,8 +133,10 @@ def write_fake_codex(directory: Path, **spec: Any) -> tuple[Path, Path]:
     (name -> enabled; a builtin one is listed whatever the overrides and no
     config file defines it), ``old_shape`` (list entries carry only name,
     enabled and transport), ``behaviour`` (``{"mcp list": "fail" | "hang" |
-    "garbage", "features list": ...}``), ``ignored_features`` (an override
-    Codex does not act on), ``missing_features`` (rows ``features list`` omits).
+    "slow" | "garbage", "features list": ...}``; ``slow`` waits
+    ``slow_seconds``, default 0.5, then answers), ``ignored_features`` (an
+    override Codex does not act on), ``missing_features`` (rows ``features
+    list`` omits).
     """
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -125,11 +158,13 @@ def fake_codex_calls(log: Path) -> list[dict[str, Any]]:
 def stub_isolation_probe(monkeypatch, client, *, config_servers=()) -> list[tuple[Path, tuple[str, ...], tuple[str, ...]]]:
     """Answer the isolated turn's launch check in process: ``config_servers``
     are config-defined (each disabled by its name override), every isolation
-    feature reads off when its override is present. Returns the probes run."""
+    feature reads off when its override is present. Returns the probes run
+    (where the turn ran it, sandboxed or not, and its deadline are not
+    modelled: the fake-CLI and bubblewrap tests cover them)."""
 
     calls: list[tuple[Path, tuple[str, ...], tuple[str, ...]]] = []
 
-    def probe(cwd, overrides, *subcommand):
+    def probe(cwd, overrides, *subcommand, **_launch_context):
         calls.append((Path(cwd), tuple(overrides), tuple(subcommand)))
         if subcommand[:2] == ("mcp", "list"):
             return json.dumps([

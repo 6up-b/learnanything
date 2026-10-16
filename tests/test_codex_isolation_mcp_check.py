@@ -11,28 +11,44 @@ mcp_servers.codex_app``. Every isolated turn (the blind grader, the diagnoser,
 every isolated judge) failed before its model request.
 
 Now the servers are listed under the isolated turn's own overrides, where
-``features.plugins=false`` has already removed the plugin ones; only a server
-still listed enabled gets a name override; and the full override set is
-checked (``mcp list`` and ``features list``) before the app server starts. Any
-server still enabled, a check that fails or times out, or an override Codex
-rejects refuses the turn (fail closed).
+``features.plugins=false`` has already removed the plugin ones; every server
+still listed gets a name override (already-disabled ones too); and the full
+override set is checked (``mcp list`` and ``features list``) before the app
+server starts. Any server still enabled, a check that fails or times out, or
+an override Codex rejects refuses the turn (fail closed).
+
+The Codex review of that fix (docs/reviews/codex-isolation-app-servers-codex-review.md)
+added: the check runs where the app server will (inside the bubblewrap sandbox,
+in the turn's directory: F1), on the launch command's own configuration
+options (F2), and inside the request's deadline, stopped by an interrupt (F3).
 
 The fakes model codex-cli 0.163.0 (tests/codex_cli_fakes.py); the ``codex``
-tests run the installed binary under a throwaway ``CODEX_HOME`` with a
-plugin of its own and make no model call.
+tests run the installed binary under a throwaway ``CODEX_HOME`` (one with a
+plugin of its own) and make no model call.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
+import tempfile
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
-from learnloop.ai.errors import CodexUnavailable
+from learnloop.ai.errors import CodexInterrupted, CodexTurnTimeout, CodexUnavailable
+from learnloop.ai.isolation import (
+    ToolIsolation,
+    ToolIsolationUnavailable,
+    isolation_unavailable_reason,
+    sandboxed_command,
+    tool_isolation,
+)
 from learnloop.ai.providers import codex as codex_module
 from learnloop.ai.providers.codex import SdkCodexClient, isolated_turn_overrides
 from learnloop.ai.transport import StructuredRequest
@@ -44,6 +60,22 @@ from tests.project_support import install_fake_codex_sdk
 
 CODEX = shutil.which("codex")
 needs_codex = pytest.mark.skipif(CODEX is None, reason="the Codex CLI is not installed")
+
+
+def _bwrap_works() -> bool:
+    if isolation_unavailable_reason() is not None:
+        return False
+    try:
+        with tempfile.TemporaryDirectory(prefix="learnloop-bwrap-probe-") as scratch:
+            workdir = Path(scratch) / "workdir"
+            workdir.mkdir()
+            probe = sandboxed_command(ToolIsolation(workdir=workdir), ["true"], home=Path(scratch) / "agent-home")
+            return subprocess.run(probe, capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.SubprocessError, ToolIsolationUnavailable):
+        return False
+
+
+requires_bwrap = pytest.mark.skipif(not _bwrap_works(), reason="bubblewrap cannot create a sandbox on this host")
 
 #: What `codex mcp list --json` showed on the owner's machine on 2026-10-15
 #: (names and enabled state only): two config servers, two plugin servers.
@@ -135,8 +167,9 @@ def test_the_old_cli_shape_still_disables_config_servers_by_name(tmp_path, monke
     _isolated_turn(_client(tmp_path, program))
     (launched,) = _launches(log)
     assert "mcp_servers.filesystem.enabled=false" in launched
-    # Already off: no override needed, and none is added.
-    assert not any(override.startswith("mcp_servers.docs.") for override in launched)
+    # Already off, and pinned off all the same (Codex review F1): the layer that
+    # turned it off might be one the launch does not load.
+    assert "mcp_servers.docs.enabled=false" in launched
 
 
 def test_config_server_names_with_path_characters_are_disabled_by_name(tmp_path, monkeypatch):
@@ -224,6 +257,244 @@ def test_non_isolated_turns_run_no_check(tmp_path, monkeypatch):
     assert _probes(log) == [] and _launches(log) == [[]]
 
 
+# -- the check sees the configuration the launch loads (Codex review F1) ----------------
+
+#: A ``codex`` for bubblewrap (``/bin/sh``, nothing outside the sandbox): its user
+#: config enables ``fsserver``, and a trusted ancestor project's layer turns it
+#: off wherever that layer can be read. It logs each probe and its directory.
+_LAYERED_CODEX = r"""#!/bin/sh
+pinned=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -c|--config) [ "$2" = "mcp_servers.fsserver.enabled=false" ] && pinned=1; shift 2 ;;
+    *) break ;;
+  esac
+done
+printf '%s %s|%s\n' "$1" "$2" "$(pwd)" >> LOG
+enabled=true
+[ -r ANCESTOR/.codex/config.toml ] && enabled=false
+[ -n "$pinned" ] && enabled=false
+case "$1 $2" in
+  "mcp list") printf '[{"name": "fsserver", "enabled": %s}]\n' "$enabled" ;;
+  "features list") printf 'apps  stable  false\nplugins  stable  false\n' ;;
+  *) exit 2 ;;
+esac
+"""
+
+
+def _ancestor_project(tmp_path: Path) -> tuple[Path, Path]:
+    """A project whose ``.codex/config.toml`` disables ``fsserver``, and the
+    sandbox's working directory inside it (bubblewrap mounts only the latter)."""
+
+    project = tmp_path / "project"
+    (project / ".git").mkdir(parents=True)
+    (project / ".codex").mkdir()
+    (project / ".codex" / "config.toml").write_text("[mcp_servers.fsserver]\nenabled = false\n", encoding="utf-8")
+    workdir = project / "work"
+    workdir.mkdir()
+    return project, workdir
+
+
+@requires_bwrap
+def test_the_check_runs_inside_the_sandbox_in_the_turns_own_directory(tmp_path, monkeypatch):
+    """A layer the sandbox cannot see disabled the server on the host only: the
+    check must list it where the app server will run, and pin it off."""
+
+    project, workdir = _ancestor_project(tmp_path)
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    log = workdir / "probes.log"
+    agent = tmp_path / "tools" / "codex"
+    agent.parent.mkdir()
+    agent.write_text(_LAYERED_CODEX.replace("LOG", shlex.quote(str(log))).replace("ANCESTOR", shlex.quote(str(project))),
+                     encoding="utf-8")
+    agent.chmod(0o755)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    (tmp_path / "vault").mkdir()
+    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=str(agent)),
+                            tmp_path / "vault")
+    with tool_isolation(ToolIsolation(workdir=workdir)):
+        _isolated_turn(client)
+    root = captured["thread_start"]["cwd"]
+    assert "mcp_servers.fsserver.enabled=false" in captured["app_config"]["config_overrides"]
+    assert log.read_text(encoding="utf-8").splitlines() == [
+        f"mcp list|{root}", f"mcp list|{root}", f"features list|{root}",
+    ]
+
+
+def test_a_check_the_sandbox_refuses_refuses_the_turn(tmp_path, monkeypatch):
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    monkeypatch.setattr("learnloop.ai.isolation.bubblewrap_path", lambda: None)
+    with tool_isolation(ToolIsolation(workdir=tmp_path / "work")):
+        (tmp_path / "work").mkdir()
+        with pytest.raises(CodexUnavailable, match="refusing the isolated turn"):
+            _isolated_turn(_client(tmp_path, program))
+    assert fake_codex_calls(log) == [] and "app_config" not in captured
+
+
+# -- the launch command's own configuration flags (Codex review F2) ---------------------
+
+
+def _launch_command_client(tmp_path: Path, program: Path, *, before: str = "", after: str) -> SdkCodexClient:
+    (tmp_path / "vault").mkdir(exist_ok=True)
+    command = " ".join(part for part in (str(program), before, "app-server", after) if part)
+    return SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_launch_command=command),
+                          tmp_path / "vault")
+
+
+def test_configuration_flags_after_app_server_are_checked_and_launched_as_one_set(tmp_path, monkeypatch):
+    """`-c` is global in codex-cli 0.163.0: written after `app-server` it still
+    applies, and after the turn's own overrides it would win over them."""
+
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
+    after = ("-c features.apps=true --config=mcp_servers.node_repl.enabled=true -cfeatures.plugins=true "
+             "--listen stdio://")
+    _isolated_turn(_launch_command_client(tmp_path, program, after=after))
+
+    loaded = json.loads(captured["spawned"]["stdout"])
+    assert loaded["servers_on"] == []
+    assert not {"apps", "plugins"} & set(loaded["features_on"])
+    launch = captured["app_config"]["launch_args_override"]
+    assert launch[-3:] == ("app-server", "--listen", "stdio://")
+    # The user's flags first, then the turn's: the probes ran the same set.
+    (launched,) = _launches(log)
+    assert launched[:3] == ["features.apps=true", "mcp_servers.node_repl.enabled=true", "features.plugins=true"]
+    assert [overrides for _probe, overrides in _probes(log)][1:] == [launched, launched]
+
+
+@pytest.mark.parametrize(
+    "before, after, flag",
+    [
+        ("", "--enable apps --listen stdio://", "--enable apps"),
+        ("", "--enable=plugins", "--enable=plugins"),
+        # Before `app-server` too: a toggle applies after every `-c`, wherever it stands.
+        ("--enable hooks", "--listen stdio://", "--enable hooks"),
+    ],
+)
+def test_a_feature_toggle_that_turns_an_isolation_feature_back_on_refuses_the_turn(
+    tmp_path, monkeypatch, before, after, flag
+):
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
+    with pytest.raises(CodexUnavailable, match="refusing the isolated turn") as refused:
+        _isolated_turn(_launch_command_client(tmp_path, program, before=before, after=after))
+    assert flag.replace("=", " ").split()[-1] in str(refused.value)
+    assert _launches(log) == [] and "app_config" not in captured
+
+
+@pytest.mark.parametrize("after", ["--remote-control", "proxy", "--listen", "--analytics-default-enabled=x"])
+def test_an_argument_after_app_server_the_check_cannot_read_refuses_the_turn(tmp_path, monkeypatch, after):
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
+    with pytest.raises(CodexUnavailable, match="refusing the isolated turn"):
+        _isolated_turn(_launch_command_client(tmp_path, program, after=after))
+    assert fake_codex_calls(log) == [] and "app_config" not in captured
+
+
+@pytest.mark.parametrize("after", ["--listen stdio://", "--listen=stdio://", "--stdio", "--strict-config", ""])
+def test_the_app_servers_own_arguments_stay_after_it(tmp_path, monkeypatch, after):
+    program, _log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True,
+                                      launch_failure_raises=True)
+    _isolated_turn(_launch_command_client(tmp_path, program, after=after))
+    launch = captured["app_config"]["launch_args_override"]
+    assert list(launch[launch.index("app-server"):]) == ["app-server", *after.split()]
+
+
+# -- the request deadline and cancellation cover the check (Codex review F3) --------------
+
+
+def test_the_check_runs_inside_the_request_deadline(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex_module, "_CODEX_PROBE_TIMEOUT_SECONDS", 8.0)
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE, behaviour={"mcp list": "hang"})
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    started = time.monotonic()
+    with pytest.raises(CodexTurnTimeout, match="1-second deadline"):
+        _client(tmp_path, program).complete(StructuredRequest(
+            purpose="blind_grading", prompt="p", result_model=LinkJudgment, isolated=True, timeout_seconds=1.0,
+        ))
+    assert time.monotonic() - started < 6
+    assert len(_probes(log)) == 1 and _launches(log) == [] and "app_config" not in captured
+
+
+def test_the_turn_gets_only_what_the_check_left_of_the_deadline(tmp_path, monkeypatch):
+    # Two slow probes (no server to pin) take at least 1 s of a 1.6 s deadline;
+    # the turn needs 1 s more, so the deadline ends it.
+    program, _log = write_fake_codex(tmp_path / "bin", behaviour={"mcp list": "slow", "features list": "slow"},
+                                     slow_seconds=0.5)
+    install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', turn_seconds=1.0)
+    with pytest.raises(CodexTurnTimeout, match="1.6-second deadline"):
+        _client(tmp_path, program).complete(StructuredRequest(
+            purpose="blind_grading", prompt="p", result_model=LinkJudgment, isolated=True, timeout_seconds=1.6,
+        ))
+
+
+def _interrupted_during_the_check(client: SdkCodexClient, started, *, isolation: ToolIsolation | None = None):
+    """Run an isolated turn, interrupt it once ``started()`` (the first probe
+    is running); return its error and how long it took to stop."""
+
+    outcome: dict[str, BaseException] = {}
+
+    def run() -> None:
+        try:
+            if isolation is None:
+                _isolated_turn(client)
+            else:
+                with tool_isolation(isolation):
+                    _isolated_turn(client)
+        except BaseException as exc:  # noqa: BLE001 - the test inspects it
+            outcome["error"] = exc
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    waited = time.monotonic() + 20
+    while not started() and time.monotonic() < waited:
+        time.sleep(0.05)
+    assert started(), "the launch check never started"
+    interrupted_at = time.monotonic()
+    client.interrupt()
+    worker.join(15)
+    assert not worker.is_alive()
+    return outcome.get("error"), time.monotonic() - interrupted_at
+
+
+def test_an_interrupt_during_the_check_stops_it_and_nothing_launches(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex_module, "_CODEX_PROBE_TIMEOUT_SECONDS", 12.0)
+    program, log = write_fake_codex(tmp_path / "bin", **OWNER_SHAPE, behaviour={"mcp list": "hang"})
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    error, seconds = _interrupted_during_the_check(_client(tmp_path, program), lambda: bool(_probes(log)))
+    assert isinstance(error, CodexInterrupted) and seconds < 8
+    assert len(_probes(log)) == 1 and _launches(log) == [] and "app_config" not in captured
+
+
+@requires_bwrap
+def test_an_interrupt_stops_a_check_running_inside_the_sandbox(tmp_path, monkeypatch):
+    monkeypatch.setattr(codex_module, "_CODEX_PROBE_TIMEOUT_SECONDS", 12.0)
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    log = workdir / "probes.log"
+    agent = tmp_path / "tools" / "codex"
+    agent.parent.mkdir()
+    agent.write_text(f"#!/bin/sh\necho started >> {shlex.quote(str(log))}\nexec sleep 30\n", encoding="utf-8")
+    agent.chmod(0o755)
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    (tmp_path / "vault").mkdir()
+    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=str(agent)),
+                            tmp_path / "vault")
+    error, seconds = _interrupted_during_the_check(client, log.exists, isolation=ToolIsolation(workdir=workdir))
+    assert isinstance(error, CodexInterrupted) and seconds < 8
+    assert log.read_text(encoding="utf-8").splitlines() == ["started"] and "app_config" not in captured
+
+
 # -- the installed binary --------------------------------------------------------------
 
 
@@ -303,3 +574,52 @@ def test_the_installed_codex_addresses_path_characters_but_not_dots(tmp_path, mo
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), tmp_path)
     with pytest.raises(CodexUnavailable, match="'a.b'"):
         client._verified_isolated_overrides(cwd, shell=False)
+
+
+def _listed_in_sandbox(isolation: ToolIsolation, overrides, cwd: Path) -> list[tuple[str, bool]]:
+    """`codex mcp list --json` inside ``isolation``, in ``cwd``: what the app server would load there."""
+
+    args = [CODEX]
+    for override in overrides:
+        args += ["-c", override]
+    command = sandboxed_command(isolation, ["/bin/sh", "-c", 'cd "$0" && exec "$@"', str(cwd), *args,
+                                            "mcp", "list", "--json"])
+    listed = subprocess.run(command, capture_output=True, text=True, timeout=60)
+    assert listed.returncode == 0, listed.stderr
+    return [(server["name"], server["enabled"]) for server in json.loads(listed.stdout)]
+
+
+@needs_codex
+@requires_bwrap
+def test_the_installed_codex_pins_a_server_only_an_unseen_ancestor_project_disables(tmp_path, monkeypatch):
+    """Codex review F1 on the installed binary: the user config enables a server,
+    a trusted ancestor project disables it, and bubblewrap mounts only the
+    working directory inside that project, so only the host sees the layer."""
+
+    project, workdir = _ancestor_project(tmp_path)
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    (home / "config.toml").write_text(
+        f'[mcp_servers.fsserver]\ncommand = "/bin/true"\n\n[projects.{json.dumps(str(project))}]\n'
+        'trust_level = "trusted"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    isolation = ToolIsolation(workdir=workdir)
+    # The cause: the two views disagree.
+    seen = workdir / "seen"
+    seen.mkdir()
+    host = _listed({**os.environ, "CODEX_HOME": str(home)}, [], seen)
+    assert host.returncode == 0, host.stderr
+    assert [(server["name"], server["enabled"]) for server in json.loads(host.stdout)] == [("fsserver", False)]
+    assert _listed_in_sandbox(isolation, [], seen) == [("fsserver", True)]
+
+    captured = install_fake_codex_sdk(monkeypatch, final_response='{"links": []}')
+    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), tmp_path)
+    with tool_isolation(isolation):
+        _isolated_turn(client)
+    overrides = captured["app_config"]["config_overrides"]
+    assert "mcp_servers.fsserver.enabled=false" in overrides
+    root = Path(captured["thread_start"]["cwd"])
+    root.mkdir()  # the turn's empty directory, removed after the turn
+    assert _listed_in_sandbox(isolation, overrides, root) == [("fsserver", False)]
