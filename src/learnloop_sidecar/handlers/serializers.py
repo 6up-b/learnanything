@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -881,14 +882,19 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "max_points": max_points,
             "regraded_at": regrade_marker["at"],
             "direction": regrade_direction,
+            # UX Phase 4 (Codex review F6): the grade the regrade replaced was
+            # held for review, so its score was the grader's provisional one
+            # and the history never shows it.
+            "old_held": _regrade_replaced_held(repository, attempt_id),
         }
+    from learnloop.attempts.attempts import attempt_graded_contract
     from learnloop.attempts.trace_evidence import learner_answer_part, volunteered_explanation
-    from learnloop.db.stores.answered_contracts import answered_contracts
     from learnloop.held_grades import attempt_grade_held
+    from learnloop.learner.assessment_contracts import contract_required_method
 
     trace_md = attempt.get("learner_answer_md")
-    with repository.connection() as connection:
-        answered_contract = answered_contracts(connection, [attempt_id]).get(attempt_id)
+    graded_contract = attempt_graded_contract(repository, attempt_id)
+    contract = graded_contract.contract if graded_contract is not None else None
     return versioned(
         {
             "attempt_id": attempt_id,
@@ -906,9 +912,22 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "learner_explanation_md": volunteered_explanation(trace_md),
             # The question as it was given, for the screen that shows it beside
             # the answers: a method-explicit answer's frozen statement and its
-            # rendered instruction (method-explicit-3 F3); None when the item's
-            # own presentation is the question it was given.
-            "answered_presentation": _answered_presentation_or_none(item, answered_contract),
+            # rendered instruction (method-explicit-3 F3), or the frozen
+            # statement of an item edited since (Codex review F5); None when
+            # the item's own presentation is the question it was given.
+            "answered_presentation": _answered_presentation_or_none(
+                item,
+                {"prompt": contract.get("prompt"), "required_method": contract_required_method(contract)}
+                if contract is not None
+                else None,
+            ),
+            # The answer key and rubric that question was given with, from the
+            # same assessment contract (Codex review F5): feedback shows "a full
+            # answer" and the criteria lines from these, never today's key
+            # beside yesterday's question. None for an answer graded before
+            # contracts (the screen then reads the item).
+            "answered_expected_answer": contract.get("expected_answer") if contract is not None else None,
+            "answered_criteria": _answered_criteria(contract),
             "rubric_score": attempt["rubric_score"] or 0,
             "max_points": max_points,
             "correctness": attempt["correctness"] or 0.0,
@@ -1053,12 +1072,92 @@ def intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None:
 def _answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None:
     """:func:`answered_presentation`, or None when the item cannot be rendered
     (the screen then falls back to the item's own presentation; feedback is
-    never refused over the question's display)."""
+    never refused over the question's display).
+
+    Feedback also shows the frozen statement of an item whose prompt was
+    edited after the answer (Codex review F5), so the question sits beside the
+    answer key it was given with.
+    """
 
     try:
-        return answered_presentation(item, contract)
+        presented = answered_presentation(item, contract)
+        if presented is not None or contract is None:
+            return presented
+        frozen = contract.get("prompt")
+        if not isinstance(frozen, str) or frozen == item.prompt:
+            return None
+        presentation = item_presentation(item)
+        return {
+            **presentation,
+            "blocks": [
+                {**block, "markdown": frozen} if block["kind"] == "prompt" else block
+                for block in presentation["blocks"]
+            ],
+        }
     except SidecarError:
         return None
+
+
+def _answered_criteria(contract: Mapping[str, Any] | None) -> dict[str, dict[str, Any]] | None:
+    """``{criterion id: {"description", "points_possible"}}`` as the graded
+    assessment contract froze them (Codex review F5), or None without one."""
+
+    if contract is None:
+        return None
+    criteria: dict[str, dict[str, Any]] = {}
+    for raw in contract.get("criteria") or []:
+        if not isinstance(raw, Mapping) or not raw.get("id"):
+            continue
+        criteria[str(raw["id"])] = {
+            "description": str(raw.get("description") or raw["id"]),
+            "points_possible": float(raw.get("max_points") or 0.0),
+        }
+    return criteria
+
+
+def _regrade_replaced_held(repository: Repository, attempt_id: str) -> bool:
+    """Was the grade the latest regrade replaced held for review (Codex review F6)?
+
+    THE held predicate evaluated on that grade: a blind record of the attempt
+    held it (``held_grades.record_held_for_review``) and nothing in that
+    grading epoch was assessed. Display only: the regrade history then says
+    "held for review" where it would have shown the provisional score.
+    """
+
+    from learnloop.outcome_contract import grade_held_for_review, unassessed_evidence_row
+
+    with repository.connection() as connection:
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+        ).fetchone() is None:
+            return False
+        held_records = 0
+        for (record_json,) in connection.execute(
+            "SELECT record_json FROM blind_grade_records WHERE attempt_id = ?", (attempt_id,)
+        ):
+            try:
+                record = json.loads(record_json) if isinstance(record_json, str) else (record_json or {})
+            except ValueError:
+                continue
+            if isinstance(record, dict) and grade_held_for_review(record.get("grading_support")):
+                held_records += 1
+        if not held_records:
+            return False
+        rows = connection.execute(
+            "SELECT grading_revision, created_at, attribution_json FROM grading_evidence "
+            "WHERE attempt_id = ? ORDER BY created_at, COALESCE(grading_revision, -1), id",
+            (attempt_id,),
+        ).fetchall()
+    epochs: dict[str, dict[str, Any]] = {}
+    for revision, created_at, attribution in rows:
+        key = f"revision:{revision}" if revision is not None else f"legacy:{created_at}"
+        epoch = epochs.setdefault(key, {"at": str(created_at), "assessed": False})
+        if not unassessed_evidence_row(attribution):
+            epoch["assessed"] = True
+    ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
+    if len(ordered) < 2:
+        return False
+    return not ordered[-2][1]["assessed"]
 
 
 def _latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]:

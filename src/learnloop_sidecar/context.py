@@ -727,6 +727,11 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             if isinstance(candidate_submission_id, str) and candidate_submission_id.strip():
                 submission_id = candidate_submission_id.strip()
     envelope = teach_back_envelope(row.get("current_answer"))
+    # UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
+    # it showed a full answer, so a resumed draft reopens locked to it.
+    from learnloop_sidecar.handlers.sessions import draft_self_grade_disclosure
+
+    disclosure = draft_self_grade_disclosure(row)
     return to_camel(
         {
             "current_practice_item_id": row.get("current_practice_item_id"),
@@ -738,6 +743,15 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             # Router R2a (review F5): the daily-plan presentation the draft
             # answers, restored with it after a restart.
             "plan_presentation_id": plan_presentation_id,
+            "self_grade_disclosure": (
+                {
+                    "submission_id": disclosure["submission_id"],
+                    "answer_md": disclosure["answer_md"],
+                    "explanation_md": disclosure["explanation_md"],
+                }
+                if disclosure is not None
+                else None
+            ),
             "focus_block_state": focus,
             "pending_grading_proposal": row.get("pending_grading_proposal"),
             "readiness": row.get("readiness"),

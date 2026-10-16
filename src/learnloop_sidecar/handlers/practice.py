@@ -56,7 +56,14 @@ from learnloop_sidecar.handlers.queue import (
     publish_offer,
 )
 from learnloop_sidecar.handlers.serializers import practice_item_detail
-from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, draft_plan_presentation, patch_checkpoint
+from learnloop_sidecar.handlers.sessions import (
+    SessionCheckpointInput,
+    clear_checkpoint,
+    draft_plan_presentation,
+    draft_self_grade_disclosure,
+    patch_checkpoint,
+    settle_self_grade_disclosure,
+)
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
 from learnloop_sidecar.serving import (
@@ -84,6 +91,18 @@ class PracticeDraftCheckpoint(ParamsModel):
     #: Kept with the draft so a navigation or restart before the grade
     #: commits restores the stuck answer it was, not an ordinary one.
     declared_stuck: bool = False
+
+
+class SelfGradeDisclosureInput(ParamsModel):
+    """UX Phase 4 (Codex review F1): the whole trace a plain self-grade froze
+    before it shows a full answer: the answer exactly as Submit sends it and
+    the volunteered line apart, under the draft's retry key."""
+
+    session_id: str
+    practice_item_id: str
+    submission_id: str
+    answer_md: str
+    explanation_md: str | None = None
 
 
 class PracticeSubmissionRecoveryInput(ParamsModel):
@@ -499,6 +518,75 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
     return {"ok": True}
 
 
+@method("record_self_grade_disclosure", SelfGradeDisclosureInput)
+def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosureInput) -> dict[str, Any]:
+    """Freeze the learner's whole trace before the plain self-grade shows a
+    full answer (UX Phase 4, Codex review F1).
+
+    The desktop shows the expected answer beside the learner's only after
+    this returns. The frozen trace is kept with the draft in the session
+    checkpoint, so a resume (another screen, a restart) reopens it locked, and
+    the submit compares against it: a trace changed after the answer was shown
+    is recorded as primed. When the draft is done with, its exposure is
+    settled in the reveal ledger (``sessions.settle_self_grade_disclosure``).
+    """
+
+    vault, repository = ctx.require_vault()
+    item = _require_active_item(vault, params.practice_item_id)
+    submission_id = _submission_id(params.submission_id, None)
+    if submission_id is None:
+        raise SidecarError("validation_error", "submissionId must not be blank.", details={"field": "submissionId"})
+    explanation_md = (params.explanation_md or "").strip() or None
+    patch_checkpoint(
+        repository,
+        SessionCheckpointInput(
+            session_id=params.session_id,
+            current_practice_item_id=params.practice_item_id,
+            current_answer=params.answer_md,
+            submission_id=submission_id,
+        ),
+        self_grade_disclosure={
+            "practiceItemId": params.practice_item_id,
+            "learningObjectId": item.learning_object_id,
+            "submissionId": submission_id,
+            "answerMd": params.answer_md,
+            "explanationMd": explanation_md,
+        },
+    )
+    log_event(
+        "self_grade_disclosure_frozen",
+        session_id=params.session_id,
+        practice_item_id=params.practice_item_id,
+        has_explanation=explanation_md is not None,
+    )
+    return versioned({"frozen": True})
+
+
+def _changed_after_disclosure(repository, session_id: str, practice_item_id: str, submission_id: str | None,
+                              learner_answer_md: str) -> bool:
+    """Did the learner submit a trace other than the one frozen before the
+    plain self-grade showed a full answer (UX Phase 4, Codex review F1)?
+
+    Such an answer was (or may have been) written with the answer in view, so
+    it is recorded as primed. A read failure admits (never blocks a submit)."""
+
+    if not submission_id:
+        return False
+    try:
+        checkpoint = repository.fetch_session_checkpoint(session_id)
+    except Exception:  # noqa: BLE001 - a receipt never fails a submit
+        return False
+    disclosure = draft_self_grade_disclosure(checkpoint)
+    if (
+        disclosure is None
+        or disclosure["practice_item_id"] != practice_item_id
+        or disclosure["submission_id"] != submission_id
+    ):
+        return False
+    frozen = compose_learner_trace(disclosure["answer_md"], disclosure["explanation_md"])
+    return frozen != learner_answer_md
+
+
 def _plan_presentation(repository, params: Any) -> str | None:
     """The plan presentation an answer binds to: the one it sends, else the one
     its saved draft named under the same retry key (router R2a, review F5: a
@@ -584,6 +672,16 @@ def acknowledge_practice_submission(
             "submissionId must not be blank.",
             details={"field": "submissionId"},
         )
+    checkpoint = repository.fetch_session_checkpoint(params.session_id)
+    disclosure = draft_self_grade_disclosure(checkpoint)
+    if (
+        disclosure is not None
+        and disclosure["practice_item_id"] == params.practice_item_id
+        and disclosure["submission_id"] == submission_id
+    ):
+        # The self-graded draft committed: its full answer counts against the
+        # next attempt (Codex review F1).
+        settle_self_grade_disclosure(repository, checkpoint)
     status = repository.acknowledge_practice_checkpoint(
         params.session_id,
         practice_item_id=params.practice_item_id,
@@ -638,6 +736,15 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     # client, a handler, or a detection site.
     explanation_md = (params.explanation_md or "").strip() or None
     learner_answer_md = compose_learner_trace(params.answer_md, explanation_md)
+    primed = params.primed
+    if not primed and _changed_after_disclosure(
+        repository, params.session_id, params.practice_item_id, submission_id, learner_answer_md
+    ):
+        # Codex review F1: the plain self-grade showed a full answer after
+        # freezing this draft's trace, and the trace changed since.
+        primed = True
+        log_event("self_grade_trace_changed_after_disclosure", session_id=params.session_id,
+                  practice_item_id=params.practice_item_id)
     scheduler_candidate_id = _bind_offer(repository, params, submission_id)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
@@ -647,7 +754,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
-        primed=params.primed,
+        primed=primed,
         probe_presentation_id=params.probe_presentation_id,
         plan_presentation_id=_plan_presentation(repository, params),
         answer_confidence=params.answer_confidence,
@@ -1007,7 +1114,7 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
         ctx, vault, repository, queue, trace=trace, surface="skip_requeue",
         removed_ids=frozenset({params.practice_item_id}),
     )
-    repository.clear_session_checkpoint(params.session_id)
+    clear_checkpoint(repository, params.session_id)
     return versioned(
         {
             "generated_at": utc_now_iso(),

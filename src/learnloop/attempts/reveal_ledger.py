@@ -276,3 +276,66 @@ def record_answer_display_reveal(
         attempt_id=attempt_id,
         clock=clock,
     )
+
+
+#: The basis of the reveal a plain self-grade's full answer is settled under
+#: (UX Phase 4, Codex review F1), one per draft retry key.
+SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
+
+
+def record_self_grade_disclosure_reveal(
+    repository: Repository,
+    *,
+    practice_item_id: str,
+    submission_id: str,
+    learning_object_id: str | None = None,
+    attempt_id: str | None = None,
+    clock: Clock | None = None,
+) -> str | None:
+    """Debit the ledger for the full answer a plain self-grade showed.
+
+    The desktop's plain self-grade shows the expected answer beside the
+    learner's answer, and only after that whole trace was frozen in the
+    session checkpoint (so the answer it grades was written before the answer
+    was seen). The exposure is settled when the frozen draft is done with:
+
+    * committed (``attempt_id``): the attempt that answered it links the row,
+      exactly as the feedback screen's display does
+      (:func:`record_answer_display_reveal`, once per attempt): it counts
+      against the NEXT attempt, never against the trace frozen before it;
+    * abandoned (no attempt under its retry key): an unlinked row stamped now,
+      so every later attempt on the item, and every later production on the
+      item or its learning object, was produced after the answer was seen.
+
+    Idempotent per retry key; best effort, like every writer here.
+    """
+
+    basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}"
+    if attempt_id:
+        return record_answer_display_reveal(
+            repository,
+            attempt_id=attempt_id,
+            practice_item_id=practice_item_id,
+            learning_object_id=learning_object_id,
+            basis=basis,
+            clock=clock,
+        )
+    try:
+        if any(
+            row.get("basis") == basis
+            for row in repository.reveal_events(practice_item_id=practice_item_id, source_kind="answer_display")
+        ):
+            return None
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("self-grade disclosure lookup failed for %s", practice_item_id, exc_info=True)
+        return None
+    return record_reveal(
+        repository,
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        remediation_episode_id=reveal_episode_id(repository, practice_item_id),
+        source_kind="answer_display",
+        amount=1.0,
+        basis=basis,
+        clock=clock,
+    )

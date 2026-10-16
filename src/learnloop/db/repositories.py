@@ -10295,6 +10295,25 @@ class Repository(
         payload["readiness"] = _loads(payload.pop("readiness_json"), None)
         return payload
 
+    def open_session_checkpoints_except(self, session_id: str) -> list[dict[str, Any]]:
+        """The checkpoints of every OTHER open session (the ones
+        :meth:`end_open_sessions_except` is about to end), decoded like
+        :meth:`fetch_session_checkpoint`."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT checkpoint.session_id
+                FROM session_checkpoints checkpoint
+                JOIN sessions ON sessions.id = checkpoint.session_id
+                WHERE sessions.ended_at IS NULL AND sessions.id != ?
+                ORDER BY checkpoint.session_id
+                """,
+                (session_id,),
+            ).fetchall()
+        checkpoints = [self.fetch_session_checkpoint(str(row["session_id"])) for row in rows]
+        return [checkpoint for checkpoint in checkpoints if checkpoint is not None]
+
     def clear_session_checkpoint(self, session_id: str) -> bool:
         with self.connection() as connection:
             cursor = connection.execute(
