@@ -421,3 +421,95 @@ sources from `main`: with this branch's two test-only helpers
    main's unreached `copy/denyList.ts` classified, before its next
    regeneration. *Default: left to that regeneration; nothing here changes
    the generator.*
+
+## Landing onto main
+
+**Branch:** `merge/reader-pdf-selection-onto-main` (worktree `learnanything-merge2`), from main `2c23afe3f` (`mvp-0.25`, migration head 205: the diagnosis input provenance landing with `diagnosis.chat_shows_recorded_text` off, the references regenerated at head 205, the Pipeline Map, and the adaptive-difficulty spec revisions with the owner's D21 decision). Merge base `37a2a7e5f`; the stage tip is `e7a9b7a81`, unchanged. Not pushed, and main not moved.
+
+**Commits:**
+- `fe1fe71ed`: a real `--no-ff` merge of `reader/pdf-selection` (12 commits).
+- `5e69e2c41`: the regenerated references and the Pipeline Map.
+- This record.
+
+### Conflicts and composition
+
+**No textual conflicts.** `git merge` resolved every file itself, and the merge commit's combined diff (`git show --cc`) is empty. `main..merge` is exactly the stage's own diff from its base (39 files, +8,579 / −901).
+
+**One file changed on both sides, `src/learnloop/db/repositories.py`, in disjoint hunks:**
+- main's provenance hooks: `_record_text_provenance` on misconceptions, candidates and corrections, Q10's contract on `insert_question_event`, and the hypothesis record;
+- the stage's `_UNDO_OF` / `_STANDING_DELETE`, the listing in `annotations_for_source`, `withdraw_annotation_delete` and `block_content_hashes`.
+
+Both sides were read after the merge. The two features never meet:
+- The stage writes only `source_annotation_events` (a `disposition` event, an allowed type). Write-time provenance records model-written text and never reads annotations.
+- The stage changes no question-event writer, so main's Q10 contract recording (`insert_question_event`) works as it landed.
+
+**Every other file the stage touches is untouched on main since the base:**
+- the sidecar's reader handlers, `reader/annotations.py` and `reader_guidance.py`;
+- `content/sources/exam_material.py`, which the stage's `reading_protection` reads (main's `learner_protection.py` change, which checks what a writer read for chat's rule (c), reads it and leaves it unchanged);
+- `tests/test_mobile_allowlist.py`: main's pins are as they were, and the stage's `READER_PDF_SELECTION_RPCS` (`reader.restore_annotation`) and `READER_PDF_SELECTION_EXTENDED_RPCS` (`reader.source_annotations`, `reader.pdf_view`, `reader.render_view`) stay desktop-only;
+- everything under `apps/` (main changed nothing there).
+
+No migration, no schema change and no algorithm successor, so nothing was renumbered.
+
+### Generated files
+
+- **CLI help snapshot** (`tests/test_cli_help_snapshot.py --write`, after deleting `config/__pycache__/template.cpython-312.pyc` and touching `template.py`): unchanged.
+- **DB/config references.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, 324 table notes, schema head 205. There is no schema or configuration change, so the prose counts in `Database.md` (324 tables, 305 non-derived) and `Configuration.md` stand. Beyond the source-commit labels, the regenerated table notes' reader and writer lists now name `Repository.withdraw_annotation_delete`, `Repository.block_content_hashes` and the stage's tests (377 notes, mostly the label).
+- **Pipeline Map.** A Reader entry was added: one selection model on the original PDF, exact anchors, and highlights placed on the open reading through `span_aliases` (`reader.source_annotations` with `extractionId`). It also covers the desktop-only `reader.restore_annotation` undo (a `disposition` event naming the one delete it withdraws) and `protection` on `reader.pdf_view` / `reader.render_view` from `exam_material`. Display and anchors only. A node was added to the Reader diagram, and the alias-authority consumers, the source paths and the gaps list follow. `validate_vault.py` passes: 1,109 notes, all 1,107 non-template notes reachable from Home.
+- **Module reference** (`module_validate.py`, catalog last generated 2026-09-23): fails **identically on main and on the merge**, with 751 issues, coverage 474/840 and package maps 33/52. The listed issues are notes missing for modules added since the catalog was generated. The stage adds no Python module. (§6 above says it passed on the stage's base; on main `2c23afe3f` it does not.) Not regenerated here.
+- **Desktop reference** (`desktop_validate.py`): fails the same way as on main, with nothing new in kind. The activation audit stops at the first unclassified source, and the merge adds two of the same kind (test-only helpers with no rule). Listing every unclassified source on both trees, with the generator's git provenance stubbed so main's `git archive` export could be read:
+  - main: `src/copy/denyList.ts` and `src/testNodeShims.d.ts`;
+  - the merge: the same two plus `src/components/pdfSelection/testing/syntheticBook.ts` and `syntheticPdf.ts`, imported only by the stage's vitest files.
+
+  So the audit now stops at `pdfSelection/testing/syntheticBook.ts` instead of `copy/denyList.ts`. The generator was not changed (§7, question 8).
+
+### Gate
+
+Run on the final code tree `5e69e2c41`; only this record was committed after it. Python 3.12.14, SQLite 3.53.1, Node 26.11.1, npm 12.2.0, cargo 1.99.0. `TMPDIR` was this worktree's `fixtures-local/tmp`. No paid call ($0.00): every test uses fakes.
+
+| Lane | Command | Result |
+|---|---|---|
+| Install | `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` (5.14.0); `uv run --no-sync` afterwards | ok |
+| Import contracts | `uv run --no-sync lint-imports --no-cache` | **22 kept**, 0 broken |
+| Full suite | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto -q -p no:cacheprovider` | **11,953 passed, 2 xfailed** (main's strict F2/F3 provenance marks), 0 failed (16 warnings), in 16 min 54 s (`fixtures-local/reader-pdf-landing-fullsuite.log`) |
+| Durability | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability -q -p no:cacheprovider` | **106 passed**, 11,849 deselected, in 1 min 51 s (`fixtures-local/reader-pdf-landing-durability.log`) |
+| Targeted (no lock) | `tests/test_reader_pdf_selection.py`, `test_mobile_allowlist.py`, `test_coordinated_migrations.py` | **176 passed**, as at the stage's Codex-review gate; the first and last under `--durable-sqlite`: **48 passed** |
+| Frontend | `npm install`; `npm run typecheck`; `npm test`; `npm run frontend:build` | typecheck clean; vitest **671 passed in 90 files**; build ok (Vite's usual chunk-size notice) |
+| Tauri | `cargo check --manifest-path src-tauri/Cargo.toml` | ok |
+| References | `db_generate_reference.py` / `db_validate_reference.py` / `validate_vault.py` | regenerated / 0 errors / passes (above) |
+| CLI help snapshot, RPC pins | `--write`; `test_mobile_allowlist.py` in the suite | unchanged / pass |
+| `git diff --check main HEAD` | — | clean |
+
+`tests/test_coordinated_migrations.py` is green, both in the full suite and under `--durable-sqlite`. Nothing failed, so nothing needed a rerun alone. Against main's last gate (11,921 passed, 2 xfailed), the 32 new passes are the stage's tests.
+
+### Parity
+
+**Setup:**
+- **Copies.** The owner's working vaults, `fixtures/linear_algebra` and `fixtures/probability` in the main checkout, were each read once by `learnloop.db.copies.copy_tree_with_databases`: databases through the backup API, opened read-only; the other files by plain copy. They went into this worktree's gitignored `fixtures-local/landing-reader-pdf/orig/`. Per-side copies (`main/`, `merge/`, `upgrade/`) were made from those copies the same way. Both copies were at schema 165 (152 ledger rows), in WAL mode.
+- **The originals.** File sizes and mtimes were the same before and after, except each `state.sqlite-shm` (the WAL index, gitignored), whose mtime the read-only backup connection refreshed. `state.sqlite` and the empty `-wal` were unchanged. Nothing else opened them. `arxiv_v2` was not opened.
+- **Main's side.** Main `2c23afe3f`, exported with `git archive` into a scratch directory and put first on `PYTHONPATH`. Every run recorded the export's `learnloop/__init__.py`.
+- **The merge's side:** this worktree's code.
+- **Runs.** On each copy: its own code's coordinator (`open_vault_repository`), applying 40 migrations, 165 → 205 (192 ledger rows), the same on both sides. Then `learnloop rebuild --shadow --json` and `learnloop doctor --json`, with `LEARNLOOP_CONFIG_DIR` set to an empty directory. No AI call.
+- **Comparison.** Structural, with ULIDs, timestamps, hashes and paths set aside. Doctor reports were compared positionally and as multisets.
+
+| Vault copy | Shadow learner-state diff (facet / mastery / schedule), main → merge | Shadow differences | `live_database.unchanged` | Doctor main → merge | Doctor differences |
+|---|---|---:|---|---|---:|
+| linear algebra | 0 / 2 / 8 → 0 / 2 / 8 | **0** | true / true | 57 → 57 (1 error, 56 warnings) | **0** (multisets equal) |
+| probability | 0 / 1 / 1 → 0 / 1 / 1 | **0** | true / true | 101 → 101 (48 errors, 53 warnings) | **0** (multisets equal) |
+
+The non-zero learner-state diffs are the vaults' own (replay against live state on the owner's data), identical under both codes. Doctor exits 1 on both sides for the same pre-existing errors.
+
+**Upgrade shadow.** On one copy of each vault:
+1. Main's code upgraded it (165 → 205) and ran shadow and doctor.
+2. The merge's code opened it: 0 migrations applied, 205 → 205. It ran shadow and doctor.
+
+Results:
+- Shadow and doctor are **identical** on both vaults (0 differences; learner-state diff and doctor counts as in the table).
+- The schema (`sqlite_master`: 1,349 rows on linear algebra, 1,348 on probability) and the migration ledger (192 rows) are byte-identical after step 1 and after step 2.
+- **No version label changed**, as expected with no migration or successor in the branch.
+
+### Open items
+
+- **Generated references.** The desktop reference generator still needs a rule for test-only sources (`testNodeShims.d.ts`, `pdfSelection/testing/*.ts`) and a classification for main's `copy/denyList.ts` (§7, question 8). The module catalog is behind main by every module added since 2026-09-23. Both are for their next regeneration, not this landing.
+- **Owner questions.** §7's questions 1–7 stand with their defaults. The main one is question 5: undo is a `disposition` event, so there is no migration. A dedicated event type would be migration 206.
+- **Parallel stages.** The UX Phase 4, saved diagnosis forecasts and chatgpt_plan peer stages are running in parallel. Whichever lands after this one composes with `PdfReaderPane.tsx` / `ReaderScreen.tsx` (rewritten here) and with the pins in `tests/test_mobile_allowlist.py`.
