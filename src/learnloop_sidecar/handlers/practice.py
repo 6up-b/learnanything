@@ -248,12 +248,12 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # still render it.
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        # UX Phase 4 round 5: a session serve revalidates a cold check (a
-        # stale list, a restored session, a deep link): deferred when its
-        # answer was shown, refused when submit would still prime it.
-        from learnloop_sidecar.handlers.queue import refuse_unservable_cold_check
+        # UX Phase 4 rounds 5 and 6: a session serve revalidates a cold check
+        # (a stale list, a restored session, a deep link): deferred while a
+        # routine display covers it.
+        from learnloop_sidecar.handlers.queue import revalidate_cold_check
 
-        refuse_unservable_cold_check(vault, repository, item.id)
+        revalidate_cold_check(vault, repository, item.id)
     pick = None
     if params.session_id is not None and params.proposal_id:
         # A picked proposal is re-checked BEFORE anything is served (an item
@@ -264,7 +264,12 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         pick = select_on_open(ctx, practice_item_id=params.practice_item_id, session_id=params.session_id,
                               proposal_id=params.proposal_id,
                               source_exercise_import_id=params.source_exercise_import_id)
-    detail = practice_item_detail(vault, repository, params.practice_item_id)
+    # Only a session serve opens a cold administration, behind the guard
+    # above; a read without a session (feedback, the inspector) never does
+    # (round 6).
+    detail = practice_item_detail(
+        vault, repository, params.practice_item_id, administer=params.session_id is not None
+    )
     if params.session_id is not None:
         # Slice 1 E7: a session serve is the decision the lag rate counts.
         from learnloop_sidecar.handlers.queue import record_diagnosis_serve

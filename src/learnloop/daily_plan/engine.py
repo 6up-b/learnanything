@@ -734,8 +734,10 @@ def _classified_pool(
     """
 
     scheduled = env.build_eligible(minutes)
-    # UX Phase 4 round 5: a cold check the queue would no longer serve, or
-    # submit would prime, is not planned (``scheduler.cold_check_serve_hold``).
+    # UX Phase 4 rounds 5 and 6: a due cold check a routine display covers is
+    # not planned (``scheduler.cold_check_serve_hold``); that hold ends by
+    # itself within the coverage, and every other reveal kind keeps main's
+    # serving (round-6 ruling 2).
     cold = _open_cold_check_items(env)
     if cold:
         from learnloop.scheduling.scheduler import cold_check_serve_hold
@@ -2009,10 +2011,9 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     open_items = [item for item in record.items() if not item.resolved]
     now = env.now_iso()
     writes: list[tuple[str, str, dict[str, Any]]] = []
-    # UX Phase 4 round 5: a planned cold check is revalidated before it is
-    # served, against the one coverage the queue and submit read; one the
-    # queue would no longer serve, or submit would prime, is displaced (the
-    # task stays open and the queue serves it once it is cold again).
+    # UX Phase 4 rounds 5 and 6: a planned cold check is revalidated before it
+    # is served; one a routine display covers is displaced (its task deferred
+    # until that coverage ends, when the queue serves it again).
     cold_items = _open_cold_check_items(env)
     if open_items:
         earliest = min(item.planned_at for item in open_items)
@@ -2655,8 +2656,8 @@ def advance_with_context(
 
 def _held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> bool:
     """Revalidate a cold check at the moment the plan would serve it (UX Phase
-    4 round 5, ``scheduler.cold_check_serve_hold``); one the queue would no
-    longer serve, or submit would prime, is displaced, with the reason."""
+    4 rounds 5 and 6, ``scheduler.cold_check_serve_hold``); one a routine
+    display covers is displaced, with the reason."""
 
     if item.practice_item_id not in _open_cold_check_items(env):
         return False

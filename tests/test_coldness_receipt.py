@@ -1259,7 +1259,8 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
         clock=FrozenClock(NOW),
     )
 
-    detail = practice_item_detail(vault, repository, treatment["cold_item_id"])
+    # A serve opens the administration (UX Phase 4 round 6: a read never does).
+    detail = practice_item_detail(vault, repository, treatment["cold_item_id"], administer=True)
     assert detail["activeFollowupKind"] == "cold_retry"
     first = repository.coldness_receipt_for_task_stage(str(live["id"]), "administration")
     assert first is not None
@@ -1270,7 +1271,7 @@ def test_detail_serve_writes_one_snapshot_for_an_active_cold_task(tmp_path):
     assert cert_first["lane"] == "certification_cold_probe"
 
     # Serving the detail again is the same administration: one snapshot.
-    practice_item_detail(vault, repository, treatment["cold_item_id"])
+    practice_item_detail(vault, repository, treatment["cold_item_id"], administer=True)
     rows = repository.coldness_receipts_for_task(str(live["id"]))
     assert [row["stage"] for row in rows] == ["administration"]
     assert rows[0]["id"] == first["id"]
