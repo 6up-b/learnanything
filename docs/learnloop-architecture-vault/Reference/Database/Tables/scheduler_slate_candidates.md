@@ -3,13 +3,13 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
-source_commit_timestamp: "2026-10-15T21:55:41-04:00"
+source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
+source_commit_timestamp: "2026-10-15T22:47:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
   - "table scheduler_slate_candidates"
-schema_head: 205
+schema_head: 206
 table_name: "scheduler_slate_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/db/stores/router.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
@@ -122,6 +122,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/db/stores/router.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
@@ -155,6 +156,7 @@ Indexes and uniqueness:
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_migrations.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_probability_prep.py`
@@ -167,7 +169,6 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
-- `tests/test_e2e_codex_mock.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

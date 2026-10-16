@@ -3,13 +3,13 @@ title: "diagnostic_augmentation_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fe1fe71ed3d4e6596cf841d38be87962a872b23f"
-source_commit_timestamp: "2026-10-15T21:55:41-04:00"
+source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
+source_commit_timestamp: "2026-10-15T22:47:38-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_augmentation_receipts"
   - "table diagnostic_augmentation_receipts"
-schema_head: 205
+schema_head: 206
 table_name: "diagnostic_augmentation_receipts"
 table_role: "receipt"
 functionality_status: "active"
