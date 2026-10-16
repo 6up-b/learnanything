@@ -1998,6 +1998,25 @@ def _probe_episode_conflict(
     return episode_conflict_reason(repository, existing)
 
 
+def _answer_shown(repository: Repository, practice_item_id: str, *, clock: Clock | None = None) -> bool:
+    """Does a routine display of the item's answer cover now (UX Phase 4
+    round 7)? The offer asks before it changes anything."""
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
+
+
+class _OfferRefusedAtCommit(Exception):
+    """The commit refused the probe after the episode was retargeted: rolls
+    the retarget back with it (UX Phase 4 round 7)."""
+
+    def __init__(self, offer: "ProbeOffer") -> None:
+        super().__init__(offer.reason)
+        self.offer = offer
+
+
 def accept_probe_offer(
     vault: LoadedVault,
     repository: Repository,
@@ -2054,6 +2073,16 @@ def accept_probe_offer(
             candidate_id=str(candidate["id"]),
         )
     learning_object_id = item.learning_object_id
+    # UX Phase 4 round 7: the probe item's answer was just shown on a routine
+    # display. Refused before anything changes: no episode is relocked or
+    # entered, and no other presentation is invalidated.
+    if _answer_shown(repository, practice_item_id, clock=clock):
+        return ProbeOffer(
+            accepted=False,
+            reason="probe_item_answer_shown",
+            factor_id=factor_id,
+            candidate_id=str(candidate["id"]),
+        )
 
     from learnloop.diagnosis.probe_episodes import (
         RoutineDisplayCovered,
@@ -2062,6 +2091,100 @@ def accept_probe_offer(
         enter_episode,
         retarget_episode_to_causal_factor,
     )
+
+    def finish(episode) -> ProbeOffer:
+        """Everything after the episode is settled: eligibility, the pin and
+        the commit."""
+
+        if episode.status != "in_progress":
+            return ProbeOffer(
+                accepted=False,
+                reason=f"episode_{episode.status}",
+                factor_id=factor_id,
+                episode_id=episode.id,
+                candidate_id=str(candidate["id"]),
+            )
+        eligible = [
+            entry
+            for entry in eligible_instruments(vault, repository, episode)
+            if entry.item.id == practice_item_id
+        ]
+        if not eligible:
+            return ProbeOffer(
+                accepted=False,
+                reason="probe_item_not_eligible",
+                factor_id=factor_id,
+                episode_id=episode.id,
+                candidate_id=str(candidate["id"]),
+            )
+        bundle_ids = tuple(str(value) for value in candidate.get("blind_bundle_ids") or [])
+        # Accepting twice (a re-tapped button, a remounted panel) must not commit a
+        # second presentation: the newest would win at serving time and the older
+        # pin would be stranded.  An already-pinned, unconsumed probe for this same
+        # candidate IS this offer.
+        committed = repository.active_probe_presentation(
+            episode.id, practice_item_id=practice_item_id
+        )
+        if committed is not None:
+            already = pinned_causal_probe(repository, committed.id) or {}
+            if str(already.get("causal_probe_candidate_id") or "") == str(candidate["id"]):
+                return ProbeOffer(
+                    accepted=True,
+                    reason="probe_already_pinned",
+                    factor_id=factor_id,
+                    episode_id=episode.id,
+                    presentation_id=committed.id,
+                    practice_item_id=practice_item_id,
+                    candidate_id=str(candidate["id"]),
+                    hypothesis_set_id=str(candidate["hypothesis_set_id"]),
+                    blind_bundle_ids=tuple(
+                        str(value) for value in already.get("blind_bundle_ids") or []
+                    ),
+                )
+        try:
+            presentation = commit_presentation(
+                vault,
+                repository,
+                episode,
+                eligible[0],
+                extra_selection_components={
+                    # Nested under one key: the near-clone basis reads top-level
+                    # `source_practice_item_id`, and adding sibling keys there would
+                    # change an unrelated eligibility decision.
+                    "causal_probe": {
+                        "causal_factor_id": factor_id,
+                        "causal_probe_candidate_id": str(candidate["id"]),
+                        "hypothesis_set_id": str(candidate["hypothesis_set_id"]),
+                        "blind_bundle_ids": list(bundle_ids),
+                        "decision_receipt_id": decision_receipt_id,
+                        "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
+                        "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+                        "session_id": session_id,
+                    }
+                },
+                clock=clock,
+            )
+        except RoutineDisplayCovered:
+            # Its answer was shown after the check above (UX Phase 4 rounds 6
+            # and 7): no probe is administered for it until that coverage ends,
+            # and a retarget made in this offer is rolled back with it.
+            raise _OfferRefusedAtCommit(ProbeOffer(
+                accepted=False,
+                reason="probe_item_answer_shown",
+                factor_id=factor_id,
+                candidate_id=str(candidate["id"]),
+            ))
+        return ProbeOffer(
+            accepted=True,
+            reason="probe_pinned",
+            factor_id=factor_id,
+            episode_id=episode.id,
+            presentation_id=presentation.id,
+            practice_item_id=practice_item_id,
+            candidate_id=str(candidate["id"]),
+            hypothesis_set_id=str(candidate["hypothesis_set_id"]),
+            blind_bundle_ids=bundle_ids,
+        )
 
     origin = _causal_origin(factor_id)
     existing = repository.open_probe_episode(learning_object_id)
@@ -2081,114 +2204,36 @@ def accept_probe_offer(
         # episode vault state sync opens for every active LO is exactly this)
         # is relocked onto the cause set instead.  At most one episode may be
         # open per LO, so refusing here unconditionally made the whole journey
-        # unreachable in the running app.
-        episode = retarget_episode_to_causal_factor(
-            vault, repository, existing, factor_id, origin=origin, clock=clock
-        )
-    else:
-        episode = enter_episode(
-            vault,
-            repository,
-            learning_object_id,
-            # `probe_episodes.trigger` is a closed CHECK vocabulary; a cause-set
-            # probe IS a belief-diagnosis trigger.  The causal provenance rides
-            # on `origin`, which is free-form and is what `accept_probe_offer`
-            # matches on when deciding whether an already-open episode is ours.
-            trigger="misconception",
-            origin=origin,
-            causal_factor_id=factor_id,
-            clock=clock,
-            ai_client=ai_client,
-        )
-    if episode.status != "in_progress":
-        return ProbeOffer(
-            accepted=False,
-            reason=f"episode_{episode.status}",
-            factor_id=factor_id,
-            episode_id=episode.id,
-            candidate_id=str(candidate["id"]),
-        )
-    eligible = [
-        entry
-        for entry in eligible_instruments(vault, repository, episode)
-        if entry.item.id == practice_item_id
-    ]
-    if not eligible:
-        return ProbeOffer(
-            accepted=False,
-            reason="probe_item_not_eligible",
-            factor_id=factor_id,
-            episode_id=episode.id,
-            candidate_id=str(candidate["id"]),
-        )
-    bundle_ids = tuple(str(value) for value in candidate.get("blind_bundle_ids") or [])
-    # Accepting twice (a re-tapped button, a remounted panel) must not commit a
-    # second presentation: the newest would win at serving time and the older
-    # pin would be stranded.  An already-pinned, unconsumed probe for this same
-    # candidate IS this offer.
-    committed = repository.active_probe_presentation(
-        episode.id, practice_item_id=practice_item_id
+        # unreachable in the running app.  The relock and the commit are one
+        # transaction (UX Phase 4 round 7): a commit-time refusal leaves the
+        # episode's lock and its presentation as they were.
+        try:
+            with repository.atomic():
+                episode = retarget_episode_to_causal_factor(
+                    vault, repository, existing, factor_id, origin=origin, clock=clock
+                )
+                return finish(episode)
+        except _OfferRefusedAtCommit as refused:
+            return refused.offer
+    episode = enter_episode(
+        vault,
+        repository,
+        learning_object_id,
+        # `probe_episodes.trigger` is a closed CHECK vocabulary; a cause-set
+        # probe IS a belief-diagnosis trigger.  The causal provenance rides
+        # on `origin`, which is free-form and is what `accept_probe_offer`
+        # matches on when deciding whether an already-open episode is ours.
+        trigger="misconception",
+        origin=origin,
+        causal_factor_id=factor_id,
+        clock=clock,
+        ai_client=ai_client,
     )
-    if committed is not None:
-        already = pinned_causal_probe(repository, committed.id) or {}
-        if str(already.get("causal_probe_candidate_id") or "") == str(candidate["id"]):
-            return ProbeOffer(
-                accepted=True,
-                reason="probe_already_pinned",
-                factor_id=factor_id,
-                episode_id=episode.id,
-                presentation_id=committed.id,
-                practice_item_id=practice_item_id,
-                candidate_id=str(candidate["id"]),
-                hypothesis_set_id=str(candidate["hypothesis_set_id"]),
-                blind_bundle_ids=tuple(
-                    str(value) for value in already.get("blind_bundle_ids") or []
-                ),
-            )
     try:
-        presentation = commit_presentation(
-            vault,
-            repository,
-            episode,
-            eligible[0],
-            extra_selection_components={
-                # Nested under one key: the near-clone basis reads top-level
-                # `source_practice_item_id`, and adding sibling keys there would
-                # change an unrelated eligibility decision.
-                "causal_probe": {
-                    "causal_factor_id": factor_id,
-                    "causal_probe_candidate_id": str(candidate["id"]),
-                    "hypothesis_set_id": str(candidate["hypothesis_set_id"]),
-                    "blind_bundle_ids": list(bundle_ids),
-                    "decision_receipt_id": decision_receipt_id,
-                    "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
-                    "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
-                    "session_id": session_id,
-                }
-            },
-            clock=clock,
-        )
-    except RoutineDisplayCovered:
-        # Its answer was just shown on a routine display (UX Phase 4 round 6):
-        # no probe is administered for it until that coverage ends.
-        return ProbeOffer(
-            accepted=False,
-            reason="probe_item_answer_shown",
-            factor_id=factor_id,
-            episode_id=episode.id,
-            candidate_id=str(candidate["id"]),
-        )
-    return ProbeOffer(
-        accepted=True,
-        reason="probe_pinned",
-        factor_id=factor_id,
-        episode_id=episode.id,
-        presentation_id=presentation.id,
-        practice_item_id=practice_item_id,
-        candidate_id=str(candidate["id"]),
-        hypothesis_set_id=str(candidate["hypothesis_set_id"]),
-        blind_bundle_ids=bundle_ids,
-    )
+        return finish(episode)
+    except _OfferRefusedAtCommit as refused:
+        # A new episode only: nothing that existed before is changed.
+        return refused.offer
 
 
 def defer_probe_offer(
