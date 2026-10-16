@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -865,6 +866,9 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
         float(raw_auto_primed) if isinstance(raw_auto_primed, (int, float)) else None
     )
     regrade_marker = repository.attempt_regrade_marker(attempt_id)
+    # UX Phase 4 (final verification F9): what the grade now stands on, and
+    # what the grade it replaced stood on (see ``_epoch_grading_record``).
+    grading_record, replaced_record = _grading_records(vault, repository, item, attempt_id)
     regrade = None
     if regrade_marker is not None:
         old_score = float(regrade_marker["old_points"])
@@ -881,13 +885,74 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "max_points": max_points,
             "regraded_at": regrade_marker["at"],
             "direction": regrade_direction,
+            # UX Phase 4 (Codex review F6): the grade the regrade replaced was
+            # held for review, so its score was the grader's provisional one
+            # and the history never shows it.
+            "old_held": _regrade_replaced_held(repository, attempt_id),
+            # Each side out of its own grade's maximum (final verification F9):
+            # the replaced grade's and the current one's, when recorded or the
+            # item's is what it graded against; None when not known. Classic
+            # keeps ``max_points`` (the item's) on both sides.
+            "old_max_points": replaced_record["max_points"] if replaced_record is not None else None,
+            "new_max_points": grading_record["max_points"],
         }
+    from learnloop.attempts.attempts import attempt_graded_contract
+    from learnloop.attempts.trace_evidence import learner_answer_part, volunteered_explanation
+    from learnloop.held_grades import attempt_grade_held
+    from learnloop.learner.assessment_contracts import contract_required_method
+
+    trace_md = attempt.get("learner_answer_md")
+    # The question as it was given: the contract the answer was presented and
+    # first graded under. The key, criteria and maximum come from the grading
+    # epoch the grade now stands on (``grading_record`` above).
+    graded_contract = attempt_graded_contract(repository, attempt_id)
+    contract = graded_contract.contract if graded_contract is not None else None
     return versioned(
         {
             "attempt_id": attempt_id,
             "practice_item_id": item.id,
             "learning_object_id": attempt["learning_object_id"],
             "learning_object_title": learning_object.title if learning_object is not None else attempt["learning_object_id"],
+            # UX Phase 4 (display only): a grade held for review (THE held
+            # predicate, ``learnloop.held_grades``) is the grader's provisional
+            # score, no evidence anywhere, so the surface says "held for
+            # review" and never shows that score.
+            "held_for_review": attempt_grade_held(repository, attempt_id),
+            # The learner's own answer and volunteered line, apart, so feedback
+            # can show "you wrote" beside a full answer (§7.5).
+            "learner_answer_md": learner_answer_part(trace_md),
+            "learner_explanation_md": volunteered_explanation(trace_md),
+            # The question as it was given, for the screen that shows it beside
+            # the answers: a method-explicit answer's frozen statement and its
+            # rendered instruction (method-explicit-3 F3), or the frozen
+            # statement of an item edited since (Codex review F5); None when
+            # the item's own presentation is the question it was given.
+            "answered_presentation": _answered_presentation_or_none(
+                item,
+                {"prompt": contract.get("prompt"), "required_method": contract_required_method(contract)}
+                if contract is not None
+                else None,
+            ),
+            # The answer key, criteria and maximum the grade stands on (Codex
+            # review F5, re-review F9, final verification F9): feedback shows
+            # "a full answer", the criteria lines and the score out of these,
+            # never today's key beside yesterday's grade, nor yesterday's key
+            # beside a regrade that read today's. ``answered_source`` says
+            # where they come from: the contract the grading epoch cites
+            # (exact), the item as it is now (an ordinary regrade, or an
+            # answer graded before contracts, with nothing recorded saying the
+            # item differs from what it graded), or ``changed``: the item has
+            # changed since it was graded and nothing recorded gives that
+            # version back, so there is no key or criteria, and the maximum
+            # only when one was recorded with the grade. Sent directly, so the
+            # screen never falls back to an item it loaded before a regrade.
+            # The criteria are rows carrying their id, never a map keyed by
+            # it: the bundle's camel-casing would rename an id like
+            # ``criterion_correct_selection`` (re-review F8).
+            "answered_source": grading_record["source"],
+            "answered_expected_answer": grading_record["expected_answer"],
+            "answered_criteria": grading_record["criteria"],
+            "answered_max_points": grading_record["max_points"],
             "rubric_score": attempt["rubric_score"] or 0,
             "max_points": max_points,
             "correctness": attempt["correctness"] or 0.0,
@@ -899,7 +964,7 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "next_due_at": state.due_at if state is not None else attempt["created_at"],
             "criterion_evidence": [
                 criterion_evidence_dto(row, _rubric_for_item(vault, item))
-                for row in repository.fetch_grading_evidence(attempt_id)
+                for row in _latest_evidence_per_criterion(repository.fetch_grading_evidence(attempt_id))
             ],
             "fatal_errors": metadata.get("fatal_errors") or [],
             "error_attributions": [
@@ -1027,6 +1092,348 @@ def intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None:
             "updated_at": row["updated_at"],
         }
     )
+
+
+def _answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """:func:`answered_presentation`, or None when the item cannot be rendered
+    (the screen then falls back to the item's own presentation; feedback is
+    never refused over the question's display).
+
+    Feedback also shows the frozen statement of an item whose prompt was
+    edited after the answer (Codex review F5), so the question sits beside the
+    answer key it was given with.
+    """
+
+    try:
+        presented = answered_presentation(item, contract)
+        if presented is not None or contract is None:
+            return presented
+        frozen = contract.get("prompt")
+        if not isinstance(frozen, str) or frozen == item.prompt:
+            return None
+        presentation = item_presentation(item)
+        return {
+            **presentation,
+            "blocks": [
+                {**block, "markdown": frozen} if block["kind"] == "prompt" else block
+                for block in presentation["blocks"]
+            ],
+        }
+    except SidecarError:
+        return None
+
+
+#: Where a grading epoch's key, criteria and maximum come from (UX Phase 4,
+#: final verification F9): the assessment ``contract`` the epoch cites (exact);
+#: the ``item`` as it is now, which nothing recorded says differs from what the
+#: epoch graded against; or ``changed``: the item has changed since the epoch
+#: graded it and nothing recorded gives that version back, so feedback names no
+#: key, criteria or maximum of the later item.
+GRADING_RECORD_SOURCES = ("contract", "item", "changed")
+
+
+def _grading_epochs(repository: Repository, attempt_id: str) -> list[list[GradingEvidenceRecord]]:
+    """The attempt's grading epochs in written order, the grade's current one last.
+
+    An epoch is a distinct ``grading_revision``, or a legacy row's
+    ``created_at``, as the regrade history groups them. Written order is the
+    epoch's latest ``(created_at, id)``: the ids are ULIDs, so a regrade stamped
+    in its original's second still sorts after it (a regrade row has no
+    ``grading_revision``, so the epoch key cannot order them; Codex re-review F9).
+    """
+
+    epochs: dict[str, list[GradingEvidenceRecord]] = {}
+    for row in repository.fetch_grading_evidence(attempt_id, include_superseded=True):
+        key = f"revision:{row.grading_revision}" if row.grading_revision is not None else f"legacy:{row.created_at}"
+        epochs.setdefault(key, []).append(row)
+    return sorted(epochs.values(), key=lambda epoch: max((row.created_at, row.id) for row in epoch))
+
+
+def _grading_record_of_contract(contract: Mapping[str, Any]) -> dict[str, Any]:
+    """The part of a contract feedback shows beside a grade: the key, the
+    criteria with their maxima, and the maximum. JSON-normal, to compare."""
+
+    criteria = [
+        {"id": str(raw["id"]), "description": raw.get("description"), "max_points": float(raw.get("max_points") or 0.0)}
+        for raw in contract.get("criteria") or []
+        if isinstance(raw, Mapping) and raw.get("id")
+    ]
+    record = {
+        "expected_answer": contract.get("expected_answer"),
+        "criteria": criteria,
+        "max_points": int(round(float(contract.get("rubric_max_points") or 4))),
+    }
+    return json.loads(json.dumps(record, sort_keys=True, default=str))
+
+
+def _grading_record_of_item(item: PracticeItem, rubric: Rubric | None) -> dict[str, Any]:
+    """The same part of the item as it is now (what an ordinary regrade reads)."""
+
+    criteria = [
+        {"id": criterion.id, "description": criterion.description, "max_points": float(criterion.points)}
+        for criterion in (rubric.criteria if rubric is not None else [])
+    ]
+    record = {
+        "expected_answer": item.expected_answer,
+        "criteria": criteria,
+        "max_points": int(rubric.max_points) if rubric is not None else 4,
+    }
+    return json.loads(json.dumps(record, sort_keys=True, default=str))
+
+
+def _epoch_recorded_max_points(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> int | None:
+    """The maximum written WITH this epoch's grade, or None.
+
+    Only a blind grade record carries one (``max_points``, linked to the
+    epoch's rows by their agent run). Evidence rows store the points awarded,
+    never a criterion's maximum, and every replay rewrites the attempt's
+    ``correctness``, so neither records what the epoch graded out of.
+    """
+
+    run_ids = sorted({row.agent_run_id for row in epoch if row.agent_run_id})
+    if not run_ids:
+        return None
+    marks = ",".join("?" for _ in run_ids)
+    with repository.connection() as connection:
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+        ).fetchone() is None:
+            return None
+        found = connection.execute(
+            f"SELECT record_json FROM blind_grade_records WHERE attempt_id = ? AND agent_run_id IN ({marks}) "
+            "ORDER BY created_at DESC, id DESC LIMIT 1",
+            (attempt_id, *run_ids),
+        ).fetchone()
+    if found is None:
+        return None
+    try:
+        record = json.loads(found[0]) if isinstance(found[0], str) else (found[0] or {})
+    except ValueError:
+        return None
+    value = record.get("max_points") if isinstance(record, dict) else None
+    return int(value) if isinstance(value, (int, float)) and value > 0 else None
+
+
+def _epoch_contradicts_item(
+    epoch: list[GradingEvidenceRecord], current: Mapping[str, Any], recorded_max: int | None
+) -> bool:
+    """Does what the epoch recorded rule out that it graded the item as it is
+    now: a criterion the item no longer has, points above a criterion's current
+    maximum, or a recorded maximum other than the item's?"""
+
+    maxima = {str(criterion["id"]): float(criterion["max_points"]) for criterion in current["criteria"]}
+    for row in epoch:
+        if row.criterion_id not in maxima or float(row.points_awarded) > maxima[row.criterion_id] + 1e-9:
+            return True
+    return recorded_max is not None and recorded_max != int(current["max_points"])
+
+
+def _parsed_stamp(value: Any) -> datetime | None:
+    try:
+        return parse_utc(str(value)) if value else None
+    except ValueError:
+        return None
+
+
+def _item_version_in_force(versions: list[dict[str, Any]], graded_at: str) -> dict[str, Any] | None:
+    """The item's latest contract snapshot first seen at or before ``graded_at``.
+
+    Every serve of the item snapshots it (``practice_item_detail``), and so does
+    a regrade from the feedback screen (``trigger_regrade``), content-addressed
+    and stamped when that content was first seen. The last one seen by the
+    epoch's time is the item that epoch read, unless the item was edited after
+    that snapshot and back again before the epoch (then this says changed: the
+    cautious side)."""
+
+    cutoff = _parsed_stamp(graded_at)
+    if cutoff is None:
+        return None
+    seen = [
+        version
+        for version in versions
+        if (stamp := _parsed_stamp(version.get("created_at"))) is not None and stamp <= cutoff
+    ]
+    return seen[-1] if seen else None
+
+
+def _epoch_grading_record(
+    repository: Repository,
+    item: PracticeItem,
+    rubric: Rubric | None,
+    attempt_id: str,
+    epoch: list[GradingEvidenceRecord],
+    versions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """What one grading epoch graded against, as far as the ledger can tell
+    (UX Phase 4, final verification F9).
+
+    * The epoch cites an assessment contract (a first grade, a method-explicit
+      regrade): its key, criteria and maximum, exactly (``contract``).
+    * It cites none (an ordinary regrade reads the item as it is then,
+      canonical sources §7.3a; an answer graded before contracts): nothing
+      recorded gives that version back. Feedback shows the item as it is now
+      (``item``) when the item's version in force at the epoch (its latest
+      snapshot by then) is the current one and nothing the epoch recorded
+      contradicts it. Otherwise the question has ``changed`` since it was
+      graded: no key or criteria, and only the maximum recorded with the grade,
+      if any, never the item's.
+    """
+
+    version_id = next((row.assessment_contract_version_id for row in epoch if row.assessment_contract_version_id), None)
+    if version_id is not None:
+        stored = repository.fetch_assessment_contract_version(str(version_id))
+        if stored is not None:
+            contract = dict(stored.get("contract") or {})
+            return {
+                "source": "contract",
+                "expected_answer": contract.get("expected_answer"),
+                "criteria": _answered_criteria(contract),
+                "max_points": _answered_max_points(contract),
+            }
+    current = _grading_record_of_item(item, rubric)
+    recorded_max = _epoch_recorded_max_points(repository, attempt_id, epoch)
+    in_force = _item_version_in_force(versions, max(row.created_at for row in epoch))
+    if _epoch_contradicts_item(epoch, current, recorded_max) or (
+        in_force is not None and _grading_record_of_contract(dict(in_force.get("contract") or {})) != current
+    ):
+        return {"source": "changed", "expected_answer": None, "criteria": None, "max_points": recorded_max}
+    return _item_grading_record(item, current)
+
+
+def _item_grading_record(item: PracticeItem, current: Mapping[str, Any]) -> dict[str, Any]:
+    """The ``item`` grading record: the key, criteria and maximum as they are now."""
+
+    return {
+        "source": "item",
+        "expected_answer": item.expected_answer,
+        "criteria": [
+            {
+                "criterion_id": str(criterion["id"]),
+                "description": str(criterion["description"] or criterion["id"]),
+                "points_possible": float(criterion["max_points"]),
+            }
+            for criterion in current["criteria"]
+        ],
+        "max_points": int(current["max_points"]),
+    }
+
+
+def _grading_records(
+    vault: LoadedVault, repository: Repository, item: PracticeItem, attempt_id: str
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """(the grading record of the grade's current epoch, that of the epoch it
+    replaced or None). An attempt with no grading evidence has nothing graded
+    to contradict the item: its record is the item's."""
+
+    rubric = _rubric_for_item(vault, item)
+    epochs = _grading_epochs(repository, attempt_id)
+    if not epochs:
+        return _item_grading_record(item, _grading_record_of_item(item, rubric)), None
+    versions = repository.assessment_contract_versions_for_practice_item(item.id)
+    records = [
+        _epoch_grading_record(repository, item, rubric, attempt_id, epoch, versions) for epoch in epochs[-2:]
+    ]
+    return records[-1], (records[0] if len(records) == 2 else None)
+
+
+def _answered_criteria(contract: Mapping[str, Any] | None) -> list[dict[str, Any]] | None:
+    """``[{"criterion_id", "description", "points_possible"}]`` as the grading
+    contract froze them (Codex review F5), or None without one. Rows, not a
+    map keyed by id: the id is data and survives camel-casing (re-review F8)."""
+
+    if contract is None:
+        return None
+    criteria: list[dict[str, Any]] = []
+    for raw in contract.get("criteria") or []:
+        if not isinstance(raw, Mapping) or not raw.get("id"):
+            continue
+        criteria.append(
+            {
+                "criterion_id": str(raw["id"]),
+                "description": str(raw.get("description") or raw["id"]),
+                "points_possible": float(raw.get("max_points") or 0.0),
+            }
+        )
+    return criteria
+
+
+def _answered_max_points(contract: Mapping[str, Any] | None) -> int | None:
+    """The grading contract's maximum score (re-review F9), or None without one."""
+
+    if contract is None:
+        return None
+    from learnloop.learner.assessment_contracts import rubric_from_contract
+
+    try:
+        return int(rubric_from_contract(dict(contract)).max_points)
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _regrade_replaced_held(repository: Repository, attempt_id: str) -> bool:
+    """Was the grade the latest regrade replaced held for review (Codex review F6)?
+
+    THE held predicate evaluated on that grade: a blind record of the attempt
+    held it (``held_grades.record_held_for_review``) and nothing in that
+    grading epoch was assessed. Display only: the regrade history then says
+    "held for review" where it would have shown the provisional score.
+    """
+
+    from learnloop.outcome_contract import grade_held_for_review, unassessed_evidence_row
+
+    with repository.connection() as connection:
+        if connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+        ).fetchone() is None:
+            return False
+        held_records = 0
+        for (record_json,) in connection.execute(
+            "SELECT record_json FROM blind_grade_records WHERE attempt_id = ?", (attempt_id,)
+        ):
+            try:
+                record = json.loads(record_json) if isinstance(record_json, str) else (record_json or {})
+            except ValueError:
+                continue
+            if isinstance(record, dict) and grade_held_for_review(record.get("grading_support")):
+                held_records += 1
+        if not held_records:
+            return False
+        rows = connection.execute(
+            "SELECT grading_revision, created_at, attribution_json FROM grading_evidence "
+            "WHERE attempt_id = ? ORDER BY created_at, COALESCE(grading_revision, -1), id",
+            (attempt_id,),
+        ).fetchall()
+    epochs: dict[str, dict[str, Any]] = {}
+    for revision, created_at, attribution in rows:
+        key = f"revision:{revision}" if revision is not None else f"legacy:{created_at}"
+        epoch = epochs.setdefault(key, {"at": str(created_at), "assessed": False})
+        if not unassessed_evidence_row(attribution):
+            epoch["assessed"] = True
+    ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
+    if len(ordered) < 2:
+        return False
+    return not ordered[-2][1]["assessed"]
+
+
+def _latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]:
+    """One live row per criterion for display: the latest grading epoch's.
+
+    A regrade of a model-graded attempt leaves the original model rows live
+    beside its own (it supersedes the self-grade tier), and the feedback rubric
+    showed every criterion twice (UX usability round 1, M-b). The attempt's
+    grade, and every fold that reads "the latest epoch", is the regrade's, so
+    the display shows that row. The ledger itself is untouched (display only).
+    """
+
+    latest: dict[str, GradingEvidenceRecord] = {}
+    for row in rows:
+        current = latest.get(row.criterion_id)
+        if current is None or (
+            (row.created_at, -1 if row.grading_revision is None else row.grading_revision, row.id)
+            >= (current.created_at, -1 if current.grading_revision is None else current.grading_revision, current.id)
+        ):
+            latest[row.criterion_id] = row
+    return [row for row in rows if latest.get(row.criterion_id) is row]
 
 
 def criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]:

@@ -1,4 +1,4 @@
-import type { SessionCheckpoint, TeachBackStateDto } from "../api/dto";
+import type { SelfGradeDisclosureDto, SessionCheckpoint, TeachBackStateDto } from "../api/dto";
 
 /** In-memory mirror of the practice draft, reported by PracticeScreen when it
  *  unmounts (the backend checkpoint is only reloaded at startup). */
@@ -11,6 +11,9 @@ export type PracticeDraftMirror = {
   declaredStuck: boolean;
   /** Router R2a (review F5): the daily-plan presentation the draft answers. */
   planPresentationId?: string | null;
+  /** UX Phase 4 (Codex review F1): the trace frozen before a full answer was
+   *  shown, so the draft reopens locked to it. */
+  selfGradeDisclosure?: SelfGradeDisclosureDto | null;
 };
 
 export type RestoredPracticeDraft = {
@@ -24,6 +27,9 @@ export type RestoredPracticeDraft = {
   /** Router R2a (review F5): the daily-plan presentation the draft answers,
    *  so a resumed draft still submits bound to it. */
   planPresentationId: string | null;
+  /** Codex review F1: the trace a plain self-grade froze before showing a
+   *  full answer, under this draft's retry key; null otherwise. */
+  selfGradeDisclosure: SelfGradeDisclosureDto | null;
 };
 
 /** What a practice screen for `practiceItemId` restores: the in-memory mirror
@@ -40,11 +46,18 @@ export function restoredPracticeDraft(
       submissionId: localDraft.submissionId,
       stuck: localDraft.declaredStuck,
       teachBack: null,
-      planPresentationId: localDraft.planPresentationId ?? null
+      planPresentationId: localDraft.planPresentationId ?? null,
+      selfGradeDisclosure:
+        localDraft.selfGradeDisclosure && localDraft.selfGradeDisclosure.submissionId === localDraft.submissionId
+          ? localDraft.selfGradeDisclosure
+          : null
     };
   }
   if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
-    return { answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null };
+    return {
+      answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
+      selfGradeDisclosure: null
+    };
   }
   return {
     answer: checkpoint.currentAnswer ?? "",
@@ -52,6 +65,10 @@ export function restoredPracticeDraft(
     submissionId: checkpoint.submissionId ?? null,
     stuck: checkpoint.declaredStuck === true,
     teachBack: checkpoint.teachBack ?? null,
-    planPresentationId: checkpoint.planPresentationId ?? null
+    planPresentationId: checkpoint.planPresentationId ?? null,
+    selfGradeDisclosure:
+      checkpoint.selfGradeDisclosure && checkpoint.selfGradeDisclosure.submissionId === checkpoint.submissionId
+        ? checkpoint.selfGradeDisclosure
+        : null
   };
 }

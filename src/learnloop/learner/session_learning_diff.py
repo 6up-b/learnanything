@@ -68,6 +68,12 @@ def session_learning_diffs(
     facet_delta_by_session: dict[str, dict[str, float]] = {
         session_id: {} for session_id, _start, _end, _start_raw, _end_raw in windows
     }
+    # The unassisted attempts whose own points raised each facet in the
+    # session: the session finish credits a topic by them (UX Phase 4, Codex
+    # review F4), never by a facet another topic's answer moved.
+    raised_by_session: dict[str, dict[str, set[str]]] = {
+        session_id: {} for session_id, _start, _end, _start_raw, _end_raw in windows
+    }
     snapshot = load_facet_timeline_snapshot(repository)
     for facet_id, timeline in facet_evidence_timelines(
         vault, repository, facet_ids, snapshot=snapshot
@@ -82,6 +88,8 @@ def session_learning_diffs(
                 if started <= at <= ended:
                     deltas = facet_delta_by_session[session_id]
                     deltas[facet_id] = deltas.get(facet_id, 0.0) + point.delta
+                    if point.delta > 1e-9 and not point.assisted and not point.primed:
+                        raised_by_session[session_id].setdefault(facet_id, set()).add(point.attempt_id)
 
     corrections_by_session = {session_id: 0 for session_id in facet_delta_by_session}
     for records in snapshot.grading_by_attempt.values():
@@ -111,6 +119,23 @@ def session_learning_diffs(
                 delta > 1e-9
                 for delta in facet_delta_by_session[session_id].values()
             ),
+            # The facets counted above, by id, and the attempts whose own
+            # unassisted points raised them: the session finish names the
+            # topics of those attempts (UX Phase 4, display only).
+            "demonstrated_facet_ids": sorted(
+                facet_id
+                for facet_id, delta in facet_delta_by_session[session_id].items()
+                if delta > 1e-9
+            ),
+            "demonstrated_attempt_ids": sorted(
+                {
+                    attempt_id
+                    for facet_id, delta in facet_delta_by_session[session_id].items()
+                    if delta > 1e-9
+                    for attempt_id in raised_by_session[session_id].get(facet_id, ())
+                    if attempt_id
+                }
+            ),
             "predictions_moved": {
                 "up": int(session.get("predictions_up") or 0),
                 "down": int(session.get("predictions_down") or 0),
@@ -126,6 +151,8 @@ def session_learning_diffs(
 def _empty_diff() -> dict[str, object]:
     return {
         "facets_demonstrated": 0,
+        "demonstrated_facet_ids": [],
+        "demonstrated_attempt_ids": [],
         "predictions_moved": {"up": 0, "down": 0},
         "corrections": 0,
         "misconceptions_touched": {"resolved": 0, "returned": 0},

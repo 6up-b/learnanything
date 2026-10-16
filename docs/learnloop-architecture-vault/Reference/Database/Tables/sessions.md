@@ -3,8 +3,8 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
+source_commit_timestamp: "2026-10-15T23:28:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
@@ -91,6 +91,7 @@ Indexes and uniqueness:
 - `Repository.latest_session_minutes()`
 - `Repository.most_recent_ended_at()`
 - `Repository.most_recent_open_session()`
+- `Repository.open_session_checkpoints_except()`
 - `Repository.review_session_rows()`
 - `Repository.session_day_streak()`
 - `Repository.session_learner_answers()`

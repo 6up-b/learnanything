@@ -25,7 +25,8 @@ const mirror = (overrides: Partial<PracticeDraftMirror> = {}): PracticeDraftMirr
 
 it("restores the stuck marker from the in-memory mirror after navigation", () => {
   expect(restoredPracticeDraft("item-1", mirror(), checkpoint())).toEqual({
-    answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null, planPresentationId: null
+    answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null, planPresentationId: null,
+    selfGradeDisclosure: null
   });
   expect(restoredPracticeDraft("item-1", mirror({ declaredStuck: false }), null).stuck).toBe(false);
 });
@@ -39,7 +40,8 @@ it("restores the stuck marker from the session checkpoint after a restart", () =
 
 it("never carries a stuck marker to another item", () => {
   expect(restoredPracticeDraft("item-2", mirror(), checkpoint({ declaredStuck: true }))).toEqual({
-    answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null
+    answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
+    selfGradeDisclosure: null
   });
 });
 
@@ -51,4 +53,22 @@ it("restores the draft's plan presentation with the draft", () => {
   // An older sidecar never sent the field; another item never inherits it.
   expect(restoredPracticeDraft("item-1", null, checkpoint()).planPresentationId).toBeNull();
   expect(restoredPracticeDraft("item-2", null, checkpoint({ planPresentationId: "pres_c" })).planPresentationId).toBeNull();
+});
+
+// UX Phase 4 (Codex review F1): a draft whose full answer the plain self-grade
+// already showed reopens locked to the trace it froze, from the mirror after
+// navigation or the checkpoint after a restart; never under another retry key
+// or on another item.
+it("restores the trace frozen before a full answer was shown, under its own retry key only", () => {
+  const frozen = { submissionId: "key-2", answerMd: "U Sigma V^T", explanationMd: "it factorises" };
+  expect(restoredPracticeDraft("item-1", mirror({ selfGradeDisclosure: frozen }), null).selfGradeDisclosure).toEqual(frozen);
+  expect(
+    restoredPracticeDraft("item-1", mirror({ selfGradeDisclosure: { ...frozen, submissionId: "key-old" } }), null).selfGradeDisclosure
+  ).toBeNull();
+  const fromCheckpoint = { ...frozen, submissionId: "key-1" };
+  expect(restoredPracticeDraft("item-1", null, checkpoint({ selfGradeDisclosure: fromCheckpoint })).selfGradeDisclosure).toEqual(
+    fromCheckpoint
+  );
+  expect(restoredPracticeDraft("item-2", null, checkpoint({ selfGradeDisclosure: fromCheckpoint })).selfGradeDisclosure).toBeNull();
+  expect(restoredPracticeDraft("item-1", null, checkpoint()).selfGradeDisclosure).toBeNull();
 });

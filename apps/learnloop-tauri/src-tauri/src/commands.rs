@@ -649,6 +649,10 @@ sidecar_passthrough!(
 sidecar_passthrough!(delete_proposal_item, "delete_proposal_item");
 
 sidecar_passthrough!(trigger_regrade, "trigger_regrade");
+// UX Phase 4 (Codex review F1): the reveal ledger for a shown full answer, and
+// the trace a plain self-grade freezes before it shows one.
+sidecar_passthrough!(record_answer_display, "record_answer_display");
+sidecar_passthrough!(record_self_grade_disclosure, "record_self_grade_disclosure");
 
 sidecar_passthrough!(add_error_event, "add_error_event");
 

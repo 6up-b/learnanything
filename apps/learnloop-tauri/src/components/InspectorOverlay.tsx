@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import { masteryTone } from "../app/algoConfig";
+import { simplePracticeFeedback } from "../app/practiceFeedback";
 import type {
   AttemptInspectorDetail,
   InspectorEntity,
@@ -63,7 +64,8 @@ export function InspectorOverlay({
   onClose,
   onInspect,
   onError,
-  onQuickCheck
+  onQuickCheck,
+  answeringItemId = null
 }: {
   entityId: string | null;
   onClose: () => void;
@@ -71,6 +73,9 @@ export function InspectorOverlay({
   onError: (message: string) => void;
   /** Learner field F2: start "Check what I already know" over these LOs. */
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  /** UX Phase 4.1: the question open on the practice screen right now; its
+   *  expected answer and rubric stay hidden while it is being answered. */
+  answeringItemId?: string | null;
 }) {
   const [query, setQuery] = useState(entityId ?? "");
   const [entity, setEntity] = useState<InspectorEntity | null>(null);
@@ -224,6 +229,7 @@ export function InspectorOverlay({
                 if (entityId) void fetchEntity(entityId);
               }}
               onQuickCheck={onQuickCheck}
+              answeringItemId={answeringItemId}
             />
           )}
         </div>
@@ -239,7 +245,8 @@ function InspectorEntityView({
   onGo,
   onError,
   onRefresh,
-  onQuickCheck
+  onQuickCheck,
+  answeringItemId
 }: {
   entity: InspectorEntity;
   childPracticeItemId: string | null;
@@ -248,6 +255,7 @@ function InspectorEntityView({
   /** Re-fetch the currently shown entity (after a mutation like re-runging). */
   onRefresh: () => void;
   onQuickCheck?: (learningObjectIds: string[]) => void;
+  answeringItemId: string | null;
 }) {
   if (entity.kind === "not_found") {
     return <NotFoundBody id={entity.id} suggestions={entity.suggestions} onGo={onGo} />;
@@ -279,7 +287,13 @@ function InspectorEntityView({
       <Divider />
       <div style={{ padding: "12px 22px 24px" }}>
         {entity.kind === "practice_item" ? (
-          <PracticeItemBody detail={entity.detail} onGo={onGo} onError={onError} onRefresh={onRefresh} />
+          <PracticeItemBody
+            detail={entity.detail}
+            onGo={onGo}
+            onError={onError}
+            onRefresh={onRefresh}
+            answering={answeringItemId === entity.detail.id}
+          />
         ) : entity.kind === "learning_object" ? (
           <LearningObjectBody
             detail={entity.detail}
@@ -337,15 +351,24 @@ function PracticeItemBody({
   detail,
   onGo,
   onError,
-  onRefresh
+  onRefresh,
+  answering = false
 }: {
   detail: PracticeItemDetail;
   onGo: (id: string) => void;
   onError: (message: string) => void;
   onRefresh: () => void;
+  /** The question is open on the practice screen right now. */
+  answering?: boolean;
 }) {
   const state = detail.state;
   const mastery = detail.mastery;
+  // UX Phase 4.1 (§7.4): the inspector never shows the expected answer or the
+  // rubric for a question the learner hasn't answered: one never answered (a
+  // skip is no answer), or the one being answered now. Classic shows them, as
+  // before.
+  const answered = detail.attempts.some((attempt) => attempt.attemptType !== "skip");
+  const withholdAnswer = simplePracticeFeedback() && (answering || !answered);
   return (
     <div>
       <InspectorRow label="learning_object">
@@ -468,6 +491,10 @@ function PracticeItemBody({
       </div>
 
       <SectionHeader>Answer · rubric</SectionHeader>
+      {withholdAnswer ? (
+        <Faint>The answer and how it's graded show here once you've answered this question.</Faint>
+      ) : (
+      <>
       <div style={{ fontSize: 11, color: COLOR.textFaint, marginBottom: 6 }}>expected answer</div>
       <div style={{ ...panelStyle, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontFamily: FONT_MONO, fontSize: 12 }}>
         {formatUnknown(detail.expectedAnswer)}
@@ -500,6 +527,8 @@ function PracticeItemBody({
         <div style={{ marginTop: 8 }}>
           <Faint>no rubric configured</Faint>
         </div>
+      )}
+      </>
       )}
 
       <SectionHeader>Evidence</SectionHeader>

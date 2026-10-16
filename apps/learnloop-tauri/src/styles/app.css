@@ -649,6 +649,31 @@ button { color: inherit; }
   font-size: 12px;
   line-height: 1.45;
 }
+/* UX Phase 4 (practice and feedback): inline actions on the plain surfaces,
+   at most one primary per screen (docs/specs/ux_learnloop_v1.md §4.2). */
+.plain-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.plain-action:hover:not(:disabled) {background: rgba(255, 255, 255, 0.04);}
+.plain-action:disabled {color: var(--faint); cursor: default;}
+.plain-action.primary {
+  border-color: var(--amber);
+  background: var(--wash-amber);
+  color: var(--amber);
+  font-weight: 600;
+}
+.plain-action .plain-key {font-size: 11px; opacity: 0.75; font-weight: 400;}
 .detail-pane { padding: 22px 24px; }
 
 .queue-pane {

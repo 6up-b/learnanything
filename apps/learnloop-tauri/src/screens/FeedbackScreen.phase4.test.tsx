@@ -1,0 +1,917 @@
+// UX Phase 4.2 (docs/specs/ux_learnloop_v1.md §7.5, W5b): feedback leads with
+// one verdict in words, the learner's answer beside a full answer, the
+// criteria as plain ✓ / ✗ lines, one sentence on what went wrong, ONE next
+// step and Next. Everything technical sits behind "details ▸". "I think I was
+// right" opens a one-line box and the regrade happens in place. A grade held
+// for review says so and never shows a score. `[ui] practice_feedback =
+// "classic"` restores the screen exactly.
+import type { ComponentProps } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { FeedbackBundle, PracticeItemDetail } from "../api/dto";
+import { clear } from "../api/queryCache";
+import { setAlgoConfig } from "../app/algoConfig";
+import { FeedbackScreen } from "./FeedbackScreen";
+
+const { api } = vi.hoisted(() => {
+  const known: Record<string, ReturnType<typeof vi.fn>> = {
+    getFeedback: vi.fn(),
+    getPracticeItem: vi.fn(),
+    getAttemptTrace: vi.fn(),
+    getAttemptTraceEvidence: vi.fn(),
+    getGradingClarification: vi.fn(),
+    diagnosisStatus: vi.fn(),
+    refreshFeedback: vi.fn(),
+    triggerRegrade: vi.fn(),
+    startPrimedRetry: vi.fn(),
+    startGuidedRedo: vi.fn(),
+    recordDiagnosisFeedback: vi.fn(),
+    recordAnswerDisplay: vi.fn()
+  };
+  const fallback = new Map<string, ReturnType<typeof vi.fn>>();
+  const api = new Proxy(known, {
+    get(target, prop: string) {
+      if (prop in target) return target[prop];
+      if (!fallback.has(prop)) fallback.set(prop, vi.fn(() => Promise.reject(new Error(`${prop} not mocked`))));
+      return fallback.get(prop);
+    }
+  });
+  return { api };
+});
+vi.mock("../api/client", () => ({ api }));
+vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
+vi.mock("../components/ClaimSurface", () => ({
+  ClaimSurface: ({ claim }: { claim: { claimText: string } }) => <div>{claim.claimText}</div>,
+  mintVisitId: () => "visit"
+}));
+vi.mock("../components/KnowledgeModel", () => ({ AttemptTraceView: () => null, UnresolvedCauseCard: () => null }));
+vi.mock("../components/CardControls", () => ({ CardControls: () => null, ProbeRemintAction: () => null }));
+vi.mock("../components/RepairTrace", () => ({ RepairTraceBlocks: () => null }));
+
+const BUNDLE = {
+  version: 1,
+  attemptId: "att_01JABCDEFGHJKMNPQRSTVWXYZ",
+  practiceItemId: "pi_cond_001",
+  learningObjectId: "lo_conditional",
+  learningObjectTitle: "Conditional probability",
+  rubricScore: 2,
+  maxPoints: 4,
+  correctness: 0.5,
+  graderConfidence: 0.9,
+  gradingSource: "ai",
+  fallbackReason: null,
+  manualReviewReason: null,
+  fsrsRating: "hard",
+  nextDueAt: "2026-10-20T00:00:00Z",
+  criterionEvidence: [
+    { criterionId: "setup", criterionDescription: "Set up the conditional probability", pointsAwarded: 2, pointsPossible: 2, evidence: null, notes: null, graderTier: 2 },
+    { criterionId: "restrict", criterionDescription: "Restricted the sample space to the condition", pointsAwarded: 0, pointsPossible: 2, evidence: null, notes: null, graderTier: 2 }
+  ],
+  fatalErrors: [],
+  errorAttributions: [],
+  surprise: {
+    predictiveSurprise: 1.2,
+    bayesianSurprise: 0.4,
+    surpriseDirection: "negative",
+    fsrsIntervalFactor: 0.85,
+    followupThresholdNats: 0.9,
+    triggeredActions: [],
+    suppressedActions: [],
+    gateDiagnostics: null
+  },
+  masteryBefore: { mean: 0.5, variance: 0.05 },
+  masteryAfter: { mean: 0.42, variance: 0.04 },
+  masteryStep: null,
+  feedbackMd: "You used the unconditional probability.",
+  repairSuggestions: [],
+  guidedRedoAvailable: false,
+  interventionNeed: null,
+  primed: false,
+  sourceRefs: [],
+  followupQueued: false,
+  heldForReview: false,
+  learnerAnswerMd: "P(first=3 | sum=8) = 1/6",
+  learnerExplanationMd: null,
+  answeredPresentation: null
+} as unknown as FeedbackBundle;
+
+const ITEM = {
+  id: "pi_cond_001",
+  learningObjectId: "lo_conditional",
+  learningObjectTitle: "Conditional probability",
+  subject: "probability",
+  subjects: ["probability"],
+  practiceMode: "constructed_response",
+  attemptTypesAllowed: [],
+  teachBackSource: null,
+  presentation: {
+    practiceItemId: "pi_cond_001",
+    blocks: [{ kind: "prompt", markdown: "Given that the sum is 8, what is P(first = 3)?", label: null }]
+  },
+  prompt: "Given that the sum is 8, what is P(first = 3)?",
+  expectedAnswer: "Five equally likely outcomes; one has first = 3: 1/5.",
+  hints: [],
+  rubric: null,
+  candidateErrorTypes: [],
+  sourceRefs: []
+} as unknown as PracticeItemDetail;
+
+function props(overrides: Partial<ComponentProps<typeof FeedbackScreen>> = {}): ComponentProps<typeof FeedbackScreen> {
+  return {
+    attemptId: BUNDLE.attemptId,
+    sessionId: "s1",
+    onNext: vi.fn(),
+    onBack: vi.fn(),
+    onOpenNotes: vi.fn(),
+    onPrimedRetry: vi.fn(),
+    onGuidedRedo: vi.fn(),
+    onOpenRepair: vi.fn(),
+    onInspect: vi.fn(),
+    onAsk: vi.fn(),
+    onError: vi.fn(),
+    ...overrides
+  };
+}
+
+async function press(key: string) {
+  await act(async () => {
+    fireEvent.keyDown(window, { key });
+  });
+}
+
+function bodyText(): string {
+  return document.body.textContent ?? "";
+}
+
+beforeEach(() => {
+  setAlgoConfig({ ui: { practiceFeedback: "simple" } });
+  api.getFeedback.mockResolvedValue(BUNDLE);
+  api.getPracticeItem.mockResolvedValue(ITEM);
+  api.getAttemptTrace.mockRejectedValue(new Error("no trace"));
+  api.getAttemptTraceEvidence.mockRejectedValue(new Error("no evidence"));
+  api.getGradingClarification.mockResolvedValue({ clarification: null });
+  api.recordAnswerDisplay.mockResolvedValue({ version: 1, recorded: true });
+});
+afterEach(() => {
+  cleanup();
+  clear();
+  vi.clearAllMocks();
+  vi.useRealTimers();
+  setAlgoConfig(undefined);
+  // The page visibility the final-verification F1 tests set.
+  delete (document as unknown as Record<string, unknown>).visibilityState;
+});
+
+it("leads with a verdict in words, never the score, and keeps the machine's numbers off the surface", async () => {
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Partly right")).toBeTruthy();
+  const text = bodyText();
+  expect(text).not.toContain("2 / 4");
+  for (const internal of ["grader_tier", "FSRS", "Belief update", "nats", "retrievability", "Diagnostic follow-up", BUNDLE.attemptId, "constructed_response"]) {
+    expect(text).not.toContain(internal);
+  }
+});
+
+it("shows the learner's answer beside a full answer, and the criteria as plain ✓ / ✗ lines", async () => {
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("P(first=3 | sum=8) = 1/6")).toBeTruthy();
+  expect(screen.getByText("You wrote")).toBeTruthy();
+  expect(screen.getByText("A full answer")).toBeTruthy();
+  expect(await screen.findByText("Five equally likely outcomes; one has first = 3: 1/5.")).toBeTruthy();
+  expect(screen.getByText("Given that the sum is 8, what is P(first = 3)?")).toBeTruthy();
+  const setup = screen.getByText("Set up the conditional probability").closest("[data-criterion]");
+  const restrict = screen.getByText("Restricted the sample space to the condition").closest("[data-criterion]");
+  expect(setup?.textContent).toContain("✓");
+  expect(restrict?.textContent).toContain("✗");
+  // The grader's own sentence is the one line on what went wrong.
+  expect(screen.getByText("You used the unconditional probability.")).toBeTruthy();
+});
+
+it("shows the question as it was given, with a method-explicit instruction", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    answeredPresentation: {
+      practiceItemId: "pi_cond_001",
+      blocks: [
+        { kind: "prompt", markdown: "Compute det(A).", label: null },
+        { kind: "required_method_instruction", markdown: "Use cofactor expansion in your answer.", label: null }
+      ]
+    }
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Use cofactor expansion in your answer.")).toBeTruthy();
+  expect(screen.getByText("Compute det(A).")).toBeTruthy();
+});
+
+it("keeps the score and what the grader looked for behind details, toggled by the button or `.`", async () => {
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  expect(screen.queryByText("2 / 4")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(await screen.findByText("2 / 4")).toBeTruthy();
+  expect(bodyText()).toContain("What the grader looked for");
+  await press(".");
+  expect(screen.queryByText("2 / 4")).toBeNull();
+});
+
+it("says held for review and shows no score anywhere, even in details", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    heldForReview: true,
+    criterionEvidence: BUNDLE.criterionEvidence.map((row) => ({ ...row, assessed: false })),
+    manualReviewReason: "route_unverified_hold"
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Held for review")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  await screen.findByText(/held for review/i, { selector: "[data-testid=details-score]" });
+  const text = bodyText();
+  expect(text).not.toMatch(/\b2(\.0)? \/ 4/);
+  expect(text).not.toContain("manual review recommended");
+  expect(text).not.toContain("Partly right");
+});
+
+it("contests in place: I think I was right opens a one-line box and regrades with the learner's reason", async () => {
+  api.triggerRegrade.mockResolvedValue({ ...BUNDLE, rubricScore: 4, correctness: 1 });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  const box = screen.getByRole("textbox", { name: /why you think you were right/i });
+  fireEvent.change(box, { target: { value: "1/5 is what I meant" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+  expect(api.triggerRegrade).toHaveBeenCalledWith(BUNDLE.attemptId, "1/5 is what I meant", expect.any(String));
+  expect(await screen.findByText("Right")).toBeTruthy();
+  expect(bodyText()).toContain("now Right");
+});
+
+it("keeps the reason and says so plainly when the grader cannot look again", async () => {
+  // Codex review F7: the sidecar confirms the note is kept and says the grader
+  // did not run (no error any more once the note is recorded).
+  api.triggerRegrade.mockResolvedValue({ ...BUNDLE, contest: { recorded: true, regraded: false, reviewRequested: true } });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+  expect(await screen.findByText(/your note is kept/i)).toBeTruthy();
+  expect(callbacks.onError).not.toHaveBeenCalled();
+  expect(bodyText()).not.toContain("Codex");
+});
+
+it("never offers to contest a grade the learner gave themselves", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, gradingSource: "self", fallbackReason: "provider_auth_required" });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  expect(screen.queryByRole("button", { name: /I think I was right/ })).toBeNull();
+  expect(bodyText()).toContain("graded by you");
+  expect(bodyText()).not.toContain("provider_auth_required");
+});
+
+it("offers one next step: fixing a named mix-up as a timed step", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    matchedMisconception: {
+      id: "mis_uncond",
+      statement: "Treats P(A|B) as P(A)",
+      correctionStatement: "Conditioning on the sum shrinks the outcomes to five.",
+      mechanism: null,
+      targetFacet: "facet_conditional",
+      confusedWithFacet: "facet_unconditional",
+      status: "active"
+    }
+  });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  const fix = await screen.findByRole("button", { name: "Fix this mix-up · about 4 min" });
+  fireEvent.click(fix);
+  expect(callbacks.onOpenRepair).toHaveBeenCalledWith("mis_uncond");
+  // One next step, not three.
+  expect(screen.queryByRole("button", { name: /Try a similar one/ })).toBeNull();
+  expect(bodyText()).toContain("Conditioning on the sum shrinks the outcomes to five.");
+  expect(bodyText()).not.toMatch(/misconception/i);
+});
+
+it("offers the guided redo when the grader kept the learner's correct work", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, guidedRedoAvailable: true });
+  api.startGuidedRedo.mockResolvedValue({ practiceItemId: "pi_cond_001", learnerWorkPrefix: "Setup" });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  const redo = await screen.findByRole("button", { name: "Redo the part you missed" });
+  await act(async () => {
+    fireEvent.click(redo);
+  });
+  expect(callbacks.onGuidedRedo).toHaveBeenCalled();
+});
+
+it("otherwise offers a similar question, on the button or `t`", async () => {
+  api.startPrimedRetry.mockResolvedValue({ available: true, practiceItem: { id: "pi_sibling" } });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  await screen.findByRole("button", { name: /Try a similar one/ });
+  await press("t");
+  await waitFor(() => expect(callbacks.onPrimedRetry).toHaveBeenCalledWith("pi_sibling"));
+});
+
+it("has a Next button, and Next returns to where the attempt started", async () => {
+  const callbacks = props({ origin: "reader" });
+  render(<FeedbackScreen {...callbacks} />);
+  await screen.findByText("Partly right");
+  expect(screen.getByText(/Back to the book/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^Next/ }));
+  await waitFor(() => expect(callbacks.onNext).toHaveBeenCalledOnce());
+  await press("Enter");
+  await waitFor(() => expect(callbacks.onNext).toHaveBeenCalledTimes(2));
+});
+
+it("replaces the grader's sentence with the diagnosis in place when it lands, with no analyzing banner", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, diagnosisStatus: "pending" });
+  let resolveCard!: (value: unknown) => void;
+  api.diagnosisStatus.mockReturnValueOnce(new Promise((done) => { resolveCard = done; }));
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("You used the unconditional probability.")).toBeTruthy();
+  expect(bodyText()).not.toMatch(/analyzing/i);
+  api.refreshFeedback.mockResolvedValue({ ...BUNDLE, diagnosisStatus: "done" });
+  api.diagnosisStatus.mockResolvedValue({
+    version: 1, attemptId: BUNDLE.attemptId, status: "done", cardEnabled: true, diagnosisId: "dx_1",
+    responses: [], summaryMd: "You conditioned on the wrong event: use only outcomes with sum 8.",
+    repairSuggestions: [], madeBefore: [], prerequisiteGap: null
+  });
+  await act(async () => resolveCard({
+    version: 1, attemptId: BUNDLE.attemptId, status: "done", cardEnabled: true, diagnosisId: "dx_1",
+    responses: [], summaryMd: "You conditioned on the wrong event: use only outcomes with sum 8.",
+    repairSuggestions: [], madeBefore: [], prerequisiteGap: null
+  }));
+  expect(await screen.findByText("You conditioned on the wrong event: use only outcomes with sum 8.")).toBeTruthy();
+  expect(screen.queryByText("You used the unconditional probability.")).toBeNull();
+});
+
+it("says a provisional grade may change, with the one question behind details", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, manualReviewReason: "provisional_pending_clarification" });
+  api.getGradingClarification.mockResolvedValue({
+    clarification: { id: "cl_1", attemptId: BUNDLE.attemptId, reason: "ambiguous_notation", questionMd: "Did you mean 1/5 or 1/6?", status: "open" }
+  });
+  render(<FeedbackScreen {...props()} />);
+  const line = await screen.findByRole("button", { name: /This grade may change after one question/ });
+  expect(screen.queryByText("Did you mean 1/5 or 1/6?")).toBeNull();
+  fireEvent.click(line);
+  expect(await screen.findByText("Did you mean 1/5 or 1/6?")).toBeTruthy();
+});
+
+it("classic restores the screen exactly: the score block, the grader tier and the schedule", async () => {
+  setAlgoConfig({ ui: { practiceFeedback: "classic" } });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Conditional probability");
+  await waitFor(() => expect(bodyText()).toContain("grader_tier 2"));
+  expect(bodyText()).toContain("Rubric · criterion evidence");
+  expect(bodyText()).toContain("FSRS rating");
+  expect(screen.queryByText("Partly right")).toBeNull();
+  expect(screen.queryByRole("button", { name: /I think I was right/ })).toBeNull();
+});
+
+// Found in the Phase 4 harness walk (fake AI, the linear-algebra library copy).
+it("offers nothing to contest on a right answer", async () => {
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, rubricScore: 4, correctness: 1 });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Right")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /I think I was right/ })).toBeNull();
+  await press("r");
+  expect(screen.queryByRole("textbox", { name: /why you think you were right/i })).toBeNull();
+});
+
+it("offers why? when the possible causes are known but no sentence is, and keeps the learner's verdict noted", async () => {
+  const causal = {
+    receiptId: "r1", verifiedCorrection: null,
+    causalHypotheses: [{ hypothesisId: "h1", label: "old rule", statement: "The old rule still seemed to apply.", causeScope: "learner_state", supportScore: null }],
+    unverified: [], proposedNextAction: null, demonstratedCriteria: [], firstDivergence: null, protectedTargets: [],
+    contestAction: { available: true, reasons: ["diagnosis_wrong"], factorId: null },
+    repairedTrace: null, repairedTraceWithheldReason: null, permittedUses: []
+  };
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, feedbackMd: null, causalFeedback: causal });
+  api.contestCausalDiagnosis.mockResolvedValue({});
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /why\?/ }));
+  expect(screen.getByText(/The old rule still seemed to apply/)).toBeTruthy();
+  api.getFeedback.mockResolvedValue({ ...BUNDLE, feedbackMd: null, causalFeedback: { ...causal, contestAction: { available: false, reasons: [], factorId: null } } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "this doesn't sound right" }));
+  });
+  expect(await screen.findByText("Noted. Thanks.")).toBeTruthy();
+});
+
+// == Codex review (docs/reviews/ux-phase4-feedback-codex-review.md) ==========
+
+it("F1: showing the full answer charges the reveal ledger, once per visit", async () => {
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Five equally likely outcomes; one has first = 3: 1/5.")).toBeTruthy();
+  await waitFor(() =>
+    expect(api.recordAnswerDisplay).toHaveBeenCalledWith(BUNDLE.attemptId, expect.stringMatching(/^display_/))
+  );
+  // Details and the bundle's re-reads re-render the surface; nothing new is charged.
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  await press(".");
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+});
+
+it("F1 (re-review): reopening the feedback is a fresh exposure, charged under a new visit", async () => {
+  const first = render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Five equally likely outcomes; one has first = 3: 1/5.");
+  await waitFor(() => expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1));
+  first.unmount();
+  clear();
+
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Five equally likely outcomes; one has first = 3: 1/5.");
+  await waitFor(() => expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2));
+  const [[firstAttempt, firstVisit], [secondAttempt, secondVisit]] = api.recordAnswerDisplay.mock.calls;
+  expect([firstAttempt, secondAttempt]).toEqual([BUNDLE.attemptId, BUNDLE.attemptId]);
+  expect(firstVisit).toMatch(/^display_/);
+  expect(secondVisit).toMatch(/^display_/);
+  expect(secondVisit).not.toBe(firstVisit);
+});
+
+it("F1: no full answer on screen, nothing charged", async () => {
+  api.getPracticeItem.mockResolvedValue({ ...ITEM, expectedAnswer: "" });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  expect(screen.queryByText("A full answer")).toBeNull();
+  expect(api.recordAnswerDisplay).not.toHaveBeenCalled();
+});
+
+it("F5: the full answer and criteria are the graded contract's, never today's key beside the question given", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    answeredPresentation: {
+      practiceItemId: "pi_cond_001",
+      blocks: [{ kind: "prompt", markdown: "Given that the sum is 7, what is P(first = 3)?", label: null }]
+    },
+    answeredExpectedAnswer: "Six equally likely outcomes; one has first = 3: 1/6.",
+    answeredCriteria: [
+      { criterionId: "setup", description: "Set up P(first=3 | sum=7)", pointsPossible: 2 },
+      { criterionId: "restrict", description: "Restricted to the six outcomes", pointsPossible: 2 }
+    ],
+    answeredMaxPoints: 4
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Six equally likely outcomes; one has first = 3: 1/6.")).toBeTruthy();
+  expect(screen.getByText("Given that the sum is 7, what is P(first = 3)?")).toBeTruthy();
+  expect(screen.queryByText("Five equally likely outcomes; one has first = 3: 1/5.")).toBeNull();
+  expect(screen.getByText("Set up P(first=3 | sum=7)")).toBeTruthy();
+  expect(screen.queryByText("Set up the conditional probability")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(bodyText()).toContain("Restricted to the six outcomes");
+  expect(bodyText()).not.toContain("Restricted the sample space to the condition");
+});
+
+it("F8: a frozen criterion with an underscored id keeps its description and points", async () => {
+  // The sidecar sends the frozen criteria as rows carrying their id; the id
+  // fixtures use (`criterion_correct_selection`) is never camel-cased away.
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    criterionEvidence: [
+      { criterionId: "criterion_correct_selection", criterionDescription: "Today's wording", pointsAwarded: 1, pointsPossible: 8, evidence: null, notes: null, graderTier: 2 }
+    ],
+    answeredCriteria: [{ criterionId: "criterion_correct_selection", description: "Chose the conditional sample space", pointsPossible: 2 }],
+    answeredMaxPoints: 2
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("Chose the conditional sample space")).toBeTruthy();
+  expect(screen.queryByText("Today's wording")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(bodyText()).toContain("1.0 / 2.0");
+  expect(bodyText()).not.toContain("1.0 / 8.0");
+});
+
+it("F9: a regrade under the corrected item shows its key and rubric beside the question given", async () => {
+  // After an ordinary regrade the sidecar sends no frozen key or criteria:
+  // the screen reads the corrected item (what the regrade graded against)
+  // and the regrade's own rows, and keeps the question the learner was given.
+  api.getPracticeItem.mockResolvedValue({ ...ITEM, expectedAnswer: "The corrected key: 1/5." });
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    rubricScore: 6,
+    maxPoints: 8,
+    correctness: 0.75,
+    criterionEvidence: [
+      { criterionId: "setup", criterionDescription: "Set up and restricted the sample space", pointsAwarded: 6, pointsPossible: 8, evidence: null, notes: null, graderTier: 3 }
+    ],
+    answeredPresentation: {
+      practiceItemId: "pi_cond_001",
+      blocks: [{ kind: "prompt", markdown: "Given that the sum is 7, what is P(first = 3)?", label: null }]
+    },
+    answeredExpectedAnswer: null,
+    answeredCriteria: null,
+    answeredMaxPoints: null,
+    regrade: { oldScore: 2, newScore: 6, maxPoints: 8, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: false }
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("The corrected key: 1/5.")).toBeTruthy();
+  expect(screen.getByText("Given that the sum is 7, what is P(first = 3)?")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("details-score").textContent).toContain("6 / 8");
+  expect(bodyText()).toContain("6.0 / 8.0");
+});
+
+it("F9: an answer still graded under its contract scores out of the contract's maximum", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    rubricScore: 4,
+    maxPoints: 8,
+    correctness: 1,
+    criterionEvidence: [
+      { criterionId: "setup", criterionDescription: "Today's 8-point criterion", pointsAwarded: 4, pointsPossible: 8, evidence: null, notes: null, graderTier: 2 }
+    ],
+    answeredExpectedAnswer: "Six equally likely outcomes; one has first = 3: 1/6.",
+    answeredCriteria: [{ criterionId: "setup", description: "Set up P(first=3 | sum=7)", pointsPossible: 4 }],
+    answeredMaxPoints: 4
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("details-score").textContent).toContain("4 / 4");
+  expect(bodyText()).not.toContain("4 / 8");
+});
+
+const HELD = {
+  ...BUNDLE,
+  rubricScore: 0,
+  correctness: 0,
+  heldForReview: true,
+  criterionEvidence: BUNDLE.criterionEvidence.map((row) => ({ ...row, pointsAwarded: 0, assessed: false })),
+  manualReviewReason: "route_unverified_hold"
+} as unknown as FeedbackBundle;
+const RELEASED = { ...BUNDLE, rubricScore: 4, correctness: 1, heldForReview: false } as unknown as FeedbackBundle;
+
+it("F6: a hold released in place says Held for review → Right, never the held score", async () => {
+  api.getFeedback.mockResolvedValue(HELD);
+  api.triggerRegrade.mockResolvedValue({ ...RELEASED, contest: { recorded: true, regraded: true, reviewRequested: false } });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Held for review");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+  expect(await screen.findByText(/now Right/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: Held for review → Right.");
+  expect(bodyText()).not.toMatch(/\b0(\.0)? \/ 4/);
+});
+
+it("F6: a reopened feedback whose regrade released a hold shows no held score either", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...RELEASED,
+    regrade: { oldScore: 0, newScore: 4, maxPoints: 4, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: true }
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: Held for review → Right.");
+  expect(bodyText()).not.toMatch(/\b0(\.0)? \/ 4/);
+});
+
+it("F6: an ordinary regrade keeps its numbers in details", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...RELEASED,
+    regrade: { oldScore: 2, newScore: 4, maxPoints: 4, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: false }
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 4 / 4.");
+});
+
+it("F7: a contest that was not confirmed keeps the box and the reason, and a retry reuses its key", async () => {
+  api.triggerRegrade.mockRejectedValueOnce({ code: "sidecar_unavailable", message: "The sidecar is not running", retryable: true });
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: /why you think you were right/i }), { target: { value: "1/5 is right" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+  expect(await screen.findByText("Your note couldn't be sent. Try again.")).toBeTruthy();
+  expect(bodyText()).not.toMatch(/note is kept/i);
+  const box = screen.getByRole("textbox", { name: /why you think you were right/i }) as HTMLInputElement;
+  expect(box.value).toBe("1/5 is right");
+  expect(callbacks.onError).not.toHaveBeenCalled();
+
+  api.triggerRegrade.mockResolvedValueOnce({ ...BUNDLE, contest: { recorded: true, regraded: true, reviewRequested: true } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+  expect(await screen.findByText(/Your note is kept\. It's marked for review\./)).toBeTruthy();
+  const [first, second] = api.triggerRegrade.mock.calls;
+  expect(second[2]).toBe(first[2]);
+  expect(second[1]).toBe("1/5 is right");
+  expect(screen.queryByRole("textbox", { name: /why you think you were right/i })).toBeNull();
+});
+
+it("F7: a new contest after a confirmed one gets a new key", async () => {
+  api.triggerRegrade.mockResolvedValue({ ...BUNDLE, contest: { recorded: true, regraded: true, reviewRequested: true } });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  for (let round = 0; round < 2; round += 1) {
+    fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+    });
+    await screen.findByText(/Your note is kept/);
+  }
+  const [first, second] = api.triggerRegrade.mock.calls;
+  expect(second[2]).not.toBe(first[2]);
+});
+
+async function sendContest(reason: string) {
+  fireEvent.change(screen.getByRole("textbox", { name: /why you think you were right/i }), { target: { value: reason } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /look again/i }));
+  });
+}
+
+it("F10: an edited reason after an unconfirmed send is a new contest with a new key", async () => {
+  api.triggerRegrade.mockRejectedValueOnce({ code: "sidecar_unavailable", message: "The sidecar is not running", retryable: true });
+  api.triggerRegrade.mockResolvedValueOnce({ ...BUNDLE, contest: { recorded: true, regraded: true, reviewRequested: true } });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await sendContest("1/5 is right");
+  expect(await screen.findByText("Your note couldn't be sent. Try again.")).toBeTruthy();
+
+  await sendContest("1/5: five outcomes sum to 8");
+  await screen.findByText(/Your note is kept/);
+  const [first, second] = api.triggerRegrade.mock.calls;
+  expect(second[1]).toBe("1/5: five outcomes sum to 8");
+  expect(second[2]).not.toBe(first[2]);
+});
+
+it("F10: cancelling an unconfirmed contest and opening a new one gets a new key", async () => {
+  api.triggerRegrade.mockRejectedValueOnce({ code: "sidecar_unavailable", message: "The sidecar is not running", retryable: true });
+  api.triggerRegrade.mockResolvedValueOnce({ ...BUNDLE, contest: { recorded: true, regraded: true, reviewRequested: true } });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await sendContest("1/5 is right");
+  await screen.findByText("Your note couldn't be sent. Try again.");
+  fireEvent.click(screen.getByRole("button", { name: /never mind/i }));
+
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await sendContest("1/5 is right");
+  await screen.findByText(/Your note is kept/);
+  const [first, second] = api.triggerRegrade.mock.calls;
+  expect(second[2]).not.toBe(first[2]);
+});
+
+// == Final verification reopen (docs/reviews/ux-phase4-feedback-codex-review.md §8) ==========
+
+const KEY = "Five equally likely outcomes; one has first = 3: 1/5.";
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+async function flush() {
+  await act(async () => {
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  });
+}
+
+async function advance(ms: number) {
+  await act(async () => {
+    vi.advanceTimersByTime(ms);
+  });
+  await flush();
+}
+
+async function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => state });
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await flush();
+}
+
+/** The display ids written, each with the (fake) time it was sent. */
+function displayWrites(): { id: string; at: number }[] {
+  return api.recordAnswerDisplay.mock.calls.map(([, id], index) => ({
+    id: String(id),
+    at: Number(api.recordAnswerDisplay.mock.results[index]?.value?.at ?? 0)
+  }));
+}
+
+function stampWrites() {
+  api.recordAnswerDisplay.mockImplementation(() => Object.assign(Promise.resolve({ version: 1, recorded: true }), { at: Date.now() }));
+}
+
+it("F1 (final): returning to feedback still mounted after the cold delay renews the exposure under a new display", async () => {
+  vi.useFakeTimers();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+
+  // Backgrounded without unmounting: nothing is on screen, nothing is written.
+  await setVisibility("hidden");
+  await advance(2 * DAY);
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+
+  // Back: the answer is read again, so a fresh exposure under a new id.
+  await setVisibility("visible");
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
+  const [[, mounted], [, returned]] = api.recordAnswerDisplay.mock.calls;
+  expect(returned).toMatch(/^display_/);
+  expect(returned).not.toBe(mounted);
+});
+
+it("F1 (final): focus regained renews the exposure, but not within a minute of the last one", async () => {
+  vi.useFakeTimers();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  await advance(20_000);
+  await act(async () => { fireEvent(window, new Event("focus")); });
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  await advance(10 * MINUTE);
+  await act(async () => { fireEvent(window, new Event("focus")); });
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
+  const ids = api.recordAnswerDisplay.mock.calls.map(([, id]) => id);
+  expect(new Set(ids).size).toBe(2);
+});
+
+it("F1 (final): an answer left on screen past the cold delay never lapses", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  const start = Date.now();
+  await advance(50 * HOUR);
+  const writes = displayWrites();
+  // A row at least hourly (each a new display), so the latest is never older
+  // than an hour while the answer is on screen: well inside the one-day delay.
+  expect(writes.length).toBeGreaterThanOrEqual(50);
+  expect(new Set(writes.map((write) => write.id)).size).toBe(writes.length);
+  const stamps = [start, ...writes.slice(1).map((write) => write.at), Date.now()];
+  const gaps = stamps.slice(1).map((at, index) => at - stamps[index]);
+  expect(Math.max(...gaps)).toBeLessThanOrEqual(HOUR + MINUTE);
+});
+
+it("F1 (final): the renewal stays well inside the cold retrieval delay", async () => {
+  const { EXPOSURE_FRESH_MS, EXPOSURE_RENEW_MS, EXPOSURE_TICK_MS } = await import("./feedback/answerExposure");
+  expect(EXPOSURE_RENEW_MS).toBeLessThanOrEqual(HOUR);
+  expect(EXPOSURE_TICK_MS).toBeLessThanOrEqual(MINUTE);
+  expect(EXPOSURE_FRESH_MS).toBeLessThanOrEqual(MINUTE);
+});
+
+it("F1 (final): a write that failed is retried under the same display, once it lands nothing more", async () => {
+  vi.useFakeTimers();
+  api.recordAnswerDisplay.mockRejectedValueOnce(new Error("sidecar busy"));
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  await advance(MINUTE);
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
+  await advance(20 * MINUTE);
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
+  const [[, first], [, retry]] = api.recordAnswerDisplay.mock.calls;
+  expect(retry).toBe(first);
+});
+
+it("F1 (final): feedback re-shown when an overlay over it closes is a new exposure", async () => {
+  vi.useFakeTimers();
+  const base = props();
+  const view = render(<FeedbackScreen {...base} answerCovered={false} />);
+  await flush();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  view.rerender(<FeedbackScreen {...base} answerCovered />);
+  await flush();
+  await advance(2 * DAY);
+  // Covered: the answer is not on screen, so nothing is written meanwhile.
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(1);
+  view.rerender(<FeedbackScreen {...base} answerCovered={false} />);
+  await flush();
+  expect(api.recordAnswerDisplay).toHaveBeenCalledTimes(2);
+  const [[, before], [, after]] = api.recordAnswerDisplay.mock.calls;
+  expect(after).not.toBe(before);
+});
+
+it("F1 (final): leaving feedback after reading it a while closes the exposure with a row stamped then", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  const view = render(<FeedbackScreen {...props()} />);
+  await flush();
+  await advance(10 * MINUTE);
+  view.unmount();
+  await flush();
+  const writes = displayWrites();
+  expect(writes).toHaveLength(2);
+  expect(writes[1].id).not.toBe(writes[0].id);
+  expect(writes[1].at - writes[0].at).toBe(10 * MINUTE);
+});
+
+const CHANGED = {
+  ...BUNDLE,
+  rubricScore: 6,
+  maxPoints: 10,
+  correctness: 0.75,
+  criterionEvidence: [
+    { criterionId: "setup", criterionDescription: "Today's 10-point criterion", pointsAwarded: 6, pointsPossible: 10, evidence: null, notes: null, graderTier: 3 }
+  ],
+  answeredSource: "changed",
+  answeredExpectedAnswer: null,
+  answeredCriteria: null,
+  answeredMaxPoints: null,
+  regrade: {
+    oldScore: 2, newScore: 6, maxPoints: 10, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: false,
+    oldMaxPoints: 4, newMaxPoints: null
+  }
+} as unknown as FeedbackBundle;
+
+it("F9 (final): a question changed since its regrade says so, shows no full answer and never the later maximum", async () => {
+  api.getFeedback.mockResolvedValue(CHANGED);
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  expect(screen.getByText(/This question has changed since it was graded/)).toBeTruthy();
+  expect(screen.queryByText("A full answer")).toBeNull();
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(api.recordAnswerDisplay).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("details-score").textContent).toContain("6 points");
+  expect(bodyText()).not.toMatch(/\/ 10/);
+  expect(bodyText()).toContain("6.0 points");
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 points.");
+});
+
+it("F9 (final): a changed question's grade is scored out of the maximum recorded with it", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...CHANGED,
+    answeredMaxPoints: 8,
+    regrade: { ...(CHANGED.regrade as object), newMaxPoints: 8 }
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("details-score").textContent).toContain("6 / 8");
+  expect(bodyText()).not.toMatch(/\/ 10/);
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 / 8.");
+});
+
+it("F9 (final): an item unchanged since it was graded carries no label", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    answeredSource: "item",
+    answeredExpectedAnswer: KEY,
+    answeredCriteria: [
+      { criterionId: "setup", description: "Set up the conditional probability", pointsPossible: 2 },
+      { criterionId: "restrict", description: "Restricted the sample space to the condition", pointsPossible: 2 }
+    ],
+    answeredMaxPoints: 4
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText(KEY)).toBeTruthy();
+  expect(screen.queryByText(/has changed since it was graded/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("details-score").textContent).toContain("2 / 4");
+});
+
+it("F9 (final): after a regrade in place the screen re-reads the item, never keeping the one it loaded with", async () => {
+  // A sidecar that sends no key with the regrade (the old shape): the screen
+  // still shows what the regrade graded against, the item as it is now.
+  api.getPracticeItem
+    .mockResolvedValueOnce(ITEM)
+    .mockResolvedValue({ ...ITEM, expectedAnswer: "The corrected key: 1/5, from five outcomes." });
+  api.triggerRegrade.mockResolvedValue({
+    ...BUNDLE,
+    rubricScore: 6,
+    maxPoints: 8,
+    correctness: 0.75,
+    contest: { recorded: true, regraded: true, reviewRequested: true }
+  });
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText(KEY)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /I think I was right/ }));
+  await sendContest("All five outcomes are there");
+  expect(await screen.findByText("The corrected key: 1/5, from five outcomes.")).toBeTruthy();
+  expect(screen.queryByText(KEY)).toBeNull();
+});
+
+it("F9 (final): the regrade history scores each side out of its own grade's maximum", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...BUNDLE,
+    rubricScore: 6,
+    maxPoints: 8,
+    correctness: 0.75,
+    answeredSource: "item",
+    answeredMaxPoints: 8,
+    regrade: {
+      oldScore: 2, newScore: 6, maxPoints: 8, regradedAt: "2026-10-14T00:00:00Z", direction: "up", oldHeld: false,
+      oldMaxPoints: 4, newMaxPoints: 8
+    }
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 / 8.");
+});

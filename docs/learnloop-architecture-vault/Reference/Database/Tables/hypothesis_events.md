@@ -3,8 +3,8 @@ title: "hypothesis_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
+source_commit_timestamp: "2026-10-15T23:28:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_events"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/diagnosis/scoreboard.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
   - "src/learnloop/learner/hypothesis_claims.py"
+  - "src/learnloop_sidecar/handlers/feedback.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -125,6 +126,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/learner/hypothesis_claims.py`
 - `src/learnloop/learner/surfaced_beliefs.py`
+- `src/learnloop_sidecar/handlers/feedback.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -134,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_hypothesis_claim_dispatcher.py`
 - `tests/test_surfaced_belief_corrections.py`
+- `tests/test_ux_phase4_feedback.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

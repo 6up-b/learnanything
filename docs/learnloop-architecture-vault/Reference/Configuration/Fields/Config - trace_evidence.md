@@ -3,8 +3,8 @@ title: "Config - trace_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
+source_commit_timestamp: "2026-10-15T23:28:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml trace_evidence"
@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "tests/test_conjunctive_instruments.py"
+  - "tests/test_ux_phase4_feedback.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/trace-evidence"
@@ -50,6 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_conjunctive_instruments.py`
+- `tests/test_ux_phase4_feedback.py`
 
 ## Extension and modification guidance
 

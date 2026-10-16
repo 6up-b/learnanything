@@ -712,6 +712,16 @@ export interface SessionEndSummary {
   predictionsMoved: { up: number; down: number };
   corrections: number;
   misconceptionsTouched: { resolved: number; returned: number };
+  /** UX Phase 4: the topics the session practised, in the well's words
+   *  (● on your own, ◌ with help); a topic only tried, missed, skipped or
+   *  held is not named. Absent from an older sidecar. */
+  topics?: SessionTopicDto[];
+}
+
+export interface SessionTopicDto {
+  learningObjectId: string;
+  title: string;
+  evidence: "on_your_own" | "with_help";
 }
 
 export interface SessionCheckpoint {
@@ -727,12 +737,22 @@ export interface SessionCheckpoint {
   /** Router R2a (review F5): the daily-plan presentation the draft answers
    *  (absent from an older sidecar). */
   planPresentationId?: string | null;
+  /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
+   *  it showed a full answer; the draft reopens locked to it. */
+  selfGradeDisclosure?: SelfGradeDisclosureDto | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
   updatedAt: IsoTimestamp;
   /** Mid-conversation teach-back state, when the checkpoint holds one. */
   teachBack?: TeachBackStateDto | null;
+}
+
+/** The whole trace a plain self-grade froze before showing a full answer. */
+export interface SelfGradeDisclosureDto {
+  submissionId: string;
+  answerMd: string;
+  explanationMd: string | null;
 }
 
 export interface QueueInput {
@@ -1185,6 +1205,9 @@ export interface ProbeBlockEndDto {
     /** Server truth for "redo the part you missed" — same rule
      *  `start_guided_redo` enforces (the SELECTED repair preserves a prefix). */
     guidedRedoAvailable?: boolean;
+    /** UX Phase 4: the grade is held for review (THE held predicate); its
+     *  score is the grader's provisional one and is never shown. */
+    heldForReview?: boolean;
   }[];
   normalizedMisconceptionIds: string[];
   openSet: Record<string, unknown> | null;
@@ -1445,6 +1468,38 @@ export interface FeedbackBundle {
    * RegradeLedgerCard renders on a fresh load, not only after an in-screen
    * trigger_regrade. Null/absent when the attempt was never regraded. */
   regrade?: PersistedRegradeDto | null;
+  /** UX Phase 4 (display only): the grade is held for review (THE held
+   *  predicate, `learnloop.held_grades`): the surface says "held for review"
+   *  and never shows its score. Absent from an older sidecar. */
+  heldForReview?: boolean;
+  /** The learner's own answer and volunteered line, apart (feedback shows
+   *  "You wrote" beside a full answer). */
+  learnerAnswerMd?: string;
+  learnerExplanationMd?: string | null;
+  /** The question as it was given when it differs from the item's own
+   *  presentation (a method-explicit answer's frozen statement and rendered
+   *  instruction, or the frozen statement of an item edited since); null
+   *  otherwise. */
+  answeredPresentation?: ItemPresentationDto | null;
+  /** Codex review F5, re-review F9, final verification F9: the answer key,
+   *  criteria and maximum the grade stands on, sent directly. `answeredSource`
+   *  says where they come from: the assessment contract its grading epoch
+   *  cites (exact), the item as it is now (an ordinary regrade, or an answer
+   *  graded before contracts, when nothing recorded says the item differs
+   *  from what it graded), or "changed": the question changed since it was
+   *  graded and nothing recorded gives that version back, so there is no key
+   *  or criteria, and a maximum only when one was recorded with the grade.
+   *  Absent from an older sidecar (feedback then reads the item, re-read
+   *  after a regrade). The criteria are rows carrying their id (re-review F8:
+   *  a map keyed by id had its keys camel-cased). */
+  answeredSource?: "contract" | "item" | "changed";
+  answeredExpectedAnswer?: unknown;
+  answeredCriteria?: { criterionId: string; description: string; pointsPossible: number }[] | null;
+  answeredMaxPoints?: number | null;
+  /** "I think I was right" (Codex review F3/F7): present on a contest's
+   *  response. `recorded`: the learner's note is kept; `regraded`: the grader
+   *  looked again; `reviewRequested`: the grade went to the owner's review. */
+  contest?: { recorded: boolean; regraded: boolean; reviewRequested: boolean };
 }
 
 /** What the cold check this attempt spent turned out to say.
@@ -1864,6 +1919,14 @@ export interface PersistedRegradeDto {
   maxPoints: number;
   regradedAt: IsoTimestamp;
   direction: "up" | "down" | "same";
+  /** Codex review F6: the grade the regrade replaced was held for review (its
+   *  score was provisional and is never shown). Absent from an older sidecar. */
+  oldHeld?: boolean;
+  /** UX Phase 4 (final verification F9): each side's own maximum, the one its
+   *  grade stands on; null when none is known. `maxPoints` stays the item's
+   *  (classic shows it). Absent from an older sidecar. */
+  oldMaxPoints?: number | null;
+  newMaxPoints?: number | null;
 }
 
 export interface MatchedMisconceptionDto {

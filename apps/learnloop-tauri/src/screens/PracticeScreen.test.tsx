@@ -245,6 +245,8 @@ it("offers 'I know this' while placement is on, then leaves the card", async () 
   });
   const callbacks = props();
   render(<PracticeScreen {...callbacks} />);
+  // UX Phase 4 (§7.4): the card's controls sit under ⋯.
+  fireEvent.click(await screen.findByRole("button", { name: "more for this question" }));
   const action = await screen.findByText("✓ I know this");
   await act(async () => { fireEvent.click(action); });
   // The session travels with the report, which clears this card's durable
@@ -335,7 +337,8 @@ it("keeps today's don't know control and call when the vault does not offer I'm 
 });
 
 it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt type", async () => {
-  setAlgoConfig({ practice: { stuckPrompt: true } });
+  // The classic card's check banner; UX Phase 4's plain line has its own test.
+  setAlgoConfig({ ui: { practiceFeedback: "classic" }, practice: { stuckPrompt: true } });
   api.getProbeContract.mockResolvedValue({
     version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
     observationNumber: 1, maximumObservations: 3,
@@ -365,6 +368,8 @@ it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt 
 // mvp-0.21 (value-of-information stopping): a check that asks while the next
 // question is worth its minutes never claims "of up to N".
 it("labels a value-stopped diagnostic check without a count ceiling", async () => {
+  // The classic card's check banner; UX Phase 4's plain line has its own test.
+  setAlgoConfig({ ui: { practiceFeedback: "classic" }, practice: { stuckPrompt: true } });
   api.getProbeContract.mockResolvedValue({
     version: 1, active: true, presentationId: "pres-1", forcedAttemptType: "diagnostic_probe",
     observationNumber: 5, maximumObservations: 4, valueStopping: true,

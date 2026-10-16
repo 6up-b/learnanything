@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
+
+from pydantic import Field
 
 from learnloop.clock import utc_now_iso
 from learnloop.substrate.instrument_serving import unservable_refusal
@@ -31,6 +34,26 @@ class AnswerClarificationInput(ParamsModel):
 
 class TriggerRegradeInput(ParamsModel):
     attempt_id: str
+    # UX Phase 4 "I think I was right" (spec §7.5): the learner's one-line
+    # reason. Recorded before the regrade (kept even if the grader is
+    # unavailable) and never handed to the grader, which stays blind to it.
+    # Absent: the plain regrade, exactly as before (records nothing).
+    learner_reason: str | None = None
+    # The client's key for this one contest (Codex review F7): a retry after a
+    # failed or unknown delivery reuses it, so the contest is recorded and
+    # queued once. Absent: a fresh key (no retry identity). The key is bound
+    # to its reason (Codex re-review F10): the same key with another reason
+    # is refused, never answered over the reason first kept.
+    contest_id: str | None = None
+
+
+class AnswerDisplayInput(ParamsModel):
+    attempt_id: str
+    # The exposure of the full answer (Codex re-review F1, final verification
+    # F1): the client mints a new one whenever the answer comes back on
+    # screen, at least hourly while it stays there, and when it leaves; a
+    # retry of its write reuses it. Each is its own row.
+    display_id: str = Field(min_length=1, max_length=128)
 
 
 class AddErrorEventInput(ParamsModel):
@@ -460,6 +483,19 @@ def contest_causal_diagnosis(
 
 @method("trigger_regrade", TriggerRegradeInput)
 def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[str, Any]:
+    vault, repository = ctx.require_vault()
+    attempt = repository.fetch_practice_attempt(params.attempt_id)
+    if attempt is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    if params.learner_reason is not None:
+        return _contest_grade(ctx, vault, repository, attempt, params)
+    _run_regrade(ctx, vault, repository, attempt)
+    return feedback_bundle(vault, repository, params.attempt_id)
+
+
+def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> None:
+    """The existing regrade (learner-blind), or ``ai_unavailable``."""
+
     from learnloop.attempts.regrade import regrade_attempt
     from learnloop_sidecar.handlers.ai_providers import (
         client_for_provider,
@@ -468,10 +504,6 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
         ready_grading_provider,
     )
 
-    vault, repository = ctx.require_vault()
-    attempt = repository.fetch_practice_attempt(params.attempt_id)
-    if attempt is None:
-        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
     if not runtime.ready:
         label = provider_label(provider_name)
@@ -480,6 +512,7 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
     if client is None:
         label = provider_label(provider_name)
         raise SidecarError("ai_unavailable", f"{label} client is unavailable; regrade requires an AI provider.")
+    _snapshot_item_regraded(vault, repository, str(attempt["practice_item_id"]))
     regrade_attempt(
         vault,
         repository,
@@ -489,7 +522,230 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
         grading_source=grading_source_for_provider(provider_name),
         clock=None,
     )
-    return feedback_bundle(vault, repository, params.attempt_id)
+
+
+def _snapshot_item_regraded(vault, repository, practice_item_id: str) -> None:
+    """Snapshot the item an ordinary regrade reads (UX Phase 4, final verification F9).
+
+    The same content-addressed snapshot every serve of the item takes
+    (``practice_item_detail``), from the vault the regrade is about to read (a
+    method-explicit regrade reads its frozen contract and cites it instead). It
+    changes no grading: an ordinary regrade still cites no contract and replay
+    reads what it read before. It lets feedback tell later that the item now is
+    the one this regrade graded (``serializers._epoch_grading_record``), even
+    when the item was edited after the screen last served it. Best effort: a
+    failed snapshot only makes that feedback more cautious.
+    """
+
+    from learnloop.attempts.grading import resolved_rubric
+    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
+
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
+        return
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        return
+    try:
+        # The rubric the regrade reads (``regrade_attempt``: ``resolved_rubric``).
+        snapshot_for_presentation(repository, vault, item, rubric=resolved_rubric(vault, item))
+    except Exception:  # noqa: BLE001 - bookkeeping never blocks the regrade
+        logging.getLogger(__name__).warning("item snapshot before regrade failed for %s", practice_item_id, exc_info=True)
+
+
+def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any],
+                   params: TriggerRegradeInput) -> dict[str, Any]:
+    """"I think I was right" (spec §7.5): keep the learner's reason, look again
+    in place, and send what the look did not settle to the owner's review.
+
+    1. The reason is recorded first (the claim ledger, presentation-only),
+       under the client's contest key, so a retry records it once. Nothing
+       recorded is ``contest_not_recorded``: the client keeps the reason. The
+       key is bound to its reason: the same key with another reason is
+       ``contest_key_conflict`` and nothing runs (Codex re-review F10).
+    2. The existing regrade runs, blind to the reason. A grader that cannot
+       run (or fails) is not an error any more: the contest is kept.
+    3. Unless the answer now reads right, the grade enters the existing
+       grade-review queue (``grade_resolution.flag_observation_for_review``:
+       ``learnloop grading reviews`` / ``adjudicate``), where the owner's
+       adjudication can correct the record (Codex review F3).
+
+    The bundle carries ``contest``: what was recorded, whether the grader
+    looked again and whether the grade was sent for review.
+    """
+
+    from learnloop.ids import new_ulid
+
+    attempt_id = str(attempt["id"])
+    contest_id = (params.contest_id or "").strip() or new_ulid()
+    try:
+        presentation_id = _record_grade_contest(
+            repository, attempt_id, (params.learner_reason or "").strip(),
+            contest_id=contest_id, session_id=attempt.get("session_id"),
+        )
+    except _ContestKeyConflict as exc:
+        # Nothing new is kept and nothing runs: the client sends an edited
+        # reason, or a new contest, under a new key.
+        raise SidecarError(
+            "contest_key_conflict",
+            "This contest was already sent with another reason. Send the new one as a new contest.",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 - nothing kept: say so
+        logging.getLogger(__name__).warning("grade contest for %s was not recorded", attempt_id, exc_info=True)
+        raise SidecarError(
+            "contest_not_recorded", "Your note couldn't be saved. Try again.", retryable=True
+        ) from exc
+    regraded = True
+    try:
+        _run_regrade(ctx, vault, repository, attempt)
+    except SidecarError as exc:
+        if exc.code != "ai_unavailable":
+            raise
+        regraded = False
+    except Exception:  # noqa: BLE001 - the contest is kept; the owner reviews it
+        logging.getLogger(__name__).warning("contest regrade failed for %s", attempt_id, exc_info=True)
+        regraded = False
+    bundle = feedback_bundle(vault, repository, attempt_id)
+    review_requested = False
+    if not _contest_upheld(bundle):
+        review_requested = _request_grade_review(repository, attempt_id, contest_id, presentation_id)
+    log_event(
+        "grade_contest_settled", attempt_id=attempt_id, regraded=regraded, review_requested=review_requested,
+    )
+    bundle["contest"] = to_camel(
+        {"recorded": True, "regraded": regraded, "review_requested": review_requested}
+    )
+    return bundle
+
+
+def _contest_upheld(bundle: dict[str, Any]) -> bool:
+    """The answer now reads right (the learner's claim holds): full marks and
+    not held for review."""
+
+    max_points = float(bundle.get("maxPoints") or 0)
+    score = float(bundle.get("rubricScore") or 0)
+    correctness = float(bundle.get("correctness") or 0)
+    full = score >= max_points if max_points > 0 else correctness >= 1.0
+    return bool(full and correctness >= 1.0 and not bundle.get("heldForReview"))
+
+
+def _request_grade_review(repository, attempt_id: str, contest_id: str, presentation_id: str) -> bool:
+    """Queue the contested grade in the existing grade-review intake. False
+    when the attempt has no graded observation to queue (a pre-P0.2 grade)."""
+
+    from learnloop.attempts.grade_resolution import flag_observation_for_review
+
+    observation = repository.observation_by_attempt(attempt_id)
+    if observation is None:
+        return False
+    return flag_observation_for_review(
+        repository,
+        observation_id=str(observation["id"]),
+        reason="learner_grade_contest",
+        detail={"contest_id": contest_id, "contest_presentation_id": presentation_id},
+    ) is not None
+
+
+#: The claim type a learner's "I think I was right" is kept under.
+GRADE_CONTEST_CLAIM_TYPE = "grade_contest"
+
+
+def _record_grade_contest(repository, attempt_id: str, reason: str, *, contest_id: str,
+                          session_id: str | None) -> str:
+    """Keep a learner's grade contest in the claim ledger (presented, then
+    answered); returns the presentation id.
+
+    The learner started it, so the attention budget that paces system-asked
+    claims does not apply: each contest is its own visit, never suppressed, and
+    no cooldown hides a second one on the same answer. The contest key makes it
+    idempotent: a retry finds the same presentation and its response.
+    """
+
+    from learnloop.learner.hypothesis_claims import present_claims, record_response
+
+    [presentation] = present_claims(
+        repository,
+        [
+            {
+                "claim_class": "ledger_fact",
+                "claim_type": GRADE_CONTEST_CLAIM_TYPE,
+                "claim_ref": {"attemptId": attempt_id, "kind": GRADE_CONTEST_CLAIM_TYPE},
+                "claim_version": f"{GRADE_CONTEST_CLAIM_TYPE}:{contest_id}",
+                "producer_version": "ux-phase4",
+                "surface": "feedback_contest",
+                "temperature": "hot",
+                "visible_at": utc_now_iso(),
+                "claim_text": "I think I was right",
+            }
+        ],
+        session_id=None,
+        visit_id=f"grade-contest:{attempt_id}:{contest_id}",
+        session_card_budget=1,
+        claim_cooldown_days=0,
+    )
+    presentation_id = str(presentation["presentation_id"])
+    payload = {"response": "i_think_i_was_right", "reason": reason}
+    kept = next(
+        (
+            event.get("response_payload")
+            for event in repository.list_hypothesis_events()
+            if event.get("event_type") == "responded" and event.get("presentation_id") == presentation_id
+        ),
+        None,
+    )
+    if kept is None:
+        record_response(repository, presentation_id, payload)
+    elif _kept_contest_reason(kept) != reason:
+        # The key names one contest and its one reason (Codex re-review F10):
+        # answering success here would drop the reason just sent.
+        raise _ContestKeyConflict(contest_id)
+    log_event("grade_contest_recorded", attempt_id=attempt_id, session_id=session_id, has_reason=bool(reason))
+    return presentation_id
+
+
+class _ContestKeyConflict(Exception):
+    """A contest key already keeps another reason."""
+
+
+def _kept_contest_reason(payload: Any) -> str | None:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            return None
+    return str(payload.get("reason") or "") if isinstance(payload, dict) else None
+
+
+@method("record_answer_display", AnswerDisplayInput)
+def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]:
+    """Feedback's plain surface showed the full answer (UX Phase 4, Codex
+    review F1): debit the reveal ledger, once per exposure.
+
+    The expected answer itself (amount 1.0), linked to the attempt whose
+    feedback showed it. It is a routine display, shown on every feedback, so
+    it counts within the cold retrieval delay
+    (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
+    that time is primed and an unaided response is not independent; a review
+    after it is a retrieval again. Each exposure is its own row (Codex
+    re-review F1: reopening the feedback a day later shows the answer again;
+    final verification F1: so does returning to it, and so does leaving it
+    open), so the delay runs from the latest; a retry of one exposure's write
+    records nothing new (``reveal_ledger.record_feedback_answer_display_reveal``).
+    """
+
+    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
+
+    _vault, repository = ctx.require_vault()
+    attempt = repository.fetch_practice_attempt(params.attempt_id)
+    if attempt is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    record_feedback_answer_display_reveal(
+        repository,
+        attempt_id=params.attempt_id,
+        practice_item_id=str(attempt["practice_item_id"]),
+        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+        display_id=params.display_id,
+    )
+    return versioned({"recorded": True})
 
 
 @method("trigger_followup", TriggerFollowupInput)

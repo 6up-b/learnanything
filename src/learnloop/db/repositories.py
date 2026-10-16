@@ -4591,6 +4591,8 @@ class Repository(
         until: str | None = None,
         linked_attempt_id: str | None = None,
         linked_kinds: Sequence[str] = (),
+        lapsing_basis_prefixes: Sequence[str] = (),
+        lapsed_before: str | None = None,
     ) -> float:
         """Summed reveal amount for one item in a window.
 
@@ -4601,10 +4603,22 @@ class Repository(
 
         ``linked_attempt_id``/``linked_kinds``: rows of those kinds linked to
         that attempt (the one at ``since``) were written after it by
-        construction, so they count even when stamped in its own second."""
+        construction, so they count even when stamped in its own second.
+
+        ``lapsing_basis_prefixes``/``lapsed_before``: ``answer_display`` rows
+        whose basis starts with one of the prefixes and that were stamped
+        before ``lapsed_before`` are left out (the plain surface's routine
+        displays, ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``)."""
 
         query = "SELECT COALESCE(SUM(amount), 0.0) AS total FROM reveal_events WHERE practice_item_id = ?"
         parameters: list[Any] = [practice_item_id]
+        if lapsing_basis_prefixes and lapsed_before is not None:
+            # A prefix match without LIKE (its "_" is a wildcard).
+            matches = " OR ".join("substr(COALESCE(basis, ''), 1, ?) = ?" for _ in lapsing_basis_prefixes)
+            query += f" AND NOT (source_kind = 'answer_display' AND created_at < ? AND ({matches}))"
+            parameters.append(lapsed_before)
+            for prefix in lapsing_basis_prefixes:
+                parameters.extend([len(prefix), prefix])
         if since is not None and linked_attempt_id is not None and linked_kinds:
             marks = ", ".join("?" for _ in linked_kinds)
             query += (
@@ -9650,6 +9664,32 @@ class Repository(
             "items_reviewed": int(row["items_reviewed"] if row is not None else 0),
         }
 
+    def session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]:
+        """The session's attempts, oldest first, with what the session finish
+        reads (the same session window as :meth:`session_attempt_counts`)."""
+
+        session = self.fetch_session(session_id)
+        if session is None:
+            return []
+        started_at = session["started_at"]
+        ended_at = session["ended_at"] or utc_now_iso()
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, practice_item_id, learning_object_id, attempt_type,
+                       hints_used, primed, correctness, evidence_facets_json, created_at
+                FROM practice_attempts
+                WHERE session_id = ?
+                   OR (
+                     session_id IS NULL
+                     AND created_at >= ? AND created_at <= ?
+                   )
+                ORDER BY created_at, id
+                """,
+                (session_id, started_at, ended_at),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def review_session_rows(self) -> list[dict[str, Any]]:
         """Reverse-chronological session spine for the Review surface."""
 
@@ -10351,6 +10391,25 @@ class Repository(
         payload["pending_grading_proposal"] = _loads(payload.pop("pending_grading_proposal_json"), None)
         payload["readiness"] = _loads(payload.pop("readiness_json"), None)
         return payload
+
+    def open_session_checkpoints_except(self, session_id: str) -> list[dict[str, Any]]:
+        """The checkpoints of every OTHER open session (the ones
+        :meth:`end_open_sessions_except` is about to end), decoded like
+        :meth:`fetch_session_checkpoint`."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT checkpoint.session_id
+                FROM session_checkpoints checkpoint
+                JOIN sessions ON sessions.id = checkpoint.session_id
+                WHERE sessions.ended_at IS NULL AND sessions.id != ?
+                ORDER BY checkpoint.session_id
+                """,
+                (session_id,),
+            ).fetchall()
+        checkpoints = [self.fetch_session_checkpoint(str(row["session_id"])) for row in rows]
+        return [checkpoint for checkpoint in checkpoints if checkpoint is not None]
 
     def clear_session_checkpoint(self, session_id: str) -> bool:
         with self.connection() as connection:

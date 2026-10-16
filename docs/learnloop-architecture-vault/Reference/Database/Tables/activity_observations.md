@@ -3,8 +3,8 @@ title: "activity_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
+source_commit_timestamp: "2026-10-15T23:28:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_observations"
@@ -122,6 +122,7 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/compat/card_outcome_replay.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
+- `src/learnloop_sidecar/handlers/feedback.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -145,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_probe_robust_cutover.py`
 - `tests/test_substrate_cutover.py`
 - `tests/test_unresolved_cause_gate.py`
+- `tests/test_ux_phase4_feedback.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

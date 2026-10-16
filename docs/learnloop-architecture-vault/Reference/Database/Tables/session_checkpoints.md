@@ -3,8 +3,8 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "495c7437f178f8517038fe9a1bfc85db7da29664"
+source_commit_timestamp: "2026-10-15T23:28:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
@@ -24,7 +24,6 @@ source_paths:
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -85,6 +84,7 @@ Indexes and uniqueness:
 - `Repository.fetch_session_checkpoint()`
 - `Repository.find_record()`
 - `Repository.most_recent_ended_at()`
+- `Repository.open_session_checkpoints_except()`
 - `Repository.update_session_checkpoint()`
 
 ### Direct SQL readers
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/daily_plan/reentry.py`
+- `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/placement/decisions.py`
@@ -129,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_sidecar_item_authoring.py`
 - `tests/test_sidecar_teach_back.py`
 - `tests/test_source_ingestion.py`
+- `tests/test_ux_phase4_feedback.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

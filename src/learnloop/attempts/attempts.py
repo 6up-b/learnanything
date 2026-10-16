@@ -2368,7 +2368,11 @@ def _assessment_contract(
 
 
 def reveal_total_for_submission(
-    repository: Repository, practice_item_id: str, *, until: str | None = None
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    until: str | None = None,
+    clock: Clock | None = None,
 ) -> float:
     """Summed answer exposure on this item since the learner last attempted it.
 
@@ -2377,7 +2381,18 @@ def reveal_total_for_submission(
     was already absorbed into that attempt's evidence. A post-attempt display
     linked to that attempt (``POST_ATTEMPT_REVEAL_KINDS``: the worked answer
     after an empty stuck answer, re-review F8) came after it, so it counts
-    even when stamped in the attempt's own second."""
+    even when stamped in the attempt's own second.
+
+    A routine full-answer display (the plain surface's feedback and
+    self-grade, ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_BASES``) counts only
+    within the cold retrieval delay before the submission (UX Phase 4, Codex
+    review F1): a retry while the answer is fresh is primed, a review after
+    the delay is a retrieval again."""
+
+    from learnloop.attempts.reveal_ledger import (
+        ROUTINE_ANSWER_DISPLAY_BASES,
+        routine_display_lapsed_before,
+    )
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
@@ -2387,6 +2402,8 @@ def reveal_total_for_submission(
         until=until,
         linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
         linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
+        lapsing_basis_prefixes=ROUTINE_ANSWER_DISPLAY_BASES,
+        lapsed_before=routine_display_lapsed_before(until or utc_now_iso(clock)),
     )
 
 
@@ -2411,7 +2428,7 @@ def auto_primed_draft(
     if draft.primed:
         return draft, 0.0
     try:
-        total = reveal_total_for_submission(repository, draft.practice_item_id)
+        total = reveal_total_for_submission(repository, draft.practice_item_id, clock=clock)
     except Exception:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning(
             "reveal ledger read failed for %s; not auto-priming",

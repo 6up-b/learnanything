@@ -1,6 +1,6 @@
 import { useCloseWithFlush } from "../app/useCloseWithFlush";
 import { registerVaultDraft } from "../app/vaultTransition";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
   AttemptProgress,
@@ -13,6 +13,7 @@ import type {
   ProbeContractDto,
   RubricCriterionDto,
   SelfGradeErrorAttributionDto,
+  SelfGradeDisclosureDto,
   SelfGradeInputDto,
   SessionSnapshot,
   TeachBackStateDto,
@@ -27,6 +28,8 @@ import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
 import { errorMessage, getCommandError } from "../errors";
+import { expectedAnswerText, simplePracticeFeedback } from "../app/practiceFeedback";
+import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
 
 type CommittedAttemptRecovery = {
   attemptId: string;
@@ -103,6 +106,7 @@ export function PracticeScreen({
   restoredSubmissionId,
   restoredStuck = false,
   restoredTeachBack,
+  restoredDisclosure = null,
   onFeedback,
   onBlockEnd,
   onContinueDiagnostic,
@@ -141,6 +145,9 @@ export function PracticeScreen({
    *  stuck", so it reopens in stuck mode and submits as a stuck answer. */
   restoredStuck?: boolean;
   restoredTeachBack?: TeachBackStateDto | null;
+  /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
+   *  it showed a full answer. The draft reopens locked to it. */
+  restoredDisclosure?: SelfGradeDisclosureDto | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
    *  attempt in it, not just the one that closed it. */
@@ -160,6 +167,8 @@ export function PracticeScreen({
     declaredStuck: boolean;
     /** Router R2a (review F5): restored with the draft. */
     planPresentationId: string | null;
+    /** Codex review F1: the frozen trace, when a full answer was shown. */
+    selfGradeDisclosure?: SelfGradeDisclosureDto | null;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -221,6 +230,27 @@ export function PracticeScreen({
     errorAttributions: []
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // UX Phase 4 (§7.4): the plain card, unless the library's
+  // `[ui] practice_feedback = "classic"` restores the card exactly.
+  const simple = simplePracticeFeedback();
+  const [cardDetailsOpen, setCardDetailsOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [checkWhyOpen, setCheckWhyOpen] = useState(false);
+  // The plain self-grade: "Partly" asks which parts the learner got.
+  const [partlyOpen, setPartlyOpen] = useState(false);
+  // Codex review F1: the whole trace (the answer as Submit sends it and the
+  // volunteered line) frozen in the session checkpoint BEFORE the plain
+  // self-grade shows a full answer. While it is set the answer and the line
+  // are locked, across a remount or a restart, and Submit sends exactly it.
+  const [disclosed, setDisclosed] = useState<{ answerMd: string; explanationMd: string | null } | null>(
+    restoredDisclosure ? { answerMd: restoredDisclosure.answerMd, explanationMd: restoredDisclosure.explanationMd } : null
+  );
+  const disclosedRef = useRef(disclosed);
+  disclosedRef.current = disclosed;
+  // The freeze failed: the self-grade goes on without the full answer.
+  const [disclosureFailed, setDisclosureFailed] = useState(false);
+  const [partsGot, setPartsGot] = useState<Record<string, boolean>>({});
+  const [selfGradeDetailsOpen, setSelfGradeDetailsOpen] = useState(false);
   const mountedRef = useRef(true);
   // Read at serve time, not an effect dependency: the item's serve happens once.
   const proposalOriginRef = useRef(proposalOrigin);
@@ -387,12 +417,26 @@ export function PracticeScreen({
     setAnswer(restoredAnswer ?? "");
     setHintsUsed(restoredHints ?? 0);
     setFallbackRequired(!gradingReady);
-    setSelfGradeVisible(false);
+    // A draft whose full answer was already shown reopens locked to the
+    // trace it froze, at the self-grade when it is still needed (F1).
+    const frozen = restoredDisclosure
+      ? { answerMd: restoredDisclosure.answerMd, explanationMd: restoredDisclosure.explanationMd }
+      : null;
+    setDisclosed(frozen);
+    setDisclosureFailed(false);
+    setSelfGradeVisible(Boolean(frozen) && simple && !gradingReady);
+    setPartlyOpen(false);
+    setPartsGot({});
+    setSelfGradeDetailsOpen(false);
+    setCardDetailsOpen(false);
+    setControlsOpen(false);
+    setCheckWhyOpen(false);
     setFieldErrors({});
     setSubmitting(false);
-    setWhyLine("");
+    setWhyLine(frozen?.explanationMd ?? "");
     setStuck(Boolean(restoredStuck) && stuckPrompt);
-  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt, restoredDisclosure]);
 
   useEffect(() => {
     let cancelled = false;
@@ -507,8 +551,10 @@ export function PracticeScreen({
       if (!draftSavingDisabled()) {
         const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
                 planPresentationId: presentation } = latestDraft.current;
+        const frozen = disclosedRef.current;
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
-                       planPresentationId: presentation });
+                       planPresentationId: presentation,
+                       selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -609,8 +655,17 @@ export function PracticeScreen({
     return score;
   }, [item, selfGrade]);
 
+  // A check on your own: a hint would void it (apply_attempt rejects a hinted
+  // or primed cold retry), so the plain card offers none and says why.
+  const onYourOwnCheck =
+    item?.activeFollowupKind === "cold_retry" || item?.activeFollowupKind === "certification_cold_probe";
+
   function revealHint() {
     if (!practiceReady) return;
+    if (simple && onYourOwnCheck) {
+      onError("No hints on this one: it's a check on your own.");
+      return;
+    }
     if (probeActive) {
       // §5.5: authored hints are disabled during a diagnostic block.
       onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
@@ -679,20 +734,53 @@ export function PracticeScreen({
     editor?.focus();
   }
 
-  async function submit() {
+  /** Phase 4's plain self-grade shows a full answer: freeze the whole trace
+   *  first (Codex review F1), and grade without the answer when the freeze is
+   *  not confirmed. Every way into the plain self-grade goes through here. */
+  async function freezeBeforeSelfGrade(itemId: string, key: string): Promise<void> {
+    if (!item || !simple || disclosed || probeActive || !expectedAnswerText(item.expectedAnswer).trim()) return;
+    const frozen = {
+      answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
+      explanationMd: whyLine.trim() || null
+    };
+    setSubmitting(true);
+    try {
+      await flushDraft();
+      await api.recordSelfGradeDisclosure({ sessionId: session.sessionId, practiceItemId: itemId, submissionId: key, ...frozen });
+      if (!mountedRef.current) return;
+      setDisclosed(frozen);
+      setDisclosureFailed(false);
+    } catch {
+      if (!mountedRef.current) return;
+      setDisclosureFailed(true);
+    } finally {
+      if (mountedRef.current) setSubmitting(false);
+    }
+  }
+
+  async function submit(gradeOverride?: SelfGradeInputDto) {
     if (!item || !interactionReady || submitting) return;
     const submittedItemId = item.id;
     const submittedKey = submissionId.current;
+    // The plain self-grade's Got it / Partly / Missed submit the grade they
+    // set, not the one state holds until the next render.
+    const grade = gradeOverride ?? selfGrade;
     // An empty stuck answer has nothing to grade: it is scored 0 at once, so
     // it never asks for a self-grade either.
     const emptyStuck = stuck && !answer.trim() && !whyLine.trim() && !redo;
     // First Submit click when a self-grade is required only reveals the panel;
     // the actual attempt is submitted on the next click once it's been graded.
     if (fallbackRequired && !selfGradeVisible && !emptyStuck) {
+      await freezeBeforeSelfGrade(submittedItemId, submittedKey);
+      if (!mountedRef.current) return;
       setSelfGradeVisible(true);
       return;
     }
-    const validation = emptyStuck ? {} : validateSelfGrade(item, selfGrade, fallbackRequired);
+    // Phase 4's plain self-grade submits only through Got it / Partly /
+    // Missed (or the detailed numbers): a second ^↵ must never send the
+    // untouched all-zero grade as if the learner had chosen "Missed".
+    if (simple && fallbackRequired && !gradeOverride && !selfGradeDetailsOpen && !emptyStuck) return;
+    const validation = emptyStuck ? {} : validateSelfGrade(item, grade, fallbackRequired);
     setFieldErrors(validation);
     if (Object.keys(validation).length) return;
     setSubmitting(true);
@@ -708,8 +796,9 @@ export function PracticeScreen({
         // A guided redo submits the COMPOSED answer: the preserved (locked)
         // prefix plus the learner's rewritten portion, separated by a paragraph
         // break — mirroring repair_splice's end-append join. The grader sees
-        // one whole answer; only the redo text was written now.
-        answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
+        // one whole answer; only the redo text was written now. A trace frozen
+        // before a full answer was shown is sent exactly as frozen (F1).
+        answerMd: disclosed ? disclosed.answerMd : redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
         // Meas §3.A6 rule 3 made structural, and made structural on the WIRE:
         // the volunteered line is its own field, and the sidecar joins it into
         // the single trace the grader reads. The client never learns the
@@ -717,7 +806,7 @@ export function PracticeScreen({
         // blank line is submitted as nothing at all; there is no representation
         // for "declined", so nothing can turn an empty field into a hint, a
         // skip, or a failure.
-        explanationMd: whyLine.trim() || null,
+        explanationMd: disclosed ? disclosed.explanationMd : whyLine.trim() || null,
         // §12: an active diagnostic block forces the recording attempt type.
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
         hintsUsed,
@@ -733,7 +822,7 @@ export function PracticeScreen({
         // credit, so a restored score never ships a stale error tag.
         selfGrade:
           fallbackRequired && !emptyStuck
-            ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) }
+            ? { ...grade, errorAttributions: prunedAttributions(item, grade) }
             : null,
         // mvp-0.13: written after "I'm stuck" (it may be empty).
         ...(stuck ? { declaredStuck: true } : {})
@@ -755,8 +844,14 @@ export function PracticeScreen({
       const command = getCommandError(error);
       if (command?.code === "grading_fallback_required") {
         setFallbackRequired(true);
+        // The grader went away mid-submit: the plain self-grade opens the
+        // same way as the first Submit, frozen before any full answer (F1).
+        if (!emptyStuck) await freezeBeforeSelfGrade(submittedItemId, submittedKey);
+        if (!mountedRef.current) return;
         setSelfGradeVisible(true);
-        onError(command.message);
+        // The plain self-grade says so itself ("AI grading isn't available
+        // right now"); the raw reason is not a learner's notice.
+        if (!simple) onError(command.message);
       } else {
         onError(errorMessage(error, "Could not submit this attempt."));
       }
@@ -835,6 +930,30 @@ export function PracticeScreen({
   }
 
   const loadError = itemLoadError ?? probeLoadError;
+  if (committedRecovery && simple) {
+    // §7.4 "Submission needs recovery": one plain line and one action; the
+    // attempt id and the raw message go in details.
+    return (
+      <div className="screen">
+        <div className="screen-scroll">
+          <Card focused>
+            <div style={{ lineHeight: 1.6 }}>Your answer is saved. LearnLoop is finishing the grading.</div>
+            <div className="form-row" style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center" }}>
+              <PrimaryAction hotkey="r" disabled={submitting} onClick={() => setLoadRevision((value) => value + 1)}>Try again</PrimaryAction>
+              <DetailsToggle open={cardDetailsOpen} onToggle={() => setCardDetailsOpen((open) => !open)} />
+            </div>
+            {cardDetailsOpen ? (
+              <div style={{ ...quietLine, fontFamily: FONT_MONO, marginTop: 8 }}>
+                attempt {committedRecovery.attemptId} · {committedRecovery.message}
+              </div>
+            ) : null}
+          </Card>
+        </div>
+        <KeyBar keys={[{ key: "r", label: "try again" }]} />
+      </div>
+    );
+  }
+
   if (committedRecovery) {
     const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive;
     return (
@@ -870,6 +989,23 @@ export function PracticeScreen({
     );
   }
 
+  if (loadError && simple) {
+    return (
+      <div className="screen">
+        <div className="screen-scroll">
+          <Card focused>
+            <div style={{ lineHeight: 1.6 }} role="alert">This question isn't available any more.</div>
+            <div className="form-row" style={{ marginTop: 14 }}>
+              <PrimaryAction onClick={onBack}>Next question</PrimaryAction>
+              <QuietAction onClick={() => setLoadRevision((value) => value + 1)}>Try again</QuietAction>
+            </div>
+          </Card>
+        </div>
+        <KeyBar keys={[{ key: "esc", label: "back" }]} />
+      </div>
+    );
+  }
+
   if (loadError) {
     return (
       <div className="screen">
@@ -899,7 +1035,7 @@ export function PracticeScreen({
   if (!practiceReady || !item) {
     return (
       <div className="screen-scroll">
-        <Card>{item ? "Verifying diagnostic safeguards..." : "Loading practice item..."}</Card>
+        <Card>{simple ? "Loading the question…" : item ? "Verifying diagnostic safeguards..." : "Loading practice item..."}</Card>
       </div>
     );
   }
@@ -907,8 +1043,30 @@ export function PracticeScreen({
   return (
     <div className="screen">
       <div className="screen-scroll">
-        <SectionHeader>Practice item</SectionHeader>
+        {simple ? null : <SectionHeader>Practice item</SectionHeader>}
         <Card focused>
+          {simple ? (
+            // §7.4 W5: the topic, and ⋯ for the card's controls. The item id,
+            // the mode, the grader and the estimate are receipts (details).
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 }}>
+              <span style={{ color: COLOR.textDim }}>{item.learningObjectTitle}</span>
+              {/* An honest label, quiet (§4.2): a primed retry or a redo is
+                  practice with help. */}
+              {primed && !onYourOwnCheck ? <span style={quietLine}>◌ with help</span> : null}
+              <span style={{ flex: 1 }} />
+              {!probeActive ? (
+                <button
+                  type="button"
+                  style={quietLink}
+                  aria-expanded={controlsOpen}
+                  aria-label="more for this question"
+                  onClick={() => setControlsOpen((open) => !open)}
+                >
+                  ⋯
+                </button>
+              ) : null}
+            </div>
+          ) : (
           <div className="queue-meta">
             <EntityLink id={item.id} onInspect={onInspect} />
             <EntityLink id={item.learningObjectId} onInspect={onInspect}>{item.learningObjectTitle}</EntityLink>
@@ -916,7 +1074,22 @@ export function PracticeScreen({
             {item.subject ? <Pill tone="slate">{item.subject}</Pill> : null}
             {fallbackRequired ? <Pill tone="amber">self-grade required</Pill> : <Pill tone="green">{gradingProvider} grading</Pill>}
           </div>
-          {probeActive ? (
+          )}
+          {probeActive && simple ? (
+            // §7.4: a short check looks like any other question, with one
+            // line on when feedback comes and the way out into teaching.
+            <div style={{ ...quietLine, marginTop: 8, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+              <span>Feedback comes when this short check ends · hints are off for now</span>
+              <button type="button" style={quietLink} onClick={() => setCheckWhyOpen((open) => !open)} aria-expanded={checkWhyOpen}>
+                why? {checkWhyOpen ? "▾" : "▸"}
+              </button>
+              <span style={{ flex: 1 }} />
+              <QuietAction onClick={() => void stopDiagnosing()}>Teach me instead</QuietAction>
+              {checkWhyOpen ? (
+                <div style={{ flexBasis: "100%" }}>To see which of two things to help with next. Answer with what you know.</div>
+              ) : null}
+            </div>
+          ) : probeActive ? (
             <div className="hint-banner" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone="cyan">Diagnostic check</Pill>
@@ -966,7 +1139,15 @@ export function PracticeScreen({
               the factor) this check verifies would point the learner straight at
               the material the check exists to measure them retrieving unaided.
               What it verifies is said afterwards, in the feedback banner. */}
-          {item.activeFollowupKind === "cold_retry" || item.activeFollowupKind === "certification_cold_probe" ? (
+          {simple && onYourOwnCheck ? (
+            // The quiet line (§7.4, Reader doc U11), provenance-free: naming
+            // what it checks would hand over the material it measures.
+            <div style={{ ...quietLine, marginTop: 8 }}>
+              {primed
+                ? "On your own · this one can't count when it's opened from feedback. Go back and open it from Today."
+                : "On your own · no hints on this one"}
+            </div>
+          ) : item.activeFollowupKind === "cold_retry" || item.activeFollowupKind === "certification_cold_probe" ? (
             <div className="hint-banner" style={{ borderColor: COLOR.amber }}>
               <Pill tone="amber">unassisted check</Pill>{" "}
               {primed
@@ -974,7 +1155,7 @@ export function PracticeScreen({
                 : "hints will void this measurement and the attempt will be rejected. Answer with what you can retrieve on your own."}
             </div>
           ) : null}
-          {item.mastery != null ? (
+          {item.mastery != null && !simple ? (
             <div className="queue-meta" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery estimate</Faint>
               <BlockBar value={item.mastery.mean} width={10} color={masteryTone(item.mastery.mean, COLOR)} />
@@ -999,7 +1180,7 @@ export function PracticeScreen({
               </Faint>
             </div>
           ) : null}
-          {!probeActive ? (
+          {!probeActive && (!simple || controlsOpen) ? (
             <CardControls
               key={`${item.id}:${item.prompt}`}
               practiceItemId={item.id}
@@ -1037,7 +1218,7 @@ export function PracticeScreen({
               }
             />
           ) : null}
-          {item.sourceRefs.length > 0 ? (
+          {item.sourceRefs.length > 0 && !simple ? (
             <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
               {item.sourceRefs.map((ref, index) => (
                 <div
@@ -1070,7 +1251,34 @@ export function PracticeScreen({
             />
           ) : (
           <>
-          {redo ? (
+          {redo && simple ? (
+            // Redo the part you missed (§7.5): what to fix, and the learner's
+            // correct work kept above the box. The step ids and the
+            // measurement bookkeeping are receipts, not the learner's.
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 13, color: COLOR.text }}>Redo the part you missed</div>
+              {redo.redoInstruction ? (
+                <div style={{ ...quietLine, marginTop: 4 }}>What to fix: <span style={{ color: COLOR.text }}>{redo.redoInstruction}</span></div>
+              ) : null}
+              <div
+                aria-label="your work so far, kept"
+                style={{
+                  borderLeft: `3px solid ${COLOR.green}`,
+                  padding: "8px 12px",
+                  marginTop: 8,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  opacity: 0.85
+                }}
+              >
+                <div style={{ ...quietLine, fontSize: 11 }}>Your work so far, kept</div>
+                <MarkdownMath value={redo.learnerWorkPrefix} />
+              </div>
+              {redo.episodeId && redo.coldItemId ? (
+                <div style={{ ...quietLine, marginTop: 6 }}>A check on your own comes back on another day.</div>
+              ) : null}
+            </div>
+          ) : redo ? (
             <div style={{ marginTop: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <Pill tone="amber">guided redo</Pill>
@@ -1139,19 +1347,30 @@ export function PracticeScreen({
             <MathLiveEditor
               value={answer}
               onChange={setAnswer}
-              disabled={submitting}
+              // Phase 4: grading yourself against a full answer locks the
+              // answer first, so seeing the answer cannot change it; the lock
+              // is the frozen trace's, so it outlives a remount (F1).
+              disabled={submitting || disclosed !== null || (simple && fallbackRequired && selfGradeVisible)}
               placeholder={
                 stuck
                   ? STUCK_PROMPT_TEXT
                   : redo
                     ? "continue from your kept work — rewrite only the failed part"
-                    : "type your answer — $math$ renders as you type"
+                    : simple
+                      ? "Write what you can — $math$ works."
+                      : "type your answer — $math$ renders as you type"
               }
               maxHeight={editorMaxHeight}
               ariaLabel={redo ? "redo the failed part" : "answer"}
             />
           </div>
           <div ref={belowRef}>
+            {simple && disclosed && !selfGradeVisible ? (
+              // A resumed draft whose full answer was already shown (F1).
+              <div style={{ ...quietLine, marginTop: 6 }} data-testid="frozen-answer-note">
+                You've seen a full answer, so your answer stays as you wrote it.
+              </div>
+            ) : null}
             {stuck ? (
               <div className="hint-banner" role="status" aria-label="stuck prompt" style={{ borderColor: COLOR.amber }}>
                 <Pill tone="amber">I'm stuck</Pill> {STUCK_PROMPT_TEXT}.{" "}
@@ -1171,7 +1390,9 @@ export function PracticeScreen({
                 </button>
               </div>
             ) : null}
-            <div className="queue-meta">{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
+            {simple ? null : (
+              <div className="queue-meta">{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
+            )}
             {/* §4.6 calibration duel — predicting the correctness of the answer
                 they just composed (not the prompt). Shown only once the draft is
                 non-empty; a 1–5 tap that is stored as-is (never mapped to a
@@ -1193,8 +1414,12 @@ export function PracticeScreen({
                     <button
                       key={level}
                       type="button"
-                      className={on ? "queue-row focused" : "queue-row"}
-                      style={{ padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
+                      // Phase 4: small inline buttons (the queue-row grid
+                      // stretched each one across the card).
+                      className={simple ? (on ? "plain-action primary" : "plain-action") : on ? "queue-row focused" : "queue-row"}
+                      style={simple
+                        ? { padding: "1px 8px", fontSize: 11, fontFamily: FONT_MONO, opacity: on ? 1 : 0.7 }
+                        : { padding: "0 7px", fontFamily: FONT_MONO, opacity: on ? 1 : 0.55 }}
                       onClick={() => setAnswerConfidence(on ? null : level)}
                       disabled={locked}
                       aria-pressed={on}
@@ -1207,7 +1432,7 @@ export function PracticeScreen({
                 {answerConfidence != null && !submitting && !selfGradeVisible ? (
                   <button
                     type="button"
-                    className="queue-row"
+                    className={simple ? "plain-action" : "queue-row"}
                     style={{ padding: "0 7px", opacity: 0.55 }}
                     onClick={() => setAnswerConfidence(null)}
                     aria-label="clear answer confidence"
@@ -1237,7 +1462,8 @@ export function PracticeScreen({
                   className="text-input"
                   value={whyLine}
                   onChange={(event) => setWhyLine(event.target.value)}
-                  disabled={submitting}
+                  // Frozen with the answer before a full answer is shown (F1).
+                  disabled={submitting || disclosed !== null || (simple && fallbackRequired && selfGradeVisible)}
                   placeholder="one line — or leave it blank"
                   style={{ width: "100%", fontSize: 12 }}
                 />
@@ -1245,11 +1471,40 @@ export function PracticeScreen({
             ) : null}
             {item.hints.slice(0, hintsUsed).map((hint, index) => (
               <div className="hint-banner" key={hint}>
-                <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill> {hint}
+                {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
-            {submitting ? <div className="grading-panel">grading attempt...</div> : null}
-            {fallbackRequired && selfGradeVisible ? (
+            {submitting ? <div className="grading-panel">{simple ? "Reading your answer…" : "grading attempt..."}</div> : null}
+            {fallbackRequired && selfGradeVisible && simple ? (
+              <PlainSelfGrade
+                item={item}
+                answer={disclosed ? disclosed.answerMd : redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer}
+                // A short check withholds the answer until it ends (its
+                // contract's answerRevealDisabled): grade without it there.
+                // Elsewhere it shows only once the trace is frozen (F1).
+                showFullAnswer={!probeActive && disclosed !== null && !disclosureFailed}
+                submitting={submitting}
+                partlyOpen={partlyOpen}
+                partsGot={partsGot}
+                onGotIt={() => void submit(gradeFromParts(item, selfGrade, () => true))}
+                onMissed={() => void submit(gradeFromParts(item, selfGrade, () => false))}
+                onPartly={() => setPartlyOpen(true)}
+                onTogglePart={(criterionId) => setPartsGot((current) => ({ ...current, [criterionId]: !current[criterionId] }))}
+                onDonePartly={() => void submit(gradeFromParts(item, selfGrade, (criterionId) => Boolean(partsGot[criterionId])))}
+                detailsOpen={selfGradeDetailsOpen}
+                onToggleDetails={() => setSelfGradeDetailsOpen((open) => !open)}
+                details={
+                  <SelfGradePanel
+                    item={item}
+                    value={selfGrade}
+                    setValue={setSelfGrade}
+                    scorePreview={scorePreview}
+                    fieldErrors={fieldErrors}
+                    plain
+                  />
+                }
+              />
+            ) : fallbackRequired && selfGradeVisible ? (
               <SelfGradePanel
                 item={item}
                 value={selfGrade}
@@ -1258,6 +1513,30 @@ export function PracticeScreen({
                 fieldErrors={fieldErrors}
               />
             ) : null}
+            {simple ? (
+              // §7.4: Hint, I'm stuck, Ask and Skip are buttons (they keep
+              // their keys). A short check offers neither hints nor Ask; a
+              // check on your own offers no hint.
+              <div className="form-row" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
+                  <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting}>Submit</PrimaryAction>
+                )}
+                {!probeActive && !onYourOwnCheck && hintsUsed < item.hints.length && !selfGradeVisible ? (
+                  <QuietAction onClick={revealHint} disabled={submitting}>{hintsUsed > 0 ? "Hint again" : "Hint"}</QuietAction>
+                ) : null}
+                {stuckPrompt && !stuck && !selfGradeVisible ? (
+                  <QuietAction onClick={pressStuck} disabled={submitting}>I'm stuck</QuietAction>
+                ) : null}
+                {!probeActive && !selfGradeVisible ? (
+                  <QuietAction onClick={() => openAsk()} disabled={submitting}>Ask</QuietAction>
+                ) : null}
+                {!selfGradeVisible ? (
+                  <QuietAction onClick={() => void skip()} disabled={submitting}>Skip</QuietAction>
+                ) : null}
+                <span style={{ flex: 1 }} />
+                <DetailsToggle open={cardDetailsOpen} onToggle={() => setCardDetailsOpen((open) => !open)} />
+              </div>
+            ) : (
             <div className="form-row" style={{ marginTop: 16 }}>
               <button className="queue-row focused" type="button" onClick={() => void submit()} disabled={submitting}>
                 <span className="queue-hotkey">^↵</span>
@@ -1273,12 +1552,42 @@ export function PracticeScreen({
                 </button>
               ) : null}
             </div>
+            )}
+            {simple && cardDetailsOpen ? (
+              // The card's receipts (§4.3): the question's id (opens the
+              // inspector, which keeps an unanswered question's answer to
+              // itself), the mode, the grader, the estimate, the counts and
+              // where the question came from.
+              <div style={{ ...quietLine, marginTop: 10, display: "grid", gap: 3 }} data-testid="practice-details">
+                <div>
+                  question <EntityLink id={item.id} onInspect={onInspect} /> · {item.practiceMode}
+                  {item.subject ? ` · ${item.subject}` : ""}
+                </div>
+                <div>{fallbackRequired ? "graded by you" : "graded by AI"}</div>
+                {item.mastery != null ? (
+                  <div>likely to recall now: {item.mastery.mean.toFixed(2)} ±{Math.sqrt(item.mastery.variance).toFixed(2)}</div>
+                ) : null}
+                <div>{answer.length} chars · {answer.split(/\s+/).filter(Boolean).length} words</div>
+                {item.sourceRefs.map((ref, index) => (
+                  <div key={`${ref.refId}:${index}`}>
+                    from {ref.displayName} {ref.locator ?? ref.path ?? ref.refType}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           </>
           )}
         </Card>
       </div>
-      <KeyBar keys={isTeachBack ? [
+      <KeyBar keys={simple && !isTeachBack ? [
+        { key: "^enter", label: "submit" },
+        ...(probeActive || onYourOwnCheck || item.hints.length === 0 ? [] : [{ key: "^h", label: "hint" }]),
+        { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
+        { key: "^s", label: "skip" },
+        ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
+        { key: "esc", label: "back" }
+      ] : isTeachBack ? [
         { key: "^enter", label: "send" },
         { key: "^s", label: "skip" },
         { key: "esc", label: "today" }
@@ -1538,25 +1847,140 @@ function TeachBackConversation({
   );
 }
 
+/** Got it / Missed set every criterion to full or none; Partly the ones
+ *  the learner ticked. Fatal errors and attributions are left to details. */
+function gradeFromParts(
+  item: PracticeItemDetail,
+  base: SelfGradeInputDto,
+  got: (criterionId: string) => boolean
+): SelfGradeInputDto {
+  return {
+    ...base,
+    criterionPoints: Object.fromEntries(
+      (item.rubric?.criteria ?? []).map((criterion) => [criterion.id, got(criterion.id) ? criterion.points : 0])
+    ),
+    fatalErrors: [],
+    errorAttributions: []
+  };
+}
+
+// UX Phase 4 (§7.4): with no AI, the learner grades against a full answer.
+// The answer is locked first; three choices, Got it · Partly · Missed, and
+// "Partly" asks which parts. The per-criterion numbers, fatal errors and
+// attribution chips are details (the classic panel, with "out of N").
+function PlainSelfGrade({
+  item,
+  answer,
+  showFullAnswer,
+  submitting,
+  partlyOpen,
+  partsGot,
+  onGotIt,
+  onMissed,
+  onPartly,
+  onTogglePart,
+  onDonePartly,
+  detailsOpen,
+  onToggleDetails,
+  details
+}: {
+  item: PracticeItemDetail;
+  answer: string;
+  showFullAnswer: boolean;
+  submitting: boolean;
+  partlyOpen: boolean;
+  partsGot: Record<string, boolean>;
+  onGotIt: () => void;
+  onMissed: () => void;
+  onPartly: () => void;
+  onTogglePart: (criterionId: string) => void;
+  onDonePartly: () => void;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
+  details: ReactNode;
+}) {
+  const criteria = item.rubric?.criteria ?? [];
+  const fullAnswer = expectedAnswerText(item.expectedAnswer).trim();
+  return (
+    <div style={{ marginTop: 14 }} data-testid="plain-self-grade">
+      <div style={{ fontSize: 13, color: COLOR.text }}>Grade this one yourself</div>
+      <div style={quietLine}>AI grading isn't available right now.</div>
+      {showFullAnswer && fullAnswer ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginTop: 10 }}>
+          <VoicePanel mark="›" title="You wrote">
+            {answer.trim() ? <MarkdownMath value={answer} /> : <span style={{ color: COLOR.textDim }}>(nothing written)</span>}
+          </VoicePanel>
+          <VoicePanel mark="◇" title="A full answer">
+            <MarkdownMath value={fullAnswer} />
+          </VoicePanel>
+        </div>
+      ) : null}
+      {criteria.length > 0 ? (
+        <>
+          <div style={{ ...quietLine, marginTop: 10 }}>How did you do?</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            <QuietAction onClick={onGotIt} disabled={submitting}>Got it</QuietAction>
+            <QuietAction onClick={onPartly} disabled={submitting}>Partly</QuietAction>
+            <QuietAction onClick={onMissed} disabled={submitting}>Missed</QuietAction>
+          </div>
+          {partlyOpen ? (
+            <div style={{ marginTop: 10 }}>
+              <div style={quietLine}>Which parts did you get?</div>
+              {criteria.map((criterion) => (
+                <label key={criterion.id} style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 13, marginTop: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(partsGot[criterion.id])}
+                    onChange={() => onTogglePart(criterion.id)}
+                    disabled={submitting}
+                  />
+                  <span>{criterion.description}</span>
+                </label>
+              ))}
+              <div style={{ marginTop: 8 }}>
+                <PrimaryAction onClick={onDonePartly} disabled={submitting}>Done</PrimaryAction>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+      <div style={{ marginTop: 8 }}>
+        <DetailsToggle open={detailsOpen || criteria.length === 0} onToggle={onToggleDetails} label="grade it in detail" />
+      </div>
+      {detailsOpen || criteria.length === 0 ? details : null}
+    </div>
+  );
+}
+
 function SelfGradePanel({
   item,
   value,
   setValue,
   scorePreview,
-  fieldErrors
+  fieldErrors,
+  plain = false
 }: {
   item: PracticeItemDetail;
   value: SelfGradeInputDto;
   setValue: (next: SelfGradeInputDto) => void;
   scorePreview: number;
   fieldErrors: Record<string, string>;
+  /** Phase 4's details: no outage banner (the plain grade says it), and each
+   *  criterion says what it is out of (usability round 1, m12). */
+  plain?: boolean;
 }) {
   return (
     <div className="self-grade-panel">
+      {plain ? (
+        <div>
+          Your grade so far: {scorePreview} out of {item.rubric?.maxPoints ?? 4}
+        </div>
+      ) : (
       <div>
         <b>AI grading is unavailable</b> · grade your answer to continue · live score{" "}
         {scorePreview}/{item.rubric?.maxPoints ?? 4}
       </div>
+      )}
       <div className="self-grade-grid">
         {item.rubric?.criteria.map((criterion) => {
           const awarded = value.criterionPoints[criterion.id] ?? 0;
@@ -1564,7 +1988,10 @@ function SelfGradePanel({
           return (
             <div className="criterion-block" key={criterion.id}>
               <label className="criterion-row">
-                <span>{criterion.description}</span>
+                <span>
+                  {criterion.description}
+                  {plain ? <span style={{ color: COLOR.textDim }}> (out of {criterion.points})</span> : null}
+                </span>
                 <input
                   className="number-input"
                   type="number"

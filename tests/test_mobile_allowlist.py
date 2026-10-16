@@ -253,6 +253,27 @@ REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
 # so a selection on it offers no model action). Desktop only.
 READER_PDF_SELECTION_RPCS = ("reader.restore_annotation",)
 READER_PDF_SELECTION_EXTENDED_RPCS = ("reader.source_annotations", "reader.pdf_view", "reader.render_view")
+# UX Phase 4, practice and feedback (docs/reviews/ux-phase4.md) adds
+# record_answer_display (the reveal ledger's row for a full answer the plain
+# feedback shows, renewed while it stays on screen) and
+# record_self_grade_disclosure (the trace a plain self-grade freezes before it
+# shows the answer), and extends desktop RPCs: trigger_regrade (learnerReason
+# and contestId: "I think I was right", recorded and sent to the grade-review
+# queue), get_feedback (heldForReview, the learner's own answer and
+# answered_source), submit_attempt (heldForReview on released short-check
+# answers), end_session (the session finish's topics, and settling the
+# checkpoint's self-grade disclosure), and start_session and
+# clear_session_checkpoint (settling it too: the reveal ledger is charged for
+# the full answer a plain self-grade showed). Desktop only.
+UX_PHASE4_RPCS = ("record_answer_display", "record_self_grade_disclosure")
+UX_PHASE4_EXTENDED_RPCS = (
+    "trigger_regrade",
+    "get_feedback",
+    "submit_attempt",
+    "end_session",
+    "start_session",
+    "clear_session_checkpoint",
+)
 #: The book card's actions (source_action): UX Phase 1's, GLM-OCR's
 #: allow_upload, and re-read safety's restore_reading (the E1 repair) and
 #: mark_exam_material (a held-back reading's one action). Desktop only, with
@@ -303,7 +324,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
     + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
-    + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS,
+    + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

@@ -699,6 +699,75 @@ def quarantine_observation(
     return new_id
 
 
+def flag_observation_for_review(
+    repository: Repository,
+    *,
+    observation_id: str,
+    reason: str,
+    detail: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> str | None:
+    """Queue the observation's active grade for review (§4.4), keeping its authority.
+
+    The intake for a grade someone asked to have looked at (UX Phase 4, Codex
+    review F3: a learner's "I think I was right" the regrade did not uphold).
+    Append-only like :func:`quarantine_observation`: a NEW interpretation row
+    copying the head with ``review_flag=1`` is appended and made the head; the
+    prior row is never mutated. Unlike a quarantine it changes nothing the
+    head says (the same posterior, certainty and state), so no projection,
+    grade or replay moves: the grade simply appears in
+    ``Repository.pending_grade_reviews`` (``learnloop grading reviews``) until
+    an adjudication (:func:`append_adjudication`) appends the next head.
+    Returns the flagged head's id (the current one when it is already
+    flagged), or None when the observation has no head.
+    """
+
+    head = repository.active_interpretation_for_observation(observation_id)
+    if head is None:
+        return None
+    if int(head.get("review_flag") or 0) == 1 or head.get("quarantine_state") == "quarantined":
+        return str(head["id"])
+    new_id = repository.insert_grade_interpretation(
+        values={
+            "raw_grade_event_id": head["raw_grade_event_id"],
+            "observation_id": observation_id,
+            "administration_id": head["administration_id"],
+            "calibration_model_id": head["calibration_model_id"],
+            "calibration_model_hash": head["calibration_model_hash"],
+            "projection_algorithm_version": head["projection_algorithm_version"],
+            "channel_posterior_snapshot_id": head.get("channel_posterior_snapshot_id"),
+            "response_posterior_json": head["response_posterior_json"],
+            "criterion_posteriors_json": head.get("criterion_posteriors_json"),
+            "reference_prior_ids_json": head.get("reference_prior_ids_json"),
+            "certainty_discount": head["certainty_discount"],
+            "shared_certainty_lcb": head.get("shared_certainty_lcb"),
+            "credible_interval_json": head.get("credible_interval_json"),
+            "review_flag": 1,
+            "influence_flag": head.get("influence_flag", 0),
+            "quarantine_state": head["quarantine_state"],
+            "fallback_reason": head.get("fallback_reason"),
+        },
+        clock=clock,
+    )
+    repository.set_active_interpretation(observation_id=observation_id, interpretation_id=new_id)
+    repository.append_measurement_event(
+        administration_id=head["administration_id"],
+        kind="interpretation_activated",
+        algorithm_version=PROJECTION_ALGORITHM_VERSION,
+        observation_id=observation_id,
+        payload_json=canonical_json(
+            {
+                "interpretation_id": new_id,
+                "review_requested": reason,
+                "supersedes_interpretation_id": head["id"],
+                **dict(detail or {}),
+            }
+        ),
+        clock=clock,
+    )
+    return new_id
+
+
 def _leading_class(posterior: Mapping[str, float]) -> str | None:
     """The unique argmax of a class posterior; ``None`` on empty or tied.
 

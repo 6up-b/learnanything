@@ -54,6 +54,8 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
         available_minutes=params.available_minutes,
         notes_md_path=params.notes_md_path,
     )
+    for stale in repository.open_session_checkpoints_except(session_id):
+        settle_self_grade_disclosure(repository, stale)
     repository.end_open_sessions_except(session_id)
     snapshot = session_snapshot(repository, session_id)
     if snapshot is None:
@@ -104,7 +106,7 @@ def update_session_checkpoint(ctx: SidecarContext, params: SessionCheckpointInpu
 def clear_session_checkpoint(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     _vault, repository = ctx.require_vault()
     _require_open_session(repository, params.session_id)
-    return {"cleared": repository.clear_session_checkpoint(params.session_id)}
+    return {"cleared": clear_checkpoint(repository, params.session_id)}
 
 
 @method("end_session", SessionIdInput)
@@ -113,11 +115,13 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
     row = repository.end_session(params.session_id)
     if row is None:
         raise SidecarError("not_found", f"Session {params.session_id} was not found.")
-    repository.clear_session_checkpoint(params.session_id)
+    clear_checkpoint(repository, params.session_id)
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
     from learnloop.learner.session_learning_diff import session_learning_diff
 
-    learning_diff = session_learning_diff(vault, repository, params.session_id)
+    learning_diff = dict(session_learning_diff(vault, repository, params.session_id))
+    learning_diff.pop("demonstrated_facet_ids", None)
+    demonstrated_attempt_ids = learning_diff.pop("demonstrated_attempt_ids", [])
     cold_checks = _session_cold_checks(repository, params.session_id)
     return versioned(
         {
@@ -133,23 +137,102 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             "cold_checks_completed": cold_checks["completed"],
             "cold_checks_passed": cold_checks["passed"],
             "streak": repository.session_day_streak(),
+            # UX Phase 4: the calm session finish names what was practised, in
+            # the knowledge well's words (display only, never evidence).
+            "topics": _session_topics(vault, repository, params.session_id, demonstrated_attempt_ids),
             **learning_diff,
         }
     )
+
+
+#: Attempt types that are help by construction (a walkthrough, its
+#: reconstruction, a hinted answer).
+_ASSISTED_ATTEMPT_TYPES = frozenset({"hinted_attempt", "guided_walkthrough", "reconstruction_after_walkthrough"})
+
+
+def _session_topics(vault, repository, session_id: str, demonstrated_attempt_ids) -> list[dict[str, Any]]:
+    """The topics the session practised, each with how it went, in the ○ ◌ ●
+    vocabulary (``docs/specs/ux_learnloop_v1.md`` §7.5, session end):
+
+    * ``on_your_own`` (●): one of the topic's OWN answers in the session
+      earned certification credit (the session diff's ``demonstrated_attempt_ids``:
+      the unassisted attempts whose points raised a facet the session
+      demonstrated). A facet another topic's answer raised credits that topic
+      only (Codex review F4), and a held answer earns nothing;
+    * ``with_help`` (◌): otherwise, an answer that earned points with help
+      (hints, a primed retry or a walkthrough) whose grade is not held.
+
+    A topic only tried, missed, skipped or held is not named: the line says
+    what moved, never a count of what did not. Display only.
+    """
+
+    from learnloop.held_grades import held_attempt_ids
+
+    rows = repository.session_attempt_rows(session_id)
+    if not rows:
+        return []
+    earned = {str(attempt_id) for attempt_id in demonstrated_attempt_ids or ()}
+    held = held_attempt_ids(repository, (row["id"] for row in rows))
+    order: list[str] = []
+    evidence: dict[str, str | None] = {}
+    for row in rows:
+        learning_object_id = str(row.get("learning_object_id") or "")
+        if not learning_object_id or row.get("attempt_type") == "skip":
+            continue
+        if learning_object_id not in evidence:
+            order.append(learning_object_id)
+            evidence[learning_object_id] = None
+        if evidence[learning_object_id] == "on_your_own" or row["id"] in held:
+            continue
+        assisted = (
+            int(row.get("hints_used") or 0) > 0
+            or bool(row.get("primed"))
+            or row.get("attempt_type") in _ASSISTED_ATTEMPT_TYPES
+        )
+        if row["id"] in earned and not assisted:
+            evidence[learning_object_id] = "on_your_own"
+        elif assisted and float(row.get("correctness") or 0.0) > 0.0:
+            evidence[learning_object_id] = "with_help"
+    topics: list[dict[str, Any]] = []
+    for learning_object_id in order:
+        if evidence[learning_object_id] is None:
+            continue
+        learning_object = vault.learning_objects.get(learning_object_id)
+        topics.append(
+            {
+                "learning_object_id": learning_object_id,
+                "title": learning_object.title if learning_object is not None else learning_object_id,
+                "evidence": evidence[learning_object_id],
+            }
+        )
+    return topics
 
 
 #: ``patch_checkpoint``'s default for a field the caller does not touch.
 _KEEP: Any = object()
 
 
-def patch_checkpoint(repository, params: SessionCheckpointInput, *, plan_presentation_id: Any = _KEEP) -> None:
+def patch_checkpoint(
+    repository,
+    params: SessionCheckpointInput,
+    *,
+    plan_presentation_id: Any = _KEEP,
+    self_grade_disclosure: Any = _KEEP,
+) -> None:
     """Merge ``params`` into the session's checkpoint.
 
     ``plan_presentation_id`` (router R2a, review F5): the daily-plan
     presentation a practice draft answers, kept in the practice envelope with
     the draft's retry key, so a draft resumed after a restart still submits
     bound to it. Only the practice draft RPC passes it; every save replaces
-    it (None clears it), so a later draft never inherits an earlier one's."""
+    it (None clears it), so a later draft never inherits an earlier one's.
+
+    ``self_grade_disclosure`` (UX Phase 4, Codex review F1): the trace a plain
+    self-grade froze before it showed a full answer
+    (:func:`with_self_grade_disclosure`). It stays with its draft while the
+    draft keeps its item and retry key; a draft that replaces it settles its
+    exposure in the reveal ledger first (:func:`settle_self_grade_disclosure`).
+    """
 
     _require_open_session(repository, params.session_id)
     fields = params.model_fields_set
@@ -172,6 +255,15 @@ def patch_checkpoint(repository, params: SessionCheckpointInput, *, plan_present
 
     if plan_presentation_id is not _KEEP:
         focus = _with_plan_presentation_id(focus, plan_presentation_id)
+
+    current_item = _merged_value(existing, params, fields, "current_practice_item_id")
+    if self_grade_disclosure is not _KEEP:
+        focus = with_self_grade_disclosure(focus, self_grade_disclosure)
+    focus = _kept_disclosure(focus, current_item)
+    before = draft_self_grade_disclosure(existing)
+    after = draft_self_grade_disclosure({"current_practice_item_id": current_item, "focus_block_state": focus})
+    if before is not None and before != after:
+        settle_self_grade_disclosure(repository, existing)
 
     repository.update_session_checkpoint(
         params.session_id,
@@ -295,6 +387,110 @@ def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None)
         practice.pop("submission_id", None)
     payload["practice"] = practice
     return payload
+
+
+#: The practice envelope's key for the trace a plain self-grade froze before
+#: showing a full answer (UX Phase 4, Codex review F1; no schema change).
+_SELF_GRADE_DISCLOSURE_KEY = "selfGradeDisclosure"
+
+
+def with_self_grade_disclosure(focus: dict[str, Any] | None, disclosure: dict[str, Any] | None) -> dict[str, Any]:
+    """Store (or, with None, drop) the frozen self-grade trace in the practice envelope."""
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    if disclosure:
+        practice[_SELF_GRADE_DISCLOSURE_KEY] = dict(disclosure)
+    else:
+        practice.pop(_SELF_GRADE_DISCLOSURE_KEY, None)
+    payload["practice"] = practice
+    return payload
+
+
+def _kept_disclosure(focus: dict[str, Any] | None, current_item: Any) -> dict[str, Any] | None:
+    """The envelope without a disclosure that no longer belongs to its draft
+    (another item, or another retry key on the same item)."""
+
+    disclosure = draft_self_grade_disclosure({"current_practice_item_id": current_item, "focus_block_state": focus})
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    if disclosure is None and isinstance(practice, dict) and _SELF_GRADE_DISCLOSURE_KEY in practice:
+        return with_self_grade_disclosure(focus, None)
+    return focus
+
+
+def draft_self_grade_disclosure(checkpoint: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The trace a plain self-grade froze for the checkpoint's draft, or None.
+
+    Only while the draft is still the one it froze: the same item and the
+    same retry key. ``{"practice_item_id", "learning_object_id",
+    "submission_id", "answer_md", "explanation_md"}``.
+    """
+
+    if not checkpoint:
+        return None
+    focus = checkpoint.get("focus_block_state")
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    if not isinstance(practice, dict):
+        return None
+    stored = practice.get(_SELF_GRADE_DISCLOSURE_KEY)
+    if not isinstance(stored, dict):
+        return None
+    item_id = stored.get("practiceItemId")
+    submission_id = stored.get("submissionId")
+    draft_key = practice.get("submissionId") or practice.get("submission_id")
+    if (
+        not isinstance(item_id, str)
+        or not isinstance(submission_id, str)
+        or item_id != checkpoint.get("current_practice_item_id")
+        or submission_id != draft_key
+        or not isinstance(stored.get("answerMd"), str)
+    ):
+        return None
+    explanation = stored.get("explanationMd")
+    return {
+        "practice_item_id": item_id,
+        "learning_object_id": stored.get("learningObjectId") if isinstance(stored.get("learningObjectId"), str) else None,
+        "submission_id": submission_id,
+        "answer_md": stored["answerMd"],
+        "explanation_md": explanation if isinstance(explanation, str) and explanation.strip() else None,
+    }
+
+
+def settle_self_grade_disclosure(repository, checkpoint: dict[str, Any] | None) -> None:
+    """The draft a plain self-grade showed a full answer for is done with:
+    debit the reveal ledger (``reveal_ledger.record_self_grade_disclosure_reveal``).
+
+    Committed under its retry key: linked to that attempt (it counts against
+    the next attempt). Never committed: an unlinked row stamped now, so a
+    later attempt on the item is primed. Best effort and idempotent.
+    """
+
+    disclosure = draft_self_grade_disclosure(checkpoint)
+    if disclosure is None:
+        return
+    from learnloop.attempts.reveal_ledger import record_self_grade_disclosure_reveal
+
+    try:
+        attempt = repository.practice_attempt_by_submission_id(disclosure["submission_id"])
+    except Exception:  # noqa: BLE001 - ledger bookkeeping never fails the action
+        attempt = None
+    committed = attempt is not None and attempt.get("practice_item_id") == disclosure["practice_item_id"]
+    record_self_grade_disclosure_reveal(
+        repository,
+        practice_item_id=disclosure["practice_item_id"],
+        learning_object_id=disclosure["learning_object_id"]
+        or (str(attempt.get("learning_object_id") or "") or None if committed else None),
+        submission_id=disclosure["submission_id"],
+        attempt_id=str(attempt["id"]) if committed else None,
+    )
+
+
+def clear_checkpoint(repository, session_id: str) -> bool:
+    """Clear the session's checkpoint, settling a self-grade disclosure first."""
+
+    settle_self_grade_disclosure(repository, repository.fetch_session_checkpoint(session_id))
+    return repository.clear_session_checkpoint(session_id)
 
 
 def _session_cold_checks(repository, session_id: str) -> dict[str, int]:

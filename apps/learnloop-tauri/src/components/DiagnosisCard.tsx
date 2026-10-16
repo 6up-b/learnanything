@@ -50,23 +50,30 @@ const link = { color: COLOR.amberLink, textDecoration: "underline", cursor: "poi
  * screen's lead repair suggestion, so an eliciting question is answered in
  * the "one question, unaided" box right below this card.
  */
-export function DiagnosisCard({
-  attemptId,
-  initialStatus,
-  onDiagnosisReady,
-  onOpenAttempt,
-  onError,
-}: {
-  attemptId: string;
-  /** From the feedback bundle; absent means no diagnosis was queued. */
-  initialStatus: DiagnosisStatusValue | null | undefined;
-  /** Called once when the diagnosis lands, so the screen can reload the
-   *  repair suggestions and guided-redo entry point it carries. */
-  onDiagnosisReady?: () => void;
-  /** Open a cited earlier answer and its blind grade. */
-  onOpenAttempt?: (attemptId: string) => void;
-  onError: (message: string) => void;
-}) {
+/** The card's state and its one recording action, polled while pending. */
+export interface DiagnosisCardState {
+  card: DiagnosisCardDto | null;
+  status: DiagnosisStatusValue | null;
+  recording: boolean;
+  record: (
+    response: DiagnosisCardResponse | EscalationResponse | "not_same_mistake",
+    citedAttemptId?: string | null,
+  ) => Promise<void>;
+}
+
+/**
+ * The polling and the one recording action behind the card, apart from its
+ * rendering: UX Phase 4's feedback surface reads the diagnosis as its one
+ * sentence on what went wrong (in place, when it lands) and mounts the card
+ * itself only under details, with this same state, so the diagnosis is
+ * polled once. `initialStatus` null or absent polls nothing.
+ */
+export function useDiagnosisCard(
+  attemptId: string,
+  initialStatus: DiagnosisStatusValue | null | undefined,
+  onDiagnosisReady: (() => void) | undefined,
+  onError: (message: string) => void,
+): DiagnosisCardState {
   const [card, setCard] = useState<DiagnosisCardDto | null>(null);
   const [status, setStatus] = useState<DiagnosisStatusValue | null>(initialStatus ?? null);
   const [recording, setRecording] = useState(false);
@@ -156,6 +163,33 @@ export function DiagnosisCard({
     },
     [attemptId, card, onError, recording],
   );
+
+  return { card, status, recording, record };
+}
+
+export function DiagnosisCard({
+  attemptId,
+  initialStatus,
+  onDiagnosisReady,
+  onOpenAttempt,
+  onError,
+  state,
+}: {
+  attemptId: string;
+  /** From the feedback bundle; absent means no diagnosis was queued. */
+  initialStatus: DiagnosisStatusValue | null | undefined;
+  /** Called once when the diagnosis lands, so the screen can reload the
+   *  repair suggestions and guided-redo entry point it carries. */
+  onDiagnosisReady?: () => void;
+  /** Open a cited earlier answer and its blind grade. */
+  onOpenAttempt?: (attemptId: string) => void;
+  onError: (message: string) => void;
+  /** State a screen already polls (`useDiagnosisCard`); the card then polls
+   *  nothing itself. */
+  state?: DiagnosisCardState;
+}) {
+  const own = useDiagnosisCard(attemptId, state ? null : initialStatus, onDiagnosisReady, onError);
+  const { card, status, record } = state ?? own;
 
   if (!status || status === "not_needed") return null;
   if (status === "pending") {
