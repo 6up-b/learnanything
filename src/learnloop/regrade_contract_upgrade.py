@@ -113,12 +113,11 @@ def upgrade_to_mvp026(root: Path, *, clock: Clock | None = None) -> UpgradeResul
     # cites no contract, so replay now holds them. Only their learning
     # objects are replayed; every other attempt reads as it did.
     held = unrecorded_epoch_attempts(vault, repository)
-    if held:
-        rebuild_all_derived_state(
-            vault, repository,
-            learning_object_ids=sorted({str(row["learning_object_id"]) for row in held}),
-            clock=clock,
-        )
+    # Only learning objects the vault still holds can be replayed (an attempt
+    # on a removed one never is, by any rebuild).
+    replayable = sorted({str(row["learning_object_id"]) for row in held} & set(vault.learning_objects))
+    if replayable:
+        rebuild_all_derived_state(vault, repository, learning_object_ids=replayable, clock=clock)
     activate_p0_projection(vault, repository, from_version=current, clock=clock)
     registry_service.refresh(vault, repository, clock=clock)
     rewrite_algorithm_version(root / "learnloop.toml", current, target)
