@@ -20,7 +20,11 @@ compose, through the sidecar RPC itself:
   a regrade that cites its contract shows that contract and resolves the
   forecast; one that cites none shows the content it read in its own
   response only (``live``), ``unrecorded`` on any later read, and censors the
-  forecast (``graded_contract_unknown``).
+  forecast (``graded_contract_unknown``);
+* round 4's one reveal coverage (``reveal_coverage``) governs the readers that
+  judge or serve by reveals; provenance's question record asks whether the
+  solution was ever shown before the question, so a routine display counts
+  there after its coverage has ended.
 
 Fakes only; no network, no paid call.
 """
@@ -31,6 +35,7 @@ from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as ME
 from learnloop.held_grades import held_attempt_ids
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at
+from tests.test_diagnosis_input_provenance import _question, world  # noqa: F401 - world is a fixture
 from tests.test_forecast_receipts import ITEM, WRONG, _answer, _diagnosed, _diagnosis_resolution, _present
 from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentUnlocatedGrader, FullCreditGrader
 from tests.test_route_rules_in_grader import VERSION as ROUTE_RULES_VERSION
@@ -176,3 +181,32 @@ def test_a_held_grade_resolves_nothing_until_a_contest_regrade_releases_it(tmp_p
     assert bundle["answeredSource"] == "live"
     assert feedback_bundle(vault, repository, held.attempt_id)["answeredSource"] == "unrecorded"
 
+
+def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_coverage(world):
+    """Diagnosis input provenance's one reveal reader
+    (``text_gaps.provenance._revealed_before``) asks whether the learner could
+    have seen an item's solution before asking about it: ever, not within a
+    window. A routine full-answer display (round 4's one coverage,
+    ``reveal_coverage``) is such a reveal, and it keeps counting there after
+    its coverage has ended for admissibility, auto-prime and serving."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
+    from learnloop.clock import FrozenClock
+    from learnloop.diagnosis.text_gaps.provenance import question_record
+    from learnloop.reveal_coverage import routine_counts_until
+
+    _question(world, "q_after_display", context="practice", item="pi_own", contract="acv_own", record=False)
+    with world.repository.connection() as connection:
+        assert question_record(connection, "q_after_display").inputs.solution_items == frozenset()
+
+    receipt = record_feedback_answer_display_reveal(
+        world.repository, attempt_id="att_own", practice_item_id="pi_own", display_id="display_landing",
+        clock=FrozenClock(datetime(2026, 9, 21, 9, 0, tzinfo=UTC)),
+    )
+    asked_at = "2026-09-25T09:00:00Z"  # the question's stamp (tests.test_diagnosis_input_provenance._question)
+    assert routine_counts_until(receipt.recorded_at) < asked_at  # its coverage ended days before
+
+    with world.repository.connection() as connection:
+        assert question_record(connection, "q_after_display").inputs.solution_items == frozenset({"pi_own"})
