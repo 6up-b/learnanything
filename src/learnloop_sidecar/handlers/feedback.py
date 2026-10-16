@@ -11,7 +11,12 @@ from learnloop.substrate.instrument_serving import unservable_refusal
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
-from learnloop_sidecar.handlers.serializers import attempt_detail, feedback_bundle, practice_item_detail
+from learnloop_sidecar.handlers.serializers import (
+    attempt_detail,
+    feedback_bundle,
+    live_grading_record,
+    practice_item_detail,
+)
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
 
@@ -489,12 +494,14 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
     if params.learner_reason is not None:
         return _contest_grade(ctx, vault, repository, attempt, params)
-    _run_regrade(ctx, vault, repository, attempt)
-    return feedback_bundle(vault, repository, params.attempt_id)
+    live = _run_regrade(ctx, vault, repository, attempt)
+    return feedback_bundle(vault, repository, params.attempt_id, live_record=live)
 
 
-def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> None:
-    """The existing regrade (learner-blind), or ``ai_unavailable``."""
+def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]) -> dict[str, Any]:
+    """The existing regrade (learner-blind), or ``ai_unavailable``. Returns the
+    content it read (``serializers.live_grading_record``): its response's
+    ``live`` grading record, unless its rows cite a contract."""
 
     from learnloop.attempts.regrade import regrade_attempt
     from learnloop_sidecar.handlers.ai_providers import (
@@ -512,7 +519,9 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
     if client is None:
         label = provider_label(provider_name)
         raise SidecarError("ai_unavailable", f"{label} client is unavailable; regrade requires an AI provider.")
-    _snapshot_item_regraded(vault, repository, str(attempt["practice_item_id"]))
+    # The content this regrade reads, from the vault it grades with: what its
+    # own response says it graded against (``live``, round 3 F9).
+    live = live_grading_record(vault, vault.practice_items[str(attempt["practice_item_id"])])
     regrade_attempt(
         vault,
         repository,
@@ -522,34 +531,7 @@ def _run_regrade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any]
         grading_source=grading_source_for_provider(provider_name),
         clock=None,
     )
-
-
-def _snapshot_item_regraded(vault, repository, practice_item_id: str) -> None:
-    """Snapshot the item an ordinary regrade reads (UX Phase 4, final verification F9).
-
-    The same content-addressed snapshot every serve of the item takes
-    (``practice_item_detail``), from the vault the regrade is about to read (a
-    method-explicit regrade reads its frozen contract and cites it instead). It
-    changes no grading: an ordinary regrade still cites no contract and replay
-    reads what it read before. It lets feedback tell later that the item now is
-    the one this regrade graded (``serializers._epoch_grading_record``), even
-    when the item was edited after the screen last served it. Best effort: a
-    failed snapshot only makes that feedback more cautious.
-    """
-
-    from learnloop.attempts.grading import resolved_rubric
-    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
-
-    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
-        return
-    item = vault.practice_items.get(practice_item_id)
-    if item is None:
-        return
-    try:
-        # The rubric the regrade reads (``regrade_attempt``: ``resolved_rubric``).
-        snapshot_for_presentation(repository, vault, item, rubric=resolved_rubric(vault, item))
-    except Exception:  # noqa: BLE001 - bookkeeping never blocks the regrade
-        logging.getLogger(__name__).warning("item snapshot before regrade failed for %s", practice_item_id, exc_info=True)
+    return live
 
 
 def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, Any],
@@ -595,8 +577,9 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
             "contest_not_recorded", "Your note couldn't be saved. Try again.", retryable=True
         ) from exc
     regraded = True
+    live: dict[str, Any] | None = None
     try:
-        _run_regrade(ctx, vault, repository, attempt)
+        live = _run_regrade(ctx, vault, repository, attempt)
     except SidecarError as exc:
         if exc.code != "ai_unavailable":
             raise
@@ -604,7 +587,7 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
     except Exception:  # noqa: BLE001 - the contest is kept; the owner reviews it
         logging.getLogger(__name__).warning("contest regrade failed for %s", attempt_id, exc_info=True)
         regraded = False
-    bundle = feedback_bundle(vault, repository, attempt_id)
+    bundle = feedback_bundle(vault, repository, attempt_id, live_record=live if regraded else None)
     review_requested = False
     if not _contest_upheld(bundle):
         review_requested = _request_grade_review(repository, attempt_id, contest_id, presentation_id)
