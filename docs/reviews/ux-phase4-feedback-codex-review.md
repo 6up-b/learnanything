@@ -29,7 +29,7 @@ No finding was rejected. Seven fixed, one of them High.
 **What was wrong.** The plain surface shows the expected answer on feedback and on the plain self-grade. Neither display wrote the reveal ledger. An unaided answer written right after reading the solution ("One question, unaided") was admitted as independent, and a retry with the answer in view was clean. The self-grade's lock was component state: it reset on remount and didn't cover the optional line.
 
 **The fix.**
-- **Feedback:** showing "A full answer" calls the new `record_answer_display` RPC. It runs once per attempt (the screen sends once, and the existing idempotent `reveal_ledger.record_answer_display_reveal` writes once). The row is `answer_display`, amount 1.0, linked to the attempt, with basis `feedback_full_answer:desktop`.
+- **Feedback:** showing "A full answer" calls the new `record_answer_display` RPC. It runs once per attempt (the screen sends once, and the existing idempotent `reveal_ledger.record_answer_display_reveal` writes once). *Re-review F1: now once per visit, §7.2.* The row is `answer_display`, amount 1.0, linked to the attempt, with basis `feedback_full_answer:desktop`.
 - **Plain self-grade:** before any full answer shows, `record_self_grade_disclosure` freezes the whole trace in the session checkpoint: the answer exactly as Submit sends it, and the optional line apart, under the draft's retry key. Only a confirmed freeze shows the full answer. An unconfirmed one grades without it.
   - The answer and the line stay locked, across navigation (the draft mirror) and a restart (the checkpoint, `checkpoint_dto.selfGradeDisclosure`). Submit sends exactly the frozen trace.
   - A submit whose trace differs from the frozen one is recorded primed.
@@ -131,3 +131,93 @@ The code was final at `5b603d911`; only this record changed after it. One earlie
 - **Q9 (F1).** Under `"simple"`, a short check started within a day of seeing a full answer on its learning object is not independent evidence. The flow is honest, but it means the plain feedback's full answer delays what a causal probe can settle. Should feedback hold the full answer behind a click while a diagnosis is pending on the learning object? *Default: shown, as the spec's W5b draws it.*
 - **Q10 (F3).** Should the desktop list the grade-review queue? *Default: the CLI only (`learnloop grading reviews`).*
 - **Q11.** The open conformance items in §3.
+
+## 7. Re-review
+
+**Review:** Codex job `20261015-224218-0Dkp4w`, run read-only against `c8a4e6468` (§1 to §6 above). Verdict REOPENED: F1 reopened (High), and three new Medium findings (F8, F9, F10).
+**Fix:** `86c0ab03f` (sidecar), `0fb2e6910` (desktop). The scope is unchanged: the Phase 4 screens and their handlers.
+
+### 7.1 Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High (reopened) | Feedback reopened after the cold delay leaves no fresh exposure | **fixed** | `86c0ab03f`, `0fb2e6910` | `test_f1r_feedback_reopened_after_the_cold_delay_is_a_fresh_exposure`, `test_f1r_a_display_needs_its_visit`, `test_f1r_a_display_that_lapses_never_stands_in_for_one_that_does_not`; vitest "F1 (re-review): reopening the feedback is a fresh exposure…", "F1: … once per visit" |
+| F8 | Medium | Frozen criterion metadata loses its original IDs | **fixed** | `86c0ab03f`, `0fb2e6910` | `test_f8_frozen_criteria_keep_their_original_ids_through_serialization`; vitest "F8: a frozen criterion with an underscored id…" |
+| F9 | Medium | Regraded feedback shows a superseded answer key and rubric | **fixed** | `86c0ab03f`, `0fb2e6910` | `test_f9_a_regrade_under_the_corrected_item_shows_its_key_and_rubric[later/same_second]`, `test_f9_an_answer_not_regraded_keeps_the_key_and_maximum_it_was_graded_under`; vitest "F9: …" (2) |
+| F10 | Medium | Retrying a contest silently discards an edited reason | **fixed** | `86c0ab03f`, `0fb2e6910` | `test_f10_a_contest_key_resent_with_an_edited_reason_is_refused_never_dropped`; vitest "F10: …" (2: an edited reason, cancel then a new contest) |
+
+No finding was rejected. Four fixed, one of them High.
+
+**Reproduced first.**
+- **F1, the review's scenario,** as a script against `c8a4e6468`. The feedback's first display was stamped two days back, then the RPC was called again as the reopened visit. Result: one `answer_display` row, the next attempt `primed=False`, and a production right after the reopen `admissible=True`.
+- **The new sidecar tests against `c8a4e6468`: all 6 failed.**
+  - F1: the per-visit writer and the visit id don't exist.
+  - F8: `answeredCriteria` came back keyed `criterionCorrectSelection`.
+  - F9: after the regrade, `answeredExpectedAnswer` was still the superseded key. The F9 control failed on the old map shape.
+  - F10: the edited reason under the same key returned success, and only the first reason was kept.
+- **The per-basis test** failed under the old dedupe: one row, because the feedback visit's row suppressed the TUI's worked answer.
+- **The F9 same-second case** failed under this fix's first version, which ordered epochs by their key as the regrade history does. It passed only when the regrade landed in a later second, so it was flaky at first. It is now ordered by written order (below).
+- **The vitest file against `c8a4e6468`'s desktop** (new file copied in): **7 of 31 failed** (F1 ×2, F5's new shape, F8, the F9 maximum, F10 ×2). The 24 that passed are the existing tests and the F9 regrade case, which needs only the sidecar change: the screen already reads the item when nothing frozen is sent.
+
+### 7.2 F1: every visit that shows the full answer is an exposure (High)
+
+**What was wrong.** `record_answer_display` charged an attempt once. The routine display counts only within one day of its row's stamp (§1, the horizon). A learner who reopened the feedback two days later read the full answer again, but the write was skipped against the first visit's lapsed row. The next attempt was clean, and an unaided production was independent.
+
+**The fix.**
+- **The RPC** takes a required `display_id` (1 to 128 characters). It writes one row per visit through the new `reveal_ledger.record_feedback_answer_display_reveal`, with basis `feedback_full_answer:desktop:<display_id>`. Only a retry of the same visit's write is deduplicated.
+- **The horizon runs from the latest exposure.** Each row is stamped when its visit showed the answer, and the horizon is applied per row, so the newest visit decides. The readers are unchanged.
+- **The desktop** mints the visit id when the screen first shows the answer to an attempt. A remount (the feedback reopened) is a new visit. If the write fails, the next try on the same visit reuses its id. Re-renders, details and the bundle's re-reads charge nothing.
+- **`record_answer_display_reveal`** (the TUI's worked answer and the committed self-grade disclosure) now dedupes by basis, not by any row on the attempt. A lapsing routine row can no longer stand in for the worked answer, which never lapses. This hazard came from §1's horizon, which is why it is fixed here.
+- **The plain self-grade** needs no change. Its row is written when the frozen draft is settled, at commit or abandonment. That is never earlier than the answer it showed.
+
+### 7.3 F8: criteria are rows carrying their id
+
+`answered_criteria` is now `[{criterion_id, description, points_possible}]`. The bundle's recursive camel-casing converts keys, never values, so `criterion_correct_selection` survives. The desktop matches each evidence row on `criterionId`.
+
+### 7.4 F9: the key and rubric the grade stands on
+
+- **The key, criteria and maximum** come from the contract cited by the grade's current epoch (`serializers._active_epoch_contract`). A first grade, and a method-explicit regrade, cite the contract they read. An ordinary regrade reads the item as it is now and cites none (canonical sources §7.3a). Then the three fields are null, and the screen reads the item and the regrade's own rows: what the regrade graded against.
+- **The current epoch** is the one holding the most recently written evidence row, by `(created_at, id)`. The ids are ULIDs. A regrade row carries no `grading_revision`, so its epoch key (`legacy:<created_at>`) sorts before an original's `revision:0` when both share a second.
+- **The question** stays the one presented (`answered_presentation`, from the contract the answer was first graded under).
+- **New field `answered_max_points`:** the grading contract's maximum. The details' score line reads "4 / 4" for an answer still graded under its 4-point contract after the item moved to 8. Classic mode, the regrade receipt and the contest's "upheld" check still read the bundle's `max_points`, unchanged.
+
+### 7.5 F10: a contest key is bound to its reason
+
+- **The desktop** keeps `{key, reason}`. A send reuses the key only for the same trimmed reason. An edited reason is a new contest with a new key. *never mind* and opening a contest both reset the key.
+- **The sidecar** refuses the same key with another reason: `contest_key_conflict`, not retryable, and nothing is recorded or regraded. Previously it answered success over the first reason. A retry of the same reason under the same key is still idempotent.
+
+### 7.6 Claims corrected
+
+- **§1, F1 "It runs once per attempt":** now once per visit (§7.2).
+- **`docs/reviews/ux-phase4.md` §4.2 "the retry reuses the contest key":** now a retry of the same reason. An edited reason, or a contest opened again, gets a new key.
+
+### 7.7 Outside this stage (recorded, not changed)
+
+- **Regrade and replay of a model-graded answer after its maximum rose.** An ordinary regrade supersedes only the self-grade tier (`supersede_tiers=(1,)`), so a model-graded original's rows stay live. `attempts.replay_existing_attempt` takes the contract from the first live row that cites one, and `_resolve_attempt_target` scores against that contract's rubric. A regrade under a raised maximum is therefore replayed against the original one.
+  - Probe (split vault, criteria 2+2 changed to 2+6, regraded to 6 points): the regrade's own replay failed the `correctness <= 1` CHECK (6 / 4).
+  - This is core regrade code (`attempts`, `regrade`), not this stage's. The F9 tests use a self-graded original, whose rows the regrade supersedes.
+- **Same-second epoch order.** `Repository.attempt_regrade_marker` and this stage's `_regrade_replaced_held` (F6) order epochs by (first timestamp, key), as the regrade history always has. So a regrade written in its original's second sorts before it. No AI regrade completes that fast. `_regrade_replaced_held` is left matching the marker, so the two never disagree.
+
+### 7.8 Paid calls
+
+None. Every test uses fakes, and the reproductions ran in test vaults under `fixtures-local/tmp` (since removed). Cost $0.
+
+### 7.9 Gate (final tree)
+
+Run on `0fb2e6910` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11894 passed, 0 failed (11 min 54 s): the 11886 of §5 plus the 8 new sidecar tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11788 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 93 files, 680 passed (674 plus 6 new); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed (`record_answer_display` is a passthrough of its `input`) |
+| DB/config references | not regenerated: no schema or config change |
+| `tests/test_coordinated_migrations.py` | in the full suite (no migration) |
+
+The code was final at `0fb2e6910`; only this record and the claim in `docs/reviews/ux-phase4.md` changed after it.
+
+### 7.10 Open question for the owner (default applied)
+
+- **Q12 (F1).** A visit is one mount of the feedback screen. A feedback left open on screen across the one-day horizon, without being reopened, is charged once, when it first showed the answer. *Default: one charge per mount.* Re-charging on refocus would need a visibility signal the screen doesn't read today.
