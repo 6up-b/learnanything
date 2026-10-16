@@ -1180,15 +1180,28 @@ class RoutineDisplayCovered(Exception):
         self.practice_item_id = practice_item_id
 
 
+#: Why a probe was not administered: its item's answer was shown on a routine
+#: display that still covers now (the causal offer and ``get_probe_contract``).
+PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
+
+
+def routine_display_covers_item(
+    repository: Repository, practice_item_id: str, *, clock: Clock | None = None
+) -> bool:
+    """Does a routine display of the item's answer cover now?"""
+
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
+
+
 def refuse_routine_display_covered(
     repository: Repository, practice_item_id: str, *, clock: Clock | None = None
 ) -> None:
     """Raise :class:`RoutineDisplayCovered` when a routine display of the item
     covers now: the one guard every presentation commit passes through."""
 
-    from learnloop.reveal_coverage import routine_displays_covering
-
-    if routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)):
+    if routine_display_covers_item(repository, practice_item_id, clock=clock):
         raise RoutineDisplayCovered(practice_item_id)
 
 
