@@ -440,3 +440,192 @@ migration 205); this branch was not merged with it. Main's diagnoser reads
 `served_entries(manifest.entries, …)`, which is the call the skipped test
 makes, so the plan's served paths become the provenance record once the
 branch lands.
+
+## Landing onto main
+
+Landed 2026-10-16 in worktree `learnanything-merge2`, on branch
+`merge/chatgpt-plan-onto-main`. Main was at `495c7437f`: the
+diagnosis-input-provenance landing (migration 205), the original-PDF
+selection, and saved diagnosis forecasts (migration 206), with the
+references at head 206. The merge base is `37a2a7e5f`, and the stage tip is
+`a66138abb`. The orchestrator fast-forwards main. The Codex verification of
+the last fix (F9) came back clean.
+
+| Commit | What |
+|---|---|
+| `d95e05391` | `git merge --no-ff ai/chatgpt-plan-provider` |
+| `90e8b400e` | a landing test that pins the plan's served workspace into provenance and the forecasts transaction |
+| `f630967e4` | references regenerated at head 206; the Pipeline Map |
+
+### Conflicts and how each was composed
+
+379 files changed on both sides.
+
+- **375 generated reference notes conflicted**: 322 table notes, 51
+  config-section notes and both catalogs. Each side differed only in
+  source-commit labels and cited line numbers. Main's side was taken, and
+  the notes were then regenerated on the combined tree.
+- **Four files merged without a conflict.** Each change was checked by hand:
+  - `config/schema.py`: the plan profile's four workspace fields, next to
+    main's provenance and forecasts switches.
+  - `config/template.py`: the stage changed only comments, inside the
+    commented-out `[ai.providers.chatgpt]` block. Main's defaults changes
+    stand.
+  - `diagnosis/split/jobs.py`: the stage changed one comment in
+    `default_diagnosis_client`. Main's `_persist` writes the provenance
+    record, the diagnosis row and its forecasts in one atomic block, and the
+    stage leaves it untouched.
+  - `tests/cli_help_snapshot.json`: the stage's `ai` and `ai compare`
+    entries, next to main's.
+- **Files the task expected to conflict but did not:**
+  - `tutor/teach_back.py` (the stage's public `teach_back_authoring_context`
+    and `validate_teach_back_authoring`) and the Pipeline Map each changed on
+    one side only.
+  - The diagnosis snapshot seam (`diagnoser.py`, `provenance.py`,
+    `snapshot.py`) changed on main only. The stage left the diagnoser
+    untouched on purpose (§3.1).
+
+No behaviour of either side was dropped.
+
+### Provenance composition
+
+- `test_served_paths_map_to_export_entries_under_input_provenance` now runs
+  and passes. Its `importorskip` finds `learnloop.diagnosis.split.provenance`,
+  so the full suite reports no skip.
+- **The path.** The diagnoser reads the plan's `workspace_activity()` with
+  `getattr` and passes it to `served_entries(manifest.entries, …)` for the
+  receipt, and to `snapshot_record` for the record. `result.record` reaches
+  `_persist(record=…, forecasts=…)`, which writes it inside the one
+  `repository.atomic()` block that also holds the `attempt_diagnoses` row and
+  its forecast receipts.
+- **The new test, `tests/test_chatgpt_plan_landing.py`**, drives the real plan
+  client, against the fake Responses server, through the async diagnosis job
+  in `snapshot` mode. It pins the following:
+  - The receipt's `served` is `entries` and names exactly the files the plan
+    handed out: `INDEX.md` and one attempt.
+  - `snapshot_record` is built from the plan's own report and names only that
+    attempt's answer.
+  - The stored `text_write_provenance` record is complete and contains it.
+    Snapshot mode is the `exact` context plus the export, so the stored record
+    also names what the inline context showed.
+  - The record, the row and the forecasts are one transaction: another
+    connection sees none of them until it commits.
+- The chat release switch `diagnosis.chat_shows_recorded_text` stays off, so
+  the plan's exact record changes nothing that chat shows yet.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then
+  `db_validate_reference.py`, reports `errors: []`.
+  - There are 325 table notes and 859 config leaves (833 active, 7 compat,
+    15 dormant, 4 legacy), at head 206.
+  - The plan profile's four fields live under `ai.providers` and add no leaf.
+    The prose counts in `Configuration.md` and `Database.md` therefore stand.
+- **Defaults snapshots.** All 17 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries were
+  recomputed on the combined template, after deleting the template `.pyc` and
+  touching the file. All 17 are unchanged.
+- **CLI help snapshot.** `--write` produced no change: the merged file was
+  already right.
+- **RPC pins.** Unchanged. No sidecar, mobile, MCP or `apps/` file differs
+  from main.
+- **The Pipeline Map.**
+  - Write-time provenance now says how a snapshot diagnosis's record joins
+    the entries its transport reported serving: Codex reports them best
+    effort, and the plan exactly, by construction.
+  - A new AI-layer entry covers the plan as a peer of Codex.
+  - The source paths and the gaps list follow.
+  - `validate_vault.py` passes (1,110 notes).
+- **Validators that already fail on main, run on both trees:**
+  - `module_validate.py`: 759 issues on main and 763 here. The 4 extra issues
+    are a missing module note and an uncatalogued source for each of this
+    stage's two modules, `ai/chatgpt_plan/workspace.py` and
+    `cli/ai_compare.py`. That is the same stale-catalog kind as main's.
+  - `desktop_validate.py`: stops on
+    `pdfSelection/testing/syntheticBook.ts`, identically on main.
+  - No new kind of failure.
+
+### Gate
+
+Run on `f630967e4`, the final code tree; the only later commit adds this
+section. `TMPDIR` was merge2's `fixtures-local/tmp`. Commands used
+`uv run --no-sync`, and both suite lanes held
+`flock /tmp/learnloop-fullsuite.lock`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `pytest -n auto` (full suite) | **12,041 passed, 2 xfailed, 1 failed** (13 min 41 s); no skip. The failure is a flake, explained below the table |
+| `pytest -m durability` | **106 passed**, 11,938 deselected (2 min 10 s) |
+| stage, landing and composition tests | 119 passed, 2 xfailed. The set: `test_chatgpt_plan_workspace`, `test_chatgpt_plan_provider`, `test_ai_compare`, `test_chatgpt_plan_landing`, `test_coordinated_migrations`, `test_forecast_receipts_landing`, `test_diagnosis_input_provenance_landing` |
+| `tests/test_coordinated_migrations.py` | green |
+| frontend / `src-tauri` | not run: the combined diff does not touch `apps/` |
+| tracked fixtures | `git status` clean after both lanes |
+
+The 2 xfails are main's strict F2/F3. The one failure is a flake:
+
+- **The test:**
+  `test_learner_read_model_pinning.py::test_predicted_correctness_with_one_shared_reader_is_byte_identical`.
+- **What failed.** It counted 2 connections where it expects 1. The second
+  connection was to another test's vault,
+  `test_capture_route_recovery.py::test_replacement_tutor_request…`, on the
+  same xdist worker. A background thread left by that earlier test opened it
+  while this test's patch was active.
+- **Reruns.** It passed alone 3 of 3 times. It also passed with both files
+  run in one process (57 passed).
+- **Not this stage.** The stage touches neither file nor the code they
+  exercise.
+
+### Parity (backup-API copies; no model call)
+
+- **The copies.** The owner's `fixtures/linear_algebra` and
+  `fixtures/probability` were copied with `copy_tree_with_databases` into
+  `fixtures-local/landing-chatgpt/orig/`. The copy includes probability's
+  `.learnloop/state.sqlite`. Each original was read once, and every per-side
+  copy was made from `orig/`.
+- **The two codes.** Main's code is `495c7437f`, from `git archive`, first on
+  `PYTHONPATH`. The merge's code is the worktree's own.
+- **The run.** `LEARNLOOP_CONFIG_DIR` was empty (it stayed empty), and
+  `LEARNLOOP_AI_PROVIDER` was unset. Every copy has 0 `model_call_receipts`
+  afterwards.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| upgrade, main's code / the merge's | 165 → 206 (41 migrations) on both; schema hash identical | 165 → 206 (41) on both; schema hash identical |
+| `rebuild --shadow --json`, main vs merge | 0 differences (summary facet 0, mastery 2, schedule 8; live unchanged) | 0 differences (facet 0, mastery 1, schedule 1; live unchanged) |
+| `doctor --json`, main vs merge | 0 differences (57 issues, 1 error) | 0 differences (101 issues, 48 errors, 46 `criterion:unknown_dependency`) |
+| upgrade shadow: main's code upgrades a copy, then the merge's code opens it | applies 0 migrations; shadow and doctor equal main's | applies 0; shadow and doctor equal main's |
+
+No migration was expected, and the results are identical. The shadow and
+doctor runs left every live database byte-identical: the sha256 matched
+before and after.
+
+### Earlier deviation, recorded
+
+The stage's run before the restart (§7) made 5 live Codex subscription calls,
+on a backup-API copy of its worktree's tracked `fixtures/probability`.
+
+- 4 of the 5 failed at launch, before any model request: `invalid transport
+  in mcp_servers.codex_app`.
+- The one teach-back draft that ran reported 21,003 tokens.
+- No metered or OpenRouter call was made. The tracked fixtures were not
+  touched.
+
+The landing made no model call.
+
+### Open items
+
+1. **Codex isolated turns fail at launch on this machine** (§9.1). The fix
+   runs in parallel in `learnanything-codex-sandbox`, which edits
+   `ai/providers/codex.py`. That file is unchanged here, so the fix should
+   compose without a conflict.
+2. **The switch itself and live verification of the plan's tool contract**
+   (§9.2–9.3) are the owner's, after `learnloop ai compare`. Codex stays the
+   active provider.
+3. **The module catalog** still lacks notes for the two new modules, as on
+   main for many others.
+4. **The release switch.** `diagnosis.chat_shows_recorded_text` stays off
+   until provenance's one-capture-point follow-up passes a clean verify.
+5. **The leaked background thread** behind the read-model pinning flake, from
+   `test_capture_route_recovery`'s sidecar context, is a test-isolation item
+   for the test-speed work. It is unrelated to this stage.
