@@ -23,19 +23,27 @@ compose, through the sidecar RPC itself:
   forecast (``graded_contract_unknown``);
 * round 4's one reveal coverage (``reveal_coverage``) governs the readers that
   judge or serve by reveals; provenance's question record asks whether the
-  solution was ever shown before the question, so a routine display counts
-  there after its coverage has ended.
+  solution was ever shown before the question, so a routine display (a
+  feedback display, or round 5's versioned self-grade disclosure) counts
+  there after its coverage has ended;
+* round 5's serve-time revalidation refuses a due cold check that submit
+  would prime with the typed ``cold_check_unavailable``, through the generic
+  JSON-RPC mapping (application error, ``data.code``), on the direct opens
+  (``open_queue_item``, ``get_practice_item`` with a session).
 
 Fakes only; no network, no paid call.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
 from learnloop.held_grades import held_attempt_ids
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at
 from tests.test_diagnosis_input_provenance import _question, world  # noqa: F401 - world is a fixture
+from tests.test_ux_phase4_feedback import ctx  # noqa: F401 - ctx is a fixture
 from tests.test_forecast_receipts import ITEM, WRONG, _answer, _diagnosed, _diagnosis_resolution, _present
 from tests.test_route_rules_in_grader import ALTERNATIVE, DivergentUnlocatedGrader, FullCreditGrader
 from tests.test_route_rules_in_grader import VERSION as ROUTE_RULES_VERSION
@@ -195,7 +203,7 @@ def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_cover
     from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
     from learnloop.clock import FrozenClock
     from learnloop.diagnosis.text_gaps.provenance import question_record
-    from learnloop.reveal_coverage import routine_counts_until
+    from learnloop.reveal_coverage import routine_row_covers
 
     _question(world, "q_after_display", context="practice", item="pi_own", contract="acv_own", record=False)
     with world.repository.connection() as connection:
@@ -206,7 +214,78 @@ def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_cover
         clock=FrozenClock(datetime(2026, 9, 21, 9, 0, tzinfo=UTC)),
     )
     asked_at = "2026-09-25T09:00:00Z"  # the question's stamp (tests.test_diagnosis_input_provenance._question)
-    assert routine_counts_until(receipt.recorded_at) < asked_at  # its coverage ended days before
+    assert not routine_row_covers(receipt.recorded_at, asked_at)  # its coverage ended days before
 
     with world.repository.connection() as connection:
         assert question_record(connection, "q_after_display").inputs.solution_items == frozenset({"pi_own"})
+
+    # Round 5's self-grade disclosure: a versioned JSON identity in the same
+    # basis column. The reader filters by item and stamp only, so a v2 row
+    # marks the question exactly as the feedback display did.
+    from learnloop.attempts.reveal_ledger import (
+        disclosure_identity,
+        frozen_trace_hash,
+        record_self_grade_disclosure_display,
+    )
+
+    _question(world, "q_after_disclosure", context="practice", item="pi_key", record=False)
+    with world.repository.connection() as connection:
+        assert question_record(connection, "q_after_disclosure").inputs.solution_items == frozenset()
+    disclosed = record_self_grade_disclosure_display(
+        world.repository, practice_item_id="pi_key", submission_id="sub_landing",
+        frozen_hash=frozen_trace_hash("a rotation preserves lengths", None), display_id="display_v2",
+        clock=FrozenClock(datetime(2026, 9, 21, 9, 0, tzinfo=UTC)),
+    )
+    assert not routine_row_covers(disclosed.recorded_at, asked_at)
+    with world.repository.connection() as connection:
+        row = connection.execute(
+            "SELECT source_kind, basis FROM reveal_events WHERE practice_item_id = 'pi_key'"
+        ).fetchone()
+        assert disclosure_identity(dict(row))["display"] == "display_v2"
+        assert question_record(connection, "q_after_disclosure").inputs.solution_items == frozenset({"pi_key"})
+
+
+def test_a_due_cold_check_submit_would_prime_is_refused_typed_on_every_serve(ctx):
+    """Round 5: a due cold retry whose answer submit would prime is refused at
+    serve time with ``cold_check_unavailable``, before the learner writes an
+    answer. The reveal here is a tutor answer after the item's last attempt but
+    before the cold task was created: the queue's deferral reads non-routine
+    reveals since the task's creation, submit reads them since the last
+    attempt, so the task stays due and only the serve-time check catches it.
+    The code reaches the client through the generic mapping
+    (``errors.sidecar_error``): an application error whose ``data.code`` is
+    the stable code, not retryable, naming the item."""
+
+    from learnloop.attempts.reveal_ledger import record_reveal
+    from learnloop_sidecar.errors import APPLICATION_ERROR_CODE, SidecarError, sidecar_error
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+    from tests.test_ux_phase4_feedback import ITEM, _feedback_answer, _iso, _later
+
+    _vault, repository = ctx.require_vault()
+    _feedback_answer(ctx, then=_later(days=-2))
+    record_reveal(repository, practice_item_id=ITEM, source_kind="tutor_answer", amount=1.0,
+                  clock=_later(days=-1, hours=-12))
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_landing",
+        not_before=_iso(_later(hours=-1)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
+        clock=_later(days=-1),
+    )
+    session_id = METHOD_REGISTRY["start_session"].handler(
+        ctx, METHOD_REGISTRY["start_session"].params_model.model_validate({"availableMinutes": 20})
+    )["sessionId"]
+
+    for method, params in (
+        ("open_queue_item", {"practiceItemId": ITEM}),
+        ("get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id}),
+    ):
+        spec = METHOD_REGISTRY[method]
+        with pytest.raises(SidecarError) as raised:
+            spec.handler(ctx, spec.params_model.model_validate(params))
+        envelope = sidecar_error(raised.value)
+        assert envelope["code"] == APPLICATION_ERROR_CODE, method
+        assert envelope["data"] == {"code": "cold_check_unavailable", "retryable": False,
+                                    "details": {"practice_item_id": ITEM}}, method
+    # Refused, never administered or deferred: the cold task is still open and due.
+    still = repository.followup_task(task["id"])
+    assert still["not_before"] == task["not_before"]
+    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is not None

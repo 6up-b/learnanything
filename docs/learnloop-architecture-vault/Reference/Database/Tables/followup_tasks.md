@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "100c72cd92be0da3da867b1718acf341bfa905b9"
-source_commit_timestamp: "2026-10-16T03:35:40-04:00"
+source_commit: "2954a443a3e8d5db528ffc0f1fa00d4fe44c4177"
+source_commit_timestamp: "2026-10-16T04:23:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -27,8 +27,8 @@ source_paths:
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop_sidecar/handlers/knowledge_map.py"
   - "src/learnloop/content/authoring/item_authoring.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/staged_frame.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/content/authoring/item_authoring.py`
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
