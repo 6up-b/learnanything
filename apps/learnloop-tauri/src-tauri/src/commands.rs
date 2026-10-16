@@ -1315,6 +1315,8 @@ sidecar_passthrough!(
     reader_delete_intent_annotation,
     "reader.delete_intent_annotation"
 );
+// reader-pdf-selection: undo a highlight's delete (a withdrawing event).
+sidecar_passthrough!(reader_restore_annotation, "reader.restore_annotation");
 sidecar_passthrough!(reader_reanchor, "reader.reanchor");
 sidecar_passthrough!(reader_annotation_history, "reader.annotation_history");
 sidecar_passthrough!(reader_source_annotations, "reader.source_annotations");

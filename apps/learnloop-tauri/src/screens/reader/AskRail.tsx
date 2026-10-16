@@ -54,6 +54,11 @@ export interface AskRailProps {
   onCommit?: (root: ReaderExchange, preset: InquiryCommitment) => void;
   committed?: (root: ReaderExchange) => Set<InquiryCommitment>;
   renderInquiryTop?: (root: ReaderExchange) => ReactNode;
+  /** What an Ask would send now (an inherited thread's passage, the
+   *  selection, or the active passage) touches material held out of
+   *  LearnLoop's models, or the whole reading is held back (exam protection
+   *  decides): the reason, and no Ask is offered. */
+  protectionMessage?: string | null;
 }
 
 export function AskRail({
@@ -94,6 +99,7 @@ export function AskRail({
   onCommit,
   committed,
   renderInquiryTop,
+  protectionMessage = null,
 }: AskRailProps) {
   const peek = inquiry && peekPassage ? peekPassage : jumpToSpan;
   return (
@@ -136,6 +142,12 @@ export function AskRail({
                   </div>
                 </Card>
               ) : null}
+              {protectionMessage ? (
+                <span data-ask-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
+                  {protectionMessage} You can still highlight it and keep notes.
+                </span>
+              ) : (
+              <>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Faint style={{ fontSize: 11 }}>mode</Faint>
                 <TermSelect
@@ -174,7 +186,13 @@ export function AskRail({
                   onRetry={() => void ask()}
                 />
               ) : null}
+              </>
+              )}
             </>
+          ) : protectionMessage ? (
+            <span data-ask-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
+              {protectionMessage} You can still highlight it and keep notes.
+            </span>
           ) : (
             <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
           )}

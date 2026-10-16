@@ -21,6 +21,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.reanchor import reanchor_spans, reanchor_subblock
 from learnloop.content.sources.math_text import locate_by_canonical
+from learnloop.content.sources.span_aliases import SpanTranslator
 
 ALGO_VERSION = "anchor-v1"
 _context_chars = 32
@@ -422,6 +423,30 @@ def delete_intent_annotation(
     )
 
 
+def restore_annotation(
+    repository: Repository, *, annotation_id: str, delete_event_id: str, clock: Clock | None = None
+) -> dict[str, Any]:
+    """Undo a delete (reader-pdf-selection): a disposition event that
+    withdraws the one delete intent ``delete_event_id`` names (the event id
+    the delete returned), so the annotation is listed again with its anchor,
+    versions and history untouched, unless another delete of it stands (one
+    written meanwhile, by another window or a retry): an undo never withdraws
+    a delete it does not name (Codex review F3). Deletion stays a tombstone
+    event, never a hard delete (§4.1), and so does its undo. Undoing a delete
+    already undone changes nothing; naming anything but a delete of this
+    annotation is an error. ``listed`` says whether it is listed now."""
+
+    if repository.annotation_head(annotation_id) is None:
+        raise AnnotationError(f"unknown annotation: {annotation_id!r}")
+    outcome, event_id, listed = repository.withdraw_annotation_delete(
+        annotation_id=annotation_id, delete_event_id=delete_event_id, clock=clock,
+    )
+    if outcome == "not_a_delete":
+        raise AnnotationError(f"{delete_event_id!r} is not a delete of annotation {annotation_id!r}")
+    return {"annotation_id": annotation_id, "restored": outcome == "restored", "event_id": event_id,
+            "listed": listed}
+
+
 def reanchor_annotation(
     repository: Repository,
     *,
@@ -590,3 +615,79 @@ def manual_anchor(
         event_type="manual_anchor", event_payload={"manual": True}, clock=clock,
     )
     return {"annotation_id": annotation_id, "status": "manually_anchored", **written}
+
+
+# --- where an annotation lands on the reading the Reader has open ------------------------
+#
+# The original-PDF view draws a highlight from its anchor (block + code-point
+# offsets) on the reading it has open, never from stored screen geometry
+# (reader-pdf-selection, 2026-10-15). An anchor names the reading it was made
+# on; on another reading of the book it is resolved through the one alias
+# authority (``content.sources.span_aliases``) and nowhere else.
+
+#: Anchored on the open reading as the learner made it (exact or chosen by hand).
+PLACEMENT_HERE = "here"
+#: Carried onto the open reading after the book was read again (re-anchored),
+#: or resolved onto it through a same-text alias: shown, labelled as moved.
+PLACEMENT_MOVED = "moved"
+#: Its words are not on the open reading as anchored (an alias to the same
+#: place with changed text, a re-anchor below confidence, a capture that never
+#: anchored): flagged at the passage that took its place, never drawn as text.
+PLACEMENT_FLAGGED = "flagged"
+#: Not on the open reading at all (no alias, another book's reading): rail only.
+PLACEMENT_ELSEWHERE = "elsewhere"
+
+
+def _placed_segment(segment: Mapping[str, Any], span_id: str) -> dict[str, Any]:
+    return {
+        "span_id": span_id,
+        "codepoint_start": int(segment.get("codepoint_start") or 0),
+        "codepoint_end": int(segment.get("codepoint_end") or 0),
+        "exact_quote": segment.get("exact_quote") or "",
+    }
+
+
+def _placement(head: Mapping[str, Any] | None, extraction_id: str, hashes: Mapping[str, str],
+               translator: SpanTranslator) -> dict[str, Any]:
+    anchor = (head or {}).get("anchor") or {}
+    segments = list((head or {}).get("segments") or [])
+    made_on = str(anchor.get("extraction_id") or "")
+    status = str(anchor.get("status") or "")
+    nowhere = {"state": PLACEMENT_ELSEWHERE, "segments": [], "flag_span_id": None}
+    if not made_on or not segments:
+        return nowhere
+    if made_on == extraction_id:
+        # A segment names a block of this reading only when that block still
+        # holds the text it was anchored on: a re-anchor that found no block
+        # keeps the old reading's span id, which may name another block here.
+        trusted = [s for s in segments if hashes.get(str(s.get("span_id"))) == s.get("block_content_hash")]
+        if status == "needs_reanchor" or len(trusted) != len(segments):
+            flag = str(trusted[0]["span_id"]) if trusted else None
+            return {"state": PLACEMENT_FLAGGED if flag else PLACEMENT_ELSEWHERE, "segments": [], "flag_span_id": flag}
+        state = PLACEMENT_MOVED if status == "reanchored" else PLACEMENT_HERE
+        return {"state": state, "segments": [_placed_segment(s, str(s["span_id"])) for s in segments],
+                "flag_span_id": None}
+    if status == "needs_reanchor":
+        return nowhere
+    resolutions = [translator.resolve(made_on, str(s.get("span_id"))) for s in segments]
+    if all(r.exact and hashes.get(str(r.span_id)) == s.get("block_content_hash")
+           for r, s in zip(resolutions, segments)):
+        # The same text on this reading: the offsets hold as they are.
+        return {"state": PLACEMENT_MOVED,
+                "segments": [_placed_segment(s, str(r.span_id)) for r, s in zip(resolutions, segments)],
+                "flag_span_id": None}
+    flag = next((str(r.span_id) for r in resolutions if r.span_id is not None and str(r.span_id) in hashes), None)
+    return {"state": PLACEMENT_FLAGGED if flag else PLACEMENT_ELSEWHERE, "segments": [], "flag_span_id": flag}
+
+
+def annotation_placements(repository: Repository, heads: list[Mapping[str, Any] | None],
+                          extraction_id: str) -> list[dict[str, Any]]:
+    """Where each annotation head lands on ``extraction_id`` (one per head, in
+    order): ``here``/``moved`` with its segments on that reading (span id and
+    code-point offsets into that block's own text), ``flagged`` with the span
+    of the passage that took its place, or ``elsewhere``. Read-only: nothing is
+    re-anchored or written from here."""
+
+    hashes = repository.block_content_hashes(str(extraction_id))
+    translator = SpanTranslator(repository, extraction_id)
+    return [_placement(head, str(extraction_id), hashes, translator) for head in heads]

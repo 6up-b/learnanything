@@ -60,6 +60,26 @@ OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
 #: A falsifiable expectation extracted from the learner's own tutor question.
 OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
 
+#: The undo of one delete intent (reader-pdf-selection): a disposition event
+#: naming the delete it withdraws. ``{delete}`` is the delete event's id and
+#: ``{annotation}`` the annotation id, as SQL expressions.
+_UNDO_OF = (
+    "SELECT u.id FROM source_annotation_events u WHERE u.annotation_id = {annotation} "
+    "AND u.event_type = 'disposition' AND json_extract(u.payload_json, '$.undo') = 'delete_intent' "
+    "AND json_extract(u.payload_json, '$.event_id') = {delete}"
+)
+
+#: Whether a delete intent of an annotation stands: one no undo names. An undo
+#: withdraws the one delete it names and never another, so a delete written
+#: while a restore was under way still hides the annotation (Codex review F3).
+#: ``{annotation}`` is the annotation id's SQL expression.
+_STANDING_DELETE = (
+    "EXISTS (SELECT 1 FROM source_annotation_events d WHERE d.annotation_id = {annotation} "
+    "AND d.event_type = 'delete_intent' AND NOT EXISTS ("
+    + _UNDO_OF.format(annotation="d.annotation_id", delete="d.id")
+    + "))"
+)
+
 
 class StaleContractHead(Exception):
     """The predecessor a successor was built against is no longer the head (L3,
@@ -12404,18 +12424,55 @@ class Repository(
 
         Deletion is a tombstone disposition event (§4.1) — history keeps every
         version and event, but the reading-surface listing honors the learner's
-        delete intent."""
+        delete intent. An undo (a disposition event withdrawing one delete by
+        its id, reader-pdf-selection) lists it again once no other delete of it
+        stands."""
 
         with self.connection() as connection:
             rows = connection.execute(
-                "SELECT id FROM source_annotations WHERE source_id = ? "
-                "AND id NOT IN ("
-                "  SELECT annotation_id FROM source_annotation_events"
-                "  WHERE event_type = 'delete_intent'"
-                ") ORDER BY created_at, id",
+                "SELECT a.id FROM source_annotations a WHERE a.source_id = ? AND NOT "
+                + _STANDING_DELETE.format(annotation="a.id")
+                + " ORDER BY a.created_at, a.id",
                 (source_id,),
             ).fetchall()
         return [self.annotation_head(row["id"]) for row in rows]
+
+    def withdraw_annotation_delete(
+        self, *, annotation_id: str, delete_event_id: str, clock: Clock | None = None
+    ) -> tuple[str, str | None, bool]:
+        """Undo one delete intent of an annotation: checked and written in one
+        immediate transaction, so no other write lands between the check and
+        the undo. Returns ``(outcome, undo_event_id, listed)``: ``restored``
+        with the new undo's id; ``already_withdrawn`` (a retry: an undo names
+        it already) or ``not_a_delete`` (no such delete of this annotation)
+        with no id; ``listed`` is whether no delete of it stands afterwards."""
+
+        standing = "SELECT " + _STANDING_DELETE.format(annotation="?") + " AS hidden"
+        with self.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+
+            def listed() -> bool:
+                return not connection.execute(standing, (annotation_id,)).fetchone()["hidden"]
+
+            delete = connection.execute(
+                "SELECT id FROM source_annotation_events WHERE id = ? AND annotation_id = ? "
+                "AND event_type = 'delete_intent'",
+                (delete_event_id, annotation_id),
+            ).fetchone()
+            if delete is None:
+                return ("not_a_delete", None, listed())
+            undone = connection.execute(_UNDO_OF.format(annotation="?", delete="?") + " LIMIT 1",
+                                        (annotation_id, delete_event_id)).fetchone()
+            if undone is not None:
+                return ("already_withdrawn", None, listed())
+            event_id = new_ulid()
+            connection.execute(
+                "INSERT INTO source_annotation_events(id, annotation_id, event_type, payload_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (event_id, annotation_id, "disposition",
+                 _json({"undo": "delete_intent", "event_id": delete_event_id}), utc_now_iso(clock)),
+            )
+            return ("restored", event_id, listed())
 
     def search_source_blocks(
         self, *, query: str, extraction_ids: Sequence[str], limit: int = 80
@@ -19343,6 +19400,17 @@ class Repository(
                     ),
                 )
             connection.commit()
+
+    def block_content_hashes(self, extraction_id: str) -> dict[str, str]:
+        """``{span_id: content_hash}`` of a reading's blocks in reading order,
+        without loading its IR (the Reader asks on every annotation refresh)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT span_id, content_hash FROM source_document_blocks WHERE extraction_id = ? ORDER BY ordinal",
+                (extraction_id,),
+            ).fetchall()
+        return {str(row["span_id"]): str(row["content_hash"]) for row in rows}
 
     def load_document_ir(self, extraction_id: str) -> DocumentIR | None:
         run = self.get_extraction_run(extraction_id)
