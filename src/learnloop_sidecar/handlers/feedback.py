@@ -49,10 +49,10 @@ class TriggerRegradeInput(ParamsModel):
 
 class AnswerDisplayInput(ParamsModel):
     attempt_id: str
-    # The exposure of the full answer (Codex re-review F1, final verification
-    # F1): the client mints a new one whenever the answer comes back on
-    # screen, at least hourly while it stays there, and when it leaves; a
-    # retry of its write reuses it. Each is its own row.
+    # One display of the full answer (Codex re-review F1, round 3): the
+    # client mints a new id for each row it needs (before the answer first
+    # appears, when it returns after its row's grace, at each renewal), and a
+    # retry of that row's write reuses it. Each is its own row.
     display_id: str = Field(min_length=1, max_length=128)
 
 
@@ -717,35 +717,41 @@ def _kept_contest_reason(payload: Any) -> str | None:
 
 @method("record_answer_display", AnswerDisplayInput)
 def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]:
-    """Feedback's plain surface showed the full answer (UX Phase 4, Codex
-    review F1): debit the reveal ledger, once per exposure.
+    """Feedback's plain surface is about to show, or keeps showing, the full
+    answer (UX Phase 4, Codex review F1, round 3): one routine display row.
 
     The expected answer itself (amount 1.0), linked to the attempt whose
-    feedback showed it. It is a routine display, shown on every feedback, so
-    it counts within the cold retrieval delay
-    (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
-    that time is primed and an unaided response is not independent; a review
-    after it is a retrieval again. Each exposure is its own row (Codex
-    re-review F1: reopening the feedback a day later shows the answer again;
-    final verification F1: so does returning to it, and so does leaving it
-    open), so the delay runs from the latest; a retry of one exposure's write
-    records nothing new (``reveal_ledger.record_feedback_answer_display_reveal``).
+    feedback shows it. The screen shows the answer only while a committed row
+    stamped within the renewal grace exists, so the response says what is in
+    the ledger: ``recorded_at`` (the row's stamp, which starts that grace) and
+    ``already_recorded`` (a retry of the same display found its row). Nothing
+    written is ``display_not_recorded`` (retryable: the screen keeps the answer
+    hidden and retries under the same display id), never an acknowledgement.
+    Each row counts against every production within
+    ``reveal_ledger.ROUTINE_ANSWER_DISPLAY_COVERAGE`` of its stamp.
     """
 
-    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
+    from learnloop.attempts.reveal_ledger import DisplayNotRecorded, record_feedback_answer_display_reveal
 
     _vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
-    record_feedback_answer_display_reveal(
-        repository,
-        attempt_id=params.attempt_id,
-        practice_item_id=str(attempt["practice_item_id"]),
-        learning_object_id=str(attempt.get("learning_object_id") or "") or None,
-        display_id=params.display_id,
+    try:
+        receipt = record_feedback_answer_display_reveal(
+            repository,
+            attempt_id=params.attempt_id,
+            practice_item_id=str(attempt["practice_item_id"]),
+            learning_object_id=str(attempt.get("learning_object_id") or "") or None,
+            display_id=params.display_id,
+        )
+    except DisplayNotRecorded as exc:
+        raise SidecarError(
+            "display_not_recorded", "The full answer couldn't be recorded. Try again.", retryable=True
+        ) from exc
+    return versioned(
+        {"recorded": True, "already_recorded": receipt.already_recorded, "recorded_at": receipt.recorded_at}
     )
-    return versioned({"recorded": True})
 
 
 @method("trigger_followup", TriggerFollowupInput)

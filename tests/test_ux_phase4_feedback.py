@@ -1435,9 +1435,9 @@ def test_f1f_feedback_returned_to_after_the_cold_delay_is_a_renewed_exposure(ctx
 def test_f1f_a_full_answer_left_on_screen_past_the_cold_delay_stays_an_exposure(ctx, renewed):
     """Feedback mounted 50 hours ago and on screen since. With the hourly
     renewals the open screen writes, the next attempt is primed and an unaided
-    production is not independent, until the cold delay has passed since the
-    last renewal. With only the mount's row (the reopened finding), the
-    exposure had silently expired."""
+    production is not independent, until the coverage (the cold delay plus the
+    renewal grace, round 3) has passed since the last renewal. With only the
+    mount's row (the reopened finding), the exposure had silently expired."""
 
     _vault, repository = ctx.require_vault()
     mounted = _later(hours=-50)
@@ -1450,8 +1450,8 @@ def test_f1f_a_full_answer_left_on_screen_past_the_cold_delay_stays_an_exposure(
     assert _next_attempt_primed(repository) is renewed
     assert _admissible_now(ctx) is (not renewed)
     if renewed:
-        assert _next_attempt_primed(repository, clock=_later(hours=22))
-        assert not _next_attempt_primed(repository, clock=_later(hours=24))
+        assert _next_attempt_primed(repository, clock=_later(hours=23))
+        assert not _next_attempt_primed(repository, clock=_later(hours=25))
 
 
 def test_f1f_a_retry_within_one_exposure_writes_once(ctx):
@@ -1614,3 +1614,221 @@ def test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_questi
 
     assert bundle["answeredSource"] == "changed"
     assert (bundle["rubricScore"], bundle["answeredMaxPoints"], bundle["maxPoints"]) == (4, 4, 8)
+
+
+# == Round 3 (docs/reviews/ux-phase4-feedback-codex-review.md §9) ==============================
+
+
+# -- F1: one invariant -------------------------------------------------------------------------
+#
+# For any attempt or admissibility read at T, if the full answer was on screen in
+# any window at some moment in [T - D, T] (D = the routine display horizon), the
+# ledger already holds a committed row the reader counts at T. It is the
+# conjunction of two properties, each tested on its own side:
+#
+# * the readers (here): a committed routine display row stamped s counts at every
+#   T in [s, s + D + G], whatever attempts came between (G = the renewal grace);
+# * the screen (vitest, ``answerExposure.test.ts``): the full answer is on screen
+#   at v only while a committed row stamped s <= v with v < s + G exists.
+#
+# Then for v in [T - D, T]: s <= v <= T and T <= v + D < s + G + D.
+
+
+def _stamp(clock: FrozenClock):
+    from learnloop.clock import parse_utc
+
+    return parse_utc(_iso(clock))
+
+
+def test_f1g_the_screen_and_the_ledger_share_one_exposure_contract():
+    """The desktop's gate and the readers' coverage read the same numbers."""
+
+    import json
+    from pathlib import Path
+
+    from learnloop.attempts.reveal_ledger import (
+        ROUTINE_ANSWER_DISPLAY_COVERAGE,
+        ROUTINE_ANSWER_DISPLAY_HORIZON,
+        ROUTINE_DISPLAY_RENEWAL_GRACE,
+    )
+
+    contract_path = Path(__file__).resolve().parents[1] / "apps/learnloop-tauri/src/screens/feedback/exposureContract.json"
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    assert contract["horizonMs"] == ROUTINE_ANSWER_DISPLAY_HORIZON.total_seconds() * 1000
+    assert contract["renewalGraceMs"] == ROUTINE_DISPLAY_RENEWAL_GRACE.total_seconds() * 1000
+    assert ROUTINE_ANSWER_DISPLAY_COVERAGE == ROUTINE_ANSWER_DISPLAY_HORIZON + ROUTINE_DISPLAY_RENEWAL_GRACE
+    # The screen hides the answer before a row's grace ends, renews well before.
+    assert contract["showMarginMs"] > 0
+    assert contract["renewAfterMs"] + contract["showMarginMs"] < contract["renewalGraceMs"]
+
+
+def test_f1g_reading_until_a_crash_is_covered_until_the_delay_after_the_last_look(ctx):
+    """The verifier's first reproduction: renewals through hour 50, reading
+    until 50:59, then the app is killed (no closing row). At 74:30, 23 h 31 min
+    after the last look, a retry is primed and an unaided production is not
+    independent: the 50:00 row covers until 75:00."""
+
+    _vault, repository = ctx.require_vault()
+    start = _later(hours=-74, minutes=-30)
+    attempt_id = _feedback_answer(ctx, then=start)
+    for hour in range(0, 51):
+        _exposure(ctx, attempt_id, f"display_{hour}", clock=FrozenClock(_stamp(start) + timedelta(hours=hour)))
+
+    assert _next_attempt_primed(repository)
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+
+
+def test_f1g_a_short_visit_closed_without_a_closing_row_is_covered(ctx):
+    """The second reproduction: feedback shown for 30 seconds and closed (no
+    closing row), then an attempt 24 h 0 min 15 s after it opened."""
+
+    _vault, repository = ctx.require_vault()
+    opened = _later(hours=-24, seconds=-15)
+    attempt_id = _feedback_answer(ctx, then=opened)
+    _exposure(ctx, attempt_id, "display_short", clock=opened)
+
+    assert _next_attempt_primed(repository)
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+
+
+def test_f1g_a_display_that_failed_to_persist_is_never_acknowledged(ctx, monkeypatch):
+    """The false acknowledgement: the insert raises, so the RPC reports a
+    retryable failure and nothing is recorded (both readers still clean, as
+    they must be, since nothing was written). The retry under the same id
+    records it once and says when; a further retry says it was already."""
+
+    import sqlite3
+
+    from learnloop.db.repositories import Repository
+
+    _vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    real_insert = Repository.insert_reveal_event
+
+    def failing(self, event, *, clock=None):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(Repository, "insert_reveal_event", failing)
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+    assert raised.value.code == "display_not_recorded"
+    assert raised.value.retryable is True
+    assert _reveals(repository, source_kind="answer_display") == []
+
+    monkeypatch.setattr(Repository, "insert_reveal_event", real_insert)
+    first = _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+    again = _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "display_x"})
+
+    [row] = _reveals(repository, source_kind="answer_display")
+    assert (first["recorded"], first["alreadyRecorded"], first["recordedAt"]) == (True, False, row["created_at"])
+    assert (again["recorded"], again["alreadyRecorded"], again["recordedAt"]) == (True, True, row["created_at"])
+    assert _next_attempt_primed(repository)
+
+
+def _shown_disclosure(ctx, session_id: str, *, submission_id: str, display_id: str = "display_sg") -> dict:
+    """A plain self-grade froze its trace and is showing the key: the freeze,
+    then the display row the screen writes before the key appears."""
+
+    _draft(ctx, session_id, submission_id=submission_id)
+    _disclose(ctx, session_id, submission_id=submission_id)
+    return _call(ctx, "record_self_grade_disclosure", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": submission_id,
+        "answerMd": "U Sigma V^T", "explanationMd": None, "displayId": display_id,
+    })
+
+
+def test_f1g_a_pending_self_grade_disclosure_is_an_exposure_for_every_other_production(ctx):
+    """The third reproduction: the key is on screen and the draft still
+    pending. Another window's attempt on the item is primed and an unaided
+    production on its learning object is not independent; the frozen trace's
+    own commit stays clean (it was written before the key was shown)."""
+
+    _vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    receipt = _shown_disclosure(ctx, session_id, submission_id="sub_pending")
+
+    [row] = _reveals(repository, source_kind="answer_display")
+    assert receipt["recordedAt"] == row["created_at"]
+    assert _next_attempt_primed(repository, submission_id="sub_other_window")
+    assert not _admissible_now(ctx, clock=_later(seconds=1))
+    # The frozen trace commits clean, and stays admissible as its own production.
+    result = _submit_self_graded(ctx, session_id, submission_id="sub_pending")
+    committed = repository.fetch_practice_attempt(result["attemptId"])
+    assert not committed["primed"]
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, _repository = ctx.require_vault()
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        produced_at=committed["created_at"],
+    ).admissible
+    # And it counts against the next attempt.
+    assert _next_attempt_primed(repository, submission_id="sub_next")
+
+
+def test_f1g_a_disclosure_display_needs_its_pending_draft(ctx):
+    """A display write for a draft that is no longer pending (committed,
+    abandoned, or never frozen) is refused: the screen then hides the key."""
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _draft(ctx, session_id, submission_id="sub_nf")
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "record_self_grade_disclosure", {
+            "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "sub_nf",
+            "answerMd": "U Sigma V^T", "explanationMd": None, "displayId": "display_nf",
+        })
+    assert raised.value.code == "disclosure_not_pending"
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_f1g_every_committed_display_row_counts_until_its_coverage_ends(ctx, seed):
+    """The readers' half of the invariant, on random timelines: attempts on the
+    item, feedback display rows written at random moments, and reads at random
+    later moments (each read sees only what was written by then). A read at T
+    is primed, and an unaided production at T is not independent, exactly when
+    some row stamped s has s <= T <= s + D + G, whatever attempts came between,
+    and with or without a window start (``since``) as placement passes."""
+
+    import random
+
+    from learnloop.attempts.reveal_ledger import ROUTINE_ANSWER_DISPLAY_COVERAGE, production_admissibility
+
+    rng = random.Random(seed)
+    vault, repository = ctx.require_vault()
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+    start = _stamp(_later(days=-6))
+    moment = start
+    stamps: list = []
+    latest_attempt: str | None = None
+    checked = 0
+    for step in range(40):
+        moment += timedelta(minutes=rng.choice([1, 7, 40, 90, 300, 900, 1300, 1450, 1500, 1600]))
+        clock = FrozenClock(moment)
+        if moment >= _stamp(_later(minutes=-1)):
+            break
+        kind = rng.random()
+        if kind < 0.25 or latest_attempt is None:
+            latest_attempt = complete_self_graded_attempt(
+                vault, repository,
+                AttemptDraft(practice_item_id=ITEM, learner_answer_md=f"answer {step}", attempt_type="independent_attempt"),
+                SelfGradeInput(criterion_points={"correctness": 0}, confidence=3), clock=clock,
+            ).attempt_id
+        elif kind < 0.55:
+            _exposure(ctx, latest_attempt, f"display_{seed}_{step}", clock=clock)
+            stamps.append(_stamp(clock))
+        else:
+            boundary = min(
+                [abs((moment - (stamp + ROUTINE_ANSWER_DISPLAY_COVERAGE)).total_seconds()) for stamp in stamps] or [9e9]
+            )
+            if boundary < 5:
+                continue
+            covered = any(stamp <= moment <= stamp + ROUTINE_ANSWER_DISPLAY_COVERAGE for stamp in stamps)
+            assert _next_attempt_primed(repository, submission_id=f"probe_{seed}_{step}", clock=clock) is covered
+            since = _iso(FrozenClock(moment - timedelta(minutes=rng.choice([5, 120, 2000]))))
+            for window in (None, since):
+                assert production_admissibility(
+                    repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+                    produced_at=_iso(clock), since=window,
+                ).admissible is (not covered)
+            checked += 1
+    assert checked > 0
