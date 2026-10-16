@@ -413,7 +413,7 @@ Q1–Q7 are in §8 above; Q8–Q35 are in the Codex review record (§6, §7.10, 
 
 ### 9.9 Open items
 
-- **Round 7's waiting plan overrode a chosen stop: fixed by round 8, pending the Codex verification of round 8.** Found at this landing and reproduced with fakes.
+- **Round 7's waiting plan overrode a chosen stop: fixed by round 8, and Codex verified round 8 CLEAN** (job 20261016-082214-I9SznH: F and the Low confirmed; 1,500 randomized no-hold comparisons matched main's chooser; no new findings). Found at this landing and reproduced with fakes.
   - **The defect.** `_boundary` raised `PlanWaiting` whenever `decision.candidate is None` and a held item lifted today. But `candidate` is also None when the chooser validly chooses `STOP_FOR_TODAY` with feasible work (offered once fewer than 5 minutes remain). A 4-minute plan with a feasible 1.5-minute item waited instead of completing, and the stop went unlogged. Under R2b a drawn stop with its propensity, and the model calls behind it, would have been dropped.
   - **The smaller case.** With 1 minute left the plan said "Back in 1 min" for a 1.5-minute held item, then finished without serving it.
   - **Round 8's fix** (Codex review §14.2): the plan waits only when nothing is feasible now and a held item would be feasible at the lift (`_feasibility`). The stage's tests include both cases, and composition tests 7 and 8 pin the fix under R2b. Q35 records the default for an item that can't be placed.
