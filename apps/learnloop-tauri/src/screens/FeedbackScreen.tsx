@@ -54,7 +54,14 @@ import {
   VERDICT_TEXT,
   verdictOf
 } from "../app/practiceFeedback";
-import { FeedbackSurface, answeredCriterionRows, answeredMaxPoints, type FeedbackNextStep } from "./feedback/FeedbackSurface";
+import {
+  FeedbackSurface,
+  answeredCriterionRows,
+  answeredMaxPoints,
+  questionChangedSinceGraded,
+  scoreOutOf,
+  type FeedbackNextStep
+} from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -423,14 +430,25 @@ function ScoreBlock({ f }: { f: FeedbackBundle }) {
 // ── CriterionRow ──────────────────────────────────────────────────────────────
 // `showTier` lights up when the rubric actually distinguishes core/transfer
 // tiers (teach-back items) — plain rubrics stay visually unchanged.
-function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto; showTier?: boolean }) {
+function CriterionRow({
+  row,
+  showTier = false,
+  maxKnown = true
+}: {
+  row: CriterionEvidenceRowDto;
+  showTier?: boolean;
+  /** False when the question changed since it was graded and nothing recorded
+   *  gives the criterion's maximum then: the points alone, never out of the
+   *  later question's (UX Phase 4, final verification F9). */
+  maxKnown?: boolean;
+}) {
   // PF-c: a criterion the learner's verified route never exercised is not
   // assessed — neutral, with no points, and outside the grade above.
   const assessed = criterionAssessed(row);
-  const ok = row.pointsAwarded === row.pointsPossible;
-  const partial = row.pointsAwarded > 0 && row.pointsAwarded < row.pointsPossible;
-  const mark = !assessed ? "–" : ok ? "✓" : partial ? "◐" : "✗";
-  const tone = !assessed ? C.textDim : ok ? C.green : partial ? C.amber : C.red;
+  const ok = maxKnown && row.pointsAwarded === row.pointsPossible;
+  const partial = maxKnown && row.pointsAwarded > 0 && row.pointsAwarded < row.pointsPossible;
+  const mark = !assessed ? "–" : !maxKnown ? "·" : ok ? "✓" : partial ? "◐" : "✗";
+  const tone = !assessed || !maxKnown ? C.textDim : ok ? C.green : partial ? C.amber : C.red;
   return (
     <div style={{
       display: "grid", gridTemplateColumns: "24px 1fr 64px",
@@ -461,7 +479,7 @@ function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto;
         )}
       </div>
       <div style={{ textAlign: "right", color: tone, fontFamily: MONO }}>
-        {assessed ? `${row.pointsAwarded.toFixed(1)} / ${row.pointsPossible.toFixed(1)}` : "—"}
+        {assessed ? scoreOutOf(row.pointsAwarded, maxKnown ? row.pointsPossible : null, 1) : "—"}
       </div>
     </div>
   );
@@ -1243,15 +1261,23 @@ function MisconceptionStatementCard({
 // regrade variant) — no confirm button, no verdict solicitation.
 // UX Phase 4 (Codex review F6): each side says whether that grade was held for
 // review, so the plain history never shows a held grade's provisional score.
-type RegradeSide = { score: number; max: number; held?: boolean; correctness?: number | null };
+/** One side of a regrade. `max` is the bundle's (the item's rubric, as classic
+ *  shows it); `outOf` is the maximum that grade stands on for the plain
+ *  history (final verification F9): null when none is known, absent from an
+ *  older sidecar (then `max`). */
+type RegradeSide = { score: number; max: number; held?: boolean; correctness?: number | null; outOf?: number | null };
 type RegradeReceipt = { before: RegradeSide; after: RegradeSide };
 
 function gradeSide(f: FeedbackBundle): RegradeSide {
-  return { score: f.rubricScore, max: f.maxPoints, held: f.heldForReview === true, correctness: f.correctness };
+  return {
+    score: f.rubricScore, max: f.maxPoints, held: f.heldForReview === true, correctness: f.correctness,
+    outOf: answeredMaxPoints(f)
+  };
 }
 
-/** A client-minted identity (a contest key, a display visit). */
-function newClientKey(prefix: "contest" | "display"): string {
+/** A client-minted identity (a contest key). The full answer's display ids
+ *  are minted by its exposure (`feedback/answerExposure.ts`). */
+function newClientKey(prefix: "contest"): string {
   const random = globalThis.crypto?.randomUUID?.();
   return `${prefix}_${random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`;
 }
@@ -1264,7 +1290,11 @@ function regradeHistoryLine({ before, after }: RegradeReceipt): string {
       VERDICT_TEXT[verdictOf({ score: side.score, max: side.max, correctness: side.correctness, held: side.held === true })];
     return `Looked at again: ${words(before)} → ${words(after)}.`;
   }
-  return `Looked at again: ${before.score} / ${before.max} → ${after.score} / ${after.max}.`;
+  // Each side out of its own grade's maximum (final verification F9): a
+  // regrade under a corrected rubric reads "2 / 4 → 6 / 8", and a side whose
+  // maximum is not known shows its points alone.
+  const side = (s: RegradeSide) => scoreOutOf(s.score, s.outOf === undefined ? s.max : s.outOf);
+  return `Looked at again: ${side(before)} → ${side(after)}.`;
 }
 
 function RegradeLedgerCard({
@@ -1441,6 +1471,7 @@ export function FeedbackScreen({
   onError,
   origin = "today",
   keysSuspended = false,
+  answerCovered = false,
 }: {
   attemptId: string;
   /** Active session, when known — lets claim exposure attribute to the session
@@ -1485,6 +1516,10 @@ export function FeedbackScreen({
   /** An overlay over feedback (the repair step) owns the keyboard: none of
    *  feedback's shortcuts run underneath it (Codex review F2). */
   keysSuspended?: boolean;
+  /** An overlay covers feedback (the repair step, the inspector, Ask): the
+   *  full answer is off screen until it closes, and its return is a new
+   *  exposure (UX Phase 4, final verification F1). */
+  answerCovered?: boolean;
 }) {
   // UX Phase 4 (§7.5): the plain surface with details on demand, unless the
   // library's `[ui] practice_feedback = "classic"` restores the screen exactly.
@@ -1611,13 +1646,6 @@ export function FeedbackScreen({
   // key, and cancelling or opening a contest starts a new identity.
   const contestKey = useRef<{ key: string; reason: string } | null>(null);
   const [causalNotRight, setCausalNotRight] = useState(false);
-  // The full answer this screen showed, charged to the reveal ledger once
-  // per visit (Codex review F1). Each visit is a fresh exposure (re-review
-  // F1: a feedback reopened a day later shows the answer again), so the
-  // visit has its own id, minted when it first shows the answer; a retry of
-  // the write reuses it. A remount (feedback reopened) is a new visit.
-  const answerShownFor = useRef<string | null>(null);
-  const displayVisit = useRef<{ attemptId: string; id: string } | null>(null);
   useEffect(() => {
     setDetailsOpen(false);
     setWhyOpen(false);
@@ -1626,17 +1654,6 @@ export function FeedbackScreen({
     setContestNote(null);
     contestKey.current = null;
     setCausalNotRight(false);
-  }, [attemptId]);
-  const recordAnswerShown = useCallback(() => {
-    if (answerShownFor.current === attemptId) return;
-    answerShownFor.current = attemptId;
-    if (displayVisit.current?.attemptId !== attemptId) {
-      displayVisit.current = { attemptId, id: newClientKey("display") };
-    }
-    // Best effort, like every ledger write: the screen never waits on it.
-    api.recordAnswerDisplay(attemptId, displayVisit.current.id).catch(() => {
-      answerShownFor.current = null;
-    });
   }, [attemptId]);
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
@@ -1852,6 +1869,22 @@ export function FeedbackScreen({
     setSelectedSuggestionIdx(-1);
   }, [errorTypeInput]);
 
+  // After a regrade in place, re-read the item too (UX Phase 4, final
+  // verification F9): the bundle sends the key, criteria and maximum the
+  // regrade graded against, and nothing on the screen keeps the item it
+  // loaded with. A read that lands after another attempt's feedback opened is
+  // dropped.
+  const shownAttempt = useRef(attemptId);
+  shownAttempt.current = attemptId;
+  const refreshItemAfterRegrade = useCallback((bundle: FeedbackBundle) => {
+    api
+      .getPracticeItem(bundle.practiceItemId)
+      .then((detail) => {
+        if (shownAttempt.current === bundle.attemptId) setItem(detail);
+      })
+      .catch(() => { /* the bundle already carries what the grade stands on */ });
+  }, []);
+
   const handleRegrade = async () => {
     if (!feedback || regrading) return;
     setRegrading(true);
@@ -1859,6 +1892,7 @@ export function FeedbackScreen({
     try {
       const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId));
       setFeedback(updated);
+      refreshItemAfterRegrade(updated);
       setRegradeReceipt({ before, after: gradeSide(updated) });
     } catch (error) {
       onError(errorMessage(error));
@@ -1891,6 +1925,7 @@ export function FeedbackScreen({
       const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, reason, key));
       contestKey.current = null;
       setFeedback(updated);
+      refreshItemAfterRegrade(updated);
       const outcome = updated.contest;
       const reviewed = outcome?.reviewRequested ? " It's marked for review." : "";
       if (outcome && !outcome.regraded) {
@@ -2239,8 +2274,14 @@ export function FeedbackScreen({
             : "";
     const regradeHistory: RegradeReceipt | null = regradeReceipt ?? (f.regrade
       ? {
-          before: { score: f.regrade.oldScore, max: f.regrade.maxPoints, held: f.regrade.oldHeld === true },
-          after: { score: f.regrade.newScore, max: f.regrade.maxPoints, held, correctness: f.correctness }
+          before: {
+            score: f.regrade.oldScore, max: f.regrade.maxPoints, held: f.regrade.oldHeld === true,
+            outOf: f.regrade.oldMaxPoints
+          },
+          after: {
+            score: f.regrade.newScore, max: f.regrade.maxPoints, held, correctness: f.correctness,
+            outOf: f.regrade.newMaxPoints
+          }
         }
       : null);
     const criteria = answeredCriterionRows(f);
@@ -2286,7 +2327,8 @@ export function FeedbackScreen({
             onShowProvisional={() => setDetailsOpen(true)}
             detailsOpen={detailsOpen}
             onToggleDetails={() => setDetailsOpen((open) => !open)}
-            onFullAnswerShown={recordAnswerShown}
+            recordAnswerDisplay={api.recordAnswerDisplay}
+            answerCovered={answerCovered}
           />
 
           {detailsOpen ? (
@@ -2301,7 +2343,7 @@ export function FeedbackScreen({
                   </div>
                 ) : (
                   <div data-testid="details-score" style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>{`${f.rubricScore} / ${answeredMaxPoints(f)}`}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 18, color: C.text }}>{scoreOutOf(f.rubricScore, answeredMaxPoints(f))}</span>
                     <Dim>{f.gradingSource === "self" ? "graded by you" : "graded by AI"}</Dim>
                     {f.gradingSource !== "self" ? (
                       <Faint>how sure the grader was: {f.graderConfidence.toFixed(2)}</Faint>
@@ -2337,7 +2379,12 @@ export function FeedbackScreen({
                 <div style={{ marginTop: 18 }}>
                   <EvidenceHeader>What the grader looked for</EvidenceHeader>
                   {criteria.map((row) => (
-                    <CriterionRow key={row.criterionId} row={held ? { ...row, assessed: false } : row} showTier={showTier} />
+                    <CriterionRow
+                      key={row.criterionId}
+                      row={held ? { ...row, assessed: false } : row}
+                      showTier={showTier}
+                      maxKnown={!questionChangedSinceGraded(f)}
+                    />
                   ))}
                   <div style={{ borderTop: `1px solid ${C.border}` }} />
                 </div>

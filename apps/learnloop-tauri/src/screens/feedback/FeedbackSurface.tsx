@@ -13,18 +13,23 @@
 // nothing: it says "Held for review" and never shows a score.
 //
 // The question is the one the learner was given. The full answer and the
-// criteria are the ones the grade stands on: the assessment contract its
-// grading epoch cites when the bundle carries it (Codex review F5), never
+// criteria are the ones the grade stands on, as the bundle sends them
+// (`answeredSource`): the assessment contract its grading epoch cites (Codex
+// review F5), or the item as it is now when that is what the grade read; never
 // today's key beside an older grade, nor the original key beside a regrade
-// that read the corrected item (re-review F9). Showing the full answer is an
-// exposure: the screen charges the reveal ledger on every visit
-// (`onFullAnswerShown`, Codex review F1, re-review F1).
+// that read the corrected item (re-review F9). When the question has changed
+// since it was graded and nothing recorded gives back what it was graded
+// against, the surface says so and shows no full answer and no maximum of the
+// later question (final verification F9). Showing the full answer is an
+// exposure, charged to the reveal ledger for as long as it is on screen
+// (`useAnswerExposure`, Codex review F1, re-review F1, final verification F1).
 import { useRef, useEffect } from "react";
 import type { CriterionEvidenceRowDto, FeedbackBundle, PracticeItemDetail } from "../../api/dto";
 import { criterionAssessed } from "../../api/dto";
 import type { DiagnosisCardState } from "../../components/DiagnosisCard";
 import { ItemPresentation } from "../../components/ItemPresentation";
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../../components/PlainParts";
+import { useAnswerExposure } from "./answerExposure";
 import { COLOR } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import {
@@ -75,19 +80,32 @@ function fmtDay(iso: string | null): string {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The full answer the grade stands on: the key of the contract its grading
- *  epoch cites when the bundle carries one, else the item's (an answer graded
- *  before contracts, or regraded under the item as it is now: Codex
- *  re-review F9). */
+/** The question has changed since it was graded, and nothing recorded gives
+ *  back the key, criteria or maximum it was graded against (final
+ *  verification F9): show none of the later question's. */
+export function questionChangedSinceGraded(f: FeedbackBundle): boolean {
+  return f.answeredSource === "changed";
+}
+
+/** The plain line that says so. */
+export const QUESTION_CHANGED_LINE =
+  "This question has changed since it was graded, so the answer it was graded against isn't shown.";
+
+/** The full answer the grade stands on, as the bundle sends it (the contract
+ *  its grading epoch cites, or the item as it is now when that is what it
+ *  read); none when the question changed since. Only a bundle that sends no
+ *  key (an older sidecar) leaves the screen to read the item, which it re-reads
+ *  after a regrade (final verification F9). */
 export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string {
+  if (questionChangedSinceGraded(f)) return "";
   const frozen = f.answeredExpectedAnswer;
   if (frozen !== undefined && frozen !== null) return expectedAnswerText(frozen).trim();
   return item ? expectedAnswerText(item.expectedAnswer).trim() : "";
 }
 
-/** The criteria rows with the descriptions and points the grading contract
- *  froze (Codex review F5); a criterion the contract does not name keeps the
- *  row's own. Matched on the id each frozen row carries (re-review F8). */
+/** The criteria rows with the descriptions and points the grade stands on
+ *  (Codex review F5); a criterion the record does not name keeps the row's
+ *  own. Matched on the id each frozen row carries (re-review F8). */
 export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[] {
   const frozen = f.answeredCriteria;
   if (!frozen) return f.criterionEvidence;
@@ -100,10 +118,20 @@ export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDt
   });
 }
 
-/** The maximum the grade is out of: the grading contract's when the bundle
- *  carries one (re-review F9), else the bundle's (the item's rubric). */
-export function answeredMaxPoints(f: FeedbackBundle): number {
-  return typeof f.answeredMaxPoints === "number" ? f.answeredMaxPoints : f.maxPoints;
+/** The maximum the grade is out of: the one the bundle sends (re-review F9);
+ *  without one, the item's, unless the question changed since it was graded,
+ *  when there is none to give (never the later question's: final
+ *  verification F9). */
+export function answeredMaxPoints(f: FeedbackBundle): number | null {
+  if (typeof f.answeredMaxPoints === "number") return f.answeredMaxPoints;
+  return questionChangedSinceGraded(f) ? null : f.maxPoints;
+}
+
+/** "6 / 8", or "6 points" when no maximum is known. */
+export function scoreOutOf(score: number, max: number | null, digits = 0): string {
+  const points = digits > 0 ? score.toFixed(digits) : String(score);
+  if (max !== null) return `${points} / ${digits > 0 ? max.toFixed(digits) : String(max)}`;
+  return `${points} point${score === 1 ? "" : "s"}`;
 }
 
 /** The quiet honesty lines that qualify the grade, in a few plain words. */
@@ -148,7 +176,8 @@ export function FeedbackSurface({
   onShowProvisional,
   detailsOpen,
   onToggleDetails,
-  onFullAnswerShown
+  recordAnswerDisplay,
+  answerCovered = false
 }: {
   feedback: FeedbackBundle;
   item: PracticeItemDetail | null;
@@ -169,19 +198,20 @@ export function FeedbackSurface({
   onShowProvisional: () => void;
   detailsOpen: boolean;
   onToggleDetails: () => void;
-  /** The full answer is on screen (once per attempt and answer). */
-  onFullAnswerShown?: () => void;
+  /** Charge the reveal ledger for one exposure of the full answer (its
+   *  display id names the exposure; a retry reuses it). */
+  recordAnswerDisplay?: (attemptId: string, displayId: string) => Promise<unknown>;
+  /** An overlay covers the surface (the repair step, the inspector, Ask). */
+  answerCovered?: boolean;
 }) {
   const held = verdict === "held";
+  const changed = questionChangedSinceGraded(f);
   const presentation = f.answeredPresentation ?? item?.presentation ?? null;
   const fullAnswer = answeredFullAnswer(f, item);
   const criteria = answeredCriterionRows(f);
   const learnerAnswer = (f.learnerAnswerMd ?? "").trim();
-  const shownCallback = useRef(onFullAnswerShown);
-  shownCallback.current = onFullAnswerShown;
-  useEffect(() => {
-    if (fullAnswer) shownCallback.current?.();
-  }, [f.attemptId, fullAnswer]);
+  // The full answer is an exposure for as long as it is on screen.
+  useAnswerExposure(f.attemptId, Boolean(fullAnswer) && !answerCovered, recordAnswerDisplay);
   const diagnosisSummary =
     diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null;
   const sentence = diagnosisSummary
@@ -247,6 +277,9 @@ export function FeedbackSurface({
       {honestyLines(f).map((line) => (
         <div key={line} style={{ ...quietLine, marginTop: 4 }}>{line}</div>
       ))}
+      {changed ? (
+        <div style={{ ...quietLine, marginTop: 4 }} data-testid="question-changed">{QUESTION_CHANGED_LINE}</div>
+      ) : null}
 
       {/* "I think I was right": one line, the regrade in place. */}
       {contest.open ? (
@@ -311,7 +344,7 @@ export function FeedbackSurface({
 
       {/* The criteria as plain ✓ / ✗ lines; a criterion the answer's route
           never exercised is a quiet "·" line. */}
-      {!held && criteria.length > 0 ? (
+      {!held && !changed && criteria.length > 0 ? (
         <div style={{ marginTop: 14, display: "grid", gap: 4, fontSize: 13 }}>
           {criteria.map((row) => {
             const assessed = criterionAssessed(row);

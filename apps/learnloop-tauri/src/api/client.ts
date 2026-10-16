@@ -575,8 +575,10 @@ export const api = {
       })
     ),
   /** UX Phase 4 (Codex review F1): feedback showed the full answer; the
-   *  sidecar charges the reveal ledger once per visit (re-review F1: each
-   *  visit is a fresh exposure). `displayId` names the visit; a retry of its
+   *  sidecar charges the reveal ledger once per exposure. `displayId` names
+   *  the exposure (re-review F1, final verification F1: a new one whenever the
+   *  answer comes back on screen, at least hourly while it stays there, and
+   *  when it leaves; `screens/feedback/answerExposure.ts`); a retry of its
    *  write reuses it. */
   recordAnswerDisplay: (attemptId: string, displayId: string) =>
     call<{ recorded: boolean }>("record_answer_display", { input: { attemptId, displayId } }),

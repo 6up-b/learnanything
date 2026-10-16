@@ -1249,6 +1249,9 @@ export function App() {
             onError={onError}
             // The repair step over feedback owns the keyboard (Codex review F2).
             keysSuspended={repairMisconceptionId !== null}
+            // The overlays that cover feedback hide its full answer; its
+            // return is a new exposure (UX Phase 4, final verification F1).
+            answerCovered={repairMisconceptionId !== null || inspectorId !== null || askTarget !== null}
           />
         );
       }
