@@ -56,8 +56,9 @@ SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
 #: The ROUTINE full-answer displays: the plain surface shows the expected
 #: answer on every feedback and every plain self-grade (spec §7.5), not as an
 #: exception a learner asked for. An ``answer_display`` row whose basis starts
-#: with one of these counts against a later production only within
-#: :data:`ROUTINE_ANSWER_DISPLAY_HORIZON`.
+#: with one of these counts against a production within
+#: :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE` of its stamp (the horizon plus the
+#: renewal grace), whatever attempts came between.
 ROUTINE_ANSWER_DISPLAY_BASES = (f"{FEEDBACK_FULL_ANSWER_BASIS}:", f"{SELF_GRADE_DISCLOSURE_BASIS}:")
 
 #: How long a routine display counts: the cold retrieval delay
@@ -244,8 +245,10 @@ def production_admissibility(
     exposure too. ``since`` defaults to open-ended: any reveal at all before the
     production contaminates it, which is the fail-closed reading. The one
     exception is a routine full-answer display (:func:`is_routine_answer_display`),
-    which counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` before the
-    production.
+    which counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE` before the
+    production, also when stamped before ``since`` (round 3 F1), except the
+    production's own self-grade disclosure (the attempt that committed the
+    trace frozen before the key was shown).
 
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
@@ -594,8 +597,11 @@ def record_self_grade_disclosure_reveal(
       its learning object, was produced after the answer was seen.
 
     Either way it is a routine display (:data:`ROUTINE_ANSWER_DISPLAY_BASES`):
-    it counts within the cold retrieval delay. Idempotent per retry key; best
-    effort, like every writer here.
+    it counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE`, and never against
+    the draft's own commit (:func:`own_disclosure_bases`). While the draft is
+    pending, the key's display rows (:func:`record_self_grade_disclosure_display`)
+    already count against every other production (round 3 F1). Idempotent per
+    retry key; best effort, like every writer here.
     """
 
     basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}"
