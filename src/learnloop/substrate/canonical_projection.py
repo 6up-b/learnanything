@@ -22,8 +22,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Collection, Iterable, Mapping, Sequence
 
+from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.grading_epochs import current_epoch
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
@@ -314,6 +316,10 @@ class CanonicalProjectionSnapshot:
     error_events_by_attempt: dict[str, list[dict[str, Any]]]
     activity_by_attempt: dict[str, dict[str, Any]]
     p0_references: EffectiveObservationReferences | None
+    #: Regrade contracts (mvp-0.26): the attempts replay held because their
+    #: current grading epoch's contract is unrecorded (the projection, like
+    #: replay, reads them as no evidence). Empty below the tag.
+    contract_unrecorded: frozenset[str] = frozenset()
 
 
 def load_canonical_projection_snapshot(
@@ -360,7 +366,19 @@ def load_canonical_projection_snapshot(
         error_events_by_attempt=repository.all_error_events_by_attempt(),
         activity_by_attempt=repository.all_causal_activity_classifications(),
         p0_references=p0_references,
+        contract_unrecorded=(
+            _contract_unrecorded(repository)
+            if algorithm_version in REGRADE_CONTRACT_VERSIONS
+            else frozenset()
+        ),
     )
+
+
+def _contract_unrecorded(repository: Repository) -> frozenset[str]:
+    from learnloop.held_grades import contract_unrecorded_attempts
+
+    with repository.connection() as connection:
+        return contract_unrecorded_attempts(connection)
 
 
 def _historical_contract(
@@ -694,10 +712,23 @@ def project_canonical_facet_state(
     # every observation).
     exercised_by_attempt = snapshot.exercised_by_attempt
     max_embedded_share = float(getattr(cert_cfg, "max_embedded_credit_share", 1.0))
+    regrade_contracts = algorithm_version in REGRADE_CONTRACT_VERSIONS
+    contract_unrecorded = snapshot.contract_unrecorded
     for attempt in snapshot.ledger_rows:
         item = vault.practice_items.get(attempt["practice_item_id"])
+        attempt_evidence = attempt["evidence"]
+        if regrade_contracts:
+            # Regrade contracts (mvp-0.26): the current grading epoch's rows
+            # under the contract they cite, as replay reads them. An epoch
+            # citing no contract is held by replay (its maximum is not on
+            # record) unless it is the attempt's only, pre-contract grade,
+            # which keeps the compatibility reading below.
+            epoch = current_epoch(attempt_evidence)
+            attempt_evidence = list(epoch.rows) if epoch is not None else []
+            if str(attempt["attempt_id"]) in contract_unrecorded:
+                continue
         contract = _historical_contract(
-            attempt["evidence"],
+            attempt_evidence,
             contracts_by_source_version=snapshot.contracts_by_source_version,
         )
         if contract is not None:
@@ -729,7 +760,7 @@ def project_canonical_facet_state(
         if not criteria:
             continue
         evidence_by_criterion = {
-            row["criterion_id"]: row for row in attempt["evidence"]
+            row["criterion_id"]: row for row in attempt_evidence
         }
         rubric_total = rubric_total or 1.0
         emass = attempt_evidence_mass(attempt["attempt_type"], vault.config.evidence)

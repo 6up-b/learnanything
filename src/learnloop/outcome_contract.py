@@ -104,6 +104,15 @@ HOLD_KEPT_FROM_KEY = "hold_kept_from"
 #: an exposure, and its time is the item's last attempt) but its score is no
 #: outcome, no failure and no success.
 HELD_ROW_KEY = GRADE_HELD_FOR_REVIEW
+#: Regrade contracts (``mvp-0.26``): the review reason replay records on an
+#: attempt whose current grading epoch cites no assessment contract and is not
+#: the attempt's only (first, pre-contract) grade, so nothing recorded says
+#: what it was graded out of. Such a grade is held for review exactly as a
+#: route-rule hold is (no outcome, no review, no failure, no success) and the
+#: ledger's predicate reads the reason (``held_grades``); a regrade or an
+#: adjudication that records a contract releases it. Only replay at
+#: ``mvp-0.26`` or later writes it, so no earlier vault holds anything by it.
+GRADE_CONTRACT_UNRECORDED = "grade_contract_unrecorded"
 
 
 def grade_held_for_review(grading_support: Mapping[str, Any] | None) -> bool:

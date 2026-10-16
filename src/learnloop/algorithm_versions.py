@@ -320,6 +320,30 @@ ROUTER_MIXTURE_ALGORITHM_VERSION = "mvp-0.24"
 # only on a method target) is a content change behind no tag.
 METHOD_EXPLICIT_ALGORITHM_VERSION = "mvp-0.25"
 
+# mvp-0.26 (regrade contracts, an algorithm successor to a bug fix queued
+# 2026-10-16; docs/reviews/regrade-contract-replay.md), on top of mvp-0.25
+# (the chain stays linear: mvp-0.26 means everything mvp-0.25 means PLUS
+# this). Below it an ordinary regrade read the item but cited no assessment
+# contract, and replay took the contract from the FIRST live row citing one,
+# so a regrade above the original maximum could not be saved, one within it
+# replayed against the wrong maximum, and an uncited regrade was rescored (or
+# failed ``rebuild`` on ``correctness <= 1``) once the item changed. At this
+# tag every regrade cites the contract it graded against (the frozen one for
+# a method-explicit answer, else a snapshot of the item it read), carries the
+# attempt's next grading revision and supersedes every live row of the
+# attempt, so the grade it writes is the attempt's only current grading
+# epoch; an adjudication does the same. Replay, the canonical projection and
+# the grade dual-write read the CURRENT epoch (``learnloop.grading_epochs``)
+# and its own contract, never the first live row's. A current epoch citing no
+# contract (rows written before the tag) is never read against today's item:
+# it is held for review (``grade_contract_unrecorded``), its correctness taken
+# from the maximum recorded with it where one exists; a regrade or an
+# adjudication releases it. Persisted meaning changes, so it is a successor
+# tag on the mvp-0.8 namespace; under every earlier tag rows replay exactly as
+# before. No kill switch: the earlier writer is the defect (rolling the
+# version back is restore-only).
+REGRADE_CONTRACT_ALGORITHM_VERSION = "mvp-0.26"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -345,6 +369,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_STAGED_FRAME_ALGORITHM_VERSION,
     ROUTER_MIXTURE_ALGORITHM_VERSION,
     METHOD_EXPLICIT_ALGORITHM_VERSION,
+    REGRADE_CONTRACT_ALGORITHM_VERSION,
 )
 
 
@@ -450,6 +475,12 @@ ROUTER_MIXTURE_VERSIONS: frozenset[str] = successors_from(ROUTER_MIXTURE_ALGORIT
 # route rules' own switch). Every later successor keeps them; gates must use
 # this set, never equality against METHOD_EXPLICIT_ALGORITHM_VERSION.
 METHOD_EXPLICIT_VERSIONS: frozenset[str] = successors_from(METHOD_EXPLICIT_ALGORITHM_VERSION)
+
+# Versions whose regrades and adjudications cite the contract they graded
+# against and supersede every live row, and whose replay reads the current
+# grading epoch's own contract (holding an epoch that cites none). Every
+# later successor keeps them; gates must use this set, never equality.
+REGRADE_CONTRACT_VERSIONS: frozenset[str] = successors_from(REGRADE_CONTRACT_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

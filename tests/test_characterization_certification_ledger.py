@@ -160,10 +160,14 @@ def test_ledger_row_shape_excludes_confidence_and_calibration_lineage(tmp_path):
     assert forbidden.isdisjoint(row)
 
     # Evidence rows carry only per-criterion attribution inputs — no grader
-    # confidence and no calibration fields either.
+    # confidence and no calibration fields either. The row's id and write stamp
+    # identify its grading epoch (regrade contracts, mvp-0.26:
+    # ``learnloop.grading_epochs`` orders revision-less epochs by them).
     assert row["evidence"]
     evidence_row = row["evidence"][0]
     assert set(evidence_row) == {
+        "id",
+        "created_at",
         "criterion_id",
         "points_awarded",
         "attribution_json",

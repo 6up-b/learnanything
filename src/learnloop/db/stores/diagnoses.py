@@ -175,6 +175,33 @@ class DiagnosisStoreMixin:
             ).fetchone()
         return self._decode_blind_record(row) if row is not None else None
 
+    def blind_record_max_points(self, attempt_id: str, agent_run_ids: Iterable[str]) -> int | None:
+        """The maximum a grading recorded WITH its grade: the ``max_points`` of
+        the attempt's latest blind record written by one of ``agent_run_ids``
+        (the runs of one grading epoch), or None. Evidence rows store points
+        awarded, never a maximum, so a blind record is the only place an epoch
+        that cites no contract kept one (regrade contracts, mvp-0.26)."""
+
+        runs = sorted({str(value) for value in agent_run_ids if value})
+        if not runs:
+            return None
+        with self.connection() as connection:
+            if not _has_table(connection, "blind_grade_records"):
+                return None
+            row = connection.execute(
+                "SELECT * FROM blind_grade_records WHERE attempt_id = ? "
+                f"AND agent_run_id IN ({','.join('?' for _ in runs)}) "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (attempt_id, *runs),
+            ).fetchone()
+        if row is None:
+            return None
+        record = (self._decode_blind_record(row) or {}).get("record") or {}
+        value = record.get("max_points") if isinstance(record, Mapping) else None
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+            return None
+        return int(value)
+
     def blind_graded_attempt_ids(self) -> set[str]:
         with self.connection() as connection:
             if not _has_table(connection, "blind_grade_records"):

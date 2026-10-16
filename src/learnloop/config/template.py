@@ -1732,11 +1732,25 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # off grades new answers exactly as mvp-0.24). Existing vaults reach it by
     # `learnloop upgrade` (default target) from mvp-0.24, or from mvp-0.9 to
     # mvp-0.23 through the chain (under mvp-0.12's advisory guard). New vaults
-    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
-    # 2026-10-12).
+    # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12) until mvp-0.26 merged.
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     "mvp-0.25": "bdd87ec8439a024537c06a2aa82bdab8e88960320edf705306f70e82dd014c04",
+    # mvp-0.26 (regrade contracts, queued 2026-10-16;
+    # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
+    # citing the assessment contract it graded against (a snapshot of the item
+    # it read, or the frozen method contract), as the attempt's next grading
+    # revision superseding every live row, and replay reading the current
+    # grading epoch's own contract (a current epoch citing none, written
+    # before the tag, is held for review rather than read against today's
+    # item). No config key and no default changes: only the version string
+    # moves the fingerprint. No kill switch. Existing vaults reach it by
+    # `learnloop upgrade` (default target) from mvp-0.25, or from mvp-0.9 to
+    # mvp-0.24 through the chain (under mvp-0.12's advisory guard). New vaults
+    # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
+    # 2026-10-12).
+    "mvp-0.26": "6bfb1f1ede5183a4ef23dd1e0218641830853adf8ba6e5c496d10b90ef2e3571",
 }
 
 

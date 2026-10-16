@@ -82,9 +82,10 @@ TARGET = METHOD_EXPLICIT_ALGORITHM_VERSION
 
 def test_the_successor_is_the_latest_and_keeps_every_predecessor():
     assert TARGET == "mvp-0.25"
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == TARGET
-    assert SUCCESSOR_CHAIN[-2] == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
-    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET})
+    # Regrade contracts (mvp-0.26) followed it and keep it.
+    assert SUCCESSOR_CHAIN[-2] == TARGET and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.26"
+    assert SUCCESSOR_CHAIN[-3] == ROUTER_MIXTURE_ALGORITHM_VERSION == "mvp-0.24"
+    assert METHOD_EXPLICIT_VERSIONS == frozenset({TARGET, LATEST_ALGORITHM_VERSION})
     # The chain is linear: it means every predecessor's semantics PLUS its own.
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
@@ -237,8 +238,9 @@ def test_upgrade_command_defaults_to_the_successor(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
-    assert f"mvp-0.24 -> {TARGET}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == TARGET
+    # The default is the latest successor (regrade contracts, mvp-0.26), through this one.
+    assert f"mvp-0.24 -> {LATEST_ALGORITHM_VERSION}" in result.output
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.26"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.23")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.25"])
     assert result.exit_code == 0, result.output
@@ -257,7 +259,8 @@ def test_new_vaults_start_at_the_successor(tmp_path):
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == TARGET
+    # Regrade contracts (mvp-0.26) are the latest and keep the method rules.
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.26"
     assert method_rules_active(fresh) and route_rules_active(fresh)
 
 

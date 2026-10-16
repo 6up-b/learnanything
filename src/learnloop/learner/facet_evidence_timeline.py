@@ -35,8 +35,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable
 
+from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.grading_epochs import ordered_epochs
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.learner.assessment_contracts import P0_PROJECTION_VERSIONS
 from learnloop.content.authoring.conjunctive_items import (
@@ -185,6 +187,10 @@ class FacetTimelineSnapshot:
     # must read too, or the Demonstrated curve over-reports the banked ledger
     # (a legacy attempt with no active interpretation banks ZERO under mvp-0.8).
     p0_evidence_mass_by_attempt: dict[str, float] | None = None
+    # Regrade contracts (mvp-0.26): the attempts replay holds because their
+    # current grading epoch's contract is unrecorded. The projection banks
+    # nothing from them; at the tag neither does this fold.
+    contract_unrecorded: frozenset[str] = frozenset()
 
 
 def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapshot:
@@ -209,7 +215,15 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
             repository.all_trace_exercised_facets(), merge_map
         ),
         activity_by_attempt=repository.all_causal_activity_classifications(),
+        contract_unrecorded=_contract_unrecorded(repository),
     )
+
+
+def _contract_unrecorded(repository: Repository) -> frozenset[str]:
+    from learnloop.held_grades import contract_unrecorded_attempts
+
+    with repository.connection() as connection:
+        return contract_unrecorded_attempts(connection)
 
 
 def _resolved_exercised_facets(
@@ -645,6 +659,7 @@ def _observation_events_by_facet(
         return current
 
     p0_masses = snapshot.p0_evidence_mass_by_attempt
+    regrade_contracts = vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS
     for attempt in snapshot.attempts:
         item = vault.practice_items.get(attempt["practice_item_id"])
         rows = snapshot.grading_by_attempt.get(str(attempt["id"]), ())
@@ -688,6 +703,15 @@ def _observation_events_by_facet(
         # non-superseded view at the final epoch.
         cumulative_rows: dict[str, dict] = {}
         epoch_items = sorted(epochs.items())
+        if regrade_contracts:
+            # Regrade contracts (mvp-0.26): one epoch order with replay and the
+            # projection (``learnloop.grading_epochs``: the current epoch last,
+            # never ordered by a first-seen stamp), and each epoch is a whole
+            # grading (the projection reads the current epoch's rows alone).
+            epoch_items = [
+                ((epoch.last_written[0], epoch.key), list(epoch.rows)) for epoch in ordered_epochs(rows)
+            ]
+        unrecorded = regrade_contracts and str(attempt["id"]) in snapshot.contract_unrecorded
         # An attempt with no grading evidence marks nothing under projection v6:
         # absent evidence produces no criterion outcomes, so it can neither bank
         # mass nor advance surface-group novelty in either fold. (Pre-v6 this
@@ -721,11 +745,18 @@ def _observation_events_by_facet(
                 group = surface_group_id(item) if item is not None else f"item:{attempt['practice_item_id']}"
             if rubric is None or not rubric.criteria:
                 continue
+            if regrade_contracts:
+                cumulative_rows = {}
             for record in records:
                 cumulative_rows[record.criterion_id] = {
                     "points_awarded": record.points_awarded,
                     "attribution": _decoded_attribution(record.attribution_json),
                 }
+            if unrecorded and index == len(epoch_items) - 1:
+                # Held because its contract is unrecorded: like a held grade,
+                # the current epoch banks nothing, so it corrects the
+                # attempt's earlier contribution to none.
+                cumulative_rows = {}
             (
                 credits,
                 marked,

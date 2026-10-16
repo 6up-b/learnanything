@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
@@ -20,6 +20,7 @@ from learnloop.db.repositories import (
     ActiveErrorEvent,
     FacetRecallState,
     FacetUncertaintyState,
+    GradingEvidenceRecord,
     ItemParameterState,
     MasteryState,
     PracticeItemQualityState,
@@ -27,6 +28,7 @@ from learnloop.db.repositories import (
     Repository,
 )
 from learnloop.ids import new_ulid
+from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
 from learnloop.ai.runs import finish_agent_run
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.scheduling.fsrs import (
@@ -73,7 +75,11 @@ from learnloop.learner.mastery import (
     update_item_difficulty,
     update_mastery_traced,
 )
-from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS, SOURCE_REFERENCE_GATE_VERSIONS
+from learnloop.algorithm_versions import (
+    P0_PROJECTION_VERSIONS,
+    REGRADE_CONTRACT_VERSIONS,
+    SOURCE_REFERENCE_GATE_VERSIONS,
+)
 from learnloop.db.connection import connect
 from learnloop.db.stores.source_service import reference_status_for_item
 from learnloop.attempts.blind_grading import (
@@ -441,6 +447,16 @@ class ApplyAttemptInput:
     # they were) and is no prediction error; a regrade or an adjudication that
     # assesses a criterion releases it. Replay reads it from the blind record.
     grade_held_for_review: bool = False
+    # Regrade contracts (mvp-0.26): replay only. The attempt's current grading
+    # epoch cites no assessment contract and is not its only (pre-contract)
+    # grade, so nothing recorded says what it was graded out of: it is held
+    # for review (no criterion assessed, no FSRS review, no evidence) and is
+    # never read against today's item. ``unrecorded_correctness`` is what its
+    # correctness stays: its score over the maximum recorded with it (its
+    # blind record) where one exists, else the value the attempt row already
+    # carries (never recomputed from an item).
+    grade_contract_unrecorded: bool = False
+    unrecorded_correctness: float | None = None
 
 
 @dataclass(frozen=True)
@@ -501,6 +517,13 @@ class AttemptApplication:
     #: door writes the blind record after this step; every later reader reads
     #: the ledger (``canonical_projection.held_for_review_attempts``).
     grade_held: bool = False
+    #: The rubric the grade was computed against (its cited contract's, else
+    #: the item's): what the grade dual-write classifies it out of from
+    #: mvp-0.26 (regrade contracts), so the grade channel and the attempt row
+    #: never read two maxima. ``grade_contract_unrecorded`` marks a replayed
+    #: grade held because its contract is unrecorded: no channel write.
+    rubric: Rubric | None = None
+    grade_contract_unrecorded: bool = False
 
 
 class AttemptServiceNotReady(RuntimeError):
@@ -1299,6 +1322,23 @@ def replay_existing_attempt(
     """
 
     evidence = repository.fetch_grading_evidence(attempt["id"])
+    contract_version_id = next(
+        (
+            row.assessment_contract_version_id
+            for row in evidence
+            if row.assessment_contract_version_id is not None
+        ),
+        None,
+    )
+    reading: CurrentEpochReading | None = None
+    if vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS:
+        # Regrade contracts (mvp-0.26): the CURRENT grading epoch's rows and
+        # its own contract, never the first live row's. Below the tag every
+        # row replays exactly as before (all live rows, the first cited
+        # contract).
+        reading = current_epoch_reading(vault, repository, attempt, live_rows=evidence)
+        evidence = list(reading.rows)
+        contract_version_id = reading.contract_version_id
     criterion_points = {row.criterion_id: row.points_awarded for row in evidence}
     # PF-c: the live grade's unverified criteria, read back from the block its
     # evidence rows carry (never from config), so replay leaves them
@@ -1318,14 +1358,7 @@ def replay_existing_attempt(
         probe_presentation_id=attempt.get("probe_presentation_id"),
         plan_presentation_id=attempt.get("plan_presentation_id"),
         answer_confidence=attempt.get("answer_confidence"),
-        assessment_contract_version_id=next(
-            (
-                row.assessment_contract_version_id
-                for row in evidence
-                if row.assessment_contract_version_id is not None
-            ),
-            None,
-        ),
+        assessment_contract_version_id=contract_version_id,
         submission_id=attempt.get("submission_id"),
         declared_dont_know=bool(attempt.get("declared_dont_know")),
         # mvp-0.13: what the learner sent was a stuck answer (persisted, never
@@ -1355,6 +1388,17 @@ def replay_existing_attempt(
     blind_record = repository.latest_blind_grade_record(attempt["id"])
     from learnloop.held_grades import record_held_for_review
 
+    unrecorded = reading is not None and reading.unrecorded
+    manual_review_reason = attempt.get("manual_review_reason")
+    if reading is not None:
+        # Replay owns the unrecorded-contract hold's reason: it records it on
+        # a grade whose contract is unrecorded and clears it once a recorded
+        # epoch replaced that grade (the reason the new grade wrote stands).
+        if unrecorded:
+            manual_review_reason = GRADE_CONTRACT_UNRECORDED
+        elif manual_review_reason == GRADE_CONTRACT_UNRECORDED:
+            manual_review_reason = None
+
     return apply_attempt(
         vault,
         repository,
@@ -1370,7 +1414,7 @@ def replay_existing_attempt(
                 else _replay_error_attributions(vault, error_type, error_events=error_events),
                 grader_confidence=float(attempt.get("grader_confidence") or 1.0),
                 confidence=attempt.get("confidence"),
-                manual_review_reason=attempt.get("manual_review_reason"),
+                manual_review_reason=manual_review_reason,
             ),
             replace_existing=True,
             record_probe_update=False,
@@ -1396,9 +1440,113 @@ def replay_existing_attempt(
             # A grade held for review (mvp-0.17's route check, mvp-0.20's
             # own-route rule) replays held, from the record it was written with.
             grade_held_for_review=record_held_for_review(blind_record),
+            grade_contract_unrecorded=unrecorded,
+            unrecorded_correctness=reading.unrecorded_correctness if unrecorded and reading is not None else None,
         ),
         clock=clock,
     )
+
+
+@dataclass(frozen=True)
+class CurrentEpochReading:
+    """What replay reads of an attempt's grade at ``mvp-0.26`` (regrade contracts).
+
+    ``rows``: the current grading epoch's live rows (``grading_epochs``).
+    ``contract_version_id``: the contract every one of them cites, else None.
+    ``unrecorded``: the epoch cites no contract and is not the attempt's only
+    (pre-contract) grade, or it is that grade but its score exceeds today's
+    maximum: nothing recorded says what it was graded out of, so it is held
+    for review and never divided by today's item. ``unrecorded_correctness``:
+    its score over the maximum recorded with it (a blind record of its run)
+    where one exists, else the attempt row's correctness as it stands.
+    """
+
+    rows: tuple[GradingEvidenceRecord, ...]
+    contract_version_id: str | None
+    unrecorded: bool = False
+    unrecorded_correctness: float | None = None
+    recorded_max_points: int | None = None
+
+
+def current_epoch_reading(
+    vault: LoadedVault,
+    repository: Repository,
+    attempt: Mapping[str, Any],
+    *,
+    live_rows: Sequence[GradingEvidenceRecord] | None = None,
+) -> CurrentEpochReading:
+    """The current grading epoch of a persisted attempt as replay reads it at
+    ``mvp-0.26`` (see :class:`CurrentEpochReading`; the epoch rule is
+    :func:`learnloop.grading_epochs.current_epoch`)."""
+
+    from learnloop.grading_epochs import current_epoch, only_epoch
+
+    attempt_id = str(attempt["id"])
+    rows = list(live_rows) if live_rows is not None else repository.fetch_grading_evidence(attempt_id)
+    epoch = current_epoch(rows)
+    if epoch is None:
+        return CurrentEpochReading(rows=(), contract_version_id=None)
+    contract_version_id = epoch.contract_version_id
+    if contract_version_id is not None:
+        return CurrentEpochReading(rows=epoch.rows, contract_version_id=contract_version_id)
+    score = int(attempt.get("rubric_score") or 0)
+    if only_epoch(repository.fetch_grading_evidence(attempt_id, include_superseded=True)):
+        # The attempt's only grade, made before contracts: the compatibility
+        # reading of the item it always had, unless its score no longer fits
+        # today's maximum (never a correctness above 1).
+        item = vault.practice_items.get(str(attempt.get("practice_item_id")))
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        if rubric is None or score <= max(int(rubric.max_points), 1):
+            return CurrentEpochReading(rows=epoch.rows, contract_version_id=None)
+    recorded = repository.blind_record_max_points(attempt_id, epoch.agent_run_ids)
+    if recorded is not None and score <= recorded:
+        correctness = score / recorded
+    else:
+        # Kept, never recomputed: the value the attempt row carries (in [0, 1]
+        # by the table's CHECK). Only a NULL a hand edit left is read as 0.
+        recorded = None
+        stored = attempt.get("correctness")
+        correctness = float(stored) if stored is not None and 0.0 <= float(stored) <= 1.0 else 0.0
+    return CurrentEpochReading(
+        rows=epoch.rows, contract_version_id=None, unrecorded=True,
+        unrecorded_correctness=correctness, recorded_max_points=recorded,
+    )
+
+
+def snapshot_graded_contract(
+    repository: Repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric, clock: Clock | None = None
+) -> str:
+    """The assessment contract a regrade grades against (regrade contracts,
+    mvp-0.26): the item it read with the rubric it graded under, snapshotted
+    content-addressed in the caller's transaction (an unchanged item reuses
+    its version). Returns the version id its rows cite."""
+
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    return snapshot_for_presentation(repository, vault, item, rubric=rubric, clock=clock)
+
+
+def unrecorded_epoch_attempts(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
+    """The persisted attempts replay at ``mvp-0.26`` holds because their
+    current grading epoch's contract is unrecorded (:func:`current_epoch_reading`),
+    as rows ``{attempt_id, learning_object_id, practice_item_id,
+    recorded_max_points, correctness}`` in attempt order: what the upgrade to
+    the tag reinterprets (and what a parity count reports)."""
+
+    held: list[dict[str, Any]] = []
+    for attempt in repository.list_all_attempts():
+        reading = current_epoch_reading(vault, repository, attempt)
+        if reading.unrecorded:
+            held.append(
+                {
+                    "attempt_id": str(attempt["id"]),
+                    "learning_object_id": attempt.get("learning_object_id"),
+                    "practice_item_id": attempt.get("practice_item_id"),
+                    "recorded_max_points": reading.recorded_max_points,
+                    "correctness": reading.unrecorded_correctness,
+                }
+            )
+    return held
 
 
 def replay_grader_identity(
@@ -1863,8 +2011,16 @@ def attempt_graded_contract(repository: Repository, attempt_id: str) -> GradedCo
     """
 
     evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    # The presentation's contract: a first grade's rows (revision 0, or a
+    # pre-revision row). From mvp-0.26 a regrade or an adjudication cites the
+    # contract IT graded against under a later revision; that is never the
+    # contract the answer was presented under.
     version_id = next(
-        (row.assessment_contract_version_id for row in evidence if row.assessment_contract_version_id is not None),
+        (
+            row.assessment_contract_version_id
+            for row in evidence
+            if row.assessment_contract_version_id is not None and (row.grading_revision or 0) == 0
+        ),
         None,
     )
     if version_id is None:
@@ -2590,7 +2746,16 @@ def _dual_write_grade_channel(
         if item is None:
             return
         grade = attempt.grade
-        rubric = vault.rubric_for_item(item)
+        if vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS:
+            # Regrade contracts (mvp-0.26): the channel classifies the grade
+            # out of the maximum it was computed against (its cited
+            # contract's), never the item's as it is now; a grade whose
+            # contract is unrecorded is held and has nothing to classify.
+            if application.grade_contract_unrecorded:
+                return
+            rubric = application.rubric or vault.rubric_for_item(item)
+        else:
+            rubric = vault.rubric_for_item(item)
         max_points = rubric.max_points if rubric is not None else 4
         criterion_max = (
             {c.id: c.points for c in rubric.criteria} if rubric is not None else None
@@ -3113,6 +3278,8 @@ def compute_attempt_application(
         grader_identity=attempt.grader_identity,
         unassessed_criterion_ids=attempt.unverified_criterion_ids,
         grade_held_for_review=attempt.grade_held_for_review,
+        grade_contract_unrecorded=attempt.grade_contract_unrecorded,
+        unrecorded_correctness=attempt.unrecorded_correctness,
     )
 
 
@@ -3770,13 +3937,25 @@ def _compute_resolved_grade_application(
     grader_identity: tuple[str, str] | None = None,
     unassessed_criterion_ids: Iterable[str] = (),
     grade_held_for_review: bool = False,
+    grade_contract_unrecorded: bool = False,
+    unrecorded_correctness: float | None = None,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
     )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
     now_iso = utc_now_iso(clock)
-    correctness = grade.rubric_score / max(rubric.max_points, 1)
+    if grade_contract_unrecorded:
+        # Regrade contracts (mvp-0.26, replay only): the grade's maximum is
+        # not on record, so it is never divided by today's item. It is held
+        # (below) and its correctness is the one replay recorded for it.
+        if unrecorded_correctness is None or not 0.0 <= float(unrecorded_correctness) <= 1.0:
+            raise AttemptValidationError(
+                f"attempt {attempt_id}: a grade whose contract is unrecorded needs a recorded correctness in [0, 1]"
+            )
+        correctness = float(unrecorded_correctness)
+    else:
+        correctness = grade.rubric_score / max(rubric.max_points, 1)
     subjects = vault.subjects_for_item(item)
     subject = subjects[0] if subjects else None
     # PF-c (owner decision 2026-10-12): a criterion the valid-alternative gate
@@ -3797,6 +3976,12 @@ def _compute_resolved_grade_application(
     # No assessed criterion left in the vector (the learner field's test too):
     # never the legacy "no criterion information" reading of an empty vector.
     nothing_assessed = bool(unassessed) and not criterion_points
+    if grade_contract_unrecorded:
+        # No criterion of an unrecorded grade is assessed: its criteria's
+        # maxima are not on record (mvp-0.26).
+        unassessed = frozenset(grade.criterion_points) | rubric_ids
+        criterion_points = {}
+        nothing_assessed = True
     # mvp-0.17 (re-review F9): nothing assessed AND nothing validated the
     # answer. The grade is the grader's provisional one, held for review: no
     # FSRS review and no prediction error until a regrade or an adjudication
@@ -3806,7 +3991,9 @@ def _compute_resolved_grade_application(
     # move, no clean attempt, no probe observation, no certification label.
     from learnloop.outcome_contract import grade_is_held
 
-    held = grade_is_held(record_held=grade_held_for_review, anything_assessed=bool(criterion_points))
+    held = grade_is_held(
+        record_held=grade_held_for_review or grade_contract_unrecorded, anything_assessed=bool(criterion_points)
+    )
     # Which facets the unassessed criteria alone account for comes from the
     # rubric's observation contract (the projection's map), never the item's
     # lexical inference: on most items that maps nothing and the attempt's
@@ -4481,6 +4668,8 @@ def _compute_resolved_grade_application(
         result=result,
         item_parameter_state=next_item_parameters,
         grade_held=held,
+        rubric=rubric,
+        grade_contract_unrecorded=grade_contract_unrecorded,
     )
 
 
