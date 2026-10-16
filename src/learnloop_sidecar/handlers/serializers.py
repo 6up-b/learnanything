@@ -893,8 +893,13 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     from learnloop.learner.assessment_contracts import contract_required_method
 
     trace_md = attempt.get("learner_answer_md")
+    # The question as it was given: the contract the answer was presented and
+    # first graded under. The key, criteria and maximum come from the grading
+    # epoch the grade now stands on (Codex re-review F9): an ordinary regrade
+    # reads the item as it is now, so its feedback shows that key and rubric.
     graded_contract = attempt_graded_contract(repository, attempt_id)
     contract = graded_contract.contract if graded_contract is not None else None
+    grading_contract = _active_epoch_contract(repository, attempt_id)
     return versioned(
         {
             "attempt_id": attempt_id,
@@ -921,13 +926,21 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
                 if contract is not None
                 else None,
             ),
-            # The answer key and rubric that question was given with, from the
-            # same assessment contract (Codex review F5): feedback shows "a full
-            # answer" and the criteria lines from these, never today's key
-            # beside yesterday's question. None for an answer graded before
-            # contracts (the screen then reads the item).
-            "answered_expected_answer": contract.get("expected_answer") if contract is not None else None,
-            "answered_criteria": _answered_criteria(contract),
+            # The answer key and rubric the grade stands on, from the contract
+            # its grading epoch cites (Codex review F5, re-review F9):
+            # feedback shows "a full answer", the criteria lines and the score
+            # out of these, never today's key beside yesterday's grade, nor
+            # yesterday's key beside a regrade that read today's. None for an
+            # answer graded before contracts, or regraded under the item as
+            # it is now (the screen then reads the item, which is what that
+            # regrade graded against). The criteria are rows carrying their
+            # id, never a map keyed by it: the bundle's camel-casing would
+            # rename an id like ``criterion_correct_selection`` (re-review F8).
+            "answered_expected_answer": (
+                grading_contract.get("expected_answer") if grading_contract is not None else None
+            ),
+            "answered_criteria": _answered_criteria(grading_contract),
+            "answered_max_points": _answered_max_points(grading_contract),
             "rubric_score": attempt["rubric_score"] or 0,
             "max_points": max_points,
             "correctness": attempt["correctness"] or 0.0,
@@ -1098,21 +1111,75 @@ def _answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, An
         return None
 
 
-def _answered_criteria(contract: Mapping[str, Any] | None) -> dict[str, dict[str, Any]] | None:
-    """``{criterion id: {"description", "points_possible"}}`` as the graded
-    assessment contract froze them (Codex review F5), or None without one."""
+def _active_epoch_contract(repository: Repository, attempt_id: str) -> dict[str, Any] | None:
+    """The assessment contract the attempt's CURRENT grade was given under
+    (Codex re-review F9), or None.
+
+    The grade stands on the latest grading epoch (a distinct
+    ``grading_revision``, or a legacy row's ``created_at``, as the regrade
+    history groups them): the epoch of the most recently written evidence
+    row. Written order is ``(created_at, id)``: the ids are ULIDs, so a
+    regrade stamped in its original's second still sorts after it (a regrade
+    row has no ``grading_revision``, so the epoch key cannot order them). A
+    first grade, and a method-explicit regrade, cite the contract they read;
+    an ordinary regrade reads the item as it is now and cites none (canonical
+    sources §7.3a), so its feedback reads the item.
+    """
+
+    rows = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    if not rows:
+        return None
+
+    def epoch(row: GradingEvidenceRecord) -> str:
+        return f"revision:{row.grading_revision}" if row.grading_revision is not None else f"legacy:{row.created_at}"
+
+    latest = epoch(max(rows, key=lambda row: (row.created_at, row.id)))
+    version_id = next(
+        (
+            row.assessment_contract_version_id
+            for row in rows
+            if epoch(row) == latest and row.assessment_contract_version_id is not None
+        ),
+        None,
+    )
+    if version_id is None:
+        return None
+    stored = repository.fetch_assessment_contract_version(str(version_id))
+    return dict(stored.get("contract") or {}) if stored is not None else None
+
+
+def _answered_criteria(contract: Mapping[str, Any] | None) -> list[dict[str, Any]] | None:
+    """``[{"criterion_id", "description", "points_possible"}]`` as the grading
+    contract froze them (Codex review F5), or None without one. Rows, not a
+    map keyed by id: the id is data and survives camel-casing (re-review F8)."""
 
     if contract is None:
         return None
-    criteria: dict[str, dict[str, Any]] = {}
+    criteria: list[dict[str, Any]] = []
     for raw in contract.get("criteria") or []:
         if not isinstance(raw, Mapping) or not raw.get("id"):
             continue
-        criteria[str(raw["id"])] = {
-            "description": str(raw.get("description") or raw["id"]),
-            "points_possible": float(raw.get("max_points") or 0.0),
-        }
+        criteria.append(
+            {
+                "criterion_id": str(raw["id"]),
+                "description": str(raw.get("description") or raw["id"]),
+                "points_possible": float(raw.get("max_points") or 0.0),
+            }
+        )
     return criteria
+
+
+def _answered_max_points(contract: Mapping[str, Any] | None) -> int | None:
+    """The grading contract's maximum score (re-review F9), or None without one."""
+
+    if contract is None:
+        return None
+    from learnloop.learner.assessment_contracts import rubric_from_contract
+
+    try:
+        return int(rubric_from_contract(dict(contract)).max_points)
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _regrade_replaced_held(repository: Repository, attempt_id: str) -> bool:

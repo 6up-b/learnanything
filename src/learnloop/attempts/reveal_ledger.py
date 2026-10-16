@@ -46,8 +46,10 @@ REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_
 POST_ATTEMPT_REVEAL_KINDS = ("answer_display",)
 
 #: The basis of the full answer the desktop's plain feedback shows (UX Phase 4,
-#: Codex review F1), and of the full answer a plain self-grade shows, one per
-#: draft retry key (:func:`record_self_grade_disclosure_reveal`).
+#: Codex review F1), one per visit (``feedback_full_answer:desktop:<visit>``,
+#: :func:`record_feedback_answer_display_reveal`), and of the full answer a
+#: plain self-grade shows, one per draft retry key
+#: (:func:`record_self_grade_disclosure_reveal`).
 FEEDBACK_FULL_ANSWER_BASIS = "feedback_full_answer"
 SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
 
@@ -325,19 +327,74 @@ def record_answer_display_reveal(
     basis: str,
     clock: Clock | None = None,
 ) -> str | None:
-    """Debit the ledger for the full expected answer shown on a feedback screen.
+    """Debit the ledger for the full expected answer shown after an attempt.
 
     Amount 1.0: the expected answer itself was shown. Linked to the committed
-    attempt whose feedback showed it, and charged once per attempt (reopening
-    the same feedback reveals nothing new). Best effort, like every writer
-    here: a failure is logged and the screen still shows the answer.
+    attempt whose feedback showed it, and charged once per attempt and basis:
+    the TUI's worked answer after an empty stuck answer (which never lapses)
+    and a plain self-grade's committed disclosure. Once per basis, not per
+    attempt, so a routine display that lapses never stands in for one that
+    does not (Codex re-review F1). The plain feedback screen, which shows the
+    answer on every visit, charges each visit instead
+    (:func:`record_feedback_answer_display_reveal`). Best effort, like every
+    writer here: a failure is logged and the screen still shows the answer.
     """
 
     try:
-        if repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display"):
+        if any(
+            row.get("basis") == basis
+            for row in repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display")
+        ):
             return None
     except Exception:  # pragma: no cover - defensive
         logger.warning("answer-display reveal lookup failed for %s", attempt_id, exc_info=True)
+        return None
+    return record_reveal(
+        repository,
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        remediation_episode_id=reveal_episode_id(repository, practice_item_id),
+        source_kind="answer_display",
+        amount=1.0,
+        basis=basis,
+        attempt_id=attempt_id,
+        clock=clock,
+    )
+
+
+def record_feedback_answer_display_reveal(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    practice_item_id: str,
+    display_id: str,
+    learning_object_id: str | None = None,
+    surface: str = "desktop",
+    clock: Clock | None = None,
+) -> str | None:
+    """Debit the ledger for one VISIT of a feedback screen that showed the full answer.
+
+    The plain surface's feedback shows the expected answer on every visit, so
+    each visit is its own exposure (Codex re-review F1). A routine display
+    counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` of when it was
+    shown, so charging an attempt once let the first visit's row lapse while
+    the learner read the answer again on a later one. One row per visit,
+    stamped when the answer was shown, so the horizon runs from the latest
+    exposure. ``display_id`` names the visit (the client mints it when the
+    screen first shows the answer); a retry of the same visit's write records
+    nothing new. Linked to the attempt, like every feedback display: it
+    counts against the NEXT attempt. Best effort, like every writer here.
+    """
+
+    basis = f"{FEEDBACK_FULL_ANSWER_BASIS}:{surface}:{display_id}"
+    try:
+        if any(
+            row.get("basis") == basis
+            for row in repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display")
+        ):
+            return None
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("feedback answer-display lookup failed for %s", attempt_id, exc_info=True)
         return None
     return record_reveal(
         repository,
@@ -368,10 +425,10 @@ def record_self_grade_disclosure_reveal(
     session checkpoint (so the answer it grades was written before the answer
     was seen). The exposure is settled when the frozen draft is done with:
 
-    * committed (``attempt_id``): the attempt that answered it links the row,
-      exactly as the feedback screen's display does
-      (:func:`record_answer_display_reveal`, once per attempt): it counts
-      against the NEXT attempt, never against the trace frozen before it;
+    * committed (``attempt_id``): the attempt that answered it links the row
+      (:func:`record_answer_display_reveal`, once per retry key), as the
+      feedback screen links its displays: it counts against the NEXT
+      attempt, never against the trace frozen before it;
     * abandoned (no attempt under its retry key): an unlinked row stamped now,
       so a later attempt on the item, and a later production on the item or
       its learning object, was produced after the answer was seen.

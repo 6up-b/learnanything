@@ -38,6 +38,7 @@ from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import config_dto
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import feedback_bundle
+from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import create_basic_vault, seed_due_item
 from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.test_held_grade_evidence import T, _graded_apply, _held_apply
@@ -405,8 +406,9 @@ def _iso(clock: FrozenClock) -> str:
 
 def test_f1_the_full_answer_shown_on_feedback_is_charged_once_to_the_reveal_ledger(ctx):
     """Feedback's "A full answer" panel is the expected answer itself: showing
-    it debits the reveal ledger (once per attempt), so a retry taken with it in
-    view is primed and an unaided response after it is not independent."""
+    it debits the reveal ledger (once per visit: a retry of the visit's write
+    records nothing new), so a retry taken with it in view is primed and an
+    unaided response after it is not independent."""
 
     from learnloop.attempts.reveal_ledger import production_admissibility
 
@@ -414,8 +416,8 @@ def test_f1_the_full_answer_shown_on_feedback_is_charged_once_to_the_reveal_ledg
     attempt_id = _self_graded(ctx, points=0)
     assert not _next_attempt_primed(repository)
 
-    _call(ctx, "record_answer_display", {"attemptId": attempt_id})
-    _call(ctx, "record_answer_display", {"attemptId": attempt_id})
+    _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_1"})
+    _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_1"})
 
     rows = _reveals(repository, source_kind="answer_display")
     assert [(row["attempt_id"], row["amount"]) for row in rows] == [(attempt_id, 1.0)]
@@ -450,7 +452,7 @@ def test_f1_an_unaided_answer_after_the_full_answer_is_not_independent(ctx, show
         algorithm_version="causal_attribution_p2",
     )
     if shown:
-        _call(ctx, "record_answer_display", {"attemptId": attempt_id})
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_1"})
 
     result = _call(ctx, "submit_eliciting_response", {
         "attemptId": attempt_id, "suggestionIndex": 0, "responseMd": "The rows swap.",
@@ -461,7 +463,7 @@ def test_f1_an_unaided_answer_after_the_full_answer_is_not_independent(ctx, show
 
 def test_f1_an_unknown_attempt_records_no_display(ctx):
     with pytest.raises(SidecarError) as raised:
-        _call(ctx, "record_answer_display", {"attemptId": "att_missing"})
+        _call(ctx, "record_answer_display", {"attemptId": "att_missing", "displayId": "visit_1"})
     assert raised.value.code == "not_found"
 
 
@@ -823,7 +825,9 @@ def test_f5_historical_feedback_shows_the_frozen_question_answer_key_and_rubric(
     prompts = [b["markdown"] for b in bundle["answeredPresentation"]["blocks"] if b["kind"] == "prompt"]
     assert prompts == ["Define SVD."]
     assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
-    assert bundle["answeredCriteria"] == {"correctness": {"description": "Correct definition.", "pointsPossible": 4.0}}
+    assert bundle["answeredCriteria"] == [
+        {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
+    ]
 
 
 def _set_canonical_state(paths):
@@ -906,9 +910,9 @@ def test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together(
     assert prompts == [before.prompt]
     assert bundle["answeredExpectedAnswer"] == before.expected_answer
     [criterion] = before.grading_rubric.criteria
-    assert bundle["answeredCriteria"] == {
-        criterion.id: {"description": criterion.description, "pointsPossible": float(criterion.points)}
-    }
+    assert bundle["answeredCriteria"] == [
+        {"criterionId": criterion.id, "description": criterion.description, "pointsPossible": float(criterion.points)}
+    ]
 
 
 # -- F1: a routine full-answer display counts within the cold retrieval delay ----------------
@@ -934,7 +938,7 @@ def _routine_display(ctx, display: str) -> None:
 
     if display == "feedback":
         attempt_id = _self_graded(ctx, points=0)
-        _call(ctx, "record_answer_display", {"attemptId": attempt_id})
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_1"})
         return
     session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
     _draft(ctx, session_id, submission_id="sub_r")
@@ -981,7 +985,7 @@ def test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it
 
     from datetime import UTC, datetime
 
-    from learnloop.attempts.reveal_ledger import FEEDBACK_FULL_ANSWER_BASIS, record_answer_display_reveal
+    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
 
     vault, repository = ctx.require_vault()
     then = FrozenClock(datetime.now(UTC) - ago)
@@ -991,10 +995,10 @@ def test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it
         SelfGradeInput(criterion_points={"correctness": 0}, confidence=3),
         clock=then,
     ).attempt_id
-    record_answer_display_reveal(
+    record_feedback_answer_display_reveal(
         repository, attempt_id=earlier, practice_item_id=ITEM,
         learning_object_id=vault.practice_items[ITEM].learning_object_id,
-        basis=f"{FEEDBACK_FULL_ANSWER_BASIS}:desktop", clock=then,
+        display_id="visit_then", clock=then,
     )
 
     assert _review_now(ctx) is primed
@@ -1058,3 +1062,255 @@ def test_f1_other_reveals_keep_their_window(ctx, kind):
         repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
         produced_at=_iso(_later(days=5)),
     ).admissible is False
+
+
+# == Codex re-review (docs/reviews/ux-phase4-feedback-codex-review.md §7) =====================
+
+
+# -- F1 (reopened): each feedback visit that shows the full answer is an exposure ------------
+
+
+def test_f1r_feedback_reopened_after_the_cold_delay_is_a_fresh_exposure(ctx):
+    """The re-review's scenario: the answer's feedback first showed the full
+    answer two days ago (that display has lapsed), then the learner reopens
+    it and reads the full answer again. The reopened visit is a fresh
+    exposure: a retry right after it is primed and an unaided production is
+    not independent. A retry of the same visit's write records nothing new,
+    and the expiry runs from the latest exposure."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.attempts.reveal_ledger import production_admissibility, record_feedback_answer_display_reveal
+
+    vault, repository = ctx.require_vault()
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+    then = FrozenClock(datetime.now(UTC) - timedelta(days=2))
+    attempt_id = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md="my answer", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 0}, confidence=3),
+        clock=then,
+    ).attempt_id
+    record_feedback_answer_display_reveal(
+        repository, attempt_id=attempt_id, practice_item_id=ITEM, learning_object_id=learning_object_id,
+        display_id="visit_first", clock=then,
+    )
+    assert not _next_attempt_primed(repository)
+
+    _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_reopened"})
+    _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_reopened"})
+
+    rows = _reveals(repository, source_kind="answer_display")
+    assert [row["attempt_id"] for row in rows] == [attempt_id, attempt_id]
+    assert _next_attempt_primed(repository)
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+        produced_at=_iso(_later(minutes=5)),
+    ).admissible is False
+    assert not _next_attempt_primed(repository, clock=_later(days=2))
+
+
+def test_f1r_a_display_needs_its_visit(ctx):
+    """The desktop names the visit; a write without one is refused rather than
+    guessed at (a guess either drops a fresh exposure or doubles a retry)."""
+
+    from pydantic import ValidationError
+
+    attempt_id = _self_graded(ctx, points=0)
+    with pytest.raises(ValidationError):
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id})
+    with pytest.raises(ValidationError):
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": ""})
+
+
+def test_f1r_a_display_that_lapses_never_stands_in_for_one_that_does_not(ctx):
+    """Once-per-attempt writers dedupe by their own basis: a feedback visit's
+    routine (lapsing) row on the attempt does not suppress the TUI's worked
+    answer, which keeps its window however long ago (stuck-prompt F8)."""
+
+    from learnloop.attempts.reveal_ledger import record_answer_display_reveal
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    _call(ctx, "record_answer_display", {"attemptId": attempt_id, "displayId": "visit_1"})
+    for _reopen in range(2):
+        record_answer_display_reveal(
+            repository, attempt_id=attempt_id, practice_item_id=ITEM,
+            learning_object_id=vault.practice_items[ITEM].learning_object_id,
+            basis="worked_answer:stuck_empty:tui",
+        )
+
+    assert len(_reveals(repository, source_kind="answer_display")) == 2
+    assert _next_attempt_primed(repository, clock=_later(days=5))
+
+
+# -- F8: frozen criteria keep their ids --------------------------------------------------------
+
+
+def _contract_answer(ctx, *, criteria=None, points=None, submission_id="sub_rr") -> str:
+    """A self-graded answer submitted under its assessment contract (the
+    canonical-state path F5 uses), the item's rubric replaced first when
+    ``criteria`` is given."""
+
+    from learnloop.vault.writer import upsert_practice_item
+
+    paths = ctx.paths
+    _set_canonical_state(paths)
+    if criteria is not None:
+        data = load_vault(paths.root).practice_items[ITEM].model_dump(mode="json")
+        data["grading_rubric"]["criteria"] = criteria
+        data["grading_rubric"]["max_points"] = int(sum(c["points"] for c in criteria))
+        upsert_practice_item(paths.root, data)
+    ctx.load(paths.root)
+    detail = _call(ctx, "get_practice_item", {"practiceItemId": ITEM})
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    result = _call(ctx, "submit_attempt", {
+        "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "U Sigma V^T",
+        "attemptType": "independent_attempt", "submissionId": submission_id,
+        "assessmentContractVersionId": detail["assessmentContractVersionId"],
+        "selfGrade": {"criterionPoints": points or {"correctness": 4}, "confidence": 3},
+    })
+    return result["attemptId"]
+
+
+def test_f8_frozen_criteria_keep_their_original_ids_through_serialization(ctx):
+    """An underscored criterion id (as existing fixtures use) survives the
+    bundle's camel-case conversion: the frozen criteria are data rows carrying
+    their id, so each evidence row finds its own."""
+
+    criteria = [{"id": "criterion_correct_selection", "points": 4, "description": "Selects the SVD."}]
+    attempt_id = _contract_answer(ctx, criteria=criteria, points={"criterion_correct_selection": 3})
+    vault, repository = ctx.require_vault()
+
+    bundle = feedback_bundle(vault, repository, attempt_id)
+
+    assert bundle["answeredCriteria"] == [
+        {"criterionId": "criterion_correct_selection", "description": "Selects the SVD.", "pointsPossible": 4.0}
+    ]
+    assert [row["criterionId"] for row in bundle["criterionEvidence"]] == ["criterion_correct_selection"]
+
+
+# -- F9: a regrade's feedback shows what the regrade graded against ----------------------------
+
+
+class _SixPointGrader(ReviewFakeClient):
+    """A grader fake that awards six points on each criterion (at most its worth)."""
+
+    def _grade_parts(self, context):
+        parts = super()._grade_parts(context)
+        parts["evidence"] = [
+            {**row, "points_awarded": min(6.0, float(criterion["points"]))}
+            for row, criterion in zip(parts["evidence"], parts["criteria"])
+        ]
+        parts["correct"] = False
+        return parts
+
+
+def _correct_the_item(ctx, *, prompt=None) -> None:
+    from learnloop.vault.writer import upsert_practice_item
+
+    paths = ctx.paths
+    data = load_vault(paths.root).practice_items[ITEM].model_dump(mode="json")
+    if prompt is not None:
+        data["prompt"] = prompt
+    data["expected_answer"] = "A = U Sigma V^T: U and V orthogonal, Sigma diagonal and non-negative."
+    data["grading_rubric"]["max_points"] = 8
+    data["grading_rubric"]["criteria"] = [{"id": "correctness", "points": 8, "description": "Names all three factors."}]
+    upsert_practice_item(paths.root, data)
+    ctx.load(paths.root)
+
+
+@pytest.mark.parametrize("after", [timedelta(seconds=5), timedelta(0)], ids=["later", "same_second"])
+def test_f9_a_regrade_under_the_corrected_item_shows_its_key_and_rubric(ctx, after):
+    """The re-review's scenario: an ordinary answer graded under its contract
+    (4 points), then the item's key and rubric are corrected (8 points) and
+    the answer is regraded, which reads the item as it is now. Feedback shows
+    the corrected key and the 8-point criterion the six points were given
+    under, never the superseded key or the original 4-point maximum. The
+    question stays the one the learner was given. A regrade stamped in the
+    original's own second is still the later grade (its rows carry no
+    grading revision to order them by)."""
+
+    from learnloop.clock import parse_utc
+
+    attempt_id = _contract_answer(ctx, points={"correctness": 2})
+    _correct_the_item(ctx, prompt="Define SVD for a 3x2 matrix.")
+    vault, repository = ctx.require_vault()
+    attempt = repository.fetch_practice_attempt(attempt_id)
+
+    regrade_attempt(
+        vault, repository, attempt, runtime=ReadyRuntime(), client=_SixPointGrader(), grading_source="ai",
+        clock=FrozenClock(parse_utc(attempt["created_at"]) + after),
+    )
+
+    bundle = feedback_bundle(vault, repository, attempt_id)
+
+    assert bundle["rubricScore"] == 6
+    [row] = bundle["criterionEvidence"]
+    assert (row["pointsAwarded"], row["pointsPossible"]) == (6.0, 8.0)
+    # Nothing frozen overrides the regrade's key and criteria: the screen
+    # reads the item, which is what the regrade graded against.
+    assert bundle["answeredExpectedAnswer"] is None
+    assert bundle["answeredCriteria"] is None
+    assert bundle["answeredMaxPoints"] is None
+    prompts = [b["markdown"] for b in bundle["answeredPresentation"]["blocks"] if b["kind"] == "prompt"]
+    assert prompts == ["Define SVD."]
+
+
+def test_f9_an_answer_not_regraded_keeps_the_key_and_maximum_it_was_graded_under(ctx):
+    """The control: the same correction without a regrade leaves the answer's
+    grade under its contract, so feedback shows the frozen key, criteria and
+    maximum together (F5)."""
+
+    attempt_id = _contract_answer(ctx, points={"correctness": 4})
+    _correct_the_item(ctx)
+    vault, repository = ctx.require_vault()
+
+    bundle = feedback_bundle(vault, repository, attempt_id)
+
+    assert bundle["answeredExpectedAnswer"] == "A matrix factorization into U, Sigma, and V transpose."
+    assert bundle["answeredCriteria"] == [
+        {"criterionId": "correctness", "description": "Correct definition.", "pointsPossible": 4.0}
+    ]
+    assert bundle["answeredMaxPoints"] == 4
+
+
+# -- F10: a contest key is bound to its reason --------------------------------------------------
+
+
+def _contest_reasons(repository) -> list[str]:
+    import json
+
+    reasons = []
+    for event in _contest_events(repository):
+        if event["event_type"] != "responded":
+            continue
+        payload = event["response_payload"]
+        payload = json.loads(payload) if isinstance(payload, str) else payload
+        reasons.append(payload["reason"])
+    return reasons
+
+
+def test_f10_a_contest_key_resent_with_an_edited_reason_is_refused_never_dropped(ctx):
+    """The reason was recorded but its response was lost; the learner edits it
+    and the same key is sent again. The sidecar refuses the mismatch (the
+    client keeps the edited reason) instead of answering success over the
+    original one; the edited reason under its own key is recorded."""
+
+    _vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    _call(ctx, "trigger_regrade", {"attemptId": attempt_id, "learnerReason": "I did use the SVD", "contestId": "c10"})
+
+    with pytest.raises(SidecarError) as raised:
+        _call(ctx, "trigger_regrade", {
+            "attemptId": attempt_id, "learnerReason": "Sigma is diagonal, as I wrote", "contestId": "c10",
+        })
+    assert raised.value.code == "contest_key_conflict"
+    assert _contest_reasons(repository) == ["I did use the SVD"]
+
+    # A retry of the same reason under the same key is still idempotent.
+    _call(ctx, "trigger_regrade", {"attemptId": attempt_id, "learnerReason": " I did use the SVD ", "contestId": "c10"})
+    _call(ctx, "trigger_regrade", {
+        "attemptId": attempt_id, "learnerReason": "Sigma is diagonal, as I wrote", "contestId": "c11",
+    })
+    assert _contest_reasons(repository) == ["I did use the SVD", "Sigma is diagonal, as I wrote"]

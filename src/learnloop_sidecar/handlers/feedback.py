@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
+
+from pydantic import Field
 
 from learnloop.clock import utc_now_iso
 from learnloop.substrate.instrument_serving import unservable_refusal
@@ -38,8 +41,18 @@ class TriggerRegradeInput(ParamsModel):
     learner_reason: str | None = None
     # The client's key for this one contest (Codex review F7): a retry after a
     # failed or unknown delivery reuses it, so the contest is recorded and
-    # queued once. Absent: a fresh key (no retry identity).
+    # queued once. Absent: a fresh key (no retry identity). The key is bound
+    # to its reason (Codex re-review F10): the same key with another reason
+    # is refused, never answered over the reason first kept.
     contest_id: str | None = None
+
+
+class AnswerDisplayInput(ParamsModel):
+    attempt_id: str
+    # The feedback visit that showed the full answer (Codex re-review F1): the
+    # client mints one per visit, and a retry of its write reuses it. Each
+    # visit is its own exposure.
+    display_id: str = Field(min_length=1, max_length=128)
 
 
 class AddErrorEventInput(ParamsModel):
@@ -516,7 +529,9 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
 
     1. The reason is recorded first (the claim ledger, presentation-only),
        under the client's contest key, so a retry records it once. Nothing
-       recorded is ``contest_not_recorded``: the client keeps the reason.
+       recorded is ``contest_not_recorded``: the client keeps the reason. The
+       key is bound to its reason: the same key with another reason is
+       ``contest_key_conflict`` and nothing runs (Codex re-review F10).
     2. The existing regrade runs, blind to the reason. A grader that cannot
        run (or fails) is not an error any more: the contest is kept.
     3. Unless the answer now reads right, the grade enters the existing
@@ -537,6 +552,13 @@ def _contest_grade(ctx: SidecarContext, vault, repository, attempt: dict[str, An
             repository, attempt_id, (params.learner_reason or "").strip(),
             contest_id=contest_id, session_id=attempt.get("session_id"),
         )
+    except _ContestKeyConflict as exc:
+        # Nothing new is kept and nothing runs: the client sends an edited
+        # reason, or a new contest, under a new key.
+        raise SidecarError(
+            "contest_key_conflict",
+            "This contest was already sent with another reason. Send the new one as a new contest.",
+        ) from exc
     except Exception as exc:  # noqa: BLE001 - nothing kept: say so
         logging.getLogger(__name__).warning("grade contest for %s was not recorded", attempt_id, exc_info=True)
         raise SidecarError(
@@ -631,42 +653,67 @@ def _record_grade_contest(repository, attempt_id: str, reason: str, *, contest_i
         claim_cooldown_days=0,
     )
     presentation_id = str(presentation["presentation_id"])
-    already = any(
-        event.get("event_type") == "responded" and event.get("presentation_id") == presentation_id
-        for event in repository.list_hypothesis_events()
+    payload = {"response": "i_think_i_was_right", "reason": reason}
+    kept = next(
+        (
+            event.get("response_payload")
+            for event in repository.list_hypothesis_events()
+            if event.get("event_type") == "responded" and event.get("presentation_id") == presentation_id
+        ),
+        None,
     )
-    if not already:
-        record_response(repository, presentation_id, {"response": "i_think_i_was_right", "reason": reason})
+    if kept is None:
+        record_response(repository, presentation_id, payload)
+    elif _kept_contest_reason(kept) != reason:
+        # The key names one contest and its one reason (Codex re-review F10):
+        # answering success here would drop the reason just sent.
+        raise _ContestKeyConflict(contest_id)
     log_event("grade_contest_recorded", attempt_id=attempt_id, session_id=session_id, has_reason=bool(reason))
     return presentation_id
 
 
-@method("record_answer_display", AttemptInput)
-def record_answer_display(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
+class _ContestKeyConflict(Exception):
+    """A contest key already keeps another reason."""
+
+
+def _kept_contest_reason(payload: Any) -> str | None:
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except ValueError:
+            return None
+    return str(payload.get("reason") or "") if isinstance(payload, dict) else None
+
+
+@method("record_answer_display", AnswerDisplayInput)
+def record_answer_display(ctx: SidecarContext, params: AnswerDisplayInput) -> dict[str, Any]:
     """Feedback's plain surface showed the full answer (UX Phase 4, Codex
-    review F1): debit the reveal ledger, once per attempt.
+    review F1): debit the reveal ledger, once per visit.
 
     The expected answer itself (amount 1.0), linked to the attempt whose
-    feedback showed it (``reveal_ledger.record_answer_display_reveal``, the
-    TUI's worked-answer writer). It is a routine display, shown on every
-    feedback, so it counts within the cold retrieval delay
+    feedback showed it. It is a routine display, shown on every feedback, so
+    it counts within the cold retrieval delay
     (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
     that time is primed and an unaided response is not independent; a review
-    after it is a retrieval again.
+    after it is a retrieval again. Each visit that shows it is a fresh
+    exposure (Codex re-review F1: reopening the feedback a day later shows the
+    answer again), so the delay runs from the latest visit; a retry of one
+    visit's write records nothing new
+    (``reveal_ledger.record_feedback_answer_display_reveal``).
     """
 
-    from learnloop.attempts.reveal_ledger import FEEDBACK_FULL_ANSWER_BASIS, record_answer_display_reveal
+    from learnloop.attempts.reveal_ledger import record_feedback_answer_display_reveal
 
     _vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
-    record_answer_display_reveal(
+    record_feedback_answer_display_reveal(
         repository,
         attempt_id=params.attempt_id,
         practice_item_id=str(attempt["practice_item_id"]),
         learning_object_id=str(attempt.get("learning_object_id") or "") or None,
-        basis=f"{FEEDBACK_FULL_ANSWER_BASIS}:desktop",
+        display_id=params.display_id,
     )
     return versioned({"recorded": True})
 
