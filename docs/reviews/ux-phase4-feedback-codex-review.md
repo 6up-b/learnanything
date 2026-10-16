@@ -550,3 +550,154 @@ The code was final at `c4e450f1e`; only this record and `docs/reviews/ux-phase4.
 - **Q20 (F1).** Auto-prime now counts a routine display by its coverage even across an attempt in between, so a retry the same day after a full answer stays "with help". *Default: as built (the invariant needs it).*
 - **Q21 (F9).** Until regrades cite their contract, every reopened ordinary regrade, and every pre-contract answer, shows the unrecorded label and the current answer labelled as current. *Default: as built. The successor stage (§8.4) removes most of it.*
 - **Q13 and Q16** stand: summed reveal amounts in receipts count each row, and classic is unchanged.
+
+## 10. Round 4
+
+**Verification:** the Codex verification of `4186c6cc3`. Verdict REOPENED, with five findings:
+- F1-1, the frame left on screen after a wake (High);
+- F1-2, an exemption wider than the frozen original (High);
+- F1-3, the clock going back (Medium);
+- F9, Details of an unrecorded grade (Medium);
+- a new one (Medium): cold checks were served before the new coverage expired.
+
+**Fix:** `76e6b97fb` (sidecar: F1-2, F1-3 readers, cold checks) and `e09935dc1` (desktop: F1-1, F1-3, F9). Nothing in grading, scoring or replay changed. The scheduler's cold follow-up deferral now reads routine displays by their coverage, as the orchestrator ruled. There is no migration and no config change. The RPCs are unchanged; `production_admissibility` gained a `production_id` argument.
+
+### 10.1 The orchestrator's rulings (recorded as given)
+
+1. **F1-2:** exemptions match exact identity: the frozen trace's content hash equals the submitted trace, and the exact attempt or production id. Never a retry key or a timestamp alone, and never checkpoint state that can be settled away.
+2. **Cold checks:** ONE coverage definition, the routine-display coverage D + G. It is shared by the submit readers, by the scheduler's serving and deferral of cold follow-ups, and by every other server-side eligibility read that consults reveals. Other reveal kinds keep their rules. The scheduler never serves what submit would refuse.
+3. **F9:** in `unrecorded`, Details shows only what the grade itself recorded (criterion ids and points awarded), labelled as recorded. Current rubric text appears only under the "as the question reads now" label, and is charged like the key.
+4. **F1-3:** readers count a committed routine display row stamped in the future as covering T; a row is never invisible because the clock went back. On the desktop, a backwards clock jump is a discontinuity, treated like a wake.
+5. **F1-1:** the answer hides on every lifecycle signal that precedes a suspend or a loss of attention, and reappears only after a fresh row is acknowledged. The remaining residual is accepted and documented (§10.3). No heartbeat or open-session machinery.
+
+### 10.2 Findings
+
+| ID | Severity | Verdict | Commit | Tests |
+|---|---|---|---|---|
+| F1-1 | High | **fixed** (residual documented, §10.3) | `e09935dc1` | vitest "F1-1 (round 4): …" (4: hidden, blur, pagehide, freeze); the gate property test with interruptions |
+| F1-2 | High | **fixed** | `76e6b97fb` | `test_f1i_a_changed_trace_under_the_frozen_key_is_primed_once_the_checkpoint_moved_on`, `…_the_unchanged_frozen_trace_stays_exempt…` (control), `…_only_the_commit_itself_is_exempt_never_another_response_in_its_second` |
+| F1-3 | Medium | **fixed** | `76e6b97fb`, `e09935dc1` | `test_f1i_a_display_stamped_ahead_of_the_clock_still_covers`, `…_a_display_after_a_production_does_not_count_against_it` (control); vitest "F1-3 (round 4): …"; the gate property test with clock jumps |
+| F9 | Medium | **fixed** | `e09935dc1` | vitest "F9 (round 4): an unrecorded grade's details show only what the grade recorded…" |
+| New | Medium | **fixed** | `76e6b97fb` | `test_f1i_the_scheduler_never_serves_a_cold_retry_that_submit_would_refuse[0..5]` (property), `test_f1i_an_independent_check_is_not_offered_inside_a_display_s_coverage` |
+
+**Reproduced first:**
+- **The new sidecar tests, against `4186c6cc3`:** 9 of 12 failed.
+  - (a): a changed trace under the frozen key after the checkpoint moved was `primed=False`.
+  - (b): another response in the commit's second was admissible.
+  - A row two minutes ahead of the clock was invisible to `production_admissibility`.
+  - The scheduler property failed on 5 of 6 seeds: the cold task was served while submit would prime it, in each display's last hour of coverage.
+  - The independent check offered an item whose answer had been on screen 24 h 30 min earlier.
+  - The 3 that passed are the two controls and seed 2.
+- **The new component tests, against the round-3 desktop:** 6 of 6 failed: hidden, blur, pagehide, freeze, the backwards clock jump, and F9's Details.
+- **The gate property test, extended with interruptions and clock jumps:** 23 of 28 failed against the round-3 gate. It has no interruption, and a clock jump left the answer shown.
+
+### 10.3 F1-1: hidden before a suspend can keep it (High)
+
+**The finding.** Mount, acknowledge, then let 26 hours pass with no timer or lifecycle event delivered. The DOM still shows the full answer before the first wake check, while the readers say clean.
+
+**The fix.** These signals hide the answer synchronously (`flushSync`), so the frame a suspend keeps is the hidden one:
+- the document becoming hidden;
+- `pagehide` and `freeze`;
+- window `blur`;
+- the shell window losing focus or being minimized (Tauri `onFocusChanged` and `onResized` with `isMinimized`; no-ops outside the shell).
+
+The gate counts interruptions as epochs. A row sent before an interruption never shows the answer again. The answer reappears only after a fresh row, sent after the interruption, is acknowledged. A return (focus, `pageshow`, `resume`, visible again) writes that row at once.
+
+**The residual, accepted and documented.** An OS suspend that delivers none of those signals keeps the last frame on screen. It stays until the page's first check after waking, at most one tick (5 s), and that check reads the wall-clock gap as a wake and hides the answer until a fresh row is acknowledged. While the frame is on screen, the readers at T only count rows that existed before the suspend. So an attempt made from another window or the CLI in that interval, more than D + G after the last row, is not covered. There is no heartbeat or open-session machinery for it, per ruling 5.
+
+**The cost.** Every return after a blur writes one row, and the answer shows "One moment…" until the row is acknowledged.
+
+### 10.4 F1-2: the exemption is the frozen trace, exactly (High)
+
+**The finding.**
+- (a) Freeze and display `sub`, move the checkpoint (settling the disclosure as abandoned), then submit a changed trace under `sub`. Nothing compared it any more, and auto-prime exempted by retry key alone.
+- (b) After the clean frozen commit, a different response assessed in the same second was admissible, because the exemption matched item and timestamp.
+
+**The fix.**
+- **The rows carry the trace's hash.** Every disclosure row now carries the hash of the trace its draft froze: `self_grade_disclosure:<retry key>:<trace hash>` for the settle row, `…:<display id>` for a display row (`reveal_ledger.disclosure_basis`). The hash is computed from the checkpoint's frozen trace when the row is written. It is durable in the ledger, the proof the checkpoint was not.
+- **Auto-prime** exempts a submission only from rows naming its retry key and the hash of the trace it sends (`own_disclosure_bases(submission_id, learner_answer_md)`). A changed trace under the same key, or the same words under another key, is not exempt.
+- **`production_admissibility`** exempts only the production named by its new `production_id`, and only when that attempt committed exactly the frozen trace (its retry key and trace hash). A timestamp is never used. The callers that judge an attempt pass its id: probe admissibility (`causal_orchestrator`), field outcomes, and placement. A caller with no id gets no exemption, the cautious side.
+
+### 10.5 F1-3: a clock that goes back (Medium)
+
+**The finding.** Acknowledge a row, then move the wall clock back 120 s. `covered()` stays true, while `production_admissibility(until=T)` excluded the now-future row.
+
+**The fix, on the readers.** A routine display row stamped after the reader's own clock counts as covering. Auto-prime has no upper bound. `production_admissibility` adds routine rows stamped after `max(produced_at, now)`. A display stamped after a production but no later than now came after that production, and does not count against it (the control test).
+
+**The fix, on the desktop.** A clock that went back since the last check is a discontinuity, like a wake. `covered()` is false at once, and the next check interrupts and writes a fresh row. Presence is a counter, never a clock time, so a rollback cannot strand the screen as "away".
+
+**A note for derived reads.** Field outcomes call `production_admissibility` at rebuild. A rollback artifact (a row stamped ahead of the rebuild's clock) counts there until the clock passes it, on the cautious side.
+
+### 10.6 F9: Details of an unrecorded grade (Medium)
+
+**The finding.** Change a criterion's description to "The correct answer is B." and reopen an `unrecorded` grade. Details showed it under "What the grader looked for".
+
+**The fix.** For `unrecorded`, Details shows only what the grade recorded: each criterion id with its points awarded (or "not judged"), under "What this grade recorded". It shows no description, no tier and no maximum. The current rubric text is not shown at all. The only current-version content is the answer key, under "The answer as the question reads now", charged through the gate (§9.3). Contract and live grades keep "What the grader looked for".
+
+### 10.7 New: serving agrees with submit (Medium)
+
+**The finding.** A routine display after a cold task was created. At 24 h 30 min the scheduler served the task (one-day delay), but submit auto-primed the item under the 25-hour coverage: "a cold retry must be unassisted and unprimed".
+
+**One definition.** `learnloop/reveal_coverage.py`, stdlib only, so persistence, scheduling and instructional code all import it:
+- the routine bases, the horizon D, the grace G and the coverage D + G;
+- a routine-display SQL predicate;
+- `routine_window_start(since)`: a reader whose window starts at T − D reads routine rows from T − D − G;
+- `routine_counts_until`.
+
+`reveal_ledger` re-exports its constants.
+
+**Every reader of the reveal ledger (grep inventory) and what it does now:**
+
+| Reader | What it decides | Routine displays |
+|---|---|---|
+| `attempts.reveal_total_for_submission` (auto-prime) | `primed`, the cold-retry refusal | by coverage, whatever attempts came between, also stamped ahead (§9.2, §10.5); exact-identity exemption (§10.4) |
+| `reveal_ledger.production_admissibility` | independence of probes, eliciting answers, placement, field outcomes | by coverage, also before `since` and stamped ahead; exemption by `production_id` |
+| `scheduler._cold_task_reveals` (deferral, and `deferred_cold_followups`) | serving a cold follow-up | **by coverage, whenever stamped**; pushed to the last reveal's end (a routine row's coverage, the lane delay for others). Other kinds keep "since the task's creation" |
+| `practice_index.items_revealed_between` (serving exclusions) | items held back from serving | by coverage (from the grace before the window, and stamped ahead) |
+| `instructional.exposure.independent_check_eligibility` | whether a candidate may stand as an independent check | by coverage |
+| `source_service.serve_time_exposure` | serve-time eligibility of a source exercise | by coverage |
+| `practice_index.retrieval` (`exclude_revealed_families`) | retrieval filter | by coverage |
+| `source_service` shown items (exam protection) | any reveal ever | unchanged (no window) |
+| `coldness_receipt` | a receipt over the cold attempt's explicit interval | unchanged (records what happened in it; the scheduler no longer serves inside a coverage) |
+| `router.outcomes`, `substrate.intervention_outcomes`, `daily_plan.router_card`, `learner_context` | derived covariates and counts | unchanged (they count rows, Q13) |
+| `diagnosis.remediation`, `diagnosis.split.card`, the ledger's own dedupe | by episode or basis | unchanged |
+
+**Tests.**
+- `test_f1i_the_scheduler_never_serves_a_cold_retry_that_submit_would_refuse[0..5]`, a property over display and cold-task timings: displays from 10 hours before the task's creation to 50 hours after, and queue builds at random later moments and inside each display's last hour of coverage. Whenever the cold lane serves the task, a submission then is not primed.
+- `test_f1i_an_independent_check_is_not_offered_inside_a_display_s_coverage`.
+
+### 10.8 Claims corrected
+
+- **§9.2 "the readers covered are auto-prime and production_admissibility":** now every eligibility reader (§10.7).
+- **§9.2 assumption 3 (a sleeping machine):** narrowed to the residual in §10.3.
+- **§9.2.3 exemption "by the submitting draft's submission_id" and "at that moment, unprimed":** now by retry key and trace hash, and by `production_id`.
+- **`docs/reviews/ux-phase4.md` §4.1 and §4.2:**
+  - the answer hides on every lifecycle signal;
+  - an unrecorded grade's Details show what it recorded;
+  - the self-grade's exemption is the exact frozen trace.
+
+### 10.9 Paid calls
+
+None. Every test uses fakes. No owner vault was opened.
+
+### 10.10 Gate (final tree)
+
+Run on `e09935dc1` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp` (dependencies unchanged since §8.7):
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken (`learnloop/reveal_coverage.py` is a stdlib-only leaf, imported by `db`, `scheduling`, `instructional` and `attempts`) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11934 passed, 0 failed (12 min 17 s): §9.6's 11922 plus the 12 `test_f1i_*` cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11828 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 94 files, 730 passed (724 plus the 6 round-4 component cases; the gate property test's cases are the same 28, now with interruptions and clock jumps); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed (the Tauri window listeners are the existing `@tauri-apps/api` JS) |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged: no CLI, RPC, schema or config change (both test files ran in the full suite) |
+
+The code was final at `e09935dc1`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure.
+
+### 10.11 Open questions for the owner (defaults applied)
+
+- **Q22 (F1-1).** Hiding on every window blur means a one-row write and a brief "One moment…" on each return to the app. *Default: as built (ruling 5).* A shell-only signal set (minimize and unfocus, without DOM blur) would cut the rows.
+- **Q23 (F1-1).** The residual: an OS suspend that sends no signal keeps the last frame for at most one tick after waking. *Default: accepted and documented (ruling 5).*
+- **Q24 (cold checks).** A routine display stamped before a cold task's creation now also holds it back until its coverage ends. A cold retry scheduled the day after a feedback that showed the answer can wait up to an hour longer. *Default: as built (serve agrees with submit).*
+- **Q13, Q16 and Q18 to Q21** stand.
