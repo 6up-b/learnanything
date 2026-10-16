@@ -26,10 +26,10 @@ compose, through the sidecar RPC itself:
   solution was ever shown before the question, so a routine display (a
   feedback display, or round 5's versioned self-grade disclosure) counts
   there after its coverage has ended;
-* round 5's serve-time revalidation refuses a due cold check that submit
-  would prime with the typed ``cold_check_unavailable``, through the generic
-  JSON-RPC mapping (application error, ``data.code``), on the direct opens
-  (``open_queue_item``, ``get_practice_item`` with a session).
+* the serve-time revalidation (rounds 5 and 6) defers a cold check on the
+  direct opens (``open_queue_item``, ``get_practice_item`` with a session)
+  only while a routine display covers it; any other reveal keeps main's
+  serving behaviour (round 6 withdrew round 5's typed refusal).
 
 Fakes only; no network, no paid call.
 """
@@ -245,47 +245,53 @@ def test_a_routine_display_marks_a_later_question_solution_seen_beyond_its_cover
         assert question_record(connection, "q_after_disclosure").inputs.solution_items == frozenset({"pi_key"})
 
 
-def test_a_due_cold_check_submit_would_prime_is_refused_typed_on_every_serve(ctx):
-    """Round 5: a due cold retry whose answer submit would prime is refused at
-    serve time with ``cold_check_unavailable``, before the learner writes an
-    answer. The reveal here is a tutor answer after the item's last attempt but
-    before the cold task was created: the queue's deferral reads non-routine
-    reveals since the task's creation, submit reads them since the last
-    attempt, so the task stays due and only the serve-time check catches it.
-    The code reaches the client through the generic mapping
-    (``errors.sidecar_error``): an application error whose ``data.code`` is
-    the stable code, not retryable, naming the item."""
+def test_a_cold_check_on_a_direct_open_is_served_as_on_main_unless_a_routine_display_covers_it(ctx):
+    """Round 6 (ruling 2) withdrew round 5's typed refusal: nothing raises
+    ``cold_check_unavailable`` any more. On the direct opens, a due cold retry
+    after a NON-routine reveal (a tutor answer after the item's last attempt,
+    before the task was created) is served exactly as on main: no error, the
+    task is not deferred, the session serve opens the cold administration, and
+    submit then primes the answer (main's own handling of a primed cold retry).
+    Only routine-display coverage defers it (``revalidate_cold_check``):
+    ``open_queue_item`` then opens no administration and the task stops being
+    due until the coverage ends."""
 
+    from learnloop.attempts.attempts import AUTO_PRIME_REVEAL_THRESHOLD, reveal_total_for_submission
     from learnloop.attempts.reveal_ledger import record_reveal
-    from learnloop_sidecar.errors import APPLICATION_ERROR_CODE, SidecarError, sidecar_error
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_ux_phase4_feedback import ITEM, _feedback_answer, _iso, _later
+    from tests.test_ux_phase4_feedback import (
+        ITEM,
+        _administration_receipts,
+        _due_cold_task,
+        _exposure,
+        _feedback_answer,
+        _later,
+    )
+
+    def call(method: str, params: dict):
+        spec = METHOD_REGISTRY[method]
+        return spec.handler(ctx, spec.params_model.model_validate(params))
 
     _vault, repository = ctx.require_vault()
-    _feedback_answer(ctx, then=_later(days=-2))
+    answered = _feedback_answer(ctx, then=_later(days=-2))
     record_reveal(repository, practice_item_id=ITEM, source_kind="tutor_answer", amount=1.0,
                   clock=_later(days=-1, hours=-12))
-    task = repository.create_followup_task(
-        kind="cold_retry", case_kind="misconception", case_ref="ep_landing",
-        not_before=_iso(_later(hours=-1)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
-        clock=_later(days=-1),
-    )
-    session_id = METHOD_REGISTRY["start_session"].handler(
-        ctx, METHOD_REGISTRY["start_session"].params_model.model_validate({"availableMinutes": 20})
-    )["sessionId"]
+    task = _due_cold_task(ctx, case_ref="ep_landing")
+    session_id = call("start_session", {"availableMinutes": 20})["sessionId"]
 
-    for method, params in (
-        ("open_queue_item", {"practiceItemId": ITEM}),
-        ("get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id}),
-    ):
-        spec = METHOD_REGISTRY[method]
-        with pytest.raises(SidecarError) as raised:
-            spec.handler(ctx, spec.params_model.model_validate(params))
-        envelope = sidecar_error(raised.value)
-        assert envelope["code"] == APPLICATION_ERROR_CODE, method
-        assert envelope["data"] == {"code": "cold_check_unavailable", "retryable": False,
-                                    "details": {"practice_item_id": ITEM}}, method
-    # Refused, never administered or deferred: the cold task is still open and due.
-    still = repository.followup_task(task["id"])
-    assert still["not_before"] == task["not_before"]
+    # A non-routine reveal: served as on main, on both direct opens.
+    assert call("get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})["id"] == ITEM
+    assert call("open_queue_item", {"practiceItemId": ITEM})["id"] == ITEM
+    assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
     assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is not None
+    assert _administration_receipts(repository) >= 1
+    assert reveal_total_for_submission(repository, ITEM) >= AUTO_PRIME_REVEAL_THRESHOLD
+
+    # A routine display now covers the item: the next open defers the task
+    # (persisted) and opens no further administration.
+    before = _administration_receipts(repository)
+    _exposure(ctx, answered, "display_landing_open", clock=_later(minutes=-1))
+    assert call("open_queue_item", {"practiceItemId": ITEM})["id"] == ITEM
+    assert _administration_receipts(repository) == before
+    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
+    assert repository.followup_task(task["id"])["not_before"] > task["not_before"]

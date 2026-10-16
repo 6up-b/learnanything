@@ -266,10 +266,14 @@ READER_PDF_SELECTION_EXTENDED_RPCS = ("reader.source_annotations", "reader.pdf_v
 # answers), end_session (the session finish's topics, and settling the
 # checkpoint's self-grade disclosure), and start_session and
 # clear_session_checkpoint (settling it too: the reveal ledger is charged for
-# the full answer a plain self-grade showed). Round 5 adds the typed
-# cold_check_unavailable refusal to the serve RPCs that revalidate a cold
-# check at serve time: open_queue_item, get_practice_item (with a session) and
-# plan_learner_pick. Desktop only.
+# the full answer a plain self-grade showed). Rounds 5 and 6: the serve RPCs
+# revalidate a cold check at serve time (open_queue_item, get_practice_item
+# with a session, plan_learner_pick), deferring it while a routine display
+# covers it, and only a session serve opens a cold administration
+# (get_practice_item without a session never does); get_probe_contract
+# commits no probe inside that coverage (active false), and
+# causal_probe_offer_action can answer probe_item_answer_shown. Nothing is
+# refused (round 5's cold_check_unavailable was withdrawn). Desktop only.
 UX_PHASE4_RPCS = ("record_answer_display", "record_self_grade_disclosure")
 UX_PHASE4_EXTENDED_RPCS = (
     "trigger_regrade",
@@ -281,6 +285,8 @@ UX_PHASE4_EXTENDED_RPCS = (
     "open_queue_item",
     "get_practice_item",
     "plan_learner_pick",
+    "get_probe_contract",
+    "causal_probe_offer_action",
 )
 #: The book card's actions (source_action): UX Phase 1's, GLM-OCR's
 #: allow_upload, and re-read safety's restore_reading (the E1 repair) and
