@@ -33,7 +33,12 @@ compose, through the sidecar RPC itself:
 * round 7's waiting plan composes with the router's receipts: a waiting
   boundary writes nothing (no block, no plan presentation, no router
   decision, no stop), and the item served once the hold lifts binds to its
-  plan presentation as any served plan item does.
+  plan presentation as any served plan item does;
+* under router R2b's mixture (round 8), a stop the mixture draws while other
+  work is feasible stays a logged stop (its ``router_decisions`` row, chosen
+  ref and exact propensity on the plan's stop receipt) even when a held cold
+  check lifts later today, and a plan waiting for coverage asks no model and
+  writes no ``router_decisions`` row until the hold lifts.
 
 Fakes only; no network, no paid call.
 """
@@ -338,3 +343,82 @@ def test_a_waiting_plan_writes_nothing_and_the_served_item_binds_its_presentatio
             "SELECT practice_item_id FROM plan_presentations WHERE practice_item_id = 'pi_cold'"
         ).fetchall()
     assert len(bound) == 1
+
+
+def _r2b_env_with_a_lifting_hold(tmp_path, decider, *, items=None):
+    """Router R2b's mixture with only the (fake) Decider weighted, a seed whose
+    draw follows it, and a cold check on ``pi_m1a`` held by a routine display
+    that lifts in 30 seconds."""
+
+    from datetime import timedelta
+
+    from learnloop.clock import FrozenClock
+    from tests.router_mixture_helpers import mixture_env
+    from tests.router_model_fakes import fake_runtime, seed_with_first_uniform
+    from tests.test_ux_phase4_feedback import _iso
+
+    env = mixture_env(
+        tmp_path, fake_runtime(decider=decider, seed=seed_with_first_uniform(at_least=0.5)), items=items,
+        toml="[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n",
+    )
+    now = env.clock.now()
+    env.repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_r8",
+        not_before=_iso(FrozenClock(now - timedelta(hours=1))), expires_at=_iso(FrozenClock(now + timedelta(days=30))),
+        selected_item_id="pi_m1a", clock=FrozenClock(now - timedelta(days=1)),
+    )
+    env.repository.insert_reveal_event(
+        {"practice_item_id": "pi_m1a", "learning_object_id": "lo_m1", "source_kind": "answer_display",
+         "amount": 1.0, "basis": "feedback_full_answer:desktop:display_r8"},
+        clock=FrozenClock(now - (timedelta(hours=25) - timedelta(seconds=30))),
+    )
+    return env
+
+
+def test_under_the_router_mixture_a_drawn_stop_stays_a_logged_stop_beside_a_lifting_hold(tmp_path):
+    from learnloop.daily_plan.engine import advance, build_plan
+    from learnloop.daily_plan.types import STOP_FOR_TODAY
+    from tests.router_mixture_helpers import rows
+    from tests.router_model_fakes import FakeDecider
+
+    def stop_mass(refs):
+        return {ref: (1.0 if ref == STOP_FOR_TODAY else 0.0) for ref in refs}
+
+    decider = FakeDecider(choice=stop_mass)
+    env = _r2b_env_with_a_lifting_hold(tmp_path, decider)
+    # Four minutes: the stop is offered while one-minute reviews still fit.
+    record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+    record, step = advance(env, serve=False)
+
+    assert decider.calls, "the mixture asked its model"
+    assert record.status == "complete" and step["kind"] == "done"
+    (stop,) = record.stops()
+    assert stop.chosen["feasible_ids"], "other work was feasible: this was a chosen stop"
+    (decision,) = [row for row in rows(env) if row["chosen_ref"] == STOP_FOR_TODAY]
+    assert stop.decision_ref == decision["id"]
+    assert 0.0 < decision["propensity"] < 1.0
+    assert stop.chosen["propensity"] == pytest.approx(decision["propensity"])
+
+
+def test_under_the_router_mixture_a_waiting_plan_asks_no_model_and_logs_no_decision(tmp_path):
+    from datetime import timedelta
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from tests.daily_plan_fakes import scheduled
+    from tests.router_mixture_helpers import rows
+    from tests.router_model_fakes import FakeDecider, first_option
+
+    decider = FakeDecider(choice=first_option)
+    env = _r2b_env_with_a_lifting_hold(
+        tmp_path, decider, items=[scheduled("pi_m1a", "lo_m1", forgetting_risk=0.6)],
+    )
+    record = get_or_create_today(env)
+    for _call in range(2):
+        record, step = advance(env, serve=True)
+        assert step["kind"] == "waiting" and record.status == "open"
+    assert rows(env) == [] and decider.calls == []
+
+    env.clock.instant = env.clock.instant + timedelta(seconds=31)
+    record, step = advance(env, serve=True)
+    assert step["kind"] == "item" and step["practice_item_id"] == "pi_m1a"
+    assert len(rows(env)) == 1

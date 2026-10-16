@@ -3,8 +3,8 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "28d5ee45ad35a66a953fcba321b9236cf464381c"
-source_commit_timestamp: "2026-10-16T07:19:18-04:00"
+source_commit: "68f97956a80ba103503852c3b1a84f2d1064947b"
+source_commit_timestamp: "2026-10-16T08:22:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
@@ -124,6 +124,7 @@ None found by exact static reference scan.
 - `tests/test_quick_check.py`
 - `tests/test_scheduler.py`
 - `tests/test_ux_phase4_feedback.py`
+- `tests/test_ux_phase4_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
