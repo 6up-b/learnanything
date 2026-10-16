@@ -3016,10 +3016,33 @@ def test_f1m_a_reentry_plan_with_no_item_slots_left_finishes_instead_of_waiting(
     assert step["kind"] == "done" and record.status == "complete"
 
 
-def test_f1m_a_valid_stop_with_work_feasible_is_kept(tmp_path):
-    """(c) Four minutes left, one feasible ordinary item, and a valid sampled
-    stop_for_today (propensity 0.5): the stop is the decision, closed and
-    logged as before, not replaced by waiting."""
+def test_f1m_back_in_n_min_is_never_promised_for_an_item_that_will_not_fit(tmp_path):
+    """The landing agent's case: one minute left, and the held item (1.5
+    minutes) lifts within the minute. It could not be placed then, so the
+    plan never says "Back in 1 min": it finishes as before."""
+
+    from learnloop.daily_plan.engine import build_plan
+
+    env, clock = _held_plan_env(tmp_path, [("pi_a", 2.5)], lift_in=timedelta(seconds=210), cold_lane="maintain")
+    build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+    record, step = _answer_through(env, clock, ["pi_a"])
+
+    assert record.minutes_left() == pytest.approx(1.0)
+    assert env.vault.practice_items["pi_cold"].expected_minutes == 1.0  # 1.5 minutes with its feedback
+    assert step["kind"] == "done" and record.status == "complete"
+
+
+@pytest.mark.parametrize(
+    ("other_minutes", "lift_in"),
+    [(3.0, timedelta(minutes=60)), (1.0, timedelta(seconds=30))],
+    ids=["verifier", "landing_agent"],
+)
+def test_f1m_a_valid_stop_with_work_feasible_is_kept(tmp_path, other_minutes, lift_in):
+    """(c) Four minutes, one feasible ordinary item (3.5 min; or 1.5 min with
+    the hold lifting in 30 s, the landing agent's case), and a valid sampled
+    stop_for_today (propensity 0.5, as the R2b mixture may sample): the stop
+    is the decision, closed and logged with its receipt and propensity as
+    before, not replaced by waiting."""
 
     from dataclasses import dataclass
 
@@ -3034,13 +3057,15 @@ def test_f1m_a_valid_stop_with_work_feasible_is_kept(tmp_path):
             return BlockChoice(STOP_FOR_TODAY, "mixture", 0.5, "stop here", "model_written", "rd_stop")
 
     env, _clock = _held_plan_env(
-        tmp_path, [("pi_s", 3.0)], policy=PlanPolicy("fake_source", StoppingChooser(), legacy_source),
+        tmp_path, [("pi_s", other_minutes)], lift_in=lift_in,
+        policy=PlanPolicy("fake_source", StoppingChooser(), legacy_source),
     )
     record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
 
     assert record.status == "complete" and not record.blocks
     (stop,) = record.stops()
     assert stop.chosen["candidate_id"] == STOP_FOR_TODAY and stop.chosen["propensity"] == 0.5
+    assert stop.chosen_by == "mixture" and stop.decision_ref == "rd_stop" and stop.chosen["fallback"] is False
     assert stop.chosen["feasible_ids"]
 
 
