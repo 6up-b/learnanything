@@ -173,3 +173,112 @@ skipped, 1 failed): G1 above, fixed in `a6de0969f` before this gate.
 3. **A `--vault` with an external database is refused** even when the owner
    means it. Default: refuse (the comparison always runs on a copy, and a
    copy holds its database inside).
+
+## Re-review
+
+Review: Codex job `20261015-224415-8RpOsK` (gpt-6-astra, high effort,
+read-only) of `1c036a78e..bf61e6eee`. F2, F3, F4 and F5 were confirmed
+fixed; F1 and F6 were reopened through two new Medium findings, F7 and F8.
+Both reproduced and are fixed; none was rejected.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F7 (reopens F1) | Medium | Database path normalization changes which database is copied | fixed | `e187f179e` | `test_ai_compare.py::test_copy_from_backs_up_the_database_a_symlinked_path_opens[absolute]`, `[relative]`; `[inside]` is a guard for the behaviour kept |
+| F8 (reopens F6) | Medium | Reported output budgets never reach the model requests | fixed | `e187f179e` | `test_ai_compare.py::test_each_request_carries_the_output_budget_its_estimate_reports` |
+
+Earlier findings, as the re-review left them: F2, F3, F4, F5 confirmed
+fixed (no change in this step); F1 and F6 closed by F7 and F8.
+
+### Reproduction first
+
+The three new tests were run against the reviewed tree (`bf61e6eee`)
+before any source change: **3 failed, 1 passed**.
+
+- F7 `[absolute]`: `storage.sqlite_path = <tmp>/data/current/../state.db`,
+  where `current` links to `data/releases/v1`. The vault opens
+  `data/releases/state.db` (`VaultPaths(...).sqlite_path.resolve()` says
+  so), but the copy held the decoy at `data/state.db`: probe rows
+  `[('decoy',)]`, not `[('opened',)]`.
+- F7 `[relative]`: `current/../state.db`, with `current` (inside the vault)
+  linking to a directory outside it. `normpath` read this as the vault's own
+  `state.db`, which does not exist. The copy got no database (`copied ==
+  []`), and its configuration named an empty path inside it.
+- F7 `[inside]`: `data/state.db` through a symlinked `data` directory. This
+  passed before and passes after: the tree copy backs it up through the
+  link at `data/state.db`, and the fix must keep that.
+- F8: three requests (a grading, a snapshot diagnosis and a teach-back
+  draft) were captured through `run_compare()` with
+  `ai.route_output_tokens` = 1234 / 2345 / 3456. Their `output_budget_tokens`
+  were `[None, None, None]`, while the dry run reported 1234 / 2345 / 3456.
+
+### What changed
+
+- **F7** (`_opened_database`, `copy_vault`). The source's configured path is
+  resolved to the file the vault opens. Each directory on the way is
+  `realpath`'d, so a symlinked directory followed by `..` resolves where the
+  kernel resolves it. The file name is kept as written. The lexical path is
+  kept only when it reaches the same physical directory, so a database the
+  tree holds through a symlink (the file itself, or a directory) stays the
+  tree's and is copied in place. The copy's placement is checked separately,
+  from its own configuration as written. The copy keeps a configured path
+  only when it is exactly the plain relative path to the backup; otherwise
+  the configuration is rewritten. The copy is refused unless its database
+  is the backup the copy made, inside it. The `--vault` check
+  (`database_location_reason`) already used `Path.resolve()` and needed no
+  change.
+- **F8** (`run_compare`). Each call runs under
+  `generation_limit(<planned output_tokens>)`, the budget the estimate
+  reserves (`output_budget`: `ai.route_output_tokens.<route>`, held to a
+  profile's `max_tokens`, else the shared default). Neither subscription
+  transport takes a hard cap. The ChatGPT plan states the budget once in
+  the prompt (no `max_output_tokens`), and Codex does the same and also
+  charges its JSON repair against what remains. The test checks every wire
+  request, all three workspace rounds of the diagnosis included: each ends
+  with its own budget, stated once. The subscription exemption still holds:
+  no `single_request()` bound, and the diagnosis still makes its 3 physical
+  requests. Each call's `spend` now records `output_budget_tokens`, and
+  `COMPARE_VERSION` is 3 (judgments carry it in their rationale).
+
+### Spend and calls
+
+No paid, live or dry-run model call was made in this step. Every test uses
+the fake Responses server on 127.0.0.1. The tracked fixtures were not
+touched.
+
+### Gate (re-review)
+
+Run on the final code tree `444f96ec1` (the only later commit adds this
+section). `TMPDIR` was the worktree's `fixtures-local/tmp`; both suite runs
+held `flock /tmp/learnloop-fullsuite.lock` and used `uv run --no-sync`.
+`/tmp` had 13 GB free.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `git diff --check` | clean |
+| `pytest -n auto` (full suite) | **11,884 passed, 1 skipped**, 0 failed (19 min 25 s): the earlier 11,880 plus the 4 new tests. The skip is still `test_served_paths_map_to_export_entries_under_input_provenance` (`importorskip` until provenance reaches this branch) |
+| `pytest -m durability` | **106 passed**, 11,779 deselected (1 min 53 s) |
+| stage tests (`test_ai_compare` 30, `test_chatgpt_plan_*`, `test_output_budget`, `test_cli_help_snapshot`) | green: 117 passed, 1 skipped as a targeted run, and green in the full suite |
+| `tests/test_coordinated_migrations.py` | green (in the full suite) |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated in `444f96ec1` (source commits only, plus `Config - voi_stopping`'s test citations now naming `test_ai_compare.py`; schema head unchanged at 204). Validate reports `errors: []` |
+| CLI help snapshot | unchanged (no option or help text changed); green |
+| RPC pins | unchanged (no sidecar method changed) |
+| frontend / `src-tauri` | untouched: npm and cargo checks not required |
+| tracked fixtures | `git status` clean after both runs |
+
+### Open questions (defaults in force)
+
+4. **Serving does not send these budgets on subscription routes.** With F8,
+   every comparison request carries its route's output budget, and the
+   same sentence goes to every profile. Serving grading
+   (`attempts/grading.py`), teach-back authoring and diagnosis jobs on
+   Codex or the plan send none: `ReviewSpend.request` applies
+   `generation_limit` only on metered routes. So on a subscription route, a
+   comparison prompt ends with one budget sentence that the serving prompt
+   lacks. Default: keep it. It is the owner's output-budget policy ("the
+   budget is what a request sends"), and it is identical across the
+   profiles being compared. Making serving send it on subscription routes
+   would change every serving role, which is outside this stage.
