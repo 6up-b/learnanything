@@ -840,3 +840,163 @@ The code was final at `e14166caf`; only this record and `docs/reviews/ux-phase4.
 - **Q26 (cold checks).** A session open, or a pick, of a due cold check that submit would still prime (a non-routine reveal since the item's last attempt) is refused, typed, instead of after the answer is written. Such a task stays unservable until it expires, as before; only the refusal is earlier. *Default: as built.*
 - **Q27 (F1-1).** A drag resize hides the answer for the drag plus 300 ms, and a fresh row is then written. *Default: as built.*
 - **Q22 to Q24** stand.
+
+## 12. Round 6
+
+**Verification:** the Codex verification of `fe47ba6eb`. It confirmed the boundary (§11.5) and found no regressions in F1-3 or F2 to F10. It reopened F1-1 (High), F1-2 (Low) and cold checks (Medium, in two parts), and found three new items: a future task masking a due one (Medium), the plan filter starving practice (Medium) and a stranded shell hold (Low).
+**Fix:**
+- `df0d611ce`: B (F1-2).
+- `21a0db5a2`: C, E and F.
+- `532ecbbfe`: D, plus the round-6 sidecar tests.
+- `03edeb404`: A (F1-1) and G, on the desktop.
+
+**No migration.** This branch's head stays at 204. Grading, scoring and replay are unchanged. The serving changes stay inside the rulings below: most of them narrow round 5 back towards main.
+
+### 12.1 The orchestrator's rulings (recorded as given)
+
+"This stage is the Phase 4 screens and their handlers."
+
+1. "Fix A, B, C, E and G fully, with fail-first tests."
+2. "F: narrow the round-5 plan filter so it can never create a hold that time alone can't clear. The plan may hold an item ONLY when the hold comes from routine-display coverage. That kind of hold is time-bounded and ends by itself within D+G, so it can't starve the plan. For any other reveal kind, restore main's previous serving behaviour exactly. Test: the verifier's one-item, 26 h tutor-reveal plan must not lose time to this filter, and a routine-display hold must clear by itself."
+3. "D, for routine displays only: put the routine-display guard at the actual administration choke points. That means where a probe or placement presentation is committed, and where the TUI and CLI open a cold administration, so no probe, placement or cold check is administered for an item inside routine-display coverage. Find the minimal set of choke points: one shared function if one exists, otherwise each commit site. Don't build a general eligibility framework."
+4. "OUT OF SCOPE (pre-existing on main; recorded and queued as their own stage, "one serve/administration eligibility decision"). Do NOT change these:" the scheduler cold lane vs submit for NON-routine reveals (e.g. a 26 h-old tutor reveal); the CLI `attempt` prompting before validation (late refusal); a general refactor making every serve path ask one decision. "List them with reproductions in §12 as the brief for that stage." (§12.9.)
+
+### 12.2 Findings
+
+| Item | Severity | Verdict | Commit | Tests |
+|---|---|---|---|---|
+| A. F1-1: shell replies carry no generation check | High | **fixed** | `03edeb404` | vitest "F1-1 (round 6): a stale shell reply never releases the hold of a later event" (5: a shell focus change, a shell resize, pagehide, blur, freeze), "…the latest query releases the hold, after a fresh row" |
+| B. F1-2: `json.loads` collapses duplicate keys | Low | **fixed** | `df0d611ce` | `test_f1k_a_malformed_identity_exempts_nothing[duplicate_submission, duplicate_trace, float_version, bool_version]` |
+| C. Cold checks 1: a read opens a cold administration | Medium | **fixed** | `21a0db5a2` | `test_f1k_a_read_only_detail_never_opens_a_cold_administration`, `…_a_session_serve_inside_routine_coverage_opens_no_administration`; `test_coldness_receipt.py` now serves with `administer=True` |
+| D. Cold checks 2: probe commits and the TUI's open bypass the guard | Medium | **fixed (routine displays, ruling 3)** | `532ecbbfe` | `test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage[control, covered]`, `…_the_tui_open_defers_a_cold_check_a_routine_display_covers` |
+| E. A future task masks a due one | Medium | **fixed** | `21a0db5a2` | `test_f1k_a_future_task_never_masks_a_due_one[no_display, displayed]` |
+| F. The plan filter can starve practice until the task expires | Medium | **fixed (ruling 2)** | `21a0db5a2` | `test_f1k_a_non_routine_reveal_never_starves_the_plan`, `…_a_routine_display_hold_clears_by_itself` |
+| G. A key change while shell-held strands the gate | Low | **fixed** | `03edeb404` | `answerExposure.shell.test.tsx` "G (round 6): a new answer key during a shell hold…" (2: before the settle ends, while the query is in flight) |
+
+**Reproduced first.** The runs used a tree archived at `fe47ba6eb` with the new tests copied in. Pytest's `pythonpath = ["src"]` puts the tree's own `src` first, so a `PYTHONPATH` alone does not swap the source.
+- **The new sidecar tests: 8 of 13 failed.**
+  - B: a duplicated `submission` and a duplicated `trace` field each exempted the draft (the last value won), and so did `"v": 2.0`.
+  - C: a sessionless `get_practice_item` wrote a cold administration receipt (1, expected 0).
+  - D: a probe presentation was committed for an item whose answer had been shown an hour before.
+  - E: a task for later masked the due one: `cold_check_deferred` with no display at all.
+  - F: the verifier's one-item plan with a 26 h-old tutor reveal finished at once, "nothing more worth doing today fits".
+  - The TUI's open left the covered cold task due.
+  - The 5 that passed: the boolean version and the routine-hold clear (both already held), the session serve inside coverage (round 5), and the D and E controls.
+- **The new desktop tests: 8 of 8 failed.** In all five stale-reply cases the answer came back on A's reply. The latest-query test failed at the same point. A key change before the settle never asked the shell again, and one during the query was never shown again.
+
+### 12.3 A: only the latest shell question releases the hold (High)
+
+**The finding.** Resize A starts its state query. Lifecycle event B hides again. Then A's delayed reply says visible and unminimized: it clears B's hold, writes a row and shows the answer before B's query runs.
+
+**The fix (`answerExposure.ts`).**
+- A generation counter is incremented synchronously on every shell event, and every question captures it. A reply whose generation is not the latest is stale and releases nothing.
+- The DOM signals that hide (blur, pagehide, freeze, the document hidden) also start a new generation in the shell, and ask again. So a stale reply can't release their hold either, and the latest question always exists. Outside the shell (a browser, a test) they behave as before.
+
+### 12.4 B: a malformed identity exempts nothing (Low)
+
+`disclosure_identity` parses with an `object_pairs_hook` that rejects a field named twice. It also requires `v` to be the integer 2 exactly (`type(v) is int`), so 2.0 and `true` are rejected. Such a row is malformed: it counts like every routine display and exempts nothing.
+
+### 12.5 C and D: administration only at a real serve, and the choke points
+
+**C.** `practice_item_detail` takes `administer` (default False). A read never opens a cold administration or writes its receipt: a sessionless `get_practice_item` (feedback, the recovery lookup, card controls), the inspector, a feedback sibling, or the remediation's primed item. Only these open one, after the cold-check revalidation:
+- the session serve (`get_practice_item` with a session);
+- the guarded by-id open (`open_queue_item`, which shows the prompt on Today, as on main; Q30).
+
+The detail still reports `activeFollowupKind`, because that is the item's state.
+
+**D (ruling 3).** The administration choke points:
+
+| Administration | Choke point | Guard |
+|---|---|---|
+| Probe and placement presentations (sidecar `get_probe_contract`, the TUI's probe, the causal probe offer, a precommitted block, a dialogue turn) | `probe_episodes.commit_presentation`, the one function every presentation commit passes through | refuses an item a routine display covers (`RoutineDisplayCovered`, before anything is written). `commit_item_presentation` then returns None (ordinary practice); a block skips the item; the causal offer answers `probe_item_answer_shown` (the desktop says "You saw this check's answer recently, so it can't test you yet. It will be ready tomorrow."); a dialogue turn returns no turn |
+| A cold check on the desktop | the session serve and `open_queue_item` (C) | `cold_check_serve_hold` (§12.7) defers it first |
+| A cold check in the TUI | `PracticeScreen.__init__`, the TUI's serve | the same revalidation, so a cold check whose answer was shown after the TUI built its list is answered as an ordinary item |
+| A cold check in the CLI | none: the CLI opens no cold administration. `learnloop attempt` submits directly, and submit's auto-prime already counts routine displays | the late refusal is out of scope (§12.9, 2) |
+
+Both holds read one function, `reveal_coverage.routine_displays_covering`. They differ in scope:
+- **The probe guard** reads the item's own rows. Every probe follows a feedback that showed a sibling's answer, and the never-before-seen rule already excludes answered items. So the case it closes is an answer disclosed and then abandoned.
+- **The cold-check hold** reads the item or its learning object, the scheduler's deferral scope (§10.7), so the plan never serves what the queue defers. (Q28.)
+
+### 12.6 E: every due task is judged (Medium)
+
+`cold_check_serve_hold` used to return `cold_check_deferred` as soon as any task on the item was not yet due, even with another one due now. It now judges every open, unexpired cold task on the item that falls due within the covering routine coverage (due now, or deferred by it). A task for later is left alone.
+
+### 12.7 F: the plan holds only for routine-display coverage (Medium, ruling 2)
+
+**The finding.** Non-routine reveals count at submit until a later attempt, while the scheduler's deferral releases after its delay. So the round-5 plan filter blocked the very attempt that would clear the exposure. One eligible item with a 26 h-old tutor reveal left the plan with 25 minutes unused.
+
+**The fix.**
+- `cold_check_serve_hold` holds only when a routine display covers the item or its learning object now. The held tasks are deferred to `routine_released_at` of the latest covering row, so the hold ends by itself within D + G.
+- Every other reveal kind gets no hold: main's serving behaviour exactly. That covers the plan filter, the reconcile displacement, the serve-time check, the session serve, the pick and the TUI. Round 5's `cold_check_would_be_primed` refusal (Q26, typed `cold_check_unavailable`) is withdrawn: `revalidate_cold_check` only defers.
+- An item whose cold task is merely not yet due is planned again, as on main (Q25 withdrawn).
+
+**Tests.**
+- The verifier's one-item plan with a 26 h-old tutor reveal: the plan serves `pi_cold`.
+- A routine display holds the planned cold check, and once its coverage ends the same plan serves it, with no other change.
+- The round-5 property (`test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime`, routine displays) still holds on all 5 seeds.
+
+### 12.8 G: the shell hold belongs to the window (Low)
+
+**The finding.** A resize, then the hook's key changed before the debounce finished. The cleanup cancelled the query, but `shellHeld` survived, so the new answer stayed hidden forever.
+
+**The fix.** The hold is kept, because the window state is unknown. The new answer's effect asks the shell itself (a new generation) when it starts while held, and a visible, unminimized reply releases it after a fresh row of its own.
+
+### 12.9 Out of scope: the brief for "one serve/administration eligibility decision"
+
+Pre-existing on main, unchanged here (ruling 4).
+
+1. **The scheduler's cold lane and submit disagree for non-routine reveals.**
+   - **The two rules.** Auto-prime counts non-routine reveals since the item's last attempt (`attempts.reveal_total_for_submission`), and they never lapse. The scheduler's deferral (`_defer_revealed_cold_followups`) counts reveals since the task was created, with the cold delay.
+   - **Reproduction** (run on this tree; the setup of `test_f1k_a_non_routine_reveal_never_starves_the_plan`):
+     - a cold retry on `pi_cold` was created a day ago and has been due for an hour;
+     - a `tutor_answer` reveal of the item was made 26 h ago, before the task;
+     - the plan serves `pi_cold`, and the queue's cold lane lists it as `cold_retry`;
+     - the task's `not_before` is unchanged;
+     - `auto_primed_draft` says primed, so submit refuses it as a cold retry after the answer is written (`attempts._resolve_attempt_target`).
+   - **The consequence.** The task stays due, so the next serve walks into the same refusal, until it expires `right_censored_expired`.
+2. **The CLI `attempt` prompts before it validates (a late refusal).**
+   - **Reproduction:** `learnloop attempt pi_svd_define_001 --attempt-type diagnostic_probe --vault <a basic vault>` prints `Answer []:`, waits for the typed answer, then exits 1. `AttemptDraft` is validated (`plan_grading_calls`) only after `typer.prompt`.
+   - The same order applies to a cold check that submit refuses.
+3. **One decision for every serve path.** Today each path asks its own question:
+   - the queue, the plan's pool, reconcile and serve, the pick, the session serve and `open_queue_item`;
+   - the TUI's open and probe, the probe commit, and Reader quick-check offers;
+   - the CLI's attempt, and submit's auto-prime and admissibility.
+
+   The stage would make them all ask one function: serve, serve as ordinary, defer until, or refuse with a reason. The rule for non-routine reveals (1) would be settled there once.
+
+### 12.10 Claims corrected
+
+- **§11.4:**
+  - "a read-only open (feedback, inspector) is not a serve and is unchanged" was false: the read opened a cold administration and wrote its receipt. It no longer does (§12.5).
+  - The `cold_check_would_be_primed` / `cold_check_unavailable` refusal is withdrawn, and the plan no longer keeps out an item whose task is merely not due. The hold is routine-display coverage only (§12.7).
+- **§11.3:** the identity parse rejects duplicate fields and a non-integer version (§12.4).
+- **§11.2:** only the latest shell question releases the hold (§12.3, §12.8).
+- **§11.9:** Q25 and Q26 are withdrawn (§12.7).
+- **`docs/reviews/ux-phase4.md` §1 and §4:** the cold-check, administration and probe sentence; the identity parse; the shell's latest question.
+
+### 12.11 Paid calls
+
+None. Every test uses fakes. No owner vault was opened.
+
+### 12.12 Gate (final tree)
+
+Run on `03edeb404` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11965 passed, 0 failed (18 min 9 s): §11.8's 11952 plus the 13 `test_f1k_*` cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11859 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 95 files, 742 passed (734 plus the 8 round-6 cases, one new file); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged: no CLI, RPC, schema, migration or config change (all ran in the full suite). The withdrawn `cold_check_unavailable` code was never registered or pinned |
+
+The code was final at `03edeb404`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure.
+
+### 12.13 Open questions for the owner (defaults applied)
+
+- **Q25 and Q26** are withdrawn (ruling 2).
+- **Q28 (D).** The probe guard reads the item's own routine displays; the cold-check hold reads the item's learning object too. A sibling's feedback, which every misconception probe follows, does not block the probe. *Default: as built.*
+- **Q29 (A).** In the shell, a blur, pagehide, freeze or hidden document now also asks the window's state. The answer returns only on the reply to that latest question (300 ms after the last event) and a fresh row. *Default: as built.*
+- **Q30 (C).** `open_queue_item` (Today's focused item, which shows the prompt) still opens the cold administration, as on main, after the revalidation. *Default: as built, since showing the prompt is where the administration starts.*
+- **Q22 to Q24 and Q27** stand.
