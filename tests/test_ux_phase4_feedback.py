@@ -2614,3 +2614,308 @@ def test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers(tmp_path)
             assert repository.followup_task(task["id"])["not_before"] > _iso(FrozenClock(datetime.now(UTC)))
 
     asyncio.run(scenario())
+
+
+# == Round 7 (docs/reviews/ux-phase4-feedback-codex-review.md §13) ==============================
+
+
+def _routine_disclosure(repository, item_id: str, *, clock, learning_object_id: str = "lo_svd_definition") -> None:
+    """A routine self-grade disclosure of ``item_id`` (an abandoned plain
+    self-grade: the item stays never attempted, a probe candidate)."""
+
+    repository.insert_reveal_event(
+        {"practice_item_id": item_id, "learning_object_id": learning_object_id, "source_kind": "answer_display",
+         "amount": 1.0, "basis": "self_grade_disclosure:v2:" + '{"display":"d","submission":"s","trace":"t","v":2}'},
+        clock=clock,
+    )
+
+
+# -- D: every presentation writer is guarded, the scheduler's too --------------------------------
+
+
+@pytest.mark.parametrize("covered", [False, True], ids=["control", "covered"])
+def test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe(tmp_path, monkeypatch, covered):
+    """The verifier's reproduction: an in-progress episode with one eligible,
+    never-attempted instrument whose routine self-grade disclosure was shown
+    an hour ago. The named-session queue commits no presentation (it serves
+    the item as ordinary practice), and the contract is not a probe."""
+
+    from types import SimpleNamespace
+
+    import learnloop_sidecar.handlers  # noqa: F401
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.probe_episodes import enter_episode
+    from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+    from learnloop.substrate.state_sync import sync_vault_state
+    from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.handlers import practice as practice_handlers
+    from tests.helpers import admit_probe_instrument_card
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    admit_probe_instrument_card(repository)
+    loaded = load_vault(paths.root)
+    sync_vault_state(loaded, repository)
+    episode = enter_episode(loaded, repository, "lo_svd_definition")
+    assert episode.status == "in_progress"
+    if covered:
+        _routine_disclosure(repository, ITEM, clock=_later(hours=-1))
+
+    queue = build_due_queue(loaded, repository, session=SchedulerSession(session_id="probe_session"), limit=1)
+
+    assert queue and queue[0].practice_item_id == ITEM
+    assert (repository.active_probe_presentation(episode.id) is None) is covered
+    monkeypatch.setattr(
+        practice_handlers, "ready_grading_provider",
+        lambda _vault, override=None: ("test", SimpleNamespace(ready=True), object()),
+    )
+    context = SidecarContext()
+    context.load(paths.root)
+    contract = _call(context, "get_probe_contract", {"practiceItemId": ITEM, "sessionId": "probe_session"})
+    assert contract["active"] is (not covered)
+    if covered:
+        # Said why, as the causal offer does (not the generic "no_instrument").
+        assert contract["reason"] == "probe_item_answer_shown"
+    served = [row for row in repository.probe_presentations_for_episode(episode.id) if row.status == "served"]
+    assert (not served) is covered
+
+
+@pytest.mark.parametrize("covered", [False, True], ids=["control", "covered"])
+def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_coverage(tmp_path, covered):
+    """The serve itself (``serve_presentation``, the only path to ``served``):
+    a presentation committed before the answer was shown is ended, not served."""
+
+    from learnloop.diagnosis.probe_episodes import (
+        RoutineDisplayCovered,
+        commit_presentation,
+        eligible_instruments,
+        enter_episode,
+        serve_presentation,
+    )
+    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+
+    _root, loaded, repository = _setup(tmp_path)
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    eligible = next(entry for entry in eligible_instruments(loaded, repository, episode) if entry.item.id == ITEM_ID)
+    presentation = commit_presentation(loaded, repository, episode, eligible, clock=CLOCK)
+    if covered:
+        _routine_disclosure(repository, ITEM_ID, clock=FrozenClock(CLOCK.now() + timedelta(minutes=1)))
+
+    later = FrozenClock(CLOCK.now() + timedelta(minutes=2))
+    if covered:
+        with pytest.raises(RoutineDisplayCovered):
+            serve_presentation(repository, presentation.id, clock=later)
+    else:
+        serve_presentation(repository, presentation.id, clock=later)
+
+    after = repository.probe_presentation(presentation.id)
+    assert after.status == ("ended" if covered else "served")
+
+
+@pytest.mark.parametrize("basis", ["tutor_answer", "routine_display"])
+def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage(tmp_path, basis):
+    """Placement's own presentations (``placement_quick_check_items``) are
+    excluded upstream: the candidates read the serving exclusions, which read
+    routine displays by their coverage. Shown 24 h 30 min ago, a tutor answer
+    has left the one-day window (control: presented first) while a routine
+    display still covers the item (never presented)."""
+
+    from tests.helpers import NOW
+    from tests.test_assumed_known import _answer, _setup as placement_setup
+    from tests.test_quick_check import _best_item, _progress, _start
+
+    _paths, vault, repository = placement_setup(tmp_path)
+    best = _best_item(vault, repository, ["lo_diag"])
+    lo = vault.practice_items[best].learning_object_id
+    stamp = FrozenClock(NOW - timedelta(hours=24, minutes=30))
+    if basis == "tutor_answer":
+        repository.insert_reveal_event(
+            {"practice_item_id": best, "learning_object_id": lo, "source_kind": "tutor_answer",
+             "amount": 1.0, "basis": "tutor_answer"},
+            clock=stamp,
+        )
+    else:
+        _routine_disclosure(repository, best, clock=stamp, learning_object_id=lo)
+
+    session_id, progress = _start(vault, repository, ["lo_diag"])
+    if basis == "tutor_answer":
+        assert progress["next_target"]["practice_item_id"] == best
+        return
+    presented = []
+    for minutes in (2, 4, 6, 8):
+        target = progress["next_target"]
+        if target is None:
+            break
+        presented.append(target["practice_item_id"])
+        _answer(vault, repository, target["practice_item_id"], 4.0, minutes=minutes, session_id=session_id)
+        progress = _progress(vault, repository, progress, minutes + 0.5)
+    assert presented and best not in presented
+
+
+def test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run(tmp_path, monkeypatch):
+    """``sim.diagnostic_validation``'s loop commits presentations on a frozen
+    clock (2026-02-02), so on a kept-state copy every later routine display
+    would cover. A refused instrument is skipped, as production callers do,
+    and the run goes on."""
+
+    from learnloop.diagnosis import probe_episodes
+    from learnloop.sim.diagnostic_validation import PLANTED_TYPES, run_probe_validation
+    from tests.test_sim_probe_validation import _vault_with_confusable
+
+    refused: list[str] = []
+    original = probe_episodes.refuse_routine_display_covered
+
+    def refuse_first(repository, practice_item_id, *, clock=None):
+        if not refused or practice_item_id == refused[0]:
+            refused.append(practice_item_id)
+            raise probe_episodes.RoutineDisplayCovered(practice_item_id)
+        return original(repository, practice_item_id, clock=clock)
+
+    monkeypatch.setattr(probe_episodes, "refuse_routine_display_covered", refuse_first)
+    vault_root = _vault_with_confusable(tmp_path)
+
+    report = run_probe_validation(vault_root, tmp_path / "runs", planted_types=PLANTED_TYPES[:1], seeds=(11,))
+
+    assert refused and report.results
+    assert report.results[0].observations_used >= 1
+
+
+# -- NEW 1: a refused causal offer changes nothing ------------------------------------------------
+
+
+@pytest.mark.parametrize("race", [False, True], ids=["checked_first", "refused_at_commit"])
+def test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unchanged(tmp_path, monkeypatch, race):
+    """An observation-free episode holds an unconsumed presentation for item
+    A; a causal probe is offered on item B, whose answer was just shown. The
+    offer is refused before anything changes (and, if the display lands
+    between the check and the commit, the commit's refusal rolls the relock
+    back): the episode's lock and A's presentation are as they were."""
+
+    from learnloop.diagnosis import causal_orchestrator
+    from learnloop.diagnosis.causal_orchestrator import accept_probe_offer
+    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from tests.helpers import admit_probe_instrument_card
+    from tests.test_causal_orchestrator import CLOCK, LO_ID, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
+
+    vault, repository, _root = _vault(tmp_path, with_probe_item=True)
+    factor_id, first_id, second_id = _seed_factor(repository)
+    admit_probe_instrument_card(repository, items=(PROBE_ITEM, ITEM))
+    _activate_probe_candidate(repository, factor_id, first_id, second_id)
+    plain = enter_episode(vault, repository, LO_ID, trigger="initial", clock=CLOCK)
+    presentation_a = commit_item_presentation(
+        vault, repository, plain, vault.practice_items[ITEM], episode_hypothesis_set(repository, plain), clock=CLOCK,
+    )
+    assert presentation_a is not None
+    later = FrozenClock(CLOCK.now() + timedelta(days=1))
+    _routine_disclosure(repository, PROBE_ITEM, clock=FrozenClock(later.now() - timedelta(hours=1)), learning_object_id=LO_ID)
+    if race:
+        monkeypatch.setattr(causal_orchestrator, "_answer_shown", lambda *_args, **_kwargs: False)
+
+    offer = accept_probe_offer(vault, repository, factor_id=factor_id, clock=later)
+
+    assert offer.accepted is False and offer.reason == "probe_item_answer_shown"
+    after = repository.probe_episode(plain.id)
+    assert (after.hypothesis_set_id, after.origin, after.entered_at, after.status) == (
+        plain.hypothesis_set_id, plain.origin, plain.entered_at, plain.status,
+    )
+    kept = repository.probe_presentation(presentation_a.id)
+    assert (kept.status, kept.end_reason) == ("served", None)
+    assert [row.id for row in repository.probe_presentations_for_episode(plain.id)] == [presentation_a.id]
+
+
+# -- NEW 2: a block's size and indices are its surviving members' --------------------------------
+
+
+def test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices(tmp_path):
+    """Two candidate members, one whose answer was just shown: the block holds
+    the other alone, stamped block_size 1 and block_index 0, so its completion
+    target is reachable."""
+
+    from learnloop.diagnosis.probe_episodes import enter_episode, plan_precommitted_block
+    from tests.test_probe_policy import CLOCK, ITEM_2, ITEM_ID, LO_ID, _setup as policy_setup
+
+    loaded, repository = policy_setup(tmp_path, items=(ITEM_ID, ITEM_2))
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    _routine_disclosure(repository, ITEM_ID, clock=FrozenClock(CLOCK.now() - timedelta(hours=1)), learning_object_id=LO_ID)
+
+    block = plan_precommitted_block(loaded, repository, episode, block_size=2, clock=CLOCK)
+
+    assert [presentation.practice_item_id for presentation in block] == [ITEM_2]
+    components = block[0].selection_components
+    assert (components["block_size"], components["block_index"]) == (1, 0)
+
+
+# -- F: a temporary hold never finishes the plan ------------------------------------------------
+
+
+def _one_item_plan(tmp_path, display_age: timedelta):
+    from datetime import UTC, datetime
+
+    from tests.daily_plan_fakes import MovableClock, make_env, scheduled, seed_due
+    from tests.helpers import create_daily_plan_vault
+
+    start = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
+    clock = MovableClock(start)
+    env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
+                   clock=clock, session_id="s_wait")
+    seed_due(env.repository, "pi_cold", due=start - timedelta(days=2), last=start - timedelta(days=9))
+    env.repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_wait",
+        not_before=_iso(FrozenClock(start - timedelta(hours=1))), expires_at=_iso(FrozenClock(start + timedelta(days=30))),
+        selected_item_id="pi_cold", clock=FrozenClock(start - timedelta(days=1)),
+    )
+    env.repository.insert_reveal_event(
+        {"practice_item_id": "pi_cold", "learning_object_id": "lo_c", "source_kind": "answer_display",
+         "amount": 1.0, "basis": "feedback_full_answer:desktop:display_wait"},
+        clock=FrozenClock(start - display_age),
+    )
+    return env, clock
+
+
+def test_f1l_a_hold_that_lifts_today_waits_instead_of_finishing_the_plan(tmp_path):
+    """The verifier's reproduction: one eligible item, a due cold retry, and a
+    routine display stamped 25 h less 30 s ago. The plan is not finished: it
+    waits, naming when the hold lifts; 31 seconds later the same plan serves
+    the item."""
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from learnloop.scheduling.scheduler import cold_check_serve_hold
+
+    env, clock = _one_item_plan(tmp_path, timedelta(hours=25) - timedelta(seconds=30))
+    record = get_or_create_today(env)
+    assert record.status == "open"
+    record, step = advance(env, serve=False)
+    assert step["kind"] == "waiting"
+    assert step["until"] == _iso(FrozenClock(clock.instant + timedelta(seconds=31)))
+    assert step["minutes"] == 1
+    assert step["learning_object_title"]
+    # The view says so (not "choosing the next block").
+    from learnloop.daily_plan.view import plan_view
+
+    view = plan_view(env, record, context=None, next_step=step)["plan"]
+    assert view["status"] == "open" and view["deciding"] is False
+    assert view["waiting"] == {
+        "until": step["until"], "minutes": 1, "practice_item_id": "pi_cold",
+        "learning_object_title": step["learning_object_title"],
+    }
+
+    clock.instant = clock.instant + timedelta(seconds=31)
+    assert cold_check_serve_hold(env.vault, env.repository, "pi_cold", clock=env.clock, persist=False) is None
+    record, step = advance(env, serve=True)
+    assert step["kind"] == "item" and step["practice_item_id"] == "pi_cold"
+    assert record.id == get_or_create_today(env).id
+    assert "pi_cold" in _served_items(env)
+
+
+def test_f1l_a_hold_that_lifts_after_today_finishes_the_plan_as_before(tmp_path):
+    """Control: a display shown just now holds the item past the plan's day,
+    so there is nothing to wait for today and the plan finishes as before."""
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+
+    env, _clock = _one_item_plan(tmp_path, timedelta(0))
+    record = get_or_create_today(env)
+    assert record.status == "complete"
+    _record, step = advance(env, serve=False)
+    assert step["kind"] == "done"

@@ -8,7 +8,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../../api/dto";
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
-import { aboutMinutes, minutesPerDay, wholeMinutes } from "../../app/dailyPlan";
+import { aboutMinutes, minutesPerDay, waitingLine, wholeMinutes } from "../../app/dailyPlan";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -308,6 +308,10 @@ export function DailyPlanView({
                 </button>
               ) : null}
             </div>
+          </div>
+        ) : plan.waiting ? (
+          <div data-testid="plan-waiting" style={{ fontSize: 13, color: COLOR.textDim }}>
+            {waitingLine(plan.waiting)}
           </div>
         ) : (
           <div data-testid="plan-choosing" style={{ fontSize: 13, color: COLOR.textDim }}>

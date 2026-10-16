@@ -8,7 +8,7 @@ import { clear } from "../api/queryCache";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-import { minutesPerDay, nextPlanKeyLabel, planStepAction, readerTargetForReading } from "./dailyPlan";
+import { minutesPerDay, nextPlanKeyLabel, planStepAction, readerTargetForReading, waitingLine } from "./dailyPlan";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
 
 afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); });
@@ -79,4 +79,19 @@ it("rounds minutes a day honestly: whole from 1, a decimal below, never up to 1"
   expect(minutesPerDay(0.96)).toBe("1");
   expect(minutesPerDay(0.02)).toBe("less than 0.1");
   expect(minutesPerDay(0)).toBe("0");
+});
+
+it("UX Phase 4 round 7: Next under a waiting plan promises when it is back, and opens the plan view", () => {
+  const step = {
+    kind: "waiting" as const,
+    planId: "plan",
+    until: new Date(Date.now() + 90_000).toISOString(),
+    minutes: 2,
+    practiceItemId: "pi_cold",
+    learningObjectId: "lo",
+    learningObjectTitle: "Eigenvalues"
+  };
+  expect(nextPlanKeyLabel(false, step)).toBe("back in 2 min");
+  expect(planStepAction(step)).toEqual({ type: "plan" });
+  expect(waitingLine({ ...step, learningObjectTitle: null })).toBe("Nothing to do right now. Back in 2 min: one more question.");
 });

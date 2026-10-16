@@ -223,6 +223,18 @@ export function TodayScreen({
     }, 1500);
     return () => window.clearInterval(timer);
   }, [planDeciding, refetchPlan]);
+  // UX Phase 4 round 7: a plan waiting for a hold to lift is read again once
+  // it lifts (a second after), so the item appears without a click.
+  const planWaitingUntil = planView ? planData?.plan?.waiting?.until ?? null : null;
+  useEffect(() => {
+    if (!planWaitingUntil) return;
+    const at = Date.parse(planWaitingUntil);
+    if (!Number.isFinite(at)) return;
+    const timer = window.setTimeout(() => {
+      refetchPlan().catch(() => undefined);
+    }, Math.max(at - Date.now(), 0) + 1000);
+    return () => window.clearTimeout(timer);
+  }, [planWaitingUntil, refetchPlan]);
   const headlineQuery = useCachedQuery<TodayHeadlineDto>(
     planEnabled ? ["get_today_headline"] : null,
     () => api.getTodayHeadline(),

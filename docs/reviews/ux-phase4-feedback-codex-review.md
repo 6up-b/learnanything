@@ -1000,3 +1000,133 @@ The code was final at `03edeb404`; only this record and `docs/reviews/ux-phase4.
 - **Q29 (A).** In the shell, a blur, pagehide, freeze or hidden document now also asks the window's state. The answer returns only on the reply to that latest question (300 ms after the last event) and a fresh row. *Default: as built.*
 - **Q30 (C).** `open_queue_item` (Today's focused item, which shows the prompt) still opens the cold administration, as on main, after the revalidation. *Default: as built, since showing the prompt is where the administration starts.*
 - **Q22 to Q24 and Q27** stand.
+
+## 13. Round 7
+
+**Verification:** the Codex verification of `699b44956`. It confirmed A, B, C, E and G, and found no regressions in the exposure invariant, the identity rules, the boundary or F2 to F10. It reopened D and F, and found two new defects, all from round 6's changes. The landing agent's composition check added two more items (§13.7).
+**Fix:**
+- `f55853bf5`: D.
+- `d66373f8b`: NEW 1.
+- `c8aece1dd`: NEW 2.
+- `e607ae28e`: F, sidecar and desktop.
+- `affcd1596`: the landing check's two items, plus the round-7 sidecar tests.
+
+**Scope.** Same rules and the same binding scope rulings as §12.1; the out-of-scope items stay out of scope. No migration: the head stays at 204. Grading, scoring and replay are unchanged.
+
+### 13.1 Findings
+
+| Item | Severity | Verdict | Commit | Tests |
+|---|---|---|---|---|
+| D. The scheduler commits and serves a covered probe | Medium | **fixed** | `f55853bf5` | `test_f1l_the_scheduler_never_commits_or_serves_a_covered_probe[control, covered]`, `…_a_presentation_committed_before_a_display_is_not_served_inside_its_coverage[control, covered]`, `…_the_quick_check_never_presents_an_item_inside_routine_display_coverage[tutor_answer, routine_display]` |
+| F. Coverage expires, but the plan stays finished | Medium | **fixed** | `e607ae28e` | `test_f1l_a_hold_that_lifts_today_waits_instead_of_finishing_the_plan`, `…_a_hold_that_lifts_after_today_finishes_the_plan_as_before`; vitest "UX Phase 4 round 7: a plan waiting…", "…Next under a waiting plan…" |
+| NEW 1. A refused causal offer leaves destructive partial state | Medium | **fixed** | `d66373f8b` | `test_f1l_a_refused_causal_offer_leaves_the_episode_and_its_presentation_unchanged[checked_first, refused_at_commit]` |
+| NEW 2. Skipped block members stay in the completion target | Low | **fixed** | `c8aece1dd` | `test_f1l_a_precommitted_block_stamps_its_surviving_members_size_and_indices` |
+| Landing 1. The sim aborts on a covered instrument | Low (latent) | **fixed** | `affcd1596` | `test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run` |
+| Landing 2. `get_probe_contract` gives a generic reason for a covered item | Low | **fixed** | `affcd1596` | the scheduler test's covered case asserts `probe_item_answer_shown` |
+
+**Reproduced first.**
+- **Sidecar.** The round-7 tests were run on a tree archived at `699b44956` (pytest's `pythonpath = ["src"]` needs the archived root, §12.2): **7 of 12 failed.**
+  - D: the covered queue committed a `selected` presentation, and the contract was active. `serve_presentation` served a presentation committed before the display.
+  - F: the one-item plan was `complete` at creation.
+  - NEW 2: the block member said `(block_size, block_index) = (2, 1)`.
+  - Landing 1: `RoutineDisplayCovered` aborted the validation run.
+  - NEW 1, checked first: the episode was relocked (a new `hypothesis_set_id`).
+  - NEW 1, refused at the commit: this variant cannot run on the old tree, because it patches the new pre-check. A mutation run on `HEAD`, with the retarget's transaction removed, made it fail. So the rollback is what makes it pass.
+  - The 5 that passed: both controls (D's scheduler and serve), both quick-check cases (the exclusion upstream was already there), and the after-today plan control.
+- **Desktop.** With `699b44956`'s `dto.ts`, `dailyPlan.ts`, `DailyPlanView.tsx` and `TodayScreen.tsx` checked out, the two round-7 cases failed (2 of 21). The files were then restored from `HEAD`.
+
+### 13.2 D: every presentation writer, each behind the guard or excluded upstream
+
+The round-6 record called `probe_episodes.commit_presentation` the one function every presentation commit passes through. That was wrong: the scheduler builds its row with `presentation_commit_payload` and inserts it inside `record_scheduler_slate`'s transaction. The guard (`refuse_routine_display_covered`, which raises `RoutineDisplayCovered`) now sits in `presentation_commit_payload`, the builder of every new probe presentation row.
+
+**Inventory.** Every SQL write on `probe_presentations`, `placement_quick_check_items` and `plan_presentations`, found by grep (INSERT/UPDATE/DELETE, and the repository and store methods that issue them):
+
+| Writer | Write | Callers | Status |
+|---|---|---|---|
+| `Repository.insert_probe_presentation` (`_insert_probe_presentation_row`) | INSERT `probe_presentations` | only `probe_episodes.commit_presentation`, which `commit_item_presentation` (sidecar `get_probe_contract`, the TUI's probe), the causal offer, a dialogue turn, `plan_precommitted_block` and the sim call | **guarded**: the payload builder refuses before the insert; each caller handles the refusal (§12.5, §13.4, §13.5, §13.7) |
+| `Repository.record_scheduler_slate(probe_presentation=…)` (`_insert_probe_presentation_row` in the slate transaction) | INSERT `probe_presentations` | only `scheduler.build_due_queue` | **guarded**: the payload comes from the same builder. The scheduler catches the refusal, keeps its slate transaction, commits no presentation, and serves the item as ordinary practice |
+| `Repository.mark_probe_presentation_served` | UPDATE to `served` | only `probe_episodes.serve_presentation` (`commit_item_presentation`, `get_probe_contract`'s committed-assignment branch, the dialogue turn, the sim) | **guarded**: a presentation committed before the item's answer was shown is ended (`invalidated`) and the refusal raised. `get_probe_contract` then answers `probe_item_answer_shown` |
+| `Repository.consume_probe_presentation` | UPDATE to `submitted` | the submit of an attempt on a served presentation | not an administration: it consumes one already served behind the guard |
+| `Repository.end_probe_presentation` | UPDATE to `ended` | supersede, invalidation, provider parking, the serve guard | removes; never administers |
+| `stores.placement.insert_quick_check_item` | INSERT `placement_quick_check_items` | only `quick_check._present_next` | **excluded upstream**: `_candidate_items` reads `out_of_timing_serving_exclusions`, whose `items_revealed_between` counts routine rows by their coverage. An outstanding presentation is served again only while it is still a candidate. The test shows a routine display from 24 h 30 min ago keeps the item out, while a tutor answer of the same age (outside the one-day window) does not |
+| `stores.placement` UPDATE (binds the answering attempt) | UPDATE `placement_quick_check_items` | the submit | not an administration |
+| `stores.plan_presentations` INSERT (router R2a) | INSERT `plan_presentations` | the daily plan's serve of any item | not a probe or placement presentation, but the plan's serve receipt. A cold check reaches it only past the plan's hold (§13.3); a plan item that is a probe gets its probe presentation through `get_probe_contract` (guarded) |
+
+### 13.3 F: the plan waits for a hold that lifts today
+
+**The finding.** One eligible item, a due cold retry, and a routine display stamped now − 25 h + 30 s. Building today's plan filtered out the only item and persisted `complete` ("nothing more worth doing today fits"). Thirty-one seconds later the hold had lifted, but `advance` returned the same completed plan.
+
+**The design (the simplest one that keeps the plan honest).** A temporary hold never finishes the plan.
+- **The pool.** A held cold check now stays in the plan's pool and universe. Round 6 filtered it out of `_classified_pool`, which also took it out of the universe for good.
+- **The boundary.** It leaves the item out while the hold lasts. `_context` reads `scheduler.cold_check_hold_until`, which returns when the hold lifts, into `PoolContext.held_until`.
+- **The waiting state.** When the boundary finds nothing to do, and a held item's hold lifts later on the plan's local day, it raises `PlanWaiting` instead of closing the plan. Nothing is written.
+  - `build_plan` leaves the plan open without a block, as it does for a pending router decision.
+  - `advance` returns a `waiting` step: the item, its learning object and title, `until`, and whole minutes.
+  - The next `advance` after the hold lifts plans and serves the item in the same plan.
+- **A hold that lifts after the plan's day** finishes the plan as before. The next day's plan has the item.
+- **The view.** It sends `waiting` (with `deciding` false).
+- **The desktop.**
+  - It shows "Nothing to do right now. Back in N min: a question on X." with no Begin button.
+  - The Next key says "back in N min".
+  - Today reads the plan again a second after the hold lifts.
+- **What did not change.** The reconcile displacement and the serve-time check (§12.7) are as before. A displaced item returns to the pool, so it comes back when the hold lifts.
+
+### 13.4 NEW 1: a refused causal offer changes nothing
+
+**The finding.** An observation-free episode holds an unconsumed presentation for item A. A causal probe offered on covered item B was refused (`probe_item_answer_shown`), but only after the episode had been relocked onto the causal factor and A's presentation invalidated.
+
+**The fix.**
+- **Check first.** `accept_probe_offer` checks B's coverage (`_answer_shown`) before any episode mutation. The refusal changes nothing.
+- **The commit guard stays.** For a display that lands between the check and the commit, the relock and the commit run in one `repository.atomic()` transaction. The commit-time refusal rolls back the relock and A's invalidation.
+- **What a race can still leave.** A newly entered episode is not held in a write transaction, because entry may generate instances with the AI client. So a race in that branch can leave an open causal episode with no presentation. Nothing that existed before is changed.
+
+### 13.5 NEW 2: a block's size and indices are its real members'
+
+`plan_precommitted_block` now drops covered items from the candidates before the joint selection. So `block_size` and `block_index` are the surviving members', and the completion target (`probe_blocks`) is reachable. The commits run in one transaction: a member refused at its commit takes the whole block back, and the result is no block. No production caller exists today.
+
+### 13.6 Callers with a frozen or past clock (the landing check)
+
+Under ruling 4 of round 4 (§10.1), a routine row stamped after the reader's clock counts as covering. These callers run on a frozen or past clock and reach a coverage reader:
+
+| Caller | Clock | Reveal rows | Effect | Status |
+|---|---|---|---|---|
+| `sim.diagnostic_validation` | frozen at 2026-02-02 | none: always `reset_state=True` | latent: on a kept-state copy every later display would cover, and the refusal aborted the run | **fixed**: a refused instrument is skipped, as production callers do |
+| `sim.runner` (`learnloop sim`, `sim.sweep`) with `reset_state=False` | days from 2026-01-05 | the copied vault's real rows | every real routine display (stamped later) covers for the whole run. That covers the queue's cold deferral, the serving exclusions, the practice index, and the probe guard (the scheduler catches it: ordinary practice). It does not crash | recorded (Q33). A kept-state sim at a past clock already sees "future" attempts |
+| `goals.exam_seeding`, `goals.exam_session` (`apply_attempt` at the exam's instant) | the exam's past instant | real | auto-prime counts routine displays stamped after the exam, so a seeded exam answer on an item whose answer was later displayed is primed. Main already does this for other reveals: on this tree an answer stamped 30 days before a tutor reveal is primed too (a throwaway check: routine 1, tutor 1, none 0) | recorded (Q33), out of scope (submit semantics) |
+| `goals.goal_series`, `diagnosis.scoreboard`, `instructional.interventions`, `substrate.replay`, `substrate.compat.activity_backfill`, `learner.recall_calibration` | checkpoint or recorded instants | — | none found: grep finds no coverage reader on their paths (`recall_calibration` builds its own fresh vault) | — |
+
+**`get_probe_contract`.** When the commit refuses a covered item, the contract now answers the causal offer's reason, `probe_item_answer_shown` (`probe_episodes.PROBE_ITEM_ANSWER_SHOWN`), instead of `no_instrument`. It does the same when it ends a presentation committed before the display. No test pinned the old reason, and the RPC allowlist pins names, not shapes. The practice screen still serves the item as ordinary practice without a note (Q32).
+
+### 13.7 Claims corrected
+
+- **§12.5:** "`probe_episodes.commit_presentation`, the one function every presentation commit passes through" was wrong; see §13.2. The guard is in `presentation_commit_payload` and `serve_presentation`, and the table there is replaced by §13.2's inventory.
+- **§12.7:** the plan no longer filters a held cold check out of its pool. The boundary leaves it out while held, and the plan waits when that is all that is left today (§13.3).
+- **§12.5, NEW 1:** the causal offer refuses before any mutation (§13.4).
+- **`docs/reviews/ux-phase4.md` §1:** the probe sentence and the plan's waiting state.
+
+### 13.8 Paid calls
+
+None. Every test uses fakes. No owner vault was opened.
+
+### 13.9 Gate (final tree)
+
+Run on `affcd1596` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11977 passed, 0 failed (16 min 54 s): §12.12's 11965 plus the 12 `test_f1l_*` cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11871 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 95 files, 744 passed (742 plus the 2 round-7 plan cases); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged: no CLI, RPC name, schema, migration or config change (all ran in the full suite) |
+
+The code was final at `affcd1596`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure.
+
+### 13.10 Open questions for the owner (defaults applied)
+
+- **Q31 (F).** The plan waits only for a hold that lifts on its own local day. A hold past midnight finishes the plan as before, and the next day's plan has the item. While waiting, the plan is open, so "more new material" (offered when it is done) is not shown; the full list is. *Default: as built.*
+- **Q32.** `get_probe_contract`'s refusal names its reason, but the practice screen serves the item as ordinary practice without a note. A note there would tell the learner that something was nearly a check. *Default: no note.*
+- **Q33.** Callers on a past clock (exam seeding, kept-state sims) count routine displays stamped after their instant, as ruling 4 of round 4 has every reader do and as main already does for other reveals. *Default: unchanged, queued for the "one serve/administration eligibility decision" stage (§12.9), where a historical writer could bound its window.*
+- **Q34 (NEW 2).** A precommitted block member refused at its commit takes the whole block back. *Default: as built (no production caller).*
+- **Q28 to Q30, Q22 to Q24 and Q27** stand.

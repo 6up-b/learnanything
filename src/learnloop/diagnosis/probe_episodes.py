@@ -1180,15 +1180,28 @@ class RoutineDisplayCovered(Exception):
         self.practice_item_id = practice_item_id
 
 
+#: Why a probe was not administered: its item's answer was shown on a routine
+#: display that still covers now (the causal offer and ``get_probe_contract``).
+PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
+
+
+def routine_display_covers_item(
+    repository: Repository, practice_item_id: str, *, clock: Clock | None = None
+) -> bool:
+    """Does a routine display of the item's answer cover now?"""
+
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
+
+
 def refuse_routine_display_covered(
     repository: Repository, practice_item_id: str, *, clock: Clock | None = None
 ) -> None:
     """Raise :class:`RoutineDisplayCovered` when a routine display of the item
     covers now: the one guard every presentation commit passes through."""
 
-    from learnloop.reveal_coverage import routine_displays_covering
-
-    if routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)):
+    if routine_display_covers_item(repository, practice_item_id, clock=clock):
         raise RoutineDisplayCovered(practice_item_id)
 
 
@@ -1214,12 +1227,11 @@ def commit_presentation(
     slate is supplied, shadow-policy rankings are logged onto the presentation
     (§13.3, Checkpoint 5.1).
 
-    The administration choke point for probes and placement (UX Phase 4
-    round 6): an item whose answer a routine display still covers is never
-    committed (:class:`RoutineDisplayCovered`, before anything is written).
+    An item whose answer a routine display still covers is never committed
+    (UX Phase 4 rounds 6 and 7): the payload builder refuses it
+    (:class:`RoutineDisplayCovered`) before anything is written.
     """
 
-    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     payload = presentation_commit_payload(
         vault,
         repository,
@@ -1318,8 +1330,13 @@ def presentation_commit_payload(
     The routine scheduler passes this payload into ``record_scheduler_slate``
     so the candidate and presentation are committed atomically. Dialogue and
     direct/TUI selections use ``commit_presentation`` with the same builder.
+
+    So this is the one guard every new probe presentation row passes (UX
+    Phase 4 round 7): an item whose answer a routine display still covers
+    raises :class:`RoutineDisplayCovered` before any row exists.
     """
 
+    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     if episode.status != "in_progress":
         raise ValueError(f"episode {episode.id} is {episode.status}; cannot commit a presentation")
     if episode.active_state_segment_id is None:
@@ -1416,6 +1433,19 @@ def _robust_channel_pin(
 
 
 def serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None = None) -> None:
+    """Mark a committed presentation served: the administration itself, and
+    the only path to ``served``. A presentation committed before its item's
+    answer was shown on a routine display that still covers now is ended
+    (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
+    Phase 4 round 7)."""
+
+    presentation = repository.probe_presentation(presentation_id)
+    if presentation is not None:
+        try:
+            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock)
+        except RoutineDisplayCovered:
+            repository.end_probe_presentation(presentation_id, end_reason="invalidated", clock=clock)
+            raise
     repository.mark_probe_presentation_served(presentation_id, clock=clock)
 
 
@@ -1536,10 +1566,10 @@ def commit_item_presentation(
             extra_selection_components=extra_selection_components,
             clock=clock,
         )
+        serve_presentation(repository, presentation.id, clock=clock)
     except RoutineDisplayCovered:
-        # Its answer was just shown: ordinary practice, not a probe (round 6).
+        # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7).
         return None
-    serve_presentation(repository, presentation.id, clock=clock)
     return presentation
 
 
@@ -1570,6 +1600,17 @@ def plan_precommitted_block(
     size = max(2, min(size, block_config.max_block_size))
 
     candidates = eligible_instruments(vault, repository, episode)
+    # UX Phase 4 round 7: the block's members are decided before anything is
+    # committed. An item whose answer a routine display covers is not one, so
+    # the block's size and indices are its real members'.
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    now_iso = utc_now_iso(clock)
+    candidates = [
+        entry
+        for entry in candidates
+        if not routine_displays_covering(repository, practice_item_id=entry.item.id, at=now_iso)
+    ]
     if not candidates:
         return []
     live = episode_posterior(vault, repository, episode)
@@ -1661,27 +1702,31 @@ def plan_precommitted_block(
         ] if total_weight > 0 else branches
 
     presentations: list[ProbePresentationRecord] = []
-    for index, (candidate, conditional_eig) in enumerate(picked):
-        try:
-            presentation = commit_presentation(
-                vault,
-                repository,
-                episode,
-                candidate,
-                candidates=candidates,
-                supersede_active=not presentations,
-                extra_selection_components={
-                    "joint_block": True,
-                    "block_index": index,
-                    "block_size": len(picked),
-                    "conditional_eig": conditional_eig,
-                },
-                clock=clock,
-            )
-        except RoutineDisplayCovered:
-            # Its answer was just shown: left out of the block (round 6).
-            continue
-        presentations.append(presentation)
+    try:
+        # One transaction: a member refused at its commit (its answer shown
+        # since the members were decided) takes the whole block back, so no
+        # committed member names a size the block cannot reach.
+        with repository.atomic():
+            for index, (candidate, conditional_eig) in enumerate(picked):
+                presentations.append(
+                    commit_presentation(
+                        vault,
+                        repository,
+                        episode,
+                        candidate,
+                        candidates=candidates,
+                        supersede_active=index == 0,
+                        extra_selection_components={
+                            "joint_block": True,
+                            "block_index": index,
+                            "block_size": len(picked),
+                            "conditional_eig": conditional_eig,
+                        },
+                        clock=clock,
+                    )
+                )
+    except RoutineDisplayCovered:
+        return []
     return presentations
 
 

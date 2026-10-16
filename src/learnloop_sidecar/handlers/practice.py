@@ -29,6 +29,8 @@ from learnloop.attempts.post_attempt import (
 )
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
 from learnloop.diagnosis.probe_episodes import (
+    PROBE_ITEM_ANSWER_SHOWN,
+    RoutineDisplayCovered,
     commit_item_presentation,
     enter_episode,
     episode_contract,
@@ -36,6 +38,7 @@ from learnloop.diagnosis.probe_episodes import (
     next_probe_item,
     probe_serving_block_reason,
     probe_value_block_reason,
+    routine_display_covers_item,
     serve_presentation,
     stop_diagnosing_and_teach,
     validate_presentation_for_submission,
@@ -403,7 +406,12 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
             practice_item_id=item.id,
         )
         if validation.valid:
-            serve_presentation(repository, active.id)
+            try:
+                serve_presentation(repository, active.id)
+            except RoutineDisplayCovered:
+                # Committed before the item's answer was shown on a routine
+                # display: ended, and the item is ordinary practice (round 7).
+                return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
             return versioned({"active": True, "presentation_id": active.id, **contract})
         if validation.reason == "item_mismatch":
@@ -435,6 +443,10 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
         extra_selection_components=extra_components,
     )
     if presentation is None:
+        # UX Phase 4 round 7: say why when it is the item's answer shown on a
+        # routine display (the commit refused it), so the surface can too.
+        if routine_display_covers_item(repository, item.id):
+            return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
         return versioned({"active": False, "reason": "no_instrument"})
     contract = episode_contract(vault, repository, item.learning_object_id) or {}
     return versioned({"active": True, "presentation_id": presentation.id, **contract})

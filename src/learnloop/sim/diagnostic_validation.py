@@ -39,6 +39,7 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.diagnosis.probe_episodes import (
+    RoutineDisplayCovered,
     commit_presentation,
     eligible_instruments,
     episode_posterior,
@@ -383,14 +384,25 @@ def _run_one_episode(
         entries = eligible_instruments(vault, repository, episode)
         if not entries:
             break
-        top = entries[0]
         step_clock = FrozenClock(now)
-        # candidates= logs §13.3 shadow-policy rankings so the pilot audit has
-        # policy-comparison data.
-        presentation = commit_presentation(
-            vault, repository, episode, top, candidates=entries, clock=step_clock
-        )
-        serve_presentation(repository, presentation.id, clock=step_clock)
+        presentation = None
+        for top in entries:
+            try:
+                # candidates= logs §13.3 shadow-policy rankings so the pilot
+                # audit has policy-comparison data.
+                presentation = commit_presentation(
+                    vault, repository, episode, top, candidates=entries, clock=step_clock
+                )
+                serve_presentation(repository, presentation.id, clock=step_clock)
+                break
+            except RoutineDisplayCovered:
+                # UX Phase 4 round 7: its answer was shown on a routine
+                # display. With this run's frozen clock any display stamped
+                # later counts as covering (a kept-state copy has them); skip
+                # the instrument, as production callers do.
+                presentation = None
+        if presentation is None:
+            break
         response = planted_response(planted, top.instrument, rng)
         _submit_response(vault, repository, top.item.id, presentation.id, response, clock=step_clock)
         steps += 1
