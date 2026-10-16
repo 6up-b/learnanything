@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import random
+from contextlib import contextmanager
 from datetime import timedelta
 
 import pytest
@@ -451,6 +452,151 @@ def test_a_first_grade_made_before_contracts_keeps_its_compatibility_reading(tmp
     attempt = repository.fetch_practice_attempt("att_03_svd_pass")
     assert attempt["manual_review_reason"] == GRADE_CONTRACT_UNRECORDED
     assert 0.0 <= attempt["correctness"] <= 1.0
+
+
+def _as_graded_before_contracts(repository, attempt_id):
+    """Rewrite an attempt's rows as a pre-mvp-0.7 grade wrote them: no
+    grading revision and no assessment contract (test construction only)."""
+
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE grading_evidence SET grading_revision = NULL, assessment_contract_version_id = NULL "
+            "WHERE attempt_id = ?",
+            (attempt_id,),
+        )
+        connection.commit()
+
+
+@pytest.mark.parametrize("after", [timedelta(0), timedelta(seconds=1)], ids=["same_second", "a_second_later"])
+def test_a_regrade_in_its_pre_contract_grades_second_is_held_not_read_as_its_only_grade(tmp_path, after):
+    """Review F3: a pre-contract self-grade and the ordinary regrade that
+    superseded it, both revision-less and stamped in the same second, share
+    the legacy epoch key. The explicit supersession (and the regrade's own
+    run) says they are two writes, so the regrade is no "only, pre-contract
+    grade": it is held with the maximum its blind record kept (3/8), never
+    read against today's item (3/6). A second later (the control) it was
+    already held."""
+
+    paths, vault, repository = _vault(tmp_path, version=PREDECESSOR)
+    _set_result_points(paths, 6)  # maximum 8
+    vault = load_vault(paths.root)
+    _self_graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_s2", when=T)
+    _as_graded_before_contracts(repository, "att_s2")
+    _regrade(vault, repository, "att_s2", {"setup": 1.0, "result": 2.0}, when=T + after)
+    rows = _rows(repository, "att_s2", superseded=True)
+    assert {row.grading_revision for row in rows} == {None}
+    assert {row.assessment_contract_version_id for row in rows} == {None}
+    assert len({row.created_at for row in rows}) == (1 if after == timedelta(0) else 2)
+    assert any(row.superseded_at is not None for row in rows)
+    assert _grade(repository, "att_s2") == (3, 0.375)
+
+    _set_result_points(paths, 4)  # maximum 6: the regrade's 3 still fits today's item
+    vault = _flip(paths, VERSION)
+    _rebuild(vault, repository)
+
+    attempt = repository.fetch_practice_attempt("att_s2")
+    assert (attempt["rubric_score"], attempt["correctness"]) == (3, 0.375)
+    assert attempt["manual_review_reason"] == GRADE_CONTRACT_UNRECORDED
+    assert attempt_grade_held(repository, "att_s2")
+
+
+def test_only_a_grade_no_later_write_replaced_is_an_attempts_only_grade():
+    """Review F3, the rule as a pure function: one epoch key is not enough.
+    A superseded row, or two grading runs under one legacy key, is evidence
+    of a second write."""
+
+    from learnloop.grading_epochs import only_grade
+
+    at = "2026-11-01T12:00:00Z"
+    self_grade = [_row("s1", "setup", at=at), _row("s2", "result", at=at)]
+    assert only_grade(self_grade)
+    # A same-second regrade that superseded the self-grade (tier 1).
+    superseded = [{**row, "superseded_at": "x"} for row in self_grade]
+    regrade = [{**_row("r1", "setup", at=at), "agent_run_id": "run_2"},
+               {**_row("r2", "result", at=at), "agent_run_id": "run_2"}]
+    assert not only_grade(superseded + regrade)
+    # A same-second model regrade that left the model original live beside it
+    # (before the successor, an ordinary regrade superseded tier 1 alone).
+    model = [{**row, "agent_run_id": "run_1"} for row in self_grade]
+    assert not only_grade(model + regrade)
+    # One write with a self-graded and a model-graded tier (a joint grade): one run.
+    assert only_grade(self_grade + regrade)
+    assert not only_grade(self_grade + [_row("x1", "setup", at="2026-11-01T12:00:01Z")])
+    assert not only_grade([])
+
+
+@contextmanager
+def _before_the_next_transaction(monkeypatch, repository, intruder):
+    """Run ``intruder`` (another writer, on its own connection) once,
+    immediately before ``repository`` next enters a transaction: review F2's
+    interleaving of two writers that both read before either writes."""
+
+    real = repository.atomic
+    fired: list[bool] = []
+
+    @contextmanager
+    def atomic():
+        if not fired:
+            fired.append(True)
+            intruder()
+        with real():
+            yield
+
+    monkeypatch.setattr(repository, "atomic", atomic)
+    try:
+        yield fired
+    finally:
+        monkeypatch.undo()
+
+
+@pytest.mark.parametrize("intruder", ["adjudication", "regrade"])
+def test_an_adjudication_allocates_its_revision_inside_its_own_transaction(tmp_path, monkeypatch, intruder):
+    """Review F2: another writer that commits between an adjudication's entry
+    and its transaction never shares its revision. The adjudication reads the
+    current epoch, its contract and the next revision inside the one
+    ``BEGIN IMMEDIATE`` that publishes it, so the history keeps every epoch
+    and the revision cites the contract of the grade it actually revises."""
+
+    from learnloop.db.repositories import Repository
+
+    paths, vault, repository = _vault(tmp_path)
+    _graded_apply(vault, repository, ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_r", when=T)
+    _set_result_points(paths, 6)  # maximum 8: what the intruding regrade grades under
+    vault = load_vault(paths.root)
+    other = Repository(repository.sqlite_path)
+
+    def intrude():
+        if intruder == "adjudication":
+            append_adjudication_evidence_revision(
+                other, attempt_id="att_r", resolved_fraction=0.5, adjudication_id="adj_other",
+                adjudicator_source="human_owner", rationale=None, vault=vault,
+                clock=FrozenClock(T + timedelta(days=1)),
+            )
+        else:
+            _regrade(vault, other, "att_r", {"setup": 2.0, "result": 4.0}, when=T + timedelta(days=1))
+
+    with _before_the_next_transaction(monkeypatch, repository, intrude) as fired:
+        revision = append_adjudication_evidence_revision(
+            repository, attempt_id="att_r", resolved_fraction=0.25, adjudication_id="adj_mine",
+            adjudicator_source="human_owner", rationale=None, vault=vault,
+            clock=FrozenClock(T + timedelta(days=2)),
+        )
+    assert fired and revision["status"] == "revised"
+
+    every_row = _rows(repository, "att_r", superseded=True)
+    epochs = ordered_epochs(every_row)
+    assert [epoch.key for epoch in epochs] == ["revision:0", "revision:1", "revision:2"]
+    assert [epoch.live for epoch in epochs] == [False, False, True]
+    live = _rows(repository, "att_r")
+    intruded = epochs[1].contract_version_id
+    assert intruded is not None
+    # The adjudication revised the grade the intruder left: it cites that contract.
+    assert {row.assessment_contract_version_id for row in live} == {intruded}
+    maximum = _contract(repository, intruded)["rubric_max_points"]
+    assert maximum == (8 if intruder == "regrade" else 4)
+    assert _grade(repository, "att_r") == (round(0.25 * maximum), round(0.25 * maximum) / maximum)
+    _rebuild(vault, repository)
+    assert _grade(repository, "att_r") == (round(0.25 * maximum), round(0.25 * maximum) / maximum)
 
 
 # -- the readers ------------------------------------------------------------------------------

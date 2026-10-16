@@ -170,10 +170,27 @@ def next_grading_revision(rows: Iterable[Any]) -> int:
     return max([0, *revisions]) + 1
 
 
-def only_epoch(rows: Iterable[Any]) -> bool:
-    """Is every row (superseded included) one epoch, the attempt's first grade?"""
+def only_grade(rows: Iterable[Any]) -> bool:
+    """Is ``rows`` (every row of the attempt, superseded included) one write:
+    the attempt's first grade and nothing after it?
 
-    return len(group_epochs(rows)) == 1
+    One epoch key is not enough (review F3). Revision-less rows share the key
+    ``legacy:<created_at>``, so a regrade written in its original's second
+    falls under the original's key. Two signs say there was a second write:
+
+    * a superseded row: a grade's rows are only ever superseded by a later
+      write (a regrade, an adjudication, a clarification's resolution);
+    * two grading runs: one write carries at most one ``agent_run_id`` (a
+      joint grade's self-graded tier carries none beside its model tier's).
+    """
+
+    rows = list(rows)
+    if len(group_epochs(rows)) != 1:
+        return False
+    if any(_field(row, "superseded_at") is not None for row in rows):
+        return False
+    runs = {str(value) for row in rows if (value := _field(row, "agent_run_id"))}
+    return len(runs) <= 1
 
 
 __all__ = [
@@ -183,6 +200,6 @@ __all__ = [
     "epoch_key",
     "group_epochs",
     "next_grading_revision",
-    "only_epoch",
+    "only_grade",
     "ordered_epochs",
 ]

@@ -814,7 +814,39 @@ def append_adjudication_evidence_revision(
     Response-level semantics, matching ``_adjudicated_score_fraction``'s
     existing contract: the adjudication is observation-scoped, so one resolved
     fraction applies to every criterion of the attempt. Returns a typed status
-    dict; every skip arm is named rather than silent."""
+    dict; every skip arm is named rather than silent.
+
+    Every read it decides on (the current epoch, its contract, the next
+    grading revision) and the publication run in ONE ``BEGIN IMMEDIATE``
+    transaction (review F2): another regrade or adjudication of the attempt
+    commits wholly before it or after it, so two epochs never share a
+    revision and the revision cites the contract of the grade it revises."""
+
+    with repository.atomic():
+        return _append_adjudication_evidence_revision(
+            repository,
+            attempt_id=attempt_id,
+            resolved_fraction=resolved_fraction,
+            adjudication_id=adjudication_id,
+            adjudicator_source=adjudicator_source,
+            rationale=rationale,
+            vault=vault,
+            clock=clock,
+        )
+
+
+def _append_adjudication_evidence_revision(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    resolved_fraction: float,
+    adjudication_id: str,
+    adjudicator_source: str,
+    rationale: str | None,
+    vault: "LoadedVault | None",
+    clock: Clock | None,
+) -> dict[str, Any]:
+    """:func:`append_adjudication_evidence_revision` inside its transaction."""
 
     from learnloop.ids import new_ulid
     from learnloop.clock import utc_now_iso
@@ -930,8 +962,9 @@ def append_adjudication_evidence_revision(
                 "grading_revision": next_revision,
             }
         )
-    # One transaction: the revision, the attempt's grade and, for a verdict
-    # against the key, its C3 binding commit together.
+    # The revision, the attempt's grade and, for a verdict against the key,
+    # its C3 binding commit together, in the transaction the reads above ran
+    # in (this scope is a savepoint of it).
     with repository.atomic():
         if snapshot_of is not None:
             from learnloop.learner.assessment_contracts import snapshot_for_presentation

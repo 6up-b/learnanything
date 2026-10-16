@@ -1479,7 +1479,7 @@ def current_epoch_reading(
     ``mvp-0.26`` (see :class:`CurrentEpochReading`; the epoch rule is
     :func:`learnloop.grading_epochs.current_epoch`)."""
 
-    from learnloop.grading_epochs import current_epoch, only_epoch
+    from learnloop.grading_epochs import current_epoch, only_grade
 
     attempt_id = str(attempt["id"])
     rows = list(live_rows) if live_rows is not None else repository.fetch_grading_evidence(attempt_id)
@@ -1490,10 +1490,13 @@ def current_epoch_reading(
     if contract_version_id is not None:
         return CurrentEpochReading(rows=epoch.rows, contract_version_id=contract_version_id)
     score = int(attempt.get("rubric_score") or 0)
-    if only_epoch(repository.fetch_grading_evidence(attempt_id, include_superseded=True)):
+    if only_grade(repository.fetch_grading_evidence(attempt_id, include_superseded=True)):
         # The attempt's only grade, made before contracts: the compatibility
         # reading of the item it always had, unless its score no longer fits
-        # today's maximum (never a correctness above 1).
+        # today's maximum (never a correctness above 1). Only one write
+        # qualifies: a superseded row or a second grading run under the same
+        # revision-less key is a later write in the original's second (review
+        # F3), which is held like any other uncited later epoch.
         item = vault.practice_items.get(str(attempt.get("practice_item_id")))
         rubric = vault.rubric_for_item(item) if item is not None else None
         if rubric is None or score <= max(int(rubric.max_points), 1):

@@ -15,6 +15,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION, REGRADE_CONTRACT_ALGORITHM_VERSION
@@ -229,6 +230,229 @@ def test_upgrade_command_reaches_the_successor(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output
     assert load_vault(explicit.root).config.algorithms.algorithm_version == TARGET
+
+
+# -- a failed, interrupted or contended activation (review F1) ------------------------------------
+
+
+def _whole_database(sqlite_path):
+    """Every row of every table: the predecessor's whole state. A writable
+    connection opens first, so a hot journal a crash left is rolled back."""
+
+    Repository(sqlite_path).fetch_practice_attempt("none")
+    with connect(sqlite_path, read_only=True) as connection:
+        tables = [
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        ]
+        return {
+            table: sorted((tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"')), key=repr)
+            for table in tables
+        }
+
+
+def _fail_after(real, failure):
+    def wrapper(*args, **kwargs):
+        real(*args, **kwargs)
+        raise failure
+
+    return wrapper
+
+
+@pytest.mark.parametrize("stage", ["after_rebuild", "during_activation", "after_activation", "at_publication"])
+def test_a_failed_activation_leaves_the_predecessor_exactly_as_it_was(tmp_path, monkeypatch, stage):
+    """Review F1: a failure at any point before the config names mvp-0.26
+    leaves the predecessor's whole database as it was (no hold recorded, no
+    learner state replayed, no receipt) and the label at mvp-0.25; the
+    upgrade, run again, then succeeds."""
+
+    import learnloop.params.parameter_registry as registry
+    import learnloop.regrade_contract_upgrade as upgrade
+
+    paths, vault, repository = _legacy_vault(tmp_path)
+    before = _whole_database(paths.sqlite_path)
+    failure = OSError(f"injected: {stage}")
+    if stage == "after_rebuild":
+        monkeypatch.setattr(upgrade, "rebuild_all_derived_state", _fail_after(upgrade.rebuild_all_derived_state, failure))
+    elif stage == "during_activation":
+        monkeypatch.setattr(upgrade, "activate_p0_projection", _fail_after(upgrade.activate_p0_projection, failure))
+    elif stage == "after_activation":
+        monkeypatch.setattr(registry, "refresh", _fail_after(registry.refresh, failure))
+    else:
+
+        def rename_fails(*_args, **_kwargs):
+            raise failure
+
+        monkeypatch.setattr(upgrade, "rewrite_algorithm_version", rename_fails)
+
+    with pytest.raises(OSError, match="injected"):
+        upgrade_to_mvp026(paths.root, clock=CLOCK)
+
+    assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR
+    assert _whole_database(paths.sqlite_path) == before
+    assert not attempt_grade_held(repository, "att_blind") and not attempt_grade_held(repository, "att_self")
+    monkeypatch.undo()
+    result = upgrade_to_mvp026(paths.root, clock=CLOCK)
+    assert result.upgraded, result.problems
+    assert attempt_grade_held(repository, "att_blind") and attempt_grade_held(repository, "att_self")
+
+
+def test_a_failed_commit_after_publication_restores_the_predecessors_label(tmp_path, monkeypatch):
+    """Review F1: the config is published inside the activation's transaction;
+    when that transaction then fails to commit (here a deferred foreign key
+    the commit checks), the database rolls back and the config is restored to
+    mvp-0.25, so the label and the state still agree."""
+
+    import learnloop.params.parameter_registry as registry
+    import learnloop.regrade_contract_upgrade as upgrade
+
+    paths, vault, repository = _legacy_vault(tmp_path)
+    before = _whole_database(paths.sqlite_path)
+    real_refresh = registry.refresh
+    real_publish = upgrade.rewrite_algorithm_version
+    published: list[str] = []
+
+    def refresh_then_defer_a_broken_key(vault, repository, **kwargs):
+        written = real_refresh(vault, repository, **kwargs)
+        if published or vault.config.algorithms.algorithm_version != TARGET:
+            return written  # the manifest freeze refreshes the predecessor's registry first
+        # On the activation's own transaction: checked only at its commit.
+        with repository.connection() as connection:
+            connection.execute("PRAGMA defer_foreign_keys = ON")
+            connection.execute(
+                "INSERT INTO grading_evidence (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at) "
+                "VALUES ('ge_orphan', 'no_such_attempt', 'setup', 0, 1, '2026-12-01T12:00:00Z')"
+            )
+        return written
+
+    def publish(*args, **kwargs):
+        real_publish(*args, **kwargs)
+        published.append(load_vault(paths.root).config.algorithms.algorithm_version)
+
+    monkeypatch.setattr(registry, "refresh", refresh_then_defer_a_broken_key)
+    monkeypatch.setattr(upgrade, "rewrite_algorithm_version", publish)
+    with pytest.raises(sqlite3.IntegrityError):
+        upgrade_to_mvp026(paths.root, clock=CLOCK)
+
+    # The config named the successor, the commit failed, the label was restored.
+    assert published == [TARGET, PREDECESSOR]
+    assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR
+    assert _whole_database(paths.sqlite_path) == before
+
+
+_CRASH_AFTER_PUBLICATION = """
+import os, sys
+from pathlib import Path
+import learnloop.regrade_contract_upgrade as upgrade
+
+real = upgrade.rewrite_algorithm_version
+
+def publish_then_die(*args, **kwargs):
+    real(*args, **kwargs)
+    os._exit(17)  # the process dies: nothing after the rename runs, nothing commits
+
+upgrade.rewrite_algorithm_version = publish_then_die
+upgrade.upgrade_to_mvp026(Path(sys.argv[1]))
+"""
+
+
+def test_an_upgrade_interrupted_after_publication_is_resumed(tmp_path):
+    """Review F1: a process that dies after the config names mvp-0.26 but
+    before the activation commits leaves the successor's label over the
+    predecessor's untouched database (the transient state every successor
+    leaves until a rebuild, never the reverse). Doctor reports the stale
+    derived state, and running the upgrade again completes the activation:
+    the state equals an upgrade that was never interrupted."""
+
+    import subprocess
+    import sys
+
+    paths, vault, repository = _legacy_vault(tmp_path / "interrupted")
+    before = _whole_database(paths.sqlite_path)
+    crashed = subprocess.run(
+        [sys.executable, "-c", _CRASH_AFTER_PUBLICATION, str(paths.root)],
+        capture_output=True, text=True, timeout=600,
+    )
+    assert crashed.returncode == 17, crashed.stderr
+
+    assert load_vault(paths.root).config.algorithms.algorithm_version == TARGET
+    assert _whole_database(paths.sqlite_path) == before
+    assert "sql:derived_state_rebuild_stale" in {issue.code for issue in run_doctor(paths.root).issues}
+
+    resumed = upgrade_to_mvp026(paths.root, clock=CLOCK)
+
+    assert (resumed.upgraded, resumed.from_version, resumed.to_version) == (True, TARGET, TARGET), resumed.problems
+    [note] = resumed.notes
+    assert "completed" in note and "att_blind, att_self" in note
+    clean_paths, _vault_, clean = _legacy_vault(tmp_path / "clean")
+    upgrade_to_mvp026(clean_paths.root, clock=CLOCK)
+    assert _attempt_rows(repository) == _attempt_rows(clean)
+    assert _learner_state_snapshot(repository) == _learner_state_snapshot(clean)
+    assert repository.latest_derived_state_rebuild()["algorithm_version"] == TARGET
+    again = upgrade_to_mvp026(paths.root, clock=CLOCK)
+    assert again.upgraded is False and again.problems == [f"vault is already {TARGET}"]
+
+
+def test_no_writer_interleaves_between_the_scan_and_the_publication(tmp_path, monkeypatch):
+    """Review F1, concurrent writers: from the scan of the attempts it holds
+    to the config's publication, the activation holds the database's write
+    lock (one ``BEGIN IMMEDIATE``) and the vault mutation lock, so no regrade,
+    adjudication or item edit lands between what it read and what it
+    publishes."""
+
+    import threading
+
+    import learnloop.regrade_contract_upgrade as upgrade
+    from learnloop.vault_lock import VaultLockTimeout, vault_mutation_lock
+
+    paths, vault, repository = _legacy_vault(tmp_path)
+    observed: dict[str, tuple[bool, bool]] = {}
+
+    def contended():
+        other = sqlite3.connect(paths.sqlite_path, timeout=0)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+            database_locked = False
+        except sqlite3.OperationalError as error:
+            database_locked = "locked" in str(error)
+        finally:
+            other.close()
+        vault_locked: list[bool] = []
+
+        def try_vault_lock():
+            try:
+                with vault_mutation_lock(paths.root, purpose="contender", timeout_s=0):
+                    vault_locked.append(False)
+            except VaultLockTimeout:
+                vault_locked.append(True)
+
+        thread = threading.Thread(target=try_vault_lock)
+        thread.start()
+        thread.join()
+        return database_locked, vault_locked[0]
+
+    real_scan = upgrade.unrecorded_epoch_attempts
+    real_publish = upgrade.rewrite_algorithm_version
+
+    def scan(*args, **kwargs):
+        observed["scan"] = contended()
+        return real_scan(*args, **kwargs)
+
+    def publish(*args, **kwargs):
+        observed["publication"] = contended()
+        return real_publish(*args, **kwargs)
+
+    monkeypatch.setattr(upgrade, "unrecorded_epoch_attempts", scan)
+    monkeypatch.setattr(upgrade, "rewrite_algorithm_version", publish)
+    result = upgrade_to_mvp026(paths.root, clock=CLOCK)
+
+    assert result.upgraded, result.problems
+    assert observed == {"scan": (True, True), "publication": (True, True)}
+    # Released once the activation committed.
+    assert contended() == (False, False)
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):
