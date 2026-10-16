@@ -655,3 +655,23 @@ def test_grading_reads_the_contract_the_answer_was_graded_under(tmp_path):
     # The dry-run estimate reads exactly the prompt the call sends.
     _item, _rubric, context = ai_compare._grading_context(vault, repository, attempt)
     assert blind_grading_prompt(context) == prompt
+
+
+def test_each_run_writes_its_own_report(source, server, tmp_path):
+    """Two runs in the same second used to share ``<stamp>.json``, the second
+    overwriting the first; a report is named after its run (the
+    ``compare_run_id`` its judgments carry) and never overwrites."""
+
+    server.default_reply = responder()
+    reports = tmp_path / "reports"
+    args = ["--vault", str(source), "--profiles", "chatgpt", "--attempt", "att_06_svd_fail", "--no-diagnosis",
+            "--no-generation", "--output", str(reports)]
+    paths = []
+    for _ in range(2):
+        result, report = _invoke(*args)
+        assert result.exit_code == 0, result.stdout
+        path = Path(report["report_path"])
+        assert path.name.endswith(f"-{report['run_id']}.json")
+        assert json.loads(path.read_text(encoding="utf-8"))["run_id"] == report["run_id"]
+        paths.append(path)
+    assert len(set(paths)) == 2 and sorted(reports.glob("*.json")) == sorted(paths)

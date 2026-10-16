@@ -209,7 +209,7 @@ written: the copy gets receipts and the comparison's verdicts in its
 `judgment_ledger` (tasks `ai_compare_grading` / `_diagnosis` /
 `_generation`, right side the profile; no serving reader names them). The
 report (ids, numbers and local explanations only;
-`fixtures-local/reports/ai-compare/<stamp>.json`):
+`fixtures-local/reports/ai-compare/<stamp>-<run_id>.json`, never overwritten):
 
 - per call: parsed, valid, error class, a failure's code, HTTP status,
   parameter name and request ids with a locally written hint (never the

@@ -545,9 +545,12 @@ def ai_compare(
         return
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     output.mkdir(parents=True, exist_ok=True)
-    path = output / f"{stamp}.json"
+    # Named after the run (its judgments' compare_run_id): two runs in one
+    # second never share a file, and "x" never overwrites an earlier report.
+    path = output / f"{stamp}-{report['run_id']}.json"
     payload = {"version": 1, "dry_run": False, "vault": str(loaded.root), "copied": copied, **report}
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n")
     if json_output:
         typer.echo(_dump({**payload, "report_path": str(path)}))
         return
