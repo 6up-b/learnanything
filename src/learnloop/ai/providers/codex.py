@@ -146,7 +146,12 @@ def isolated_turn_overrides(
     creates a table without one and Codex refuses to start (codex-cli
     0.163.0). :meth:`SdkCodexClient._verified_isolated_overrides` chooses
     them and checks the result. With ``shell=False`` (no workspace to read)
-    the command tools are off too, so the model has nothing but its prompt.
+    the command tools are off too, so nothing in the turn can read a file.
+    codex-cli 0.163.0 still offers such a turn utility tools: code mode's
+    ``exec``/``wait`` (over the same tools), ``request_user_input`` and, from
+    the model's own metadata, sub-agents (``features.multi_agent`` no longer
+    governs them). A sub-agent inherits the turn's permission profile,
+    working directory and features, so it stays inside the same boundary.
     """
 
     root = str(Path(readable_root).resolve())
