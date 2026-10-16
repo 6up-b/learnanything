@@ -2056,6 +2056,7 @@ def accept_probe_offer(
     learning_object_id = item.learning_object_id
 
     from learnloop.diagnosis.probe_episodes import (
+        RoutineDisplayCovered,
         commit_presentation,
         eligible_instruments,
         enter_episode,
@@ -2144,28 +2145,39 @@ def accept_probe_offer(
                     str(value) for value in already.get("blind_bundle_ids") or []
                 ),
             )
-    presentation = commit_presentation(
-        vault,
-        repository,
-        episode,
-        eligible[0],
-        extra_selection_components={
-            # Nested under one key: the near-clone basis reads top-level
-            # `source_practice_item_id`, and adding sibling keys there would
-            # change an unrelated eligibility decision.
-            "causal_probe": {
-                "causal_factor_id": factor_id,
-                "causal_probe_candidate_id": str(candidate["id"]),
-                "hypothesis_set_id": str(candidate["hypothesis_set_id"]),
-                "blind_bundle_ids": list(bundle_ids),
-                "decision_receipt_id": decision_receipt_id,
-                "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
-                "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
-                "session_id": session_id,
-            }
-        },
-        clock=clock,
-    )
+    try:
+        presentation = commit_presentation(
+            vault,
+            repository,
+            episode,
+            eligible[0],
+            extra_selection_components={
+                # Nested under one key: the near-clone basis reads top-level
+                # `source_practice_item_id`, and adding sibling keys there would
+                # change an unrelated eligibility decision.
+                "causal_probe": {
+                    "causal_factor_id": factor_id,
+                    "causal_probe_candidate_id": str(candidate["id"]),
+                    "hypothesis_set_id": str(candidate["hypothesis_set_id"]),
+                    "blind_bundle_ids": list(bundle_ids),
+                    "decision_receipt_id": decision_receipt_id,
+                    "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
+                    "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+                    "session_id": session_id,
+                }
+            },
+            clock=clock,
+        )
+    except RoutineDisplayCovered:
+        # Its answer was just shown on a routine display (UX Phase 4 round 6):
+        # no probe is administered for it until that coverage ends.
+        return ProbeOffer(
+            accepted=False,
+            reason="probe_item_answer_shown",
+            factor_id=factor_id,
+            episode_id=episode.id,
+            candidate_id=str(candidate["id"]),
+        )
     return ProbeOffer(
         accepted=True,
         reason="probe_pinned",

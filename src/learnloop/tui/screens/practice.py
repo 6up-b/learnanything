@@ -32,7 +32,7 @@ from learnloop.diagnosis.probe_episodes import (
     stop_diagnosing_and_teach,
 )
 from learnloop.learner.mastery import sigmoid
-from learnloop.scheduling.scheduler import ScheduledItem
+from learnloop.scheduling.scheduler import ScheduledItem, cold_check_serve_hold
 from learnloop.tui.state import TuiState
 from learnloop.vault.required_method import presented_prompt
 from learnloop.tui.widgets import (
@@ -96,6 +96,11 @@ class PracticeScreen(Screen):
         # attempt for it. Opening the item again builds a new screen and so
         # starts a new attempt.
         self.submission_id = new_ulid()
+        # UX Phase 4 round 6: opening the item is the TUI's serve. A cold check
+        # whose answer a routine display covers (shown since this list was
+        # built, on the desktop) is deferred here, so the answer is an
+        # ordinary one and no cold check is administered.
+        cold_check_serve_hold(state.vault, state.repository, item.practice_item_id)
         # Probe redesign §12: the same measurement contract the Tauri surface
         # enforces. Committing the presentation is the serve event (§5.1).
         self.probe_contract: dict | None = None
