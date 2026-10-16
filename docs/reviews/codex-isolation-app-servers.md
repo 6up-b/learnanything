@@ -324,3 +324,149 @@ full-suite result from that run should be treated as void and rerun.
 3. **SDK checkout age.** The SDK in `~/Documents/thinking/codex` is from
    2026-06-02 while the CLI is 0.163.0 (2026-10-15). It still drives the app
    server correctly (calls 2 to 4). Updating it is the owner's call.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch
+`merge/codex-isolation-onto-main`. The stage's base is `495c7437f` and its tip
+`41571f49c`. Main's tip was `b80aeca8c` (the ChatGPT-plan peer landing,
+mvp-0.25, schema head 206). The merge commit is `f1262b755`; `be336382a`
+regenerates the references and maps the launch check; the commit that adds this
+section is the last. Main itself was neither fast-forwarded nor pushed here.
+
+### Merge
+
+- **No conflicts.** No file changed on both sides. Main since `495c7437f`
+  touched neither `ai/providers/codex.py`, `ai/isolation.py` nor
+  `tests/project_support.py`.
+- **The overlaps checked by hand.**
+  - Main's ChatGPT plan imports only `TOOL_FREE` from `ai/isolation.py`.
+    Outside tests, `sandboxed_command`/`sandbox_arguments` are called only from
+    `codex.py` and from `isolation.py`'s own `write_launcher`. The start
+    directory is optional, so no other call changes.
+  - Main's new tests (`test_chatgpt_plan_workspace`,
+    `test_chatgpt_plan_landing`, `test_ai_compare`) run no Codex turn.
+    `test_chatgpt_plan_workspace` only resolves Codex as the plan's fallback.
+    None needs the `_codex_probe` stub.
+- **Stage, isolation and composition tests**, run together on the merged tree
+  before the gate: **566 passed**. The set: `test_codex_isolation_mcp_check`,
+  `test_ai_tool_isolation`, `test_diagnosis_isolation`,
+  `test_diagnosis_history_modes`, `test_pf_generation`,
+  `test_codex_output_schema`, `test_chatgpt_plan_landing`,
+  `test_chatgpt_plan_provider`, `test_chatgpt_plan_workspace`,
+  `test_ai_compare`, `test_coordinated_migrations`.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then
+  `db_validate_reference.py`: `errors: []`, 325 table notes at head 206, no
+  schema or configuration-leaf change. Besides the source-commit labels, the
+  `ai.providers.codex.*` citations move with `codex.py`'s line shifts, and the
+  generated test lists now name `tests/codex_cli_fakes.py` and
+  `tests/test_codex_isolation_mcp_check.py`.
+- **CLI help snapshot.** Unchanged: no CLI change, and
+  `test_cli_help_snapshot.py` passes on the merged tree.
+- **The Pipeline Map.** One AI-layer entry for the isolated turn's launch
+  check, `codex.py` and `isolation.py` among the source paths, and this record
+  in the gaps list. `validate_vault.py` passes (1,110 notes).
+- **Validators that already fail on main, run on both trees:**
+  `module_validate.py` reports 763 issues on main and the same 763 here (the
+  outputs are identical; `ai/isolation.py`'s missing module note is main's).
+  `desktop_validate.py` was not run: nothing under `apps/` differs from main.
+  No new kind of failure.
+
+### Gate
+
+Run on `be336382a`, the final code tree; the only later commit adds this
+section. `TMPDIR` was merge2's `fixtures-local/tmp`. Commands used
+`uv run --no-sync`, and both suite lanes held
+`flock /tmp/learnloop-fullsuite.lock`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `pytest -n auto` (full suite) | **12,083 passed, 2 xfailed**, 0 failed, 0 skipped (14 min 57 s) |
+| `pytest -m durability` | **106 passed**, 11,979 deselected (1 min 52 s) |
+| frontend / `src-tauri` | not run: the combined diff does not touch `apps/` |
+| tracked fixtures | `git status` clean after both lanes |
+
+The 2 xfails are main's strict F2/F3 in `test_diagnosis_input_provenance_landing.py`. Neither known flake (the read-model
+pinning thread, the plan provider's deadline test) appeared.
+
+### The launch check on the combined tree (no model call)
+
+A driver (session scratchpad) ran only
+`SdkCodexClient._verified_isolated_overrides`, the step `_run_sdk_turn` takes
+before it starts the app server. It used the same `_Deadline` that
+`_run_sdk_turn` sets, default `CodexConfig()` and an empty
+`LEARNLOOP_CONFIG_DIR`, in an empty scratch directory under merge2's
+`fixtures-local/tmp`. It ran once on the host and once in bubblewrap, under a
+`ToolIsolation` whose working directory holds the turn's empty directory, as
+`complete()` makes it. No SDK import, no app server, no model request. Only
+server names, enabled state and three feature states were recorded. The CLI
+was `/usr/bin/codex`, codex-cli 0.163.0.
+
+| Where | Time | Listed under the isolated overrides | Pinned by name | Exact launch set |
+|---|---|---|---|---|
+| host | 0.53 s | `node_repl` on, `openaiDeveloperDocs` on | both | both off; `apps`, `plugins`, `shell_tool` false |
+| inside bubblewrap | 0.44 s | `node_repl` on, `openaiDeveloperDocs` on | both | both off; `apps`, `plugins`, `shell_tool` false |
+
+Both passed. For contrast, the same listing with **no** overrides (host)
+shows `codex_app` (off) and `cua_repl` (on) as well. These are the plugin
+servers the old code pinned by name, which made 0.163.0 refuse to start. Under
+the isolation features they are absent, so the fix is still doing the work
+after the merge.
+
+### Parity (backup-API copies; no model call)
+
+- **The copies.** The owner's `fixtures/linear_algebra` and
+  `fixtures/probability` were copied with `copy_tree_with_databases` into
+  `fixtures-local/landing-codex-iso/orig/`. The copy includes probability's
+  `.learnloop/state.sqlite`. Each original was read once, and every per-side
+  copy was made from `orig/`. `arxiv_v2` was not opened.
+- **The two codes.** Main's code is `b80aeca8c`, from `git archive` (the whole
+  tree but `fixtures/`), first on `PYTHONPATH`. The merge's code is the
+  worktree's own. Each run printed the `learnloop` package it imported.
+- **The run.** `LEARNLOOP_CONFIG_DIR` was empty (it stayed empty), and
+  `LEARNLOOP_AI_PROVIDER` was unset. Every copy has 0 `model_call_receipts`
+  afterwards.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| upgrade, main's code / the merge's | 165 → 206 (41 migrations) on both; schema hash identical | 165 → 206 (41) on both; schema hash identical |
+| `rebuild --shadow --json`, main vs merge | 0 differences (summary facet 0, mastery 2, schedule 8; live unchanged) | 0 differences (facet 0, mastery 1, schedule 1; live unchanged) |
+| `doctor --json`, main vs merge | 0 differences (57 issues, 1 error) | 0 differences (101 issues, 48 errors, 46 `criterion:unknown_dependency`) |
+| upgrade shadow: main's code upgrades a copy, then the merge's code opens it | applies 0 migrations; shadow and doctor equal main's | applies 0; shadow and doctor equal main's |
+
+No migration was expected, and the results are identical. The shadow and
+doctor runs left every live database byte-identical: the sha256 matched
+before and after.
+
+A first parity attempt archived only `src`, `docs`, `tests` and
+`pyproject.toml` for main. Main's code then found no `migrations/` and applied
+nothing (head stayed 165), so that attempt was discarded. All three per-side
+copies were remade from `orig/`, and everything above comes from the rerun
+with the full archive.
+
+### Open items
+
+1. **Sub-agents in "tools off" turns on 0.163.0** (section 7, open question 1).
+   They stay inside the read boundary but cost extra requests. A follow-up
+   should add `[agents] enabled = false` behind a probe that keeps it only on
+   CLIs that accept it, verified live.
+2. **Selected plugin roots** register MCP servers even with
+   `features.plugins=false`. LearnLoop selects none today, and the `mcp list`
+   check would not see them if it ever did (open question 2).
+3. **The SDK checkout's age.** `~/Documents/thinking/codex` is from
+   2026-06-02 while the CLI is 0.163.0. It still drives the app server.
+   Updating it is the owner's call (open question 3).
+4. **Profile options before `app-server`** in an `sdk_launch_command` (such
+   as `-p/--profile`) reach the probes but not the app server. The check can
+   see more than the launch, never less, and a server defined only by a
+   profile fails closed at launch. `sdk_launch_command` is empty by default
+   (Codex review, F2 residual).
+5. **The startup-hang deadline.** App server startup and `thread_start` count
+   against the request's deadline, but a hang inside them is not interrupted
+   by it. The turn's timer is armed only after `thread.turn(...)`. This is
+   pre-existing, not widened (Codex review, F3 residual).
