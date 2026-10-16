@@ -10,7 +10,8 @@ metered and unknown profiles are refused. Codex review fixes (2026-10-15):
 F1 a relocated or non-``.sqlite`` database is copied and relocated, F2 the
 tutor's own draft validator, F3 failures as codes (no provider prose), F4 the
 frozen assessment contract, F5 comparison judgments, F6 subscription spend
-accounting. No test leaves 127.0.0.1.
+accounting; re-review: F7 the database a symlinked path opens, F8 each
+request's output budget. No test leaves 127.0.0.1.
 """
 from __future__ import annotations
 
@@ -375,7 +376,7 @@ def test_a_run_on_a_copy_reports_agreement_validity_latency_tokens_and_allowance
             assert model == row["model"] and version and input_hash
             assert json.loads(verdict)["rubric_score"] == call["rubric_score"]
             assert json.loads(rationale) == {"authority": "none", "compare_run_id": report["run_id"],
-                                             "compare_version": 2}
+                                             "compare_version": 3}
         task, _kind, left_id, _rk, right_id, judge, *_rest = judgments[row["diagnosis"]["judgment_id"]]
         assert (task, left_id, right_id, judge) == ("ai_compare_diagnosis", "att_07_svd_future", row["provider"],
                                                     "diagnoser")
@@ -675,3 +676,127 @@ def test_each_run_writes_its_own_report(source, server, tmp_path):
         assert json.loads(path.read_text(encoding="utf-8"))["run_id"] == report["run_id"]
         paths.append(path)
     assert len(set(paths)) == 2 and sorted(reports.glob("*.json")) == sorted(paths)
+
+
+# -- Codex re-review F7: the database the configuration opens, through symlinks ----------------
+
+
+def _probe_database(database: Path, value: str) -> None:
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("CREATE TABLE compare_source_probe(value TEXT)")
+        connection.execute("INSERT INTO compare_source_probe VALUES (?)", (value,))
+        connection.commit()
+
+
+@pytest.mark.parametrize("layout", ["absolute", "relative", "inside"])
+def test_copy_from_backs_up_the_database_a_symlinked_path_opens(source, tmp_path, layout):
+    """A symlinked directory followed by ``..`` opens the database beside the
+    link's target, as the operating system resolves it (``current/../state.db``
+    with ``current`` -> ``releases/v1`` is ``releases/state.db``); a lexical
+    reading picks the ``state.db`` beside ``current``, another database. The
+    copy backs up the database the vault opens (``absolute``, ``relative``);
+    one the tree holds through a symlinked directory stays where the tree copy
+    puts it (``inside``)."""
+
+    from learnloop.cli.ai_compare import copy_vault, database_location_reason
+
+    database = VaultPaths(source, load_vault(source).config).sqlite_path
+    decoy = None
+    if layout == "absolute":
+        data = tmp_path / "data"
+        (data / "releases" / "v1").mkdir(parents=True)
+        (data / "current").symlink_to(data / "releases" / "v1", target_is_directory=True)
+        opened = data / "releases" / "state.db"
+        decoy = data / "state.db"  # beside the link: what normpath() selects
+        configured = str(data / "current" / ".." / "state.db")
+    elif layout == "relative":
+        (tmp_path / "outside" / "inner").mkdir(parents=True)
+        (source / "current").symlink_to(tmp_path / "outside" / "inner", target_is_directory=True)
+        opened = tmp_path / "outside" / "state.db"
+        configured = "current/../state.db"
+    else:
+        (tmp_path / "store").mkdir()
+        (source / "data").symlink_to(tmp_path / "store", target_is_directory=True)
+        opened = tmp_path / "store" / "state.db"
+        configured = "data/state.db"
+    database.rename(opened)
+    _probe_database(opened, "opened")
+    if decoy is not None:
+        _probe_database(decoy, "decoy")
+    _set_storage(source, configured)
+    assert VaultPaths(source, load_vault(source).config).sqlite_path.resolve() == opened.resolve()
+    originals = {path: _digest(path) for path in (opened, decoy) if path is not None}
+    copy = tmp_path / "copies" / layout
+    copied = copy_vault(source, copy)
+    held = Path("data/state.db") if layout == "inside" else Path("state.db")
+    assert copied == [copy / held]
+    copied_vault = load_vault(copy)
+    assert copied_vault.config.storage.sqlite_path == held.as_posix()
+    assert VaultPaths(copy, copied_vault.config).sqlite_path.resolve() == (copy / held).resolve()
+    assert database_location_reason(copied_vault) is None
+    assert _rows(copy / held, "SELECT value FROM compare_source_probe") == [("opened",)]
+    assert {path: _digest(path) for path in originals} == originals
+
+
+# -- Codex re-review F8: each request carries the output budget its estimate reports ----------
+
+
+def test_each_request_carries_the_output_budget_its_estimate_reports(source, server, tmp_path):
+    """``ai.route_output_tokens`` per route: the dry run reports each call's
+    output budget, and the grading, diagnosis and generation requests carry
+    that budget (the plan route takes no ``max_output_tokens``, so it states
+    the budget in the prompt). The subscription exemption holds: no
+    physical-request bound, every workspace round of the diagnosis runs."""
+
+    from learnloop.ai.routing import client_for_provider
+    from learnloop.cli.ai_compare import CompareRequest, run_compare
+    from learnloop.vault.repository import open_vault_repository
+
+    path = source / "learnloop.toml"
+    document = tomlkit.parse(path.read_text(encoding="utf-8"))
+    budgets = tomlkit.table()
+    for route, tokens in {"grading": 1234, "diagnosis": 2345, "teach_back": 3456}.items():
+        budgets[route] = tokens
+    document["ai"]["route_output_tokens"] = budgets
+    path.write_text(tomlkit.dumps(document), encoding="utf-8")
+    expected = {"grading": 1234, "diagnosis": 2345, "generation": 3456}
+    result, plan = _invoke("--vault", str(source), "--profiles", "chatgpt", "--attempt", "att_06_svd_fail",
+                           "--dry-run")
+    assert result.exit_code == 0, result.stdout
+    assert {row["kind"]: row["output_tokens"]
+            for row in plan["estimate"]["profiles"]["chatgpt"]["planned"]} == expected
+
+    server.default_reply = responder()
+    vault = load_vault(source)
+    repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+    captured: list[int | None] = []
+
+    class Capturing:
+        def __init__(self, client):
+            self._client = client
+
+        def __getattr__(self, name):
+            return getattr(self._client, name)
+
+        def complete(self, request):
+            captured.append(request.output_budget_tokens)
+            return self._client.complete(request)
+
+    request = CompareRequest(profiles=("chatgpt",), attempt_ids=("att_06_svd_fail",))
+    report = run_compare(vault, repository, request, client_factory=lambda name: Capturing(
+        client_for_provider(vault.root, vault.config, name, timeout_seconds=request.timeout_seconds)))
+    [row] = report["results"]
+    assert captured == [expected["grading"], expected["diagnosis"], expected["generation"]]
+    # The report says which budget each call was sent with.
+    calls = [row["grading"]["att_06_svd_fail"], row["diagnosis"], row["generation"]]
+    assert [call["spend"]["output_budget_tokens"] for call in calls] == captured
+    # On the wire: every round of every call states its own budget once.
+    prefixes = {"learnloop blind grading proposal": 1234, "learnloop diagnosis proposal": 2345,
+                "learnloop source-item teach-back authoring": 3456}
+    for sent in server.requests:
+        content = sent["body"]["input"][0]["content"]
+        [budget] = [tokens for prefix, tokens in prefixes.items() if content.startswith(prefix)]
+        assert content.endswith(f"Keep the complete JSON response within {budget} output tokens."), content[-120:]
+        assert content.count("Keep the complete JSON response within") == 1
+    assert row["diagnosis"]["valid"] and row["diagnosis"]["physical_requests"] == 3
+    assert row["grading"]["att_06_svd_fail"]["valid"] and row["generation"]["valid"]

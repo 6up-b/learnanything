@@ -45,8 +45,11 @@ has a :class:`~learnloop.ai.spend.SpendBudget` (``subscription=True``) whose
 call cap is the plan; every call is admitted by it before it is sent (so its
 root receipt records the caps, ``cost_basis = estimated_only`` and no
 physical-request bound) and reconciled with the usage the transport
-reported. The dry run estimates every planned call (input, the snapshot
-export a diagnosis may read, and the output budget) in both output formats.
+reported. Each call's requests are sent with the route's output budget
+(``ai.route_output_tokens``, else the shared default), the figure the
+estimate reserves. The dry run estimates every planned call (input, the
+snapshot export a diagnosis may read, and the output budget) in both output
+formats.
 """
 from __future__ import annotations
 
@@ -69,7 +72,7 @@ import tomlkit
 
 from learnloop.ai.chatgpt_plan.session import MANAGE_USAGE_URL, PlanSession
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
-from learnloop.ai.execution import annotate_calls, content_key, tee_model_calls
+from learnloop.ai.execution import annotate_calls, content_key, generation_limit, tee_model_calls
 from learnloop.ai.output_budget import output_budget
 from learnloop.ai.routing import (
     client_for_provider,
@@ -123,8 +126,9 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 from learnloop.vault.paths import VaultPaths
 
 #: 2: failures as codes (no provider prose), spend per call and profile,
-#: judgment ids, the database-relocating copy.
-COMPARE_VERSION = 2
+#: judgment ids, the database-relocating copy. 3: each request is sent with
+#: its route's output budget (``spend.output_budget_tokens``).
+COMPARE_VERSION = 3
 DEFAULT_GRADING_ATTEMPTS = 3
 DIAGNOSIS_MODES = ("snapshot", "full", "exact")
 #: Prompt-side token estimate: ~4 bytes of UTF-8 per token (the diagnoser's own rounding).
@@ -267,15 +271,37 @@ def _relocate_database(destination: Path, relative: Path) -> None:
     path.write_text(tomlkit.dumps(document), encoding="utf-8")
 
 
+def _opened_database(root: Path, configured: str) -> Path:
+    """The database file ``configured`` (relative to ``root``) opens, as the operating system resolves it.
+
+    Every directory on the way is resolved where the kernel resolves it: a
+    symlinked directory followed by ``..`` lands beside the link's target, not
+    beside the link, so ``os.path.normpath`` (which drops the pair) can name
+    another database (Codex re-review F7). The file name is kept as written,
+    and so is the lexical path when it reaches the same directory: a database
+    the tree holds through a symlink (the file itself, or a directory) is the
+    tree's, and the tree copy backs it up through that link at that path.
+    """
+
+    path = root / configured
+    physical = Path(os.path.realpath(path.parent)) / path.name
+    lexical = Path(os.path.normpath(path))
+    if _inside(lexical, root) and Path(os.path.realpath(lexical.parent)) == physical.parent:
+        return lexical
+    return physical
+
+
 def copy_vault(source: Path, destination: Path) -> list[Path]:
     """A backup-API copy of ``source`` at ``destination`` (which must not exist yet).
 
-    The source's configured database is resolved first (Codex review F1): a
+    The source's configured database is resolved first, to the file the
+    vault opens (Codex review F1, re-review F7: symlinks before ``..``): a
     database named other than ``*.sqlite`` is copied through the backup API
-    too (never byte-copied with its ``-wal``), and one configured outside the
-    source tree (an absolute or ``..`` path) is backed up into the copy. Either
-    way the copy's configuration then names its own database, and the copy
-    is refused unless its database lies inside it.
+    too (never byte-copied with its ``-wal``), and one outside the source tree
+    (an absolute or ``..`` path, or one through a symlinked directory) is
+    backed up into the copy. Either way the copy's configuration then names
+    its own database, and the copy is refused unless that is the backup it
+    made, inside it.
     """
 
     source, destination = Path(source).resolve(), Path(destination).resolve()
@@ -287,8 +313,7 @@ def copy_vault(source: Path, destination: Path) -> list[Path]:
     if source == destination or source in destination.parents:
         raise CompareRefused("--vault must lie outside the vault it copies.", code="copy_inside_source")
     configured = _configured_database(source, flag="--copy-from")
-    # Lexical, so a database the tree holds through a symlink is the tree's.
-    database = Path(os.path.normpath(source / configured))
+    database = _opened_database(source, configured)
     internal = _inside(database, source)
     if not internal and (source / database.name).exists():
         raise CompareRefused(
@@ -297,20 +322,24 @@ def copy_vault(source: Path, destination: Path) -> list[Path]:
     destination.parent.mkdir(parents=True, exist_ok=True)
     copied = copy_tree_with_databases(source, destination, database_names={database.name})
     if internal:
+        # Where the tree copy put the backup. The copy's configuration keeps
+        # only a plain relative path to it: an absolute one, or one through
+        # ``..``, may still name the source's database from the copy.
         relative = database.relative_to(source)
-        # An absolute path, or one that leaves the tree and comes back by
-        # name, would still name the source's database from the copy.
-        if Path(os.path.normpath(destination / configured)) != destination / relative:
+        if Path(configured) != relative:
             _relocate_database(destination, relative)
     else:
+        relative = Path(database.name)
         if database.exists():
-            target = destination / database.name
+            target = destination / relative
             backup_database(database, target)
             copied.append(target)
-        _relocate_database(destination, Path(database.name))
+        _relocate_database(destination, relative)
+    # The placement is checked on its own, from the copy's configuration as
+    # written: it must open the backup made above, inside the copy.
     placed = (destination / _configured_database(destination, flag="--vault")).resolve()
-    if not _inside(placed, destination):  # pragma: no cover - the relocation above always places it inside
-        raise CompareRefused(f"The copy's database ({placed}) lies outside {destination}.",
+    if placed != (destination / relative).resolve() or not _inside(placed, destination):  # pragma: no cover
+        raise CompareRefused(f"The copy's database ({placed}) is not the backup inside {destination}.",
                              code="copy_database_outside")
     return copied
 
@@ -862,7 +891,8 @@ def _profile_estimate(vault: LoadedVault, profile: Mapping[str, Any], operations
 _ESTIMATE_BASIS = (
     "prompt bytes / 4 for each call's input; a snapshot diagnosis adds its whole export once (Codex reads it "
     "in its sandbox; the ChatGPT plan serves at most max_workspace_chars and resends what it served each "
-    "round, so a multi-round turn can exceed this); output at the route's output budget. Subscription: no "
+    "round, so a multi-round turn can exceed this); output at the route's output budget, which every request "
+    "is sent with (a target the model is told; neither transport has a hard cap). Subscription: no "
     "marginal dollar cost (estimated_usd null), no physical-request bound; reported usage reconciles it."
 )
 
@@ -959,14 +989,20 @@ def run_compare(
             if stopped is not None:
                 return {"parsed": False, "valid": False, "error": f"not_run: {stopped}"}
             tokens = int(planned[(kind, target)]["total_tokens"])
+            output = int(planned[(kind, target)]["output_tokens"])
             say(f"{name}: {kind} {target}")
             try:
                 # Admitted before anything is sent: the root receipt records the
                 # caps in force (subscription, estimated_only, no physical-request
-                # bound) and what this call is.
+                # bound) and what this call is. Every request is sent with the
+                # route's output budget the estimate reserved (Codex re-review
+                # F8); the plan and Codex state it in the prompt, as neither
+                # takes a hard cap. No physical-request bound (single_request)
+                # is set: a workspace turn's rounds all run.
                 with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=None)) as charge, \
                         annotate_calls(ai_compare={"run_id": run_id, "kind": kind, "target": target,
-                                                   "planned_total_tokens": tokens}):
+                                                   "planned_total_tokens": tokens}), \
+                        generation_limit(output):
                     outcome = _timed(work, client, provider=name)
                     reported = (outcome.get("input_tokens") or 0) + (outcome.get("output_tokens") or 0)
                     charge.reconcile(total_tokens=reported or None)
@@ -975,6 +1011,7 @@ def run_compare(
                 return {"parsed": False, "valid": False, "error": "not_run: spend_cap"}
             outcome["spend"] = {
                 "planned_total_tokens": tokens,
+                "output_budget_tokens": output,
                 **subscription_usage_estimate(outcome, planned_tokens=tokens, price_per_token=None),
             }
             judgment = outcome.pop("_judgment", None)
