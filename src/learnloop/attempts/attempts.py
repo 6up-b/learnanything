@@ -2375,29 +2375,39 @@ def reveal_total_for_submission(
     whatever attempts came between, since a full answer can stay on screen
     across them, and also when stamped after now (the clock went back after it
     was written). The submitting draft's own self-grade disclosure is exempt
-    only for exactly the trace it froze: rows naming its retry key AND the
-    hash of the trace submitted (round 4, F1-2), never the key alone."""
+    only for exactly the trace it froze: rows whose structured identity has
+    its retry key AND the hash of the trace submitted, each compared for
+    equality (rounds 4 and 5, F1-2; ``reveal_ledger.is_own_disclosure``)."""
 
     from learnloop.attempts.reveal_ledger import (
         ROUTINE_ANSWER_DISPLAY_BASES,
-        own_disclosure_bases,
+        is_own_disclosure,
         routine_display_lapsed_before,
     )
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
-    exempt_bases, exempt_prefixes = own_disclosure_bases(submission_id, learner_answer_md)
-    return repository.total_reveal_amount(
+    covered_from = routine_display_lapsed_before(until or utc_now_iso(clock))
+    total = repository.total_reveal_amount(
         practice_item_id,
         since=since,
         until=until,
         linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
         linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
         routine_basis_prefixes=ROUTINE_ANSWER_DISPLAY_BASES,
-        routine_covered_from=routine_display_lapsed_before(until or utc_now_iso(clock)),
-        exempt_bases=exempt_bases,
-        exempt_basis_prefixes=exempt_prefixes,
+        routine_covered_from=covered_from,
     )
+    if submission_id and covered_from is not None:
+        # The submission's own disclosure rows among those counted: parsed and
+        # compared field by field, never matched by string.
+        total -= sum(
+            float(row.get("amount") or 0.0)
+            for row in repository.reveal_events(practice_item_id=practice_item_id, source_kind="answer_display")
+            if is_own_disclosure(row, submission_id, learner_answer_md)
+            and str(row.get("created_at") or "") >= covered_from
+            and (until is None or str(row.get("created_at") or "") <= until)
+        )
+    return max(total, 0.0)
 
 
 def auto_primed_draft(
