@@ -3,8 +3,8 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "94b8398c6e80ff717a6ffa56df99099b568cec9e"
-source_commit_timestamp: "2026-10-16T02:35:20-04:00"
+source_commit: "100c72cd92be0da3da867b1718acf341bfa905b9"
+source_commit_timestamp: "2026-10-16T03:35:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml mastery"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/attempts/attempts.py"
+  - "tests/codex_cli_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
@@ -33,9 +34,8 @@ source_paths:
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
+  - "tests/test_codex_isolation_mcp_check.py"
   - "tests/test_concept_animation_service.py"
-  - "tests/test_contamination_report.py"
-  - "tests/test_contract_commissioning.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -74,8 +74,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `mastery.irt.p_clip` | `0.0001` | number | modeled default or validator seed | Controls p clip in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:150`; `src/learnloop/learner/mastery.py:427`; `src/learnloop/placement/predictor.py:102` |
 | `mastery.irt.mu_abs_max` | `5.0` | number | modeled default or validator seed | Caps mu abs allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:151`; `src/learnloop/learner/mastery.py:554` |
 | `mastery.irt.max_logit_step` | `4.0` | number | modeled default or validator seed | Caps logit step allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:152`; `src/learnloop/learner/mastery.py:549` |
-| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:165`; `src/learnloop/attempts/attempts.py:3878` |
-| `mastery.irt.eb_difficulty_enabled` | `false` | boolean | modeled default or validator seed | Turns eb difficulty behavior on or off within difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:166`; `src/learnloop/attempts/attempts.py:3717`; `src/learnloop/learner/mastery.py:395` |
+| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:165`; `src/learnloop/attempts/attempts.py:3884` |
+| `mastery.irt.eb_difficulty_enabled` | `false` | boolean | modeled default or validator seed | Turns eb difficulty behavior on or off within difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:166`; `src/learnloop/attempts/attempts.py:3723`; `src/learnloop/learner/mastery.py:395` |
 | `mastery.irt.b_prior_variance` | `0.25` | number | modeled default or validator seed | Sets the b prior variance used by difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:167`; `src/learnloop/learner/mastery.py:423` |
 | `mastery.irt.b_learning_rate_scale` | `0.2` | number | modeled default or validator seed | Controls b learning rate scale in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:168`; `src/learnloop/learner/mastery.py:434` |
 | `mastery.irt.b_max_step` | `0.25` | number | modeled default or validator seed | Controls b max step in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:169`; `src/learnloop/learner/mastery.py:437` |
@@ -88,6 +88,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/codex_cli_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
@@ -96,10 +97,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
+- `tests/test_codex_isolation_mcp_check.py`
 - `tests/test_concept_animation_service.py`
 - `tests/test_config_refactor.py`
-- `tests/test_contamination_report.py`
-- `tests/test_contract_commissioning.py`
 
 ## Extension and modification guidance
 

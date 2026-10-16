@@ -604,7 +604,9 @@ def test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuse
     _fake_codex_sdk(monkeypatch, captured, '{"final_answer": "3", "answer_kind": "numeric", "work_summary": "w"}')
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"),
                             paths.root)
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ("filesystem",))
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client, config_servers=("filesystem",))
     entry = RoleClient(role="panel", provider="codex_low", model="codex-model", profile_type="codex_sdk",
                        subscription=True, client=client, settings={"provider": "codex_low", "model": "codex-model"})
     caller = PFCaller(vault, repository, caps=CAPS, price_per_million=None, run_id="run-f1")

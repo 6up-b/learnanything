@@ -3,8 +3,8 @@ title: "Config - source_service"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "94b8398c6e80ff717a6ffa56df99099b568cec9e"
-source_commit_timestamp: "2026-10-16T02:35:20-04:00"
+source_commit: "100c72cd92be0da3da867b1718acf341bfa905b9"
+source_commit_timestamp: "2026-10-16T03:35:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml source_service"
@@ -28,6 +28,7 @@ source_paths:
   - "src/learnloop/instructional/tools.py"
   - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
+  - "tests/codex_cli_fakes.py"
   - "tests/mcp_world.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -39,7 +40,6 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_architecture.py"
   - "tests/test_attach_to_family.py"
-  - "tests/test_capability_residual.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/source-service"
@@ -75,7 +75,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `source_service.interventions` | `true` | boolean | modeled default or validator seed | Turns interventions behavior on or off within canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2414`; `src/learnloop/instructional/interventions.py:62`; `src/learnloop/instructional/sources.py:40` |
 | `source_service.verify_timeout_seconds` | `90.0` | number | modeled default or validator seed | Sets the verify timeout duration in seconds for canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2417`; `src/learnloop/content/pipeline/jobs.py:3069`; `src/learnloop/instructional/sources.py:40` |
 | `source_service.compare_max_prompt_tokens` | `24000` | integer | modeled default or validator seed | Controls compare max prompt tokens in canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2420`; `src/learnloop/instructional/sources.py:40`; `src/learnloop/instructional/wiring.py:52` |
-| `source_service.import_max_cost_usd` | `null` | nullable | modeled default or validator seed | Controls import max cost usd in canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2427`; `src/learnloop/content/authoring/source_exercise_import.py:294`; `src/learnloop/instructional/exposure.py:334` |
+| `source_service.import_max_cost_usd` | `null` | nullable | modeled default or validator seed | Controls import max cost usd in canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2427`; `src/learnloop/content/authoring/source_exercise_import.py:294`; `src/learnloop/instructional/exposure.py:341` |
 | `source_service.compare_max_cost_usd` | `null` | nullable | modeled default or validator seed | Controls compare max cost usd in canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2428`; `src/learnloop/instructional/sources.py:40`; `src/learnloop/instructional/wiring.py:52` |
 | `source_service.max_daily_cost_usd` | `5.0` | number | modeled default or validator seed | Caps daily cost usd allowed by canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2429`; `src/learnloop/content/authoring/source_exercise_import.py:390`; `src/learnloop/instructional/sources.py:40` |
 | `source_service.llm_price_per_million` | `null` | nullable | modeled default or validator seed | Controls language-model price per million in canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2434`; `src/learnloop/content/authoring/exercise_authoring.py:93`; `src/learnloop/content/authoring/source_exercise_import.py:295` |
@@ -87,6 +87,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/codex_cli_fakes.py`
 - `tests/mcp_world.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -98,7 +99,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_architecture.py`
 - `tests/test_attach_to_family.py`
-- `tests/test_capability_residual.py`
 
 ## Extension and modification guidance
 

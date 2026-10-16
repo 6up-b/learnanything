@@ -7,8 +7,10 @@ import inspect
 import json
 import logging
 import os
+import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -78,6 +80,9 @@ ISOLATED_PROFILE = "learnloop_isolated_turn"
 #: MCP, browser/computer use, plugins, sub-agents) or bring in outside context
 #: (memories, hooks, skills, web search): all off in an isolated turn. Unknown
 #: feature keys are ignored by Codex, so older/newer CLIs accept the list.
+#: ``plugins`` is also what removes the MCP servers a plugin brings, and
+#: ``apps`` the ChatGPT connectors server (``codex_apps``); see
+#: :meth:`SdkCodexClient._verified_isolated_overrides`.
 _ISOLATION_DISABLED_FEATURES = (
     "apps",
     "browser_use",
@@ -96,6 +101,172 @@ _ISOLATION_DISABLED_FEATURES = (
     "skill_mcp_dependency_install",
     "goals",
 )
+#: Features an isolated turn's launch check requires ``codex features list``
+#: to report off under the turn's overrides. ``apps`` starts the connectors
+#: server, which ``codex mcp list`` never shows (Codex adds it after listing);
+#: ``plugins`` loads the plugins' MCP servers, skills and connectors. An
+#: override Codex ignored (a renamed key) would leave them on, so this is
+#: checked, not assumed.
+_ISOLATION_VERIFIED_FEATURES = ("apps", "plugins")
+#: A server name a ``-c mcp_servers.<name>.enabled=false`` path can address:
+#: the characters ``codex mcp add`` accepts (0.163.0 adds ``:``, ``@``, ``/``
+#: and ``.``) except ``.``, because Codex splits an override's key on ``.``
+#: and a dotted name would address a different table.
+_ADDRESSABLE_MCP_SERVER = re.compile(r"[A-Za-z0-9_:@/-]+")
+#: How Codex names the config table it could not load ("in `mcp_servers.x`").
+_REJECTED_MCP_TABLE = re.compile(r"in `mcp_servers\.([A-Za-z0-9_:@/-]+)[`.]")
+#: Each launch-check command (``mcp list``, ``features list``) gets at most
+#: this long, and never more than the request's deadline leaves.
+_CODEX_PROBE_TIMEOUT_SECONDS = 60.0
+#: Codex's configuration options, and how an isolated launch writes each.
+#: In codex-cli 0.163.0 (``cli/src/main.rs``, ``utils/cli/src/config_override.rs``)
+#: all are global, so clap reads them after ``app-server`` too, a later
+#: ``-c`` wins over an earlier one, and ``--enable``/``--disable`` are folded
+#: in after every ``-c`` (as ``features.<name>=true|false``) wherever they stand.
+_CODEX_CONFIG_OPTIONS = {"-c": "--config", "--config": "--config", "--enable": "--enable", "--disable": "--disable"}
+#: ``codex app-server``'s own options that change no configuration
+#: (0.163.0 ``AppServerCommand``): kept after ``app-server`` in an isolated
+#: launch. Anything else there refuses the turn.
+_APP_SERVER_OPTIONS_WITH_VALUE = frozenset({"--listen"})
+_APP_SERVER_SWITCHES = frozenset({"--stdio", "--strict-config", "--analytics-default-enabled"})
+
+
+class _RejectedMcpTable(CodexUnavailable):
+    """Codex refused to load the config because of one ``mcp_servers`` table."""
+
+    def __init__(self, message: str, server: str):
+        super().__init__(message)
+        self.server = server
+
+
+@dataclass(frozen=True)
+class _Deadline:
+    """One request's wall-clock bound, shared by the launch check and the turn.
+
+    Set before the isolated turn's launch check, so the check's probes and the
+    turn together stay inside the request timeout (spec_blind_grading_diagnosis_split_v1
+    §5.6: "the job runs under the existing request timeout")."""
+
+    seconds: float
+    at: float
+
+    @classmethod
+    def start(cls, seconds: float) -> "_Deadline":
+        return cls(seconds, time.monotonic() + seconds)
+
+    def remaining(self) -> float:
+        return self.at - time.monotonic()
+
+    def expired(self, where: str) -> CodexTurnTimeout:
+        return CodexTurnTimeout(f"Codex SDK turn exceeded its {self.seconds:g}-second deadline {where}.")
+
+
+def _stop_probe(process: subprocess.Popen) -> None:
+    """Kill a launch-check probe and what it started in its session.
+
+    Under bubblewrap the probe is ``bwrap`` (``--die-with-parent`` takes the
+    sandboxed ``codex`` with it)."""
+
+    if process.poll() is not None:
+        return
+    try:
+        if os.name != "nt":
+            os.killpg(process.pid, signal.SIGKILL)
+        else:
+            process.kill()
+    except OSError:
+        try:
+            process.kill()
+        except OSError:
+            pass
+
+
+def _isolated_launch_parts(launch: tuple[str, ...] | list[str]) -> tuple[list[str], list[str]]:
+    """An ``sdk_launch_command`` as an isolated turn runs it: ``(command, app_server_args)``.
+
+    A configuration option written after ``app-server`` still applies (they
+    are global, :data:`_CODEX_CONFIG_OPTIONS`), and a ``-c`` there would come
+    after, and so beat, the turn's own overrides. So ``command`` is the argv
+    before ``app-server`` with every configuration option written after it
+    appended, in the order written (read in each form clap accepts: ``-c V``,
+    ``-cV``, ``-c=V``, ``--config V``, ``--config=V``, the same for
+    ``--enable``/``--disable``). The launch check runs its probes as
+    ``command`` and the app server starts as ``command``, the turn's
+    overrides, ``app-server``, ``app_server_args``: one configuration, in
+    which every ``-c`` of the user's comes before the turn's.
+    ``app_server_args`` keeps only the app server's own options that change no
+    configuration (:data:`_APP_SERVER_OPTIONS_WITH_VALUE`,
+    :data:`_APP_SERVER_SWITCHES`). Anything else after ``app-server`` (a
+    subcommand, ``--remote-control``, an option this check does not know)
+    refuses the turn: the check could not tell what it changes.
+    """
+
+    if "app-server" not in launch:
+        raise CodexUnavailable(
+            "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
+        )
+    position = list(launch).index("app-server")
+    command = list(launch[:position])
+    app_server_args: list[str] = []
+    rest = list(launch[position + 1:])
+    index = 0
+    while index < len(rest):
+        argument = rest[index]
+        index += 1
+        value: str | None = None
+        if argument.startswith("--") and "=" in argument:
+            name, value = argument.split("=", 1)
+        elif argument.startswith("-c") and not argument.startswith("--") and argument != "-c":
+            name, value = "-c", argument[2:].removeprefix("=")  # clap drops one leading "="
+        else:
+            name = argument
+        if name in _CODEX_CONFIG_OPTIONS or name in _APP_SERVER_OPTIONS_WITH_VALUE:
+            written = [argument]
+            if value is None:
+                if index >= len(rest):
+                    raise CodexUnavailable(
+                        f"sdk_launch_command ends with {argument!r}, which takes a value; refusing the isolated turn."
+                    )
+                value = rest[index]
+                written.append(value)
+                index += 1
+            if name in _APP_SERVER_OPTIONS_WITH_VALUE:
+                app_server_args += written
+            else:
+                command += [_CODEX_CONFIG_OPTIONS[name], value]
+        elif value is None and name in _APP_SERVER_SWITCHES:
+            app_server_args.append(argument)
+        else:
+            raise CodexUnavailable(
+                f"sdk_launch_command passes {argument!r} after `app-server`, and the isolated turn's launch check "
+                "cannot tell what it changes; refusing the isolated turn."
+            )
+    return command, app_server_args
+
+
+def _reenabled_isolation_features(command: list[str], overrides: list[str]) -> list[str]:
+    """Features ``overrides`` turn off that a ``--enable`` in ``command`` turns back on.
+
+    Codex folds ``--enable`` in after every ``-c`` wherever it stands, so
+    ``--enable apps`` beats the turn's ``-c features.apps=false``; it cannot be
+    reordered, only refused."""
+
+    off = {
+        override.partition("=")[0].removeprefix("features.")
+        for override in overrides
+        if override.startswith("features.") and override.partition("=")[2].strip() == "false"
+    }
+    named: list[str] = []
+    for index, argument in enumerate(command):
+        if argument == "--enable" and index + 1 < len(command):
+            feature = command[index + 1].strip()
+        elif argument.startswith("--enable="):
+            feature = argument.partition("=")[2].strip()
+        else:
+            continue
+        if feature in off and feature not in named:
+            named.append(feature)
+    return named
 
 
 def _toml_string(value: str) -> str:
@@ -112,10 +283,19 @@ def isolated_turn_overrides(
 
     The turn runs under :data:`ISOLATED_PROFILE`: read access to
     ``readable_root`` and the platform minimum only, no writes, no network;
-    approvals never prompt; web search, connectors, MCP servers (each named
-    one disabled), memories, hooks and project docs are off. With
-    ``shell=False`` (no workspace to read) the command tools are off too, so
-    the model has nothing but its prompt.
+    approvals never prompt; web search, connectors, plugins (and the MCP
+    servers they bring), memories, hooks and project docs are off. Each of
+    ``mcp_server_ids`` is disabled by name: only servers a config file defines
+    with a transport may be named, because for any other name the override
+    creates a table without one and Codex refuses to start (codex-cli
+    0.163.0). :meth:`SdkCodexClient._verified_isolated_overrides` chooses
+    them and checks the result. With ``shell=False`` (no workspace to read)
+    the command tools are off too, so nothing in the turn can read a file.
+    codex-cli 0.163.0 still offers such a turn utility tools: code mode's
+    ``exec``/``wait`` (over the same tools), ``request_user_input`` and, from
+    the model's own metadata, sub-agents (``features.multi_agent`` no longer
+    governs them). A sub-agent inherits the turn's permission profile,
+    working directory and features, so it stays inside the same boundary.
     """
 
     root = str(Path(readable_root).resolve())
@@ -159,17 +339,19 @@ class SdkCodexClient(TokenUsageAccounting):
         self._interrupt_requested = threading.Event()
         self._deadline_expired = threading.Event()
         self._last_workspace_activity: list[str] | None = None
+        #: The isolated turn's launch-check process while one runs (:meth:`interrupt` kills it).
+        self._active_probe: subprocess.Popen | None = None
 
     def _codex_command(self) -> list[str]:
-        """The argv prefix that runs this client's Codex CLI (before a subcommand)."""
+        """The argv that runs this client's Codex CLI before a subcommand.
+
+        For an ``sdk_launch_command`` that is its argv before ``app-server``
+        plus every configuration option written after it
+        (:func:`_isolated_launch_parts`), the same set the app server starts with."""
 
         launch = _sdk_launch_args(self.config.sdk_launch_command)
         if launch:
-            if "app-server" not in launch:
-                raise CodexUnavailable(
-                    "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
-                )
-            return list(launch[: launch.index("app-server")])
+            return _isolated_launch_parts(launch)[0]
         configured = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
         if configured:
             return [configured]
@@ -183,25 +365,228 @@ class SdkCodexClient(TokenUsageAccounting):
                 return [found]
         raise CodexUnavailable("No Codex CLI found to configure an isolated turn.")
 
-    def _configured_mcp_server_ids(self, cwd: Path) -> tuple[str, ...]:
-        """MCP servers the app server would load in ``cwd``, to disable each.
+    def _verified_isolated_overrides(
+        self,
+        root: Path,
+        *,
+        shell: bool,
+        sandbox: ToolIsolation | None = None,
+        deadline: _Deadline | None = None,
+    ) -> list[str]:
+        """The isolated turn's overrides, checked on the CLI that will run it.
 
-        An MCP tool runs outside the command sandbox, so an isolated turn must
-        disable every configured server by name. Listing fails closed.
+        An MCP tool runs outside the command sandbox, so no MCP server may be
+        on. ``codex mcp list --json`` lists the servers config files define and
+        the ones enabled plugins bring (codex-cli 0.163.0 listed ``codex_app``
+        and ``cua_repl`` from plugins). It is run under the turn's own
+        overrides, where ``features.plugins=false`` has removed the plugin
+        servers, so a server still listed is a config one: each is pinned off
+        by name, already-disabled ones too (Codex review F1: the layer that
+        turned one off might be one the launch does not load). Then the exact
+        launch set is checked: listed again (every server off or absent; Codex
+        rejecting a name override means the server is not a config one and
+        nothing here can turn it off) and ``codex features list`` must report
+        :data:`_ISOLATION_VERIFIED_FEATURES` off (the connectors server never
+        shows in ``mcp list``). A dotted name cannot be addressed (Codex splits
+        a ``-c`` key on ``.``): enabled, it refuses the turn; already off in the
+        configuration the launch loads, it is left so.
+
+        Every probe runs where the app server will: in ``root`` with this
+        process's environment, and under ``sandbox`` (project routes) inside
+        that same bubblewrap sandbox, which shows the agent only its private
+        home's ``config.toml``, the system files and the working directory. On
+        the host the probe could load a layer the sandboxed app server cannot,
+        such as a trusted ancestor project's ``.codex/config.toml`` (F1). The
+        probes use the launch command's own configuration options (an
+        ``sdk_launch_command``'s, :func:`_isolated_launch_parts`), and an
+        ``--enable`` there that turns an isolation feature back on refuses the
+        turn (F2). They stay inside ``deadline`` and stop on :meth:`interrupt`
+        (F3).
+
+        Fail closed: a server still on, a check that fails or times out, or an
+        override Codex rejects refuses the turn before the app server starts.
+        Not cached: the answer depends on config files, plugins and the
+        working directory's project config, any of which can change between
+        turns without a new binary, and an isolated turn's directory is new
+        each time.
         """
 
-        command = [*self._codex_command(), "mcp", "list", "--json"]
+        base = isolated_turn_overrides(root, shell=shell)
+        launch = _sdk_launch_args(self.config.sdk_launch_command)
+        if launch:
+            reenabled = _reenabled_isolation_features(_isolated_launch_parts(launch)[0], base)
+            if reenabled:
+                raise CodexUnavailable(
+                    f"sdk_launch_command turns {', '.join(reenabled)} back on with --enable, which Codex applies "
+                    "after the isolated turn's overrides; refusing the isolated turn."
+                )
+        context: dict[str, Any] = {"sandbox": sandbox, "deadline": deadline}
+        states = self._mcp_server_states(root, base, **context)
+        for name in sorted(name for name, on in states.items() if on):
+            if not _ADDRESSABLE_MCP_SERVER.fullmatch(name):
+                raise CodexUnavailable(
+                    f"Codex MCP server {name!r} stays enabled under the isolated turn's overrides, and a config "
+                    "override cannot address that name; refusing the isolated turn."
+                )
+        pinned = sorted(name for name in states if _ADDRESSABLE_MCP_SERVER.fullmatch(name))
+        overrides = isolated_turn_overrides(root, shell=shell, mcp_server_ids=pinned)
+        if pinned:
+            try:
+                states = self._mcp_server_states(root, overrides, **context)
+            except _RejectedMcpTable as exc:
+                if exc.server not in pinned:
+                    raise
+                raise CodexUnavailable(
+                    f"Codex cannot disable MCP server '{exc.server}' for an isolated turn: no config file defines "
+                    f"it with a transport, so Codex rejects `mcp_servers.{exc.server}.enabled=false`, and none of "
+                    "the isolation features removes it; refusing the isolated turn."
+                ) from exc
+            still = sorted(name for name, on in states.items() if on)
+            if still:
+                names = ", ".join(f"'{name}'" for name in still)
+                raise CodexUnavailable(
+                    f"Codex MCP server {names} stays enabled under the isolated turn's overrides; "
+                    "refusing the isolated turn."
+                )
+        features = self._feature_states(root, overrides, **context)
+        left_on = [feature for feature in _ISOLATION_VERIFIED_FEATURES if features.get(feature) is not False]
+        if left_on:
+            raise CodexUnavailable(
+                f"Codex does not report feature {', '.join(left_on)} off under the isolated turn's overrides "
+                "(connectors or plugin tools could load); refusing the isolated turn."
+            )
+        return overrides
+
+    def _mcp_server_states(self, cwd: Path, overrides: list[str], **context: Any) -> dict[str, bool]:
+        """Each server ``codex mcp list --json`` lists under ``overrides``: on?
+
+        Only names and enabled state are read; a server whose state is not
+        exactly ``false`` counts as on."""
+
+        stdout = self._codex_probe(cwd, overrides, "mcp", "list", "--json", **context)
         try:
-            result = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, timeout=60, check=False)
-            servers = json.loads(result.stdout) if result.returncode == 0 else None
-        except (OSError, subprocess.SubprocessError, ValueError) as exc:
-            raise CodexUnavailable(f"Cannot list Codex MCP servers to disable them: {exc}") from exc
+            servers = json.loads(stdout)
+        except ValueError:
+            servers = None
         if not isinstance(servers, list):
             raise CodexUnavailable(
-                "Cannot list Codex MCP servers to disable them for an isolated turn "
-                f"(exit {result.returncode})."
+                "`codex mcp list --json` did not return a server list under the isolated turn's overrides; "
+                "refusing the isolated turn."
             )
-        return tuple(str(server["name"]) for server in servers if isinstance(server, dict) and server.get("name"))
+        states: dict[str, bool] = {}
+        for server in servers:
+            name = server.get("name") if isinstance(server, dict) else None
+            if not isinstance(name, str) or not name:
+                raise CodexUnavailable(
+                    "`codex mcp list --json` listed a server without a name; refusing the isolated turn."
+                )
+            states[name] = server.get("enabled") is not False
+        return states
+
+    def _feature_states(self, cwd: Path, overrides: list[str], **context: Any) -> dict[str, bool]:
+        """``codex features list`` under ``overrides``: ``name stage true|false`` rows."""
+
+        states: dict[str, bool] = {}
+        for line in self._codex_probe(cwd, overrides, "features", "list", **context).splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[-1] in {"true", "false"}:
+                states[parts[0]] = parts[-1] == "true"
+        return states
+
+    def _raise_if_stopped(self, deadline: _Deadline | None, where: str) -> None:
+        """Interrupted, or past the request's deadline: stop before the next step."""
+
+        if self._interrupt_requested.is_set():
+            raise CodexInterrupted("Codex turn interrupted by the learner.")
+        if deadline is not None and deadline.remaining() <= 0:
+            raise deadline.expired(where)
+
+    def _codex_probe(
+        self,
+        cwd: Path,
+        overrides: list[str],
+        *subcommand: str,
+        sandbox: ToolIsolation | None = None,
+        deadline: _Deadline | None = None,
+    ) -> str:
+        """The stdout of ``codex -c <override>... <subcommand>`` run as the app server will be.
+
+        In ``cwd``, and under ``sandbox`` inside that bubblewrap sandbox,
+        started in ``cwd`` (see :meth:`_verified_isolated_overrides`). It gets
+        what ``deadline`` leaves, at most :data:`_CODEX_PROBE_TIMEOUT_SECONDS`,
+        and :meth:`interrupt` kills it. Refuses (``CodexUnavailable``) when it
+        cannot run, times out or exits non-zero; raises ``CodexTurnTimeout``
+        when the request's deadline ends it and ``CodexInterrupted`` when the
+        learner interrupts. From stderr only the ``mcp_servers`` table Codex
+        rejected is reported: Codex's config errors can quote config lines
+        (headers, env)."""
+
+        what = f"`codex {' '.join(subcommand)}`"
+        where = f"in the isolated turn's launch check ({what})"
+        self._raise_if_stopped(deadline, where)
+        command = list(self._codex_command())
+        for override in overrides:
+            command += ["-c", override]
+        command += list(subcommand)
+        if sandbox is not None:
+            try:
+                command = sandboxed_command(sandbox, command, chdir=Path(cwd))
+            except ToolIsolationUnavailable as exc:
+                raise CodexUnavailable(
+                    f"Cannot run {what} inside the tool sandbox to check the isolated turn's overrides ({exc}); "
+                    "refusing the isolated turn."
+                ) from exc
+        limit = _CODEX_PROBE_TIMEOUT_SECONDS
+        request_bound = deadline is not None and deadline.remaining() < limit
+        if request_bound:
+            limit = max(0.001, deadline.remaining())
+        try:
+            process = subprocess.Popen(
+                command, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, start_new_session=os.name != "nt",
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise CodexUnavailable(
+                f"Cannot run {what} to check the isolated turn's overrides ({exc}); refusing the isolated turn."
+            ) from exc
+        with self._turn_lock:
+            self._active_probe = process
+        try:
+            if self._interrupt_requested.is_set():  # interrupted while it started
+                _stop_probe(process)
+            try:
+                stdout, stderr = process.communicate(timeout=limit)
+            except subprocess.TimeoutExpired as exc:
+                _stop_probe(process)
+                try:
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    pass
+                if request_bound:
+                    raise deadline.expired(where) from exc
+                raise CodexUnavailable(
+                    f"{what} under the isolated turn's overrides did not finish in "
+                    f"{_CODEX_PROBE_TIMEOUT_SECONDS:g} seconds; refusing the isolated turn."
+                ) from exc
+        finally:
+            with self._turn_lock:
+                if self._active_probe is process:
+                    self._active_probe = None
+            _stop_probe(process)  # only if something above left it running
+        if self._interrupt_requested.is_set():
+            raise CodexInterrupted("Codex turn interrupted by the learner.")
+        if process.returncode != 0:
+            rejected = _REJECTED_MCP_TABLE.search(stderr or "")
+            if rejected:
+                raise _RejectedMcpTable(
+                    f"{what} rejected the config table `mcp_servers.{rejected.group(1)}` under the isolated "
+                    f"turn's overrides (exit {process.returncode}); refusing the isolated turn.",
+                    rejected.group(1),
+                )
+            raise CodexUnavailable(
+                f"{what} under the isolated turn's overrides exited {process.returncode}; refusing the isolated turn."
+            )
+        return stdout or ""
 
     def workspace_activity(self) -> list[str] | None:
         """What the last read-only-workspace turn reported reading, if anything.
@@ -226,6 +611,9 @@ class SdkCodexClient(TokenUsageAccounting):
         with self._turn_lock:
             turn = self._active_turn
             codex = self._active_codex
+            probe = self._active_probe
+        if probe is not None:
+            _stop_probe(probe)  # the launch check: nothing is launched after it
         if turn is not None:
             self._schedule_turn_stop(turn, codex)
         return True
@@ -510,6 +898,9 @@ class SdkCodexClient(TokenUsageAccounting):
             if requested_timeout is None
             else max(0.001, float(requested_timeout))
         )
+        # One deadline for the whole request: an isolated turn's launch check
+        # runs inside it, and the turn gets what the check leaves (F3).
+        deadline = _Deadline.start(turn_timeout)
         _ensure_sdk_importable(self.sdk_python_path)
         try:
             from openai_codex import Codex
@@ -529,17 +920,16 @@ class SdkCodexClient(TokenUsageAccounting):
         launch_args = _sdk_launch_args(self.config.sdk_launch_command)
         config_kwargs: dict[str, Any] = {}
         if isolated:
-            overrides = isolated_turn_overrides(
-                root, shell=workspace is not None, mcp_server_ids=self._configured_mcp_server_ids(root),
+            overrides = self._verified_isolated_overrides(
+                root, shell=workspace is not None, sandbox=sandbox, deadline=deadline,
             )
+            self._raise_if_stopped(deadline, "in the isolated turn's launch check")
             if launch_args:
-                position = launch_args.index("app-server") if "app-server" in launch_args else -1
-                if position < 0:
-                    raise CodexUnavailable(
-                        "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
-                    )
+                # The launch command's configuration options first, then the
+                # turn's overrides: the set the launch check ran (F2).
+                command, app_server_args = _isolated_launch_parts(launch_args)
                 flags = tuple(part for override in overrides for part in ("--config", override))
-                launch_args = (*launch_args[:position], *flags, *launch_args[position:])
+                launch_args = (*command, *flags, "app-server", *app_server_args)
             elif _sdk_accepts(SdkAppConfig, "config_overrides"):
                 config_kwargs["config_overrides"] = tuple(overrides)
             else:
@@ -605,7 +995,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     self._active_stop_scheduled = False
                     self._deadline_expired.clear()
                     deadline_timer = threading.Timer(
-                        turn_timeout,
+                        max(0.001, deadline.remaining()),
                         self._expire_turn,
                         args=(turn, codex),
                     )
