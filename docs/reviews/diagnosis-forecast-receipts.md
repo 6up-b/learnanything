@@ -4,6 +4,7 @@
 **Branch:** `diagnosis/forecast-receipts`, base `37a2a7e5f` (main, `mvp-0.25`, migrations to 204).
 **Successor:** none. Logging only: no grading, scoring, scheduling, projection or serving change.
 **Migration:** 230, a placeholder number (the diagnosis-input-provenance landing holds 205); renumbered at landing.
+**Landed** on main 2026-10-15 as migration **206** (renumbered from 230), composed with diagnosis input provenance's 205 and the Reader's original-PDF selection. See [Landing onto main](#landing-onto-main).
 **Kill switch:** `diagnosis.forecast_receipts` (default on; off writes no receipt, the report still reads).
 **Model calls:** none (fakes only). **Paid calls:** none.
 
@@ -175,3 +176,172 @@ Before copying, to learn which migration the tracked working vaults were at, `fi
 4. **`unknown`-class events** write nothing (no expectation). An "abstained" receipt would count them in a denominator. [Nothing.]
 5. **Unbound next observations** (library picks, answers without a presentation or offer) censor the forecast. [Keep: exact binding only.]
 6. **No desktop surface.** [CLI only, glass box on demand.]
+
+## Landing onto main
+
+**Branch:** `merge/forecast-receipts-onto-main` (worktree `learnanything-docs`). Phase 1 started from main `2c23afe3f` (`mvp-0.25`, migration head 205: diagnosis input provenance with `diagnosis.chat_shows_recorded_text` off, the references at head 205, the Pipeline Map, the adaptive-difficulty spec revisions with the owner's D21 decision). Phase 2 merged main `268ccbd4b` (the Reader's original-PDF selection) into it. The stage tip `6341823b9` and its base `37a2a7e5f` are unchanged. Not pushed, and main not moved. The sections above describe the branch as built: they keep its placeholder migration number (230) and its gate.
+
+**Commits:**
+- `68b82da44`: a real `--no-ff` merge of `diagnosis/forecast-receipts` (8 commits) onto `2c23afe3f`. It carries the conflict resolution, the renumber, the rebuilt head fixture, the seventeen defaults snapshots, the CLI help snapshot and the Pipeline Map composition.
+- `69be28c52`: the landing and composition tests (`tests/test_forecast_receipts_landing.py`).
+- `8398603bd`: the references regenerated at head 206, with the prose counts.
+- `01e1e38f6`: a `--no-ff` merge of main `268ccbd4b`.
+- `601159904`: the references regenerated on the combined tree.
+- This record.
+
+No algorithm successor: the landing changes no grading, scoring, scheduling, projection or serving. `main..tip` outside the generated references is the stage's own change plus the renumber and the landing tests (67 files under `src`, `tests`, `migrations`, `fixtures`, the Pipeline Map and `docs/decider-tier1-migration.md`). Nothing under `apps/` differs from main.
+
+### Conflicts, phase 1 (479 files)
+
+- **`src/learnloop/diagnosis/split/jobs.py`: provenance and forecasts share the diagnosis transaction.** `_persist` takes both provenance's `record` and the stage's `forecasts`. Inside one `repository.atomic()` block, after the lease check, it runs three steps:
+  1. `record_diagnosis_reads`: what the diagnosis's context showed it, frozen when the context was built;
+  2. the `attempt_diagnoses` row;
+  3. `forecasts()`, the stage's receipts, each in its own savepoint.
+
+  The final persist passes `record=result.record` and the `forecasts` callback; the four early persists (the not-needed and daily-cap skips, `item_missing`, the spend-refused skip) pass neither, as on both sides: none has a proposal, so neither writer has anything to record. `record_diagnosis_reads`' own `connection.commit()` commits nothing early: inside `atomic()` the pinned connection commits once, at the end of the block. Both docstrings are kept.
+- **`src/learnloop/config/template.py`:** provenance's snapshot comment and the stage's are both kept, and the stage's names 206. Each later entry keeps the stage's "moves it too" line. The hashes were recomputed (below).
+- **`tests/test_coordinated_migrations.py`** (`test_f8_the_coordinator_upgrades_under_its_allowance_and_qualifies`): main's lookup of the ledger migration by name (`source_held_out_signal_marks`), plus the branch's assertion that the older build lacks it.
+- **Pipeline Map replay bullet:** provenance's two raw tables plus both receipt tables. Replay neither reads nor writes `forecast_receipts`.
+- **The head fixture.** Both sides had moved `migration_head_204`: main to 205, the branch to 230. Main's `migration_head_205` was taken and `migration_head_230` dropped, then renamed and rebuilt (below). The rename merge had also pasted conflict markers into the README, so main's README was restored first.
+- **Path conflicts.** The 24 head-path tests, both reference scripts and `docs/decider-tier1-migration.md` had only the head path in conflict. Main's side was taken in each hunk, keeping the branch's cleanly merged hunks (the generator's `forecast_receipts` description and `diagnosis.forecast_receipts` function text), then moved to 206.
+- **376 generated reference notes:** main's side, then regenerated.
+
+Every other shared file merged cleanly and was read after the merge:
+- `attempts/attempts.py`: the stage's `record_remediation_attempt(..., vault=None if attempt.replace_existing else vault)` sits next to Q14's code, which this stage does not touch;
+- `config/schema.py`: the only leaf relative to main is `diagnosis.forecast_receipts`;
+- `db/table_roles.py` and `tests/test_architecture.py`: both sides' registrations are present.
+
+The branch adds no `Repository(path)` construction and no `apply_migrations` call in `src/` or `scripts/`, so the coordinated-migration rules need nothing.
+
+**The facet-attributed recurrence (F1) and `error_event_lineage`.** The resolver (`forecast_report.facet_shows_pattern`) holds no error-event id. It matches the receipt's frozen pattern (error type or registry misconception) against the outcome attempt's error events as they stand in `error_events`, and the receipt's targets come from the grade record's attributions by event index. Main's regrade re-mints those rows through replay. `error_event_lineage` records which new ids replace which retired ones, or a retirement with no replacement, for readers that hold ids (beliefs, Q9). So lineage stays the authority on what a retired id stands for, and the resolver already reads the events it points to. No code change was needed. `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one` pins it (below).
+
+### Conflicts, phase 2 (377 files)
+
+Only generated reference notes conflicted: both sides had regenerated them, main at schema head 205 and this branch at 206. Main's side was taken, then everything was regenerated. `src/learnloop/db/repositories.py` and the Pipeline Map merged cleanly:
+- The Reader's `annotations_for_source`, `withdraw_annotation_delete`, `block_content_hashes` and undo SQL sit beside this branch's unchanged code, and the two features never meet: the Reader writes only `source_annotation_events`, and the forecasts read none of it.
+- The map keeps the Reader entry, its source paths and diagram node, with the forecasts and provenance edits.
+- `tests/test_mobile_allowlist.py`'s pins (`reader.restore_annotation` desktop-only) are main's: this branch adds no RPC.
+
+### The renumber: migration 230 → 206
+
+- **Migration.** `migrations/230_forecast_receipts.sql` became `migrations/206_forecast_receipts.sql`. Only its header changed: it names both numbers (built as 230, renumbered 206 after provenance's 205).
+- **Every mention says 206:**
+  - the comment in `db/table_roles.py` (the table stays `RECEIPT`, so it needs no replayer);
+  - the docstrings of `db/stores/forecast_receipts.py`, `scheduling/forecast_receipts.py` and `tests/test_forecast_receipts.py`;
+  - the template's snapshot comment;
+  - the generator's table description and the Pipeline Map bullet.
+
+  The only "230" left in code and docs outside this record is the deliberate "built as 230".
+- **Head fixture.** `git mv fixtures/migration_head_205 fixtures/migration_head_206`. Its `state.sqlite` was rebuilt:
+  - a backup-API copy (`learnloop.db.copies.backup_database`) of main's 205 database (blob `619b43ef6`);
+  - only 206 applied, through `apply_migrations` under `upgrade_allowance(UPGRADE_TEST_HELPER)` (applied `[206]`);
+  - `wal_checkpoint(TRUNCATE)` → `(0, 0, 0)`, then `journal_mode=DELETE` (header bytes 18-19 are 1/1);
+  - `integrity_check` ok, `foreign_key_check` empty, 0 `forecast_receipts` rows;
+  - copied back with the backup API, with no companion files.
+
+  Its `sqlite_master` equals the branch's head-230 fixture's plus main's 205 objects: `text_write_provenance` and `error_event_lineage` with their indexes, autoindexes and triggers, and the `question_events.assessment_contract_version_id` column. The README gains the 206 paragraph and the build chain.
+- **Hard-coded head paths.** All 24 test files name `migration_head_206`:
+  - `test_diagnosis_replay`, `test_exam_protection_review`, `test_method_explicit_upgrade`, `test_migrations`;
+  - `test_mvp010`, `011`, `013`, `014`, `015`, `016`, `017`, `018`, `020`, `021`, `022`, `023` and `024_upgrade`;
+  - `test_pfc_unverified_unassessed`, `test_plan_determinism`, `test_reading_step_switch`, `test_rebuild_orchestrator`, `test_recurrence_commands`, `test_route_rules_in_grader`, `test_shadow_rebuild`.
+
+  So do both reference scripts (`SCHEMA_PATH`, `SCHEMA_HEAD = 206`, and the generator's two other mentions) and `docs/decider-tier1-migration.md`. The max-migration assertion in `test_route_rules_in_grader.py` is 206.
+- **Defaults snapshots.** All seventeen `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.25`) were recomputed with `defaults_fingerprint_for_version`, after deleting `config/__pycache__/template.cpython-312.pyc` and touching `template.py`. Every one moves, because the effective config now carries `diagnosis.forecast_receipts = true` on top of main's `chat_shows_recorded_text = false`; no other leaf moves. Phase 2 moved none of them: the Reader adds no key.
+- **CLI help snapshot** (`tests/test_cli_help_snapshot.py --write`): identical to the branch's (`diagnosis` group help and the new `diagnosis calibration`) in both phases. Provenance and the Reader change no CLI help.
+
+### Landing and composition tests
+
+`tests/test_forecast_receipts_landing.py`, 4 cases:
+
+| Test | What it shows |
+|---|---|
+| `test_the_renumbered_migration_and_its_table_role` | 205 is `write_provenance` and 206 `forecast_receipts`, the head. `forecast_receipts` is `RECEIPT`; both provenance tables are `RAW_LEDGER` |
+| `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction` | A spy inside the forecast writer counts, on the transaction's connection, the diagnosis's `text_write_provenance` record, its row and its receipts (1, 1, n). Another connection counts (0, 0, 0). After the commit all three are there and the record is complete. A mutant that moves `forecasts()` after the atomic block makes it fail (outside: (1, 1, 1)), and so does one that drops the provenance write ((1, 0, 1)) |
+| `test_a_failed_forecast_receipt_keeps_the_diagnosis_and_its_provenance_record` | With the receipt insert raising, the diagnosis and its record commit, with no receipt (1, 1, 0). The drop-the-provenance-write mutant makes it fail too |
+| `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one` | On a method-explicit item (its regrades cite the contract they read), the next bound answer repeats the error (`same_error`). A regrade with the same grade re-mints its events: `error_event_lineage` maps every old id to the new ones, and the re-minted event is still the recurrence. A full-credit regrade retires them with no replacement (NULL rows), and the forecast resolves `pass` |
+
+All 4 pass, also under `--durable-sqlite`, together with the stage's 26 cases (30 passed).
+
+### Generated files
+
+- **References.** After each phase, `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**; schema head 206, **325** table notes (`forecast_receipts`, `RECEIPT`; the Reader adds no table), **859** effective configuration leaves. The prose counts were corrected by hand in phase 1 and held in phase 2: `Database.md` says 325 tables, 19 `DERIVED`, 306 others and 859 leaves; `Configuration.md` says 859 leaves in 51 sections.
+- **`validate_vault.py`** passes: 1,110 notes, all 1,108 non-template notes reachable from Home.
+- **Pipeline Map:**
+  - the grading-and-diagnosis diagram gains the diagnosis's saved-forecasts edge beside write-time provenance;
+  - the provenance bullet says the diagnosis's record, row and forecasts commit in one `jobs._persist` transaction;
+  - the forecasts bullet says migration 206 (built as 230) and default on;
+  - the replay bullet is the composed one above;
+  - the Reader's entries are main's.
+- **Module reference** (`module_validate.py`, catalog last generated 2026-09-23): fails as on main. Main has 751 issues and coverage 474/840; the combined tree has 759 issues and 474/844. Every issue was listed on both trees (main read from a `git archive` export, with the script's 100-line truncation lifted in memory). The 8 new issues are exactly the four new modules' missing notes and their "no module note" twins: `db/stores/forecast_receipts.py`, `diagnosis/forecast_receipts.py`, `evsi_calibration/forecast_report.py`, `scheduling/forecast_receipts.py`. That is the stale catalog's known class; nothing new in kind.
+- **Desktop reference** (`desktop_validate.py`): output identical on main and the combined tree. The activation audit stops at main's `pdfSelection/testing/syntheticBook.ts`; this branch changes nothing under `apps/`.
+
+### Gate
+
+Run on the final code tree `601159904`; only this record was committed after it. Python 3.12.14, SQLite 3.53.1. `TMPDIR` was this worktree's `fixtures-local/tmp`, and the template `.pyc` was cleared first. No paid call ($0.00): every test uses fakes.
+
+| Lane | Command | Result |
+|---|---|---|
+| Install | `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` (5.14.0); `uv run --no-sync` afterwards | ok |
+| Import contracts | `uv run --no-sync lint-imports --no-cache` | **22 kept**, 0 broken |
+| Full suite | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto -q -p no:cacheprovider` | **11,983 passed, 2 xfailed** (provenance's strict F2/F3 marks), 0 failed, 16 warnings, 13 min 56 s (`fixtures-local/forecasts-landing-fullsuite.log`) |
+| Durability | `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability -q -p no:cacheprovider` | **106 passed**, 11,879 deselected, 1 min 53 s (`fixtures-local/forecasts-landing-durability.log`) |
+| Targeted (phase 1, `-n 8`) | the forecast, landing, coordinated-migration, migration, table-role, rebuild-orchestrator, coordinator, head-path, provenance, CLI-help, defaults-snapshot, tracked-fixture, SQLite-copy and architecture tests | **621 passed, 2 xfailed** |
+| `--durable-sqlite` | `test_forecast_receipts.py` + `test_forecast_receipts_landing.py`; `test_coordinated_migrations.py` + `test_diagnosis_input_provenance_landing.py` | **30 passed**; **29 passed, 2 xfailed** |
+| References | `db_generate_reference.py` / `db_validate_reference.py` / `validate_vault.py` | regenerated / 0 errors / passes |
+| `git diff --check main HEAD` | — | clean |
+| Frontend, `src-tauri` | — | not run: nothing under `apps/` differs from main |
+
+Nothing failed, so nothing needed a rerun alone. Main's last gate (the Reader's landing) was 11,953 passed and 2 xfailed. The 30 new passes are this stage's 26 cases and the 4 landing cases.
+
+### Parity
+
+**Setup:**
+- **Copies.** The owner's working vaults, `fixtures/linear_algebra` and `fixtures/probability` in the main checkout, were each read once by `learnloop.db.copies.copy_tree_with_databases`: databases through the backup API, opened read-only; the other files by plain copy. Probability has a second database, `.learnloop/state.sqlite`, copied the same way. Neither vault has a `.env`. They went into this worktree's gitignored `fixtures-local/landing-forecasts/orig/`. The per-side copies (`main/`, `merge/`, `shadow/`) were made from those copies the same way. Both were at schema 165 (152 ledger rows), `mvp-0.8`.
+- **The originals.** Sizes and mtimes of every file (145 and 120) were the same before and after, except each `state.sqlite-shm` (the WAL index, gitignored), whose mtime the read-only backup connection refreshed. `arxiv_v2` was not opened.
+- **Main's side.** Main `268ccbd4b`, exported with `git archive` (the owner vaults excluded) into `fixtures-local/landing-forecasts/main-tree` and put first on `PYTHONPATH`. Every run recorded the export's `learnloop/__init__.py`.
+- **The merge's side:** this worktree's code.
+- **Runs.** `LEARNLOOP_CONFIG_DIR` was an empty directory, with no AI call. Each copy was first opened by its own code's coordinator (`open_vault_repository`). Main's code applied 40 migrations, 165 → 205 (192 ledger rows). The merge's applied 41, 165 → 206 (193 rows). Then `learnloop rebuild --shadow --json` and `learnloop doctor --json` ran on each copy.
+- **Comparison.** Structural, with ULIDs, timestamps, hashes and the copy's directory set aside. Doctor issues were also compared as multisets.
+
+| Vault copy | Shadow learner-state diff (facet / mastery / schedule), main → merge | Replayed attempts | Shadow differences | `live_database.unchanged` | Doctor main → merge | Doctor differences |
+|---|---|---|---:|---|---|---:|
+| linear algebra | 0 / 2 / 8 → 0 / 2 / 8 | 70 of 70, 11 replayers | **0** | true / true | 57 → 57 (1 error `layout:missing_directory`, 56 warnings) | **0** (multisets equal) |
+| probability | 0 / 1 / 1 → 0 / 1 / 1 | 2 of 2, 11 replayers | **0** | true / true | 101 → 101 (48 errors, 53 warnings) | **0** (multisets equal) |
+
+The non-zero learner-state diffs are the vaults' own: replay against live state on the owner's data, identical under both codes and the same as at the Reader's landing. Doctor exits 1 on both sides for the same pre-existing errors.
+
+**Every difference, explained.** The reports themselves have none. The databases differ in exactly what migration 206 implies:
+- **Schema:** 11 more `sqlite_master` rows on the merge's copies (1,360 against 1,349 on linear algebra, 1,359 against 1,348 on probability): the `forecast_receipts` table, its 2 autoindexes, its 6 indexes and its 2 append-only triggers. No other object differs in SQL.
+- **Ledger:** one more row, `(206, 'forecast_receipts')`.
+- **Hashes:** each shadow's `live_database.sha256` differs between the sides because the files differ by that table and that row (and the ledger's `applied_at` times). Before and after equal on every copy.
+- **Rows:** `forecast_receipts` has 0 rows on every merge copy. The upgrade, the shadow and doctor write none; receipts start with the first diagnosis after the upgrade.
+
+**Upgrade shadow.** On one copy of each vault:
+1. Main's code upgraded it (165 → 205) and ran shadow and doctor: identical to the main-only copy (0 differences).
+2. The merge's code opened it: exactly **[206]** applied, 205 → 206, ledger 192 → 193. It then ran shadow and doctor.
+
+Results:
+- Shadow and doctor after step 2 are **identical** to the merge-only copy's: 0 differences, the same learner-state diff and doctor counts.
+- `sqlite_master` and the migration ledger's (version, name) rows equal the merge-only copy's exactly.
+- `live_database.unchanged` is true on all eight shadows.
+- **No version label changed** (`mvp-0.8` on every copy, the same baseline and candidate on every shadow), as expected with no successor: 206 adds one receipt table and its ledger row.
+
+### Rule breaks and deviations
+
+- **Before the restart** (stage record, [Deviation recorded](#deviation-recorded)): the stage opened the three tracked working vaults once read-only with `immutable=1`, to read their migration head. Nothing was written and no lock was taken, but the rule is to open them only through backup-API copies. It is recorded here again because it was a rule break. Every later read, the manual run and this landing used copies.
+- **During this landing:**
+  - One `git -C <main checkout> status --porcelain` on the three vault paths was run, to confirm they were as found. It read nothing in the vaults and changed no file or ref; the modifications it listed are the owner's, the same as at the session's start. But `git status` may refresh the main checkout's index stat cache, which falls under "no git operations that write there". It should have been `git --no-optional-locks status`, or not run at all.
+  - The parity originals were read only by `copy_tree_with_databases`; their `-shm` mtimes were refreshed by its read-only connections, as at the Reader's landing.
+
+### Open items (defaults as landed)
+
+- **The stage's open questions 1-6** stand with their defaults:
+  1. no baseline "no diagnosis" forecaster yet (the base-rate Brier is reported);
+  2. `voi_forecasts` writes are read as they are;
+  3. AD1 writes `item_unassisted_success` into this family, and the spec is updated at AD1;
+  4. `unknown`-class events write nothing;
+  5. exact binding only (an unbound observation censors);
+  6. CLI only.
+- **Provenance's chat release switch** (`diagnosis.chat_shows_recorded_text`) stays off as it landed. Its follow-up ("one context capture point") will also route the diagnoser's context build, which `jobs._persist` records next to these receipts. Its F2/F3 strict xfails are still in the suite.
+- **Generated references.** The module catalog lacks notes for the four new modules, as for every module added since 2026-09-23. The desktop generator still needs its test-only rule (the Reader's question 8). Both are for their next regeneration.
+- **Parallel stages** (other worktrees) that land after this one compose with migration head 206, `fixtures/migration_head_206`, the seventeen snapshots (now carrying `diagnosis.forecast_receipts`) and `jobs._persist`'s three-step transaction.
