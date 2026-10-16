@@ -3,8 +3,8 @@ title: "Config - voi_stopping"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "107778f16bbb686d11c4cf3cebf5f708a3f06d79"
-source_commit_timestamp: "2026-10-15T21:09:33-04:00"
+source_commit: "e187f179e4b1cf35935872838104ee5dffc86a65"
+source_commit_timestamp: "2026-10-15T23:02:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml voi_stopping"
@@ -23,13 +23,13 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/structured_ai.py"
+  - "tests/test_ai_compare.py"
   - "tests/test_ai_config.py"
   - "tests/test_architecture.py"
   - "tests/test_assumed_known.py"
   - "tests/test_attempt_completion.py"
   - "tests/test_capability_residual.py"
   - "tests/test_causal_activity_policy.py"
-  - "tests/test_causal_attribution_exhibit.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/voi-stopping"
@@ -71,13 +71,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/structured_ai.py`
+- `tests/test_ai_compare.py`
 - `tests/test_ai_config.py`
 - `tests/test_architecture.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_capability_residual.py`
 - `tests/test_causal_activity_policy.py`
-- `tests/test_causal_attribution_exhibit.py`
 
 ## Extension and modification guidance
 
