@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 205
+schema_head: 206
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp014_upgrade.py`

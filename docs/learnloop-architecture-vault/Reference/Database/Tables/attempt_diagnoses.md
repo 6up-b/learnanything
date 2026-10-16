@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 205
+schema_head: 206
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -127,6 +127,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnosis_input_provenance.py`
+- `tests/test_forecast_receipts.py`
+- `tests/test_forecast_receipts_landing.py`
 - `tests/test_learner_text_gaps_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

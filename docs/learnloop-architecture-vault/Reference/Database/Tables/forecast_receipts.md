@@ -3,22 +3,22 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "880aef2b33171c22d39b9dc1508490dde868a991"
-source_commit_timestamp: "2026-10-15T18:13:29-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
   - "table forecast_receipts"
-schema_head: 230
+schema_head: 206
 table_name: "forecast_receipts"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "goals-and-exams"
-introduced_in: "230_forecast_receipts.sql"
+introduced_in: "206_forecast_receipts.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/230_forecast_receipts.sql"
+  - "migrations/206_forecast_receipts.sql"
   - "src/learnloop/cli/diagnosis.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
@@ -40,7 +40,7 @@ tags:
 
 ## Why it exists
 
-Keeps every saved forecast a decision states before its outcome is known (saved diagnosis forecasts, migration 230, a placeholder number): a completed diagnosis's prediction of the next unaided observation of each facet it explains, and a scheduled repair cold check's predicted cold outcome, each written in its decision's transaction with its forecaster, scope, inputs as of when, the forecast payload (the voi_forecasts body) and its exact binding, or the reason it has none (censored at birth). Resolutions are derived at read time by `learnloop diagnosis calibration`; nothing serving, scoring or scheduling reads it and no rebuild writes or clears it. Append-only (an update or delete aborts); kill switch diagnosis.forecast_receipts. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `facet_id`, making the operational relationship explicit. ^table-purpose
+Keeps every saved forecast a decision states before its outcome is known (saved diagnosis forecasts, migration 206): a completed diagnosis's prediction of the next unaided observation of each facet it explains, and a scheduled repair cold check's predicted cold outcome, each written in its decision's transaction with its forecaster, scope, inputs as of when, the forecast payload (the voi_forecasts body) and its exact binding, or the reason it has none (censored at birth). Resolutions are derived at read time by `learnloop diagnosis calibration`; nothing serving, scoring or scheduling reads it and no rebuild writes or clears it. Append-only (an update or delete aborts); kill switch diagnosis.forecast_receipts. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `source_attempt_id`, `learning_object_id`, `facet_id`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **goals and exams** navigation family. The family context lives in [[Database Catalog#Goals And Exams]]. Its persistence behavior follows [[Table Roles#Receipt]].
 
@@ -48,8 +48,8 @@ It belongs to the **goals and exams** navigation family. The family context live
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/230_forecast_receipts.sql`.
-- **Schema touched by:** `230_forecast_receipts.sql`.
+- **Introduced by:** `migrations/206_forecast_receipts.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -136,6 +136,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_forecast_receipts.py`
+- `tests/test_forecast_receipts_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

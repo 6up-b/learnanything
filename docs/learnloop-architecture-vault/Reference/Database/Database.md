@@ -31,7 +31,7 @@ tags:
 `state.sqlite` is LearnLoop's durable machine-state store. It holds raw evidence, audit receipts, mutable workflows, compatibility seams, and the small set of projections that can be rebuilt from retained history. Human-authored learning content remains in vault files; that boundary is explained in [[State and Persistence]]. ^database-purpose
 
 > [!important] The database is not a cache
-> Only 19 of 324 user tables are classified `DERIVED`. The other 305 tables contain authoritative input, historical receipts, live workflow state, or preserved compatibility state. A whole-history rebuild must not clear them.
+> Only 19 of 325 user tables are classified `DERIVED`. The other 306 tables contain authoritative input, historical receipts, live workflow state, or preserved compatibility state. A whole-history rebuild must not clear them.
 
 ## Map of content
 
@@ -124,4 +124,4 @@ Run both documentation validators after regeneration:
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
-The database/config validator compares all 324 table notes and all 858 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
+The database/config validator compares all 325 table notes and all 859 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.

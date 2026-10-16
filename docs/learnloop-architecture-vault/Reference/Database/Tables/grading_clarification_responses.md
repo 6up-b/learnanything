@@ -3,13 +3,13 @@ title: "grading_clarification_responses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_clarification_responses"
   - "table grading_clarification_responses"
-schema_head: 205
+schema_head: 206
 table_name: "grading_clarification_responses"
 table_role: "raw_ledger"
 functionality_status: "active"

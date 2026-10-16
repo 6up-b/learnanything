@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 205
+schema_head: 206
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/plan_presentations.py"
+  - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/router/outcomes.py"
 tags:
@@ -117,6 +118,7 @@ None found by exact static reference scan.
 
 - `tests/test_architecture.py`
 - `tests/test_evsi_staged_binding.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_mvp023_upgrade.py`
 - `tests/test_reader_rw3a_landing.py`
 - `tests/test_router_g4_restraint.py`

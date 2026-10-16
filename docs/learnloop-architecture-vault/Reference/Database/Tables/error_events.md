@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7fdce04f0c816a7bf150ddcac4fb62e57f602b30"
-source_commit_timestamp: "2026-10-15T14:11:57-04:00"
+source_commit: "69be28c52a1a8e9ef6c947c01fd6c0518a95dc64"
+source_commit_timestamp: "2026-10-15T22:32:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 205
+schema_head: 206
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -110,6 +110,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/evsi_calibration/forecast_report.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/sim/metrics.py`
 - `src/learnloop/sim/runner.py`
@@ -153,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_diagnosis_replay.py`
+- `tests/test_forecast_receipts.py`
 - `tests/test_migrations.py`
 - `tests/test_mvp021_upgrade.py`
 - `tests/test_probability_prep.py`
@@ -164,7 +166,6 @@ Indexes and uniqueness:
 - `tests/test_voi_stopping.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_codex_attempt_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
