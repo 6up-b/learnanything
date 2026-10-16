@@ -116,12 +116,14 @@ Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync 
 | Check | Result |
 |---|---|
 | `uv run lint-imports --no-cache` | 22 kept, 0 broken |
-| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | GATE_FULL |
-| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | GATE_DURABILITY |
-| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; GATE_VITEST; the build succeeds (the usual chunk-size warning) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11886 passed, 0 failed (12 min 13 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11780 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 93 files, 674 passed; the build succeeds (the usual chunk-size warning) |
 | `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished, no errors (`commands.rs` and `main.rs` gained two passthroughs) |
 | DB/config references | not regenerated: no schema or config change |
 | `tests/test_coordinated_migrations.py` | in the full suite (no migration in this step) |
+
+The code was final at `5b603d911`; only this record changed after it. One earlier `npm test` run, made while the full suite and other stages' suites loaded the machine, had 4 timing failures in `PracticeScreen.test.tsx` (vault-switch draft tests) and `ReaderScreen.branches.test.tsx`. Both files passed alone (29 of 29), and the counts above are from a clean rerun of the whole vitest suite.
 
 ## 6. Open questions for the owner (defaults applied)
 
