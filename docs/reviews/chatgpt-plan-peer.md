@@ -127,7 +127,11 @@ offline reviews), whose checkpoints key on the model.
   that which still calls is invalid output. `max_entry_chars` (24,000) per
   read, `max_workspace_chars` (400,000) per turn. Output: the plan route takes
   no `max_output_tokens`, so no round is capped below the shared policy
-  (`ai.output_tokens` 16,384; a caller's budget rides in the prompt once); a
+  (`ai.output_tokens` 16,384). A caller's budget is stated once at the end
+  of the prompt of every request of the call, each round and the JSON repair
+  included, and each request's receipt records it as `output_budget_tokens`
+  (corrected after the final verification, F9: the repair used to go
+  without it, and no request's receipt recorded it); a
   `response.incomplete` for length is `AIOutputTruncated`, never accepted.
 - **Stream-only, no store.** Every round is `store: false`, `stream: true`,
   `include: ["reasoning.encrypted_content"]`, and resends the whole history:
@@ -143,7 +147,7 @@ offline reviews), whose checkpoints key on the model.
   the same round; a transient failure retries the same round inside the
   deadline. A workspace turn refuses to run under `single_request()` (it is
   several requests). The JSON repair, if needed, is tool-free and never sees
-  the workspace.
+  the workspace; it is sent with the budget of the request it repairs.
 
 ### 3.1 Wiring to diagnosis input provenance
 
@@ -215,7 +219,10 @@ report (ids, numbers and local explanations only;
   parameter name and request ids with a locally written hint (never the
   provider's message), seconds, physical requests,
   input/cached/output/reasoning tokens, answering models, receipt and
-  judgment ids, spend (planned and reported tokens, `estimated_only`);
+  judgment ids, spend (planned and reported tokens, `estimated_only`, and
+  `output_budget_tokens`: the route's output budget, which every request of
+  the call is sent with; a Codex JSON repair is sent what the first turn
+  left of it);
   the diagnosis adds status, unknown ids, cited attempts, causal classes,
   workspace rounds and files served; the generation the validator's
   rejection sentence, if any;
@@ -259,7 +266,9 @@ receipts still land in the copy.
   workspace under `single_request()`, inline mode and its budget, a snapshot
   diagnosis end to end, the provenance mapping, routing (capability,
   deadline), Codex fallback while paused, disclosures, profile validation.
-- `tests/test_ai_compare.py` (26 cases): dry run sends nothing and
+- `tests/test_ai_compare.py` (26 cases at the stage, 31 after the Codex
+  review, its re-review and the final verification, which are listed in
+  `chatgpt-plan-peer-codex-review.md`): dry run sends nothing and
   estimates every call (JSON and text; a generation-only run), a run on a
   `--copy-from` copy (agreement, validity, latency, tokens, allowance, spend
   admission and reconciliation, root receipts' declared caps, judgments in the

@@ -282,3 +282,156 @@ held `flock /tmp/learnloop-fullsuite.lock` and used `uv run --no-sync`.
    budget is what a request sends"), and it is identical across the
    profiles being compared. Making serving send it on subscription routes
    would change every serving role, which is outside this stage.
+
+## Final verification reopen
+
+A final Codex verification of the stage at `49694eb36` reopened F6 and F8
+through one new Medium finding, F9. In short: budget admission is in
+place, but the JSON repair bypasses the request's output allowance; first
+requests carry their planned budgets, ChatGPT repair requests do not. F9
+reproduced and is fixed; nothing was rejected.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F9 (reopens F6, F8) | Medium | ChatGPT JSON repair omits the reported output budget | fixed | `a5f140f66` | `test_ai_compare.py::test_a_json_repair_carries_the_budget_of_the_request_it_repairs`; `test_chatgpt_plan_provider.py::test_a_json_repair_is_sent_with_the_budget_of_the_request_it_repairs` |
+
+The verifier's scenario: when the first response is invalid JSON, the
+repair runs. `complete()` added the budget sentence to the first prompt
+only. The repair was built from `_repair_prompt()` with neither the
+sentence nor a limit (`chatgpt_plan.py:218`, reached through
+`ai_compare.py:1005`). Its in-memory `run_compare()` probe used the real
+transport. For grading, diagnosis and generation (budgets 1234, 2345,
+3456), the sentence was present in the first request and absent in the
+repair, and no repair had a `max_output_tokens`.
+
+### Reproduction first
+
+The compare test was written first and failed in the worktree before any
+source change. After the fix, both tests were run against `src/` exported
+from `49694eb36` and put first with `-o pythonpath=…`: **2 failed**. On
+the fixed tree both pass.
+
+- The compare test runs `run_compare()` through the real ChatGPT-plan
+  transport (`client_for_provider`) against the fake Responses server. Each
+  operation's final answer is prefixed `BROKEN-<kind>`, which forces the
+  one repair. The test then reads every outgoing request. For each one it
+  records the operation, whether it is the repair, the budget stated at the
+  end of the prompt, how many budget sentences the prompt holds, the
+  allowance on the request's receipt (`output_budget_tokens`), and whether
+  `max_output_tokens` was on the wire. On `49694eb36`:
+
+  | Request | Stated at the end | Sentences | Receipt allowance | Wire cap |
+  |---|---|---|---|---|
+  | grading, first | 1234 | 1 | None | no |
+  | grading, repair | none | 0 | None | no |
+  | diagnosis, 3 workspace rounds | 2345 | 1 | None | no |
+  | diagnosis, repair | none | 0 | None | no |
+  | generation, first | 3456 | 1 | None | no |
+  | generation, repair | none | 0 | None | no |
+
+  This is the verifier's result. The test also shows a second gap: no
+  physical request's receipt recorded an allowance, the first requests
+  included (`budget=None` on every `responses_request`). The report's
+  `spend.output_budget_tokens` (1234/2345/3456) described the first
+  requests only.
+- The provider test runs one `json_object` call under `generation_limit(200)`
+  with a first answer that misses a field. It failed on `49694eb36` because
+  the repair prompt ended with `Output:\n{"ok": true}` and carried no
+  budget.
+
+The probe used during the fix (Codex, below) was a scratch file and is not
+committed. The two tests are the permanent regressions.
+
+### What changed
+
+- **The repair gets the budget of the request it repairs**
+  (`ChatGPTPlanProviderClient.complete`). `_with_budget(prompt, budget)`
+  appends the sentence once, at the end, to the first prompt and to the
+  repair prompt. The budget is passed through `_respond`, `_workspace_turn`,
+  `_tool_loop` and `_send` to `_send_once`. There, `model_call(...,
+  budget=budget)` records it as the receipt's `output_budget_tokens` for
+  every physical request: each workspace round, an inline turn, the repair,
+  and any transient or 401 resend of these.
+- **The transport limit.** The plan route refuses `max_output_tokens`
+  (`UNSUPPORTED_FIELDS`, and the fake server rejects it too), so no request
+  carries a wire cap, the first requests included. The repair now matches
+  them exactly: the same sentence, the same recorded allowance, no cap. The
+  receipt's allowance is the transport's record of the limit a request was
+  sent with, the same figure the metered transports record from their
+  `max_tokens`.
+- **The same budget, not what is left.** The repaired answer is the same
+  complete JSON response, so the repair is told the whole budget. This
+  matches `openai_chat` (and OpenRouter), whose repair resends the
+  request's `max_tokens`. The estimate reserves one budget per call; the
+  estimate basis now says a repair's output adds to its call's, and
+  reconciliation uses the usage the transport reported.
+- **The subscription exemption holds.** No `single_request()` bound is set.
+  The repair and every workspace round still run: the compare test counts
+  2 / 4 / 2 physical requests for grading / diagnosis / generation, and all
+  three calls are valid.
+- **Spend.** Each call's `spend.output_budget_tokens` is unchanged. It now
+  describes every request of the call, the repair included. Each physical
+  request's receipt carries the same figure, and the operation's root
+  receipt still records it. `COMPARE_VERSION` is 4 (in a version-3 report
+  the figure held for the first requests only). The module docstring, the run loop's comment
+  and the estimate basis say a repair is sent with the budget too.
+- **Other providers.**
+  - Codex has no such gap. Every turn, the repair and the regeneration
+    included, runs under `generation_limit(remaining)`. The prompt states
+    that figure and the `sdk_turn` receipt records it. A repair is charged
+    against what the first turn left (a scratch probe with a faked SDK
+    turn: budget 1000, repair 792), and that policy is left unchanged
+    (open question 5).
+  - `openai_chat` and OpenRouter repeat the request's `max_tokens` on the
+    repair, and record it on its receipt.
+  - The Decider, the legacy Codex HTTP adapter, embeddings and video make
+    no JSON repair.
+
+The references were regenerated in `4d5f220c9`: source commits, and the
+`chatgpt_plan.py` citations in `Config - ai` moved 6 lines. Schema head is
+unchanged at 204.
+
+### Spend and calls
+
+No paid, live or dry-run model call was made in this step. The tests and
+the Codex probe use fakes: the fake Responses server on 127.0.0.1, and a
+replaced SDK turn. The tracked fixtures were not touched.
+
+### Gate (final verification)
+
+Run on the final code tree `4d5f220c9`. The only later commit adds this
+section and the stage record's corrections. `TMPDIR` was the worktree's
+`fixtures-local/tmp`. Both suite runs held
+`flock /tmp/learnloop-fullsuite.lock` and used `uv run --no-sync`. `/tmp`
+had 13 GB free. No test failed, so nothing needed a timing rerun.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `git diff --check` | clean |
+| `pytest -n auto` (full suite) | **11,886 passed, 1 skipped**, 0 failed (15 min 18 s). That is the earlier 11,884 plus the 2 new tests. The skip is still `test_served_paths_map_to_export_entries_under_input_provenance` (`importorskip` until provenance reaches this branch) |
+| `pytest -m durability` | **106 passed**, 11,781 deselected (2 min 35 s) |
+| stage tests (`test_ai_compare` 31, `test_chatgpt_plan_provider` 28, `test_chatgpt_plan_workspace` 26, `test_chatgpt_plan_sidecar`, `test_chatgpt_plan_cli`, `test_output_budget`, `test_cli_help_snapshot`, `test_codex_output_schema`) | 390 passed, 1 skipped as a targeted run; green in the full suite |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated in `4d5f220c9` (source commits; the `chatgpt_plan.py` citations in `Config - ai` moved). Validate reports `errors: []` |
+| CLI help snapshot | unchanged (no option or help text changed); green |
+| RPC pins | unchanged (no sidecar method changed) |
+| frontend / `src-tauri` | untouched: npm and cargo checks not required |
+| tracked fixtures | `git status` clean after both runs |
+
+### Open questions (defaults in force)
+
+5. **Codex charges a repair against what the first turn left; the plan
+   repeats the budget.** The two subscription transports now tell a repair
+   different targets. On Codex the target is the budget less the first
+   turn's output. On the plan it is the whole budget, as on `openai_chat`.
+   Default: keep both. Codex's policy predates this stage and governs every
+   Codex route. Repairs are rare in a comparison, and each is counted in
+   `physical_requests`. Making Codex repeat the budget would change serving
+   on every Codex route.
+6. **What counts as the plan's transport limit.** The route takes no
+   `max_output_tokens`. Default: the limit is the stated budget plus the
+   receipt's `output_budget_tokens`, and no wire cap is sent. Sending one
+   would be refused by the route.
