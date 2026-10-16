@@ -209,6 +209,11 @@ def plan_view(
     display = display_lane_minutes(lane_minutes)
     current = record.current_block()
     current_id = current.id if current is not None else None
+    waiting = (
+        {key: next_step.get(key) for key in ("until", "minutes", "practice_item_id", "learning_object_title")}
+        if next_step and next_step.get("kind") == "waiting" and record.is_open
+        else None
+    )
     projected = project_blocks(record, context, env.policy)
     plan_blocks = [_block_row(env, record, block, current_id) for block in record.blocks]
     day = day_records(env)
@@ -266,7 +271,10 @@ def plan_view(
         "current_block_id": current_id,
         # Router R2b: the next block is being chosen (its models are still out
         # on a read); a serving step decides it, waiting a few seconds at most.
-        "deciding": bool(record.is_open and current is None),
+        "deciding": bool(record.is_open and current is None and waiting is None),
+        # UX Phase 4 round 7: nothing to do until a hold lifts later today
+        # (the waiting step: when, and on what).
+        "waiting": waiting,
         "projected": projected,
         "block_count_estimate": len(record.blocks) + len(projected),
         "first_block": first_row,

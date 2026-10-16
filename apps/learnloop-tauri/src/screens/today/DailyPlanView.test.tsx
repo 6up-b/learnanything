@@ -262,3 +262,26 @@ it("says re-entry done and offers to keep going after a re-entry plan", () => {
   expect(screen.getByTestId("plan-done-title").textContent).toBe("Re-entry done. Keep going?");
   expect(screen.queryByRole("button", { name: "more new material" })).toBeNull();
 });
+
+it("UX Phase 4 round 7: a plan waiting for a hold to lift says when, in plain words, and is not done", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+  try {
+    const waiting = plan({
+      blocks: [],
+      currentBlockId: null,
+      deciding: false,
+      firstBlock: null,
+      waiting: { until: "2026-10-12T10:04:30Z", minutes: 5, practiceItemId: "pi_cold", learningObjectTitle: "Eigenvalues" }
+    });
+    show(data(waiting));
+    expect(screen.getByTestId("plan-waiting").textContent).toBe(
+      "Nothing to do right now. Back in 5 min: a question on Eigenvalues."
+    );
+    expect(screen.queryByTestId("plan-choosing")).toBeNull();
+    expect(screen.queryByTestId("plan-done")).toBeNull();
+    expect(screen.queryByRole("button", { name: "begin ↵" })).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});

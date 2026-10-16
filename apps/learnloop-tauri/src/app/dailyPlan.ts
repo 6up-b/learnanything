@@ -138,11 +138,27 @@ export function useNextPlanStep(sessionId: string | null, prefetch: boolean): Ne
   return { step, resolve };
 }
 
+/** Whole minutes until a waiting plan's hold lifts (at least 1), read from
+ *  its time when it parses, else the server's count. */
+export function waitingMinutes(until: string, fallback: number, now: number = Date.now()): number {
+  const at = Date.parse(until);
+  if (!Number.isFinite(at)) return Math.max(1, fallback);
+  return Math.max(1, Math.ceil((at - now) / 60000));
+}
+
+/** The plain line for a waiting plan: when it resumes, and on what. */
+export function waitingLine(waiting: { until: string; minutes: number; learningObjectTitle: string | null }, now: number = Date.now()): string {
+  const minutes = waitingMinutes(waiting.until, waiting.minutes, now);
+  const what = waiting.learningObjectTitle ? `a question on ${waiting.learningObjectTitle}` : "one more question";
+  return `Nothing to do right now. Back in ${minutes} min: ${what}.`;
+}
+
 /** The key bar's promise for Next under the plan. */
 export function nextPlanKeyLabel(advancing: boolean, step: PlanStepDto | null): string {
   if (advancing) return "opening next…";
   if (!step) return "next";
   if (step.kind === "done") return "today's plan is done";
+  if (step.kind === "waiting") return `back in ${waitingMinutes(step.until, step.minutes)} min`;
   if (step.kind === "reading") return `next: continue reading ${step.reading.sectionTitle ?? ""}`.trim();
   if (step.boundary) return "next block";
   return `next: ${(step as PlanItemStepDto).learningObjectTitle ?? "next item"}`;

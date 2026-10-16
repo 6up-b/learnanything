@@ -1898,7 +1898,12 @@ def _defer_revealed_cold_followups(
 COLD_CHECK_ROUTINE_DISPLAY = "cold_check_routine_display"
 
 
-def cold_check_serve_hold(
+#: When a routine-display hold's release cannot be read (an unreadable
+#: stamp): held, and never lifting on its own clock (fail closed).
+COLD_CHECK_HOLD_UNKNOWN_RELEASE = "9999-12-31T23:59:59Z"
+
+
+def cold_check_hold_until(
     vault: LoadedVault,
     repository: Repository,
     practice_item_id: str,
@@ -1906,21 +1911,20 @@ def cold_check_serve_hold(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """Revalidate a cold check against routine-display coverage at the moment it
-    would be served (UX Phase 4, rounds 5 and 6): the reason it cannot be
-    served AS the cold check now, or None.
+    """When a cold check's routine-display hold lifts (ledger format), or None
+    when it is not held (UX Phase 4, rounds 5 to 7).
 
-    Every path that serves an item it chose earlier (a daily-plan block, a
-    learner's pick, a session serve, the TUI's open) calls it. Only a hold
-    that time alone clears is made here (round-6 ruling 2): a routine display
-    covers the item or its learning object now, and an open, unexpired cold
-    task on the item falls due no later than that coverage releases it (due
-    now, or deferred by it): every such task is judged, so a task for later
-    never masks one due now (round 6, E). Those tasks are deferred, persisted
-    when ``persist``, to the first second no covering row covers the item
-    (``routine_released_at``), so the hold ends by itself within the coverage
-    (D + G). Every other reveal kind keeps main's serving behaviour exactly
-    (the scheduler's own deferral and the submit guard, unchanged): no hold.
+    Only a hold that time alone clears is made here (round-6 ruling 2): a
+    routine display covers the item or its learning object now, and an open,
+    unexpired cold task on the item falls due no later than that coverage
+    releases it (due now, or deferred by it): every such task is judged, so a
+    task for later never masks one due now (round 6, E). Those tasks are
+    deferred, persisted when ``persist``, to the first second no covering row
+    covers the item (``routine_released_at``), which is returned: the hold
+    ends by itself within the coverage (D + G). Every other reveal kind keeps
+    main's serving behaviour exactly (the scheduler's own deferral and the
+    submit guard, unchanged): no hold. An unreadable stamp holds, with
+    :data:`COLD_CHECK_HOLD_UNKNOWN_RELEASE` and nothing persisted.
     """
 
     from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
@@ -1945,8 +1949,7 @@ def cold_check_serve_hold(
         return None
     releases = [routine_released_at(str(row.get("created_at") or "")) for row in covering]
     if any(value is None for value in releases):
-        # An unreadable stamp: held now (fail closed), nothing persisted.
-        return COLD_CHECK_ROUTINE_DISPLAY
+        return COLD_CHECK_HOLD_UNKNOWN_RELEASE
     released = max(value for value in releases if value is not None)
     held = [task for task in tasks if str(task.get("not_before") or "") <= released]
     if not held:
@@ -1954,7 +1957,26 @@ def cold_check_serve_hold(
     if persist:
         for task in held:
             repository.defer_followup_task(str(task["id"]), not_before=released, clock=clock)
-    return COLD_CHECK_ROUTINE_DISPLAY
+    return released
+
+
+def cold_check_serve_hold(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+) -> str | None:
+    """Revalidate a cold check against routine-display coverage at the moment it
+    would be served (UX Phase 4, rounds 5 to 7): the reason it cannot be
+    served AS the cold check now (:data:`COLD_CHECK_ROUTINE_DISPLAY`), or
+    None. Every path that serves an item it chose earlier (a daily-plan block,
+    a learner's pick, a session serve, the TUI's open) calls it; the hold is
+    :func:`cold_check_hold_until`'s."""
+
+    held = cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
+    return COLD_CHECK_ROUTINE_DISPLAY if held is not None else None
 
 
 def deferred_cold_followups(

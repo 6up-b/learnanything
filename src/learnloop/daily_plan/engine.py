@@ -108,6 +108,17 @@ class PlanInactiveError(RuntimeError):
     """The plan is off: a pre-mvp-0.14 vault or ``plan.enabled = false``."""
 
 
+class PlanWaiting(Exception):
+    """The boundary found nothing to do now, but a routine-display hold on a
+    planned cold check lifts later today (UX Phase 4 round 7). The plan is not
+    finished: it stays open without a block, and the step says what it waits
+    for and until when. Nothing is written; the next call decides again."""
+
+    def __init__(self, step: dict[str, Any]) -> None:
+        super().__init__(step.get("until"))
+        self.step = step
+
+
 def plan_active(vault: Any) -> bool:
     """The plan serves only at a daily-plan version with the kill switch on."""
 
@@ -214,6 +225,10 @@ class PoolContext:
     streak_days: int
     candidate_ids: Mapping[str, str | None] = field(default_factory=dict)
     deadlines: Mapping[str, str] = field(default_factory=dict)
+    #: UX Phase 4 round 7: pool items held back now by a routine-display hold
+    #: on their cold check, with when the hold lifts. They stay in the plan's
+    #: universe and return to the pool once it lifts.
+    held_until: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -734,20 +749,10 @@ def _classified_pool(
     """
 
     scheduled = env.build_eligible(minutes)
-    # UX Phase 4 rounds 5 and 6: a due cold check a routine display covers is
-    # not planned (``scheduler.cold_check_serve_hold``); that hold ends by
-    # itself within the coverage, and every other reveal kind keeps main's
-    # serving (round-6 ruling 2).
-    cold = _open_cold_check_items(env)
-    if cold:
-        from learnloop.scheduling.scheduler import cold_check_serve_hold
-
-        scheduled = [
-            item
-            for item in scheduled
-            if item.practice_item_id not in cold
-            or cold_check_serve_hold(env.vault, env.repository, item.practice_item_id, clock=env.clock) is None
-        ]
+    # UX Phase 4 rounds 5 to 7: a cold check a routine display covers stays in
+    # the pool (and the plan's universe); the boundary leaves it out while the
+    # hold lasts (``_context``), and waits for it when it is all that is left
+    # and the hold lifts today (``PlanWaiting``).
     estimator = _estimator(env)
     states = env.repository.practice_item_states()
     requested = env.repository.requested_practice_item_ids()
@@ -1336,6 +1341,10 @@ def build_plan(
         # read). The plan stands without a block; the next call decides it
         # (``advance`` crosses the open boundary, placing the requests first).
         pass
+    except PlanWaiting:
+        # UX Phase 4 round 7: nothing to do until a hold lifts later today.
+        # The plan stands open without a block; ``advance`` says what it waits for.
+        pass
     return _reload(env, plan_id)
 
 
@@ -1361,6 +1370,11 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         for item in built.pool
         if item.practice_item_id in universe and item.practice_item_id not in taken
     )
+    # UX Phase 4 round 7: a cold check under a routine-display hold is not a
+    # candidate while the hold lasts (``scheduler.cold_check_hold_until``).
+    held_until = _routine_holds(env, [item.practice_item_id for item in pool])
+    if held_until:
+        pool = tuple(item for item in pool if item.practice_item_id not in held_until)
     admission = record.admission
     admitted_ids = frozenset(
         [row["practice_item_id"] for row in admission.get("admitted") or []]
@@ -1390,7 +1404,60 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
             item.practice_item_id: getattr(item, "scheduler_candidate_id", None) for item in built.scheduled
         },
         deadlines=built.deadlines,
+        held_until=held_until,
     )
+
+
+def _routine_holds(env: PlanEnv, item_ids: Sequence[str]) -> dict[str, str]:
+    """The given items held back now by a routine-display hold on their cold
+    check, with when each hold lifts (UX Phase 4 round 7). A read: the
+    deferral itself is persisted where the item would be served."""
+
+    cold = _open_cold_check_items(env)
+    if not cold:
+        return {}
+    from learnloop.scheduling.scheduler import cold_check_hold_until
+
+    holds: dict[str, str] = {}
+    for item_id in item_ids:
+        if item_id not in cold:
+            continue
+        until = cold_check_hold_until(env.vault, env.repository, item_id, clock=env.clock, persist=False)
+        if until is not None:
+            holds[item_id] = until
+    return holds
+
+
+def _waiting_step(env: PlanEnv, record: PlanRecord, context: PoolContext) -> dict[str, Any] | None:
+    """What the plan waits for when nothing can be done now (UX Phase 4 round
+    7): the earliest routine-display hold that lifts later TODAY, the plan's
+    local day. None when no hold lifts today: the plan finishes as before."""
+
+    lifting = []
+    plan_day = str(record.row.get("local_date") or env.today())
+    for item_id, until in context.held_until.items():
+        try:
+            moment = parse_utc(until)
+        except ValueError:
+            continue
+        if moment is None or moment.astimezone().date().isoformat() != plan_day:
+            continue
+        lifting.append((until, item_id))
+    if not lifting:
+        return None
+    until, item_id = min(lifting)
+    seconds = max((parse_utc(until) - env.now()).total_seconds(), 0.0)
+    item = env.vault.practice_items.get(item_id)
+    learning_object_id = getattr(item, "learning_object_id", None) if item is not None else None
+    return {
+        "kind": "waiting",
+        "plan_id": record.id,
+        "until": until,
+        "minutes": max(math.ceil(seconds / 60.0), 1),
+        "practice_item_id": item_id,
+        "learning_object_id": learning_object_id,
+        "learning_object_title": context.titles.get(learning_object_id) if learning_object_id else None,
+    }
 
 
 def _live_context(
@@ -1788,6 +1855,11 @@ def _boundary(
         detail["router"] = router_summary(router_record)
     candidate = decision.candidate
     if candidate is None and not forced:
+        # UX Phase 4 round 7: a temporary routine-display hold never finishes
+        # the plan. When the only work left lifts later today, the plan waits.
+        waiting = _waiting_step(env, record, context)
+        if waiting is not None:
+            raise PlanWaiting(waiting)
         _close(
             env, record, status="complete", reason=choice.why or "nothing more worth doing today",
             stop_detail=detail, log_decision=True, router_record=router_record,
@@ -2621,6 +2693,9 @@ def advance_with_context(
             # Router R2b: the decision's models are still out on a read. No
             # step yet: the view says the next block is being chosen.
             return record, None, context  # type: ignore[return-value]
+        except PlanWaiting as waiting:
+            # UX Phase 4 round 7: the plan waits for a hold that lifts today.
+            return record, waiting.step, context
         record = _reload(env, record.id)
         context = _context(env, record, built, day=())
         if block_id is None:

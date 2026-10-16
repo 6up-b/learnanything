@@ -7704,7 +7704,28 @@ export interface PlanDoneStepDto {
   stopReason: string | null;
 }
 
-export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto;
+/** UX Phase 4 round 7: nothing to do until a hold on the plan's last item
+ *  (its answer was shown recently) lifts later today. The plan stays open. */
+export interface PlanWaitingStepDto {
+  kind: "waiting";
+  planId: string;
+  /** When the hold lifts (UTC). */
+  until: string;
+  minutes: number;
+  practiceItemId: string;
+  learningObjectId: string | null;
+  learningObjectTitle: string | null;
+}
+
+/** The plan body's view of the waiting step. */
+export interface PlanWaitingDto {
+  until: string;
+  minutes: number;
+  practiceItemId: string;
+  learningObjectTitle: string | null;
+}
+
+export type PlanStepDto = PlanItemStepDto | PlanReadingStepDto | PlanDoneStepDto | PlanWaitingStepDto;
 
 export interface PlanTotalsDto {
   plannedMinutes: number;
@@ -7762,6 +7783,8 @@ export interface DailyPlanBodyDto {
   currentBlockId: string | null;
   /** Router R2b: the next block is still being chosen (its models are out); Begin decides it at once. */
   deciding?: boolean;
+  /** UX Phase 4 round 7: nothing to do until a hold lifts later today (null otherwise). */
+  waiting?: PlanWaitingDto | null;
   projected: PlanProjectedBlockDto[];
   /** "Block 2 of about N": chosen plus projected. */
   blockCountEstimate: number;
