@@ -37,7 +37,8 @@ export function DiagnosticReviewScreen({
   onOpenRepair,
   onGuidedRedo,
   onBack,
-  onError
+  onError,
+  keysSuspended = false
 }: {
   blockEnd: ProbeBlockEndDto;
   learningObjectId: string;
@@ -56,6 +57,9 @@ export function DiagnosticReviewScreen({
   onGuidedRedo?: (redo: GuidedRedoDto) => void;
   onBack: () => void;
   onError: (message: string) => void;
+  /** An overlay over the results (the repair step) owns the keyboard (Codex
+   *  review F2): ↵ and Esc never reach this screen underneath it. */
+  keysSuspended?: boolean;
 }) {
   const [continuing, setContinuing] = useState(false);
   // UX Phase 4.3 (§7.5): the short check's results fold into the feedback
@@ -107,6 +111,7 @@ export function DiagnosticReviewScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (keysSuspended) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (simple) {
@@ -130,7 +135,7 @@ export function DiagnosticReviewScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleContinue, onBack, runNextStep, simple]);
+  }, [handleContinue, onBack, keysSuspended, runNextStep, simple]);
 
   if (simple) {
     const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : PLAIN_CONTINUE_LABEL[blockEnd.route ?? ""] ?? "Continue";

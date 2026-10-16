@@ -272,6 +272,8 @@ fn main() {
             get_grading_clarification,
             answer_grading_clarification,
             trigger_regrade,
+            record_answer_display,
+            record_self_grade_disclosure,
             add_error_event,
             trigger_followup,
             rate_followup,

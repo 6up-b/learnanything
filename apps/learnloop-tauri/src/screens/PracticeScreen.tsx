@@ -13,6 +13,7 @@ import type {
   ProbeContractDto,
   RubricCriterionDto,
   SelfGradeErrorAttributionDto,
+  SelfGradeDisclosureDto,
   SelfGradeInputDto,
   SessionSnapshot,
   TeachBackStateDto,
@@ -105,6 +106,7 @@ export function PracticeScreen({
   restoredSubmissionId,
   restoredStuck = false,
   restoredTeachBack,
+  restoredDisclosure = null,
   onFeedback,
   onBlockEnd,
   onContinueDiagnostic,
@@ -143,6 +145,9 @@ export function PracticeScreen({
    *  stuck", so it reopens in stuck mode and submits as a stuck answer. */
   restoredStuck?: boolean;
   restoredTeachBack?: TeachBackStateDto | null;
+  /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
+   *  it showed a full answer. The draft reopens locked to it. */
+  restoredDisclosure?: SelfGradeDisclosureDto | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
    *  attempt in it, not just the one that closed it. */
@@ -162,6 +167,8 @@ export function PracticeScreen({
     declaredStuck: boolean;
     /** Router R2a (review F5): restored with the draft. */
     planPresentationId: string | null;
+    /** Codex review F1: the frozen trace, when a full answer was shown. */
+    selfGradeDisclosure?: SelfGradeDisclosureDto | null;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -231,6 +238,17 @@ export function PracticeScreen({
   const [checkWhyOpen, setCheckWhyOpen] = useState(false);
   // The plain self-grade: "Partly" asks which parts the learner got.
   const [partlyOpen, setPartlyOpen] = useState(false);
+  // Codex review F1: the whole trace (the answer as Submit sends it and the
+  // volunteered line) frozen in the session checkpoint BEFORE the plain
+  // self-grade shows a full answer. While it is set the answer and the line
+  // are locked, across a remount or a restart, and Submit sends exactly it.
+  const [disclosed, setDisclosed] = useState<{ answerMd: string; explanationMd: string | null } | null>(
+    restoredDisclosure ? { answerMd: restoredDisclosure.answerMd, explanationMd: restoredDisclosure.explanationMd } : null
+  );
+  const disclosedRef = useRef(disclosed);
+  disclosedRef.current = disclosed;
+  // The freeze failed: the self-grade goes on without the full answer.
+  const [disclosureFailed, setDisclosureFailed] = useState(false);
   const [partsGot, setPartsGot] = useState<Record<string, boolean>>({});
   const [selfGradeDetailsOpen, setSelfGradeDetailsOpen] = useState(false);
   const mountedRef = useRef(true);
@@ -399,7 +417,14 @@ export function PracticeScreen({
     setAnswer(restoredAnswer ?? "");
     setHintsUsed(restoredHints ?? 0);
     setFallbackRequired(!gradingReady);
-    setSelfGradeVisible(false);
+    // A draft whose full answer was already shown reopens locked to the
+    // trace it froze, at the self-grade when it is still needed (F1).
+    const frozen = restoredDisclosure
+      ? { answerMd: restoredDisclosure.answerMd, explanationMd: restoredDisclosure.explanationMd }
+      : null;
+    setDisclosed(frozen);
+    setDisclosureFailed(false);
+    setSelfGradeVisible(Boolean(frozen) && simple && !gradingReady);
     setPartlyOpen(false);
     setPartsGot({});
     setSelfGradeDetailsOpen(false);
@@ -408,9 +433,10 @@ export function PracticeScreen({
     setCheckWhyOpen(false);
     setFieldErrors({});
     setSubmitting(false);
-    setWhyLine("");
+    setWhyLine(frozen?.explanationMd ?? "");
     setStuck(Boolean(restoredStuck) && stuckPrompt);
-  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt, restoredDisclosure]);
 
   useEffect(() => {
     let cancelled = false;
@@ -525,8 +551,10 @@ export function PracticeScreen({
       if (!draftSavingDisabled()) {
         const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
                 planPresentationId: presentation } = latestDraft.current;
+        const frozen = disclosedRef.current;
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
-                       planPresentationId: presentation });
+                       planPresentationId: presentation,
+                       selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -706,6 +734,30 @@ export function PracticeScreen({
     editor?.focus();
   }
 
+  /** Phase 4's plain self-grade shows a full answer: freeze the whole trace
+   *  first (Codex review F1), and grade without the answer when the freeze is
+   *  not confirmed. Every way into the plain self-grade goes through here. */
+  async function freezeBeforeSelfGrade(itemId: string, key: string): Promise<void> {
+    if (!item || !simple || disclosed || probeActive || !expectedAnswerText(item.expectedAnswer).trim()) return;
+    const frozen = {
+      answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
+      explanationMd: whyLine.trim() || null
+    };
+    setSubmitting(true);
+    try {
+      await flushDraft();
+      await api.recordSelfGradeDisclosure({ sessionId: session.sessionId, practiceItemId: itemId, submissionId: key, ...frozen });
+      if (!mountedRef.current) return;
+      setDisclosed(frozen);
+      setDisclosureFailed(false);
+    } catch {
+      if (!mountedRef.current) return;
+      setDisclosureFailed(true);
+    } finally {
+      if (mountedRef.current) setSubmitting(false);
+    }
+  }
+
   async function submit(gradeOverride?: SelfGradeInputDto) {
     if (!item || !interactionReady || submitting) return;
     const submittedItemId = item.id;
@@ -719,6 +771,8 @@ export function PracticeScreen({
     // First Submit click when a self-grade is required only reveals the panel;
     // the actual attempt is submitted on the next click once it's been graded.
     if (fallbackRequired && !selfGradeVisible && !emptyStuck) {
+      await freezeBeforeSelfGrade(submittedItemId, submittedKey);
+      if (!mountedRef.current) return;
       setSelfGradeVisible(true);
       return;
     }
@@ -742,8 +796,9 @@ export function PracticeScreen({
         // A guided redo submits the COMPOSED answer: the preserved (locked)
         // prefix plus the learner's rewritten portion, separated by a paragraph
         // break — mirroring repair_splice's end-append join. The grader sees
-        // one whole answer; only the redo text was written now.
-        answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
+        // one whole answer; only the redo text was written now. A trace frozen
+        // before a full answer was shown is sent exactly as frozen (F1).
+        answerMd: disclosed ? disclosed.answerMd : redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
         // Meas §3.A6 rule 3 made structural, and made structural on the WIRE:
         // the volunteered line is its own field, and the sidecar joins it into
         // the single trace the grader reads. The client never learns the
@@ -751,7 +806,7 @@ export function PracticeScreen({
         // blank line is submitted as nothing at all; there is no representation
         // for "declined", so nothing can turn an empty field into a hint, a
         // skip, or a failure.
-        explanationMd: whyLine.trim() || null,
+        explanationMd: disclosed ? disclosed.explanationMd : whyLine.trim() || null,
         // §12: an active diagnostic block forces the recording attempt type.
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
         hintsUsed,
@@ -789,6 +844,10 @@ export function PracticeScreen({
       const command = getCommandError(error);
       if (command?.code === "grading_fallback_required") {
         setFallbackRequired(true);
+        // The grader went away mid-submit: the plain self-grade opens the
+        // same way as the first Submit, frozen before any full answer (F1).
+        if (!emptyStuck) await freezeBeforeSelfGrade(submittedItemId, submittedKey);
+        if (!mountedRef.current) return;
         setSelfGradeVisible(true);
         // The plain self-grade says so itself ("AI grading isn't available
         // right now"); the raw reason is not a learner's notice.
@@ -1289,8 +1348,9 @@ export function PracticeScreen({
               value={answer}
               onChange={setAnswer}
               // Phase 4: grading yourself against a full answer locks the
-              // answer first, so seeing the answer cannot change it.
-              disabled={submitting || (simple && fallbackRequired && selfGradeVisible)}
+              // answer first, so seeing the answer cannot change it; the lock
+              // is the frozen trace's, so it outlives a remount (F1).
+              disabled={submitting || disclosed !== null || (simple && fallbackRequired && selfGradeVisible)}
               placeholder={
                 stuck
                   ? STUCK_PROMPT_TEXT
@@ -1305,6 +1365,12 @@ export function PracticeScreen({
             />
           </div>
           <div ref={belowRef}>
+            {simple && disclosed && !selfGradeVisible ? (
+              // A resumed draft whose full answer was already shown (F1).
+              <div style={{ ...quietLine, marginTop: 6 }} data-testid="frozen-answer-note">
+                You've seen a full answer, so your answer stays as you wrote it.
+              </div>
+            ) : null}
             {stuck ? (
               <div className="hint-banner" role="status" aria-label="stuck prompt" style={{ borderColor: COLOR.amber }}>
                 <Pill tone="amber">I'm stuck</Pill> {STUCK_PROMPT_TEXT}.{" "}
@@ -1396,7 +1462,8 @@ export function PracticeScreen({
                   className="text-input"
                   value={whyLine}
                   onChange={(event) => setWhyLine(event.target.value)}
-                  disabled={submitting}
+                  // Frozen with the answer before a full answer is shown (F1).
+                  disabled={submitting || disclosed !== null || (simple && fallbackRequired && selfGradeVisible)}
                   placeholder="one line — or leave it blank"
                   style={{ width: "100%", fontSize: 12 }}
                 />
@@ -1411,10 +1478,11 @@ export function PracticeScreen({
             {fallbackRequired && selfGradeVisible && simple ? (
               <PlainSelfGrade
                 item={item}
-                answer={redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer}
+                answer={disclosed ? disclosed.answerMd : redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer}
                 // A short check withholds the answer until it ends (its
                 // contract's answerRevealDisabled): grade without it there.
-                showFullAnswer={!probeActive}
+                // Elsewhere it shows only once the trace is frozen (F1).
+                showFullAnswer={!probeActive && disclosed !== null && !disclosureFailed}
                 submitting={submitting}
                 partlyOpen={partlyOpen}
                 partsGot={partsGot}

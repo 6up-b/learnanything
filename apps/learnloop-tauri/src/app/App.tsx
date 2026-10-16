@@ -1181,6 +1181,7 @@ export function App() {
             restoredSubmissionId={restored.submissionId}
             restoredStuck={restored.stuck}
             restoredTeachBack={restored.teachBack}
+            restoredDisclosure={restored.selfGradeDisclosure}
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
             onContinueDiagnostic={openPractice}
@@ -1212,6 +1213,8 @@ export function App() {
               setTodayStage("queue");
             }}
             onError={onError}
+            // The repair step over the results owns the keyboard (Codex review F2).
+            keysSuspended={repairMisconceptionId !== null}
           />
         );
       }
@@ -1244,6 +1247,8 @@ export function App() {
             onPaletteEntities={onPaletteEntities}
             onAsk={setAskTarget}
             onError={onError}
+            // The repair step over feedback owns the keyboard (Codex review F2).
+            keysSuspended={repairMisconceptionId !== null}
           />
         );
       }

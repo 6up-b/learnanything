@@ -562,13 +562,31 @@ export const api = {
   // UX Phase 4 "I think I was right": the learner's one-line reason is kept
   // before the regrade (the grader never sees it); without one, the plain
   // regrade exactly as before.
-  triggerRegrade: (attemptId: string, learnerReason?: string) =>
+  // `contestId` (Codex review F7): one key per contest, reused on a retry so
+  // the sidecar records and queues it once.
+  triggerRegrade: (attemptId: string, learnerReason?: string, contestId?: string) =>
     mutating(
       ATTEMPT_TAGS,
       call<FeedbackBundle>("trigger_regrade", {
-        input: learnerReason === undefined ? { attemptId } : { attemptId, learnerReason }
+        input:
+          learnerReason === undefined
+            ? { attemptId }
+            : { attemptId, learnerReason, ...(contestId ? { contestId } : {}) }
       })
     ),
+  /** UX Phase 4 (Codex review F1): feedback showed the full answer; the
+   *  sidecar charges the reveal ledger once per attempt. */
+  recordAnswerDisplay: (attemptId: string) =>
+    call<{ recorded: boolean }>("record_answer_display", { input: { attemptId } }),
+  /** UX Phase 4 (Codex review F1): freeze the whole trace before the plain
+   *  self-grade shows a full answer. Resolve before showing it. */
+  recordSelfGradeDisclosure: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+    answerMd: string;
+    explanationMd: string | null;
+  }) => call<{ frozen: boolean }>("record_self_grade_disclosure", { input }),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     mutating([TAG.review, TAG.maintenance, TAG.errors], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
   // A forced follow-up queues a diagnostic item ahead of the rest, so Today's

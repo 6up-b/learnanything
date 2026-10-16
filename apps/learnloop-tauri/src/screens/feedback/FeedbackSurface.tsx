@@ -11,8 +11,14 @@
 //
 // A grade held for review is the grader's provisional score and counts for
 // nothing: it says "Held for review" and never shows a score.
+//
+// The question, the full answer and the criteria all come from the assessment
+// contract the answer was graded under when the bundle carries it (Codex
+// review F5), never today's key beside the question as it was given. Showing
+// the full answer is an exposure: the screen charges the reveal ledger
+// (`onFullAnswerShown`, Codex review F1).
 import { useRef, useEffect } from "react";
-import type { FeedbackBundle, PracticeItemDetail } from "../../api/dto";
+import type { CriterionEvidenceRowDto, FeedbackBundle, PracticeItemDetail } from "../../api/dto";
 import { criterionAssessed } from "../../api/dto";
 import type { DiagnosisCardState } from "../../components/DiagnosisCard";
 import { ItemPresentation } from "../../components/ItemPresentation";
@@ -67,6 +73,29 @@ function fmtDay(iso: string | null): string {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/** The full answer to the question as it was given: the graded contract's
+ *  key when the bundle carries one, else the item's (an answer graded before
+ *  contracts). */
+export function answeredFullAnswer(f: FeedbackBundle, item: PracticeItemDetail | null): string {
+  const frozen = f.answeredExpectedAnswer;
+  if (frozen !== undefined && frozen !== null) return expectedAnswerText(frozen).trim();
+  return item ? expectedAnswerText(item.expectedAnswer).trim() : "";
+}
+
+/** The criteria rows with the descriptions and points the graded contract
+ *  froze (Codex review F5); a criterion the contract does not name keeps the
+ *  row's own. */
+export function answeredCriterionRows(f: FeedbackBundle): CriterionEvidenceRowDto[] {
+  const frozen = f.answeredCriteria;
+  if (!frozen) return f.criterionEvidence;
+  return f.criterionEvidence.map((row) => {
+    const criterion = frozen[row.criterionId];
+    return criterion
+      ? { ...row, criterionDescription: criterion.description, pointsPossible: criterion.pointsPossible }
+      : row;
+  });
+}
+
 /** The quiet honesty lines that qualify the grade, in a few plain words. */
 function honestyLines(f: FeedbackBundle): string[] {
   const lines: string[] = [];
@@ -108,7 +137,8 @@ export function FeedbackSurface({
   provisional,
   onShowProvisional,
   detailsOpen,
-  onToggleDetails
+  onToggleDetails,
+  onFullAnswerShown
 }: {
   feedback: FeedbackBundle;
   item: PracticeItemDetail | null;
@@ -129,11 +159,19 @@ export function FeedbackSurface({
   onShowProvisional: () => void;
   detailsOpen: boolean;
   onToggleDetails: () => void;
+  /** The full answer is on screen (once per attempt and answer). */
+  onFullAnswerShown?: () => void;
 }) {
   const held = verdict === "held";
   const presentation = f.answeredPresentation ?? item?.presentation ?? null;
-  const fullAnswer = item ? expectedAnswerText(item.expectedAnswer).trim() : "";
+  const fullAnswer = answeredFullAnswer(f, item);
+  const criteria = answeredCriterionRows(f);
   const learnerAnswer = (f.learnerAnswerMd ?? "").trim();
+  const shownCallback = useRef(onFullAnswerShown);
+  shownCallback.current = onFullAnswerShown;
+  useEffect(() => {
+    if (fullAnswer) shownCallback.current?.();
+  }, [f.attemptId, fullAnswer]);
   const diagnosisSummary =
     diagnosis.status === "done" && diagnosis.card?.cardEnabled !== false ? diagnosis.card?.summaryMd?.trim() || null : null;
   const sentence = diagnosisSummary
@@ -263,9 +301,9 @@ export function FeedbackSurface({
 
       {/* The criteria as plain ✓ / ✗ lines; a criterion the answer's route
           never exercised is a quiet "·" line. */}
-      {!held && f.criterionEvidence.length > 0 ? (
+      {!held && criteria.length > 0 ? (
         <div style={{ marginTop: 14, display: "grid", gap: 4, fontSize: 13 }}>
-          {f.criterionEvidence.map((row) => {
+          {criteria.map((row) => {
             const assessed = criterionAssessed(row);
             const full = row.pointsAwarded >= row.pointsPossible;
             const some = row.pointsAwarded > 0;

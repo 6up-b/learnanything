@@ -737,12 +737,22 @@ export interface SessionCheckpoint {
   /** Router R2a (review F5): the daily-plan presentation the draft answers
    *  (absent from an older sidecar). */
   planPresentationId?: string | null;
+  /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
+   *  it showed a full answer; the draft reopens locked to it. */
+  selfGradeDisclosure?: SelfGradeDisclosureDto | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
   updatedAt: IsoTimestamp;
   /** Mid-conversation teach-back state, when the checkpoint holds one. */
   teachBack?: TeachBackStateDto | null;
+}
+
+/** The whole trace a plain self-grade froze before showing a full answer. */
+export interface SelfGradeDisclosureDto {
+  submissionId: string;
+  answerMd: string;
+  explanationMd: string | null;
 }
 
 export interface QueueInput {
@@ -1468,8 +1478,18 @@ export interface FeedbackBundle {
   learnerExplanationMd?: string | null;
   /** The question as it was given when it differs from the item's own
    *  presentation (a method-explicit answer's frozen statement and rendered
-   *  instruction); null otherwise. */
+   *  instruction, or the frozen statement of an item edited since); null
+   *  otherwise. */
   answeredPresentation?: ItemPresentationDto | null;
+  /** Codex review F5: the answer key and criteria that question was given
+   *  with, from the same assessment contract. Null for an answer graded before
+   *  contracts (feedback then reads the item). */
+  answeredExpectedAnswer?: unknown;
+  answeredCriteria?: Record<string, { description: string; pointsPossible: number }> | null;
+  /** "I think I was right" (Codex review F3/F7): present on a contest's
+   *  response. `recorded`: the learner's note is kept; `regraded`: the grader
+   *  looked again; `reviewRequested`: the grade went to the owner's review. */
+  contest?: { recorded: boolean; regraded: boolean; reviewRequested: boolean };
 }
 
 /** What the cold check this attempt spent turned out to say.
@@ -1889,6 +1909,9 @@ export interface PersistedRegradeDto {
   maxPoints: number;
   regradedAt: IsoTimestamp;
   direction: "up" | "down" | "same";
+  /** Codex review F6: the grade the regrade replaced was held for review (its
+   *  score was provisional and is never shown). Absent from an older sidecar. */
+  oldHeld?: boolean;
 }
 
 export interface MatchedMisconceptionDto {

@@ -14,7 +14,8 @@ import { PracticeScreen } from "./PracticeScreen";
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
-  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), submitDontKnow: vi.fn(), stopProbeDiagnosing: vi.fn()
+  getNextProbeItem: vi.fn(), skipPracticeItem: vi.fn(), submitDontKnow: vi.fn(), stopProbeDiagnosing: vi.fn(),
+  recordSelfGradeDisclosure: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn(), destroy: vi.fn() }) }));
@@ -78,6 +79,7 @@ beforeEach(() => {
   api.acknowledgePracticeSubmission.mockResolvedValue({ acknowledged: true });
   api.skipPracticeItem.mockResolvedValue({});
   api.submitAttempt.mockResolvedValue({ attemptId: "att_1", learningObjectId: "lo_det" });
+  api.recordSelfGradeDisclosure.mockResolvedValue({ version: 1, frozen: true });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 });
 afterEach(() => {
@@ -208,4 +210,98 @@ it("never sends an untouched self-grade on a second ^↵: only Got it, Partly or
     fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
   });
   expect(api.submitAttempt).not.toHaveBeenCalled();
+});
+
+// == Codex review F1: the plain self-grade freezes the whole trace first =====
+
+const ELICIT = { elicit: true, prompt: "Optional, one line: why this approach rather than another?", reason: "decision_point" };
+
+it("F1: freezes the answer and the volunteered line before it shows a full answer, then sends exactly them", async () => {
+  api.getPracticeItem.mockResolvedValue(item({ elicitation: ELICIT }));
+  let confirm!: (value: unknown) => void;
+  api.recordSelfGradeDisclosure.mockReturnValueOnce(new Promise((done) => { confirm = done; }));
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "det(A) = -3" } });
+  fireEvent.change(screen.getByRole("textbox", { name: /why this approach/ }), { target: { value: "first row has zeros" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  await waitFor(() => expect(api.recordSelfGradeDisclosure).toHaveBeenCalledOnce());
+  const frozen = api.recordSelfGradeDisclosure.mock.calls[0][0];
+  expect(frozen).toMatchObject({ sessionId: "s1", practiceItemId: ITEM_ID, answerMd: "det(A) = -3", explanationMd: "first row has zeros" });
+  expect(typeof frozen.submissionId).toBe("string");
+  // Nothing of the full answer until the freeze is confirmed.
+  expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
+  await act(async () => confirm({ version: 1, frozen: true }));
+  expect(await screen.findByText("Expand along the first row: det(A) = -3.")).toBeTruthy();
+  expect((screen.getByRole("textbox", { name: "answer" }) as HTMLTextAreaElement).disabled).toBe(true);
+  expect((screen.getByRole("textbox", { name: /why this approach/ }) as HTMLInputElement).disabled).toBe(true);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+  });
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  const sent = api.submitAttempt.mock.calls[0][0];
+  expect(sent).toMatchObject({ answerMd: "det(A) = -3", explanationMd: "first row has zeros", submissionId: frozen.submissionId });
+});
+
+it("F1: a freeze that is not confirmed grades without showing the full answer", async () => {
+  api.recordSelfGradeDisclosure.mockRejectedValueOnce(new Error("sidecar gone"));
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "-3" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  expect(await screen.findByRole("button", { name: "Got it" })).toBeTruthy();
+  expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
+});
+
+it("F1: a resumed draft whose full answer was shown reopens locked to its frozen trace", async () => {
+  api.getPracticeItem.mockResolvedValue(item({ elicitation: ELICIT }));
+  api.recoverPracticeSubmission.mockResolvedValue({ version: 1, status: "pending", result: null });
+  const onDraftSaved = vi.fn();
+  const disclosure = { submissionId: "key_1", answerMd: "det(A) = -3", explanationMd: "first row has zeros" };
+  const { unmount } = render(
+    <PracticeScreen
+      {...props({ gradingReady: false, onDraftSaved, restoredAnswer: "det(A) = -3", restoredSubmissionId: "key_1", restoredDisclosure: disclosure })}
+    />
+  );
+  // Straight back to the self-grade, the answer and the line locked; no new freeze.
+  expect(await screen.findByText("Expand along the first row: det(A) = -3.")).toBeTruthy();
+  expect((screen.getByRole("textbox", { name: "answer" }) as HTMLTextAreaElement).disabled).toBe(true);
+  const line = screen.getByRole("textbox", { name: /why this approach/ }) as HTMLInputElement;
+  expect(line.disabled).toBe(true);
+  expect(line.value).toBe("first row has zeros");
+  expect(api.recordSelfGradeDisclosure).not.toHaveBeenCalled();
+  unmount();
+  // The in-memory mirror carries the frozen trace for the next remount.
+  expect(onDraftSaved).toHaveBeenCalledWith(expect.objectContaining({ selfGradeDisclosure: disclosure }));
+});
+
+it("F1: a resumed frozen draft stays locked when the grader is back, and submits the frozen trace", async () => {
+  const disclosure = { submissionId: "key_1", answerMd: "det(A) = -3", explanationMd: null };
+  api.recoverPracticeSubmission.mockResolvedValue({ version: 1, status: "pending", result: null });
+  render(<PracticeScreen {...props({ restoredAnswer: "det(A) = -3", restoredSubmissionId: "key_1", restoredDisclosure: disclosure })} />);
+  expect(await screen.findByTestId("frozen-answer-note")).toBeTruthy();
+  expect((screen.getByRole("textbox", { name: "answer" }) as HTMLTextAreaElement).disabled).toBe(true);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  expect(api.submitAttempt.mock.calls[0][0]).toMatchObject({ answerMd: "det(A) = -3", explanationMd: null, submissionId: "key_1" });
+});
+
+it("F1: a short check never freezes or shows a full answer", async () => {
+  api.getProbeContract.mockResolvedValue({
+    version: 1, active: true, presentationId: "pres_1", episodeId: "ep_1", observationNumber: 1, maximumObservations: 3,
+    forcedAttemptType: "diagnostic_probe",
+    restrictions: { hintsDisabled: true, askTutorDisabled: true, workedExampleDisabled: true, answerRevealDisabled: true, feedbackDeferred: true }
+  });
+  render(<PracticeScreen {...props({ gradingReady: false })} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "-3" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  });
+  expect(await screen.findByRole("button", { name: "Got it" })).toBeTruthy();
+  expect(api.recordSelfGradeDisclosure).not.toHaveBeenCalled();
+  expect(screen.queryByText("Expand along the first row: det(A) = -3.")).toBeNull();
 });

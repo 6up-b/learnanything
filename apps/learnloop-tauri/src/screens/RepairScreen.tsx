@@ -151,12 +151,17 @@ export function RepairScreen({
     [onError]
   );
 
+  // Esc closes the overlay, and only the overlay (Codex review F2): handled
+  // first (capture) and never passed on to the screen underneath.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !openSpan) onClose();
+      if (e.key === "Escape" && !openSpan) {
+        e.stopPropagation();
+        onClose();
+      }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [onClose, openSpan]);
 
   useEffect(() => {
@@ -543,19 +548,20 @@ function SimpleRepairStep({
   details: ReactNode;
 }) {
   // ↵ takes the step's one primary action; Esc closes (not while the book
-  // passage is open over it).
+  // passage is open over it). The step is an overlay over feedback, so its ↵
+  // is its own (Codex review F2): handled first (capture) and never passed on
+  // to the screen underneath, which would otherwise advance on the same key.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (openSpan) return;
+      if (openSpan || event.key !== "Enter") return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
-      if (event.key === "Enter" && primary && !busy) {
-        event.preventDefault();
-        primary.run();
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (primary && !busy) primary.run();
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [busy, openSpan, primary]);
 
   return (

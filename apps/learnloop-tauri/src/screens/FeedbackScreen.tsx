@@ -54,7 +54,7 @@ import {
   VERDICT_TEXT,
   verdictOf
 } from "../app/practiceFeedback";
-import { FeedbackSurface, type FeedbackNextStep } from "./feedback/FeedbackSurface";
+import { FeedbackSurface, answeredCriterionRows, type FeedbackNextStep } from "./feedback/FeedbackSurface";
 import { PrimaryAction, QuietAction } from "../components/PlainParts";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -1241,7 +1241,30 @@ function MisconceptionStatementCard({
 // A regrade is a system-authored ledger fact, not a hot diagnosis: the old→new
 // receipt is visible and the only affordance is "request review" (ClaimSurface's
 // regrade variant) — no confirm button, no verdict solicitation.
-type RegradeReceipt = { before: { score: number; max: number }; after: { score: number; max: number } };
+// UX Phase 4 (Codex review F6): each side says whether that grade was held for
+// review, so the plain history never shows a held grade's provisional score.
+type RegradeSide = { score: number; max: number; held?: boolean; correctness?: number | null };
+type RegradeReceipt = { before: RegradeSide; after: RegradeSide };
+
+function gradeSide(f: FeedbackBundle): RegradeSide {
+  return { score: f.rubricScore, max: f.maxPoints, held: f.heldForReview === true, correctness: f.correctness };
+}
+
+function newContestKey(): string {
+  const random = globalThis.crypto?.randomUUID?.();
+  return `contest_${random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`}`;
+}
+
+/** The plain regrade history: numbers between two counted grades, words when
+ *  either side was held for review ("Held for review → Right"). */
+function regradeHistoryLine({ before, after }: RegradeReceipt): string {
+  if (before.held || after.held) {
+    const words = (side: RegradeSide) =>
+      VERDICT_TEXT[verdictOf({ score: side.score, max: side.max, correctness: side.correctness, held: side.held === true })];
+    return `Looked at again: ${words(before)} → ${words(after)}.`;
+  }
+  return `Looked at again: ${before.score} / ${before.max} → ${after.score} / ${after.max}.`;
+}
 
 function RegradeLedgerCard({
   receipt,
@@ -1416,6 +1439,7 @@ export function FeedbackScreen({
   onAsk,
   onError,
   origin = "today",
+  keysSuspended = false,
 }: {
   attemptId: string;
   /** Active session, when known — lets claim exposure attribute to the session
@@ -1457,6 +1481,9 @@ export function FeedbackScreen({
   /** UX Phase 4: where the attempt started, so Next returns there (the
    *  plan's next step, Today, or the book's passage) and the header says so. */
   origin?: FeedbackOrigin;
+  /** An overlay over feedback (the repair step) owns the keyboard: none of
+   *  feedback's shortcuts run underneath it (Codex review F2). */
+  keysSuspended?: boolean;
 }) {
   // UX Phase 4 (§7.5): the plain surface with details on demand, unless the
   // library's `[ui] practice_feedback = "classic"` restores the screen exactly.
@@ -1576,14 +1603,30 @@ export function FeedbackScreen({
   const [contestReason, setContestReason] = useState("");
   const [contesting, setContesting] = useState(false);
   const [contestNote, setContestNote] = useState<string | null>(null);
+  // One key per contest until the sidecar confirms it (Codex review F7): a
+  // retry after a failed or unknown delivery reuses it, so the contest is
+  // recorded and queued once.
+  const contestKey = useRef<string | null>(null);
   const [causalNotRight, setCausalNotRight] = useState(false);
+  // The full answer this screen showed, charged to the reveal ledger once
+  // per attempt (Codex review F1).
+  const answerShownFor = useRef<string | null>(null);
   useEffect(() => {
     setDetailsOpen(false);
     setWhyOpen(false);
     setContestOpen(false);
     setContestReason("");
     setContestNote(null);
+    contestKey.current = null;
     setCausalNotRight(false);
+  }, [attemptId]);
+  const recordAnswerShown = useCallback(() => {
+    if (answerShownFor.current === attemptId) return;
+    answerShownFor.current = attemptId;
+    // Best effort, like every ledger write: the screen never waits on it.
+    api.recordAnswerDisplay(attemptId).catch(() => {
+      answerShownFor.current = null;
+    });
   }, [attemptId]);
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
@@ -1802,11 +1845,11 @@ export function FeedbackScreen({
   const handleRegrade = async () => {
     if (!feedback || regrading) return;
     setRegrading(true);
-    const before = { score: feedback.rubricScore, max: feedback.maxPoints };
+    const before = gradeSide(feedback);
     try {
       const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId));
       setFeedback(updated);
-      setRegradeReceipt({ before, after: { score: updated.rubricScore, max: updated.maxPoints } });
+      setRegradeReceipt({ before, after: gradeSide(updated) });
     } catch (error) {
       onError(errorMessage(error));
     } finally {
@@ -1816,32 +1859,45 @@ export function FeedbackScreen({
 
   // UX Phase 4 "I think I was right" (§7.5): the learner's one line is kept on
   // the claim ledger before the existing regrade runs (the grader never sees
-  // it), and the regrade happens in place. A grader that cannot run leaves the
-  // note kept and says so plainly; it is never a red error.
+  // it), and the regrade happens in place; what the look did not settle goes
+  // to the owner's grade review (Codex review F3). Only a confirmed record
+  // says the note is kept (F7): a failed or unknown delivery keeps the box and
+  // the reason, and a retry sends the same contest key, so nothing doubles.
   const handleContest = async () => {
     if (!feedback || contesting) return;
     setContesting(true);
+    setContestNote(null);
     const before = verdictOf({
       score: feedback.rubricScore, max: feedback.maxPoints, correctness: feedback.correctness, held: feedback.heldForReview === true
     });
-    const prior = { score: feedback.rubricScore, max: feedback.maxPoints };
+    const prior = gradeSide(feedback);
+    const key = contestKey.current ?? newContestKey();
+    contestKey.current = key;
     try {
-      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, contestReason.trim()));
+      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId, contestReason.trim(), key));
+      contestKey.current = null;
       setFeedback(updated);
-      setRegradeReceipt({ before: prior, after: { score: updated.rubricScore, max: updated.maxPoints } });
-      const after = verdictOf({
-        score: updated.rubricScore, max: updated.maxPoints, correctness: updated.correctness, held: updated.heldForReview === true
-      });
-      setContestNote(
-        after === before
-          ? `Looked at it again: still ${VERDICT_TEXT[after]}. Your note is kept.`
-          : `Looked at it again: now ${VERDICT_TEXT[after]}.`
-      );
-    } catch {
-      setContestNote("Your note is kept. The grader can't look again right now.");
-    } finally {
+      const outcome = updated.contest;
+      const reviewed = outcome?.reviewRequested ? " It's marked for review." : "";
+      if (outcome && !outcome.regraded) {
+        setContestNote(`Your note is kept. The grader can't look again right now.${reviewed}`);
+      } else {
+        setRegradeReceipt({ before: prior, after: gradeSide(updated) });
+        const after = verdictOf({
+          score: updated.rubricScore, max: updated.maxPoints, correctness: updated.correctness, held: updated.heldForReview === true
+        });
+        setContestNote(
+          after === before
+            ? `Looked at it again: still ${VERDICT_TEXT[after]}. Your note is kept.${reviewed}`
+            : `Looked at it again: now ${VERDICT_TEXT[after]}.${reviewed}`
+        );
+      }
       setContestOpen(false);
       setContestReason("");
+    } catch {
+      // Nothing confirmed: the note may not be saved. Keep it in the box.
+      setContestNote("Your note couldn't be sent. Try again.");
+    } finally {
       setContesting(false);
     }
   };
@@ -2056,6 +2112,7 @@ export function FeedbackScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (keysSuspended) return;
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
       if (!feedback) {
@@ -2092,7 +2149,7 @@ export function FeedbackScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry, simple]);
+  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry, simple, keysSuspended]);
 
   // ── UX Phase 4: the plain surface, with details on demand (§7.5) ─────────
   function simpleScreen(
@@ -2166,9 +2223,13 @@ export function FeedbackScreen({
           : autoAdvance
             ? nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty)
             : "";
-    const regradeHistory = regradeReceipt ?? (f.regrade
-      ? { before: { score: f.regrade.oldScore, max: f.regrade.maxPoints }, after: { score: f.regrade.newScore, max: f.regrade.maxPoints } }
+    const regradeHistory: RegradeReceipt | null = regradeReceipt ?? (f.regrade
+      ? {
+          before: { score: f.regrade.oldScore, max: f.regrade.maxPoints, held: f.regrade.oldHeld === true },
+          after: { score: f.regrade.newScore, max: f.regrade.maxPoints, held, correctness: f.correctness }
+        }
       : null);
+    const criteria = answeredCriterionRows(f);
     const showTier = f.criterionEvidence.some((row) => row.tier === "transfer");
     return (
       <div className="screen">
@@ -2207,6 +2268,7 @@ export function FeedbackScreen({
             onShowProvisional={() => setDetailsOpen(true)}
             detailsOpen={detailsOpen}
             onToggleDetails={() => setDetailsOpen((open) => !open)}
+            onFullAnswerShown={recordAnswerShown}
           />
 
           {detailsOpen ? (
@@ -2253,10 +2315,10 @@ export function FeedbackScreen({
               ) : null}
 
               {/* What the grader looked for, with the points. */}
-              {f.criterionEvidence.length > 0 ? (
+              {criteria.length > 0 ? (
                 <div style={{ marginTop: 18 }}>
                   <EvidenceHeader>What the grader looked for</EvidenceHeader>
-                  {f.criterionEvidence.map((row) => (
+                  {criteria.map((row) => (
                     <CriterionRow key={row.criterionId} row={held ? { ...row, assessed: false } : row} showTier={showTier} />
                   ))}
                   <div style={{ borderTop: `1px solid ${C.border}` }} />
@@ -2271,9 +2333,10 @@ export function FeedbackScreen({
               {/* The regrade history, in plain words. */}
               {regradeHistory ? (
                 <div style={{ marginTop: 12, fontSize: 12, color: C.textDim }} data-testid="regrade-history">
-                  {held || f.heldForReview
-                    ? "Looked at again."
-                    : `Looked at again: ${regradeHistory.before.score} / ${regradeHistory.before.max} → ${regradeHistory.after.score} / ${regradeHistory.after.max}.`}
+                  {regradeHistoryLine({
+                    before: regradeHistory.before,
+                    after: { ...regradeHistory.after, held: regradeHistory.after.held || held }
+                  })}
                 </div>
               ) : null}
 
