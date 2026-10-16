@@ -324,13 +324,13 @@ def filter_context(vault: LoadedVault, repository: Repository, constraints: "Pra
             if constraints.exclude_revealed_families:
                 # A routine full-answer display counts by its coverage
                 # (``learnloop.reveal_coverage``, UX Phase 4 round 4).
-                from learnloop.reveal_coverage import routine_display_sql, routine_window_start
+                from learnloop.reveal_coverage import routine_coverage_sql, routine_window_start
 
-                routine, routine_parameters = routine_display_sql()
+                routine, routine_parameters = routine_coverage_sql(routine_window_start(since))
                 revealed = frozenset(str(row[0]) for row in connection.execute(
                     "SELECT DISTINCT practice_item_id FROM reveal_events "
-                    f"WHERE created_at >= ? OR ({routine} AND created_at >= ?)",
-                    (since, *routine_parameters, routine_window_start(since))))
+                    f"WHERE created_at >= ? OR {routine}",
+                    (since, *routine_parameters)))
     families = frozenset(vault.practice_items[item_id].family_id for item_id in revealed
                          if item_id in vault.practice_items and vault.practice_items[item_id].family_id)
     return FilterContext(attempted, revealed, families, estimator)

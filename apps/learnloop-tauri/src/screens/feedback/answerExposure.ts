@@ -19,12 +19,14 @@
 // already covers the next D.
 //
 // Round 4: every signal that may precede a suspend or a loss of attention
-// (the document hidden, pagehide, freeze, window blur, the shell's window
-// unfocused or minimized) hides the answer synchronously, and it shows again
-// only after a fresh row is acknowledged; so does a clock discontinuity (the
-// wall clock going back, or a check long after the last one: a wake). The
-// residual: an OS suspend that delivers none of those signals keeps the last
-// frame on screen until the page's first check after waking (one tick).
+// (the document hidden, pagehide, freeze, window blur, and, round 5, every
+// shell window resize, scale change or focus change, before its state is
+// even asked) hides the answer synchronously, and it shows again only after a
+// fresh row is acknowledged (for a shell event, once the window is known
+// visible and unminimized); so does a clock discontinuity (the wall clock
+// going back, or a check long after the last one: a wake). The residual: an
+// OS suspend that delivers none of those signals keeps the last frame on
+// screen until the page's first check after waking (one tick).
 //
 // Rows are written, each under a new display id:
 // * before the answer first appears, and whenever it is wanted again after its
@@ -215,6 +217,10 @@ function documentVisible(): boolean {
 
 const PRESENCE_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const;
 
+/** How long the shell's window events settle before its state is asked (a
+ *  drag resize sends many; the answer stays hidden meanwhile). */
+const SHELL_SETTLE_MS = 300;
+
 /** Gate a routine full answer on its ledger rows. `key` names the answer (a
  *  new key is a new gate); `onScreen` is whether the screen would show it now
  *  (rendered, not covered by an overlay). Returns whether it may be shown,
@@ -241,7 +247,10 @@ export function useAnswerExposure(
   }
   const gate = gates.current.gate;
   const [visible, setVisible] = useState(documentVisible);
-  const wanted = onScreen && visible && record !== undefined;
+  // A shell window event is pending its state query: nothing shows, nothing
+  // is written, until the shell says the window is visible and unminimized.
+  const [shellHeld, setShellHeld] = useState(false);
+  const wanted = onScreen && visible && !shellHeld && record !== undefined;
   const wantedRef = useRef(wanted);
   wantedRef.current = wanted;
 
@@ -284,8 +293,12 @@ export function useAnswerExposure(
     window.addEventListener("focus", back);
     window.addEventListener("pageshow", back);
     for (const name of PRESENCE_EVENTS) window.addEventListener(name, present, { passive: true });
-    // The desktop window's own signals, where the shell provides them: focus
-    // lost and minimized (no-ops outside the Tauri shell).
+    // The desktop window's own signals, where the shell provides them (round
+    // 5): a resize, a scale change or a focus change may mean the window is
+    // being minimized or the machine suspended, so each hides the answer AT
+    // ONCE, before the window's state is asked. The answer returns only once
+    // the shell says the window is visible and unminimized (asked after the
+    // events settle) and a fresh row is then acknowledged.
     let disposed = false;
     const unlisten: (() => void)[] = [];
     const keep = (listener: Promise<() => void>) => {
@@ -293,19 +306,26 @@ export function useAnswerExposure(
         .then((stop) => (disposed ? stop() : unlisten.push(stop)))
         .catch(() => undefined);
     };
+    let settle: number | undefined;
     try {
       const appWindow = getCurrentWindow();
-      keep(appWindow.onFocusChanged(({ payload: focused }) => (focused ? back() : hide())));
-      keep(
-        appWindow.onResized(() => {
-          appWindow
-            .isMinimized()
-            .then((minimized) => {
-              if (minimized) hide();
+      const shellEvent = () => {
+        gate.interrupt();
+        flushSync(() => setShellHeld(true));
+        window.clearTimeout(settle);
+        settle = window.setTimeout(() => {
+          Promise.all([appWindow.isMinimized(), appWindow.isVisible()])
+            .then(([minimized, shown]) => {
+              if (disposed || minimized || !shown) return;
+              gate.activity();
+              setShellHeld(false);
             })
             .catch(() => undefined);
-        })
-      );
+        }, SHELL_SETTLE_MS);
+      };
+      keep(appWindow.onFocusChanged(shellEvent));
+      keep(appWindow.onResized(shellEvent));
+      keep(appWindow.onScaleChanged(shellEvent));
     } catch {
       // Not in the shell (a browser, a test): the DOM signals above suffice.
     }
@@ -317,6 +337,7 @@ export function useAnswerExposure(
     }, EXPOSURE.tickMs);
     return () => {
       disposed = true;
+      window.clearTimeout(settle);
       for (const stop of unlisten) stop();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);

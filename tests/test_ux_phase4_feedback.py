@@ -2020,3 +2020,346 @@ def test_f1i_an_independent_check_is_not_offered_inside_a_display_s_coverage(ctx
     )
 
     assert "revealed" in verdict["reasons"]
+
+
+# == Round 5 (docs/reviews/ux-phase4-feedback-codex-review.md §11) ==============================
+
+
+# -- F1-2: the disclosure's identity is structured, compared field by field ---------------------
+
+
+def _shown_disclosure_of(ctx, session_id: str, *, submission_id: str, answer: str, display_id: str = "display_sg") -> None:
+    _draft(ctx, session_id, submission_id=submission_id, answer=answer)
+    _disclose(ctx, session_id, submission_id=submission_id, answer=answer)
+    _call(ctx, "record_self_grade_disclosure", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": submission_id,
+        "answerMd": answer, "explanationMd": None, "displayId": display_id,
+    })
+
+
+def _move_checkpoint_on(ctx, session_id: str) -> None:
+    from tests.helpers import add_followup_item
+
+    add_followup_item(ctx.paths.root)
+    ctx.load(ctx.paths.root)
+    _draft(ctx, session_id, submission_id="sub_elsewhere", item="pi_svd_define_002")
+
+
+def _committed(ctx, session_id: str, *, submission_id: str, answer: str) -> dict:
+    _vault, repository = ctx.require_vault()
+    result = _submit_self_graded(ctx, session_id, submission_id=submission_id, answer=answer)
+    return repository.fetch_practice_attempt(result["attemptId"])
+
+
+def _admissible_as_itself(ctx, attempt: dict) -> bool:
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, repository = ctx.require_vault()
+    return production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        produced_at=attempt["created_at"], production_id=attempt["id"],
+    ).admissible
+
+
+def test_f1j_a_key_that_ends_in_a_trace_hash_never_exempts_another_draft(ctx):
+    """The verifier's collision: with H the hash of trace T, a DIFFERENT trace
+    Q is frozen and shown under the key "k:H", then T is submitted under the
+    key "k". Prefix matching read the Q rows as T's own; the structured
+    identity (key "k:H", trace hash(Q)) is not T's (key "k", trace H)."""
+
+    from learnloop.attempts.reveal_ledger import trace_hash
+    from learnloop.attempts.trace_evidence import compose_learner_trace
+
+    answer_t = "U Sigma V^T"
+    hash_t = trace_hash(compose_learner_trace(answer_t, None))
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _shown_disclosure_of(ctx, session_id, submission_id=f"k:{hash_t}", answer="A different trace, Q")
+    _move_checkpoint_on(ctx, session_id)
+
+    attempt = _committed(ctx, session_id, submission_id="k", answer=answer_t)
+
+    assert attempt["primed"]
+    assert _admissible_as_itself(ctx, attempt) is False
+
+
+def test_f1j_a_legacy_row_whose_display_id_is_the_hash_gets_no_exemption(ctx):
+    """An unversioned row (the round-3 shape, ``self_grade_disclosure:<key>:
+    <display id>``) whose display id happens to equal the trace's hash is not a
+    hashed row: legacy and unversioned rows get no exemption."""
+
+    from learnloop.attempts.reveal_ledger import trace_hash
+    from learnloop.attempts.trace_evidence import compose_learner_trace
+
+    vault, repository = ctx.require_vault()
+    answer_t = "U Sigma V^T"
+    hash_t = trace_hash(compose_learner_trace(answer_t, None))
+    repository.insert_reveal_event({
+        "practice_item_id": ITEM, "learning_object_id": vault.practice_items[ITEM].learning_object_id,
+        "source_kind": "answer_display", "amount": 1.0, "basis": f"self_grade_disclosure:k:{hash_t}",
+    })
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+
+    attempt = _committed(ctx, session_id, submission_id="k", answer=answer_t)
+
+    assert attempt["primed"]
+    assert _admissible_as_itself(ctx, attempt) is False
+
+
+@pytest.mark.parametrize("key", ["a:b", 'a|b"c', "a:{b}:c", "self_grade_disclosure:x:y", "k:"])
+def test_f1j_keys_with_separators_keep_exactly_their_own_exemption(ctx, key):
+    """Keys may contain colons and other separators: the frozen trace committed
+    under its own key stays clean and admissible as itself; the same trace
+    under a key that is a prefix of it is primed and not independent."""
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _shown_disclosure_of(ctx, session_id, submission_id=key, answer="U Sigma V^T")
+
+    own = _committed(ctx, session_id, submission_id=key, answer="U Sigma V^T")
+    assert not own["primed"]
+    assert _admissible_as_itself(ctx, own) is True
+
+    prefix = _committed(ctx, session_id, submission_id=key[:-1] or "k0", answer="U Sigma V^T")
+    assert prefix["primed"]
+    assert _admissible_as_itself(ctx, prefix) is False
+
+
+@pytest.mark.parametrize("variant", ["whitespace", "another_key", "no_hash"])
+def test_f1j_the_confirmed_controls_still_get_no_exemption(ctx, variant):
+    """The controls the verifier confirmed: a whitespace-changed answer primes;
+    distinct keys sharing a trace stay separate; a row without a hash exempts
+    nothing."""
+
+    vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    if variant == "no_hash":
+        repository.insert_reveal_event({
+            "practice_item_id": ITEM, "learning_object_id": vault.practice_items[ITEM].learning_object_id,
+            "source_kind": "answer_display", "amount": 1.0, "basis": "self_grade_disclosure:k",
+        })
+        attempt = _committed(ctx, session_id, submission_id="k", answer="U Sigma V^T")
+    else:
+        _shown_disclosure_of(ctx, session_id, submission_id="k", answer="U Sigma V^T")
+        _move_checkpoint_on(ctx, session_id)
+        if variant == "whitespace":
+            attempt = _committed(ctx, session_id, submission_id="k", answer="U Sigma V^T ")
+        else:
+            attempt = _committed(ctx, session_id, submission_id="k2", answer="U Sigma V^T")
+
+    assert attempt["primed"]
+    assert _admissible_as_itself(ctx, attempt) is False
+
+
+# -- Boundary: one endpoint convention, the exact second, every reader ---------------------------
+
+
+def _boundary_reads(ctx, moment) -> dict[str, bool]:
+    """Every reader's verdict at ``moment``: True when it holds the item back."""
+
+    from contextlib import closing
+
+    from learnloop.attempts.reveal_ledger import production_admissibility
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_service import serve_time_exposure
+    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+    from learnloop.instructional.exposure import independent_check_eligibility
+    from learnloop.practice_index.retrieval import PracticeConstraints, filter_context
+    from learnloop.scheduling.scheduler import _cold_task_reveals
+    from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
+
+    vault, repository = ctx.require_vault()
+    clock = FrozenClock(moment)
+    at = _iso(clock)
+    lo = vault.practice_items[ITEM].learning_object_id
+    since = _iso(FrozenClock(moment - COLD_RETRIEVAL_DELAY))
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        serve_time = "revealed" in serve_time_exposure(
+            connection, practice_item_id=ITEM, family_item_ids=(), extraction_id=None, span_ids=(), since=since,
+        )["reasons"]
+    return {
+        "auto_prime": _next_attempt_primed(repository, submission_id="boundary", clock=clock),
+        "admissibility": not production_admissibility(
+            repository, practice_item_id=ITEM, learning_object_id=lo, produced_at=at, clock=clock,
+        ).admissible,
+        "cold_deferral": bool(_cold_task_reveals(
+            repository, item_id=ITEM, learning_object_id=lo, since="", now_iso=at,
+        )),
+        "serving_exclusions": ITEM in out_of_timing_serving_exclusions(
+            vault, repository, cold_followup_kinds=(), reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+        ).revealed_recently_item_ids,
+        "independent_check": "revealed" in independent_check_eligibility(
+            vault, repository, {"practice_item_id": ITEM}, intent="retention", at=moment,
+        )["reasons"],
+        "serve_time_exposure": serve_time,
+        "practice_index": ITEM in filter_context(
+            vault, repository, PracticeConstraints(exclude_revealed_families=True), clock=clock,
+        ).revealed_items,
+    }
+
+
+def test_f1j_every_reader_agrees_at_the_exact_boundary_second(ctx):
+    """A routine display stamped s covers every T with s <= T <= s + D + G
+    (``reveal_coverage``, inclusive). At exactly s + 25 h every reader holds the
+    item back; one second later every reader lets it go."""
+
+    from learnloop.reveal_coverage import ROUTINE_DISPLAY_COVERAGE
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _feedback_answer(ctx, then=_later(days=-3))
+    stamp = _stamp(_later(hours=-26))
+    _exposure(ctx, attempt_id, "display_boundary", clock=FrozenClock(stamp))
+
+    at_end = _boundary_reads(ctx, stamp + ROUTINE_DISPLAY_COVERAGE)
+    after = _boundary_reads(ctx, stamp + ROUTINE_DISPLAY_COVERAGE + timedelta(seconds=1))
+
+    assert at_end == {name: True for name in at_end}, at_end
+    assert after == {name: False for name in after}, after
+
+
+# -- Cold checks: every serve path revalidates against the one coverage ------------------------
+
+
+def _plan_with_a_cold_check(tmp_path, name: str):
+    """A daily plan whose pool holds a due cold retry on ``pi_cold`` (a real
+    open task) beside ordinary reviews, at 10:00."""
+
+    from datetime import UTC, datetime
+
+    from tests.daily_plan_fakes import MovableClock, make_env, scheduled, seed_due
+    from tests.helpers import create_daily_plan_vault
+
+    start = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
+    paths = create_daily_plan_vault(
+        tmp_path / name, learning_objects={"lo_c": [("pi_cold", 1.0)], "lo_a": [("pi_a", 1.0), ("pi_b", 1.0)]},
+    )
+    items = [
+        scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry"),
+        scheduled("pi_a", "lo_a", forgetting_risk=0.5),
+        scheduled("pi_b", "lo_a", forgetting_risk=0.5),
+    ]
+    clock = MovableClock(start)
+    env = make_env(paths.root, items, clock=clock, session_id="s_cold")
+    for item_id in ("pi_a", "pi_b", "pi_cold"):
+        seed_due(env.repository, item_id, due=start - timedelta(days=2), last=start - timedelta(days=9))
+    env.repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_cold",
+        not_before=_iso(FrozenClock(start - timedelta(hours=1))),
+        expires_at=_iso(FrozenClock(start + timedelta(days=30))),
+        selected_item_id="pi_cold", clock=FrozenClock(start - timedelta(days=1)),
+    )
+    return env, clock
+
+
+def _served_items(env) -> list[str]:
+    import json
+
+    with env.repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT detail_json FROM attention_block_events WHERE kind = 'item_served' ORDER BY created_at, event_ordinal"
+        ).fetchall()
+    return [json.loads(row[0])["practice_item_id"] for row in rows]
+
+
+def _would_be_primed(env, item_id: str, clock) -> bool:
+    from learnloop.attempts.attempts import auto_primed_draft
+
+    draft, _total = auto_primed_draft(
+        env.repository, AttemptDraft(practice_item_id=item_id, learner_answer_md="an answer"),
+        clock=FrozenClock(clock.instant),
+    )
+    return draft.primed
+
+
+def _display_on(env, item_id: str, clock, display_id: str) -> None:
+    env.repository.insert_reveal_event(
+        {"practice_item_id": item_id, "learning_object_id": "lo_c", "source_kind": "answer_display",
+         "amount": 1.0, "basis": f"feedback_full_answer:desktop:{display_id}"},
+        clock=FrozenClock(clock.instant),
+    )
+
+
+def test_f1j_a_planned_cold_check_revealed_before_it_is_served_is_not_served(tmp_path):
+    """The verifier's scenario: the cold item is planned at 10:00, its answer
+    is shown in another window at 10:01, and the plan advances at 10:05. The
+    plan must not serve it (submit would prime it, and refuse it as a cold
+    retry); the control plan, with no display, serves it."""
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+
+    control, control_clock = _plan_with_a_cold_check(tmp_path, "control")
+    get_or_create_today(control)
+    control_clock.advance(5)
+    advance(control, serve=True)
+    assert "pi_cold" in _served_items(control)
+
+    env, clock = _plan_with_a_cold_check(tmp_path, "revealed")
+    get_or_create_today(env)
+    clock.advance(1)
+    _display_on(env, "pi_cold", clock, "display_other_window")
+    clock.advance(4)
+    assert _would_be_primed(env, "pi_cold", clock)
+    for _step in range(3):
+        advance(env, serve=True)
+
+    assert "pi_cold" not in _served_items(env)
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_f1j_no_serve_path_serves_a_cold_check_submit_would_prime(tmp_path, seed):
+    """A property over display timings and serve moments: displays of the cold
+    item's answer at random moments, and the plan advanced or the queue built
+    at random moments. Whenever a path serves the cold check (the plan emits
+    item_served for it, the queue serves the cold lane), a submission at that
+    moment is not primed."""
+
+    import random
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from learnloop.scheduling.scheduler import build_due_queue
+
+    rng = random.Random(seed)
+    env, clock = _plan_with_a_cold_check(tmp_path, f"property_{seed}")
+    get_or_create_today(env)
+    for step_index in range(12):
+        clock.advance(rng.choice([1, 3, 20, 200, 1500]))
+        if rng.random() < 0.5:
+            _display_on(env, "pi_cold", clock, f"display_{seed}_{step_index}")
+            clock.advance(rng.choice([0.5, 2, 30]))
+        primed_now = _would_be_primed(env, "pi_cold", clock)
+        if rng.random() < 0.6:
+            served_before = len(_served_items(env))
+            advance(env, serve=True)
+            served = _served_items(env)
+            if len(served) > served_before and served[-1] == "pi_cold":
+                assert not primed_now, f"the plan served the cold check primed at {clock.instant}"
+        else:
+            cold_lane = [
+                item.practice_item_id
+                for item in build_due_queue(env.vault, env.repository, clock=FrozenClock(clock.instant))
+                if item.followup_kind == "cold_retry"
+            ]
+            if "pi_cold" in cold_lane:
+                assert not primed_now, f"the queue served the cold check primed at {clock.instant}"
+
+
+def test_f1j_opening_a_revealed_cold_check_defers_it_instead_of_administering_it(ctx):
+    """The direct open (``get_practice_item``: a stale list, a restored
+    session, a deep link) revalidates too: a due cold retry whose answer was
+    just shown is deferred at the open, so no cold administration is recorded
+    and the answer is an ordinary one, never refused."""
+
+    vault, repository = ctx.require_vault()
+    # The earlier answer whose feedback showed the key (before the task: an
+    # answer on the item would consume it).
+    _exposure(ctx, _feedback_answer(ctx, then=_later(days=-2)), "display_open", clock=_later(minutes=-1))
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_open",
+        not_before=_iso(_later(hours=-1)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
+        clock=_later(days=-1),
+    )
+    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is not None
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})
+
+    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
+    assert repository.followup_task(task["id"])["not_before"] > _iso(_later())

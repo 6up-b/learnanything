@@ -4593,8 +4593,6 @@ class Repository(
         linked_kinds: Sequence[str] = (),
         routine_basis_prefixes: Sequence[str] = (),
         routine_covered_from: str | None = None,
-        exempt_bases: Sequence[str] = (),
-        exempt_basis_prefixes: Sequence[str] = (),
     ) -> float:
         """Summed reveal amount for one item in a window.
 
@@ -4612,10 +4610,9 @@ class Repository(
         plain surface's routine displays) counts by its coverage instead of the
         window: when stamped at or after ``routine_covered_from``, whatever
         attempts came between (a full answer still on screen after the last
-        attempt is an exposure for the next), unless its basis is one of
-        ``exempt_bases`` or starts with one of ``exempt_basis_prefixes`` (the
-        submitting draft's own disclosure, shown after its trace was frozen).
-        Every other row keeps the window."""
+        attempt is an exposure for the next). Every other row keeps the window.
+        A submission's own disclosure is subtracted by the caller, which parses
+        each row's identity (``reveal_ledger.is_own_disclosure``)."""
 
         def prefix_match(prefixes: Sequence[str]) -> tuple[str, list[Any]]:
             # A prefix match without LIKE (its "_" is a wildcard).
@@ -4643,21 +4640,11 @@ class Repository(
         if routine_basis_prefixes and routine_covered_from is not None:
             routine_clause, routine_values = prefix_match(routine_basis_prefixes)
             routine = f"(source_kind = 'answer_display' AND ({routine_clause}))"
-            exempt_parts: list[str] = []
-            exempt_values: list[Any] = []
-            if exempt_bases:
-                exempt_parts.append("COALESCE(basis, '') IN (" + ", ".join("?" for _ in exempt_bases) + ")")
-                exempt_values.extend(exempt_bases)
-            if exempt_basis_prefixes:
-                clause, values = prefix_match(exempt_basis_prefixes)
-                exempt_parts.append(f"({clause})")
-                exempt_values.extend(values)
-            exempt = " OR ".join(exempt_parts) or "0"
             query += (
-                f" AND (({routine} AND created_at >= ? AND NOT ({exempt}))"
+                f" AND (({routine} AND created_at >= ?)"
                 f" OR (NOT {routine}" + (f" AND {window}" if window else "") + "))"
             )
-            parameters.extend([*routine_values, routine_covered_from, *exempt_values, *routine_values, *window_parameters])
+            parameters.extend([*routine_values, routine_covered_from, *routine_values, *window_parameters])
         elif window:
             query += f" AND {window}"
             parameters.extend(window_parameters)

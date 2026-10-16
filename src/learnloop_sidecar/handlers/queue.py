@@ -293,6 +293,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
     if item is not None:
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
+        refuse_unservable_cold_check(vault, repository, item.id)
     refusal = unservable_refusal(item) if item is not None else None
     if refusal is not None:
         raise SidecarError(
@@ -303,6 +304,24 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
     # An unknown id still belongs to `practice_item_detail`'s typed not_found;
     # only a KNOWN-but-unrenderable item takes the branch above.
     return practice_item_detail(vault, repository, params.practice_item_id)
+
+
+def refuse_unservable_cold_check(vault, repository, practice_item_id: str) -> None:
+    """UX Phase 4 round 5: a direct open revalidates a cold check against the
+    one coverage the queue and submit read (``scheduler.cold_check_serve_hold``).
+    A due cold retry whose answer was shown is deferred here (persisted), so the
+    open records no cold administration and the answer is an ordinary one. A
+    due one submit would still prime (and so refuse) is refused now, typed,
+    rather than after the learner has written an answer."""
+
+    from learnloop.scheduling.scheduler import COLD_CHECK_WOULD_BE_PRIMED, cold_check_serve_hold
+
+    if cold_check_serve_hold(vault, repository, practice_item_id) == COLD_CHECK_WOULD_BE_PRIMED:
+        raise SidecarError(
+            "cold_check_unavailable",
+            "This check can't be taken right now: its answer was shown recently.",
+            details={"practice_item_id": practice_item_id},
+        )
 
 
 #: Today's sections in display order. Today focuses (and "Next" opens) the

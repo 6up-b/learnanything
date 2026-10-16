@@ -1706,8 +1706,8 @@ def _cold_task_reveals(
     since: str,
     now_iso: str,
 ) -> list[tuple[dict[str, Any], str]]:
-    """The reveals that hold a cold task back now, each with the moment it stops
-    counting (ledger format), oldest first.
+    """The reveals that hold a cold task back now, each with the first moment it
+    no longer holds it (ledger format), oldest first.
 
     Every reveal kind except the routine displays: one on the task's item or
     learning object after the task was created, counting for the lane's own
@@ -1721,7 +1721,7 @@ def _cold_task_reveals(
     """
 
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-    from learnloop.reveal_coverage import is_routine_display, routine_counts_until
+    from learnloop.reveal_coverage import is_routine_display, routine_released_at, routine_row_covers
 
     held: dict[str, tuple[dict[str, Any], str]] = {}
     for row in repository.reveal_events_for_target(
@@ -1743,9 +1743,10 @@ def _cold_task_reveals(
     ):
         if not is_routine_display(row.get("source_kind"), row.get("basis")):
             continue
-        until = routine_counts_until(str(row.get("created_at") or ""))
-        if until is not None and until > now_iso:
-            held[str(row.get("id"))] = (row, until)
+        created_at = str(row.get("created_at") or "")
+        released = routine_released_at(created_at)
+        if released is not None and routine_row_covers(created_at, now_iso):
+            held[str(row.get("id"))] = (row, released)
     return sorted(held.values(), key=lambda pair: (str(pair[0].get("created_at") or ""), str(pair[0].get("id") or "")))
 
 
@@ -1882,6 +1883,68 @@ def _defer_revealed_cold_followups(
         )
         deferrals.append(deferral)
     return kept, deferrals
+
+
+#: Why a cold check cannot be served as one now (``cold_check_serve_hold``).
+COLD_CHECK_DEFERRED = "cold_check_deferred"
+COLD_CHECK_WOULD_BE_PRIMED = "cold_check_would_be_primed"
+
+
+def cold_check_serve_hold(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+) -> str | None:
+    """Revalidate a cold check at the moment it would be served (UX Phase 4
+    round 5): the reason it cannot be served AS the cold check now, or None.
+
+    Every path that serves an item it chose earlier (a daily-plan block, a
+    learner's pick, a direct open: a stale list, a restored session, a deep
+    link) calls this at serve time, so none of them serves what the queue would
+    no longer serve and submit would refuse. For each open cold follow-up task
+    selecting the item, the queue's own deferral is re-run now
+    (``_defer_revealed_cold_followups``, persisting the push when ``persist``):
+
+    * ``cold_check_deferred``: a task is not due now (a reveal pushed it, or it
+      never was). The item may still be practised, as an ordinary answer;
+    * ``cold_check_would_be_primed``: a task is due but submit would prime the
+      answer (``attempts.reveal_total_for_submission`` at the threshold) and so
+      refuse it as a cold retry.
+
+    No open cold task on the item: None (nothing to revalidate).
+    """
+
+    from learnloop.attempts.attempts import (
+        AUTO_PRIME_REVEAL_THRESHOLD,
+        COLD_FOLLOWUP_TASK_KINDS,
+        reveal_total_for_submission,
+    )
+
+    tasks = [
+        task
+        for kind in sorted(COLD_FOLLOWUP_TASK_KINDS)
+        for task in repository.open_followup_tasks_of_kind(kind)
+        if str(task.get("selected_item_id") or "") == practice_item_id
+    ]
+    if not tasks:
+        return None
+    now_iso = utc_now_iso(clock)
+    _defer_revealed_cold_followups(
+        vault,
+        repository,
+        [{"followup_task_id": str(task["id"]), "action_type": str(task["kind"])} for task in tasks],
+        clock=clock,
+        persist=persist,
+    )
+    refreshed = [repository.followup_task(str(task["id"])) or task for task in tasks]
+    if any(str(task.get("not_before") or "") > now_iso for task in refreshed):
+        return COLD_CHECK_DEFERRED
+    if reveal_total_for_submission(repository, practice_item_id, clock=clock) >= AUTO_PRIME_REVEAL_THRESHOLD:
+        return COLD_CHECK_WOULD_BE_PRIMED
+    return None
 
 
 def deferred_cold_followups(

@@ -248,6 +248,12 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # still render it.
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
+        # UX Phase 4 round 5: a session serve revalidates a cold check (a
+        # stale list, a restored session, a deep link): deferred when its
+        # answer was shown, refused when submit would still prime it.
+        from learnloop_sidecar.handlers.queue import refuse_unservable_cold_check
+
+        refuse_unservable_cold_check(vault, repository, item.id)
     pick = None
     if params.session_id is not None and params.proposal_id:
         # A picked proposal is re-checked BEFORE anything is served (an item

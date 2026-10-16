@@ -39,6 +39,14 @@ const { api } = vi.hoisted(() => {
   return { api };
 });
 vi.mock("../api/client", () => ({ api }));
+// Round 5: the shell window (Tauri), when a test provides one.
+const { shell } = vi.hoisted(() => ({ shell: { window: null as unknown } }));
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => {
+    if (!shell.window) throw new Error("not in the shell");
+    return shell.window;
+  }
+}));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
 vi.mock("../components/ClaimSurface", () => ({
   ClaimSurface: ({ claim }: { claim: { claimText: string } }) => <div>{claim.claimText}</div>,
@@ -161,6 +169,7 @@ afterEach(() => {
   setAlgoConfig(undefined);
   // The page visibility the final-verification F1 tests set.
   delete (document as unknown as Record<string, unknown>).visibilityState;
+  shell.window = null;
 });
 
 it("leads with a verdict in words, never the score, and keeps the machine's numbers off the surface", async () => {
@@ -1067,4 +1076,86 @@ it("F9 (round 4): an unrecorded grade's details show only what the grade recorde
   expect(screen.getByTestId("recorded-criteria").textContent).toContain("setup");
   expect(screen.getByTestId("recorded-criteria").textContent).toContain("6.0 points");
   expect(bodyText()).not.toMatch(/transfer/);
+});
+
+// == Round 5 (docs/reviews/ux-phase4-feedback-codex-review.md §11) ==========================
+
+/** A shell window whose events the test delivers and whose state queries it answers. */
+function fakeShellWindow() {
+  const handlers: Record<string, (event: { payload: unknown }) => void> = {};
+  const queries: { minimized: ((value: boolean) => void)[]; visible: ((value: boolean) => void)[] } = { minimized: [], visible: [] };
+  const listen = (name: string) => (handler: (event: { payload: unknown }) => void) => {
+    handlers[name] = handler;
+    return Promise.resolve(() => undefined);
+  };
+  return {
+    handlers,
+    queries,
+    window: {
+      onResized: listen("resized"),
+      onScaleChanged: listen("scale"),
+      onFocusChanged: listen("focus"),
+      isMinimized: () => new Promise<boolean>((resolve) => queries.minimized.push(resolve)),
+      isVisible: () => new Promise<boolean>((resolve) => queries.visible.push(resolve))
+    }
+  };
+}
+
+it.each(["resized", "scale", "focus"] as const)(
+  "F1-1 (round 5): a shell %s event hides the answer at once, before the window's state is known",
+  async (event) => {
+    vi.useFakeTimers();
+    stampWrites();
+    const fake = fakeShellWindow();
+    shell.window = fake.window;
+    render(<FeedbackScreen {...props()} />);
+    await flush();
+    expect(screen.getByText(KEY)).toBeTruthy();
+    await act(async () => {
+      fake.handlers[event]?.({ payload: event === "focus" ? false : {} });
+    });
+    // The state query is still unresolved: the answer is already gone.
+    expect(screen.queryByText(KEY)).toBeNull();
+    await advance(SECOND);
+    expect(screen.queryByText(KEY)).toBeNull();
+  }
+);
+
+it("F1-1 (round 5): the answer returns only after the window is known visible and unminimized, and a fresh row lands", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  const fake = fakeShellWindow();
+  shell.window = fake.window;
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  await act(async () => {
+    fake.handlers.resized?.({ payload: {} });
+  });
+  await advance(SECOND);
+  // Minimized: stays hidden, nothing written.
+  await act(async () => {
+    fake.queries.minimized.forEach((resolve) => resolve(true));
+    fake.queries.visible.forEach((resolve) => resolve(true));
+  });
+  await advance(SECOND);
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(1);
+  // Restored: visible and unminimized, then a fresh row.
+  fake.queries.minimized.length = 0;
+  fake.queries.visible.length = 0;
+  await act(async () => {
+    fake.handlers.resized?.({ payload: {} });
+  });
+  await advance(SECOND);
+  const held = holdNextWrite();
+  await act(async () => {
+    fake.queries.minimized.forEach((resolve) => resolve(false));
+    fake.queries.visible.forEach((resolve) => resolve(true));
+  });
+  await advance(SECOND);
+  expect(screen.queryByText(KEY)).toBeNull();
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(new Set(displayIds()).size).toBe(2);
 });

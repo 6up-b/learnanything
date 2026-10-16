@@ -300,6 +300,10 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
             off["proposalPick"] = to_camel({**selection, "delivery": "on_open"})
         return off
     _vault, _repository, env = required
+    from learnloop_sidecar.handlers.queue import refuse_unservable_cold_check
+
+    # A pick revalidates a cold check like every other serve (round 5).
+    refuse_unservable_cold_check(env.vault, env.repository, params.practice_item_id)
     try:
         record, step = learner_pick(
             env, params.practice_item_id, offer_candidate_id=params.scheduler_candidate_id

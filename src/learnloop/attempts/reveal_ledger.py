@@ -26,6 +26,7 @@ Two rules hold for every writer here:
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
@@ -118,39 +119,78 @@ def frozen_trace_hash(answer_md: str, explanation_md: str | None) -> str:
     return trace_hash(compose_learner_trace(answer_md, explanation_md))
 
 
+#: The disclosure identity's encoding version (round 5, F1-2): a basis
+#: ``self_grade_disclosure:v2:`` followed by canonical JSON with exactly the
+#: fields ``v``, ``submission``, ``trace`` and ``display``. Rows in any other
+#: shape (the round-3 and round-4 colon-joined ones, a hash-less settle row)
+#: are legacy: they count like every routine display and exempt nothing.
+DISCLOSURE_IDENTITY_VERSION = 2
+_DISCLOSURE_PREFIX = f"{SELF_GRADE_DISCLOSURE_BASIS}:v{DISCLOSURE_IDENTITY_VERSION}:"
+
+
 def disclosure_basis(submission_id: str, frozen_hash: str, display_id: str | None = None) -> str:
-    """The basis of a plain self-grade's disclosure row: its retry key, the
-    hash of the trace it froze, and (a display row) the display id."""
+    """The basis of a plain self-grade's disclosure row: a versioned, canonical
+    JSON identity (its retry key, the hash of the trace it froze and, for a
+    display row, the display id). Unambiguous whatever a key contains: each
+    field is parsed and compared on its own (round 5, F1-2), never by prefix."""
 
-    basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}:{frozen_hash}"
-    return f"{basis}:{display_id}" if display_id else basis
+    identity = {
+        "v": DISCLOSURE_IDENTITY_VERSION,
+        "submission": submission_id,
+        "trace": frozen_hash,
+        "display": display_id,
+    }
+    return _DISCLOSURE_PREFIX + json.dumps(identity, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def own_disclosure_bases(
-    submission_id: str | None, learner_answer_md: str | None
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """(exact bases, basis prefixes) of the disclosure rows a submission is
-    exempt from: those of the draft under ``submission_id`` that froze exactly
-    this trace (round 4, F1-2). The key alone never exempts (a changed trace
-    under the same key was written with the key in view); nor does the trace
-    alone (the same words in another draft came after it). The proof is the
-    hash each row carries, durable in the ledger: no checkpoint is read."""
+def disclosure_identity(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The structured identity a disclosure row carries, or None for any row
+    that is not a well-formed current-version disclosure (legacy rows too)."""
+
+    basis = row.get("basis")
+    if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(_DISCLOSURE_PREFIX):
+        return None
+    try:
+        identity = json.loads(basis[len(_DISCLOSURE_PREFIX):])
+    except ValueError:
+        return None
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != {"v", "submission", "trace", "display"}
+        or identity["v"] != DISCLOSURE_IDENTITY_VERSION
+        or not isinstance(identity["submission"], str)
+        or not isinstance(identity["trace"], str)
+        or not (identity["display"] is None or isinstance(identity["display"], str))
+    ):
+        return None
+    return identity
+
+
+def is_own_disclosure(row: Mapping[str, Any], submission_id: str | None, learner_answer_md: str | None) -> bool:
+    """Is ``row`` the disclosure of exactly this submission: the same retry key
+    AND the hash of exactly this trace, each compared for equality (round 5,
+    F1-2)? The key alone never exempts (a changed trace under the same key was
+    written with the key in view), nor does the trace alone (the same words in
+    another draft came after it); a legacy row never does."""
 
     if not submission_id:
-        return (), ()
-    basis = disclosure_basis(submission_id, trace_hash(learner_answer_md))
-    return (basis,), (f"{basis}:",)
+        return False
+    identity = disclosure_identity(row)
+    return (
+        identity is not None
+        and identity["submission"] == submission_id
+        and identity["trace"] == trace_hash(learner_answer_md)
+    )
 
 
 def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
+    """A routine row whose coverage no longer reaches the read (the one
+    convention, ``reveal_coverage``: covered when stamped at or after
+    ``cutoff``, inclusive)."""
+
     if cutoff is None or not is_routine_answer_display(row):
         return False
-    try:
-        stamped = parse_utc(str(row.get("created_at") or "")) if row.get("created_at") else None
-        limit = parse_utc(cutoff)
-    except ValueError:
-        return False
-    return stamped is not None and limit is not None and stamped < limit
+    return str(row.get("created_at") or "") < cutoff
 
 
 def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> str | None:
@@ -259,8 +299,8 @@ def production_admissibility(
     later than now came after it and does not count. The one exception is the
     production's own self-grade disclosure: when ``production_id`` names the
     attempt that committed exactly the trace a disclosure froze (its retry key
-    and trace hash, :func:`own_disclosure_bases`), never by timestamp
-    (round 4, F1-2).
+    and trace hash, compared field by field: :func:`is_own_disclosure`),
+    never by timestamp or prefix (rounds 4 and 5, F1-2).
 
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
@@ -299,11 +339,11 @@ def production_admissibility(
             [*reveals, *extra],
             key=lambda row: (str(row.get("created_at") or ""), str(row.get("id") or "")),
         )
-        exempt = _own_disclosure_bases_of_production(repository, production_id, practice_item_id)
+        own_key, own_trace = _production_trace(repository, production_id, practice_item_id)
         reveals = [
             row
             for row in reveals
-            if not _lapsed_routine_display(row, cutoff) and not _matches_bases(row, exempt)
+            if not _lapsed_routine_display(row, cutoff) and not is_own_disclosure(row, own_key, own_trace)
         ]
     except Exception:  # pragma: no cover - defensive
         if strict:
@@ -328,30 +368,19 @@ def production_admissibility(
     )
 
 
-def _own_disclosure_bases_of_production(
+def _production_trace(
     repository: Repository, production_id: str | None, practice_item_id: str | None
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """The disclosure bases the production named by ``production_id`` is exempt
-    from: those of the draft whose frozen trace it committed, exactly (its
-    retry key and the hash of its trace, :func:`own_disclosure_bases`). No id,
-    no exemption."""
+) -> tuple[str | None, str | None]:
+    """(retry key, trace) of the attempt ``production_id`` names on this item,
+    the identity its own disclosure rows must match exactly; (None, None)
+    without an id: no exemption."""
 
     if not production_id or not practice_item_id:
-        return (), ()
+        return None, None
     attempt = repository.fetch_practice_attempt(production_id)
     if attempt is None or str(attempt.get("practice_item_id") or "") != practice_item_id:
-        return (), ()
-    return own_disclosure_bases(
-        str(attempt.get("submission_id") or "") or None, attempt.get("learner_answer_md")
-    )
-
-
-def _matches_bases(row: Mapping[str, Any], bases: tuple[tuple[str, ...], tuple[str, ...]]) -> bool:
-    exact, prefixes = bases
-    basis = row.get("basis")
-    if row.get("source_kind") != "answer_display" or not isinstance(basis, str):
-        return False
-    return basis in exact or any(basis.startswith(prefix) for prefix in prefixes)
+        return None, None
+    return str(attempt.get("submission_id") or "") or None, attempt.get("learner_answer_md")
 
 
 def repair_display_amounts(
@@ -572,7 +601,7 @@ def record_self_grade_disclosure_display(
     Written while the draft is still pending, so every other production (an
     attempt in another window, an unaided answer on the learning object) is
     judged against it at once. The frozen trace's own commit is exempt
-    (:func:`own_disclosure_bases`): it was written before the key appeared,
+    (:func:`is_own_disclosure`): it was written before the key appeared,
     and the row carries the hash of that trace (``frozen_hash``) as the proof.
     Unlinked (the draft has no attempt yet); idempotent per display; raises
     :class:`DisplayNotRecorded` when nothing could be written.
@@ -615,7 +644,7 @@ def record_self_grade_disclosure_reveal(
 
     Either way it is a routine display (:data:`ROUTINE_ANSWER_DISPLAY_BASES`):
     it counts within :data:`ROUTINE_ANSWER_DISPLAY_COVERAGE`, and never against
-    the draft's own commit (:func:`own_disclosure_bases`). While the draft is
+    the draft's own commit (:func:`is_own_disclosure`). While the draft is
     pending, the key's display rows (:func:`record_self_grade_disclosure_display`)
     already count against every other production (round 3 F1). Idempotent per
     retry key; best effort, like every writer here.

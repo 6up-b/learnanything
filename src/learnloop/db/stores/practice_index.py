@@ -351,13 +351,13 @@ def items_revealed_between(connection: sqlite3.Connection, *, since: str,
     went back), ``learnloop.reveal_coverage`` (UX Phase 4 round 4)."""
     if not table_exists(connection, "reveal_events"):
         return set()
-    from learnloop.reveal_coverage import routine_display_sql, routine_window_start
+    from learnloop.reveal_coverage import routine_coverage_sql, routine_window_start
 
-    routine, routine_parameters = routine_display_sql()
+    routine, routine_parameters = routine_coverage_sql(routine_window_start(since))
     return {str(row[0]) for row in connection.execute(
         "SELECT DISTINCT practice_item_id FROM reveal_events "
-        f"WHERE (created_at > ? AND created_at <= ?) OR ({routine} AND created_at > ?)",
-        (since, until, *routine_parameters, routine_window_start(since)),
+        f"WHERE (created_at > ? AND created_at <= ?) OR {routine}",
+        (since, until, *routine_parameters),
     )}
 
 

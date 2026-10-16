@@ -734,6 +734,18 @@ def _classified_pool(
     """
 
     scheduled = env.build_eligible(minutes)
+    # UX Phase 4 round 5: a cold check the queue would no longer serve, or
+    # submit would prime, is not planned (``scheduler.cold_check_serve_hold``).
+    cold = _open_cold_check_items(env)
+    if cold:
+        from learnloop.scheduling.scheduler import cold_check_serve_hold
+
+        scheduled = [
+            item
+            for item in scheduled
+            if item.practice_item_id not in cold
+            or cold_check_serve_hold(env.vault, env.repository, item.practice_item_id, clock=env.clock) is None
+        ]
     estimator = _estimator(env)
     states = env.repository.practice_item_states()
     requested = env.repository.requested_practice_item_ids()
@@ -1997,6 +2009,11 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     open_items = [item for item in record.items() if not item.resolved]
     now = env.now_iso()
     writes: list[tuple[str, str, dict[str, Any]]] = []
+    # UX Phase 4 round 5: a planned cold check is revalidated before it is
+    # served, against the one coverage the queue and submit read; one the
+    # queue would no longer serve, or submit would prime, is displaced (the
+    # task stays open and the queue serves it once it is cold again).
+    cold_items = _open_cold_check_items(env)
     if open_items:
         earliest = min(item.planned_at for item in open_items)
         ids = sorted({item.practice_item_id for item in open_items})
@@ -2053,6 +2070,16 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                     (item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": "no_longer_servable"})
                 )
                 item.displaced_at = now
+                continue
+            if item.served_at is None and item.practice_item_id in cold_items:
+                from learnloop.scheduling.scheduler import cold_check_serve_hold
+
+                hold = cold_check_serve_hold(vault, env.repository, item.practice_item_id, clock=env.clock)
+                if hold is not None:
+                    writes.append(
+                        (item.block_id, "item_displaced", {"practice_item_id": item.practice_item_id, "reason": hold})
+                    )
+                    item.displaced_at = now
     for block in record.blocks:
         if block.ended_at is None and not block.is_reading and block.items and all(item.resolved for item in block.items):
             writes.append((block.id, "block_ended", {"outcome": "completed", "minutes_counted": round(block.est_minutes(), 4)}))
@@ -2063,6 +2090,22 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
                 _event(connection, block_id, kind, detail, now)
         return _reload(env, record.id)
     return record
+
+
+def _open_cold_check_items(env: PlanEnv) -> frozenset[str]:
+    """Items an open cold follow-up task selects (the measurement lanes)."""
+
+    from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+
+    try:
+        return frozenset(
+            str(task.get("selected_item_id"))
+            for kind in sorted(COLD_FOLLOWUP_TASK_KINDS)
+            for task in env.repository.open_followup_tasks_of_kind(kind)
+            if task.get("selected_item_id")
+        )
+    except Exception:  # noqa: BLE001 - a read that fails holds nothing back here; submit still guards
+        return frozenset()
 
 
 def _displaceable(record: PlanRecord, keep: Iterable[str] = ()) -> list[PlannedItem]:
@@ -2594,6 +2637,11 @@ def advance_with_context(
     item = block.next_item()
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
+    if serve and item.served_at is None and _held_cold_check(env, block, item):
+        # Displaced at the serve itself (a block planned in this very call is
+        # not reconciled first): plan the next step instead (round 5). The
+        # pool no longer holds it, so the next step is another item.
+        return advance_with_context(env, serve=serve)
     candidate_id = context.candidate_ids.get(item.practice_item_id)
     step = _item_step(
         env, record, block, item, boundary=boundary, candidate_id=candidate_id,
@@ -2603,6 +2651,26 @@ def advance_with_context(
         step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
     return record, step, context
+
+
+def _held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> bool:
+    """Revalidate a cold check at the moment the plan would serve it (UX Phase
+    4 round 5, ``scheduler.cold_check_serve_hold``); one the queue would no
+    longer serve, or submit would prime, is displaced, with the reason."""
+
+    if item.practice_item_id not in _open_cold_check_items(env):
+        return False
+    from learnloop.scheduling.scheduler import cold_check_serve_hold
+
+    hold = cold_check_serve_hold(env.vault, env.repository, item.practice_item_id, clock=env.clock)
+    if hold is None:
+        return False
+    with env.repository.atomic(), env.repository.connection() as connection:
+        _event(
+            connection, block.id, "item_displaced",
+            {"practice_item_id": item.practice_item_id, "reason": hold}, env.now_iso(),
+        )
+    return True
 
 
 def _standing_presentation(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> str | None:

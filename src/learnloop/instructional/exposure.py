@@ -41,7 +41,7 @@ from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 from learnloop.instructional.exercises import exercise_regions
 from learnloop.practice_index.listwise import ListwiseTask, judge_listwise, listwise_caps
 from learnloop.practice_index.paid import plan_route
-from learnloop.reveal_coverage import routine_display_sql, routine_window_start
+from learnloop.reveal_coverage import routine_coverage_sql, routine_window_start
 from learnloop.source_retrieval.corpus import role_keys
 from learnloop.source_retrieval.service_spend import service_spend
 from learnloop.vault.models import LoadedVault
@@ -171,11 +171,11 @@ def independent_check_eligibility(
             # definition every reader uses (``learnloop.reveal_coverage``):
             # from the renewal grace before this window, and never invisible
             # when stamped after now (UX Phase 4 round 4).
-            routine, routine_parameters = routine_display_sql()
+            routine, routine_parameters = routine_coverage_sql(routine_window_start(since))
             reveals = connection.execute(
                 f"SELECT id, practice_item_id FROM reveal_events WHERE practice_item_id IN ({marks}) "
-                f"AND (created_at >= ? OR ({routine} AND created_at >= ?))",
-                (*family, since, *routine_parameters, routine_window_start(since))).fetchall()
+                f"AND (created_at >= ? OR {routine})",
+                (*family, since, *routine_parameters)).fetchall()
             if reveals:
                 result["reasons"].append("revealed" if any(row[1] == item.id for row in reveals) else "family_revealed")
                 result["inputs"]["reveal_ids"] = [str(row[0]) for row in reveals]
