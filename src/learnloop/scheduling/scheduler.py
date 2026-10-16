@@ -1706,8 +1706,8 @@ def _cold_task_reveals(
     since: str,
     now_iso: str,
 ) -> list[tuple[dict[str, Any], str]]:
-    """The reveals that hold a cold task back now, each with the moment it stops
-    counting (ledger format), oldest first.
+    """The reveals that hold a cold task back now, each with the first moment it
+    no longer holds it (ledger format), oldest first.
 
     Every reveal kind except the routine displays: one on the task's item or
     learning object after the task was created, counting for the lane's own
@@ -1721,7 +1721,7 @@ def _cold_task_reveals(
     """
 
     from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-    from learnloop.reveal_coverage import is_routine_display, routine_counts_until
+    from learnloop.reveal_coverage import is_routine_display, routine_released_at, routine_row_covers
 
     held: dict[str, tuple[dict[str, Any], str]] = {}
     for row in repository.reveal_events_for_target(
@@ -1743,9 +1743,10 @@ def _cold_task_reveals(
     ):
         if not is_routine_display(row.get("source_kind"), row.get("basis")):
             continue
-        until = routine_counts_until(str(row.get("created_at") or ""))
-        if until is not None and until > now_iso:
-            held[str(row.get("id"))] = (row, until)
+        created_at = str(row.get("created_at") or "")
+        released = routine_released_at(created_at)
+        if released is not None and routine_row_covers(created_at, now_iso):
+            held[str(row.get("id"))] = (row, released)
     return sorted(held.values(), key=lambda pair: (str(pair[0].get("created_at") or ""), str(pair[0].get("id") or "")))
 
 

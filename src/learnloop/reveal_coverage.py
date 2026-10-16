@@ -10,6 +10,15 @@ committed row stamped at most :data:`ROUTINE_DISPLAY_RENEWAL_GRACE` ago exists
 every moment T in [s, s + :data:`ROUTINE_DISPLAY_COVERAGE`]: the horizon (the
 cold retrieval delay, one day) after any moment the answer was on screen.
 
+THE endpoint convention (round 5): coverage is INCLUSIVE at both ends, at the
+ledger's one-second resolution. A routine row stamped ``s`` covers ``T`` exactly
+when ``s >= routine_covered_from(T)`` (that is, ``T <= s + coverage``); with no
+upper bound, so a row stamped ahead of the reader's clock covers too. It stops
+covering at ``routine_released_at(s)``, one second after ``s + coverage``.
+Every reader uses these helpers (:func:`routine_row_covers`,
+:func:`routine_coverage_sql`, :func:`routine_released_at`), never a comparison
+of its own.
+
 Every reader that judges or serves by reveals reads routine rows this way: the
 submit path (auto-prime), production admissibility, the scheduler's serving
 and deferral of cold follow-ups, the serving exclusions, the independent-check
@@ -75,11 +84,41 @@ def routine_display_sql(table: str = "") -> tuple[str, list[object]]:
 
 
 def routine_covered_from(at: datetime | str) -> str | None:
-    """The earliest stamp of a routine row still covering ``at`` (ledger format);
-    None when ``at`` cannot be read (nothing lapses: fail closed)."""
+    """The earliest stamp of a routine row still covering ``at`` (ledger format):
+    rows stamped at or after it cover ``at`` (inclusive). None when ``at``
+    cannot be read (nothing lapses: fail closed)."""
 
     moment = _parsed(at) if isinstance(at, str) else at
     return _iso(moment - ROUTINE_DISPLAY_COVERAGE) if moment is not None else None
+
+
+def routine_row_covers(created_at: str, at: datetime | str) -> bool:
+    """Does a routine row stamped ``created_at`` cover the moment ``at``? THE
+    convention, inclusive: stamped at or after ``routine_covered_from(at)``,
+    including stamps ahead of ``at``. Unreadable: covers (fail closed)."""
+
+    covered_from = routine_covered_from(at)
+    return covered_from is None or created_at >= covered_from
+
+
+def routine_coverage_sql(covered_from: str, table: str = "") -> tuple[str, list[object]]:
+    """The convention in SQL: a predicate true for routine rows stamped at or
+    after ``covered_from`` (``routine_covered_from(T)``, or
+    ``routine_window_start(since)`` for a reader whose window starts at
+    ``since = T - delay``), with no upper bound."""
+
+    prefix = f"{table}." if table else ""
+    routine, parameters = routine_display_sql(table)
+    return f"({routine} AND {prefix}created_at >= ?)", [*parameters, covered_from]
+
+
+def routine_released_at(created_at: str) -> str | None:
+    """The first moment (ledger format) a routine row stamped ``created_at`` no
+    longer covers: one second after its coverage ends. A serve held back by it
+    becomes possible then, never earlier."""
+
+    moment = _parsed(created_at)
+    return _iso(moment + ROUTINE_DISPLAY_COVERAGE + timedelta(seconds=1)) if moment is not None else None
 
 
 def routine_window_start(since: str) -> str:
@@ -91,8 +130,3 @@ def routine_window_start(since: str) -> str:
     return _iso(moment - ROUTINE_DISPLAY_RENEWAL_GRACE) if moment is not None else since
 
 
-def routine_counts_until(created_at: str) -> str | None:
-    """The last moment a routine row stamped ``created_at`` counts (ledger format)."""
-
-    moment = _parsed(created_at)
-    return _iso(moment + ROUTINE_DISPLAY_COVERAGE) if moment is not None else None

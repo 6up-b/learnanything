@@ -184,14 +184,13 @@ def is_own_disclosure(row: Mapping[str, Any], submission_id: str | None, learner
 
 
 def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
+    """A routine row whose coverage no longer reaches the read (the one
+    convention, ``reveal_coverage``: covered when stamped at or after
+    ``cutoff``, inclusive)."""
+
     if cutoff is None or not is_routine_answer_display(row):
         return False
-    try:
-        stamped = parse_utc(str(row.get("created_at") or "")) if row.get("created_at") else None
-        limit = parse_utc(cutoff)
-    except ValueError:
-        return False
-    return stamped is not None and limit is not None and stamped < limit
+    return str(row.get("created_at") or "") < cutoff
 
 
 def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> str | None:
