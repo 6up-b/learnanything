@@ -2363,3 +2363,254 @@ def test_f1j_opening_a_revealed_cold_check_defers_it_instead_of_administering_it
 
     assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
     assert repository.followup_task(task["id"])["not_before"] > _iso(_later())
+
+
+# == Round 6 (docs/reviews/ux-phase4-feedback-codex-review.md §12) ==============================
+
+
+# -- B: a duplicated or mistyped identity field exempts nothing ----------------------------------
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        '{{"display":null,"submission":"other","submission":"k","trace":"{h}","v":2}}',
+        '{{"display":null,"submission":"k","trace":"x","trace":"{h}","v":2}}',
+        '{{"display":null,"submission":"k","trace":"{h}","v":2.0}}',
+        '{{"display":null,"submission":"k","trace":"{h}","v":true}}',
+    ],
+    ids=["duplicate_submission", "duplicate_trace", "float_version", "bool_version"],
+)
+def test_f1k_a_malformed_identity_exempts_nothing(ctx, identity):
+    """Duplicate keys (json.loads would keep the last) and a version that is
+    not the integer 2 make a row malformed: it counts like any routine
+    display and exempts nothing."""
+
+    from learnloop.attempts.reveal_ledger import trace_hash
+    from learnloop.attempts.trace_evidence import compose_learner_trace
+
+    vault, repository = ctx.require_vault()
+    hash_t = trace_hash(compose_learner_trace("U Sigma V^T", None))
+    repository.insert_reveal_event({
+        "practice_item_id": ITEM, "learning_object_id": vault.practice_items[ITEM].learning_object_id,
+        "source_kind": "answer_display", "amount": 1.0,
+        "basis": "self_grade_disclosure:v2:" + identity.format(h=hash_t),
+    })
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+
+    attempt = _committed(ctx, session_id, submission_id="k", answer="U Sigma V^T")
+
+    assert attempt["primed"]
+    assert _admissible_as_itself(ctx, attempt) is False
+
+
+# -- C: a read-only detail never opens a cold administration ------------------------------------
+
+
+def _administration_receipts(repository) -> int:
+    with repository.connection() as connection:
+        return int(connection.execute(
+            "SELECT COUNT(*) FROM coldness_receipts WHERE stage = 'administration'"
+        ).fetchone()[0])
+
+
+def _due_cold_task(ctx, *, case_ref: str = "ep_detail") -> dict:
+    _vault, repository = ctx.require_vault()
+    return repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref=case_ref,
+        not_before=_iso(_later(hours=-1)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
+        clock=_later(days=-1),
+    )
+
+
+def test_f1k_a_read_only_detail_never_opens_a_cold_administration(ctx):
+    """Feedback and the inspector read an item's detail without a session: no
+    cold administration is opened and no receipt written, whatever the item's
+    cold task. Only a session serve, behind the guard, opens one."""
+
+    _vault, repository = ctx.require_vault()
+    _due_cold_task(ctx)
+
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM})
+    assert _administration_receipts(repository) == 0
+
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})
+    assert _administration_receipts(repository) == 1
+
+
+def test_f1k_a_session_serve_inside_routine_coverage_opens_no_administration(ctx):
+    """The verifier's case at a real serve: a due cold retry and a recent
+    full-answer display. The guard defers it; no administration is opened."""
+
+    _vault, repository = ctx.require_vault()
+    _exposure(ctx, _feedback_answer(ctx, then=_later(days=-2)), "display_detail", clock=_later(minutes=-1))
+    _due_cold_task(ctx)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+
+    _call(ctx, "get_practice_item", {"practiceItemId": ITEM, "sessionId": session_id})
+
+    assert _administration_receipts(repository) == 0
+    assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
+
+
+# -- D: no probe is committed for an item inside routine-display coverage ----------------------
+
+
+@pytest.mark.parametrize("covered", [False, True], ids=["control", "covered"])
+def test_f1k_no_probe_is_committed_for_an_item_inside_routine_display_coverage(tmp_path, covered):
+    """The shared commit (``probe_episodes.commit_presentation``, every probe and
+    placement presentation) refuses an item inside routine-display coverage: a
+    self-grade disclosure of it was shown an hour ago and abandoned (so it is
+    still never attempted, a probe candidate)."""
+
+    from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
+
+    _root, loaded, repository = _setup(tmp_path)
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    if covered:
+        repository.insert_reveal_event(
+            {"practice_item_id": ITEM_ID, "learning_object_id": LO_ID, "source_kind": "answer_display",
+             "amount": 1.0, "basis": "self_grade_disclosure:v2:" + '{"display":"d","submission":"s","trace":"t","v":2}'},
+            clock=FrozenClock(CLOCK.now() - timedelta(hours=1)),
+        )
+
+    presentation = commit_item_presentation(
+        loaded, repository, episode, loaded.practice_items[ITEM_ID], episode_hypothesis_set(repository, episode),
+        clock=CLOCK,
+    )
+
+    assert (presentation is None) is covered
+
+
+# -- E: a future task never masks a due one -------------------------------------------------------
+
+
+@pytest.mark.parametrize("displayed", [False, True], ids=["no_display", "displayed"])
+def test_f1k_a_future_task_never_masks_a_due_one(ctx, displayed):
+    """Two cold tasks on the item, one due and one for later: the due one is
+    judged first. With no routine display it is served; with one, it is held
+    (and deferred)."""
+
+    from learnloop.scheduling.scheduler import cold_check_serve_hold
+
+    vault, repository = ctx.require_vault()
+    if displayed:
+        _exposure(ctx, _feedback_answer(ctx, then=_later(days=-2)), "display_mask", clock=_later(minutes=-1))
+    _due_cold_task(ctx, case_ref="ep_due")
+    repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_later",
+        not_before=_iso(_later(days=3)), expires_at=_iso(_later(days=30)), selected_item_id=ITEM,
+        clock=_later(days=-1),
+    )
+
+    hold = cold_check_serve_hold(vault, repository, ITEM)
+
+    assert (hold is not None) is displayed
+
+
+# -- F: the plan holds only for routine-display coverage, which clears by itself ----------------
+
+
+def test_f1k_a_non_routine_reveal_never_starves_the_plan(tmp_path):
+    """The verifier's case: one eligible item with a due cold retry and a
+    tutor answer revealed 26 hours ago (a non-routine reveal). The plan's
+    round-5 filter held it until the task expired and the plan finished with
+    its minutes unused; main's serving behaviour is restored: the plan serves
+    it (what submit then does with it is main's, unchanged, §12)."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from tests.daily_plan_fakes import MovableClock, make_env, scheduled, seed_due
+    from tests.helpers import create_daily_plan_vault
+
+    start = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
+    clock = MovableClock(start)
+    env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
+                   clock=clock, session_id="s_one")
+    seed_due(env.repository, "pi_cold", due=start - timedelta(days=2), last=start - timedelta(days=9))
+    env.repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_one",
+        not_before=_iso(FrozenClock(start - timedelta(hours=1))), expires_at=_iso(FrozenClock(start + timedelta(days=30))),
+        selected_item_id="pi_cold", clock=FrozenClock(start - timedelta(days=1)),
+    )
+    env.repository.insert_reveal_event(
+        {"practice_item_id": "pi_cold", "learning_object_id": "lo_c", "source_kind": "tutor_answer",
+         "amount": 1.0, "basis": "tutor_answer"},
+        clock=FrozenClock(start - timedelta(hours=26)),
+    )
+    get_or_create_today(env)
+    _record, step = advance(env, serve=True)
+
+    assert step.get("practice_item_id") == "pi_cold"
+
+
+def test_f1k_a_routine_display_hold_clears_by_itself(tmp_path):
+    """A routine display holds the planned cold check; once its coverage ends
+    (D + G, then one second) the same plan serves it, with no other change."""
+
+    from learnloop.daily_plan.engine import advance, get_or_create_today
+    from learnloop.reveal_coverage import ROUTINE_DISPLAY_COVERAGE
+
+    env, clock = _plan_with_a_cold_check(tmp_path, "clears")
+    get_or_create_today(env)
+    _display_on(env, "pi_cold", clock, "display_clears")
+    clock.advance(1)
+    advance(env, serve=True)
+    assert "pi_cold" not in _served_items(env)
+
+    clock.instant = clock.instant + ROUTINE_DISPLAY_COVERAGE
+    for _step in range(4):
+        advance(env, serve=True)
+        if "pi_cold" in _served_items(env):
+            break
+    assert "pi_cold" in _served_items(env)
+
+
+def test_f1k_the_tui_open_defers_a_cold_check_a_routine_display_covers(tmp_path):
+    """The TUI's open is its serve: a due cold retry whose answer was shown
+    (on the desktop, after the TUI built its list) is deferred when the item
+    opens, so no cold check is administered."""
+
+    import asyncio
+    from datetime import UTC, datetime
+
+    from learnloop.db.repositories import Repository
+    from learnloop.tui.app import LearnLoopApp
+    from learnloop.tui.screens.practice import PracticeScreen
+    from tests.helpers import begin_session
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    repository = Repository(paths.sqlite_path)
+    now = datetime.now(UTC).replace(microsecond=0)
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_tui",
+        not_before=_iso(FrozenClock(now - timedelta(hours=1))), expires_at=_iso(FrozenClock(now + timedelta(days=30))),
+        selected_item_id=ITEM, clock=FrozenClock(now - timedelta(days=1)),
+    )
+
+    async def scenario() -> None:
+        app = LearnLoopApp(vault_root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            repository.insert_reveal_event({
+                "practice_item_id": ITEM, "learning_object_id": "lo_svd_definition", "source_kind": "answer_display",
+                "amount": 1.0, "basis": "feedback_full_answer:display_tui",
+            })
+            await today.open_practice()
+            await pilot.pause()
+            assert isinstance(app.screen, PracticeScreen)
+            assert app.screen.item.practice_item_id == ITEM
+            assert app.screen.item.followup_kind == "cold_retry"
+            # Judged at the open itself (the list, built before the display,
+            # still names it a cold check; leaving the app rebuilds it).
+            assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
+            assert repository.followup_task(task["id"])["not_before"] > _iso(FrozenClock(datetime.now(UTC)))
+
+    asyncio.run(scenario())

@@ -332,7 +332,14 @@ def answered_presentation(item: PracticeItem, contract: Mapping[str, Any] | None
 
 
 @pinned_repository_call
-def practice_item_detail(vault: LoadedVault, repository: Repository, practice_item_id: str) -> dict[str, Any]:
+def practice_item_detail(
+    vault: LoadedVault, repository: Repository, practice_item_id: str, *, administer: bool = False
+) -> dict[str, Any]:
+    """An item's detail. ``administer``: this is a real serve (a session serve,
+    behind the cold-check guard), and opens the cold administration of an
+    active cold task (UX Phase 4 round 6). A read (feedback, the inspector, a
+    sibling or primed-item preview) never opens one or writes its receipt."""
+
     item = _require_item(vault, practice_item_id)
     learning_object = vault.learning_object_for_item(item)
     if learning_object is None:
@@ -355,7 +362,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     active_cold_retry = repository.active_followup_task_for_item(
         item.id, kind="cold_retry"
     )
-    if active_cold_retry is not None:
+    if administer and active_cold_retry is not None:
         # Migration 149 stage 1: serving the detail for an item carrying an
         # active cold-retry task IS the administration open — record the
         # coldness snapshot (window state, surface eligibility, selection
@@ -380,7 +387,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     active_certification_probe = repository.active_followup_task_for_item(
         item.id, kind="certification_cold_probe"
     )
-    if active_certification_probe is not None:
+    if administer and active_certification_probe is not None:
         try:
             from learnloop.attempts.coldness_receipt import (
                 record_certification_administration_snapshot,

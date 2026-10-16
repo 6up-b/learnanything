@@ -1169,6 +1169,29 @@ def shadow_selection_rankings(
     }
 
 
+class RoutineDisplayCovered(Exception):
+    """A probe or placement presentation refused (UX Phase 4 round 6): the
+    item's expected answer was shown on a routine display that still covers
+    now (``learnloop.reveal_coverage``). Time alone clears it, within the
+    coverage (D + G)."""
+
+    def __init__(self, practice_item_id: str) -> None:
+        super().__init__(f"{practice_item_id}: its answer was shown within the routine-display coverage")
+        self.practice_item_id = practice_item_id
+
+
+def refuse_routine_display_covered(
+    repository: Repository, practice_item_id: str, *, clock: Clock | None = None
+) -> None:
+    """Raise :class:`RoutineDisplayCovered` when a routine display of the item
+    covers now: the one guard every presentation commit passes through."""
+
+    from learnloop.reveal_coverage import routine_displays_covering
+
+    if routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)):
+        raise RoutineDisplayCovered(practice_item_id)
+
+
 def commit_presentation(
     vault: LoadedVault,
     repository: Repository,
@@ -1190,8 +1213,13 @@ def commit_presentation(
     (precommitted block siblings, Checkpoint 5.3). When the full candidate
     slate is supplied, shadow-policy rankings are logged onto the presentation
     (§13.3, Checkpoint 5.1).
+
+    The administration choke point for probes and placement (UX Phase 4
+    round 6): an item whose answer a routine display still covers is never
+    committed (:class:`RoutineDisplayCovered`, before anything is written).
     """
 
+    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     payload = presentation_commit_payload(
         vault,
         repository,
@@ -1498,15 +1526,19 @@ def commit_item_presentation(
     eligible = next((entry for entry in candidates if entry.item.id == item.id), None)
     if eligible is None:
         return None
-    presentation = commit_presentation(
-        vault,
-        repository,
-        episode,
-        eligible,
-        candidates=candidates or None,
-        extra_selection_components=extra_selection_components,
-        clock=clock,
-    )
+    try:
+        presentation = commit_presentation(
+            vault,
+            repository,
+            episode,
+            eligible,
+            candidates=candidates or None,
+            extra_selection_components=extra_selection_components,
+            clock=clock,
+        )
+    except RoutineDisplayCovered:
+        # Its answer was just shown: ordinary practice, not a probe (round 6).
+        return None
     serve_presentation(repository, presentation.id, clock=clock)
     return presentation
 
@@ -1630,21 +1662,25 @@ def plan_precommitted_block(
 
     presentations: list[ProbePresentationRecord] = []
     for index, (candidate, conditional_eig) in enumerate(picked):
-        presentation = commit_presentation(
-            vault,
-            repository,
-            episode,
-            candidate,
-            candidates=candidates,
-            supersede_active=index == 0,
-            extra_selection_components={
-                "joint_block": True,
-                "block_index": index,
-                "block_size": len(picked),
-                "conditional_eig": conditional_eig,
-            },
-            clock=clock,
-        )
+        try:
+            presentation = commit_presentation(
+                vault,
+                repository,
+                episode,
+                candidate,
+                candidates=candidates,
+                supersede_active=not presentations,
+                extra_selection_components={
+                    "joint_block": True,
+                    "block_index": index,
+                    "block_size": len(picked),
+                    "conditional_eig": conditional_eig,
+                },
+                clock=clock,
+            )
+        except RoutineDisplayCovered:
+            # Its answer was just shown: left out of the block (round 6).
+            continue
         presentations.append(presentation)
     return presentations
 

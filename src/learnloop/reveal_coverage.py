@@ -121,6 +121,31 @@ def routine_released_at(created_at: str) -> str | None:
     return _iso(moment + ROUTINE_DISPLAY_COVERAGE + timedelta(seconds=1)) if moment is not None else None
 
 
+def routine_displays_covering(
+    repository: object,
+    *,
+    practice_item_id: str,
+    learning_object_id: str | None = None,
+    at: datetime | str,
+) -> list[dict[str, object]]:
+    """The routine display rows covering ``at`` on the item (and, when
+    ``learning_object_id`` is given, anywhere in its learning object): the one
+    read behind every serve-time hold (UX Phase 4 round 6), a cold check's
+    (item or learning object, the scheduler's deferral scope) and a probe
+    commit's (the item). ``repository`` is a ``Repository``; it is not
+    imported, so this module stays a leaf."""
+
+    rows = repository.reveal_events_for_target(  # type: ignore[attr-defined]
+        practice_item_id=practice_item_id, learning_object_id=learning_object_id,
+    )
+    return [
+        row
+        for row in rows
+        if is_routine_display(row.get("source_kind"), row.get("basis"))
+        and routine_row_covers(str(row.get("created_at") or ""), at)
+    ]
+
+
 def routine_window_start(since: str) -> str:
     """For a reader whose window for a reveal starts at ``since`` (``T`` minus
     the cold retrieval delay): where its window for routine rows starts, the

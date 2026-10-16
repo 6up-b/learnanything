@@ -32,6 +32,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.diagnosis.probe_episodes import (
     EligibleInstrument,
+    RoutineDisplayCovered,
     commit_presentation,
     episode_hypothesis_set,
     serve_presentation,
@@ -310,19 +311,23 @@ def next_dialogue_turn(
         expected_information_gain=0.0,
         selection_objective="dialogue_block",
     )
-    presentation = commit_presentation(
-        vault,
-        repository,
-        episode,
-        eligible,
-        extra_selection_components={
-            "task_evidence_share": state.task_evidence_share,
-            "dialogue_block_id": state.block_id,
-            "dialogue_turn_kind": kind,
-            "dialogue_turn_number": len(state.turns) + 1,
-        },
-        clock=clock,
-    )
+    try:
+        presentation = commit_presentation(
+            vault,
+            repository,
+            episode,
+            eligible,
+            extra_selection_components={
+                "task_evidence_share": state.task_evidence_share,
+                "dialogue_block_id": state.block_id,
+                "dialogue_turn_kind": kind,
+                "dialogue_turn_number": len(state.turns) + 1,
+            },
+            clock=clock,
+        )
+    except RoutineDisplayCovered:
+        # UX Phase 4 round 6 (a turn's instance is new, so in practice never).
+        return state, None
     serve_presentation(repository, presentation.id, clock=clock)
     turn = DialogueTurn(
         kind=kind,

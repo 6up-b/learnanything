@@ -249,18 +249,27 @@ export function useAnswerExposure(
   const [visible, setVisible] = useState(documentVisible);
   // A shell window event is pending its state query: nothing shows, nothing
   // is written, until the shell says the window is visible and unminimized.
+  // The hold belongs to the window, not to one answer: a new key keeps it and
+  // asks the shell again (round 6, G).
   const [shellHeld, setShellHeld] = useState(false);
+  const shellHeldRef = useRef(shellHeld);
+  shellHeldRef.current = shellHeld;
   const wanted = onScreen && visible && !shellHeld && record !== undefined;
   const wantedRef = useRef(wanted);
   wantedRef.current = wanted;
 
   useEffect(() => {
+    // In the shell: hold the answer and ask the window's state again (set
+    // below). Every hiding signal calls it, so only the latest question may
+    // release the hold (round 6, A).
+    let requery: (() => void) | null = null;
     // A signal that may precede a suspend or a loss of attention: hide the
     // answer synchronously (so the frame a suspend keeps is the hidden one),
     // and show it again only after a fresh row is acknowledged (round 4).
     const hide = () => {
       gate.interrupt();
       flushSync(bump);
+      requery?.();
     };
     const onVisibility = () => {
       const isVisible = documentVisible();
@@ -270,6 +279,7 @@ export function useAnswerExposure(
       } else {
         gate.interrupt();
         flushSync(() => setVisible(false));
+        requery?.();
       }
     };
     const back = () => {
@@ -298,8 +308,12 @@ export function useAnswerExposure(
     // being minimized or the machine suspended, so each hides the answer AT
     // ONCE, before the window's state is asked. The answer returns only once
     // the shell says the window is visible and unminimized (asked after the
-    // events settle) and a fresh row is then acknowledged.
+    // events settle) and a fresh row is then acknowledged. Every event (these,
+    // and the hiding signals above) starts a new generation, synchronously; a
+    // reply to an earlier generation's question is stale and releases
+    // nothing, so only the latest question may release the hold (round 6).
     let disposed = false;
+    let generation = 0;
     const unlisten: (() => void)[] = [];
     const keep = (listener: Promise<() => void>) => {
       listener
@@ -309,23 +323,36 @@ export function useAnswerExposure(
     let settle: number | undefined;
     try {
       const appWindow = getCurrentWindow();
-      const shellEvent = () => {
-        gate.interrupt();
-        flushSync(() => setShellHeld(true));
+      // Ask the window's state once the events settle; only the reply to the
+      // latest question counts.
+      const ask = () => {
+        generation += 1;
+        const asked = generation;
         window.clearTimeout(settle);
         settle = window.setTimeout(() => {
           Promise.all([appWindow.isMinimized(), appWindow.isVisible()])
             .then(([minimized, shown]) => {
-              if (disposed || minimized || !shown) return;
+              if (disposed || asked !== generation || minimized || !shown) return;
               gate.activity();
+              shellHeldRef.current = false;
               setShellHeld(false);
             })
             .catch(() => undefined);
         }, SHELL_SETTLE_MS);
       };
+      const shellEvent = () => {
+        gate.interrupt();
+        shellHeldRef.current = true;
+        flushSync(() => setShellHeld(true));
+        ask();
+      };
+      requery = shellEvent;
       keep(appWindow.onFocusChanged(shellEvent));
       keep(appWindow.onResized(shellEvent));
       keep(appWindow.onScaleChanged(shellEvent));
+      // A hold left by the previous answer (a new key while held): this
+      // answer's gate asks the shell itself (round 6, G).
+      if (shellHeldRef.current) ask();
     } catch {
       // Not in the shell (a browser, a test): the DOM signals above suffice.
     }

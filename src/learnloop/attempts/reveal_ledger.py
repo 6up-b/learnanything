@@ -151,18 +151,32 @@ def disclosure_identity(row: Mapping[str, Any]) -> dict[str, Any] | None:
     if row.get("source_kind") != "answer_display" or not isinstance(basis, str) or not basis.startswith(_DISCLOSURE_PREFIX):
         return None
     try:
-        identity = json.loads(basis[len(_DISCLOSURE_PREFIX):])
+        identity = json.loads(basis[len(_DISCLOSURE_PREFIX):], object_pairs_hook=_unique_fields)
     except ValueError:
         return None
     if (
         not isinstance(identity, dict)
         or set(identity) != {"v", "submission", "trace", "display"}
+        # The integer 2 exactly: not 2.0, not a boolean (round 6).
+        or type(identity["v"]) is not int
         or identity["v"] != DISCLOSURE_IDENTITY_VERSION
         or not isinstance(identity["submission"], str)
         or not isinstance(identity["trace"], str)
         or not (identity["display"] is None or isinstance(identity["display"], str))
     ):
         return None
+    return identity
+
+
+def _unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject a JSON object that names a field twice (``json.loads`` would keep
+    the last value, round 6): such an identity is malformed."""
+
+    identity: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in identity:
+            raise ValueError(f"duplicate identity field {key!r}")
+        identity[key] = value
     return identity
 
 

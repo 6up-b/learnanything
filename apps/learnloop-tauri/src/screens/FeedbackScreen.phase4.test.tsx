@@ -1159,3 +1159,79 @@ it("F1-1 (round 5): the answer returns only after the window is known visible an
   expect(screen.getByText(KEY)).toBeTruthy();
   expect(new Set(displayIds()).size).toBe(2);
 });
+
+// == Round 6 (docs/reviews/ux-phase4-feedback-codex-review.md §12) ==========================
+
+/** Answer the shell's `index`-th state query (in the order they were asked). */
+async function answerQuery(fake: ReturnType<typeof fakeShellWindow>, index: number, minimized: boolean, visible: boolean) {
+  await act(async () => {
+    fake.queries.minimized[index]?.(minimized);
+    fake.queries.visible[index]?.(visible);
+  });
+  await flush();
+}
+
+const LATER_EVENTS: [string, (fake: ReturnType<typeof fakeShellWindow>) => void][] = [
+  ["a shell focus change", (fake) => fake.handlers.focus?.({ payload: false })],
+  ["a shell resize", (fake) => fake.handlers.resized?.({ payload: {} })],
+  ["pagehide", () => window.dispatchEvent(new Event("pagehide"))],
+  ["blur", () => window.dispatchEvent(new Event("blur"))],
+  ["freeze", () => document.dispatchEvent(new Event("freeze"))]
+];
+
+it.each(LATER_EVENTS)(
+  "F1-1 (round 6): a stale shell reply never releases the hold of a later event (%s)",
+  async (_name, later) => {
+    vi.useFakeTimers();
+    stampWrites();
+    const fake = fakeShellWindow();
+    shell.window = fake.window;
+    render(<FeedbackScreen {...props()} />);
+    await flush();
+    expect(screen.getByText(KEY)).toBeTruthy();
+    const before = displayIds().length;
+    // Resize A: hidden; after the settle, A's state query is in flight.
+    await act(async () => {
+      fake.handlers.resized?.({ payload: {} });
+    });
+    await advance(SECOND);
+    expect(fake.queries.visible).toHaveLength(1);
+    // Event B hides again while A's query is in flight.
+    await act(async () => later(fake));
+    // A's reply (visible, unminimized) arrives: it is stale and releases nothing.
+    await answerQuery(fake, 0, false, true);
+    await advance(10 * SECOND);
+    expect(screen.queryByText(KEY)).toBeNull();
+    expect(displayIds()).toHaveLength(before);
+    // Only the latest query releases: B's, asked after its own settle.
+    expect(fake.queries.visible).toHaveLength(2);
+    await answerQuery(fake, 1, true, true);
+    await advance(10 * SECOND);
+    expect(screen.queryByText(KEY)).toBeNull();
+    expect(displayIds()).toHaveLength(before);
+  }
+);
+
+it("F1-1 (round 6): the latest query releases the hold, after a fresh row", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  const fake = fakeShellWindow();
+  shell.window = fake.window;
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  const before = displayIds().length;
+  await act(async () => {
+    fake.handlers.resized?.({ payload: {} });
+  });
+  await advance(SECOND);
+  await act(async () => {
+    fake.handlers.focus?.({ payload: false });
+  });
+  await answerQuery(fake, 0, false, true);
+  await advance(SECOND);
+  expect(screen.queryByText(KEY)).toBeNull();
+  await answerQuery(fake, 1, false, true);
+  await advance(SECOND);
+  expect(screen.getByText(KEY)).toBeTruthy();
+  expect(displayIds().length).toBe(before + 1);
+});

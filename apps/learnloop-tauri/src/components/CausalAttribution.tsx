@@ -363,6 +363,8 @@ const PROBE_OFFER_COPY: Record<string, string> = {
   no_reviewed_active_candidate: "The check that would tell these apart isn't ready yet.",
   probe_item_missing_from_vault: "The check that would tell these apart isn't ready yet.",
   probe_item_not_eligible: "The check that would tell these apart isn't ready yet.",
+  probe_item_answer_shown:
+    "You saw this check's answer recently, so it can't test you yet. It will be ready tomorrow.",
   another_probe_episode_is_open:
     "Another diagnostic is already open for this topic — finish that one first.",
 };

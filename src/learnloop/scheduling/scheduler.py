@@ -1886,8 +1886,7 @@ def _defer_revealed_cold_followups(
 
 
 #: Why a cold check cannot be served as one now (``cold_check_serve_hold``).
-COLD_CHECK_DEFERRED = "cold_check_deferred"
-COLD_CHECK_WOULD_BE_PRIMED = "cold_check_would_be_primed"
+COLD_CHECK_ROUTINE_DISPLAY = "cold_check_routine_display"
 
 
 def cold_check_serve_hold(
@@ -1898,53 +1897,55 @@ def cold_check_serve_hold(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """Revalidate a cold check at the moment it would be served (UX Phase 4
-    round 5): the reason it cannot be served AS the cold check now, or None.
+    """Revalidate a cold check against routine-display coverage at the moment it
+    would be served (UX Phase 4, rounds 5 and 6): the reason it cannot be
+    served AS the cold check now, or None.
 
     Every path that serves an item it chose earlier (a daily-plan block, a
-    learner's pick, a direct open: a stale list, a restored session, a deep
-    link) calls this at serve time, so none of them serves what the queue would
-    no longer serve and submit would refuse. For each open cold follow-up task
-    selecting the item, the queue's own deferral is re-run now
-    (``_defer_revealed_cold_followups``, persisting the push when ``persist``):
-
-    * ``cold_check_deferred``: a task is not due now (a reveal pushed it, or it
-      never was). The item may still be practised, as an ordinary answer;
-    * ``cold_check_would_be_primed``: a task is due but submit would prime the
-      answer (``attempts.reveal_total_for_submission`` at the threshold) and so
-      refuse it as a cold retry.
-
-    No open cold task on the item: None (nothing to revalidate).
+    learner's pick, a session serve, the TUI's open) calls it. Only a hold
+    that time alone clears is made here (round-6 ruling 2): a routine display
+    covers the item or its learning object now, and an open, unexpired cold
+    task on the item falls due no later than that coverage releases it (due
+    now, or deferred by it): every such task is judged, so a task for later
+    never masks one due now (round 6, E). Those tasks are deferred, persisted
+    when ``persist``, to the first second no covering row covers the item
+    (``routine_released_at``), so the hold ends by itself within the coverage
+    (D + G). Every other reveal kind keeps main's serving behaviour exactly
+    (the scheduler's own deferral and the submit guard, unchanged): no hold.
     """
 
-    from learnloop.attempts.attempts import (
-        AUTO_PRIME_REVEAL_THRESHOLD,
-        COLD_FOLLOWUP_TASK_KINDS,
-        reveal_total_for_submission,
-    )
+    from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+    from learnloop.reveal_coverage import routine_displays_covering, routine_released_at
 
+    now_iso = utc_now_iso(clock)
     tasks = [
         task
         for kind in sorted(COLD_FOLLOWUP_TASK_KINDS)
         for task in repository.open_followup_tasks_of_kind(kind)
         if str(task.get("selected_item_id") or "") == practice_item_id
+        and (not task.get("expires_at") or str(task.get("expires_at")) >= now_iso)
     ]
     if not tasks:
         return None
-    now_iso = utc_now_iso(clock)
-    _defer_revealed_cold_followups(
-        vault,
-        repository,
-        [{"followup_task_id": str(task["id"]), "action_type": str(task["kind"])} for task in tasks],
-        clock=clock,
-        persist=persist,
+    item = vault.practice_items.get(practice_item_id)
+    learning_object_id = str(getattr(item, "learning_object_id", "") or "") or None if item is not None else None
+    covering = routine_displays_covering(
+        repository, practice_item_id=practice_item_id, learning_object_id=learning_object_id, at=now_iso,
     )
-    refreshed = [repository.followup_task(str(task["id"])) or task for task in tasks]
-    if any(str(task.get("not_before") or "") > now_iso for task in refreshed):
-        return COLD_CHECK_DEFERRED
-    if reveal_total_for_submission(repository, practice_item_id, clock=clock) >= AUTO_PRIME_REVEAL_THRESHOLD:
-        return COLD_CHECK_WOULD_BE_PRIMED
-    return None
+    if not covering:
+        return None
+    releases = [routine_released_at(str(row.get("created_at") or "")) for row in covering]
+    if any(value is None for value in releases):
+        # An unreadable stamp: held now (fail closed), nothing persisted.
+        return COLD_CHECK_ROUTINE_DISPLAY
+    released = max(value for value in releases if value is not None)
+    held = [task for task in tasks if str(task.get("not_before") or "") <= released]
+    if not held:
+        return None
+    if persist:
+        for task in held:
+            repository.defer_followup_task(str(task["id"]), not_before=released, clock=clock)
+    return COLD_CHECK_ROUTINE_DISPLAY
 
 
 def deferred_cold_followups(
