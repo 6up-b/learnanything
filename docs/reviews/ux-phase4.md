@@ -209,7 +209,7 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 
 ## 9. Landing onto main
 
-**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`). The stage's base is `37a2a7e5f`, and the branch was built in six phases, while the stage's fix rounds were verified. The main it lands on is `213b76076`. There is no migration and no algorithm successor: `[ui] practice_feedback` is display only, and replay never reads it.
+**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`). The stage's base is `37a2a7e5f`, and the branch was built in seven phases, while the stage's fix rounds were verified. The main it lands on is `213b76076`. There is no migration and no algorithm successor: `[ui] practice_feedback` is display only, and replay never reads it.
 
 ### 9.1 Phases, merges and conflicts
 
@@ -220,7 +220,8 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 | 3 | round 4 `a23b06385`; then main `213b76076` (the Codex isolation fix) | `8aacf9384`, `c385163e3` | round 4: none; main: the 378 generated notes |
 | 4 | round 5 `fe47ba6eb` (main had not moved) | `2954a443a` | none |
 | 5 | round 6 `699b44956` (main had not moved); targeted tests only | `2c8362ece` | none |
-| final | round 7 `f56e2b652` (main had not moved) | `28d5ee45a` | none |
+| 6 | round 7 `f56e2b652` (main had not moved) | `28d5ee45a` | none |
+| final | round 8 `cf95adb38` (main had not moved) | `68f97956a` | none |
 
 How the conflicts were composed:
 
@@ -238,7 +239,7 @@ How the conflicts were composed:
 
 ### 9.2 Composition tests
 
-`tests/test_ux_phase4_landing.py`, six tests, fakes only:
+`tests/test_ux_phase4_landing.py`, eight tests, fakes only:
 
 1. **An upheld contest** (through `trigger_regrade`):
    - writes the regrade's provenance record and the lineage;
@@ -254,6 +255,8 @@ How the conflicts were composed:
 6. **The waiting plan:**
    - while it waits for a hold that lifts today, it writes no block, plan presentation, router decision or stop;
    - after the hold lifts, the same plan serves the item and writes its `plan_presentations` row, which main's forecasts and the router's outcome joins bind to.
+7. **A drawn stop under router R2b** (round 8). The mixture runs with only the fake Decider weighted and a pinned seed, beside a cold check held for 30 more seconds. A stop it draws while one-minute reviews are still feasible closes the plan. Its `router_decisions` row (chosen `stop_for_today`, an exact propensity below 1) is the decision the plan's stop receipt names, with the same propensity.
+8. **A waiting plan under router R2b.** A plan whose only work is the held item waits, asks no model and writes no `router_decisions` row until the hold lifts; then it serves the item and logs its decision. This also shows that test 7's hold setup really holds.
 
 ### 9.3 Main's code against the stage's readers, serve paths and writers
 
@@ -268,7 +271,7 @@ The stage's inventories (Codex review §10.7, §11.4, §13.2) were taken on its 
   - Its only follow-up-task change: saved forecasts keep a handle on the cold task they create, so the repair receipt can bind to it. That schedules a task; it doesn't serve one.
   - MCP and the remote views are read-only, and the Reader's quick-check offers are in the stage's inventory.
   - Main added no `practice_item_detail` caller and no presentation writer. A refused or deferred serve neither consumes nor rebinds a cold task, so the repair forecast's binding (the task's consumed attempt) is unaffected.
-- **The waiting plan and the router.** `PlanWaiting` is raised after `decide`, so a pending router decision (`DecisionPending`, raised inside `decide`) always comes first. With nothing feasible the router answers `single_option` and asks no model, so a waiting boundary leaves no request out and writes nothing (test 6). Two behaviours of round 7's waiting were found here (§9.9).
+- **The waiting plan and the router.** `PlanWaiting` is raised after `decide`, so a pending router decision (`DecisionPending`, raised inside `decide`) always comes first. With nothing feasible the router answers `single_option` and asks no model, so a waiting boundary leaves no request out and writes nothing (tests 6 and 8). Two behaviours of round 7's waiting were found here; round 8 fixed both (§9.9), and test 7 pins the fix under R2b.
 
 ### 9.4 Regenerated on the final tree
 
@@ -282,15 +285,15 @@ The stage's inventories (Codex review §10.7, §11.4, §13.2) were taken on its 
 
 ### 9.5 Gate (final tree)
 
-Run on `c3b166263` (stage `f56e2b652`, main `213b76076`), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
+Run on `7b4d14db1` (stage `cf95adb38`, main `213b76076`), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
 
 | Check | Result |
 |---|---|
 | `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
-| `pytest -n auto` | 12253 passed, 2 xfailed, 0 failed (15 min 51 s) |
-| `pytest -m durability` | 106 passed, 12149 deselected |
-| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 101 files, 816 passed; build succeeds (the usual chunk-size warning) |
-| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | clean on phase 2's cold build (`b47a3aa88`, 0 warnings); nothing under `src-tauri` changed after it (rounds 4 to 7 use the existing `@tauri-apps/api` JS) |
+| `pytest -n auto` | 12262 passed, 2 xfailed, 0 failed (12 min 36 s) |
+| `pytest -m durability` | 106 passed, 12158 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 101 files, 818 passed; build succeeds (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | clean on phase 2's cold build (`b47a3aa88`, 0 warnings); nothing under `src-tauri` changed after it (rounds 4 to 8 use the existing `@tauri-apps/api` JS) |
 | DB/config references | regenerated; `db_validate_reference.py`: 0 errors; `validate_vault.py` passes |
 
 Nothing needed a rerun: no lane had a failure, timing-sensitive or otherwise.
@@ -302,6 +305,7 @@ Nothing needed a rerun: no lane had a failure, timing-sensitive or otherwise.
 | 2 | 12146 passed, 2 xfailed | 106 passed | 100 files, 796 passed (`cargo check` clean) |
 | 3 | 12200 passed, 2 xfailed | 106 passed | 100 files, 802 passed |
 | 4 | 12222 passed, 2 xfailed | 106 passed | 100 files, 806 passed |
+| 6 (round 7) | 12253 passed, 2 xfailed | 106 passed | 101 files, 816 passed |
 
 Two phases ran targeted selections instead:
 - **Phase 1:** 48 files, 1047 passed and 2 xfailed; vitest 99 files, 764 passed.
@@ -311,7 +315,7 @@ In every lane, the 2 xfails are main's strict xfails for the provenance release 
 
 ### 9.6 Parity (backup-API copies; no model call)
 
-Run in phases 2, 3 and 4 and again on the final tree, each time on fresh copies (`fixtures-local/landing-ux4/`, `-p3/`, `-p4/`, `-final/`). Every run gave the same results; the table is the final run's (main `213b76076` against `c3b166263`).
+Run in phases 2, 3, 4 and 6 and again on the final tree, each time on fresh copies (`fixtures-local/landing-ux4/`, `-p3/`, `-p4/`, `-final/`, `-r8/`). Every run gave the same results; the table is the final run's (main `213b76076` against `7b4d14db1`).
 
 - **The copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied with `copy_tree_with_databases` into `<run>/orig/`, including probability's `.learnloop/state.sqlite`. Each original was read once per run, and every per-side copy (`main/`, `merge/`, `shadow/`) was made from `orig/` with the same helper. `arxiv_v2` was not opened.
 - **The two codes.** Main's code is the main tip from `git archive` (fixtures excluded), first on `PYTHONPATH`. The merge's code is the worktree's own. `pyproject.toml`, `uv.lock` and `migrations/` are identical on both.
@@ -328,7 +332,7 @@ The only fields that differ between runs are per-run identifiers: each copy's ow
 
 No difference was expected:
 - **Display only:** `ui.practice_feedback` is display only, and replay never reads it.
-- **Serve time:** rounds 4 to 7 change serve-time eligibility (the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, retrieval, the serve-time revalidation, the probe guard, the waiting plan). Replay never runs any of it, and parity serves nothing.
+- **Serve time:** rounds 4 to 8 change serve-time eligibility (the scheduler's cold follow-ups, the serving exclusions, independent-check and source-exercise eligibility, retrieval, the serve-time revalidation, the probe guard, the waiting plan). Replay never runs any of it, and parity serves nothing.
 - **Write time:** auto-prime and admissibility are read at write time, and replay keeps what they recorded.
 
 The schedule deltas (8, and 1) and the doctor issues are main's own. They are the same on both codes and match the previous landings.
@@ -358,7 +362,8 @@ The schedule deltas (8, and 1) and the doctor issues are main's own. They are th
   - **Revalidated at every serve.** A cold check is revalidated at the moment it is served: the plan's blocks, `plan_learner_pick`, `get_practice_item` with a session, `open_queue_item` and the TUI's open. Every due task is judged.
   - **Deferral only.** While a routine display covers the item (or its learning object), the task is deferred (the push persisted) and the item is served, if at all, as an ordinary answer. Every other reveal kind keeps main's serving, and nothing is refused.
   - **Administration.** Only a real serve opens a cold administration (`practice_item_detail(administer=False)` by default).
-  - **The waiting plan.** A plan whose only remaining work is held by a display that lifts later the same local day does not finish. It waits (`PlanWaiting`; a `waiting` step and view; the desktop says "Back in N min"), writes nothing, and serves the item once the hold lifts. A hold past midnight finishes the plan as before.
+  - **The waiting plan.** The plan waits only when coverage is the sole obstacle: nothing is feasible now, and a held item would be feasible, by the same rule (`_feasibility`), at a moment its hold lifts later the same local day. It then waits (`PlanWaiting`; a `waiting` step and view; the desktop says "Back in N min" and offers no Begin), writes nothing, and serves the item once the hold lifts.
+  - **What doesn't wait.** A stop the chooser chose while other work is feasible (under R2b, a drawn stop with its propensity) closes the plan and is logged as before. A held item that could not be placed at the lift, and a hold past midnight, finish the plan as before.
 - **The guarded presentation payload.** No probe or placement presentation is administered inside a routine display's coverage.
   - **The writers.** `probe_episodes.presentation_commit_payload` raises `RoutineDisplayCovered` for every probe presentation writer (`commit_presentation`, the scheduler's slate, which catches it and serves the item as ordinary practice, the dialogue turn, the precommitted block and the sim).
   - **Stale presentations.** A presentation committed before the display is ended at its serve.
@@ -367,7 +372,7 @@ The schedule deltas (8, and 1) and the doctor issues are main's own. They are th
 
 ### 9.8 Open questions for the owner, with the defaults applied
 
-Q1–Q7 are in §8 above; Q8–Q34 are in the Codex review record (§6, §7.10, §8.8, §9.7, §10.11, §11.9, §12.13, §13.10).
+Q1–Q7 are in §8 above; Q8–Q35 are in the Codex review record (§6, §7.10, §8.8, §9.7, §10.11, §11.9, §12.13, §13.10, §14.7).
 
 | Q | Question | Default applied |
 |---|---|---|
@@ -404,15 +409,14 @@ Q1–Q7 are in §8 above; Q8–Q34 are in the Codex review record (§6, §7.10, 
 | Q32 | A note when `get_probe_contract` refuses a covered item | no note |
 | Q33 | Past-clock callers count displays stamped after their instant | unchanged; queued for the eligibility stage |
 | Q34 | A refused precommitted-block member takes the whole block back | as built |
+| Q35 | A held item the plan could not place at the lift (minutes, slots or lane room) does not make it wait; the plan finishes | as built; served by the next plan or from the full list |
 
 ### 9.9 Open items
 
-- **Round 7's waiting plan overrides a chosen stop.** Found at this landing and reproduced with fakes in a scratch test, now removed.
-  - **The trigger.** `_boundary` raises `PlanWaiting` whenever `decision.candidate is None` and a held item lifts today. But `candidate` is None also when the chooser *validly chooses* `STOP_FOR_TODAY`, which is offered once fewer than 5 minutes remain, even with feasible work.
-  - **The reproduction.** A 4-minute plan, a feasible `pi_a` (1.5 min), a cold check `pi_cold` held for 30 more seconds, and a chooser that stops when offered. The plan stays open with a `waiting` step instead of completing. The stop decision is not logged: `_close(..., log_decision=True, router_record=...)` never runs.
-  - **The consequence under router R2b.** STOP is in the mixture's support when offered (`router_chooser.support_order`), so at `mvp-0.24` a drawn stop with its exact propensity, and the model calls behind it, would be dropped. On each later call the cached entry would draw the same stop and wait again.
-  - **A smaller one.** With 1 minute left, the plan says "Back in 1 min" for a 1.5-minute held item, then finishes without serving it when the hold lifts. The waiting step doesn't check that the held item fits the minutes left.
-  - **For the stage:** wait only when nothing was feasible and the held item would fit.
+- **Round 7's waiting plan overrode a chosen stop: fixed by round 8, pending the Codex verification of round 8.** Found at this landing and reproduced with fakes.
+  - **The defect.** `_boundary` raised `PlanWaiting` whenever `decision.candidate is None` and a held item lifted today. But `candidate` is also None when the chooser validly chooses `STOP_FOR_TODAY` with feasible work (offered once fewer than 5 minutes remain). A 4-minute plan with a feasible 1.5-minute item waited instead of completing, and the stop went unlogged. Under R2b a drawn stop with its propensity, and the model calls behind it, would have been dropped.
+  - **The smaller case.** With 1 minute left the plan said "Back in 1 min" for a 1.5-minute held item, then finished without serving it.
+  - **Round 8's fix** (Codex review §14.2): the plan waits only when nothing is feasible now and a held item would be feasible at the lift (`_feasibility`). The stage's tests include both cases, and composition tests 7 and 8 pin the fix under R2b. Q35 records the default for an item that can't be placed.
 - **The out-of-scope brief:** "one serve/administration eligibility decision" (Codex review §12.9, with the past-clock callers in §13.6). Main's scheduler cold lane and submit disagree on non-routine reveals, the CLI's `attempt` prompts before it validates, and every serve path should ask one function. Pre-existing on main and left alone here (ruling 4); Q33 is queued there.
 - **The regrade and replay contract mismatch** (Codex review §8.4), the brief for its own stage. It needs an algorithm successor. An ordinary regrade cites no contract, replay takes the first live row's contract, and an answer regraded above its item's later maximum can fail `rebuild` on `correctness <= 1`. Until it lands, Q21's unrecorded label stands.
 - **Provenance's stamped-ahead residual** (§9.3), before the chat release is switched on.
