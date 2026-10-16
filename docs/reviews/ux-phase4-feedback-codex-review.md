@@ -1130,3 +1130,95 @@ The code was final at `affcd1596`; only this record and `docs/reviews/ux-phase4.
 - **Q33.** Callers on a past clock (exam seeding, kept-state sims) count routine displays stamped after their instant, as ruling 4 of round 4 has every reader do and as main already does for other reveals. *Default: unchanged, queued for the "one serve/administration eligibility decision" stage (§12.9), where a historical writer could bound its window.*
 - **Q34 (NEW 2).** A precommitted block member refused at its commit takes the whole block back. *Default: as built (no production caller).*
 - **Q28 to Q30, Q22 to Q24 and Q27** stand.
+
+## 14. Round 8
+
+**Verification:** the Codex verification of `f56e2b652`. It confirmed D, NEW 1, NEW 2, the sim skip and the contract reason. It found §13.2's writer inventory complete, with no regressions. It reopened F (Medium) and found one Low.
+**Fix:**
+- `e4ff3cd58`: F.
+- `917301efa`: the Low.
+- `496c376e4`: the landing agent's two F cases as explicit tests.
+
+Same rules and scope rulings (§12.1). No migration; grading, scoring and replay are unchanged.
+
+### 14.1 Findings
+
+| Item | Severity | Verdict | Commit | Tests |
+|---|---|---|---|---|
+| F. Waiting overrides exhausted quotas and valid router stops | Medium | **fixed** | `e4ff3cd58` | `test_f1m_a_plan_with_no_minutes_left_finishes_instead_of_waiting` (a), `…_a_reentry_plan_with_no_item_slots_left_finishes_instead_of_waiting` (b), `…_a_valid_stop_with_work_feasible_is_kept[verifier, landing_agent]` (c), `…_back_in_n_min_is_never_promised_for_an_item_that_will_not_fit` (the landing agent's case), `…_a_plan_waits_when_coverage_is_the_only_obstacle_then_serves_it[only_item, after_other_work]` |
+| Low. Waiting still advertises and executes Begin | Low | **fixed** | `917301efa` | vitest "UX Phase 4 round 8: while waiting, Enter does not continue…" (`DailyPlanView.test.tsx`), "…a waiting plan offers no Begin; Enter starts no session…" (`TodayScreen.plan.test.tsx`) |
+
+**Reproduced first.**
+- **Sidecar.** On a tree archived at `f56e2b652`, **5 of the 7 cases failed**: (a), (b), both (c) cases and the landing agent's case each returned `waiting`.
+  - In (c) the plan was left open with no stop receipt.
+  - In the landing agent's case it said "Back in 1 min" for a 1.5-minute item with one minute left, which it could never serve.
+  - The two positive cases passed there, as they must.
+- **Desktop.** With the round-7 `DailyPlanView.tsx` and `TodayScreen.tsx`, both new cases failed: Enter called `onContinue`, the key bar said "begin", and Enter started a session. The files were then restored.
+
+### 14.2 F: wait only when coverage is the only obstacle
+
+**The finding.** The condition checked only that the chooser returned no candidate, then waited for any held item that lifts today. So:
+- (a) a plan with zero minutes left waited 60 min for a question it could not fit;
+- (b) a re-entry plan with no item slots left did the same;
+- (c) with 4 minutes left, a feasible ordinary item and a valid sampled `stop_for_today` (propensity 0.5), the boundary waited, discarding the stop and its receipt.
+
+**The fix.** The boundary's feasibility is extracted from `decide` into `_feasibility`, unchanged: the redistribution, the minutes left, the item allowance, lane minutes and allowed lanes. `decide` uses it as before. At the boundary, with no candidate chosen and nothing forced:
+- **Something is feasible now** (the chooser stopped, validly or by fallback). The plan closes with the chooser's decision and logs its receipt, exactly as before round 7.
+- **Nothing is feasible now.** `_waiting_step` asks, for each moment a hold lifts later on the plan's local day (earliest first), whether the same rule would make a held item feasible at that moment:
+  - it runs on the pool as it will be then: the plan's admitted universe, with every exclusion already applied, plus the held items whose holds have lifted by then; holds lifting later stay out;
+  - it uses the same minutes left, item allowance and lanes;
+  - the plan waits only if a feasible candidate then contains a held item. Otherwise it closes as before.
+
+**What depends on time.** Only the holds. The minutes left, the item allowance, the lane allotments and the plan's universe are the plan's own state, the same at the lift as now. The pool is the plan's universe, so nothing new joins at the lift.
+
+**The landing agent's cases.**
+- With one minute left and a 1.5-minute held item lifting within the minute, the plan finishes. It never shows "Back in 1 min" for an item it could not place.
+- The 4-minute plan (a feasible 1.5-minute item, a hold lifting in 30 s) whose chooser samples `stop_for_today` closes with that stop. The stop is logged with its receipt, chooser (`mixture`), decision ref and propensity 0.5.
+- At R2b (mvp-0.24) STOP is in the mixture's support. Whatever the chooser decides with feasible work stands, because waiting is considered only when nothing is feasible.
+
+"Back in N min" comes only from a waiting step. A waiting step exists only when the held item would be feasible at the lift, so it is never shown for an item that will not fit.
+
+**The positive cases.**
+- A plan whose only item is held waits, then serves it after the lift.
+- So does a plan whose ordinary item is done, with lane room left for the held item.
+
+An estimate that grows with an answer's latency can make the held item no longer fit its lane. The plan then closes rather than waiting for something it could not place. The test answers without latency so that the estimates stay as built.
+
+### 14.3 Low: no Begin while waiting
+
+**The finding.** In an open waiting plan the Begin button was gone, but the key bar still said "↵ begin" and Enter called `onContinue`. Without a session, Today's `continuePlan` then started an empty session before receiving another waiting step.
+
+**The fix.**
+- Enter does nothing while the plan waits.
+- The key bar shows "back in N min", with the minutes chips and the full list.
+- `continuePlan` returns at once for a waiting plan, so no session is started. Today reads the plan again a second after the hold lifts (§13.3), and Begin returns with the item.
+
+### 14.4 Claims corrected
+
+- **§13.3:** the plan waits only when the hold is the only obstacle, under the plan's real constraints (§14.2). A chooser's stop with feasible work, or a plan with no room for the held item, closes as before.
+- **§13.10, Q31:** "while waiting the plan is open" stands; the waiting screen offers no Begin (§14.3).
+- **`docs/reviews/ux-phase4.md` §1:** the waiting condition, and no Begin while waiting.
+
+### 14.5 Paid calls
+
+None. Every test uses fakes. No owner vault was opened.
+
+### 14.6 Gate (final tree)
+
+Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`. The code was final at `917301efa`, where the whole gate ran. `496c376e4` adds only the landing agent's two test cases, so the suites were run again on it:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` (`917301efa`) | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | `496c376e4`: 11984 passed, 0 failed (19 min 18 s): §13.9's 11977 plus the 7 `test_f1m_*` cases. `917301efa` (before the two added cases): 11982 passed |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | `496c376e4`: 106 passed, 11878 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` (`917301efa`) | typecheck clean; vitest 95 files, 746 passed (744 plus the 2 round-8 cases); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references | unchanged (all ran in the full suite) |
+
+Only this record and `docs/reviews/ux-phase4.md` changed after `496c376e4`. No run had a timing failure.
+
+### 14.7 Open questions for the owner (defaults applied)
+
+- **Q35 (F).** A held item the plan could not place at the lift does not make the plan wait, so the plan finishes. That covers an item that does not fit the minutes or slots left, or a lane with no room (for example, its estimate grew after an answer). It is served by the next plan, or from the full list. *Default: as built.*
+- **Q31 to Q34, Q28 to Q30, Q22 to Q24 and Q27** stand.
