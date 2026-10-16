@@ -259,7 +259,7 @@ receipts still land in the copy.
   workspace under `single_request()`, inline mode and its budget, a snapshot
   diagnosis end to end, the provenance mapping, routing (capability,
   deadline), Codex fallback while paused, disclosures, profile validation.
-- `tests/test_ai_compare.py` (25 cases): dry run sends nothing and
+- `tests/test_ai_compare.py` (26 cases): dry run sends nothing and
   estimates every call (JSON and text; a generation-only run), a run on a
   `--copy-from` copy (agreement, validity, latency, tokens, allowance, spend
   admission and reconciliation, root receipts' declared caps, judgments in the
@@ -270,7 +270,8 @@ receipts still land in the copy.
   rules, the request meter; and the Codex review's reproductions (an
   external or `..` database relocated, a non-`.sqlite` WAL database backed up,
   an outside database refused, five drafts the tutor rejects, refusal and 400
-  sentinels kept out of every output, the frozen contract).
+  sentinels kept out of every output, the frozen contract) and one report
+  per run.
 - The fake Responses server (`tests/chatgpt_plan_fakes.py`) enforces the
   route's tool contract: namespaced function tools only, hosted tools
   refused, `include` required, no input item with a stored id, reasoning
