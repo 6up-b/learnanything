@@ -285,3 +285,27 @@ it("UX Phase 4 round 7: a plan waiting for a hold to lift says when, in plain wo
     vi.useRealTimers();
   }
 });
+
+it("UX Phase 4 round 8: while waiting, Enter does not continue and the key bar says when it is back", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-12T10:00:00Z"));
+  try {
+    const waiting = plan({
+      blocks: [],
+      currentBlockId: null,
+      deciding: false,
+      firstBlock: null,
+      waiting: { until: "2026-10-12T10:04:30Z", minutes: 5, practiceItemId: "pi_cold", learningObjectTitle: "Eigenvalues" }
+    });
+    const props = show(data(waiting));
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Enter" });
+    });
+    expect(props.onContinue).not.toHaveBeenCalled();
+    expect(props.onKeepGoing).not.toHaveBeenCalled();
+    expect(screen.getByText("back in 5 min")).toBeTruthy();
+    expect(screen.queryByText("begin")).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
