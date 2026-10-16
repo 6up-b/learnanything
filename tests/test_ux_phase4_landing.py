@@ -14,7 +14,13 @@ compose, through the sidecar RPC itself:
   still resolves on the grade as it stands;
 * a held grade shows "held for review" in the feedback bundle and resolves no
   forecast, by the one held predicate; a contest whose regrade releases it
-  clears both.
+  clears both;
+* what feedback says a grade stands on (round 3 F9: ``answered_source``,
+  contract | live | unrecorded) agrees with what the forecast resolver reads:
+  a regrade that cites its contract shows that contract and resolves the
+  forecast; one that cites none shows the content it read in its own
+  response only (``live``), ``unrecorded`` on any later read, and censors the
+  forecast (``graded_contract_unknown``).
 
 Fakes only; no network, no paid call.
 """
@@ -105,9 +111,11 @@ def test_a_contest_regrade_records_provenance_and_re_resolves_the_forecast(tmp_p
     assert len(_regrade_provenance(repository, contested.attempt_id)) == 1
     assert _events(repository, contested.attempt_id) == []
     assert sorted(old for new, old in _lineage(repository, contested.attempt_id) if new is None) == old_events
-    # The saved forecast reads the regraded attempt as it stands now.
+    # The saved forecast reads the regraded attempt as it stands now, on the
+    # contract the regrade cites; feedback shows that same contract.
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert (resolution["state"], resolution.get("emission")) == ("resolved", "pass")
+    assert bundle["answeredSource"] == "contract"
     assert _pending_reviews(repository) == []
 
 
@@ -163,4 +171,8 @@ def test_a_held_grade_resolves_nothing_until_a_contest_regrade_releases_it(tmp_p
     # (test_forecast_receipts::test_a_held_grade_resolves_nothing_until_a_regrade_releases_it).
     resolution = _diagnosis_resolution(vault, diagnosed.attempt_id)
     assert (resolution["state"], resolution["reason"]) == ("censored", "graded_contract_unknown")
+    # Feedback agrees (round 3 F9): the content the regrade read, in its own
+    # response only, and unrecorded on any later read; never inferred.
+    assert bundle["answeredSource"] == "live"
+    assert feedback_bundle(vault, repository, held.attempt_id)["answeredSource"] == "unrecorded"
 

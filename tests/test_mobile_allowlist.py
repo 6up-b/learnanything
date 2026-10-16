@@ -254,13 +254,15 @@ REREAD_SAFETY_EXTENDED_RPCS = ("reader.render_view", "reader.guide_plan")
 READER_PDF_SELECTION_RPCS = ("reader.restore_annotation",)
 READER_PDF_SELECTION_EXTENDED_RPCS = ("reader.source_annotations", "reader.pdf_view", "reader.render_view")
 # UX Phase 4, practice and feedback (docs/reviews/ux-phase4.md) adds
-# record_answer_display (the reveal ledger's row for a full answer the plain
-# feedback shows, renewed while it stays on screen) and
+# record_answer_display (one routine reveal-ledger row for the full answer the
+# plain feedback is about to show or keeps showing; display_not_recorded,
+# retryable, when nothing was written, so the answer stays hidden) and
 # record_self_grade_disclosure (the trace a plain self-grade freezes before it
-# shows the answer), and extends desktop RPCs: trigger_regrade (learnerReason
-# and contestId: "I think I was right", recorded and sent to the grade-review
-# queue), get_feedback (heldForReview, the learner's own answer and
-# answered_source), submit_attempt (heldForReview on released short-check
+# shows the answer; with displayId, one display of that answer), and extends
+# desktop RPCs: trigger_regrade (learnerReason and contestId: "I think I was
+# right", recorded and sent to the grade-review queue), get_feedback
+# (heldForReview, the learner's own answer and answered_source: contract, live
+# or unrecorded), submit_attempt (heldForReview on released short-check
 # answers), end_session (the session finish's topics, and settling the
 # checkpoint's self-grade disclosure), and start_session and
 # clear_session_checkpoint (settling it too: the reveal ledger is charged for
