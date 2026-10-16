@@ -3,8 +3,8 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "01e1e38f6e9c1ec5896c9ea856a54864228b0f46"
-source_commit_timestamp: "2026-10-15T22:47:38-04:00"
+source_commit: "90e8b400ec88a17e7d27bb23aeb54ed456ca9216"
+source_commit_timestamp: "2026-10-16T00:42:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
@@ -126,6 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_chatgpt_plan_landing.py`
 - `tests/test_diagnosis_input_provenance.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_forecast_receipts_landing.py`
