@@ -206,3 +206,94 @@ cd apps/learnloop-tauri && npx vitest run src/screens/*.phase4.test.tsx src/comp
 - **Q5.** Should the session finish name a topic ● on any certification credit (as now), or only after a fully right answer? *Default: the model's own measure.*
 - **Q6.** Build the grading wait with measured latency and the "Grade it yourself" fallback as a follow-up? *Default: deferred.*
 - **Q7.** Merges: `config/template.py`'s 17 snapshots conflict with any branch that adds config (recompute at merge). `FeedbackScreen.tsx` and `PracticeScreen.tsx` will meet the parallel diagnosis-provenance landing if it touches feedback.
+
+## 9. Landing onto main
+
+**Branch:** `merge/ux-phase4-onto-main` (worktree `learnanything-docs`), built in two phases.
+
+- **Stage:** base `37a2a7e5f`. Phase 1 landed the stage at `3caa7501d`; phase 2 added round 3 at `4186c6cc3` (`6978cde0a`, `a5fa07b2c`, `f01cffbc7`, `c4e450f1e`, `4186c6cc3`).
+- **Main:** phase 1 branched from `495c7437f`, which already had diagnosis input provenance (migration 205), the Reader's PDF selection and saved diagnosis forecasts (migration 206). Phase 2 merged `b80aeca8c`, the ChatGPT-plan peer landing.
+- **No migration and no successor.** The stage adds `[ui] practice_feedback`, which is display only: replay never reads it.
+
+### 9.1 Conflicts and how they were composed
+
+**Phase 1** (`0bf12f73a`, main `495c7437f` + stage `3caa7501d`):
+
+- **`src/learnloop/config/template.py`** was the only code conflict: 17 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` blocks. Each keeps main's comments (provenance, saved forecasts) followed by the stage's. All seventeen fingerprints were recomputed from the combined defaults (`defaults_fingerprint_for_version`, after deleting the template `.pyc` and touching the file) and verify with 0 mismatches.
+- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
+- **Files both sides changed that merged without conflict:** `db/repositories.py`, `attempts/attempts.py`, `config/schema.py`, `api/client.ts`, `api/dto.ts`, `styles/app.css`, `src-tauri/src/commands.rs`, `src-tauri/src/main.rs` and `_scripts/db_generate_reference.py`. Each is exactly main plus the stage's additions (equal diff line counts against each side). Both sides' repository methods are present: the Reader's `annotations_for_source`, `withdraw_annotation_delete` and `block_content_hashes`, the provenance hooks, and the stage's `session_attempt_rows`, `open_session_checkpoints_except` and the routine-display coverage in `total_reveal_amount`.
+- **How the behaviours compose:**
+  - **A contest records provenance.** "I think I was right" regrades through main's `regrade_attempt`, which the stage does not change. So a contest's in-place regrade writes provenance's grading record (Q14) and the error-event lineage (Q9) like any regrade.
+  - **A review flag is not a hold.** `flag_observation_for_review` appends a `review_flag` interpretation head with the same authority and never writes `blind_grade_records`. The saved forecasts' resolver, which reads the held predicate, therefore resolves on the grade as it stands.
+  - **One held predicate.** The feedback bundle's `heldForReview`, the short-check result, the session finish and the forecast resolver all read `learnloop.held_grades`.
+- **`tests/test_mobile_allowlist.py`** keeps main's pins (including `reader.restore_annotation`). It adds `UX_PHASE4_RPCS` (`record_answer_display`, `record_self_grade_disclosure`) as desktop-only, plus `UX_PHASE4_EXTENDED_RPCS` for the six desktop RPCs the stage extends.
+- **CLI help snapshot:** regenerates identically (the stage adds no CLI).
+- **Pipeline Map:** gains a UX Phase 4 grading bullet, the review links and two source paths (`reveal_ledger.py`, `grade_resolution.py`).
+
+**Phase 2, round 3** (`23e4e02e0`, stage `4186c6cc3`): a clean merge. The round touches no file main changed after the phase 1 merge.
+
+- **Allowlist pins:** they are by name, so they still hold. The note now describes `display_not_recorded` and `record_self_grade_disclosure`'s display id.
+- **Composition test:** still holds. It also checks round 3's F9 against the forecast resolver (see §9.2).
+
+**Phase 2, main** (`b47a3aa88`, main `b80aeca8c`):
+
+- **Generated references:** 378 notes conflicted. Main's side was taken, then regenerated.
+- **`config/schema.py`, `config/template.py` and the Pipeline Map** merged without conflict.
+- **Defaults snapshots:** main's template change is comment lines only, and the plan profile's workspace fields add no effective leaf. All 17 snapshots verify unchanged against the combined template (0 mismatches), so none was recomputed in phase 2.
+- **Pipeline Map:** the UX Phase 4 bullet was updated to round 3's reveal rule (the answer shows only while covered; a row counts for the horizon plus the renewal grace) and the answered source (contract, live or unrecorded).
+
+### 9.2 Composition test
+
+`tests/test_ux_phase4_landing.py` drives the `trigger_regrade` RPC on split vaults with fake graders and checks four things:
+
+1. **An upheld contest** writes the regrade's provenance record and the lineage. The reason appears in no grader prompt. The saved forecast re-resolves to `pass`, and the bundle shows `answeredSource == "contract"`: the same contract the resolver reads.
+2. **A contest the regrade does not uphold** is queued for review but never held, so the forecast stays resolved (`same_error`).
+3. **A held grade** shows "held for review" and the forecast is `held`. A contest whose regrade releases it clears both.
+4. **Round 3's F9 agrees with forecasts' F2:** a regrade that cites no contract shows `live` in its own response and `unrecorded` on any later read, and the forecast is censored (`graded_contract_unknown`).
+
+### 9.3 Regenerated on the combined tree
+
+- **References:** `db_generate_reference.py` at schema head 206 gives 325 table notes and 860 effective config leaves in 52 top-level sections, with the new `Config - ui` note. `db_validate_reference.py` reports 0 errors. The prose counts in `Configuration.md` and `Database.md` were updated (from 859 leaves and 51 sections).
+- **`validate_vault.py`:** passes.
+- **Validators that already fail on main:**
+  - `module_validate.py`: 763 issues and coverage 474/846, identical to main. The stage adds no Python module.
+  - `desktop_validate.py`: stops on `pdfSelection/testing/syntheticBook.ts`, identically on main. Listing every unclassified source gives the same four files on both trees (`syntheticBook.ts`, `syntheticPdf.ts`, `copy/denyList.ts`, `testNodeShims.d.ts`). The stage's new desktop sources are all reachable from the app entry.
+  - No new kind of failure.
+
+### 9.4 Gate (final tree)
+
+Run on the final tree (`b47a3aa88`, the main merge), in `learnanything-docs` with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`; both pytest lanes ran under `flock /tmp/learnloop-fullsuite.lock`:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `pytest -n auto` | 12146 passed, 2 xfailed, 0 failed (19 min 35 s). The 2 xfails are main's strict xfails for the provenance release path (`test_diagnosis_input_provenance_landing` F2 and F3, switch off). |
+| `pytest -m durability` | 106 passed, 12042 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 100 files, 796 passed; build succeeds (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | clean (cold build, 0 warnings): the stage's two passthroughs beside main's `reader_restore_annotation` |
+| DB/config references | regenerated; `db_validate_reference.py`: 0 errors; `validate_vault.py` passes |
+
+Nothing needed a rerun: no lane had a failure, timing-sensitive or otherwise.
+
+Phase 1 (before round 3 and the new main) ran a targeted selection of 48 files instead: the stage's tests, the provenance and forecasts tests and their landing tests, the reveal-ledger, held-grade and regrade tests, the allowlist, CLI-help and defaults-snapshot tests, and the migration, fixture and architecture checks. It gave 1047 passed and 2 xfailed. Vitest gave 99 files, 764 passed.
+
+### 9.5 Parity (backup-API copies; no model call)
+
+- **The copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` were copied with `copy_tree_with_databases` into `fixtures-local/landing-ux4/orig/`, including probability's `.learnloop/state.sqlite`. Each original was read once; every per-side copy (`main/`, `merge/`, `shadow/`) was made from `orig/` with the same helper. `arxiv_v2` was not opened.
+- **The two codes.** Main's code is `b80aeca8c`, from `git archive` (fixtures excluded), first on `PYTHONPATH`. The merge's code is the worktree's own. `pyproject.toml`, `uv.lock` and `migrations/` are identical on both.
+- **The run.** `LEARNLOOP_CONFIG_DIR` was empty (and stayed empty), and `LEARNLOOP_AI_PROVIDER` was unset. Every copy has 0 `model_call_receipts` afterwards.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code / the merge's | 165 → 206 (41 migrations) on both; schema hash identical | 165 → 206 (41) on both; schema hash identical |
+| `rebuild --shadow --json`, main vs merge | identical semantic deltas (facet 0, mastery 2, schedule 8; live unchanged) | identical (facet 0, mastery 1, schedule 1; live unchanged) |
+| `doctor --json`, main vs merge | 0 differences (57 issues, 1 error: `layout:missing_directory`) | 0 differences (101 issues, 48 errors, 46 `criterion:unknown_dependency`) |
+| upgrade shadow: main's code upgrades a copy, then the merge's code opens it | applies 0 migrations; shadow and doctor equal main's | applies 0; shadow and doctor equal main's |
+
+The only fields that differ between runs are per-run identifiers: each copy's own live-database sha256 (a different file per side; before and after are equal on every side) and the shadow rebuild's fresh `marker_id`. No migration was expected and none differs: `ui.practice_feedback` is display only and replay never reads it. The shadow and doctor runs left every live database byte-identical. The doctor issues are the vaults' own content and match main's (and the previous landing's).
+
+### 9.6 Open items
+
+- **Owner questions Q1–Q21**, each with its default applied: Q1–Q7 in §8 above; Q8–Q21 in the Codex review (§6, §7.10, §8.8, §9.7).
+- **The regrade and replay contract mismatch** (Codex review §8.4) is the brief for its own stage. It needs an algorithm successor. An ordinary regrade still cites no contract; replay takes the first live row's contract; and an answer regraded above its item's later maximum can fail `rebuild` on `correctness <= 1`. That code was left alone here. Until that stage lands, Q21's unrecorded label stands.
+- **Process note.** An earlier stage-gate wrapper of this branch was killed by another stage's agent. The gate in §9.4 was run on the final landing tree under the shared full-suite lock, and it is the authoritative one.
