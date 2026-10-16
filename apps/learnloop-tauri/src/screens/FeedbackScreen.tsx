@@ -2374,8 +2374,27 @@ export function FeedbackScreen({
                 </div>
               ) : null}
 
+              {/* An unrecorded version (round 4, F9): only what the grade
+                  itself recorded, the criterion ids and the points awarded,
+                  never today's rubric text or tiers as what was looked for. */}
+              {gradedVersionUnrecorded(f) && !held && f.criterionEvidence.length > 0 ? (
+                <div style={{ marginTop: 18 }}>
+                  <EvidenceHeader>What this grade recorded</EvidenceHeader>
+                  <div data-testid="recorded-criteria" style={{ display: "grid", gap: 4, fontSize: 13, marginTop: 6 }}>
+                    {f.criterionEvidence.map((row) => (
+                      <div key={row.criterionId} style={{ display: "flex", gap: 10, color: C.text }}>
+                        <span style={{ fontFamily: MONO }}>{row.criterionId}</span>
+                        <Faint>
+                          {criterionAssessed(row) ? scoreOutOf(row.pointsAwarded, null, 1) : "not judged"}
+                        </Faint>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {/* What the grader looked for, with the points. */}
-              {criteria.length > 0 ? (
+              {!gradedVersionUnrecorded(f) && criteria.length > 0 ? (
                 <div style={{ marginTop: 18 }}>
                   <EvidenceHeader>What the grader looked for</EvidenceHeader>
                   {criteria.map((row) => (

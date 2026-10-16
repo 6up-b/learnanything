@@ -983,3 +983,88 @@ it("F9 (final): the regrade history scores each side out of its own grade's maxi
   fireEvent.click(screen.getByRole("button", { name: /details/ }));
   expect(screen.getByTestId("regrade-history").textContent).toBe("Looked at again: 2 / 4 → 6 / 8.");
 });
+
+// == Round 4 (docs/reviews/ux-phase4-feedback-codex-review.md §10) ==========================
+
+it("F1-1 (round 4): hidden the moment the page is hidden, and back only after a fresh row, even within its grace", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  await act(async () => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  // Synchronously: the frame a suspend keeps is the hidden one.
+  expect(screen.queryByText(KEY)).toBeNull();
+  await advance(10 * SECOND);
+  const held = holdNextWrite();
+  await setVisibility("visible");
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(2);
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+});
+
+it.each(["blur", "pagehide", "freeze"] as const)(
+  "F1-1 (round 4): a %s hides the answer until a fresh row is acknowledged",
+  async (signal) => {
+    vi.useFakeTimers();
+    stampWrites();
+    render(<FeedbackScreen {...props()} />);
+    await flush();
+    expect(screen.getByText(KEY)).toBeTruthy();
+    await act(async () => {
+      if (signal === "freeze") document.dispatchEvent(new Event("freeze"));
+      else window.dispatchEvent(new Event(signal));
+    });
+    expect(screen.queryByText(KEY)).toBeNull();
+    const held = holdNextWrite();
+    await act(async () => {
+      if (signal === "freeze") document.dispatchEvent(new Event("resume"));
+      else window.dispatchEvent(new Event(signal === "blur" ? "focus" : "pageshow"));
+    });
+    await flush();
+    expect(screen.queryByText(KEY)).toBeNull();
+    await act(async () => held.release());
+    await flush();
+    expect(screen.getByText(KEY)).toBeTruthy();
+    expect(new Set(displayIds()).size).toBe(2);
+  }
+);
+
+it("F1-3 (round 4): a backwards clock jump hides the answer until a fresh row is acknowledged", async () => {
+  vi.useFakeTimers();
+  stampWrites();
+  render(<FeedbackScreen {...props()} />);
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+  vi.setSystemTime(Date.now() - 2 * MINUTE);
+  const held = holdNextWrite();
+  await advance(5 * SECOND);
+  expect(screen.queryByText(KEY)).toBeNull();
+  expect(displayIds()).toHaveLength(2);
+  await act(async () => held.release());
+  await flush();
+  expect(screen.getByText(KEY)).toBeTruthy();
+});
+
+it("F9 (round 4): an unrecorded grade's details show only what the grade recorded, never today's rubric", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...UNRECORDED,
+    criterionEvidence: [
+      { criterionId: "setup", criterionDescription: "The correct answer is B.", pointsAwarded: 6, pointsPossible: 10, evidence: null, notes: null, graderTier: 3, tier: "transfer" }
+    ]
+  });
+  render(<FeedbackScreen {...props()} />);
+  await screen.findByText("Partly right");
+  fireEvent.click(screen.getByRole("button", { name: /details/ }));
+  expect(bodyText()).not.toContain("The correct answer is B.");
+  expect(screen.queryByText("What the grader looked for")).toBeNull();
+  expect(screen.getByText("What this grade recorded")).toBeTruthy();
+  expect(screen.getByTestId("recorded-criteria").textContent).toContain("setup");
+  expect(screen.getByTestId("recorded-criteria").textContent).toContain("6.0 points");
+  expect(bodyText()).not.toMatch(/transfer/);
+});
