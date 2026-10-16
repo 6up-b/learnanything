@@ -125,6 +125,34 @@ def test_output_budget_rides_in_the_prompt_never_as_max_output_tokens(server):
     assert "within 200 output tokens" in body["input"][0]["content"]
 
 
+def test_a_json_repair_is_sent_with_the_budget_of_the_request_it_repairs(server):
+    """Final verification F9: the repair states the same budget once and its
+    receipt records it, like the request it repairs; no wire cap on either."""
+
+    from learnloop.ai.execution import generation_limit
+
+    client = _client(server, response_format="json_object")
+    server.replies.extend([
+        Reply(events=completed_events('{"ok": true}')),  # missing a field
+        Reply(events=completed_events('{"ok": true, "note": "repaired"}')),
+    ])
+    events: list[dict] = []
+    with generation_limit(200), observe_model_calls(
+            lambda action, event: events.append(event) if action == "start" else None):
+        assert _ask(client).note == "repaired"
+    first, repair = (request["body"] for request in server.requests[-2:])
+    assert repair["input"][0]["content"].startswith("Repair the following model output")
+    for body in (first, repair):
+        content = body["input"][0]["content"]
+        assert content.endswith("\n\nKeep the complete JSON response within 200 output tokens.")
+        assert content.count("Keep the complete JSON response within") == 1
+        assert "max_output_tokens" not in body
+    root, *children = events
+    assert root["purpose"] == "probe" and root["output_budget_tokens"] == 200
+    assert [(child["purpose"], child["output_budget_tokens"]) for child in children] == [
+        ("responses_request", 200), ("responses_request", 200)]
+
+
 def test_receipts_name_the_provider_model_and_answering_model(server):
     events: list[tuple[str, dict]] = []
     server.replies.append(Reply(events=completed_events('{"ok": true, "note": "r"}', model="gpt-test-2026-10-01")))

@@ -47,9 +47,11 @@ root receipt records the caps, ``cost_basis = estimated_only`` and no
 physical-request bound) and reconciled with the usage the transport
 reported. Each call's requests are sent with the route's output budget
 (``ai.route_output_tokens``, else the shared default), the figure the
-estimate reserves. The dry run estimates every planned call (input, the
-snapshot export a diagnosis may read, and the output budget) in both output
-formats.
+estimate reserves: every workspace round, and a JSON repair too (the ChatGPT
+plan sends a repair the budget of the request it repairs; Codex charges a
+repair against what the first turn left of it). The dry run estimates every
+planned call (input, the snapshot export a diagnosis may read, and the
+output budget) in both output formats.
 """
 from __future__ import annotations
 
@@ -127,8 +129,9 @@ from learnloop.vault.paths import VaultPaths
 
 #: 2: failures as codes (no provider prose), spend per call and profile,
 #: judgment ids, the database-relocating copy. 3: each request is sent with
-#: its route's output budget (``spend.output_budget_tokens``).
-COMPARE_VERSION = 3
+#: its route's output budget (``spend.output_budget_tokens``). 4: a ChatGPT-plan
+#: JSON repair is too (in 3 it went without one; final verification F9).
+COMPARE_VERSION = 4
 DEFAULT_GRADING_ATTEMPTS = 3
 DIAGNOSIS_MODES = ("snapshot", "full", "exact")
 #: Prompt-side token estimate: ~4 bytes of UTF-8 per token (the diagnoser's own rounding).
@@ -892,7 +895,8 @@ _ESTIMATE_BASIS = (
     "prompt bytes / 4 for each call's input; a snapshot diagnosis adds its whole export once (Codex reads it "
     "in its sandbox; the ChatGPT plan serves at most max_workspace_chars and resends what it served each "
     "round, so a multi-round turn can exceed this); output at the route's output budget, which every request "
-    "is sent with (a target the model is told; neither transport has a hard cap). Subscription: no "
+    "is sent with, a JSON repair included (Codex sends a repair what its first turn left). It is a target the "
+    "model is told, a hard cap on neither transport, and a repair's output adds to its call's. Subscription: no "
     "marginal dollar cost (estimated_usd null), no physical-request bound; reported usage reconciles it."
 )
 
@@ -996,9 +1000,11 @@ def run_compare(
                 # caps in force (subscription, estimated_only, no physical-request
                 # bound) and what this call is. Every request is sent with the
                 # route's output budget the estimate reserved (Codex re-review
-                # F8); the plan and Codex state it in the prompt, as neither
-                # takes a hard cap. No physical-request bound (single_request)
-                # is set: a workspace turn's rounds all run.
+                # F8), a JSON repair included (final verification F9; Codex
+                # sends a repair what its first turn left); the plan and Codex
+                # state it in the prompt, as neither takes a hard cap.
+                # No physical-request bound (single_request) is set: a
+                # workspace turn's rounds and a repair all run.
                 with budget.request(SpendEstimate(calls=1, total_tokens=tokens, estimated_usd=None)) as charge, \
                         annotate_calls(ai_compare={"run_id": run_id, "kind": kind, "target": target,
                                                    "planned_total_tokens": tokens}), \

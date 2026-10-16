@@ -19,6 +19,12 @@ dollar cost, so callers estimate cost from the usage reported here and keep
 their call caps. Every physical request is its own child receipt naming the
 provider, the profile's model and the model that answered.
 
+A caller's output budget (``generation_limit``) goes with every physical
+request of a call: the plan route takes no ``max_output_tokens``, so each
+prompt states it once and each request's receipt records it as that
+request's ``output_budget_tokens``. The JSON repair is sent with the budget
+of the request it repairs, never without one (final verification F9).
+
 Under ``single_request()`` one ``complete()`` sends at most one request: no
 retry, no token-refresh retry and no JSON repair. An interrupt or the deadline
 stops a call at every step, including while it waits for a token refresh; a
@@ -194,29 +200,30 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         timeout = float(request.timeout_seconds or self.profile.timeout_seconds or DEFAULT_TIMEOUT_SECONDS)
         deadline = _monotonic() + timeout
         model_type = request.result_model
-        prompt = request.prompt
-        if request.output_budget_tokens is not None:
-            if request.output_budget_tokens <= 0:
-                raise AIOutputTruncated("No generation budget remains.")
-            # The plan route takes no max_output_tokens; state the target.
-            prompt += f"\n\nKeep the complete JSON response within {request.output_budget_tokens} output tokens."
+        budget = request.output_budget_tokens
+        if budget is not None and budget <= 0:
+            raise AIOutputTruncated("No generation budget remains.")
+        prompt = _with_budget(request.prompt, budget)
         # A route's requested effort (ai.route_reasoning_effort) replaces the
         # profile's for this request, as on Codex and OpenRouter.
         effort = getattr(request, "reasoning_effort", None) or None
         if request.workspace is not None:
             text = self._workspace_turn(Path(request.workspace), self._instructions(model_type), prompt, model_type,
-                                        deadline=deadline, effort=effort)
+                                        deadline=deadline, effort=effort, budget=budget)
         else:
             text = self._respond(self._instructions(model_type), prompt, model_type, deadline=deadline,
-                                 effort=effort)
+                                 effort=effort, budget=budget)
         try:
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError) as first:
             if single_request_active():
                 raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first
-            # The repair is tool-free: it sees the output to repair, never the workspace.
-            repaired = self._respond(_JSON_ONLY, _repair_prompt(text, model_type), model_type, deadline=deadline,
-                                     effort=effort)
+            # The repair is tool-free: it sees the output to repair, never the
+            # workspace. It is sent with the budget of the request it repairs
+            # (the same sentence, the same recorded allowance): the repaired
+            # answer is the same complete JSON response (final verification F9).
+            repaired = self._respond(_JSON_ONLY, _with_budget(_repair_prompt(text, model_type), budget), model_type,
+                                     deadline=deadline, effort=effort, budget=budget)
             try:
                 return model_type.model_validate_json(repaired)
             except (ValidationError, ValueError) as second:
@@ -238,17 +245,17 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         return {"type": "json_object"}
 
     def _respond(self, instructions: str, prompt: str, model_type: type[BaseModel], *, deadline: float,
-                 effort: str | None = None, extra: dict[str, Any] | None = None) -> str:
+                 effort: str | None = None, extra: dict[str, Any] | None = None, budget: int | None = None) -> str:
         body = request_body(
             model=str(self.model), instructions=instructions, prompt=prompt,
             text_format=self._text_format(model_type),
             reasoning_effort=(effort or self.profile.reasoning_effort or None),
         )
-        return self._send(body, deadline=deadline, extra=extra).text.strip()
+        return self._send(body, deadline=deadline, extra=extra, budget=budget).text.strip()
 
     # -- the read-only workspace -------------------------------------------
     def _workspace_turn(self, root: Path, instructions: str, prompt: str, model_type: type[BaseModel], *,
-                        deadline: float, effort: str | None) -> str:
+                        deadline: float, effort: str | None, budget: int | None = None) -> str:
         """Serve ``root`` to the model (function calls or inline); returns the final text."""
 
         if single_request_active():
@@ -271,13 +278,13 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             except WorkspaceTooLarge as exc:
                 raise AIProviderUnavailable(f"{self.provider_name}: {exc}") from None
             return self._respond(f"{instructions}\n\n{INSTRUCTIONS_INLINE}", f"{prompt}\n\n{block}", model_type,
-                                 deadline=deadline, effort=effort,
+                                 deadline=deadline, effort=effort, budget=budget,
                                  extra={"workspace": {"mode": "inline", "served": workspace.activity()}})
         return self._tool_loop(workspace, f"{instructions}\n\n{INSTRUCTIONS_TOOLS}", prompt, model_type,
-                               deadline=deadline, effort=effort)
+                               deadline=deadline, effort=effort, budget=budget)
 
     def _tool_loop(self, workspace: ServedWorkspace, instructions: str, prompt: str, model_type: type[BaseModel],
-                   *, deadline: float, effort: str | None) -> str:
+                   *, deadline: float, effort: str | None, budget: int | None = None) -> str:
         """Rounds of function calls over ``workspace``, then the final answer.
 
         Up to ``max_tool_rounds`` responses that call workspace functions are
@@ -298,7 +305,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             # The files this request carries to the model for the first time.
             carries = [entry.path for entry in workspace.served[carried:]]
             carried = len(workspace.served)
-            result = self._send(body, deadline=deadline, extra={"workspace": {
+            result = self._send(body, deadline=deadline, budget=budget, extra={"workspace": {
                 "mode": "tools", "round": round_index, "carries": carries,
             }})
             calls = function_calls(result.output)
@@ -330,14 +337,22 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
         raise AIInvalidOutput(f"{self.provider_name} did not answer within its workspace rounds.")  # pragma: no cover
 
     # -- one physical request, with retries --------------------------------
-    def _send(self, body: dict[str, Any], *, deadline: float, extra: dict[str, Any] | None = None) -> StreamResult:
+    def _send(self, body: dict[str, Any], *, deadline: float, extra: dict[str, Any] | None = None,
+              budget: int | None = None) -> StreamResult:
+        """One physical request, resent on a transient failure or after a token refresh.
+
+        ``budget`` is the call's output budget, already stated in the prompt;
+        each attempt's receipt records it (the route takes no wire cap).
+        """
+
         refreshed = False
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             self._stop_if_due(deadline)
             # Local refusals (signed out, paused, ineligible) send nothing.
             observed_pause = self.session.check_usable(pause_minutes=self.pause_minutes)
             try:
-                return self._send_once(body, deadline=deadline, observed_pause=observed_pause, extra=extra)
+                return self._send_once(body, deadline=deadline, observed_pause=observed_pause, extra=extra,
+                                       budget=budget)
             except ChatGPTPlanUnauthorized:
                 if single_request_active() or refreshed:
                     raise
@@ -359,7 +374,7 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             raise AITurnTimeout("The ChatGPT plan request ran out of time.")
 
     def _send_once(self, body: dict[str, Any], *, deadline: float, observed_pause: dict[str, Any] | None,
-                   extra: dict[str, Any] | None = None) -> StreamResult:
+                   extra: dict[str, Any] | None = None, budget: int | None = None) -> StreamResult:
         """One physical request under its own receipt (the token step sends no model request)."""
 
         stream = ResponsesStream(self.base_url)
@@ -380,8 +395,10 @@ class ChatGPTPlanProviderClient(TokenUsageAccounting):
             # The credential step may have outlived the deadline or an interrupt.
             self._stop_if_due(deadline)
             remaining = deadline - _monotonic()
+            # The receipt records the output allowance this request is sent
+            # with: the budget its prompt states, the route taking no cap.
             with model_call(self, purpose="responses_request", prompt=body.get("input"),
-                            schema=body.get("text"), budget=None) as receipt:
+                            schema=body.get("text"), budget=budget) as receipt:
                 try:
                     result = stream.send(body, access_token=token, timeout=remaining)
                 except StreamCancelled as cancelled:
@@ -562,6 +579,14 @@ def _prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]:
         return strict_output_schema(model_type)
     except TypeError:
         return model_type.model_json_schema()
+
+
+def _with_budget(prompt: str, budget: int | None) -> str:
+    """``prompt`` with the output budget stated once at its end (the route takes no ``max_output_tokens``)."""
+
+    if budget is None:
+        return prompt
+    return f"{prompt}\n\nKeep the complete JSON response within {budget} output tokens."
 
 
 def _repair_prompt(text: str, model_type: type[BaseModel]) -> str:

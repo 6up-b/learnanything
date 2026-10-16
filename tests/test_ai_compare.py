@@ -11,7 +11,8 @@ F1 a relocated or non-``.sqlite`` database is copied and relocated, F2 the
 tutor's own draft validator, F3 failures as codes (no provider prose), F4 the
 frozen assessment contract, F5 comparison judgments, F6 subscription spend
 accounting; re-review: F7 the database a symlinked path opens, F8 each
-request's output budget. No test leaves 127.0.0.1.
+request's output budget; final verification: F9 a JSON repair's output
+budget. No test leaves 127.0.0.1.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
 
@@ -376,7 +378,7 @@ def test_a_run_on_a_copy_reports_agreement_validity_latency_tokens_and_allowance
             assert model == row["model"] and version and input_hash
             assert json.loads(verdict)["rubric_score"] == call["rubric_score"]
             assert json.loads(rationale) == {"authority": "none", "compare_run_id": report["run_id"],
-                                             "compare_version": 3}
+                                             "compare_version": 4}
         task, _kind, left_id, _rk, right_id, judge, *_rest = judgments[row["diagnosis"]["judgment_id"]]
         assert (task, left_id, right_id, judge) == ("ai_compare_diagnosis", "att_07_svd_future", row["provider"],
                                                     "diagnoser")
@@ -800,3 +802,97 @@ def test_each_request_carries_the_output_budget_its_estimate_reports(source, ser
         assert content.count("Keep the complete JSON response within") == 1
     assert row["diagnosis"]["valid"] and row["diagnosis"]["physical_requests"] == 3
     assert row["grading"]["att_06_svd_fail"]["valid"] and row["generation"]["valid"]
+
+
+# -- Final verification F9: a JSON repair is sent with the budget of the request it repairs ---
+
+
+_BUDGET_SENTENCE = re.compile(r"Keep the complete JSON response within (\d+) output tokens\.\Z")
+_REPAIR_PREFIX = "Repair the following model output"
+
+
+def test_a_json_repair_carries_the_budget_of_the_request_it_repairs(source, server):
+    """Each operation's first answer is invalid JSON, so the real ChatGPT-plan
+    transport repairs it once. Every request on the wire, each repair
+    included, ends with its operation's budget stated once, carries no
+    ``max_output_tokens`` (the plan route refuses it) and is recorded with
+    that budget as its output allowance (its receipt's
+    ``output_budget_tokens``). The subscription exemption holds: no
+    physical-request bound, so every workspace round and every repair runs."""
+
+    from learnloop.ai.execution import content_key, observe_model_calls
+    from learnloop.cli.ai_compare import CompareRequest, run_compare
+    from learnloop.vault.repository import open_vault_repository
+
+    path = source / "learnloop.toml"
+    document = tomlkit.parse(path.read_text(encoding="utf-8"))
+    routes = tomlkit.table()
+    for route, tokens in {"grading": 1234, "diagnosis": 2345, "teach_back": 3456}.items():
+        routes[route] = tokens
+    document["ai"]["route_output_tokens"] = routes
+    path.write_text(tomlkit.dumps(document), encoding="utf-8")
+    budgets = {"grading": 1234, "diagnosis": 2345, "generation": 3456}
+    prefixes = {"learnloop blind grading proposal": "grading", "learnloop diagnosis proposal": "diagnosis",
+                "learnloop source-item teach-back authoring": "generation"}
+
+    def kind_of(content: str) -> str:
+        if content.startswith(_REPAIR_PREFIX):
+            [kind] = [kind for kind in budgets if f"BROKEN-{kind}" in content]
+        else:
+            [kind] = [kind for prefix, kind in prefixes.items() if content.startswith(prefix)]
+        return kind
+
+    answer = responder()
+    valid: dict[str, str] = {}
+
+    def reply(body: dict) -> Reply:
+        content = body["input"][0]["content"]
+        kind = kind_of(content)
+        if content.startswith(_REPAIR_PREFIX):
+            return Reply(events=completed_events(valid[kind], model=body["model"]))
+        scripted = answer(body)
+        texts = [event["text"] for event in scripted.events if event["type"] == "response.output_text.done"]
+        if not texts:  # a round of workspace calls: served as usual
+            return scripted
+        # The final answer, made invalid JSON: the transport repairs it once.
+        valid[kind] = texts[0]
+        return Reply(events=completed_events(f"BROKEN-{kind} {texts[0]}", model=body["model"]))
+
+    server.default_reply = reply
+    vault = load_vault(source)
+    repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+    starts: list[dict] = []
+    request = CompareRequest(profiles=("chatgpt",), attempt_ids=("att_06_svd_fail",))
+    with observe_model_calls(lambda action, event: starts.append(dict(event)) if action == "start" else None):
+        report = run_compare(vault, repository, request)  # the real transport (client_for_provider)
+    [row] = report["results"]
+
+    # Every outgoing request: (operation, repair?, the budget its prompt ends
+    # with, how often a budget is stated, its receipt's allowance, a wire cap?).
+    receipts = {event["prompt_hash"]: event for event in starts if event.get("parent_call_id")}
+    assert len(receipts) == len(server.requests)
+    observed = []
+    for sent in server.requests:
+        body = sent["body"]
+        content = body["input"][0]["content"]
+        stated = _BUDGET_SENTENCE.search(content)
+        observed.append((
+            kind_of(content), content.startswith(_REPAIR_PREFIX),
+            int(stated.group(1)) if stated else None, content.count("Keep the complete JSON response within"),
+            receipts[content_key(body["input"])]["output_budget_tokens"], "max_output_tokens" in body,
+        ))
+    assert observed == [
+        ("grading", False, 1234, 1, 1234, False), ("grading", True, 1234, 1, 1234, False),
+        *[("diagnosis", False, 2345, 1, 2345, False)] * 3, ("diagnosis", True, 2345, 1, 2345, False),
+        ("generation", False, 3456, 1, 3456, False), ("generation", True, 3456, 1, 3456, False),
+    ]
+    # Each operation's root receipt and its report entry name the same budget.
+    roots = [event for event in starts if not event.get("parent_call_id")]
+    assert sorted(event["output_budget_tokens"] for event in roots) == sorted(budgets.values())
+    calls = {"grading": row["grading"]["att_06_svd_fail"], "diagnosis": row["diagnosis"],
+             "generation": row["generation"]}
+    assert {kind: call["spend"]["output_budget_tokens"] for kind, call in calls.items()} == budgets
+    # The repair answered: every call is valid, and its requests are counted.
+    assert all(call["valid"] for call in calls.values()), {kind: call.get("error") for kind, call in calls.items()}
+    assert {kind: call["physical_requests"] for kind, call in calls.items()} == {
+        "grading": 2, "diagnosis": 4, "generation": 2}
