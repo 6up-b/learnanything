@@ -701,3 +701,142 @@ The code was final at `e09935dc1`; only this record and `docs/reviews/ux-phase4.
 - **Q23 (F1-1).** The residual: an OS suspend that sends no signal keeps the last frame for at most one tick after waking. *Default: accepted and documented (ruling 5).*
 - **Q24 (cold checks).** A routine display stamped before a cold task's creation now also holds it back until its coverage ends. A cold retry scheduled the day after a feedback that showed the answer can wait up to an hour longer. *Default: as built (serve agrees with submit).*
 - **Q13, Q16 and Q18 to Q21** stand.
+
+## 11. Round 5
+
+**Verification:** the Codex verification of `a23b06385`. It confirmed F1-3 and F9 and found no regressions in F2 to F8 or F10. It reopened four items: F1-1 (High), F1-2 (High), cold checks (Medium) and a boundary (Low).
+**Fix:**
+- `1125d5a12`: F1-2.
+- `c4573a5cc`: the boundary.
+- `81d54b825`: cold checks, plus the round-5 sidecar tests.
+- `e14166caf`: desktop F1-1.
+
+**No migration was needed.** The disclosure identity is a versioned encoding in the existing `basis` column. This branch's head stays at 204, and main's 205/206 are untouched. Grading, scoring and replay are unchanged. The serving changes are the ones the orchestrator ruled (cold checks are revalidated at serve time).
+
+### 11.1 Findings
+
+| Item | Severity | Verdict | Commit | Tests |
+|---|---|---|---|---|
+| F1-1: minimize hiding waited for an async reply | High | **fixed** | `e14166caf` | vitest "F1-1 (round 5): a shell resized/scale/focus event hides the answer at once…" (3), "…returns only after the window is known visible and unminimized…" |
+| F1-2: an ambiguous basis encoding defeated exact identity | High | **fixed, no migration** | `1125d5a12` | `test_f1j_a_key_that_ends_in_a_trace_hash_never_exempts_another_draft`, `…_a_legacy_row_whose_display_id_is_the_hash_gets_no_exemption`, `…_keys_with_separators_keep_exactly_their_own_exemption[5 keys]`, `…_the_confirmed_controls_still_get_no_exemption[whitespace, another_key, no_hash]` |
+| Cold checks: existing daily-plan blocks bypassed refreshed eligibility | Medium | **fixed** | `81d54b825` | `test_f1j_a_planned_cold_check_revealed_before_it_is_served_is_not_served`, `…_no_serve_path_serves_a_cold_check_submit_would_prime[0..4]` (property), `…_opening_a_revealed_cold_check_defers_it_instead_of_administering_it` |
+| Boundary: readers disagreed at exactly s + 25 h | Low | **fixed** | `c4573a5cc` | `test_f1j_every_reader_agrees_at_the_exact_boundary_second` (7 readers, at the second and one later) |
+
+**Reproduced first** (runs against `a23b06385` recorded in this step):
+- **The new sidecar tests: 10 failed.**
+  - The `k:H` collision: `primed=False`, admissible as itself.
+  - The legacy row whose display id is H: `primed=False`.
+  - The boundary: at exactly s + 25 h the scheduler's cold deferral and the serving exclusions held nothing, while the other five readers did.
+  - The verifier's plan scenario: `item_served` for `pi_cold` at 10:05 with auto-prime True.
+  - The serve-path property: 5 of 5 seeds; the plan served the cold check primed.
+  - The direct open: no deferral, so a cold administration would be recorded.
+  - The controls passed, as controls should: the separator keys' own exemptions, and whitespace, another key, no hash.
+- **The new desktop tests: 3 of 4 failed** (resize, scale, and the return). The focus-loss case already hid in round 4.
+
+### 11.2 F1-1: hidden before the shell is asked (High)
+
+**The finding.** Tauri's resize callback for a minimize was delivered, but the answer stayed rendered until `isMinimized()` resolved. A suspend in between left the exposed frame up. This is not the accepted residual, because a lifecycle callback was delivered.
+
+**The fix.**
+- A shell window resize, scale change or focus change may mean a minimize or a suspend. Each now hides the answer synchronously, before the window's state is asked: the gate is interrupted and the screen held (`flushSync`).
+- The answer returns only once the shell says the window is visible and unminimized, and a fresh row is then acknowledged. The state is asked once the events settle (300 ms), so a drag resize asks once.
+- While the query is pending, nothing shows and nothing is written: presence events and DOM focus cannot uncover it.
+- The residual of §10.3 is unchanged: an OS suspend that delivers no signal at all.
+
+### 11.3 F1-2: identity as structured fields (High)
+
+**The finding.** With H the hash of trace T: freeze a different trace Q under the key `k:H` and show it, then submit T under the key `k`. The basis `self_grade_disclosure:k:H:hash(Q):display` matched the exemption prefix `self_grade_disclosure:k:H:`, so the readers said primed False and admissible, even with the exact attempt id. Keys may contain colons. Separately, an old row whose display id equals H could not be told apart from a new hashed row.
+
+**The fix, with no schema change.**
+- **The encoding.** A disclosure row's basis is now `self_grade_disclosure:v2:` followed by canonical JSON, `sort_keys`, with exactly the fields `v` (2), `submission`, `trace` and `display` (`reveal_ledger.disclosure_basis`). JSON escapes any separator a key contains.
+- **The comparison.** `is_own_disclosure` parses the identity (`disclosure_identity`) and compares the retry key and the trace hash for exact equality, field by field. No string prefix is matched anywhere.
+- **Legacy rows exempt nothing.** Any row in another shape (the round-3 and round-4 colon-joined ones, a hash-less settle row, malformed JSON, missing or extra fields) is legacy. It counts like every routine display.
+- **Auto-prime** subtracts only the submission's own parsed rows from the counted total. `total_reveal_amount` lost its exemption prefixes.
+- **`production_admissibility`** exempts only the attempt `production_id` names, by the same comparison.
+
+The routine-display classification (`self_grade_disclosure:` prefix) is unchanged: a versioned row is a routine display like any other.
+
+**Why no migration.** Structured columns would need migration 207 on a branch whose head is 204, and main holds 205 and 206. The versioned JSON encoding meets the ruling's alternative ("an unambiguous, versioned … JSON encoding parsed and compared field by field") inside the existing column.
+
+### 11.4 Cold checks: every serve path revalidates at serve time (Medium)
+
+**The finding.** A cold item planned at 10:00 had its answer shown in another window at 10:01. When the plan advanced at 10:05, `advance_with_context` served the existing block's item and emitted `item_served`, while auto-prime returned True and the scheduler deferred the task.
+
+**The fix: `scheduler.cold_check_serve_hold`.** At the moment an item would be served, for each open cold follow-up task on it, it re-runs the queue's own deferral now (persisting the push). It answers:
+- `cold_check_deferred`: the task is not due (a reveal pushed it, or it never was);
+- `cold_check_would_be_primed`: the task is due but submit would prime the answer, and so refuse it as a cold retry;
+- None: serve.
+
+**Every path that serves an item it chose earlier** (grep inventory):
+
+| Path | Revalidation |
+|---|---|
+| Daily plan blocks (`daily_plan.engine`) | a held cold check is kept out of the pool, displaced in `reconcile` (with the reason on `item_displaced`), and re-checked at the serve itself, for a block planned in the same call |
+| Learner pick (`plan_learner_pick`) | deferred when revealed (the pick is then an ordinary answer); refused, typed `cold_check_unavailable`, when submit would still prime |
+| Session serve of an item (`get_practice_item` with a session: a stale list, a restored session or checkpoint, a deep link, a Reader quick-check offer opened later) | the same; a read-only open (feedback, inspector) is not a serve and is unchanged |
+| `open_queue_item` | the same |
+| Session queue (`build_due_queue`) | rebuilt per call; its cold lane already runs the deferral (§10.7) |
+| Router | serves through the daily plan |
+| MCP | read-only tools; it serves nothing |
+| Mobile | no RPC is allow-listed (M1) |
+| Reader quick-check offers | exclude cold-reserved items when offered (out-of-timing exclusions); opening one is a session serve |
+
+**The property's scope.** "Submit would prime" refuses only a measurement lane, a cold follow-up. Routine serving deliberately serves an item whose answer was shown, as practice with help (primed at submit, never refused). So the property is stated, and tested, for cold checks.
+
+**Tests.**
+- The verifier's scenario: the control plan serves `pi_cold`; with the display, the plan never serves it.
+- A property over display timings and serve moments: the plan advanced and the queue built at random moments. Whenever either serves the cold check, submit at that moment is not primed.
+- The direct session open defers a revealed cold check, so no administration is recorded and the task is no longer due.
+
+### 11.5 Boundary: one endpoint convention (Low)
+
+**The finding.** At exactly `display_stamp + 25 h`, the scheduler released the task and the practice index excluded nothing, while submit still primed and admissibility still rejected. A second later they agreed.
+
+**The fix: the convention is defined once, in `reveal_coverage`, and is inclusive.** A routine row stamped s covers T exactly when `s >= routine_covered_from(T)`, that is T ≤ s + D + G. There is no upper bound, so a row stamped ahead of the clock covers. It stops covering at `routine_released_at(s)`, one second after s + D + G.
+
+Every reader uses the helpers (`routine_row_covers`, `routine_coverage_sql`, `routine_released_at`) and never a comparison of its own:
+- auto-prime;
+- `production_admissibility`;
+- the scheduler's cold deferral, which now releases a held task at `routine_released_at`;
+- the serving exclusions, which compared `>` before;
+- the independent check;
+- source serve-time exposure;
+- the practice-index filter.
+
+The test checks all seven at the exact second (every one holds) and one second later (none does).
+
+### 11.6 Claims corrected
+
+- **§10.4:** the colon-joined `self_grade_disclosure:<key>:<hash>[:<display>]` identity is replaced by the versioned JSON encoding (§11.3). Rows in the old shape are legacy and exempt nothing.
+- **§10.3:** the shell's resize, scale and focus events hide before the state query (§11.2).
+- **§10.7:** the scheduler's routine rows release at `routine_released_at` (inclusive coverage).
+- **`docs/reviews/ux-phase4.md` §1, §4.1 and §4.2:**
+  - the identity encoding;
+  - the shell events;
+  - cold checks revalidated at serve time.
+
+### 11.7 Paid calls
+
+None. Every test uses fakes. No owner vault was opened.
+
+### 11.8 Gate (final tree)
+
+Run on `e14166caf` in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp` (dependencies unchanged since §8.7):
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 11952 passed, 0 failed (12 min 32 s): §10.10's 11934 plus the 18 `test_f1j_*` cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 11846 deselected |
+| `npm install` · `npm run typecheck` · `npm test` · `npm run frontend:build` | typecheck clean; vitest 94 files, 734 passed (730 plus the 4 round-5 shell-window cases); the build succeeds (the usual chunk-size warning) |
+| `cargo check` | not run: nothing under `apps/learnloop-tauri/src-tauri` changed (the shell window events are `@tauri-apps/api` JS) |
+| CLI help snapshot, RPC pins (`tests/test_mobile_allowlist.py`), DB/config references, `tests/test_coordinated_migrations.py` | unchanged: no CLI, RPC, schema, migration or config change (all ran in the full suite) |
+
+The code was final at `e14166caf`; only this record and `docs/reviews/ux-phase4.md` changed after it. No run had a timing failure.
+
+### 11.9 Open questions for the owner (defaults applied)
+
+- **Q25 (cold checks).** An open cold follow-up task's item is kept out of the daily plan whenever the task is not due (deferred, or scheduled for later). Before, the plan could serve it as an ordinary review ahead of its measurement. *Default: kept out, since serving it early would warm the item before its cold check.*
+- **Q26 (cold checks).** A session open, or a pick, of a due cold check that submit would still prime (a non-routine reveal since the item's last attempt) is refused, typed, instead of after the answer is written. Such a task stays unservable until it expires, as before; only the refusal is earlier. *Default: as built.*
+- **Q27 (F1-1).** A drag resize hides the answer for the drag plus 300 ms, and a fresh row is then written. *Default: as built.*
+- **Q22 to Q24** stand.
