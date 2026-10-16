@@ -139,6 +139,16 @@ def test_the_old_cli_shape_still_disables_config_servers_by_name(tmp_path, monke
     assert not any(override.startswith("mcp_servers.docs.") for override in launched)
 
 
+def test_config_server_names_with_path_characters_are_disabled_by_name(tmp_path, monkeypatch):
+    """0.163.0's `codex mcp add` accepts `:`, `@` and `/`; a `-c` path addresses them."""
+
+    program, log = write_fake_codex(tmp_path / "bin", config_servers={"org/docs": True, "team@host:9": True})
+    install_fake_codex_sdk(monkeypatch, final_response='{"links": []}', spawn=True, launch_failure_raises=True)
+    _isolated_turn(_client(tmp_path, program))
+    (launched,) = _launches(log)
+    assert {"mcp_servers.org/docs.enabled=false", "mcp_servers.team@host:9.enabled=false"} <= set(launched)
+
+
 @pytest.mark.parametrize(
     "spec, named",
     [
@@ -269,3 +279,27 @@ def test_the_installed_codex_passes_the_launch_check(tmp_path, monkeypatch, shel
     listed = _listed(env, overrides, cwd)
     assert listed.returncode == 0, listed.stderr
     assert [(server["name"], server["enabled"]) for server in json.loads(listed.stdout)] == [("fsserver", False)]
+
+
+@needs_codex
+def test_the_installed_codex_addresses_path_characters_but_not_dots(tmp_path, monkeypatch):
+    """Why a dotted server name refuses the turn: its `-c` path names another table."""
+
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    (home / "config.toml").write_text(
+        '[mcp_servers."org/docs"]\ncommand = "/bin/true"\n\n[mcp_servers."a.b"]\ncommand = "/bin/true"\n',
+        encoding="utf-8",
+    )
+    env = {**os.environ, "CODEX_HOME": str(home)}
+    cwd = tmp_path / "turn"
+    cwd.mkdir()
+    disabled = _listed(env, ["mcp_servers.org/docs.enabled=false"], cwd)
+    assert disabled.returncode == 0, disabled.stderr
+    assert dict((s["name"], s["enabled"]) for s in json.loads(disabled.stdout)) == {"org/docs": False, "a.b": True}
+    dotted = _listed(env, ["mcp_servers.a.b.enabled=false"], cwd)
+    assert dotted.returncode != 0 and "mcp_servers.a`" in dotted.stderr
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), tmp_path)
+    with pytest.raises(CodexUnavailable, match="'a.b'"):
+        client._verified_isolated_overrides(cwd, shell=False)

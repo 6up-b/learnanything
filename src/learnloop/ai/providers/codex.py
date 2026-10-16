@@ -107,12 +107,13 @@ _ISOLATION_DISABLED_FEATURES = (
 #: override Codex ignored (a renamed key) would leave them on, so this is
 #: checked, not assumed.
 _ISOLATION_VERIFIED_FEATURES = ("apps", "plugins")
-#: A server name a ``-c mcp_servers.<name>.enabled=false`` path can address.
-#: Codex splits an override's key on ``.``; any other name (a quoted TOML key)
-#: would address a different table.
-_ADDRESSABLE_MCP_SERVER = re.compile(r"[A-Za-z0-9_-]+")
+#: A server name a ``-c mcp_servers.<name>.enabled=false`` path can address:
+#: the characters ``codex mcp add`` accepts (0.163.0 adds ``:``, ``@``, ``/``
+#: and ``.``) except ``.``, because Codex splits an override's key on ``.``
+#: and a dotted name would address a different table.
+_ADDRESSABLE_MCP_SERVER = re.compile(r"[A-Za-z0-9_:@/-]+")
 #: How Codex names the config table it could not load ("in `mcp_servers.x`").
-_REJECTED_MCP_TABLE = re.compile(r"in `mcp_servers\.([A-Za-z0-9_-]+)[`.]")
+_REJECTED_MCP_TABLE = re.compile(r"in `mcp_servers\.([A-Za-z0-9_:@/-]+)[`.]")
 #: Each launch-check command (``mcp list``, ``features list``) gets this long.
 _CODEX_PROBE_TIMEOUT_SECONDS = 60.0
 

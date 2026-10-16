@@ -47,6 +47,8 @@ config = spec.get("config_servers", {})
 for key in values:
     if key.startswith("mcp_servers.") and key.endswith(".enabled"):
         name = key[len("mcp_servers."):-len(".enabled")]
+        # Codex splits the key on "." (a dotted name addresses another table).
+        name = name.split(".")[0] if "." in name else name
         if name not in config and spec.get("rejects_tableless_servers", True):
             sys.stderr.write(
                 "Error: failed to load bootstrap configuration\n\nCaused by:\n"
