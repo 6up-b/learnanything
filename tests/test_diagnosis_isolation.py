@@ -43,6 +43,7 @@ from learnloop.attempts.blind_grading import blind_grading_context, request_blin
 from learnloop.config import CodexConfig
 from learnloop.diagnosis.offline_review.judge import LinkJudgment
 
+from tests.codex_cli_fakes import stub_isolation_probe
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import build_diagnosis_vault, seed_history
 
@@ -220,7 +221,7 @@ def _client(tmp_path, monkeypatch, *, mcp=("filesystem",)) -> SdkCodexClient:
     vault_root = tmp_path / "vault"
     vault_root.mkdir(exist_ok=True)
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"), vault_root)
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: tuple(mcp))
+    stub_isolation_probe(monkeypatch, client, config_servers=mcp)
     return client
 
 
@@ -271,10 +272,10 @@ def test_unlisted_mcp_servers_fail_closed(tmp_path, monkeypatch):
     _fake_sdk(monkeypatch, captured)
     client = _client(tmp_path, monkeypatch)
 
-    def broken(_cwd):
+    def broken(_cwd, _overrides, *_subcommand):
         raise CodexUnavailable("cannot list MCP servers")
 
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", broken)
+    monkeypatch.setattr(client, "_codex_probe", broken)
     with pytest.raises(CodexUnavailable):
         client.complete(StructuredRequest(purpose="blind_grading", prompt="p", result_model=LinkJudgment, isolated=True))
     assert "turn" not in captured
@@ -286,7 +287,7 @@ def test_a_launch_override_gets_the_overrides_before_app_server(tmp_path, monkey
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_launch_command="/opt/codex app-server --listen stdio://"), vault_root)
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ())
+    stub_isolation_probe(monkeypatch, client)
     client.complete(StructuredRequest(purpose="blind_grading", prompt="p", result_model=LinkJudgment, isolated=True))
     launch = captured["app_config"]["launch_args_override"]
     assert launch[0] == "/opt/codex" and launch[-3:] == ("app-server", "--listen", "stdio://")
@@ -346,10 +347,10 @@ def test_configured_mcp_servers_are_listed_and_disabled(tmp_path, layout, monkey
     (Path(env["CODEX_HOME"]) / "config.toml").write_text('[mcp_servers.fsserver]\ncommand = "/bin/true"\n', encoding="utf-8")
     monkeypatch.setenv("CODEX_HOME", env["CODEX_HOME"])
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin=CODEX), vault)
-    servers = client._configured_mcp_server_ids(workspace)
-    assert servers == ("fsserver",)
+    overrides = client._verified_isolated_overrides(workspace, shell=False)
+    assert overrides == isolated_turn_overrides(workspace, shell=False, mcp_server_ids=("fsserver",))
     args = [CODEX]
-    for override in isolated_turn_overrides(workspace, shell=False, mcp_server_ids=servers):
+    for override in overrides:
         args += ["-c", override]
     listed = subprocess.run([*args, "mcp", "list", "--json"], cwd=workspace, env=env, capture_output=True, text=True, timeout=60)
     assert listed.returncode == 0, listed.stderr

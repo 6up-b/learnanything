@@ -187,7 +187,9 @@ def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
         return SimpleNamespace(final_response='{"links": []}', items=[{"command": ["rg", "transpose", "attempts/"]}])
 
     client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"), vault_root)
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ())
+    from tests.codex_cli_fakes import stub_isolation_probe
+
+    stub_isolation_probe(monkeypatch, client)
     assert client.supports(READ_ONLY_WORKSPACE)
     import openai_codex
 

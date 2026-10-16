@@ -814,6 +814,7 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
     # A full launch command: the profile's --config overrides go in before
     # `app-server`, then bubblewrap wraps the whole command.
     from learnloop.ai.providers.codex import ISOLATED_PROFILE, CodexSDKProviderClient
+    from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
     monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
@@ -829,8 +830,7 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
         update={"sdk_launch_command": f"{agent} app-server --listen stdio://"}
     )
     client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
-    listed: list[Path] = []
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda cwd: listed.append(Path(cwd)) or ())
+    probes = stub_isolation_probe(monkeypatch, client)
     isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
     with tool_isolation(isolation):
         client._run_structured("p", {"type": "object"}, purpose="blind_grading", isolated=True)
@@ -847,7 +847,8 @@ def test_an_isolated_turn_runs_its_permission_profile_inside_the_sandbox(monkeyp
     # mounts, the profile (and the MCP listing) name it, and it is gone after.
     turn_root = Path(captured["thread_start"]["cwd"])
     assert turn_root.parent == layout["workdir"].resolve()
-    assert listed == [turn_root]
+    assert {cwd for cwd, _overrides, _subcommand in probes} == {turn_root}
+    assert [subcommand[:2] for _cwd, _overrides, subcommand in probes] == [("mcp", "list"), ("features", "list")]
     assert not turn_root.exists()
 
 
@@ -856,6 +857,7 @@ def test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher(monkey
     # A program path: the SDK appends config_overrides to the launcher's argv,
     # and the launcher hands them to Codex inside bubblewrap.
     from learnloop.ai.providers.codex import ISOLATED_PROFILE, CodexSDKProviderClient
+    from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
     monkeypatch.setenv("CODEX_HOME", str(layout["home"]))
@@ -863,7 +865,7 @@ def test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher(monkey
     captured = install_fake_codex_sdk(monkeypatch)
     profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update={"sdk_codex_bin": str(agent)})
     client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ())
+    stub_isolation_probe(monkeypatch, client)
     with tool_isolation(ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"],))):
         client._run_structured("p", {"type": "object"}, purpose="blind_grading", isolated=True)
     app_config = captured["app_config"]
@@ -876,11 +878,12 @@ def test_an_isolated_turn_passes_its_profile_through_the_sandbox_launcher(monkey
 def test_a_workspace_outside_the_sandbox_is_refused_before_launch(monkeypatch, layout, tmp_path):
     from learnloop.ai.errors import CodexUnavailable
     from learnloop.ai.providers.codex import CodexSDKProviderClient
+    from tests.codex_cli_fakes import stub_isolation_probe
     from tests.project_support import install_fake_codex_sdk
 
     captured = install_fake_codex_sdk(monkeypatch)
     client = CodexSDKProviderClient("codex_low", LearnLoopConfig().ai.providers["codex_low"], layout["workdir"])
-    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ())
+    stub_isolation_probe(monkeypatch, client)
     outside = tmp_path / "snapshot"
     outside.mkdir()
     with tool_isolation(ToolIsolation(workdir=layout["workdir"])), pytest.raises(CodexUnavailable, match="outside the sandbox"):

@@ -7,6 +7,7 @@ import inspect
 import json
 import logging
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -78,6 +79,9 @@ ISOLATED_PROFILE = "learnloop_isolated_turn"
 #: MCP, browser/computer use, plugins, sub-agents) or bring in outside context
 #: (memories, hooks, skills, web search): all off in an isolated turn. Unknown
 #: feature keys are ignored by Codex, so older/newer CLIs accept the list.
+#: ``plugins`` is also what removes the MCP servers a plugin brings, and
+#: ``apps`` the ChatGPT connectors server (``codex_apps``); see
+#: :meth:`SdkCodexClient._verified_isolated_overrides`.
 _ISOLATION_DISABLED_FEATURES = (
     "apps",
     "browser_use",
@@ -96,6 +100,29 @@ _ISOLATION_DISABLED_FEATURES = (
     "skill_mcp_dependency_install",
     "goals",
 )
+#: Features an isolated turn's launch check requires ``codex features list``
+#: to report off under the turn's overrides. ``apps`` starts the connectors
+#: server, which ``codex mcp list`` never shows (Codex adds it after listing);
+#: ``plugins`` loads the plugins' MCP servers, skills and connectors. An
+#: override Codex ignored (a renamed key) would leave them on, so this is
+#: checked, not assumed.
+_ISOLATION_VERIFIED_FEATURES = ("apps", "plugins")
+#: A server name a ``-c mcp_servers.<name>.enabled=false`` path can address.
+#: Codex splits an override's key on ``.``; any other name (a quoted TOML key)
+#: would address a different table.
+_ADDRESSABLE_MCP_SERVER = re.compile(r"[A-Za-z0-9_-]+")
+#: How Codex names the config table it could not load ("in `mcp_servers.x`").
+_REJECTED_MCP_TABLE = re.compile(r"in `mcp_servers\.([A-Za-z0-9_-]+)[`.]")
+#: Each launch-check command (``mcp list``, ``features list``) gets this long.
+_CODEX_PROBE_TIMEOUT_SECONDS = 60.0
+
+
+class _RejectedMcpTable(CodexUnavailable):
+    """Codex refused to load the config because of one ``mcp_servers`` table."""
+
+    def __init__(self, message: str, server: str):
+        super().__init__(message)
+        self.server = server
 
 
 def _toml_string(value: str) -> str:
@@ -112,10 +139,14 @@ def isolated_turn_overrides(
 
     The turn runs under :data:`ISOLATED_PROFILE`: read access to
     ``readable_root`` and the platform minimum only, no writes, no network;
-    approvals never prompt; web search, connectors, MCP servers (each named
-    one disabled), memories, hooks and project docs are off. With
-    ``shell=False`` (no workspace to read) the command tools are off too, so
-    the model has nothing but its prompt.
+    approvals never prompt; web search, connectors, plugins (and the MCP
+    servers they bring), memories, hooks and project docs are off. Each of
+    ``mcp_server_ids`` is disabled by name: only servers a config file defines
+    with a transport may be named, because for any other name the override
+    creates a table without one and Codex refuses to start (codex-cli
+    0.163.0). :meth:`SdkCodexClient._verified_isolated_overrides` chooses
+    them and checks the result. With ``shell=False`` (no workspace to read)
+    the command tools are off too, so the model has nothing but its prompt.
     """
 
     root = str(Path(readable_root).resolve())
@@ -183,25 +214,140 @@ class SdkCodexClient(TokenUsageAccounting):
                 return [found]
         raise CodexUnavailable("No Codex CLI found to configure an isolated turn.")
 
-    def _configured_mcp_server_ids(self, cwd: Path) -> tuple[str, ...]:
-        """MCP servers the app server would load in ``cwd``, to disable each.
+    def _verified_isolated_overrides(self, root: Path, *, shell: bool) -> list[str]:
+        """The isolated turn's overrides, checked on the CLI that will run it.
 
-        An MCP tool runs outside the command sandbox, so an isolated turn must
-        disable every configured server by name. Listing fails closed.
+        An MCP tool runs outside the command sandbox, so no MCP server may be
+        on. ``codex mcp list --json`` lists the servers config files define and
+        the ones enabled plugins bring (codex-cli 0.163.0 listed ``codex_app``
+        and ``cua_repl`` from plugins). It is run under the turn's own
+        overrides, where ``features.plugins=false`` has removed the plugin
+        servers, so a server still listed is a config one: each still enabled
+        is disabled by name. Then the exact launch set is checked: listed again
+        (every server off or absent; Codex rejecting a name override means the
+        server is not a config one and nothing here can turn it off) and
+        ``codex features list`` must report :data:`_ISOLATION_VERIFIED_FEATURES`
+        off (the connectors server never shows in ``mcp list``).
+
+        Fail closed: a server still on, a check that fails or times out, or an
+        override Codex rejects refuses the turn before the app server starts.
+        Not cached: the answer depends on config files, plugins and the
+        working directory's project config, any of which can change between
+        turns without a new binary, and an isolated turn's directory is new
+        each time. The check runs in the turn's directory with this process's
+        environment, as the app server does. Under bubblewrap the app server's
+        private home holds only the host's ``config.toml`` (no plugin cache),
+        so it can load no more than was checked here.
         """
 
-        command = [*self._codex_command(), "mcp", "list", "--json"]
+        base = isolated_turn_overrides(root, shell=shell)
+        enabled = sorted(name for name, on in self._mcp_server_states(root, base).items() if on)
+        for name in enabled:
+            if not _ADDRESSABLE_MCP_SERVER.fullmatch(name):
+                raise CodexUnavailable(
+                    f"Codex MCP server {name!r} stays enabled under the isolated turn's overrides, and a config "
+                    "override cannot address that name; refusing the isolated turn."
+                )
+        overrides = isolated_turn_overrides(root, shell=shell, mcp_server_ids=enabled)
+        if enabled:
+            try:
+                states = self._mcp_server_states(root, overrides)
+            except _RejectedMcpTable as exc:
+                if exc.server not in enabled:
+                    raise
+                raise CodexUnavailable(
+                    f"Codex cannot disable MCP server '{exc.server}' for an isolated turn: no config file defines "
+                    f"it with a transport, so Codex rejects `mcp_servers.{exc.server}.enabled=false`, and none of "
+                    "the isolation features removes it; refusing the isolated turn."
+                ) from exc
+            still = sorted(name for name, on in states.items() if on)
+            if still:
+                names = ", ".join(f"'{name}'" for name in still)
+                raise CodexUnavailable(
+                    f"Codex MCP server {names} stays enabled under the isolated turn's overrides; "
+                    "refusing the isolated turn."
+                )
+        features = self._feature_states(root, overrides)
+        left_on = [feature for feature in _ISOLATION_VERIFIED_FEATURES if features.get(feature) is not False]
+        if left_on:
+            raise CodexUnavailable(
+                f"Codex does not report feature {', '.join(left_on)} off under the isolated turn's overrides "
+                "(connectors or plugin tools could load); refusing the isolated turn."
+            )
+        return overrides
+
+    def _mcp_server_states(self, cwd: Path, overrides: list[str]) -> dict[str, bool]:
+        """Each server ``codex mcp list --json`` lists under ``overrides``: on?
+
+        Only names and enabled state are read; a server whose state is not
+        exactly ``false`` counts as on."""
+
+        stdout = self._codex_probe(cwd, overrides, "mcp", "list", "--json")
         try:
-            result = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, timeout=60, check=False)
-            servers = json.loads(result.stdout) if result.returncode == 0 else None
-        except (OSError, subprocess.SubprocessError, ValueError) as exc:
-            raise CodexUnavailable(f"Cannot list Codex MCP servers to disable them: {exc}") from exc
+            servers = json.loads(stdout)
+        except ValueError:
+            servers = None
         if not isinstance(servers, list):
             raise CodexUnavailable(
-                "Cannot list Codex MCP servers to disable them for an isolated turn "
-                f"(exit {result.returncode})."
+                "`codex mcp list --json` did not return a server list under the isolated turn's overrides; "
+                "refusing the isolated turn."
             )
-        return tuple(str(server["name"]) for server in servers if isinstance(server, dict) and server.get("name"))
+        states: dict[str, bool] = {}
+        for server in servers:
+            name = server.get("name") if isinstance(server, dict) else None
+            if not isinstance(name, str) or not name:
+                raise CodexUnavailable(
+                    "`codex mcp list --json` listed a server without a name; refusing the isolated turn."
+                )
+            states[name] = server.get("enabled") is not False
+        return states
+
+    def _feature_states(self, cwd: Path, overrides: list[str]) -> dict[str, bool]:
+        """``codex features list`` under ``overrides``: ``name stage true|false`` rows."""
+
+        states: dict[str, bool] = {}
+        for line in self._codex_probe(cwd, overrides, "features", "list").splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[-1] in {"true", "false"}:
+                states[parts[0]] = parts[-1] == "true"
+        return states
+
+    def _codex_probe(self, cwd: Path, overrides: list[str], *subcommand: str) -> str:
+        """The stdout of ``codex -c <override>... <subcommand>`` in ``cwd``.
+
+        Refuses (``CodexUnavailable``) when it cannot run, times out or exits
+        non-zero. From stderr only the ``mcp_servers`` table Codex rejected is
+        reported: Codex's config errors can quote config lines (headers, env)."""
+
+        command = list(self._codex_command())
+        for override in overrides:
+            command += ["-c", override]
+        command += list(subcommand)
+        what = f"`codex {' '.join(subcommand)}`"
+        try:
+            result = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True,
+                                    timeout=_CODEX_PROBE_TIMEOUT_SECONDS, check=False)
+        except subprocess.TimeoutExpired as exc:
+            raise CodexUnavailable(
+                f"{what} under the isolated turn's overrides did not finish in "
+                f"{_CODEX_PROBE_TIMEOUT_SECONDS:g} seconds; refusing the isolated turn."
+            ) from exc
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise CodexUnavailable(
+                f"Cannot run {what} to check the isolated turn's overrides ({exc}); refusing the isolated turn."
+            ) from exc
+        if result.returncode != 0:
+            rejected = _REJECTED_MCP_TABLE.search(result.stderr or "")
+            if rejected:
+                raise _RejectedMcpTable(
+                    f"{what} rejected the config table `mcp_servers.{rejected.group(1)}` under the isolated "
+                    f"turn's overrides (exit {result.returncode}); refusing the isolated turn.",
+                    rejected.group(1),
+                )
+            raise CodexUnavailable(
+                f"{what} under the isolated turn's overrides exited {result.returncode}; refusing the isolated turn."
+            )
+        return result.stdout or ""
 
     def workspace_activity(self) -> list[str] | None:
         """What the last read-only-workspace turn reported reading, if anything.
@@ -529,9 +675,7 @@ class SdkCodexClient(TokenUsageAccounting):
         launch_args = _sdk_launch_args(self.config.sdk_launch_command)
         config_kwargs: dict[str, Any] = {}
         if isolated:
-            overrides = isolated_turn_overrides(
-                root, shell=workspace is not None, mcp_server_ids=self._configured_mcp_server_ids(root),
-            )
+            overrides = self._verified_isolated_overrides(root, shell=workspace is not None)
             if launch_args:
                 position = launch_args.index("app-server") if "app-server" in launch_args else -1
                 if position < 0:
