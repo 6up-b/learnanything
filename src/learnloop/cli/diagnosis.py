@@ -4,7 +4,7 @@ from learnloop.cli.runtime import *  # noqa: F401,F403
 
 diagnosis_app = typer.Typer(
     no_args_is_help=True,
-    help="Diagnosis adjudication: the queue, one verdict, the scoreboard.",
+    help="Diagnosis adjudication (the queue, one verdict, the scoreboard) and forecast calibration.",
 )
 
 @diagnosis_app.command("queue")
@@ -263,5 +263,84 @@ def diagnosis_scoreboard(
                 "  WARNING: no abstention cases in this slice — the abstention "
                 "metrics cannot fail here (spec §3 B1)."
             )
+
+@diagnosis_app.command("calibration")
+def diagnosis_calibration(
+    since: Annotated[
+        str | None, typer.Option("--since", help="Only forecasts issued at or after this ISO time (UTC).")
+    ] = None,
+    checks: Annotated[
+        bool,
+        typer.Option("--checks/--no-checks", help="Also score the probe and follow-up checks' voi_forecasts."),
+    ] = True,
+    vault: Annotated[Path | None, typer.Option("--vault", help="Vault root (read-only).")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """How well the saved forecasts predicted what happened next (read-only).
+
+    Per forecast kind (diagnosis_next_observation, repair_cold_outcome,
+    check_outcome) and forecaster: the honest n (receipts, resolved, distinct
+    outcome attempts, pending, held and censored with their reasons), then
+    reliability tables, Brier and log loss. Each forecast resolves only
+    through its exact binding; held grades resolve nothing until released."""
+
+    import sqlite3
+
+    from learnloop.evsi_calibration.forecast_report import forecast_calibration_report
+
+    root = _root(vault)
+    try:
+        loaded = load_vault(root, load_environment=False)
+        report = forecast_calibration_report(loaded, since=since, include_checks=checks)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        if json_output:
+            typer.echo(_dump({"status": "invalid", "reason": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    if json_output:
+        typer.echo(_dump(report))
+        return
+
+    def _num(value: Any) -> str:
+        return "n/a" if value is None else f"{value:.3f}" if isinstance(value, float) else str(value)
+
+    if not report["receipts_table"]:
+        typer.echo("This vault predates saved forecasts (no forecast_receipts table); check forecasts only.")
+    if not report["forecast_receipts"]:
+        typer.echo("diagnosis.forecast_receipts is off: no new forecast receipts are being written.")
+    if not report["kinds"]:
+        typer.echo("No forecasts have been recorded.")
+        return
+    for kind, kind_block in report["kinds"].items():
+        typer.echo(f"{kind}: {kind_block['receipts']} receipts")
+        for forecaster, block in kind_block["forecasters"].items():
+            n = block["n"]
+            typer.echo(
+                f"  {forecaster}: {n['receipts']} receipts, {n['resolved']} resolved on "
+                f"{n['distinct_outcome_attempts']} attempts (the honest n), {n['decisions']} decisions"
+                + ("  [small n]" if block["small_n"] else "")
+            )
+            for label in ("pending", "held_for_review", "censored"):
+                if n[label]:
+                    reasons = ", ".join(f"{reason}={count}" for reason, count in n[label].items())
+                    typer.echo(f"    {label}: {reasons}")
+            table = block.get("binary") or block["categorical"]
+            name = f"P({table['event']})" if "event" in table else "categorical"
+            typer.echo(
+                f"    {name}: brier={_num(table.get('brier'))} log_loss={_num(table.get('log_loss'))} "
+                f"ece={_num(table.get('ece'))}"
+                + (
+                    f" mean_predicted={_num(table.get('mean_predicted'))} observed={_num(table.get('observed_rate'))}"
+                    if "event" in table
+                    else ""
+                )
+            )
+            for row in table.get("bins") or []:
+                low, high = row["bin"]
+                typer.echo(
+                    f"      [{low:.1f}, {high:.1f}) n={row['n']} predicted={row['mean_predicted']:.3f} "
+                    f"observed={row['observed']:.3f}"
+                )
 
 __all__ = [name for name in globals() if not name.startswith("__")]

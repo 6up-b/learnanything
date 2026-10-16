@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-205. Migration 167 adds the learner-field F1 read model
+206. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -147,17 +147,25 @@ regrade re-minted and the ids they replace, or a retired id with no
 replacement, Q9) and `question_events.assessment_contract_version_id` (the
 item contract a learner question was asked about, Q10; NULL on every row this
 fixture already had). Both tables are empty here.
-Built as a backup-API copy of `migration_head_204` (itself a backup-API copy
-of `migration_head_203` with only 204 applied, that of `migration_head_202`
-with only 203 applied, that of `migration_head_201` with only 202 applied,
-that of `migration_head_199` with only 200-201 applied, that of
-`migration_head_197` with only 198-199 applied, that of `migration_head_195`
-with only 196-197 applied, and that of `migration_head_186` with 187-195
-applied) with only 205 applied through `learnloop.db.migrate.apply_migrations`
-under the test suite's upgrade allowance (`UPGRADE_TEST_HELPER`; checkpointed
-with `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
+Migration 206 comes from saved diagnosis forecasts
+(`diagnosis/forecast-receipts`, docs/reviews/diagnosis-forecast-receipts.md;
+built there as 230, a placeholder number, and renumbered 206 at its landing
+after diagnosis input provenance's 205): it adds `forecast_receipts` (RECEIPT,
+append-only by trigger: one forecast per row, written in the transaction of
+the decision that made it, with its exact binding or the reason it has none;
+no rows here).
+Built as a backup-API copy of `migration_head_205` (itself a backup-API copy
+of `migration_head_204` with only 205 applied, that of `migration_head_203`
+with only 204 applied, that of `migration_head_202` with only 203 applied,
+that of `migration_head_201` with only 202 applied, that of
+`migration_head_199` with only 200-201 applied, that of `migration_head_197`
+with only 198-199 applied, that of `migration_head_195` with only 196-197
+applied, and that of `migration_head_186` with 187-195 applied) with only 206
+applied through `learnloop.db.migrate.apply_migrations` under the test suite's
+upgrade allowance (`UPGRADE_TEST_HELPER`; checkpointed with
+`wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
 `foreign_key_check` clean), then copied into place with the backup API, with
-no companion files; `migration_head_204` was renamed to this directory. It
+no companion files; `migration_head_205` was renamed to this directory. It
 pins current-head schema coverage while the original populated fixture and
 the other vaults remain at historical versions for upgrade-path tests.
 

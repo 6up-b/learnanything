@@ -669,6 +669,7 @@ def _record_unbound_primed_disposition(
     repository: Repository,
     attempt: dict[str, Any],
     *,
+    vault: LoadedVault | None = None,
     clock: Clock | None = None,
 ) -> None:
     """Typed §4.3 disposition for a primed repair attempt with NO episode.
@@ -727,19 +728,51 @@ def _record_unbound_primed_disposition(
         candidate_summary=candidate_summary,
         clock=clock,
     )
+    hypothesis_ids = [
+        str(row["id"])
+        for row in repository.causal_hypotheses_for_attempt(str(attempt["id"]))
+        if row.get("id")
+    ]
+    _repair_forecast(
+        vault, repository, attempt, repair_class_id=repair_class_id, hypothesis_ids=hypothesis_ids,
+        censor_reason="no_episode", clock=clock,
+    )
     record_causal_cold_outcome(
         repository,
         outcome="unmeasurable_no_held_out_surface",
         source_attempt_id=str(attempt["id"]),
         repair_class_id=repair_class_id,
-        hypothesis_ids=[
-            str(row["id"])
-            for row in repository.causal_hypotheses_for_attempt(str(attempt["id"]))
-            if row.get("id")
-        ],
+        hypothesis_ids=hypothesis_ids,
         servable_opportunity=False,
         detail={"stage": "schedule", "reason": "no_episode"},
         clock=clock,
+    )
+
+
+def _repair_forecast(
+    vault: LoadedVault | None,
+    repository: Repository,
+    attempt: Mapping[str, Any],
+    *,
+    repair_class_id: str | None,
+    hypothesis_ids: list[str] | tuple[str, ...] = (),
+    episode: Mapping[str, Any] | None = None,
+    task: Mapping[str, Any] | None = None,
+    censor_reason: str | None = None,
+    clock: Clock | None = None,
+) -> None:
+    """Saved diagnosis forecasts: the repair's predicted cold outcome, in the
+    primed attempt's transaction (bound to its cold task, or censored at birth
+    with the reason none was scheduled). ``vault`` None (replay, a regrade)
+    writes nothing; it never raises."""
+
+    if vault is None:
+        return
+    from learnloop.diagnosis.forecast_receipts import record_repair_expectation
+
+    record_repair_expectation(
+        vault, repository, attempt=attempt, repair_class_id=repair_class_id, hypothesis_ids=hypothesis_ids,
+        episode=episode, task=task, censor_reason=censor_reason, clock=clock,
     )
 
 
@@ -748,8 +781,13 @@ def record_remediation_attempt(
     attempt: dict[str, Any],
     *,
     clock: Clock | None = None,
+    vault: LoadedVault | None = None,
 ) -> None:
-    """Link treatment attempts and consume delayed tasks exactly once."""
+    """Link treatment attempts and consume delayed tasks exactly once.
+
+    ``vault`` (the live attempt step only; replay and a regrade pass none)
+    lets a scheduled cold check record its repair forecast.
+    """
 
     if attempt.get("primed"):
         episode = repository.open_remediation_episode_for_primed_item(
@@ -760,7 +798,7 @@ def record_remediation_attempt(
             # found no episode (the guided redo's held/blocked arm, or any
             # primed retry taken with the repair lane closed) must not vanish —
             # nothing downstream would ever say why no cold retry exists.
-            _record_unbound_primed_disposition(repository, attempt, clock=clock)
+            _record_unbound_primed_disposition(repository, attempt, vault=vault, clock=clock)
             return
         from learnloop.attempts.coldness_receipt import (
             LANE_REPAIR_COLD_RETRY,
@@ -830,6 +868,11 @@ def record_remediation_attempt(
                 "same_surface_only"
                 if cold_item_id
                 else "no_independent_surface"
+            )
+            _repair_forecast(
+                vault, repository, attempt, repair_class_id=None,
+                hypothesis_ids=[str(episode.get("case_ref") or "")] if episode.get("case_ref") else [],
+                episode=episode, censor_reason=reason, clock=clock,
             )
             candidate_summary = {
                 "primed_item_id": str(attempt["practice_item_id"]),
@@ -905,6 +948,10 @@ def record_remediation_attempt(
                 detail={"stage": "schedule", "reason": "no_repair_class"},
                 clock=clock,
             )
+            _repair_forecast(
+                vault, repository, attempt, repair_class_id=None, hypothesis_ids=[str(episode["case_ref"])],
+                episode=episode, censor_reason="no_repair_class", clock=clock,
+            )
             candidate_summary = {
                 "primed_item_id": str(attempt["practice_item_id"]),
                 "cold_item_id": cold_item_id,
@@ -930,7 +977,7 @@ def record_remediation_attempt(
             "primed_item_id": str(attempt["practice_item_id"]),
             "cold_item_id": cold_item_id,
         }
-        repository.create_followup_task(
+        task = repository.create_followup_task(
             kind="cold_retry",
             case_kind=episode["case_kind"],
             case_ref=episode["case_ref"],
@@ -944,6 +991,12 @@ def record_remediation_attempt(
             measurement_decision_reason="independent_surface_selected",
             measurement_candidate_summary=candidate_summary,
             clock=clock,
+        )
+        _repair_forecast(
+            vault, repository, attempt,
+            repair_class_id=str(context.get("repair_class_id") or "") or None,
+            hypothesis_ids=[str(value) for value in context.get("hypothesis_ids") or [] if value],
+            episode=episode, task=task, clock=clock,
         )
         return
 

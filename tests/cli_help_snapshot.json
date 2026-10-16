@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24777,
-    "sha256": "1bcc491baad75fa1e965a1110956e58c48e76f55ddc7b8eafd90196e0c074f8d"
+    "bytes": 24862,
+    "sha256": "d6118f4d6b98298394125dc2b6f69d8cff44836aca35672832db4728a3f1ce76"
   },
   "accept": {
     "bytes": 1593,
@@ -304,12 +304,16 @@
     "sha256": "65a2cdd72e5b330b6822cdbc18b5ab378cd086e16d799989956aa5a252cefb4d"
   },
   "diagnosis": {
-    "bytes": 1758,
-    "sha256": "d289dfcf577ce4f716f24a3b3bf4e7c4529ec6b6a45a8baa54a48d19ea4e5503"
+    "bytes": 2009,
+    "sha256": "2968d83c462debb215a9bcfeaa23ebc5f3c4392df19bd0708a3313284ac6ee0f"
   },
   "diagnosis adjudicate": {
     "bytes": 4360,
     "sha256": "4b1ecf61b40138f7a542d12e92dc692aabe3805706b18f6b03acdba97b9db126"
+  },
+  "diagnosis calibration": {
+    "bytes": 2036,
+    "sha256": "ed06cde607020e2938706f73f1e7118c9549e37806d35e62eb80fbe4eef6cecb"
   },
   "diagnosis queue": {
     "bytes": 2040,

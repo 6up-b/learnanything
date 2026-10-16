@@ -30,6 +30,7 @@ from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.forecast_receipts import record_diagnosis_forecasts
 from learnloop.diagnosis.split.diagnoser import DiagnosisOutcome, run_diagnosis
 from learnloop.diagnosis.split.live import (
     build_causal_view,
@@ -416,20 +417,29 @@ def _persist(
     values: dict[str, Any],
     clock: Clock | None,
     record: Any = None,
+    forecasts: Callable[[], Any] | None = None,
 ) -> str:
     """Write the diagnosis + receipt only while this worker still owns the job.
 
     A diagnosis with a summary records, in the same transaction, what its
     context showed the diagnoser (``record``: diagnosis input provenance,
     frozen when the context was built, ``provenance.frozen_record``); it
-    never names the diagnosis it belongs to."""
+    never names the diagnosis it belongs to.
+
+    ``forecasts`` (saved diagnosis forecasts) writes the diagnosis's forecast
+    receipts in the same transaction, after its row and before any outcome
+    can exist; it never raises.
+    """
 
     with repository.atomic():
         if not repository.owns_post_attempt_job(str(job["id"]), epoch=int(job["lease_epoch"])):
             raise _LeaseLost(str(job["id"]))
         record_diagnosis_reads(repository, diagnosis_id=diagnosis_id, proposal=values.get("proposal"),
                                record=record, clock=clock)
-        return repository.insert_attempt_diagnosis(diagnosis_id=diagnosis_id, clock=clock, **values)
+        row_id = repository.insert_attempt_diagnosis(diagnosis_id=diagnosis_id, clock=clock, **values)
+        if forecasts is not None:
+            forecasts()
+        return row_id
 
 
 def record_diagnosis_reads(repository: Repository, *, diagnosis_id: str, proposal: Mapping[str, Any] | None,
@@ -856,6 +866,9 @@ def _diagnose(
                 retriever.prepare([a for a in store.attempts_before(current.ref(), None) if a.non_pass])
         except Exception:  # noqa: BLE001 - S6
             retriever = None
+    # The newest state the diagnoser reads (its context is assembled from
+    # here on): a saved forecast's inputs_as_of.
+    started_at = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
             "id": new_ulid(),
@@ -866,7 +879,7 @@ def _diagnose(
             "prompt_template": "diagnosis",
             "prompt_version": DIAGNOSIS_PROMPT_VERSION,
             "output_schema": "DiagnosisProposal",
-            "started_at": utc_now_iso(clock),
+            "started_at": started_at,
             "status": "running",
         }
     )
@@ -951,7 +964,7 @@ def _diagnose(
             error_events=repository.raw_error_events_for_attempt(attempt_id),
             agent_run_id=agent_run_id,
         )
-    row_id = _persist(repository, job, diagnosis_id=diagnosis_id, values={
+    values = {
         **base_values,
         "agent_run_id": agent_run_id,
         "provider": result.provider,
@@ -964,7 +977,19 @@ def _diagnose(
         "receipt": _receipt_for_storage(result) if result.receipt else None,
         "error": result.error,
         "latency_seconds": round(time.monotonic() - started, 3),
-    }, clock=clock, record=result.record)
+    }
+
+    def forecasts() -> None:
+        # Saved diagnosis forecasts: what this diagnosis predicts for the next
+        # observation of each facet it explains, in its own transaction (the
+        # same one that records what its context showed it).
+        record_diagnosis_forecasts(
+            vault, repository, diagnosis_id=diagnosis_id, attempt=attempt, values=values, record=record,
+            inputs_as_of=started_at, clock=clock,
+        )
+
+    row_id = _persist(repository, job, diagnosis_id=diagnosis_id, values=values, clock=clock,
+                      record=result.record, forecasts=forecasts)
     return repository.attempt_diagnosis(row_id)
 
 

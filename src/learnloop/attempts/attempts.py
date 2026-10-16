@@ -2914,7 +2914,15 @@ def _apply_attempt_in_transaction(
     # `remediation_episodes` or `followup_tasks`.
     from learnloop.diagnosis.remediation import record_remediation_attempt
 
-    record_remediation_attempt(repository, application.attempt_record, clock=clock)
+    # Saved diagnosis forecasts: only the live step lets a scheduled cold check
+    # record its repair forecast; replay and a regrade re-apply a recorded
+    # attempt and write none.
+    record_remediation_attempt(
+        repository,
+        application.attempt_record,
+        clock=clock,
+        vault=None if attempt.replace_existing else vault,
+    )
     if attempt.record_probe_update:
         # Episode accounting owns probe advancement; `record_probe_attempt` is
         # kept only for pre-redesign replay. Belief updates and episode
