@@ -27,9 +27,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
-from learnloop.clock import Clock
+from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,71 @@ REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_
 #: ``answer_display`` (migration 179, mvp-0.13) is the expected answer itself,
 #: shown on a feedback screen.
 POST_ATTEMPT_REVEAL_KINDS = ("answer_display",)
+
+#: The basis of the full answer the desktop's plain feedback shows (UX Phase 4,
+#: Codex review F1), and of the full answer a plain self-grade shows, one per
+#: draft retry key (:func:`record_self_grade_disclosure_reveal`).
+FEEDBACK_FULL_ANSWER_BASIS = "feedback_full_answer"
+SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
+
+#: The ROUTINE full-answer displays: the plain surface shows the expected
+#: answer on every feedback and every plain self-grade (spec §7.5), not as an
+#: exception a learner asked for. An ``answer_display`` row whose basis starts
+#: with one of these counts against a later production only within
+#: :data:`ROUTINE_ANSWER_DISPLAY_HORIZON`.
+ROUTINE_ANSWER_DISPLAY_BASES = (f"{FEEDBACK_FULL_ANSWER_BASIS}:", f"{SELF_GRADE_DISCLOSURE_BASIS}:")
+
+#: How long a routine display counts: the cold retrieval delay
+#: (``diagnosis.remediation.COLD_RETRIEVAL_DELAY``, pinned equal by a test; not
+#: imported, so this module never loads the diagnosis package at import).
+#: Why a horizon (Codex review F1): the two readers here had none. Without
+#: one, a display shown on every feedback would prime EVERY later attempt on
+#: the item (a review a week later labelled "with help", never certifying)
+#: and make every later production on its learning object not independent
+#: (probes, placement checks), forever. Every other exposure reader already
+#: counts a reveal within this delay: the serving exclusions, the cold-task
+#: deferral and the independent-check rule (``instructional.exposure``). A
+#: retry or an unaided answer while the answer is fresh is caught; a review
+#: after the delay is a retrieval, as it was before the surface showed the
+#: answer. Every other reveal keeps its window exactly.
+ROUTINE_ANSWER_DISPLAY_HORIZON = timedelta(days=1)
+
+
+def is_routine_answer_display(row: Mapping[str, Any]) -> bool:
+    """Is this ledger row one of the plain surface's routine full-answer displays?"""
+
+    basis = row.get("basis")
+    return (
+        row.get("source_kind") == "answer_display"
+        and isinstance(basis, str)
+        and basis.startswith(ROUTINE_ANSWER_DISPLAY_BASES)
+    )
+
+
+def routine_display_lapsed_before(at: str | None) -> str | None:
+    """The instant (ledger timestamp format) before which a routine display no
+    longer counts against a production at ``at``; None when ``at`` is unknown
+    (nothing lapses: fail closed)."""
+
+    try:
+        parsed = parse_utc(at) if at else None
+    except ValueError:
+        return None
+    if parsed is None:
+        return None
+    cutoff = parsed - ROUTINE_ANSWER_DISPLAY_HORIZON
+    return cutoff.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
+    if cutoff is None or not is_routine_answer_display(row):
+        return False
+    try:
+        stamped = parse_utc(str(row.get("created_at") or "")) if row.get("created_at") else None
+        limit = parse_utc(cutoff)
+    except ValueError:
+        return False
+    return stamped is not None and limit is not None and stamped < limit
 
 
 def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> str | None:
@@ -138,7 +204,10 @@ def production_admissibility(
     in this LEARNING OBJECT — the same OR-widened target the coldness receipt
     scans, because a solution shown on a sibling item of the same LO is material
     exposure too. ``since`` defaults to open-ended: any reveal at all before the
-    production contaminates it, which is the fail-closed reading.
+    production contaminates it, which is the fail-closed reading. The one
+    exception is a routine full-answer display (:func:`is_routine_answer_display`),
+    which counts only within :data:`ROUTINE_ANSWER_DISPLAY_HORIZON` before the
+    production.
 
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
@@ -164,6 +233,11 @@ def production_admissibility(
             exc_info=True,
         )
         return ProductionAdmissibility(True, None)
+    # A routine full-answer display counts only within its horizon (Codex
+    # review F1): an unaided answer while it is fresh is not independent, one
+    # after the cold retrieval delay is again.
+    cutoff = routine_display_lapsed_before(produced_at)
+    reveals = [row for row in reveals if not _lapsed_routine_display(row, cutoff)]
     if not reveals:
         return ProductionAdmissibility(True, None)
     # Oldest first; the FIRST reveal is the one that broke independence, and
@@ -278,11 +352,6 @@ def record_answer_display_reveal(
     )
 
 
-#: The basis of the reveal a plain self-grade's full answer is settled under
-#: (UX Phase 4, Codex review F1), one per draft retry key.
-SELF_GRADE_DISCLOSURE_BASIS = "self_grade_disclosure"
-
-
 def record_self_grade_disclosure_reveal(
     repository: Repository,
     *,
@@ -304,10 +373,12 @@ def record_self_grade_disclosure_reveal(
       (:func:`record_answer_display_reveal`, once per attempt): it counts
       against the NEXT attempt, never against the trace frozen before it;
     * abandoned (no attempt under its retry key): an unlinked row stamped now,
-      so every later attempt on the item, and every later production on the
-      item or its learning object, was produced after the answer was seen.
+      so a later attempt on the item, and a later production on the item or
+      its learning object, was produced after the answer was seen.
 
-    Idempotent per retry key; best effort, like every writer here.
+    Either way it is a routine display (:data:`ROUTINE_ANSWER_DISPLAY_BASES`):
+    it counts within the cold retrieval delay. Idempotent per retry key; best
+    effort, like every writer here.
     """
 
     basis = f"{SELF_GRADE_DISCLOSURE_BASIS}:{submission_id}"

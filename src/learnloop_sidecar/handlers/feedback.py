@@ -648,11 +648,14 @@ def record_answer_display(ctx: SidecarContext, params: AttemptInput) -> dict[str
 
     The expected answer itself (amount 1.0), linked to the attempt whose
     feedback showed it (``reveal_ledger.record_answer_display_reveal``, the
-    TUI's worked-answer writer): the next attempt on the item is primed, and a
-    later unaided response is stamped as produced after the answer was seen.
+    TUI's worked-answer writer). It is a routine display, shown on every
+    feedback, so it counts within the cold retrieval delay
+    (``reveal_ledger.ROUTINE_ANSWER_DISPLAY_HORIZON``): a retry of the item in
+    that time is primed and an unaided response is not independent; a review
+    after it is a retrieval again.
     """
 
-    from learnloop.attempts.reveal_ledger import record_answer_display_reveal
+    from learnloop.attempts.reveal_ledger import FEEDBACK_FULL_ANSWER_BASIS, record_answer_display_reveal
 
     _vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
@@ -663,7 +666,7 @@ def record_answer_display(ctx: SidecarContext, params: AttemptInput) -> dict[str
         attempt_id=params.attempt_id,
         practice_item_id=str(attempt["practice_item_id"]),
         learning_object_id=str(attempt.get("learning_object_id") or "") or None,
-        basis="feedback_full_answer:desktop",
+        basis=f"{FEEDBACK_FULL_ANSWER_BASIS}:desktop",
     )
     return versioned({"recorded": True})
 

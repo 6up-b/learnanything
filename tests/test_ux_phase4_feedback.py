@@ -2,7 +2,11 @@
 
 The sidecar half of the phase. Everything here is display or learner-initiated
 bookkeeping that replay never reads, so it is a live change behind the
-``[ui] practice_feedback`` kill switch, with no algorithm successor:
+``[ui] practice_feedback`` kill switch, with no algorithm successor. The one
+write that later answers read is the reveal ledger's record of the full answer
+the plain surface shows (Codex review F1): an existing ledger, counted within
+the cold retrieval delay, read only at write time (replay keeps the recorded
+``primed`` and admissibility):
 
 * the switch itself reaches the app (``config_dto``);
 * the feedback bundle says when a grade is held for review (the surface shows
@@ -371,14 +375,29 @@ def _reveals(repository, **filters):
     return repository.reveal_events(practice_item_id=ITEM, **filters)
 
 
-def _next_attempt_primed(repository, *, submission_id=None, answer="a later answer") -> bool:
+def _next_attempt_primed(repository, *, submission_id=None, answer="a later answer", clock=None) -> bool:
     from learnloop.attempts.attempts import auto_primed_draft
 
     draft, _total = auto_primed_draft(
         repository,
         AttemptDraft(practice_item_id=ITEM, learner_answer_md=answer, submission_id=submission_id),
+        clock=clock,
     )
     return draft.primed
+
+
+def _later(**delta) -> FrozenClock:
+    """A clock ``delta`` after now (the ledger rows here are stamped now)."""
+
+    from datetime import UTC, datetime
+
+    return FrozenClock(datetime.now(UTC) + timedelta(**delta))
+
+
+def _iso(clock: FrozenClock) -> str:
+    from learnloop.clock import utc_now_iso
+
+    return utc_now_iso(clock)
 
 
 # -- F1: the full answer on feedback is an exposure ------------------------------------------
@@ -404,7 +423,7 @@ def test_f1_the_full_answer_shown_on_feedback_is_charged_once_to_the_reveal_ledg
     item = vault.practice_items[ITEM]
     later = production_admissibility(
         repository, practice_item_id=ITEM, learning_object_id=item.learning_object_id,
-        produced_at="2999-01-01T00:00:00Z",
+        produced_at=_iso(_later(hours=1)),
     )
     assert later.admissible is False
 
@@ -890,3 +909,152 @@ def test_f5_a_method_explicit_answer_keeps_its_question_key_and_rubric_together(
     assert bundle["answeredCriteria"] == {
         criterion.id: {"description": criterion.description, "pointsPossible": float(criterion.points)}
     }
+
+
+# -- F1: a routine full-answer display counts within the cold retrieval delay ----------------
+#
+# The plain surface shows the full answer on EVERY feedback (spec §7.5), so the
+# ledger's two readers that had no time bound would otherwise mark every later
+# attempt on the item "with help" (auto-prime) and every later production on
+# its learning object as not independent (probes, placement, eliciting), a week
+# later as much as a minute later. A routine display counts within the cold
+# retrieval delay, the horizon every other exposure reader already uses
+# (serving exclusions, cold-task deferral, the independent-check rule).
+
+
+def test_f1_the_routine_display_horizon_is_the_cold_retrieval_delay():
+    from learnloop.attempts.reveal_ledger import ROUTINE_ANSWER_DISPLAY_HORIZON
+    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+
+    assert ROUTINE_ANSWER_DISPLAY_HORIZON == COLD_RETRIEVAL_DELAY
+
+
+def _routine_display(ctx, display: str) -> None:
+    """One routine full-answer display on ITEM, stamped now."""
+
+    if display == "feedback":
+        attempt_id = _self_graded(ctx, points=0)
+        _call(ctx, "record_answer_display", {"attemptId": attempt_id})
+        return
+    session_id = _call(ctx, "start_session", {"availableMinutes": 20})["sessionId"]
+    _draft(ctx, session_id, submission_id="sub_r")
+    _disclose(ctx, session_id, submission_id="sub_r")
+    if display == "self_grade_committed":
+        _submit_self_graded(ctx, session_id, submission_id="sub_r")
+        _call(ctx, "acknowledge_practice_submission", {
+            "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "sub_r",
+        })
+    else:
+        _call(ctx, "clear_session_checkpoint", {"sessionId": session_id})
+
+
+@pytest.mark.parametrize("display", ["feedback", "self_grade_committed", "self_grade_abandoned"])
+def test_f1_a_routine_display_primes_a_retry_but_not_a_review_after_the_cold_delay(ctx, display):
+    _routine_display(ctx, display)
+    _vault, repository = ctx.require_vault()
+    assert len(_reveals(repository, source_kind="answer_display")) == 1
+
+    assert _next_attempt_primed(repository, clock=_later(hours=1))
+    assert _next_attempt_primed(repository, clock=_later(hours=23))
+    assert not _next_attempt_primed(repository, clock=_later(days=2))
+
+
+def _review_now(ctx) -> bool:
+    """A self-graded answer on ITEM submitted now (the real clock, as the app
+    submits); whether it was recorded primed."""
+
+    vault, repository = ctx.require_vault()
+    result = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md="U Sigma V^T", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
+    )
+    return bool(repository.fetch_practice_attempt(result.attempt_id)["primed"])
+
+
+@pytest.mark.parametrize(("ago", "primed"), [(timedelta(days=3), False), (timedelta(minutes=5), True)])
+def test_f1_a_review_after_the_cold_delay_is_recorded_unprimed_a_retry_before_it_primed(ctx, ago, primed):
+    """End to end: the earlier attempt and its feedback's full answer are
+    stamped ``ago``. A review the scheduler serves days later is a retrieval,
+    as every feedback before Phase 4 left it; the same answer minutes later is
+    a retry with the answer in view."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.attempts.reveal_ledger import FEEDBACK_FULL_ANSWER_BASIS, record_answer_display_reveal
+
+    vault, repository = ctx.require_vault()
+    then = FrozenClock(datetime.now(UTC) - ago)
+    earlier = complete_self_graded_attempt(
+        vault, repository,
+        AttemptDraft(practice_item_id=ITEM, learner_answer_md="my answer", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 0}, confidence=3),
+        clock=then,
+    ).attempt_id
+    record_answer_display_reveal(
+        repository, attempt_id=earlier, practice_item_id=ITEM,
+        learning_object_id=vault.practice_items[ITEM].learning_object_id,
+        basis=f"{FEEDBACK_FULL_ANSWER_BASIS}:desktop", clock=then,
+    )
+
+    assert _review_now(ctx) is primed
+
+
+@pytest.mark.parametrize("display", ["feedback", "self_grade_committed", "self_grade_abandoned"])
+@pytest.mark.parametrize("target", ["item", "sibling"])
+def test_f1_a_production_after_the_cold_delay_is_independent_again(ctx, display, target):
+    """An unaided production (an eliciting answer, a probe, a placement check)
+    on the item, or on another question of its learning object, is not
+    independent while the routine display is fresh, and is again once the
+    cold retrieval delay has passed."""
+
+    from learnloop.attempts.reveal_ledger import production_admissibility
+
+    vault, repository = ctx.require_vault()
+    _routine_display(ctx, display)
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+    item_id = ITEM if target == "item" else "pi_other_question"
+
+    def admissible(clock) -> bool:
+        return production_admissibility(
+            repository, practice_item_id=item_id, learning_object_id=learning_object_id,
+            produced_at=_iso(clock),
+        ).admissible
+
+    assert admissible(_later(hours=2)) is False
+    assert admissible(_later(days=2)) is True
+
+
+@pytest.mark.parametrize("kind", ["worked_answer", "tutor_answer"])
+def test_f1_other_reveals_keep_their_window(ctx, kind):
+    """Only the plain surface's routine displays lapse: the stuck answer's
+    worked answer (stuck-prompt F8) and every other reveal kind count exactly
+    as before, however long ago."""
+
+    from learnloop.attempts.reveal_ledger import (
+        production_admissibility,
+        record_answer_display_reveal,
+        record_reveal,
+    )
+
+    vault, repository = ctx.require_vault()
+    attempt_id = _self_graded(ctx, points=0)
+    learning_object_id = vault.practice_items[ITEM].learning_object_id
+    if kind == "worked_answer":
+        record_answer_display_reveal(
+            repository, attempt_id=attempt_id, practice_item_id=ITEM,
+            learning_object_id=learning_object_id, basis="worked_answer:stuck_empty:tui",
+        )
+    else:
+        # A few seconds after the attempt: an unlinked kind's window starts
+        # after the attempt's own second (stuck-prompt open question 5).
+        record_reveal(
+            repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+            source_kind="tutor_answer", amount=1.0, basis="tutor_answer", clock=_later(seconds=5),
+        )
+
+    assert _next_attempt_primed(repository, clock=_later(days=5))
+    assert production_admissibility(
+        repository, practice_item_id=ITEM, learning_object_id=learning_object_id,
+        produced_at=_iso(_later(days=5)),
+    ).admissible is False
