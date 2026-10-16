@@ -173,9 +173,15 @@ runs `run_diagnosis` end to end on the plan today.
 - Selectable per route (`[ai.routing] <route> = "chatgpt"`) and as the active
   provider (`[ai] active_provider = "chatgpt"`); the desktop's Settings
   already offers any generation profile. With `fallback_provider = "codex"`
-  an unpinned route uses Codex while the plan is signed out, paused or
-  disabled; a pinned route never falls back. Tested for grading, diagnosis,
-  tutor_qa, authoring, router_llm and same_cause_judge.
+  a route that reaches the plan through configuration (`[ai.routing]`,
+  `active_provider` or the grading default) uses Codex while the plan is
+  signed out, paused or disabled; only an explicit selection (a command's
+  named profile, such as `ai compare --profiles chatgpt`) or an environment
+  override (`LEARNLOOP_AI_PROVIDER`) never falls back (`fallback_provider_for`;
+  corrected after the Codex review, 2026-10-15: this said "a pinned route
+  never falls back", which an `[ai.routing]` entry does not satisfy). Tested
+  for grading, diagnosis, tutor_qa, authoring, router_llm and
+  same_cause_judge.
 - `client_for_provider` gives the plan the caller's whole-operation deadline.
 - Spend: billing `subscription` (Slice A plan §5 rule 6), cost estimated from
   the reported usage; every physical request (each workspace round) is a
@@ -196,15 +202,27 @@ learnloop ai compare --vault fixtures-local/<name> --profiles codex,chatgpt
 `diagnosis`). Per subscription profile: a few attempts blind-graded (the
 latest non-pass and pass first; `--attempt` to choose), one diagnosis
 (`snapshot` by default; `--diagnosis-attempt`, `--diagnosis-mode`), one
-teach-back authoring draft. Nothing is written but receipts. The report
-(ids and numbers only; `fixtures-local/reports/ai-compare/<stamp>.json`):
+teach-back authoring draft. Grading reads the contract production
+regrading reads (a method-explicit answer's frozen assessment contract);
+the draft is judged by the tutor's own validator. Nothing serving is
+written: the copy gets receipts and the comparison's verdicts in its
+`judgment_ledger` (tasks `ai_compare_grading` / `_diagnosis` /
+`_generation`, right side the profile; no serving reader names them). The
+report (ids, numbers and local explanations only;
+`fixtures-local/reports/ai-compare/<stamp>.json`):
 
-- per call: parsed, valid, error class and a 500-character reason, seconds,
-  physical requests, input/cached/output/reasoning tokens, answering models;
+- per call: parsed, valid, error class, a failure's code, HTTP status,
+  parameter name and request ids with a locally written hint (never the
+  provider's message), seconds, physical requests,
+  input/cached/output/reasoning tokens, answering models, receipt and
+  judgment ids, spend (planned and reported tokens, `estimated_only`);
   the diagnosis adds status, unknown ids, cited attempts, causal classes,
-  workspace rounds and files served; the generation its validity checks;
-- per profile: totals, median and max latency, tokens per call, and plan
-  allowance (ChatGPT plan pause state before and after, usage-limit code;
+  workspace rounds and files served; the generation the validator's
+  rejection sentence, if any;
+- per profile: totals, median and max latency, tokens per call, its
+  subscription spend budget (call cap = the plan, `estimated_only`, no
+  physical-request bound; every call admitted before it is sent and
+  reconciled with reported usage), and plan allowance (ChatGPT plan pause state before and after, usage-limit code;
   a usage-limit error stops that profile, its other calls marked `not_run`);
 - per pair: grading agreement (exact rate, mean |Δ|/max, criterion agreement,
   full-credit agreement), diagnosis agreement (same causal classes,
@@ -216,9 +234,15 @@ vaults), checked before the database is opened. The check fails closed: only
 git's "untracked" (exit 1) or "not a git repository" lets a vault through; a
 timeout, an OS error or any other git failure (dubious ownership, say) refuses
 it as a working vault (fixed on resume, 2026-10-15: it used to let those
-through). `--copy-from` makes a backup-API copy (also on a dry run) into a new
-directory outside the source; subscription profiles only; the call cap is the
-plan. `tee_model_calls` measures beside the command's receipt observer, so
+through); without git only the copy `--copy-from` just made passes.
+`--copy-from` makes a backup-API copy (also on a dry run) into a new
+directory outside the source, resolving the source's configured database
+first: one not named `*.sqlite` is backed up (never byte-copied with its
+`-wal`), one configured outside the source is backed up into the copy, and
+the copy's `storage.sqlite_path` then names its own database. A `--vault`
+whose database lies outside it is refused. Subscription profiles only; the
+dry run prints every planned call's token estimate in both output formats.
+`tee_model_calls` measures beside the command's receipt observer, so
 receipts still land in the copy.
 
 ## 6. Tests (fakes only; no live call in the gate)
@@ -235,13 +259,18 @@ receipts still land in the copy.
   workspace under `single_request()`, inline mode and its budget, a snapshot
   diagnosis end to end, the provenance mapping, routing (capability,
   deadline), Codex fallback while paused, disclosures, profile validation.
-- `tests/test_ai_compare.py` (11 cases): dry run sends nothing, a run on a
-  `--copy-from` copy (agreement, validity, latency, tokens, allowance;
-  original untouched, receipts in the copy, no learner text or model prose in
-  the report), a usage limit stopping a profile, a failed diagnosis keeping
-  its reason, the working-vault refusal and its fail-closed check (timeout,
-  other git failures), metered/unknown/non-generation profiles refused, copy
-  rules, the request meter counting only requests that were sent.
+- `tests/test_ai_compare.py` (25 cases): dry run sends nothing and
+  estimates every call (JSON and text; a generation-only run), a run on a
+  `--copy-from` copy (agreement, validity, latency, tokens, allowance, spend
+  admission and reconciliation, root receipts' declared caps, judgments in the
+  copy's ledger with serving state unchanged; original untouched, receipts in
+  the copy), a usage limit stopping a profile, a failed diagnosis keeping its
+  codes, the working-vault refusal and its fail-closed check (timeout, other
+  git failures, no git), metered/unknown/non-generation profiles refused, copy
+  rules, the request meter; and the Codex review's reproductions (an
+  external or `..` database relocated, a non-`.sqlite` WAL database backed up,
+  an outside database refused, five drafts the tutor rejects, refusal and 400
+  sentinels kept out of every output, the frozen contract).
 - The fake Responses server (`tests/chatgpt_plan_fakes.py`) enforces the
   route's tool contract: namespaced function tools only, hosted tools
   refused, `include` required, no input item with a stored id, reasoning
@@ -335,7 +364,7 @@ Then `learnloop config effective --vault <vault>`, `learnloop doctor --vault <va
 and `learnloop ai status chatgpt --vault <vault>` (lists the routes now on the
 plan). Unset routes (diagnosis, judges, router LLM, …) follow
 `active_provider` or grading. Kill switches: `enabled = false` on the profile
-(unpinned routes fall back to Codex), `learnloop ai signout chatgpt`
+(routed and unset routes fall back to Codex), `learnloop ai signout chatgpt`
 (machine-wide), or restore the lines above. A snapshot diagnosis on the plan
 needs no setting; `workspace_mode = "inline"` if the route ever rejects the
 tools.
