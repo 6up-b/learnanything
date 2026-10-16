@@ -94,7 +94,7 @@ describe("a 600-page book", () => {
     const placeMs: number[] = [];
     for (const page of parsed) {
       t = performance.now();
-      model.setPageText(page.page, page.items, page.transform);
+      model.setPageText(page.page, page.items, page.transform, page.styles);
       placeMs.push(performance.now() - t);
     }
 

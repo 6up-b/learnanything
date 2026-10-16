@@ -18,10 +18,16 @@ import { SELECTION_SETTLE_MS } from "./pdfSelection/usePdfSelection";
 import { SYNTHETIC_BLOCKS } from "./pdfSelection/testing/syntheticBook";
 import type { ParsedPage } from "./pdfSelection/testing/syntheticPdf";
 
-const { acquirePdfDocument } = vi.hoisted(() => ({ acquirePdfDocument: vi.fn() }));
+const { acquirePdfDocument, OPS } = vi.hoisted(() => ({
+  acquirePdfDocument: vi.fn(),
+  // pdf.js's operator ids for what a page's text draws with.
+  OPS: { save: 10, restore: 11, transform: 12, beginText: 31, endText: 32, setFont: 37, moveText: 40, setTextMatrix: 42, showText: 44 },
+}));
 vi.mock("./pdfDocumentCache", () => ({ acquirePdfDocument }));
 vi.mock("pdfjs-dist", () => ({
   GlobalWorkerOptions: {},
+  OPS,
+  AnnotationMode: { DISABLE: 0, ENABLE: 1 },
   TextLayer: class {
     render() {
       return Promise.resolve();
@@ -41,6 +47,7 @@ const GAP = 14;
 const pageTop = (page: number) => page * (PAGE_H + GAP);
 
 const renders: number[] = [];
+const cleanups: number[] = [];
 const fakeDoc = {
   numPages: 3,
   getPage: async (pageNumber: number) => ({
@@ -49,18 +56,19 @@ const fakeDoc = {
       height: PAGE_H * scale,
       transform: [scale, 0, 0, -scale, 0, PAGE_H * scale],
     }),
-    getTextContent: async () => ({ items: TEXT[pageNumber - 1].items, styles: {} }),
+    getTextContent: async () => ({ items: TEXT[pageNumber - 1].items, styles: TEXT[pageNumber - 1].styles }),
     render: () => {
       renders.push(pageNumber - 1);
       return { promise: Promise.resolve(), cancel() {} };
     },
     streamTextContent: () => ({}),
+    cleanup: () => cleanups.push(pageNumber - 1),
   }),
 };
 
 // The model the pane builds, built here the same way, to find where words are.
 const model = new SelectionModel(SYNTHETIC_BLOCKS);
-for (const page of TEXT) model.setPageText(page.page, page.items, page.transform);
+for (const page of TEXT) model.setPageText(page.page, page.items, page.transform, page.styles);
 
 function find(spanId: string, text: string, nth = 0): Pos {
   const block = model.blockIndex(spanId) as number;
@@ -84,6 +92,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", "cancelAnimationFrame"] });
   observed.length = 0;
   renders.length = 0;
+  cleanups.length = 0;
   acquirePdfDocument.mockResolvedValue({ doc: fakeDoc, pageTexts: new Map() });
   vi.stubGlobal("ResizeObserver", class {
     observe() {}
@@ -460,8 +469,198 @@ describe("highlights drawn from their anchors", () => {
   });
 });
 
+describe("Esc and Shift+Home/End (Codex review F6, F7)", () => {
+  it("Esc in the middle of a drag ends it: the release selects nothing, after a frame was drawn or before", async () => {
+    const { onTextSelection } = await open();
+    const from = at("s2", "quick");
+    const to = at("s2", "lazy");
+    // After a frame was drawn: the drag is painted, then Esc.
+    fireEvent.mouseDown(pageEl(0), { ...from, button: 0, detail: 1 });
+    fireEvent.mouseMove(window, { clientX: to.clientX, clientY: to.clientY });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16);
+    });
+    expect(document.querySelectorAll("[data-pdf-page='0'] [data-pdf-selection-rect]").length).toBeGreaterThan(0);
+    fireEvent.keyDown(document.activeElement ?? window, { key: "Escape" });
+    await flush();
+    expect(document.querySelectorAll("[data-pdf-selection-rect]")).toHaveLength(0);
+    fireEvent.mouseMove(window, { clientX: to.clientX + 40, clientY: to.clientY });
+    fireEvent.mouseUp(window, to);
+    await flush(SELECTION_SETTLE_MS * 2);
+    expect(onTextSelection).not.toHaveBeenCalled();
+    expect(document.querySelectorAll("[data-pdf-selection-rect]")).toHaveLength(0);
+    // Before the first frame: Esc while the first move's frame is still pending.
+    fireEvent.mouseDown(pageEl(0), { ...from, button: 0, detail: 1 });
+    fireEvent.mouseMove(window, { clientX: to.clientX, clientY: to.clientY });
+    fireEvent.keyDown(document.activeElement ?? window, { key: "Escape" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(16);
+    });
+    fireEvent.mouseUp(window, to);
+    await flush(SELECTION_SETTLE_MS * 2);
+    expect(onTextSelection).not.toHaveBeenCalled();
+    expect(document.querySelectorAll("[data-pdf-selection-rect]")).toHaveLength(0);
+    // The pages still select afterwards.
+    await drag(from, to);
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("quick brown fox jumps over the lazy");
+  });
+
+  it("Esc in the middle of an Alt sweep ends it, wherever the keyboard is", async () => {
+    const { onTextSelection } = await open();
+    const from = at("s2", "quick");
+    fireEvent.mouseDown(pageEl(0), { ...from, button: 0, detail: 1, altKey: true });
+    fireEvent.mouseMove(window, at("s3", "begins"));
+    await flush();
+    expect(document.querySelectorAll("[data-pdf-selection-rect]").length).toBeGreaterThan(0);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await flush();
+    fireEvent.mouseUp(window, at("s3", "begins"));
+    await flush(SELECTION_SETTLE_MS * 2);
+    expect(onTextSelection).not.toHaveBeenCalled();
+    expect(document.querySelectorAll("[data-pdf-selection-rect]")).toHaveLength(0);
+  });
+
+  it("from a click on a word, the first Shift+Home selects to the line's start and Shift+End to its end", async () => {
+    const { onTextSelection, container } = await open();
+    const pane = container.querySelector<HTMLElement>("[role='document']")!;
+    // "The quick brown fox jumps over" is the first line of s2.
+    const point = at("s2", "fox");
+    fireEvent.mouseDown(pageEl(0), { ...point, button: 0, detail: 1 });
+    fireEvent.mouseUp(window, point);
+    await flush();
+    fireEvent.keyDown(pane, { key: "Home", shiftKey: true });
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("The quick brown fox");
+    fireEvent.mouseDown(pageEl(0), { ...point, button: 0, detail: 1 });
+    fireEvent.mouseUp(window, point);
+    await flush();
+    fireEvent.keyDown(pane, { key: "End", shiftKey: true });
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("fox jumps over");
+    // Shift+Right from a caret still takes the word at it first.
+    fireEvent.mouseDown(pageEl(0), { ...point, button: 0, detail: 1 });
+    fireEvent.mouseUp(window, point);
+    await flush();
+    fireEvent.keyDown(pane, { key: "ArrowRight", shiftKey: true });
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("fox");
+  });
+});
+
+describe("a highlight running over a page break (Codex review F5)", () => {
+  const s3 = SYNTHETIC_BLOCKS.find((block) => block.spanId === "s3")!.text!;
+  const s5 = SYNTHETIC_BLOCKS.find((block) => block.spanId === "s5")!.text!;
+  const ACROSS: PdfHighlight[] = [
+    {
+      id: "over",
+      kind: "question",
+      state: "here",
+      segments: [
+        { spanId: "s3", start: s3.indexOf("careful"), end: s3.length },
+        { spanId: "s5", start: 0, end: s5.indexOf("page,") + 5 },
+      ],
+      flagSpanId: null,
+      quote: "careful reader reads after the whole left column. Continuing on the next page,",
+      note: "",
+    },
+  ];
+
+  it("a click on its part on the next page opens its chip there, above that part", async () => {
+    const { onHighlightOpen, onHighlightRemove, getByText } = await open({ highlights: ACROSS });
+    const point = at("s5", "next");
+    fireEvent.mouseDown(pageEl(1), { ...point, button: 0, detail: 1 });
+    fireEvent.mouseUp(window, point);
+    await flush();
+    const chip = document.querySelector<HTMLElement>("[data-pdf-page='1'] [data-highlight-chip='over']");
+    expect(chip).not.toBeNull();
+    expect(document.querySelector("[data-pdf-page='0'] [data-highlight-chip]")).toBeNull();
+    // Above the clicked line, on page 1.
+    const part = document.querySelector<HTMLElement>("[data-pdf-page='1'] [data-pdf-highlight='over']")!;
+    expect(parseFloat(chip!.style.top)).toBeLessThanOrEqual(parseFloat(part.style.top) + 1);
+    fireEvent.click(getByText("open note"));
+    expect(onHighlightOpen).toHaveBeenCalledWith("over");
+    fireEvent.click(getByText("remove"));
+    expect(onHighlightRemove).toHaveBeenCalledWith("over");
+  });
+
+  it("each page it is drawn on has its keyboard stop: Tab reaches the part in view, Enter and Delete act on it", async () => {
+    const { onHighlightOpen, onHighlightRemove } = await open({ highlights: ACROSS });
+    const first = document.querySelector<HTMLElement>("[data-pdf-page='0'] [data-highlight-stop='over']")!;
+    const next = document.querySelector<HTMLElement>("[data-pdf-page='1'] [data-highlight-stop='over']")!;
+    expect(first).not.toBeNull();
+    expect(next).not.toBeNull();
+    expect(first.hasAttribute("data-highlight-continued")).toBe(false);
+    expect(next.hasAttribute("data-highlight-continued")).toBe(true);
+    expect(next.getAttribute("aria-label")).toContain("continued from the page before");
+    // Page 0 leaves the view: page 1's stop is still there.
+    const page0 = observed.find((entry) => entry.node === pageEl(0))!;
+    page0.callback([{ isIntersecting: false, target: page0.node } as unknown as IntersectionObserverEntry], {} as IntersectionObserver);
+    await flush();
+    const stop = document.querySelector<HTMLElement>("[data-pdf-page='1'] [data-highlight-stop='over']")!;
+    act(() => stop.focus());
+    await flush();
+    expect(document.querySelector("[data-pdf-page='1'] [data-highlight-chip='over']")).not.toBeNull();
+    fireEvent.keyDown(stop, { key: "Enter" });
+    expect(onHighlightOpen).toHaveBeenCalledWith("over");
+    fireEvent.keyDown(stop, { key: "Delete" });
+    expect(onHighlightRemove).toHaveBeenCalledWith("over");
+  });
+});
+
+describe("words where the page paints them (Codex review F1)", () => {
+  // A line in a monospaced embedded font that pdf.js calls sans-serif (no
+  // fixed-pitch flag): every glyph 600 units, 6 pt at 10 pt, so the words are
+  // at 72-132, 138-198 and 204-222. Split by sans-serif widths, x = 102
+  // would fall in the second word.
+  const LINE = "iiiiiiiiii WWWWWWWWWW end";
+  const BLOCKS = [{ spanId: "m1", page: 0, bbox: [71, 91, 300, 103], blockType: "Text", text: LINE }];
+  const opCalls: unknown[] = [];
+  const monoDoc = {
+    numPages: 1,
+    getPage: async () => ({
+      getViewport: ({ scale }: { scale: number }) => ({ width: PAGE_W * scale, height: PAGE_H * scale, transform: [scale, 0, 0, -scale, 0, PAGE_H * scale] }),
+      getTextContent: async () => ({
+        items: [{ str: LINE, transform: [10, 0, 0, 10, 72, PAGE_H - 100], width: 150, height: 10, hasEOL: false, fontName: "g_mono" }],
+        styles: { g_mono: { fontFamily: "sans-serif" } },
+      }),
+      getOperatorList: async (options: unknown) => {
+        opCalls.push(options);
+        return {
+          fnArray: [OPS.beginText, OPS.setFont, OPS.moveText, OPS.showText, OPS.endText],
+          argsArray: [null, ["g_mono", 10], [72, PAGE_H - 100], [Array.from(LINE, (ch) => ({ unicode: ch, width: 600, isSpace: ch === " " }))], null],
+        };
+      },
+      commonObjs: { has: () => true, get: () => ({}) },
+      render: () => ({ promise: Promise.resolve(), cancel() {} }),
+      streamTextContent: () => ({}),
+    }),
+  };
+
+  it("once a page is drawn, a click inside a word selects that word, whatever its font", async () => {
+    opCalls.length = 0;
+    acquirePdfDocument.mockResolvedValue({ doc: monoDoc, pageTexts: new Map() });
+    const { onTextSelection } = await open({ blocks: BLOCKS });
+    // Read once, annotations left out (their appearances are not the page's text).
+    expect(opCalls).toEqual([{ annotationMode: 0 }]);
+    const point = { clientX: 102, clientY: pageTop(0) + 97 };
+    fireEvent.mouseDown(pageEl(0), { ...point, button: 0, detail: 2 });
+    fireEvent.mouseUp(window, point);
+    await flush(SELECTION_SETTLE_MS);
+    expect(lastSelection(onTextSelection).nodes[0].quote).toBe("iiiiiiiiii");
+    // The selection is painted on the word's own glyphs.
+    const rect = document.querySelector<HTMLElement>("[data-pdf-page='0'] [data-pdf-selection-rect]")!;
+    expect(parseFloat(rect.style.left) + 1).toBeCloseTo(72, 1);
+    expect(parseFloat(rect.style.width) - 2).toBeCloseTo(60, 1);
+    // A redraw at another zoom keeps them and does not read the list again.
+    fireEvent.click(screen.getByText("+"));
+    await flush(50);
+    expect(opCalls).toHaveLength(1);
+  });
+});
+
 describe("only pages near the view are drawn", () => {
-  it("a page leaving the view gives back its canvas and its layer; its size stays", async () => {
+  it("a page leaving the view gives back its canvas, its layer and what pdf.js read to draw it; its size stays", async () => {
     await open();
     expect(document.querySelectorAll("[data-pdf-layer]")).toHaveLength(3);
     const canvas = pageEl(0).querySelector("canvas")!;
@@ -471,6 +670,7 @@ describe("only pages near the view are drawn", () => {
     await flush();
     expect(canvas.width).toBe(0);
     expect(pageEl(0).querySelector("[data-pdf-layer]")).toBeNull();
+    expect(cleanups).toEqual([0]);
     expect(parseFloat(pageEl(0).style.height)).toBeCloseTo(PAGE_H, 3);
     // Back near the view: drawn again.
     first.callback([{ isIntersecting: true, target: first.node } as unknown as IntersectionObserverEntry], {} as IntersectionObserver);

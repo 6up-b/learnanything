@@ -33,7 +33,8 @@ import { COLOR, Faint, FONT_MONO } from "./term";
 import { acquirePdfDocument } from "./pdfDocumentCache";
 import { pagesLeftOutLabel, pagesShownLabel, pagesToShow } from "./pdfPages";
 import { highlightAt, highlightsOnPage, placeHighlights, type HighlightOnPage, type PdfHighlight } from "./pdfSelection/highlights";
-import { blockAt, rangeRects, SelectionModel, type Box, type GlyphItem, type SelectionPayload } from "./pdfSelection/model";
+import { operatorWords, type PdfFontInfo } from "./pdfSelection/geometry";
+import { blockAt, rangeRects, SelectionModel, type Box, type GlyphItem, type GlyphWord, type SelectionPayload, type TextStyles } from "./pdfSelection/model";
 import { PdfSelectionLayer } from "./pdfSelection/PdfSelectionLayer";
 import { usePdfSelection, type HeldSelection, type PagePoint } from "./pdfSelection/usePdfSelection";
 
@@ -498,9 +499,19 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   const model = useMemo(() => new SelectionModel(blocks), [blocks]);
   const [modelVersion, setModelVersion] = useState(0);
   const onPageText = useCallback(
-    (page: number, items: readonly GlyphItem[], transform: readonly number[]) => {
+    (page: number, items: readonly GlyphItem[], transform: readonly number[], styles?: TextStyles | null) => {
       if (model.hasPageText(page)) return;
-      model.setPageText(page, items, transform);
+      model.setPageText(page, items, transform, styles);
+      setModelVersion((version) => version + 1);
+    },
+    [model],
+  );
+  // Where the page paints each glyph (its operator list): the words move to
+  // their exact places once, after the page is first drawn (Codex review F1).
+  const onPageGlyphs = useCallback(
+    (page: number, words: readonly GlyphWord[]) => {
+      if (model.hasPageGlyphs(page)) return;
+      model.setPageGlyphs(page, words);
       setModelVersion((version) => version + 1);
     },
     [model],
@@ -554,12 +565,21 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
   const placed = useMemo(() => placeHighlights(model, highlights), [model, highlights]);
   const details = useMemo(() => new Map(highlights.map((highlight) => [highlight.id, highlight] as const)), [highlights]);
   const [hoveredHighlight, setHoveredHighlight] = useState<string | null>(null);
-  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
+  // The open highlight, and where: the page and point clicked (its chip goes
+  // above that part), or the page whose keyboard stop has the focus.
+  const [activeHighlight, setActiveHighlight] = useState<ActiveHighlight | null>(null);
+  const activeId = activeHighlight?.id ?? null;
   // A removed highlight cannot stay open or lit.
   useEffect(() => {
-    if (activeHighlight && !details.has(activeHighlight)) setActiveHighlight(null);
+    if (activeHighlight && !details.has(activeHighlight.id)) setActiveHighlight(null);
     if (hoveredHighlight && !details.has(hoveredHighlight)) setHoveredHighlight(null);
   }, [details, activeHighlight, hoveredHighlight]);
+  const onHighlightClick = useCallback((id: string | null, point?: PagePoint) => {
+    setActiveHighlight(id && point ? { id, page: point.page, at: { x: point.x, y: point.y } } : null);
+  }, []);
+  const onHighlightFocus = useCallback((id: string | null, page: number) => {
+    setActiveHighlight(id ? { id, page, at: null } : null);
+  }, []);
 
   // Each near page's highlight boxes; an unchanged page keeps its array, so
   // its layer does not redraw.
@@ -616,7 +636,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     onTextSelection,
     onSelectionCleared,
     highlightAt: highlightAtPoint,
-    onHighlightClick: setActiveHighlight,
+    onHighlightClick,
     firstShownPage,
     revealBlock,
   });
@@ -713,15 +733,15 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     (event: React.KeyboardEvent) => {
       const target = event.target as HTMLElement;
       const editing = target.isContentEditable || Boolean(target.closest?.("input, textarea, select"));
-      if (!editing && activeHighlight && target === containerRef.current) {
+      if (!editing && activeId && target === containerRef.current) {
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
-          removeHighlight(activeHighlight);
+          removeHighlight(activeId);
           return;
         }
         if (event.key === "Enter") {
           event.preventDefault();
-          openHighlight(activeHighlight);
+          openHighlight(activeId);
           return;
         }
         if (event.key === "Escape") {
@@ -732,7 +752,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       }
       sel.onKeyDown(event);
     },
-    [activeHighlight, removeHighlight, openHighlight, sel],
+    [activeId, removeHighlight, openHighlight, sel],
   );
 
   // Right-click → tag menu: on the painted selection it tags the selection;
@@ -874,6 +894,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 size={sizes?.get(page) ?? null}
                 model={model}
                 onPageText={onPageText}
+                onPageGlyphs={onPageGlyphs}
                 onNearChange={onNearChange}
                 registerPage={registerPage}
                 blocks={blocksByPage.get(page) ?? NO_BLOCKS}
@@ -887,10 +908,11 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 highlights={onPage}
                 details={details}
                 hovered={hoveredHighlight && onPage.some((entry) => entry.id === hoveredHighlight) ? hoveredHighlight : null}
-                active={activeHighlight && onPage.some((entry) => entry.id === activeHighlight) ? activeHighlight : null}
+                active={activeId && onPage.some((entry) => entry.id === activeId) ? activeId : null}
+                chip={activeHighlight && activeHighlight.page === page && onPage.some((entry) => entry.id === activeHighlight.id) ? activeHighlight : null}
                 marqueeRects={marqueeByPage.get(page) ?? NO_MARQUEE}
                 marqueeDraft={sel.marqueeDraft && sel.marqueeDraft.page === page ? sel.marqueeDraft.rect : null}
-                onHighlightFocus={setActiveHighlight}
+                onHighlightFocus={onHighlightFocus}
                 onHighlightOpen={onHighlightOpen ? openHighlight : undefined}
                 onHighlightRemove={onHighlightRemove ? removeHighlight : undefined}
               />
@@ -938,6 +960,54 @@ function ZoomButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
+/** How long a page's operator list waits for one of its fonts. */
+const FONT_WAIT_MS = 3_000;
+
+/** The page's words where its glyphs are painted (`operatorWords`), or null
+ *  when its operator list cannot be read (the text content's words stay).
+ *  Annotations are left out: their appearances are not the page's text. */
+async function paintedWords(
+  page: { getOperatorList: (options?: { annotationMode?: number }) => Promise<{ fnArray: number[]; argsArray: unknown[] }>; commonObjs?: unknown },
+  transform: readonly number[],
+): Promise<GlyphWord[] | null> {
+  try {
+    const ops = (pdfjs as { OPS?: Record<string, number> }).OPS;
+    if (!ops) return null;
+    const annotationMode = (pdfjs as { AnnotationMode?: { DISABLE?: number } }).AnnotationMode?.DISABLE;
+    const opList = await page.getOperatorList(annotationMode === undefined ? undefined : { annotationMode });
+    const objects = page.commonObjs as
+      | { has: (id: string) => boolean; get: ((id: string) => unknown) & ((id: string, callback: (data: unknown) => void) => unknown) }
+      | undefined;
+    const fonts = new Map<string, PdfFontInfo | null>();
+    for (let index = 0; index < opList.fnArray.length; index++) {
+      if (opList.fnArray[index] !== ops.setFont) continue;
+      const name = String((opList.argsArray[index] as unknown[] | undefined)?.[0] ?? "");
+      if (!name || fonts.has(name)) continue;
+      let font: unknown = null;
+      if (objects) {
+        font = objects.has(name)
+          ? objects.get(name)
+          : await Promise.race([
+              new Promise<unknown>((resolve) => objects.get(name, resolve)),
+              new Promise<null>((resolve) => window.setTimeout(() => resolve(null), FONT_WAIT_MS)),
+            ]);
+      }
+      fonts.set(name, font && typeof font === "object" ? (font as PdfFontInfo) : null);
+    }
+    return operatorWords(opList, ops, (name) => fonts.get(name) ?? null, transform);
+  } catch {
+    return null;
+  }
+}
+
+/** The open highlight: where its chip shows (the page, and the point
+ *  clicked in it, or null when its keyboard stop there has the focus). */
+interface ActiveHighlight {
+  id: string;
+  page: number;
+  at: { x: number; y: number } | null;
+}
+
 function isGlyphItem(item: unknown): item is GlyphItem {
   return typeof item === "object" && item !== null && "str" in item && "transform" in item;
 }
@@ -953,7 +1023,8 @@ interface PdfPageProps {
   /** The page's own size, read with the document: its placeholder's shape before it is drawn. */
   size: PageGeometry | null;
   model: SelectionModel;
-  onPageText: (page: number, items: readonly GlyphItem[], transform: readonly number[]) => void;
+  onPageText: (page: number, items: readonly GlyphItem[], transform: readonly number[], styles?: TextStyles | null) => void;
+  onPageGlyphs: (page: number, words: readonly GlyphWord[]) => void;
   onNearChange: (page: number, near: boolean) => void;
   registerPage: (page: number, element: HTMLElement | null) => void;
   blocks: ReaderPdfBlockDto[];
@@ -968,9 +1039,10 @@ interface PdfPageProps {
   details: ReadonlyMap<string, PdfHighlight>;
   hovered: string | null;
   active: string | null;
+  chip: ActiveHighlight | null;
   marqueeRects: readonly number[][];
   marqueeDraft: number[] | null;
-  onHighlightFocus: (id: string | null) => void;
+  onHighlightFocus: (id: string | null, page: number) => void;
   onHighlightOpen?: (id: string) => void;
   onHighlightRemove?: (id: string) => void;
 }
@@ -982,6 +1054,7 @@ const PdfPage = memo(function PdfPage({
   size,
   model,
   onPageText,
+  onPageGlyphs,
   onNearChange,
   registerPage,
   blocks,
@@ -996,6 +1069,7 @@ const PdfPage = memo(function PdfPage({
   details,
   hovered,
   active,
+  chip,
   marqueeRects,
   marqueeDraft,
   onHighlightFocus,
@@ -1057,10 +1131,10 @@ const PdfPage = memo(function PdfPage({
           }
         }
         if (cancelled) return;
+        const items: GlyphItem[] = [];
         if (content && Array.isArray(base.transform)) {
-          const items: GlyphItem[] = [];
           for (const item of content.items as unknown[]) if (isGlyphItem(item)) items.push(item);
-          onPageText(pageIndex, items, base.transform);
+          onPageText(pageIndex, items, base.transform, (content as { styles?: TextStyles }).styles ?? null);
         }
         else if (!model.hasPageText(pageIndex)) onPageText(pageIndex, [], base.transform ?? [1, 0, 0, -1, 0, base.height]);
         if (renderedKeyRef.current === renderKey) return;
@@ -1097,6 +1171,19 @@ const PdfPage = memo(function PdfPage({
             : { widthPoints: base.width, heightPoints: base.height },
         );
         setDrawn(true);
+        // Drawn: now where each glyph is painted, read once per page. Only a
+        // page whose text runs hold several words needs it (a run of one word
+        // is already where it is drawn: an OCR'd scan's text layer).
+        if (
+          !model.hasPageGlyphs(pageIndex) &&
+          Array.isArray(base.transform) &&
+          typeof page.getOperatorList === "function" &&
+          items.some((item) => /\S\s+\S/.test(item.str))
+        ) {
+          const words = await paintedWords(page, base.transform);
+          if (cancelled || !words) return;
+          onPageGlyphs(pageIndex, words);
+        }
       } catch (error) {
         if (!cancelled && !isCancelled(error)) console.error(`pdf page ${pageIndex} render failed`, error);
       }
@@ -1105,12 +1192,16 @@ const PdfPage = memo(function PdfPage({
       cancelled = true;
       task?.cancel?.();
     };
-  }, [near, doc, pageIndex, widthPx, model, onPageText]);
+  }, [near, doc, pageIndex, widthPx, model, onPageText, onPageGlyphs]);
 
   // Far from the view: the canvas's pixels and the text layer go (a 600-page
-  // book keeps only the pages near the view drawn). Its size stays.
+  // book keeps only the pages near the view drawn). Its size stays. What
+  // pdf.js read to draw it (its operator lists, the one the words were placed
+  // from among them, and its images) goes too, as pdf.js's own viewer lets it
+  // go: drawn again, the page is read again; its words stay placed.
   useEffect(() => {
     if (near) return;
+    const wasDrawn = renderedKeyRef.current !== null;
     const canvas = canvasRef.current;
     if (canvas && (canvas.width || canvas.height)) {
       canvas.width = 0;
@@ -1119,6 +1210,14 @@ const PdfPage = memo(function PdfPage({
     textRef.current?.replaceChildren();
     renderedKeyRef.current = null;
     setDrawn(false);
+    if (wasDrawn) {
+      void doc
+        .getPage(pageIndex + 1)
+        .then((page) => (page as { cleanup?: () => unknown }).cleanup?.())
+        .catch(() => undefined);
+    }
+    // Released on leaving the view only (doc and page are fixed for a page).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [near]);
 
   // Mark text-layer spans containing the find query (case-insensitive). The
@@ -1195,6 +1294,7 @@ const PdfPage = memo(function PdfPage({
           details={details}
           hovered={hovered}
           active={active}
+          chip={chip}
           marqueeRects={marqueeRects}
           marqueeDraft={marqueeDraft}
           onHighlightFocus={onHighlightFocus}

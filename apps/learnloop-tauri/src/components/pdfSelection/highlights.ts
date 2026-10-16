@@ -78,7 +78,10 @@ export interface HighlightOnPage {
   kind: string;
   state: HighlightState;
   rects: Box[];
-  /** The highlight starts on this page (its label and keyboard stop go here). */
+  /** The highlight starts on this page; false where it runs on from an
+   *  earlier one (its keyboard stop there says so). Every page it is drawn
+   *  on has its own stop, and a click on any part opens its chip there
+   *  (Codex review F5). */
   starts: boolean;
 }
 
@@ -98,6 +101,26 @@ export function highlightsOnPage(model: SelectionModel, placed: readonly PlacedH
     out.push({ id: highlight.id, kind: highlight.kind, state: highlight.state, rects, starts: model.blocks[first]?.page === page });
   }
   return out;
+}
+
+/** Where a highlight's chip goes on a page: above the part the learner
+ *  clicked (the box holding the point, else the nearest), or above its first
+ *  part there when it was reached from the keyboard. */
+export function chipRect(entry: Pick<HighlightOnPage, "rects">, at: { x: number; y: number } | null): Box | null {
+  if (!entry.rects.length) return null;
+  if (!at) return entry.rects[0];
+  let best = entry.rects[0];
+  let bestDistance = Infinity;
+  for (const rect of entry.rects) {
+    const dx = at.x < rect[0] ? rect[0] - at.x : at.x > rect[2] ? at.x - rect[2] : 0;
+    const dy = at.y < rect[1] ? rect[1] - at.y : at.y > rect[3] ? at.y - rect[3] : 0;
+    const distance = Math.hypot(dx, dy);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = rect;
+    }
+  }
+  return best;
 }
 
 /** The highlight under a point on a page (the most recent one when several
@@ -138,11 +161,12 @@ export function stateLabel(state: HighlightState): string | null {
   return null;
 }
 
-/** The accessible name of a highlight's keyboard stop. */
-export function highlightAriaLabel(highlight: Pick<PdfHighlight, "kind" | "state" | "quote" | "note">): string {
+/** The accessible name of a highlight's keyboard stop (`continued`: its
+ *  stop on a page it runs on to). */
+export function highlightAriaLabel(highlight: Pick<PdfHighlight, "kind" | "state" | "quote" | "note">, continued = false): string {
   const quote = highlight.quote.replace(/\s+/g, " ").trim();
   const clipped = quote.length > 80 ? `${quote.slice(0, 80)}…` : quote;
-  const parts = [kindLabel(highlight.kind)];
+  const parts = [continued ? `${kindLabel(highlight.kind)}, continued from the page before` : kindLabel(highlight.kind)];
   if (clipped) parts.push(`“${clipped}”`);
   const state = stateLabel(highlight.state);
   if (state) parts.push(state);

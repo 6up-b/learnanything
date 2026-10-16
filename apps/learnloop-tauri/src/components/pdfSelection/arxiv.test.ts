@@ -30,7 +30,7 @@ let synthetic: SelectionModel;
 beforeAll(async () => {
   model = new SelectionModel(arxiv.blocks);
   synthetic = new SelectionModel(SYNTHETIC_BLOCKS);
-  for (const page of await readPdf(buildPdf(SYNTHETIC_PAGES))) synthetic.setPageText(page.page, page.items, page.transform);
+  for (const page of await readPdf(buildPdf(SYNTHETIC_PAGES))) synthetic.setPageText(page.page, page.items, page.transform, page.styles);
 });
 
 function find(on: SelectionModel, spanId: string, text: string, nth = 0): Pos {

@@ -15,8 +15,11 @@
 // - region boxes (selection paint, saved highlights) come from the model's
 //   word boxes, never from screen coordinates, so they survive zoom, resize,
 //   reload and a re-read (an anchor placed on the open reading).
-// Pages' word boxes arrive as pages are drawn (`setPageText`); until then a
-// block's words are laid out by estimate, so keyboard moves work everywhere.
+// Pages' word boxes arrive as pages are drawn: first from the page's text
+// content (`setPageText`, its runs split by their font family's widths), then
+// from where each glyph is painted (`setPageGlyphs`, the operator list); until
+// then a block's words are laid out by estimate, so keyboard moves work
+// everywhere.
 
 import type { ReaderPdfBlockDto } from "../../api/dto";
 import {
@@ -28,10 +31,12 @@ import {
   type BlockGeometry,
   type Box,
   type GlyphItem,
+  type GlyphWord,
+  type TextStyles,
 } from "./geometry";
 import { cleanText, FURNITURE_TYPES, fromCodepoint, isAtomicType, keyOf, toCodepoint, tokenize, type Token } from "./tokens";
 
-export type { Box, GlyphItem } from "./geometry";
+export type { Box, GlyphItem, GlyphWord, TextStyles } from "./geometry";
 
 export interface SelBlock {
   index: number;
@@ -93,6 +98,8 @@ export class SelectionModel {
   private readonly bySpan = new Map<string, number>();
   private readonly tokenCache = new Map<number, Token[]>();
   private readonly pageGeometry = new Map<number, Map<number, BlockGeometry>>();
+  /** Pages whose words are placed from their painted glyphs. */
+  private readonly painted = new Set<number>();
   private readonly estimated = new Map<number, BlockGeometry>();
 
   constructor(source: readonly ReaderPdfBlockDto[]) {
@@ -161,10 +168,28 @@ export class SelectionModel {
     return this.pageGeometry.has(page);
   }
 
+  /** Whether the page's words are placed from its painted glyphs. */
+  hasPageGlyphs(page: number): boolean {
+    return this.painted.has(page);
+  }
+
   /** The page's text content arrived (it is being drawn): place its blocks'
-   *  words on it. `viewportTransform` is the page viewport's at scale 1. */
-  setPageText(page: number, items: readonly GlyphItem[], viewportTransform: readonly number[]): void {
-    const words = glyphWords(items, viewportTransform);
+   *  words on it. `viewportTransform` is the page viewport's at scale 1;
+   *  `styles` (the text content's) gives each run's font family. A page
+   *  already placed from its glyphs keeps them. */
+  setPageText(page: number, items: readonly GlyphItem[], viewportTransform: readonly number[], styles?: TextStyles | null): void {
+    if (this.painted.has(page)) return;
+    this.placeWords(page, glyphWords(items, viewportTransform, styles));
+  }
+
+  /** Where the page paints each glyph is known (its operator list,
+   *  `operatorWords`): its blocks' words are placed from those words. */
+  setPageGlyphs(page: number, words: readonly GlyphWord[]): void {
+    this.painted.add(page);
+    this.placeWords(page, words);
+  }
+
+  private placeWords(page: number, words: readonly GlyphWord[]): void {
     const assigned = assignWords(words, this.allBoxes.get(page) ?? []);
     const geometry = new Map<number, BlockGeometry>();
     for (const index of this.blocksOnPage(page)) {

@@ -7,7 +7,7 @@
 
 import { memo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { COLOR, FONT_MONO } from "../term";
-import { highlightAriaLabel, kindLabel, stateLabel, type HighlightOnPage, type PdfHighlight } from "./highlights";
+import { chipRect, highlightAriaLabel, kindLabel, stateLabel, type HighlightOnPage, type PdfHighlight } from "./highlights";
 import type { Box } from "./model";
 
 /** Highlights multiply over the white page like a marker pen: amber for a
@@ -29,11 +29,16 @@ export interface PdfSelectionLayerProps {
   /** Labels for the highlights by id (kind, state, quote, note). */
   details: ReadonlyMap<string, PdfHighlight>;
   hovered: string | null;
-  /** The highlight opened by a click or focused by Tab: its chip shows. */
+  /** The highlight opened by a click or focused by Tab: lit wherever it is
+   *  drawn. */
   active: string | null;
+  /** Where its chip shows when that is on this page: the point clicked in it
+   *  (PDF points), or null for its first part here (reached by Tab). */
+  chip: { id: string; at: { x: number; y: number } | null } | null;
   marqueeRects: readonly number[][];
   marqueeDraft: number[] | null;
-  onHighlightFocus: (id: string | null) => void;
+  /** A highlight's keyboard stop on this page took the focus (or gave it up). */
+  onHighlightFocus: (id: string | null, page: number) => void;
   onHighlightOpen?: (id: string) => void;
   onHighlightRemove?: (id: string) => void;
 }
@@ -58,6 +63,7 @@ export const PdfSelectionLayer = memo(function PdfSelectionLayer({
   details,
   hovered,
   active,
+  chip,
   marqueeRects,
   marqueeDraft,
   onHighlightFocus,
@@ -76,7 +82,7 @@ export const PdfSelectionLayer = memo(function PdfSelectionLayer({
     } else if (event.key === "Escape") {
       event.stopPropagation();
       (event.currentTarget as HTMLElement).blur();
-      onHighlightFocus(null);
+      onHighlightFocus(null, page);
     }
   };
   return (
@@ -146,35 +152,37 @@ export const PdfSelectionLayer = memo(function PdfSelectionLayer({
           }}
         />
       ) : null}
-      {/* One keyboard stop per highlight, where it starts: Tab reaches it,
-          Enter opens it, Delete removes it. Never under the pointer. */}
-      {highlights
-        .filter((entry) => entry.starts)
-        .map((entry) => {
-          const detail = details.get(entry.id);
-          const first = entry.rects[0];
-          return (
-            <span
-              key={`stop-${entry.id}`}
-              role="button"
-              tabIndex={0}
-              data-pdf-ui=""
-              data-highlight-stop={entry.id}
-              className="ll-pdf-highlight-stop"
-              aria-label={detail ? highlightAriaLabel(detail) : kindLabel(entry.kind)}
-              onFocus={() => onHighlightFocus(entry.id)}
-              onKeyDown={onStopKey(entry.id)}
-              style={{ ...boxStyle(first, scale, 1), pointerEvents: "none", borderRadius: 2 }}
-            />
-          );
-        })}
+      {/* A keyboard stop per highlight on every page it is drawn on (a
+          highlight running on from the page before has one here too, so it
+          is reachable wherever it is in view): Tab reaches it, Enter opens
+          it, Delete removes it. Never under the pointer. */}
+      {highlights.map((entry) => {
+        const detail = details.get(entry.id);
+        const first = entry.rects[0];
+        return (
+          <span
+            key={`stop-${entry.id}`}
+            role="button"
+            tabIndex={0}
+            data-pdf-ui=""
+            data-highlight-stop={entry.id}
+            data-highlight-continued={entry.starts ? undefined : ""}
+            className="ll-pdf-highlight-stop"
+            aria-label={detail ? highlightAriaLabel(detail, !entry.starts) : kindLabel(entry.kind)}
+            onFocus={() => onHighlightFocus(entry.id, page)}
+            onKeyDown={onStopKey(entry.id)}
+            style={{ ...boxStyle(first, scale, 1), pointerEvents: "none", borderRadius: 2 }}
+          />
+        );
+      })}
       {(() => {
         // The open highlight's chip: what it is, why it sits where it does,
-        // and its two actions. Above its first line, inside the page.
-        const entry = highlights.find((candidate) => candidate.id === active && candidate.starts);
+        // and its two actions. Above the part that was clicked (or its first
+        // part on this page, reached by Tab), inside the page.
+        const entry = chip ? highlights.find((candidate) => candidate.id === chip.id) : undefined;
         const detail = entry ? details.get(entry.id) : undefined;
-        if (!entry || !detail) return null;
-        const first = entry.rects[0];
+        const first = entry ? chipRect(entry, chip?.at ?? null) : null;
+        if (!entry || !detail || !first) return null;
         const state = stateLabel(entry.state);
         const note = detail.note.trim();
         return (

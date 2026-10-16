@@ -30,7 +30,7 @@ let parsed: ParsedPage[];
 beforeAll(async () => {
   model = new SelectionModel(SYNTHETIC_BLOCKS);
   parsed = await readPdf(buildPdf(SYNTHETIC_PAGES));
-  for (const page of parsed) model.setPageText(page.page, page.items, page.transform);
+  for (const page of parsed) model.setPageText(page.page, page.items, page.transform, page.styles);
 });
 
 it("records the text content pdf.js reads from the synthetic book (the pane's jsdom tests draw with it)", () => {

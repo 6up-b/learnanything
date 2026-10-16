@@ -1,10 +1,15 @@
 // Where an extraction block's words sit on its page (reader-pdf-selection).
 //
 // Two sources, one result (a box per word, a line per word):
-// - the page's own text layer (pdf.js text content), where it has one: its
-//   words are aligned to the extraction's words by their letters, so a word
-//   is drawn where the PDF draws it, a hyphenated word keeps both halves, and
-//   the extraction's text (LaTeX for maths) stays the quote;
+// - the page's own text, where it has one: its words are aligned to the
+//   extraction's words by their letters, so a word is drawn where the PDF
+//   draws it, a hyphenated word keeps both halves, and the extraction's text
+//   (LaTeX for maths) stays the quote. Where each glyph sits comes from the
+//   page's operator list (`operatorWords`: every glyph's own advance in its
+//   own font, as pdf.js paints it); until that is read, from pdf.js's text
+//   content (`glyphWords`), whose runs are split into words by the advance
+//   widths of the run's font family (Codex review F1: never one font's
+//   widths for every font);
 // - estimated lines inside the block's box, where the page has no text layer
 //   (a scan read by GLM-OCR or OCR'd by Marker): the block's words are laid
 //   out over as many lines as its box holds. Honest, approximate.
@@ -25,7 +30,13 @@ export interface GlyphItem {
   width: number;
   height: number;
   hasEOL?: boolean;
+  /** The item's font (a key of the text content's `styles`). */
+  fontName?: string;
 }
+
+/** pdf.js's text styles (`page.getTextContent().styles`): each font's
+ *  fallback family ("serif", "sans-serif" or "monospace"). */
+export type TextStyles = Readonly<Record<string, { fontFamily?: string } | undefined>>;
 
 /** A word of the page's text layer. */
 export interface GlyphWord {
@@ -54,9 +65,14 @@ export interface BlockGeometry {
 
 // ---- the text layer's words -----------------------------------------------------
 
-// Relative advance widths (Helvetica's AFM, per 1000 em) for splitting a
-// text item into words: pdf.js gives one width per item, not per glyph.
-const WIDTHS: Record<string, number> = (() => {
+// Relative advance widths (per 1000 em) for splitting a text item into
+// words: pdf.js's text content gives one width per item, not per glyph. The
+// item's font family picks the table, as pdf.js's own text layer picks the
+// family it measures a run in: Helvetica's AFM for sans-serif, Times-Roman's
+// for serif, one width for every glyph of a monospaced font. Exact for the
+// standard fonts; for an embedded font only an estimate, which the page's
+// operator list replaces (`operatorWords`).
+const HELVETICA: Record<string, number> = (() => {
   const table: Record<string, number> = {};
   const rows: Array<[string, number]> = [
     [" ", 278], ["!", 278], ['"', 355], ["#", 556], ["$", 556], ["%", 889], ["&", 667], ["'", 191],
@@ -75,8 +91,36 @@ const WIDTHS: Record<string, number> = (() => {
   return table;
 })();
 
-function advance(ch: string): number {
-  return WIDTHS[ch] ?? 556;
+const TIMES: Record<string, number> = (() => {
+  const table: Record<string, number> = {};
+  const rows: Array<[string, number]> = [
+    [" ", 250], ["!", 333], ['"', 408], ["#", 500], ["$", 500], ["%", 833], ["&", 778], ["'", 180],
+    ["(", 333], [")", 333], ["*", 500], ["+", 564], [",", 250], ["-", 333], [".", 250], ["/", 278],
+    [":", 278], [";", 278], ["<", 564], ["=", 564], [">", 564], ["?", 444], ["@", 921], ["[", 333],
+    ["\\", 278], ["]", 333], ["^", 469], ["_", 500], ["`", 333], ["{", 480], ["|", 200], ["}", 480], ["~", 541],
+    ["A", 722], ["B", 667], ["C", 667], ["D", 722], ["E", 611], ["F", 556], ["G", 722], ["H", 722], ["I", 333],
+    ["J", 389], ["K", 722], ["L", 611], ["M", 889], ["N", 722], ["O", 722], ["P", 556], ["Q", 722], ["R", 667],
+    ["S", 556], ["T", 611], ["U", 722], ["V", 722], ["W", 944], ["X", 722], ["Y", 722], ["Z", 611],
+    ["a", 444], ["b", 500], ["c", 444], ["d", 500], ["e", 444], ["f", 333], ["g", 500], ["h", 500], ["i", 278],
+    ["j", 278], ["k", 500], ["l", 278], ["m", 778], ["n", 500], ["o", 500], ["p", 500], ["q", 500], ["r", 333],
+    ["s", 389], ["t", 278], ["u", 500], ["v", 500], ["w", 722], ["x", 500], ["y", 500], ["z", 444],
+  ];
+  for (const [ch, width] of rows) table[ch] = width;
+  for (let digit = 0; digit <= 9; digit++) table[String(digit)] = 500;
+  return table;
+})();
+
+type Advance = (ch: string) => number;
+const SANS_ADVANCE: Advance = (ch) => HELVETICA[ch] ?? 556;
+const SERIF_ADVANCE: Advance = (ch) => TIMES[ch] ?? 500;
+const MONO_ADVANCE: Advance = () => 600;
+
+/** The advance widths of a text item's font family (sans-serif when unknown). */
+function advanceFor(item: GlyphItem, styles: TextStyles | null | undefined): Advance {
+  const family = (item.fontName && styles?.[item.fontName]?.fontFamily) || "";
+  if (/monospace/i.test(family)) return MONO_ADVANCE;
+  if (/serif/i.test(family) && !/sans-serif/i.test(family)) return SERIF_ADVANCE;
+  return SANS_ADVANCE;
 }
 
 function multiply(m1: number[], m2: number[]): number[] {
@@ -98,8 +142,13 @@ const DESCENT = 0.2;
  *  1}).transform`): it moves the PDF's own space to the page as shown.
  *  Rotated or vertical text is left out (nothing to snap a line to). Two
  *  items that touch with no space between them (a letter and its
- *  superscript, an italic run) make one word. */
-export function glyphWords(items: readonly GlyphItem[], viewportTransform: readonly number[]): GlyphWord[] {
+ *  superscript, an italic run) make one word. `styles` (the text content's)
+ *  says each item's font family, whose widths split the item into words. */
+export function glyphWords(
+  items: readonly GlyphItem[],
+  viewportTransform: readonly number[],
+  styles?: TextStyles | null,
+): GlyphWord[] {
   const words: GlyphWord[] = [];
   const state: { open: { text: string; box: Box; height: number } | null } = { open: null };
   const flush = () => {
@@ -124,6 +173,7 @@ export function glyphWords(items: readonly GlyphItem[], viewportTransform: reado
     const top = tx[5] - height * ASCENT;
     const bottom = tx[5] + height * DESCENT;
     const chars = Array.from(item.str);
+    const advance = advanceFor(item, styles);
     const total = chars.reduce((sum, ch) => sum + advance(ch), 0) || 1;
     // A run touching the open word (no space between them) continues it.
     const open = state.open;
@@ -158,6 +208,290 @@ export function glyphWords(items: readonly GlyphItem[], viewportTransform: reado
       }
     }
     if (item.hasEOL) flush();
+  }
+  flush();
+  return words;
+}
+
+// ---- the page's words from its operator list ---------------------------------------
+
+/** A page's operator list (`page.getOperatorList()`). */
+export interface OperatorListLike {
+  fnArray: ArrayLike<number>;
+  argsArray: ArrayLike<unknown>;
+}
+
+/** What a glyph's placement needs of its font (pdf.js's loaded font object,
+ *  `page.commonObjs.get(fontName)`). */
+export interface PdfFontInfo {
+  fontMatrix?: ArrayLike<number> | null;
+  isType3Font?: boolean;
+  vertical?: boolean;
+  bbox?: ArrayLike<number> | null;
+}
+
+/** The operator ids (pdf.js's `OPS`) the placement reads. */
+export type OpsTable = Readonly<Record<string, number>>;
+
+interface PaintState {
+  ctm: number[];
+  textMatrix: number[];
+  x: number;
+  y: number;
+  lineX: number;
+  lineY: number;
+  font: PdfFontInfo | null;
+  fontSize: number;
+  fontDirection: number;
+  charSpacing: number;
+  wordSpacing: number;
+  hScale: number;
+  leading: number;
+  rise: number;
+}
+
+const IDENTITY = [1, 0, 0, 1, 0, 0];
+const FONT_IDENTITY = [0.001, 0, 0, 0.001, 0, 0];
+/** pdf.js's own thresholds (its text content): a gap wider than this share
+ *  of the font size is a space; a jump back further than this starts anew. */
+const SPACE_GAP_EM = 0.102;
+const BACK_GAP_EM = 0.2;
+
+function matrixOf(value: unknown): number[] | null {
+  if (value === null || typeof value !== "object" || typeof (value as ArrayLike<number>).length !== "number") return null;
+  const matrix = Array.from(value as ArrayLike<number>, Number).slice(0, 6);
+  return matrix.length === 6 && matrix.every(Number.isFinite) ? matrix : null;
+}
+
+function numberArg(args: unknown, index = 0): number {
+  const value = Array.isArray(args) ? Number(args[index]) : NaN;
+  return Number.isFinite(value) ? value : 0;
+}
+
+function apply(m: readonly number[], x: number, y: number): [number, number] {
+  return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+}
+
+/** The page's words where pdf.js paints their glyphs, in top-left PDF points:
+ *  the operator list is walked as pdf.js's canvas walks it (the graphics and
+ *  text state, form XObjects, groups), and each glyph advances by its own
+ *  width in its own font. A space glyph, a gap wider than a space or a jump
+ *  to another line ends a word; a glyph touching the word before it (a
+ *  superscript, an italic run, a kern) continues it. Rotated and vertical
+ *  text is left out, as in `glyphWords`; annotations' appearances too (they
+ *  are not the page's text). `fontOf` gives a font by its loaded name. */
+export function operatorWords(
+  opList: OperatorListLike,
+  ops: OpsTable,
+  fontOf: (name: string) => PdfFontInfo | null,
+  viewportTransform: readonly number[],
+): GlyphWord[] {
+  const words: GlyphWord[] = [];
+  let open: { text: string; box: Box; height: number } | null = null;
+  // Where the next glyph starts if it continues the open word (page points).
+  let pen: [number, number] | null = null;
+  const flush = () => {
+    if (open && open.text) words.push({ text: open.text, key: keyOf(open.text), box: open.box });
+    open = null;
+  };
+  let state: PaintState = {
+    ctm: [...IDENTITY], textMatrix: [...IDENTITY], x: 0, y: 0, lineX: 0, lineY: 0, font: null, fontSize: 0,
+    fontDirection: 1, charSpacing: 0, wordSpacing: 0, hScale: 1, leading: 0, rise: 0,
+  };
+  const stack: PaintState[] = [];
+  const save = () => stack.push({ ...state, ctm: [...state.ctm], textMatrix: [...state.textMatrix] });
+  const restore = () => {
+    const previous = stack.pop();
+    if (previous) state = previous;
+  };
+  const moveText = (x: number, y: number) => {
+    state.lineX += x;
+    state.lineY += y;
+    state.x = state.lineX;
+    state.y = state.lineY;
+  };
+  let inAnnotation = 0;
+
+  const showText = (glyphs: unknown) => {
+    if (!Array.isArray(glyphs)) return;
+    const font = state.font ?? {};
+    const fontSize = state.fontSize;
+    if (fontSize === 0) return;
+    const type3 = Boolean(font.isType3Font);
+    const fontMatrix = matrixOf(font.fontMatrix) ?? FONT_IDENTITY;
+    const hs = state.hScale * state.fontDirection;
+    const m = multiply(viewportTransform as number[], multiply(state.ctm, state.textMatrix));
+    const upright = Math.abs(Math.atan2(m[1], m[0])) <= 0.02 && !font.vertical && inAnnotation === 0;
+    // The em's height on the page: pdf.js's text content's for a Type3 font
+    // drawn at size 1 or less (its glyph box's height in its own units).
+    let em = fontSize;
+    if (type3 && fontSize <= 1 && fontMatrix.join() !== FONT_IDENTITY.join()) {
+      const bbox = Array.from(font.bbox ?? [], Number);
+      const glyphHeight = bbox.length >= 4 ? bbox[3] - bbox[1] : 0;
+      if (glyphHeight > 0) em *= glyphHeight * fontMatrix[3];
+    }
+    const height = Math.abs(em) * Math.hypot(m[2], m[3]);
+    const baseline = state.y + state.rise;
+    let x = 0;
+    for (const glyph of glyphs) {
+      if (typeof glyph === "number") {
+        x -= (glyph * fontSize) / 1000;
+        continue;
+      }
+      if (glyph === null || typeof glyph !== "object") continue;
+      const entry = glyph as { unicode?: unknown; width?: unknown; isSpace?: unknown };
+      const width = Number(entry.width) || 0;
+      const isSpaceGlyph = entry.isSpace === true;
+      const spacing = (isSpaceGlyph ? state.wordSpacing : 0) + state.charSpacing;
+      const painted = type3 ? (width * fontMatrix[0] + fontMatrix[4]) * fontSize : width * fontSize * fontMatrix[0];
+      const advance = painted + (type3 ? spacing : spacing * state.fontDirection);
+      const text = typeof entry.unicode === "string" ? entry.unicode : "";
+      if (!upright || !(height > 0)) {
+        x += advance;
+        flush();
+        pen = null;
+        continue;
+      }
+      const [x0, y0] = apply(m, state.x + x * hs, baseline);
+      const [x1] = apply(m, state.x + (x + painted) * hs, baseline);
+      const next = apply(m, state.x + (x + advance) * hs, baseline);
+      x += advance;
+      if (isSpaceGlyph || (text.length > 0 && /^\s+$/.test(text))) {
+        flush();
+        pen = next;
+        continue;
+      }
+      const box: Box = [Math.min(x0, x1), y0 - height * ASCENT, Math.max(x0, x1), y0 + height * DESCENT];
+      const current = open as { text: string; box: Box; height: number } | null;
+      let joins = false;
+      if (current !== null && pen !== null) {
+        const tolerance = Math.max(height, current.height);
+        const direction = x1 >= x0 ? 1 : -1;
+        const gap = (x0 - pen[0]) * direction;
+        joins = gap <= SPACE_GAP_EM * tolerance && gap >= -BACK_GAP_EM * tolerance && box[1] < current.box[3] && box[3] > current.box[1];
+      }
+      if (current !== null && joins) {
+        current.text += text;
+        current.box = [
+          Math.min(current.box[0], box[0]),
+          Math.min(current.box[1], box[1]),
+          Math.max(current.box[2], box[2]),
+          Math.max(current.box[3], box[3]),
+        ];
+        current.height = Math.max(current.height, height);
+      } else {
+        flush();
+        open = { text, box, height };
+      }
+      pen = next;
+    }
+    state.x += x * hs;
+  };
+
+  const { fnArray, argsArray } = opList;
+  for (let index = 0; index < fnArray.length; index++) {
+    const fn = fnArray[index];
+    const args = argsArray[index] as unknown[] | null | undefined;
+    switch (fn) {
+      case ops.save:
+        save();
+        break;
+      case ops.restore:
+        restore();
+        break;
+      case ops.transform: {
+        const matrix = matrixOf(args);
+        if (matrix) state.ctm = multiply(state.ctm, matrix);
+        break;
+      }
+      case ops.paintFormXObjectBegin: {
+        save();
+        const matrix = matrixOf(Array.isArray(args) ? args[0] : null);
+        if (matrix) state.ctm = multiply(state.ctm, matrix);
+        break;
+      }
+      case ops.paintFormXObjectEnd:
+        restore();
+        break;
+      case ops.beginGroup: {
+        save();
+        const group = Array.isArray(args) ? (args[0] as { matrix?: unknown } | null) : null;
+        const matrix = matrixOf(group?.matrix);
+        if (matrix) state.ctm = multiply(state.ctm, matrix);
+        break;
+      }
+      case ops.endGroup:
+        restore();
+        break;
+      case ops.beginAnnotation:
+        inAnnotation += 1;
+        break;
+      case ops.endAnnotation:
+        inAnnotation = Math.max(0, inAnnotation - 1);
+        break;
+      case ops.beginText:
+        state.textMatrix = [...IDENTITY];
+        state.x = state.lineX = 0;
+        state.y = state.lineY = 0;
+        break;
+      case ops.setCharSpacing:
+        state.charSpacing = numberArg(args);
+        break;
+      case ops.setWordSpacing:
+        state.wordSpacing = numberArg(args);
+        break;
+      case ops.setHScale:
+        state.hScale = numberArg(args) / 100;
+        break;
+      case ops.setLeading:
+        state.leading = -numberArg(args);
+        break;
+      case ops.setFont: {
+        const name = Array.isArray(args) ? String(args[0] ?? "") : "";
+        let size = numberArg(args, 1);
+        state.fontDirection = size < 0 ? -1 : 1;
+        if (size < 0) size = -size;
+        state.font = fontOf(name);
+        state.fontSize = size;
+        break;
+      }
+      case ops.setTextRise:
+        state.rise = numberArg(args);
+        break;
+      case ops.moveText:
+        moveText(numberArg(args, 0), numberArg(args, 1));
+        break;
+      case ops.setLeadingMoveText:
+        state.leading = numberArg(args, 1);
+        moveText(numberArg(args, 0), numberArg(args, 1));
+        break;
+      case ops.setTextMatrix: {
+        const matrix = matrixOf(Array.isArray(args) && args.length === 1 ? args[0] : args);
+        if (matrix) state.textMatrix = matrix;
+        state.x = state.lineX = 0;
+        state.y = state.lineY = 0;
+        break;
+      }
+      case ops.nextLine:
+        moveText(0, state.leading);
+        break;
+      case ops.showText:
+      case ops.showSpacedText:
+        showText(Array.isArray(args) ? args[0] : null);
+        break;
+      case ops.nextLineShowText:
+        moveText(0, state.leading);
+        showText(Array.isArray(args) ? args[0] : null);
+        break;
+      case ops.nextLineSetSpacingShowText:
+        state.wordSpacing = numberArg(args, 0);
+        state.charSpacing = numberArg(args, 1);
+        moveText(0, state.leading);
+        showText(Array.isArray(args) ? args[2] : null);
+        break;
+      default:
+        break;
+    }
   }
   flush();
   return words;

@@ -16,7 +16,8 @@
      ],
      "width": 91.15200000000002,
      "height": 8,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -30,7 +31,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "1 Foxes and Dogs",
@@ -44,7 +46,8 @@
      ],
      "width": 113.61000000000001,
      "height": 14,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -58,7 +61,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "The quick brown fox jumps over",
@@ -72,7 +76,8 @@
      ],
      "width": 141.16000000000005,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "the lazy dog while a long compu-",
@@ -86,7 +91,8 @@
      ],
      "width": 145.62000000000003,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "tation of the integral runs in",
@@ -100,7 +106,8 @@
      ],
      "width": 120.62000000000002,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "the background very quietly.",
@@ -114,7 +121,8 @@
      ],
      "width": 125.06000000000002,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -128,7 +136,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "1 A footnote about foxes, read after the body.",
@@ -142,7 +151,8 @@
      ],
      "width": 160.55200000000005,
      "height": 8,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -156,7 +166,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "Right column begins with the",
@@ -170,7 +181,8 @@
      ],
      "width": 127.82999999999991,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "second paragraph of this page,",
@@ -184,7 +196,8 @@
      ],
      "width": 137.8599999999999,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "which a careful reader reads",
@@ -198,7 +211,8 @@
      ],
      "width": 126.15999999999991,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "after the whole left column.",
@@ -212,7 +226,8 @@
      ],
      "width": 119.4999999999999,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -226,7 +241,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "7",
@@ -240,9 +256,15 @@
      ],
      "width": 4.448,
      "height": 8,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     }
    ],
+   "styles": {
+    "g_d0_f1": {
+     "fontFamily": "sans-serif"
+    }
+   },
    "transform": [
     1,
     0,
@@ -269,7 +291,8 @@
      ],
      "width": 144.54000000000005,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "paragraph ends with an equation:",
@@ -283,7 +306,8 @@
      ],
      "width": 148.42000000000002,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -297,7 +321,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "x2 + y2 = 1",
@@ -311,7 +336,8 @@
      ],
      "width": 59.37600000000005,
      "height": 12,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "",
@@ -325,7 +351,8 @@
      ],
      "width": 0,
      "height": 0,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "Table 1 lists two values of the",
@@ -339,7 +366,8 @@
      ],
      "width": 131.17000000000002,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "unknowns a and b.",
@@ -353,7 +381,8 @@
      ],
      "width": 83.94000000000001,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "a",
@@ -367,7 +396,8 @@
      ],
      "width": 5.5600000000000005,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": " ",
@@ -381,7 +411,8 @@
      ],
      "width": 54.44,
      "height": 0,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "b",
@@ -395,7 +426,8 @@
      ],
      "width": 5.5600000000000005,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "1",
@@ -409,7 +441,8 @@
      ],
      "width": 5.5600000000000005,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": " ",
@@ -423,7 +456,8 @@
      ],
      "width": 54.44,
      "height": 0,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "2",
@@ -437,7 +471,8 @@
      ],
      "width": 5.5600000000000005,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "Let x be positive; then x2 > 0",
@@ -451,7 +486,8 @@
      ],
      "width": 127.58000000000004,
      "height": 10,
-     "hasEOL": true
+     "hasEOL": true,
+     "fontName": "g_d0_f1"
     },
     {
      "str": "holds for every such x.",
@@ -465,9 +501,15 @@
      ],
      "width": 100.04000000000002,
      "height": 10,
-     "hasEOL": false
+     "hasEOL": false,
+     "fontName": "g_d0_f1"
     }
    ],
+   "styles": {
+    "g_d0_f1": {
+     "fontFamily": "sans-serif"
+    }
+   },
    "transform": [
     1,
     0,
@@ -482,6 +524,7 @@
   {
    "page": 2,
    "items": [],
+   "styles": {},
    "transform": [
     1,
     0,

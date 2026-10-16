@@ -11,8 +11,11 @@
 //   new selection replaces it): reading on never loses what was selected.
 // - Ctrl (or Cmd) + drag draws boxes, released Ctrl selects the words in
 //   their union; Alt + drag sweeps whole blocks (UX §4.1's entry gestures).
-// - Shift+arrows extend by a word or a line, Shift+Home/End to a line's ends;
-//   Esc clears; Ctrl+C copies the extraction's clean text (maths as LaTeX).
+// - Shift+arrows extend by a word or a line, Shift+Home/End to a line's ends
+//   (from a caret, the first Shift+Left/Right takes the word at it; Home/End
+//   go to the line's end at once); Esc clears, and in the middle of a drag or
+//   a sweep it ends the gesture too (the release then selects nothing); Ctrl+C
+//   copies the extraction's clean text (maths as LaTeX).
 // - The Reader is told about a selection once it settles, 150 ms after the
 //   mouse is released or the last key (spec §4.2: a drag in progress never
 //   flickers the intent box). Nothing here moves focus except the learner's
@@ -85,7 +88,9 @@ export interface PdfSelectionOptions {
   onSelectionCleared?: () => void;
   /** A saved highlight under a point, which a click opens instead of clearing. */
   highlightAt?: (point: PagePoint) => string | null;
-  onHighlightClick?: (id: string | null) => void;
+  /** A click opened a highlight (where it was clicked: its chip goes there),
+   *  or closed the open one (null). */
+  onHighlightClick?: (id: string | null, point?: PagePoint) => void;
   /** The first page a keyboard selection may start on (the top of the view). */
   firstShownPage?: () => number | null;
   /** Bring a block into view (a keyboard selection moving past the view). */
@@ -197,6 +202,26 @@ export function usePdfSelection(options: PdfSelectionOptions) {
   const [pressing, setPressing] = useState(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const frameRef = useRef<number | null>(null);
+  // An Alt + drag's first block (declared here: Esc ends it with a press).
+  const sweepRef = useRef<{ anchor: number } | null>(null);
+  const [sweeping, setSweeping] = useState(false);
+
+  /** End a press or a sweep in progress (Esc, Codex review F6): no frame
+   *  still to draw, no auto-scroll, and the release that follows selects
+   *  nothing. */
+  const cancelGesture = useCallback((): boolean => {
+    const active = pressRef.current !== null || sweepRef.current !== null;
+    pressRef.current = null;
+    sweepRef.current = null;
+    lastPointRef.current = null;
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    setPressing(false);
+    setSweeping(false);
+    return active;
+  }, []);
 
   const extendTo = useCallback(
     (anchor: Pos, clientX: number, clientY: number) => {
@@ -305,7 +330,7 @@ export function usePdfSelection(options: PdfSelectionOptions) {
         return;
       }
       if (press.highlight) {
-        callbacks.current.onHighlightClick?.(press.highlight);
+        callbacks.current.onHighlightClick?.(press.highlight, press.point);
         return;
       }
       if (pos && model.blocks[pos.block].atomic) {
@@ -355,9 +380,6 @@ export function usePdfSelection(options: PdfSelectionOptions) {
 
   // ---- Alt + drag: whole blocks ---------------------------------------------------
 
-  const sweepRef = useRef<{ anchor: number } | null>(null);
-  const [sweeping, setSweeping] = useState(false);
-
   const onSweepMouseDown = useCallback(
     (event: React.MouseEvent): boolean => {
       if (event.button !== 0 || !event.altKey || event.ctrlKey || event.metaKey || isUi(event.target)) return false;
@@ -392,6 +414,8 @@ export function usePdfSelection(options: PdfSelectionOptions) {
       showLive([{ anchor: { block: lo, unit: 0 }, head: blockRange(model, hi).head }]);
     };
     const onUp = () => {
+      // Ended already (Esc): the release selects nothing.
+      if (!sweepRef.current) return;
       sweepRef.current = null;
       setSweeping(false);
       const ranges = liveRef.current;
@@ -526,11 +550,28 @@ export function usePdfSelection(options: PdfSelectionOptions) {
     return first === undefined ? null : { block: first, unit: 0 };
   }, [model, activeSpan]);
 
+  // Esc in the middle of a drag or a sweep ends it, wherever the keyboard is
+  // (an Alt + drag never moved it to the pages), before anything else sees
+  // the key: the release that follows selects nothing.
+  useEffect(() => {
+    if (!pressing && !sweeping) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancelGesture();
+      clear();
+    };
+    window.addEventListener("keydown", onEscape, true);
+    return () => window.removeEventListener("keydown", onEscape, true);
+  }, [pressing, sweeping, cancelGesture, clear]);
+
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (editable(event.target)) return;
       if (event.key === "Escape") {
-        if (paintedRef.current.length) {
+        const gesture = cancelGesture();
+        if (gesture || paintedRef.current.length) {
           event.preventDefault();
           clear();
         }
@@ -547,8 +588,9 @@ export function usePdfSelection(options: PdfSelectionOptions) {
       if (!anchor) return;
       const vertical = move === "up" || move === "down";
       let head: Pos;
-      if (!last && !vertical) {
-        // The first Shift+arrow by word from a caret selects the word at it.
+      if (!last && (move === "left" || move === "right")) {
+        // The first Shift+Left/Right from a caret selects the word at it
+        // (Shift+Home/End go to the line's end at once, Codex review F7).
         head = anchor;
         goalXRef.current = null;
       } else {
@@ -562,7 +604,7 @@ export function usePdfSelection(options: PdfSelectionOptions) {
       settle(ranges);
       callbacks.current.revealBlock?.(head.block);
     },
-    [model, clear, keyboardStart, placeCaret, showLive, settle],
+    [model, clear, cancelGesture, keyboardStart, placeCaret, showLive, settle],
   );
 
   // Ctrl+C copies the extraction's text of what is painted, unless the
