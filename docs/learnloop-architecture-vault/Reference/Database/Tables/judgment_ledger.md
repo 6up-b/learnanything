@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a3522a1c183c40ce8af55601ff925f86001d253b"
-source_commit_timestamp: "2026-10-15T16:01:49-04:00"
+source_commit: "107778f16bbb686d11c4cf3cebf5f708a3f06d79"
+source_commit_timestamp: "2026-10-15T21:09:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/stuck.py"
+  - "src/learnloop/cli/ai_compare.py"
   - "src/learnloop/cli/decider.py"
   - "src/learnloop/cli/diagnose.py"
-  - "src/learnloop/cli/embeddings.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -159,6 +159,7 @@ None found by exact static reference scan.
 
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
+- `tests/test_ai_compare.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attach_to_family.py`
 - `tests/test_contamination_report.py`
@@ -176,7 +177,6 @@ None found by exact static reference scan.
 - `tests/test_facet_identity.py`
 - `tests/test_facet_identity_composition.py`
 - `tests/test_facet_identity_ingest.py`
-- `tests/test_facet_reword_confirm.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
