@@ -79,7 +79,9 @@ import { AskRail } from "./reader/AskRail";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import {
+  askGroundingSpans,
   clip,
+  groundingProtected,
   placedSpanIds,
   selectionNodes,
   selectionProtected,
@@ -125,10 +127,15 @@ const FURNITURE_BLOCK_TYPES = new Set(["PageHeader", "PageFooter", "TableOfConte
 // it on every block reads as an error state; only suspect/failed warrant a pill.
 const BADGED_HEALTH = new Set(["suspect", "failed"]);
 
-/** A highlight the learner just removed: the Reader offers to undo it. */
+/** A highlight the learner just removed: the Reader offers to undo it, on
+ *  the reading it was removed from only (Codex review F4). */
 interface RemovedAnnotation {
   annotation: MarginAnnotation;
   at: number;
+  /** The delete's own event: the undo withdraws that one and no other. */
+  deleteEventId: string;
+  sourceId: string;
+  extractionId: string;
 }
 
 /** How long "undo" stays offered after a highlight is removed. */
@@ -265,6 +272,9 @@ export function ReaderScreen({
   const [editingAnnotationText, setEditingAnnotationText] = useState("");
   // The highlight just removed, while its undo is offered.
   const [removed, setRemoved] = useState<RemovedAnnotation | null>(null);
+  // Bumps whenever the open book changes (resetSourceState): an annotation
+  // read or write that answers after it never touches the new book's list.
+  const sourceEpochRef = useRef(0);
   // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
   // original PDF in PreparingView; the full Reader takes over when it is ready.
   const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
@@ -343,6 +353,7 @@ export function ReaderScreen({
 
   const refreshAnnotations = useCallback(async () => {
     if (!render || offline) return;
+    const epoch = sourceEpochRef.current;
     try {
       // With the open reading, each annotation also says where it lands on it
       // (span_aliases decides): the original PDF draws it on its words there.
@@ -351,6 +362,8 @@ export function ReaderScreen({
         ["reader_source_annotations", render.sourceId, render.extractionId],
         () => api.readerSourceAnnotations({ sourceId: render.sourceId, extractionId: render.extractionId }),
       );
+      // Another book opened meanwhile: these rows are not its annotations.
+      if (epoch !== sourceEpochRef.current) return;
       const rows = (result.annotations as Array<Record<string, unknown>>) ?? [];
       setAnnotations(
         rows.map((r) => {
@@ -604,6 +617,9 @@ export function ReaderScreen({
     setTagMenu(null);
     setEditingAnnotationId(null);
     setEditingAnnotationText("");
+    // A removal's undo belongs to the book it was removed from.
+    setRemoved(null);
+    sourceEpochRef.current += 1;
     resetVisitState();
   }, [resetProgress, resetInquiryState, resetVisitState]);
 
@@ -806,6 +822,11 @@ export function ReaderScreen({
   const protection = (pdfView && pdfView.extractionId === render?.extractionId ? pdfView.protection : null) ?? render?.protection ?? null;
   const protectedSelection = selectionProtected(protection, selection);
   const protectionMessage = protectedSelection ? protection?.message ?? "This passage is held out of LearnLoop's models." : null;
+  // The Ask is held back by what it would send now (Codex review F2): an
+  // inherited thread's passage, the selection, or with neither the active
+  // passage; on a reading held back whole, always.
+  const askProtected = groundingProtected(protection, askGroundingSpans(inquiry ? parentExchange : null, selection, activeSpan));
+  const askProtectionMessage = askProtected ? protection?.message ?? "This passage is held out of LearnLoop's models." : null;
 
   // Rewrite the captured passage as one combined text (OCR fix). The per-block
   // nodes stay untouched — they keep anchoring the original blocks — while the
@@ -893,30 +914,42 @@ export function ReaderScreen({
   // with its anchor and history, on the page and in the rail.
   const deleteAnnotation = useCallback(async (annotationId: string) => {
     const target = annotations.find((a) => a.annotationId === annotationId);
+    const reading = render ? { sourceId: render.sourceId, extractionId: render.extractionId } : null;
+    const epoch = sourceEpochRef.current;
     setBusy(true);
     try {
-      await api.readerDeleteIntentAnnotation({ annotationId });
+      const { eventId } = await api.readerDeleteIntentAnnotation({ annotationId });
+      // Another book opened meanwhile: its list and its undo are its own.
+      if (epoch !== sourceEpochRef.current) return;
       setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
-      if (target) setRemoved({ annotation: target, at: Date.now() });
+      if (target && reading && eventId) setRemoved({ annotation: target, at: Date.now(), deleteEventId: eventId, ...reading });
       void refreshAnnotations();
     } catch (error) {
       onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
-  }, [annotations, onError, refreshAnnotations]);
+  }, [annotations, render, onError, refreshAnnotations]);
   const undoRemove = useCallback(async () => {
     const last = removed;
     if (!last?.annotation.annotationId) return;
     setRemoved(null);
+    // Only on the reading it was removed from: its placement means nothing
+    // on another book's (or another reading's) blocks.
+    if (!render || render.sourceId !== last.sourceId || render.extractionId !== last.extractionId) return;
+    const epoch = sourceEpochRef.current;
     try {
-      await api.readerRestoreAnnotation({ annotationId: last.annotation.annotationId });
-      setAnnotations((list) => (list.some((a) => a.annotationId === last.annotation.annotationId) ? list : [last.annotation, ...list]));
+      const result = await api.readerRestoreAnnotation({ annotationId: last.annotation.annotationId, deleteEventId: last.deleteEventId });
+      if (epoch !== sourceEpochRef.current) return;
+      // Drawn again at once, unless another delete of it still stands.
+      if (result.listed) {
+        setAnnotations((list) => (list.some((a) => a.annotationId === last.annotation.annotationId) ? list : [last.annotation, ...list]));
+      }
       void refreshAnnotations();
     } catch (error) {
       onError(errorMessage(error));
     }
-  }, [removed, onError, refreshAnnotations]);
+  }, [removed, render, onError, refreshAnnotations]);
   useEffect(() => {
     if (!removed) return;
     const timer = window.setTimeout(() => setRemoved(null), Math.max(0, removed.at + UNDO_REMOVE_MS - Date.now()));
@@ -2418,7 +2451,7 @@ export function ReaderScreen({
           />
 
           <AskRail
-            protectionMessage={protectionMessage}
+            protectionMessage={askProtectionMessage}
             visible={railTab === "ask"}
             enabled={enabled}
             inquiry={inquiry}

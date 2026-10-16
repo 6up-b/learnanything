@@ -88,6 +88,18 @@ export function placedSpanIds(annotation: MarginAnnotation): string[] {
   return annotation.status === "needs_reanchor" ? [] : annotation.segments.map((segment) => segment.spanId);
 }
 
+/** Whether an action grounded in these passages touches what the reading's
+ *  protection holds out (exam_material decides): then it is not offered. A
+ *  reading held back whole (rule 4) holds out every action on it, with a
+ *  selection or without one (Codex review F2). */
+export function groundingProtected(protection: ReaderProtectionDto | null | undefined, spanIds: readonly string[]): boolean {
+  if (!protection) return false;
+  if (protection.withheld) return true;
+  if (!protection.heldOutSpanIds.length) return false;
+  const held = new Set(protection.heldOutSpanIds);
+  return spanIds.some((spanId) => held.has(spanId));
+}
+
 /** Whether a selection touches what the reading's protection holds out:
  *  then no model action is offered for it (exam_material decides). */
 export function selectionProtected(
@@ -95,8 +107,18 @@ export function selectionProtected(
   selection: { spanId: string; nodes?: Array<{ spanId: string }> } | null,
 ): boolean {
   if (!protection || !selection) return false;
-  if (protection.withheld) return true;
-  if (!protection.heldOutSpanIds.length) return false;
-  const held = new Set(protection.heldOutSpanIds);
-  return [selection.spanId, ...(selection.nodes ?? []).map((node) => node.spanId)].some((spanId) => held.has(spanId));
+  return groundingProtected(protection, [selection.spanId, ...(selection.nodes ?? []).map((node) => node.spanId)]);
+}
+
+/** The passages an Ask sends now, as the Reader's Ask grounds it
+ *  (useReaderInquiry's submitAsk): a follow-up's inherited passage, else the
+ *  selection, else the active passage. */
+export function askGroundingSpans(
+  parent: { spanId: string; selectionSpanIds: string[] } | null,
+  selection: { spanId: string; nodes?: Array<{ spanId: string }> } | null,
+  activeSpan: string | null,
+): string[] {
+  if (parent) return [parent.spanId, ...parent.selectionSpanIds];
+  if (selection) return [selection.spanId, ...(selection.nodes ?? []).map((node) => node.spanId)];
+  return activeSpan ? [activeSpan] : [];
 }

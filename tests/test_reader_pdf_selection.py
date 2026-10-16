@@ -299,8 +299,9 @@ def test_a_book_with_no_exam_material_has_no_protection(two_books):
 
 
 def test_a_removed_highlight_comes_back_on_undo_with_its_anchor_and_history(two_books):
-    """reader.delete_intent_annotation hides it; reader.restore_annotation
-    lists it again, placed exactly where it was. Nothing is hard-deleted."""
+    """reader.delete_intent_annotation hides it; reader.restore_annotation,
+    naming that delete, lists it again, placed exactly where it was. Nothing
+    is hard-deleted."""
 
     from tests.test_sidecar_reader_p3 import _rpc
 
@@ -313,39 +314,119 @@ def test_a_removed_highlight_comes_back_on_undo_with_its_anchor_and_history(two_
     annotation_id = out[1]["result"]["annotationId"]
     (before,) = out[2]["result"]["annotations"]
 
+    out = _rpc(two_books["root"], [("reader.delete_intent_annotation", {"annotationId": annotation_id}), listing])
+    delete_id = out[1]["result"]["eventId"]
+    assert out[2]["result"]["annotations"] == []
+    undo = ("reader.restore_annotation", {"annotationId": annotation_id, "deleteEventId": delete_id})
     out = _rpc(two_books["root"], [
-        ("reader.delete_intent_annotation", {"annotationId": annotation_id}),
+        undo,
         listing,
-        ("reader.restore_annotation", {"annotationId": annotation_id}),
-        listing,
-        ("reader.restore_annotation", {"annotationId": annotation_id}),
+        undo,  # a retry of the same undo (a stale second press, a resend)
         ("reader.annotation_history", {"annotationId": annotation_id}),
     ])
-    assert out[2]["result"]["annotations"] == []
-    assert out[3]["result"]["restored"] is True
-    (after,) = out[4]["result"]["annotations"]
+    assert out[1]["result"]["restored"] is True and out[1]["result"]["listed"] is True
+    (after,) = out[2]["result"]["annotations"]
     assert after == before
     assert after["placement"]["segments"][0]["exactQuote"] == "long computation of"
-    # Undoing what is not deleted changes nothing.
-    assert out[5]["result"] == {"version": out[5]["result"]["version"], "annotationId": annotation_id,
-                                "restored": False, "eventId": None}
-    events = [event["eventType"] for event in out[6]["result"]["history"]["events"]]
+    # The retry changes nothing: that delete is withdrawn already.
+    assert out[3]["result"] == {"version": out[3]["result"]["version"], "annotationId": annotation_id,
+                                "restored": False, "eventId": None, "listed": True}
+    events = [event["eventType"] for event in out[4]["result"]["history"]["events"]]
     assert events == ["create", "delete_intent", "disposition"]
+
+
+def _highlight(repo) -> str:
+    translation = ANN.translate_selection(repo, extraction_id="ext_syn", raw_selection={
+        "nodes": [{"spanId": "s2", "quote": "lazy dog"}]})
+    return ANN.append_annotation(repo, source_id="src_syn", revision_id="rev_syn", extraction_id="ext_syn",
+                                 annotation_type="highlight", translation=translation)["annotation_id"]
+
+
+def _listed(repo) -> list[str]:
+    return [head["annotation"]["id"] for head in repo.annotations_for_source("src_syn")]
 
 
 def test_a_second_delete_after_an_undo_hides_it_again(two_books):
     repo = two_books["repo"]
-    translation = ANN.translate_selection(repo, extraction_id="ext_syn", raw_selection={
-        "nodes": [{"spanId": "s2", "quote": "lazy dog"}]})
-    annotation_id = ANN.append_annotation(repo, source_id="src_syn", revision_id="rev_syn", extraction_id="ext_syn",
-                                          annotation_type="highlight", translation=translation)["annotation_id"]
-    listed = lambda: [head["annotation"]["id"] for head in repo.annotations_for_source("src_syn")]  # noqa: E731
-    assert listed() == [annotation_id]
-    ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
-    assert listed() == []
-    assert ANN.restore_annotation(repo, annotation_id=annotation_id)["restored"] is True
-    assert listed() == [annotation_id]
-    ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
-    assert listed() == []
+    annotation_id = _highlight(repo)
+    assert _listed(repo) == [annotation_id]
+    first = ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    assert _listed(repo) == []
+    assert ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=first)["restored"] is True
+    assert _listed(repo) == [annotation_id]
+    second = ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    assert _listed(repo) == []
+    # Undoing the first delete again withdraws nothing: the second stands.
+    again = ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=first)
+    assert again == {"annotation_id": annotation_id, "restored": False, "event_id": None, "listed": False}
+    assert _listed(repo) == []
+    assert ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=second)["listed"] is True
+    assert _listed(repo) == [annotation_id]
     with pytest.raises(ANN.AnnotationError):
-        ANN.restore_annotation(repo, annotation_id="ann_missing")
+        ANN.restore_annotation(repo, annotation_id="ann_missing", delete_event_id=first)
+
+
+def test_an_undo_withdraws_only_the_delete_it_names_never_a_concurrent_one(two_books):
+    """Codex review F3: an undo of delete D1 written after another writer's
+    delete D2 (the event order a restore racing a second delete leaves) must
+    not withdraw D2: the annotation stays hidden until D2 is undone too."""
+
+    repo = two_books["repo"]
+    annotation_id = _highlight(repo)
+    d1 = repo.append_annotation_event(annotation_id=annotation_id, event_type="delete_intent", payload={})
+    d2 = repo.append_annotation_event(annotation_id=annotation_id, event_type="delete_intent", payload={})
+    repo.append_annotation_event(annotation_id=annotation_id, event_type="disposition",
+                                 payload={"undo": "delete_intent", "event_id": d1})
+    assert _listed(repo) == []
+    # Through restore_annotation: D1 is withdrawn already, D2 still hides it.
+    assert ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=d1) == {
+        "annotation_id": annotation_id, "restored": False, "event_id": None, "listed": False}
+    result = ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=d2)
+    assert result["restored"] is True and result["listed"] is True
+    assert _listed(repo) == [annotation_id]
+
+
+def test_a_restore_racing_a_second_delete_leaves_it_hidden(two_books, monkeypatch):
+    """The race itself: a second delete lands while a restore of the first is
+    under way. Whatever order SQLite serialises them in, the second delete
+    stands."""
+
+    repo = two_books["repo"]
+    annotation_id = _highlight(repo)
+    first = ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    original = repo.annotation_head
+    raced: list[str] = []
+
+    def head_then_delete(annotation: str):
+        # Another writer deletes between the restore's first read and its write.
+        if not raced:
+            raced.append(ANN.delete_intent_annotation(repo, annotation_id=annotation))
+        return original(annotation)
+
+    monkeypatch.setattr(repo, "annotation_head", head_then_delete)
+    result = ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=first)
+    assert raced and result["restored"] is True and result["listed"] is False
+    assert _listed(repo) == []
+
+
+def test_an_undo_must_name_a_delete_of_that_annotation(two_books):
+    from tests.test_sidecar_reader_p3 import _rpc
+
+    repo = two_books["repo"]
+    annotation_id = _highlight(repo)
+    other = _highlight(repo)
+    other_delete = ANN.delete_intent_annotation(repo, annotation_id=other)
+    ANN.delete_intent_annotation(repo, annotation_id=annotation_id)
+    events = repo.annotation_history(annotation_id)["events"]
+    create_event = next(event["id"] for event in events if event["event_type"] == "create")
+    for wrong in (other_delete, create_event, "ev_missing"):
+        with pytest.raises(ANN.AnnotationError):
+            ANN.restore_annotation(repo, annotation_id=annotation_id, delete_event_id=wrong)
+    assert _listed(repo) == []
+    out = _rpc(two_books["root"], [
+        ("reader.restore_annotation", {"annotationId": annotation_id, "deleteEventId": other_delete}),
+        ("reader.restore_annotation", {"annotationId": annotation_id}),
+    ])
+    assert out[1]["error"]["data"]["code"] == "validation_error"
+    assert out[2]["error"]["data"]["code"] == "validation_error"
+    assert _listed(repo) == []

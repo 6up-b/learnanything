@@ -812,15 +812,20 @@ def reader_delete_intent_annotation(ctx: SidecarContext, params: ReaderDeleteInt
 
 class ReaderRestoreAnnotationInput(ParamsModel):
     annotation_id: str
+    # The delete being undone: the ``event_id`` reader.delete_intent_annotation
+    # returned. Only that delete is withdrawn (Codex review F3).
+    delete_event_id: str
 
 
 @method("reader.restore_annotation", ReaderRestoreAnnotationInput)
 def reader_restore_annotation(ctx: SidecarContext, params: ReaderRestoreAnnotationInput) -> dict[str, Any]:
-    """Undo a delete (reader-pdf-selection): the annotation is listed again."""
+    """Undo a delete (reader-pdf-selection): the annotation is listed again
+    unless another delete of it stands (``listed``)."""
 
     _vault, repository = _require_reader(ctx)
     try:
-        result = ANN.restore_annotation(repository, annotation_id=params.annotation_id)
+        result = ANN.restore_annotation(repository, annotation_id=params.annotation_id,
+                                        delete_event_id=params.delete_event_id)
     except ANN.AnnotationError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(result)

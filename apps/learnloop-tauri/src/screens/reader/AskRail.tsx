@@ -54,8 +54,10 @@ export interface AskRailProps {
   onCommit?: (root: ReaderExchange, preset: InquiryCommitment) => void;
   committed?: (root: ReaderExchange) => Set<InquiryCommitment>;
   renderInquiryTop?: (root: ReaderExchange) => ReactNode;
-  /** The selection touches material held out of LearnLoop's models (exam
-   *  protection decides): the reason, and no Ask is offered for it. */
+  /** What an Ask would send now (an inherited thread's passage, the
+   *  selection, or the active passage) touches material held out of
+   *  LearnLoop's models, or the whole reading is held back (exam protection
+   *  decides): the reason, and no Ask is offered. */
   protectionMessage?: string | null;
 }
 
@@ -140,7 +142,7 @@ export function AskRail({
                   </div>
                 </Card>
               ) : null}
-              {protectionMessage && !(inquiry && parentExchange) ? (
+              {protectionMessage ? (
                 <span data-ask-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
                   {protectionMessage} You can still highlight it and keep notes.
                 </span>
@@ -187,6 +189,10 @@ export function AskRail({
               </>
               )}
             </>
+          ) : protectionMessage ? (
+            <span data-ask-protected="" style={{ color: COLOR.textFaint, fontSize: 11, lineHeight: 1.6 }}>
+              {protectionMessage} You can still highlight it and keep notes.
+            </span>
           ) : (
             <Faint style={{ fontSize: 12 }}>select a passage (drag, or ctrl+drag boxes) to ask about it.</Faint>
           )}

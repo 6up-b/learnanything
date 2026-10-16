@@ -1323,9 +1323,13 @@ export const api = {
     mutatingReader(call<ReaderAnnotationResultDto>("reader_edit_annotation", { input })),
   readerDeleteIntentAnnotation: (input: { annotationId: string; reason?: string | null }) =>
     mutatingReader(call<{ eventId: string }>("reader_delete_intent_annotation", { input })),
-  /** Undo a delete (reader-pdf-selection): the annotation is listed again. */
-  readerRestoreAnnotation: (input: { annotationId: string }) =>
-    mutatingReader(call<{ annotationId: string; restored: boolean; eventId: string | null }>("reader_restore_annotation", { input })),
+  /** Undo a delete (reader-pdf-selection): the one delete `deleteEventId`
+   *  names (the `eventId` the delete returned) is withdrawn; `listed` says
+   *  whether the annotation is listed again (another delete may stand). */
+  readerRestoreAnnotation: (input: { annotationId: string; deleteEventId: string }) =>
+    mutatingReader(
+      call<{ annotationId: string; restored: boolean; eventId: string | null; listed: boolean }>("reader_restore_annotation", { input }),
+    ),
   readerReanchor: (input: { annotationId: string; newExtractionId: string }) =>
     mutatingReader(call<ReaderAnnotationResultDto>("reader_reanchor", { input })),
   readerAnnotationHistory: (input: { annotationId: string }) =>
