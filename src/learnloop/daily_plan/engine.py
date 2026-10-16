@@ -229,6 +229,9 @@ class PoolContext:
     #: on their cold check, with when the hold lifts. They stay in the plan's
     #: universe and return to the pool once it lifts.
     held_until: Mapping[str, str] = field(default_factory=dict)
+    #: The pool with those items still in it, in pool order (round 8: what
+    #: the boundary could choose from once a hold lifts).
+    pool_with_held: tuple[PoolItem, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1373,6 +1376,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     # UX Phase 4 round 7: a cold check under a routine-display hold is not a
     # candidate while the hold lasts (``scheduler.cold_check_hold_until``).
     held_until = _routine_holds(env, [item.practice_item_id for item in pool])
+    pool_with_held = pool
     if held_until:
         pool = tuple(item for item in pool if item.practice_item_id not in held_until)
     admission = record.admission
@@ -1405,6 +1409,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         },
         deadlines=built.deadlines,
         held_until=held_until,
+        pool_with_held=pool_with_held if held_until else (),
     )
 
 
@@ -1428,36 +1433,79 @@ def _routine_holds(env: PlanEnv, item_ids: Sequence[str]) -> dict[str, str]:
     return holds
 
 
-def _waiting_step(env: PlanEnv, record: PlanRecord, context: PoolContext) -> dict[str, Any] | None:
-    """What the plan waits for when nothing can be done now (UX Phase 4 round
-    7): the earliest routine-display hold that lifts later TODAY, the plan's
-    local day. None when no hold lifts today: the plan finishes as before."""
+def _waiting_step(
+    env: PlanEnv,
+    record: PlanRecord,
+    context: PoolContext,
+    *,
+    forced_minutes: float = 0.0,
+    forced_items: int = 0,
+    forced_allotment: Mapping[str, float] | None = None,
+    forced_spent: Mapping[str, float] | None = None,
+) -> dict[str, Any] | None:
+    """What the plan waits for, or None (UX Phase 4 rounds 7 and 8).
 
-    lifting = []
+    Called only when nothing is feasible now. The plan waits only when a
+    held item would become feasible solely because its routine-display
+    coverage lifts later TODAY (the plan's local day), under the plan's real
+    constraints: the same redistribution and feasibility rule as the boundary
+    (minutes left, the item allowance, the lanes and their minutes, the
+    plan's admitted universe and every other exclusion already applied to the
+    pool), evaluated with the pool as it will be at that moment (holds that
+    lift later stay out). None of these depends on the clock except the
+    holds. Otherwise None: the boundary closes as it did before round 7.
+    """
+
+    if not context.held_until or not context.pool_with_held:
+        return None
     plan_day = str(record.row.get("local_date") or env.today())
+    today: dict[str, str] = {}
     for item_id, until in context.held_until.items():
         try:
             moment = parse_utc(until)
         except ValueError:
             continue
-        if moment is None or moment.astimezone().date().isoformat() != plan_day:
+        if moment is not None and moment.astimezone().date().isoformat() == plan_day:
+            today[item_id] = until
+    for until in sorted(set(today.values())):
+        lifted = {item_id for item_id, at in context.held_until.items() if at <= until}
+        at_lift = replace(
+            context,
+            pool=tuple(
+                item
+                for item in context.pool_with_held
+                if item.practice_item_id not in context.held_until or item.practice_item_id in lifted
+            ),
+            held_until={item_id: at for item_id, at in context.held_until.items() if item_id not in lifted},
+        )
+        computed = _feasibility(
+            record,
+            at_lift,
+            env.policy,
+            forced_minutes=forced_minutes,
+            forced_items=forced_items,
+            forced_allotment=forced_allotment,
+            forced_spent=forced_spent,
+        )
+        admitted = [
+            candidate for candidate in computed.feasible if lifted & set(candidate.item_ids)
+        ]
+        if not admitted:
             continue
-        lifting.append((until, item_id))
-    if not lifting:
-        return None
-    until, item_id = min(lifting)
-    seconds = max((parse_utc(until) - env.now()).total_seconds(), 0.0)
-    item = env.vault.practice_items.get(item_id)
-    learning_object_id = getattr(item, "learning_object_id", None) if item is not None else None
-    return {
-        "kind": "waiting",
-        "plan_id": record.id,
-        "until": until,
-        "minutes": max(math.ceil(seconds / 60.0), 1),
-        "practice_item_id": item_id,
-        "learning_object_id": learning_object_id,
-        "learning_object_title": context.titles.get(learning_object_id) if learning_object_id else None,
-    }
+        item_id = next(item for item in admitted[0].item_ids if item in lifted)
+        seconds = max((parse_utc(until) - env.now()).total_seconds(), 0.0)
+        item = env.vault.practice_items.get(item_id)
+        learning_object_id = getattr(item, "learning_object_id", None) if item is not None else None
+        return {
+            "kind": "waiting",
+            "plan_id": record.id,
+            "until": until,
+            "minutes": max(math.ceil(seconds / 60.0), 1),
+            "practice_item_id": item_id,
+            "learning_object_id": learning_object_id,
+            "learning_object_title": context.titles.get(learning_object_id) if learning_object_id else None,
+        }
+    return None
 
 
 def _live_context(
@@ -1510,7 +1558,21 @@ def _intents(context: PoolContext) -> dict[str, IntentView]:
     return {lo: IntentView(deadline=context.deadlines.get(lo)) for lo in sorted(los)}
 
 
-def decide(
+@dataclass(frozen=True)
+class _Feasibility:
+    """What a boundary may choose from (§6.8): the redistributed state, the
+    source's candidates and the feasible ones, under the plan's minutes left,
+    item allowance and lane rules."""
+
+    state: PlanState
+    source: Any
+    candidates: list[Any]
+    feasible: list[Any]
+    minutes_left: float
+    redistribution: dict[str, Any] | None
+
+
+def _feasibility(
     record: PlanRecord,
     context: PoolContext,
     policy: PlanPolicy,
@@ -1519,15 +1581,8 @@ def decide(
     forced_items: int = 0,
     forced_allotment: Mapping[str, float] | None = None,
     forced_spent: Mapping[str, float] | None = None,
-) -> Decision:
-    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
-
-    ``forced_*`` are the items the container places in this block whatever is
-    chosen (requests first, mid-plan follow-ups): they come out of the plan's
-    minutes and a re-entry plan's item allowance before the choice, and
-    follow-ups out of their lane (``forced_spent``, after the minutes other
-    lanes release to it, ``forced_allotment``; review F4).
-    """
+) -> _Feasibility:
+    """Redistribution and feasibility at one boundary, before any choice. Pure."""
 
     allotment, spent = record.ledger()
     for lane, delta in (forced_allotment or {}).items():
@@ -1598,6 +1653,46 @@ def decide(
         and (items_left is None or len(candidate.item_ids) <= items_left)
         and (items_left is None or items_left > 0)
     ]
+    return _Feasibility(
+        state=state,
+        source=source,
+        candidates=candidates,
+        feasible=feasible,
+        minutes_left=minutes_left,
+        redistribution=redistribution,
+    )
+
+
+def decide(
+    record: PlanRecord,
+    context: PoolContext,
+    policy: PlanPolicy,
+    *,
+    forced_minutes: float = 0.0,
+    forced_items: int = 0,
+    forced_allotment: Mapping[str, float] | None = None,
+    forced_spent: Mapping[str, float] | None = None,
+) -> Decision:
+    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
+
+    ``forced_*`` are the items the container places in this block whatever is
+    chosen (requests first, mid-plan follow-ups): they come out of the plan's
+    minutes and a re-entry plan's item allowance before the choice, and
+    follow-ups out of their lane (``forced_spent``, after the minutes other
+    lanes release to it, ``forced_allotment``; review F4).
+    """
+
+    computed = _feasibility(
+        record,
+        context,
+        policy,
+        forced_minutes=forced_minutes,
+        forced_items=forced_items,
+        forced_allotment=forced_allotment,
+        forced_spent=forced_spent,
+    )
+    state, source, candidates, feasible = computed.state, computed.source, computed.candidates, computed.feasible
+    minutes_left, redistribution = computed.minutes_left, computed.redistribution
     stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible
     describe = getattr(source, "decision_record", None)
     source_record = describe() if callable(describe) else None
@@ -1855,9 +1950,24 @@ def _boundary(
         detail["router"] = router_summary(router_record)
     candidate = decision.candidate
     if candidate is None and not forced:
-        # UX Phase 4 round 7: a temporary routine-display hold never finishes
-        # the plan. When the only work left lifts later today, the plan waits.
-        waiting = _waiting_step(env, record, context)
+        # UX Phase 4 rounds 7 and 8: a temporary routine-display hold never
+        # finishes the plan. Only when nothing is feasible now, and a held
+        # item would be feasible once its hold lifts later today, the plan
+        # waits; otherwise it closes with the chooser's decision, as before
+        # (a stop the chooser chose with work feasible is that stop).
+        waiting = (
+            _waiting_step(
+                env,
+                record,
+                context,
+                forced_minutes=forced_minutes,
+                forced_items=len(forced),
+                forced_allotment=forced_allotment,
+                forced_spent=forced_spent,
+            )
+            if not decision.feasible
+            else None
+        )
         if waiting is not None:
             raise PlanWaiting(waiting)
         _close(
