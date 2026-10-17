@@ -240,3 +240,22 @@ New backend files (all pass): `test_reader_intent.py` 27, `test_reader_intention
 ## 10. Owner-run commands
 
 None needed: no paid call was made (fakes only), and nothing here runs in a batch. To look at it on a copy: make a backup-API copy into `fixtures-local/` (`learnloop.db.copies.copy_tree_with_databases`), `uv run learnloop doctor --fix-state --vault <copy>` (applies migration 208 under the coordinator), then `LEARNLOOP_VAULT=<abs path to the copy> npm run dev` from `apps/learnloop-tauri`. Select a line of a worked example: the box appears without taking focus; type *quiz me later* and pause, then ↵; or Tab → *let me try the next step*. The Decider routing needs the OpenRouter key (`openrouter_decider`, about $0.0004 a call, at most 200 a day); without it every routing asks. Switches in the copy's `learnloop.toml`: `[reader_intent] enabled = false` (today's selection), `speculative_enabled = false` (route on Enter only), `[reader_active_reading] enabled = false`, `[reader_formative] enabled = false`. `uv run learnloop reader report --json --vault <copy>` shows the `intent` and `active_reading` rows.
+
+## 11. Gate
+
+Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, `uv run --no-sync` after the install; both suite lanes under `flock /tmp/learnloop-fullsuite.lock`. No paid or live model call: every test uses fakes (`StructuredClientFake`, the router's `FakeDecider` priced at the listed input price, the gap fakes).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite), on `266a9a271` | **13,022 passed, 2 xfailed**, 0 failed (21 min 18 s, while another stage held the machine). Base 12,941: +81 (the six RW1b files 68, the mobile pins +9 and a registry check, the firewall case, the report and fixture-drift tests). The first run (on `c89c84851`) had 10 failures, all fixed in `266a9a271`: the parameter registry did not classify the three new numeric leaves (7 tests), the judge-route disclosure test's route set (1), the widening test's `shutil.copy2` of migration text tripping the file-copy audit (1), and the mvp-0.8 cutover's registry audit (1) |
+| `pytest -m durability` | **107 passed**, 12,917 deselected (1 min 58 s); base 106 + the widening test's durability case |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **119 files, 959 tests passed** (base 936; +23: IntentBox 15, nextStepFold 4, intentSwitchOff 3, recapCopyBasis 1). One run while the full suite held the machine timed out 6 unrelated tests (vault switching, the detour strip, 5 s timeouts); the next run passed 959 of 959 |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished, exit 0 (eight passthroughs) |
+| `db_generate_reference.py`, `db_validate_reference.py`, `validate_vault.py`, `module_validate.py` | regenerated (schema head 208, 327 table notes, 873 configuration leaves in 58 sections); errors []; passed (1,119 notes, all reachable); passed |
+| `test_config_refactor.py` (19 snapshots recomputed, the template `.pyc` cleared), `test_coordinated_migrations.py`, `test_migrations.py`, `test_table_roles.py`, `test_architecture.py`, CLI help and RPC pins | pass (in the full suite); CLI help unchanged |
+
+**Pre-existing, not RW1b:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"), as recorded at RW6a. **Not done:** no adversarial (Codex) review in this stage; no real-UI look (the screens are exercised through the real `ReaderScreen` in jsdom, where ranges have no geometry, so the box's placement under the selection is exercised only by its fallbacks). No vault was opened: no manual run, no copy under `fixtures-local/`; the tracked fixture vaults are untouched.
