@@ -36,6 +36,7 @@ from learnloop.diagnosis.text_gaps.pipeline import PipelineClients, ReadingDefer
 from learnloop.diagnosis.text_gaps.sources import (
     StuckTextSource,
     attempt_grade_held,
+    formative_row,
     learner_text,
     stuck_text_for,
     stuck_texts,
@@ -128,6 +129,25 @@ def enqueue_stuck_answer(
     if stuck_text_for(repository, attempt_id, stuck_source) is None:
         return None
     return enqueue(repository, source_kind="stuck_answer", source_id=attempt_id, clock=clock)
+
+
+def enqueue_reader_formative(
+    vault: LoadedVault, repository: Repository, *, question_id: str, clock: Clock | None = None,
+) -> str | None:
+    """RW1b: a missed next-step, why-step or assumption answer (``reader_formative``).
+
+    Queued only with the pipeline (``learner_text_gaps.enabled``) and the
+    Reader's switch (``reader_formative.enabled``) on, and only for a missed
+    answer the learner wrote (:func:`~.sources.formative_row`); a match, or a
+    "show me" with no answer, queues nothing. Idempotent per question."""
+
+    if not pipeline_enabled(vault):
+        return None
+    if not bool(getattr(getattr(vault.config, "reader_formative", None), "enabled", False)):
+        return None
+    if formative_row(repository, question_id) is None:
+        return None
+    return enqueue(repository, source_kind="reader_formative", source_id=question_id, clock=clock)
 
 
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
@@ -313,7 +333,8 @@ def _retry_or_fail(
 
 #: ``context_judge`` of each source (a text gone since it was queued is
 #: logged with an empty text).
-_CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader"}
+_CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader",
+                  "reader_formative": "gap_reader", "workbench_text": "gap_reader"}
 
 
 def _skip(

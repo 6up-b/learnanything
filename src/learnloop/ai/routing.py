@@ -99,12 +99,16 @@ AITask = Literal[
     # profile; `learnloop grading method-phrasing`), and makes the one-time
     # required-method statement judgments at import and PF selection.
     "rubric_phrasing_judge",
+    # Reader workbench RW1b: the intent box's router (a decider task).
+    "reader_intent",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
-DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider"})
+DECIDER_TASKS: frozenset[str] = frozenset(
+    {"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider", "reader_intent"}
+)
 #: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
 #: structured question of a chat model, or typed questions of a decision model
 #: (facet identity: one choice question per facet pair, owner 2026-10-12).

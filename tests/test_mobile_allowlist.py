@@ -210,6 +210,31 @@ READER_RW6A_RPCS = (
 )
 
 
+# Reader workbench RW1b (the intent box and active reading) adds eight RPCs --
+# the intent box's routing start, read and outcome (used, discarded, changed),
+# and active reading's question request, status read and actions, and
+# "reconstruct this later" with its undo -- and extends reader.prompt_contract
+# (the grouped palette, the speculation settings and active reading's fold).
+# Desktop only (spec D20).
+READER_RW1B_RPCS = (
+    "reader.route_intent",
+    "reader.intent_routing",
+    "reader.intent_outcome",
+    "reader.active_question",
+    "reader.active_question_status",
+    "reader.active_question_action",
+    "reader.reconstruct",
+    "reader.reconstruct_undo",
+    "reader.prompt_contract",
+)
+
+
+def test_the_pinned_rw1b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.reader_intent import RW1B_RPCS
+
+    assert set(READER_RW1B_RPCS) - {"reader.prompt_contract"} == set(RW1B_RPCS)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -378,7 +403,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
 )

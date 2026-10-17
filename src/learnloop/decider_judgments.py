@@ -328,6 +328,17 @@ def _ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, qu
         spend.collector.sink = previous
 
 
+def ask_decider(client: Any, *, config: Any, repository: Any, task: str, state: Any,
+                questions: dict[str, Any], owner_id: str, route: str, spend: Any = None) -> Any:
+    """One admitted Decider request for a caller that keeps its own ledger rows
+    (the Reader's intent box, ``learnloop.reader.reader_intent``): the same
+    admission and receipts as :func:`decide` (owner kind ``task``), on
+    ``route``'s listed price; it raises what the request raised."""
+
+    return _ask(client, config=config, repository=repository, task=task, state=state, questions=questions,
+                owner_id=owner_id, spend=spend, route=route)
+
+
 def decide_many(*, root: Any, config: Any, repository: Any, task: str, state: Any,
                 questions: dict[str, ChoiceQuestion], left_kind: str, left_id: str,
                 spend: Any = None, candidates: int = 0) -> dict[str, Decision]:
@@ -380,6 +391,7 @@ __all__ = [
     "Decision",
     "NoClearAnswer",
     "argmax",
+    "ask_decider",
     "client_for",
     "connection_note",
     "decide",

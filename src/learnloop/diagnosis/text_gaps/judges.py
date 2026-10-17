@@ -54,6 +54,8 @@ from learnloop.diagnosis.text_gaps.contract import (
     NEEDED_TASK_TEXT,
     PAIR_OPTIONS,
     PAIR_QUESTION_INSTRUCTIONS,
+    READER_FORMATIVE_PROMPT_VERSION,
+    READER_FORMATIVE_TASK,
     READER_PROMPT_VERSION,
     READER_PURPOSE,
     READER_ROUTE,
@@ -217,6 +219,9 @@ def kind_state(text: LearnerText) -> dict[str, Any]:
         "tutor_question": "a question the learner asked the tutor",
         "stuck_answer": "an answer the learner wrote after pressing \"I'm stuck\"",
         "diagnosis": "a wrong answer the learner gave",
+        "reader_formative": "an answer the learner wrote to a short question while reading, then judged "
+                            "as only partly right or not right",
+        "workbench_text": "text the learner wrote while working a problem beside the book",
     }[text.source_kind]
     return {"learner_text": text.text, "what_it_is": surface, "about": dict(text.context)}
 
@@ -315,10 +320,17 @@ def decider_kind(repository: Repository, budget: TextBudget, client: Any, text: 
 # -- the stuck-text reader ---------------------------------------------------------------
 
 
+def reader_version(text: LearnerText) -> str:
+    """The reader's prompt version for this text (RW1b's formative answers have their own task)."""
+
+    return READER_FORMATIVE_PROMPT_VERSION if text.source_kind == "reader_formative" else READER_PROMPT_VERSION
+
+
 def reader_prompt(text: LearnerText) -> str:
+    task = READER_FORMATIVE_TASK if text.source_kind == "reader_formative" else READER_TASK
     return render_structured_prompt(
-        "learnloop learner gap reader", READER_PROMPT_VERSION,
-        {"task": READER_TASK, "context": {"learner_text": text.text, **dict(text.context)}},
+        "learnloop learner gap reader", reader_version(text),
+        {"task": task, "context": {"learner_text": text.text, **dict(text.context)}},
     )
 
 
@@ -330,16 +342,17 @@ def read_text(budget: TextBudget, client: Any, text: LearnerText) -> GapReading:
     model = producer_label(client)
     budget.register_llm(READER_ROUTE, client)
     prompt = reader_prompt(text)
+    version = reader_version(text)
     try:
         with budget.request(READER_ROUTE, READER_PURPOSE, input_tokens=estimate_tokens(prompt)):
             gap = execute_structured_operation(
                 client, purpose=READER_PURPOSE, prompt=prompt, result_model=LearnerGap, isolated=True,
             )
     except SpendLimitExceeded:
-        return GapReading("none", judge="llm", judge_model=model, prompt_version=READER_PROMPT_VERSION, status="refused")
+        return GapReading("none", judge="llm", judge_model=model, prompt_version=version, status="refused")
     except Exception:  # noqa: BLE001 - a failed reading falls back to the grounded rule
-        return GapReading("none", judge="llm", judge_model=model, prompt_version=READER_PROMPT_VERSION, status="failed")
-    return GapReading.from_gap(gap, judge="llm", judge_model=model, prompt_version=READER_PROMPT_VERSION)
+        return GapReading("none", judge="llm", judge_model=model, prompt_version=version, status="failed")
+    return GapReading.from_gap(gap, judge="llm", judge_model=model, prompt_version=version)
 
 
 # -- "is it needed for this item?" ---------------------------------------------------------

@@ -13191,6 +13191,11 @@ class Repository(
             _json(list(fields.get("anchor_span_ids") or [])),
             fields.get("inquiry_root_event_id"),
         ]
+        if scope_kind == "selection":
+            # RW1b (migration 208): whose words the expected answer is, and the
+            # selection reuse key the database keeps unique.
+            columns.append("answer_basis")
+            values.append(fields.get("answer_basis"))
         # An inquiry row's reuse key (root exchange, prompt version) is unique
         # (migration 185): a second insert for the key writes nothing and the
         # row already there -- the one the learner may have answered -- wins.
@@ -13203,10 +13208,18 @@ class Repository(
             connection.commit()
         if inserted:
             return question_id
-        existing = self.inquiry_reader_authored_question(
-            inquiry_root_event_id=str(fields.get("inquiry_root_event_id") or ""),
-            prompt_version=str(fields.get("prompt_version", "")),
-        )
+        if scope_kind == "selection":
+            existing = self.selection_reader_authored_question(
+                extraction_id=str(fields["extraction_id"]),
+                anchor_span_ids=list(fields.get("anchor_span_ids") or []),
+                question_style=str(fields.get("question_style") or "recall"),
+                prompt_version=str(fields.get("prompt_version", "")),
+            )
+        else:
+            existing = self.inquiry_reader_authored_question(
+                inquiry_root_event_id=str(fields.get("inquiry_root_event_id") or ""),
+                prompt_version=str(fields.get("prompt_version", "")),
+            )
         if existing is None:
             raise sqlite3.IntegrityError("reader_authored_questions refused a scoped row")
         return str(existing["id"])
@@ -13226,6 +13239,35 @@ class Repository(
                 (inquiry_root_event_id, prompt_version),
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def selection_reader_authored_question(
+        self, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], question_style: str,
+        prompt_version: str,
+    ) -> dict[str, Any] | None:
+        """RW1b: the selection-scoped question for one reuse key (extraction,
+        anchor spans in reading order, style, prompt version), any status --
+        a dismissed row suppresses re-authoring for its own key."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_authored_questions WHERE scope_kind = 'selection' AND extraction_id = ? "
+                "AND anchor_span_ids_json = ? AND question_style = ? AND prompt_version = ? LIMIT 1",
+                (extraction_id, _json(list(anchor_span_ids)), question_style, prompt_version),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def selection_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
+        """Every selection-scoped question (oldest first), for the reader report."""
+
+        query = "SELECT * FROM reader_authored_questions WHERE scope_kind = 'selection'"
+        params: list[Any] = []
+        if since is not None:
+            query += " AND created_at >= ?"
+            params.append(since)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
     def inquiry_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
         """Every inquiry-scoped question (oldest first), for the reader report."""

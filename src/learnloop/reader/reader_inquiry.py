@@ -58,6 +58,18 @@ SERVER_ACTION_EVENTS: tuple[str, ...] = (
     "inquiry_status_set",
     "reconnect_answered",
 )
+# RW1b's server-owned events (the sidecar's ``reader_intent`` handlers): the
+# intent box's routing (used or discarded) and its correction, and active
+# reading's request, self-check and reconstruct acts. Like every event outside
+# ``CLIENT_ACTION_EVENTS``, the UI cannot record them.
+RW1B_SERVER_EVENTS: tuple[str, ...] = (
+    "intent_routed",
+    "intent_corrected",
+    "active_question_requested",
+    "active_question_answered",
+    "reconstruct_committed",
+    "reconstruct_undone",
+)
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 
 # Existing kinds the Reader UI records without an ``event`` field.
@@ -81,6 +93,9 @@ ACTIVITY_FIELDS: frozenset[str] = frozenset({
     "active_seconds", "idle_seconds", "seconds_after",
     # RW3a's mark impressions: which cue, its kind and the density in force.
     "cue_id", "cue_kind", "density",
+    # RW1b: the intention an action serves, how it was reached (the palette
+    # or the intent box) and an active-reading question's style.
+    "intention", "entry", "style",
 })
 WAIT_ACTIVITY_FIELDS: tuple[str, ...] = ("scrolled", "selected", "typed")
 MAX_FIELD_CHARS = 200
@@ -319,6 +334,7 @@ def record_activity(
 
 __all__ = [
     "CLIENT_ACTION_EVENTS",
+    "RW1B_SERVER_EVENTS",
     "CLIENT_ACTIVITY_KINDS",
     "INQUIRY_EVENTS",
     "InquiryError",

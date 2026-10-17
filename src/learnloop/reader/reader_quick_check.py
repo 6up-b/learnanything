@@ -44,9 +44,14 @@ from learnloop.ai.spend import (
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.config.schema import DEFAULT_OUTPUT_TOKENS
 from learnloop.reader.ai_contracts import (
+    ACTIVE_QUESTION_STYLES,
+    READING_ACTIVE_PROMPT_VERSION,
     READING_PASSAGE_CHECK_PROMPT_VERSION,
+    ReadingActiveCheck,
+    ReadingActiveContext,
     ReadingQuickCheck,
     ReadingQuickCheckContext,
+    reading_active_prompt,
     reading_passage_check_prompt,
     reading_quick_check_prompt,
 )
@@ -228,12 +233,14 @@ def request_passage_check(
 def _admitted_passage_check(
     repository: Repository,
     client: Any,
-    context: ReadingQuickCheckContext,
+    context: Any,
     *,
     spend: PassageCheckSpend,
     owner_id: str,
     clock: Clock | None,
-) -> ReadingQuickCheck:
+    prompt: Callable[[Any], str] = reading_passage_check_prompt,
+    request: Callable[[Any, Any], Any] = request_passage_check,
+) -> Any:
     """Admit one passage check through the spend framework, then send it.
 
     Refused (``PassageCheckRefused``) before anything is sent when today's
@@ -266,7 +273,7 @@ def _admitted_passage_check(
     ) >= limit:
         raise capped()
     subscription = is_subscription_transport(client=client)
-    prompt_tokens = _estimate_tokens(reading_passage_check_prompt(context))
+    prompt_tokens = _estimate_tokens(prompt(context))
     price = spend.price_per_million
     if price is None and not subscription:
         raise PassageCheckRefused(
@@ -302,7 +309,7 @@ def _admitted_passage_check(
                 repository, client, context, budget=budget, estimate=estimate, planned=planned,
                 price=price, subscription=subscription, limit=limit, day=day, capped=capped,
                 owner_id=owner_id, output_tokens=truncation.budget, truncation=truncation,
-                effort=spend.reasoning_effort,
+                effort=spend.reasoning_effort, request=request,
             )
         except AIOutputTruncated:
             if not truncation.after_truncation(allowed=budget.used.retries < budget.caps.max_retries):
@@ -326,7 +333,8 @@ def _send_passage_check(
     output_tokens: int,
     truncation: TruncationRetry,
     effort: str | None,
-) -> ReadingQuickCheck:
+    request: Callable[[Any, Any], Any] = request_passage_check,
+) -> Any:
     """One admitted attempt of the passage check: its receipts, its request."""
 
     totals: dict[str, Any] = {"input": 0, "output": 0, "cost": None, "root": None}
@@ -381,7 +389,7 @@ def _send_passage_check(
                 stack.enter_context(generation_limit(output_tokens))
                 stack.enter_context(truncation.receipts())
                 stack.enter_context(requested_reasoning_effort(effort))
-                return request_passage_check(client, context)
+                return request(client, context)
         except BaseException:
             if refused:
                 raise refused[0] from None
@@ -913,3 +921,336 @@ def escalate(
         pass
     refreshed = repository.get_reader_authored_question(question_id)
     return {"practice_item_id": item_id, "question": refreshed or row}
+
+
+# ---------------------------------------------------------------------------
+# RW1b: active reading on a selection (spec_reader_workbench_v1 §4.2, §4.3)
+# ---------------------------------------------------------------------------
+
+#: The selection scope's prompt version (part of its reuse key).
+SELECTION_PROMPT_VERSION = READING_ACTIVE_PROMPT_VERSION
+SELECTION_STYLES = ACTIVE_QUESTION_STYLES
+#: The styles whose missed answer is a formative record and learner text
+#: (spec §4.2 "Missed answers are learner text"); reconstruct is escalated.
+FORMATIVE_STYLES = ("next_step", "why_step", "assumptions")
+MISSED_SELF_CHECKS = ("partly", "no")
+SELECTION_ACTIONS = ("answered", "self_checked", "dismissed")
+SELECTION_CLAIM_TASK = "reader_selection_check"
+#: How many of the book's following blocks fold while the learner tries the
+#: next step, and the most selected blocks one question reads (display and
+#: prompt-size bounds, never learning thresholds).
+FOLD_BLOCKS = 3
+MAX_SELECTED_BLOCKS = 12
+MAX_SELECTION_CHARS = 10_000
+
+
+def _clean(text: str | None) -> str:
+    return " ".join((text or "").split())
+
+
+def selection_claim_key(extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> str:
+    anchors = content_key([extraction_id, list(anchor_span_ids)])[:24]
+    return f"{SELECTION_CLAIM_TASK}:{SELECTION_PROMPT_VERSION}:{style}:{anchors}"
+
+
+def selection_view(
+    repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str
+) -> dict[str, Any]:
+    """The bounded view of one selection (RW1b): the selected blocks in reading
+    order inside the first one's guide section, one block of context before
+    them and the book's next ``FOLD_BLOCKS`` blocks after them (the ones the
+    Reader folds for the next step).
+
+    ``{section_id, label, scope: "selection", style, anchor_span_ids,
+    before, selected, following}``."""
+
+    if style not in SELECTION_STYLES:
+        raise ReaderQuickCheckError(f"unknown question style: {style!r}")
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        raise ReaderQuickCheckError(f"extraction has no IR: {extraction_id!r}")
+    section_rows, block_by_span, span_to_section = extraction_sections(ir)
+    wanted = [span_id for span_id in dict.fromkeys(anchor_span_ids) if span_id in span_to_section]
+    if not wanted:
+        raise ReaderQuickCheckError(f"the selection has no readable passage: {list(anchor_span_ids)!r}")
+    section_id = span_to_section[wanted[0]]
+    section = next(row for row in section_rows if row["id"] == section_id)
+    order = list(section["span_ids"])
+    anchors = sorted((span_id for span_id in wanted if span_id in order), key=order.index)[:MAX_SELECTED_BLOCKS]
+
+    def block(span_id: str) -> dict[str, str] | None:
+        found = block_by_span[span_id]
+        text = _clean(found.text)
+        return {"span_id": span_id, "kind": str(found.block_type or ""), "text": text} if text else None
+
+    selected = [b for b in (block(span_id) for span_id in anchors) if b is not None]
+    if not selected:
+        raise ReaderQuickCheckError("the selection has no readable text")
+    total = 0
+    trimmed = []
+    for item in selected:
+        total += len(item["text"])
+        if trimmed and total > MAX_SELECTION_CHARS:
+            break
+        trimmed.append(item)
+    first, last = order.index(anchors[0]), order.index(anchors[-1])
+    before = [b for b in (block(span_id) for span_id in order[max(0, first - 1):first]) if b is not None]
+    following: list[dict[str, str]] = []
+    for span_id in order[last + 1:]:
+        item = block(span_id)
+        if item is not None:
+            following.append(item)
+        if len(following) >= FOLD_BLOCKS:
+            break
+    return {
+        "section_id": section_id,
+        "label": section["label"],
+        "scope": "selection",
+        "style": style,
+        "anchor_span_ids": [b["span_id"] for b in trimmed],
+        "before": before,
+        "selected": trimmed,
+        "following": following if style == "next_step" else [],
+    }
+
+
+def folded_span_ids(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str]) -> list[str]:
+    """The book's next blocks after a selection, the ones that fold (G4's fold)."""
+
+    try:
+        view = selection_view(repository, extraction_id=extraction_id, anchor_span_ids=anchor_span_ids,
+                              style="next_step")
+    except ReaderQuickCheckError:
+        return []
+    return [b["span_id"] for b in view["following"]]
+
+
+def request_active_question(client: StructuredTransport, context: ReadingActiveContext) -> ReadingActiveCheck:
+    """Author one selection-scoped question (RW1b) as an isolated turn (the
+    passage is untrusted source text, as for RW1a's passage check)."""
+
+    return execute_structured_operation(
+        client,
+        purpose=PASSAGE_CHECK_PURPOSE,
+        prompt=reading_active_prompt(context),
+        result_model=ReadingActiveCheck,
+        isolated=True,
+    )
+
+
+def _expected_answer(view: dict[str, Any], result: ReadingActiveCheck) -> tuple[str, str, list[str]]:
+    """``(expected answer, answer basis, cited spans)``.
+
+    The book's words are the expected answer only when they are the book's,
+    by code: the next step is the book's following block(s) verbatim; a
+    reconstruction is the selected derivation verbatim; a why-step or
+    assumption answer is the book's only when the model's ``source_quote`` is
+    found in the passage, otherwise it is the model's, labelled so (W2)."""
+
+    style = view["style"]
+    if style == "next_step":
+        following = view["following"]
+        if not following:
+            raise ReaderQuickCheckError("nothing follows this line in its section, so there is no next step to try")
+        named = [str(span_id) for span_id in result.next_step_span_ids]
+        taken = []
+        for item in following:
+            if item["span_id"] not in named:
+                break
+            taken.append(item)
+        taken = taken or following[:1]
+        return "\n\n".join(item["text"] for item in taken), "source", [item["span_id"] for item in taken]
+    if style == "reconstruct":
+        selected = view["selected"]
+        return "\n\n".join(item["text"] for item in selected), "source", [item["span_id"] for item in selected]
+    blocks = [*view["before"], *view["selected"]]
+    quote = _clean(result.source_quote)
+    if quote:
+        holding = [item["span_id"] for item in blocks if quote.lower() in item["text"].lower()]
+        if holding:
+            return quote, "source", holding
+    expected = (result.expected_answer_md or "").strip()
+    if not expected:
+        raise ReaderQuickCheckError("the model returned no expected answer")
+    valid = {item["span_id"] for item in blocks}
+    cited = [span_id for span_id in result.span_ids if span_id in valid]
+    return expected, "model", cited or list(view["anchor_span_ids"])
+
+
+def selection_question(
+    repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str
+) -> dict[str, Any] | None:
+    """The selection's question in ``style`` under its reuse key, any status."""
+
+    return repository.selection_reader_authored_question(
+        extraction_id=extraction_id, anchor_span_ids=list(anchor_span_ids), question_style=style,
+        prompt_version=SELECTION_PROMPT_VERSION,
+    )
+
+
+def author_selection_question(
+    repository: Repository,
+    client: Any,
+    *,
+    extraction_id: str,
+    anchor_span_ids: list[str] | tuple[str, ...],
+    style: str,
+    clock: Clock | None = None,
+    spend: PassageCheckSpend | None = None,
+    owner: str | None = None,
+    owner_ended: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
+    """Author + persist one active-reading question on a selection (RW1b).
+
+    One question per (extraction, anchor spans, style, prompt version), which
+    the database keeps unique (migration 208): an existing row is reused, a
+    dismissed one included, and the key is claimed durably before the model
+    call, exactly as RW1a's inquiry check is. The call is admitted under the
+    quick-check producer's caps (``[reader_inquiry]``) and sent as an isolated
+    turn. Formative only (W1 tier 2): answering it writes no attempt."""
+
+    if style not in SELECTION_STYLES:
+        raise ReaderQuickCheckError(f"unknown question style: {style!r}")
+    view = selection_view(repository, extraction_id=extraction_id, anchor_span_ids=anchor_span_ids, style=style)
+    anchors = list(view["anchor_span_ids"])
+    existing = selection_question(repository, extraction_id=extraction_id, anchor_span_ids=anchors, style=style)
+    if existing is not None:
+        return existing
+    if style == "next_step" and not view["following"]:
+        raise ReaderQuickCheckError("nothing follows this line in its section, so there is no next step to try")
+    owner = owner or f"inline_{new_ulid()}"
+    spend = spend if spend is not None else PassageCheckSpend()
+    key = selection_claim_key(extraction_id, anchors, style)
+
+    def claim(*, rerun: bool = False) -> tuple[str, int | None]:
+        now = utc_now_iso(clock)
+        with repository.atomic():
+            connection = repository.connection()
+            state, epoch = claim_work(
+                connection, claim_key=key, task=SELECTION_CLAIM_TASK, producer=INQUIRY_CLAIM_PRODUCER,
+                prompt_version=SELECTION_PROMPT_VERSION, input_hash=content_key([extraction_id, anchors, style]),
+                owner=owner, now=now, lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS, rerun=rerun,
+            )
+            if state == HELD and owner_ended is not None:
+                holder = lease_holder(connection, claim_key=key)
+                if holder is not None and owner_ended(holder):
+                    epoch = take_over_claim(connection, claim_key=key, from_owner=holder, owner=owner, now=now,
+                                            lease_seconds=INQUIRY_CLAIM_LEASE_SECONDS)
+                    state = CLAIMED if epoch is not None else HELD
+            return state, epoch
+
+    state, epoch = claim()
+    if state == DONE:
+        landed = selection_question(repository, extraction_id=extraction_id, anchor_span_ids=anchors, style=style)
+        if landed is not None:
+            return landed
+        state, epoch = claim(rerun=True)
+    if state == HELD or epoch is None:
+        raise InquiryCheckHeld("Another worker is writing this question.")
+    try:
+        result = _admitted_passage_check(
+            repository, client, ReadingActiveContext(extraction_id=extraction_id, style=style, passage=view),
+            spend=spend, owner_id=key, clock=clock, prompt=reading_active_prompt, request=request_active_question,
+        )
+        question_md = (result.question_md or "").strip()
+        if not question_md:
+            raise ReaderQuickCheckError("the model returned an empty question")
+        expected, basis, span_ids = _expected_answer(view, result)
+    except BaseException:
+        with repository.atomic():
+            release_claim(repository.connection(), claim_key=key, owner=owner, epoch=epoch, now=utc_now_iso(clock))
+        raise
+    run = repository.get_extraction_run(extraction_id) or {}
+    revision = repository.get_source_revision(str(run.get("revision_id") or "")) or {}
+    question_id: str | None = None
+    with repository.atomic():
+        connection = repository.connection()
+        if holds_claim(connection, claim_key=key, owner=owner, epoch=epoch):
+            question_id = repository.insert_reader_authored_question(
+                fields={
+                    "extraction_id": extraction_id,
+                    "section_id": view["section_id"],
+                    "source_id": revision.get("source_id"),
+                    "question_md": question_md,
+                    "expected_answer_md": expected,
+                    "span_ids": span_ids,
+                    "prompt_version": SELECTION_PROMPT_VERSION,
+                    "provider": getattr(getattr(client, "config", None), "provider", None)
+                    or getattr(client, "provider_name", None),
+                    "model": getattr(getattr(client, "config", None), "model", None) or getattr(client, "model", None),
+                    "scope_kind": "selection",
+                    "question_style": style,
+                    "anchor_span_ids": anchors,
+                    "answer_basis": basis,
+                },
+                clock=clock,
+            )
+            complete_claim(connection, claim_key=key, owner=owner, epoch=epoch, judgment_id=question_id,
+                           now=utc_now_iso(clock))
+    if question_id is None:
+        landed = selection_question(repository, extraction_id=extraction_id, anchor_span_ids=anchors, style=style)
+        if landed is not None:
+            return landed
+        raise InquiryCheckHeld("Another worker took this question over.")
+    row = repository.get_reader_authored_question(question_id)
+    assert row is not None
+    return row
+
+
+def is_missed(row: dict[str, Any]) -> bool:
+    """A missed formative answer: partly or no on a next step, why step or assumption."""
+
+    return (row.get("scope_kind") == "selection" and row.get("question_style") in FORMATIVE_STYLES
+            and row.get("self_check") in MISSED_SELF_CHECKS)
+
+
+def record_selection_action(
+    repository: Repository,
+    *,
+    question_id: str,
+    action: str,
+    response_md: str | None = None,
+    self_check: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """The learner's act on an active-reading question (RW1b).
+
+    ``answered`` stamps their answer (or none: "show me" reveals the book's
+    lines without one), after which the expected answer is shown beside it;
+    ``self_checked`` records matches, partly or no in ``self_check`` and, in
+    the same transaction, a ``learner_card`` verdict on ``judgment_ledger``
+    (a changed verdict supersedes the previous one); ``dismissed`` is the
+    durable "don't bring this back". Formative only: no attempt, observation,
+    mastery or FSRS row. Whether a missed answer becomes learner text is the
+    caller's (``reader_formative``)."""
+
+    if action not in SELECTION_ACTIONS:
+        raise ReaderQuickCheckError(f"unknown question action: {action!r}")
+    row = repository.get_reader_authored_question(question_id)
+    if row is None:
+        raise ReaderQuickCheckError(f"unknown authored question: {question_id!r}")
+    if row.get("scope_kind") != "selection":
+        raise ReaderQuickCheckError("not an active-reading question")
+    if row["status"] == "escalated":
+        raise ReaderQuickCheckError("this question was already added to practice")
+    if action == "self_checked":
+        if self_check not in SELF_CHECKS:
+            raise ReaderQuickCheckError(f"unknown self-check: {self_check!r}")
+        if row["status"] != "answered":
+            raise ReaderQuickCheckError("answer the question, or show the book's lines, before comparing")
+        with repository.atomic():
+            repository.transition_reader_authored_question(
+                question_id=question_id, status="answered", self_check=self_check, clock=clock
+            )
+            _append_self_check_verdict(repository, row, self_check, clock=clock)
+    elif action == "answered":
+        if row["status"] == "answered":
+            raise ReaderQuickCheckError("this question was already answered")
+        repository.transition_reader_authored_question(
+            question_id=question_id, status="answered", response_md=(response_md or "").strip() or None, clock=clock
+        )
+    else:
+        repository.transition_reader_authored_question(question_id=question_id, status="dismissed", clock=clock)
+    refreshed = repository.get_reader_authored_question(question_id)
+    assert refreshed is not None
+    return refreshed

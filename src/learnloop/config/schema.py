@@ -1312,6 +1312,11 @@ class AIRoutingConfig(BaseModel):
     # while decider_routes.required_method_statement is on), with no heuristic
     # fallback; grading never uses it.
     rubric_phrasing_judge: str | None = None
+    # Reader workbench RW1b (spec_reader_workbench_v1 §4.2): the intent box's
+    # router, one typed choice to a decision model. A decider-only route:
+    # empty = the code-default openrouter_decider profile, never a chat
+    # fallback and never LEARNLOOP_AI_PROVIDER.
+    reader_intent: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1968,6 +1973,72 @@ class RecapConfig(BaseModel):
 
     enabled: bool = True
     wrap_up_enabled: bool = True
+
+
+class ReaderIntentConfig(BaseModel):
+    """Reader workbench RW1b: the intent box (spec_reader_workbench_v1 §4.2, §4.4).
+
+    Selecting text shows a small, unfocused box under the selection; the
+    learner types what they want in their own words and one typed choice to
+    the Decider (``ai.routing.reader_intent``) picks the palette action it
+    means, which then runs exactly as the palette's own (same RPC, same
+    payload). An empty Enter asks, with no model call; an unavailable, timed
+    out (``timeout_seconds``) or spent-out Decider routes to Ask. The palette
+    stays one key away (Tab), grouped by the five learner intentions, and
+    selecting never switches the rail tab. Content and display only: routing
+    writes ``judgment_ledger`` rows (task ``reader_intent``) and salience-only
+    reader events, and nothing in scoring, scheduling, projection or serving
+    reads them, so no algorithm successor. ``enabled`` is the kill switch: off
+    (or with ``reader_inquiry.enabled`` off), a selection opens the palette in
+    Notes and the rail flips to Notes, exactly as before RW1b.
+
+    ``speculative_enabled``: routing starts once typing pauses for
+    ``speculate_after_ms``, so Enter usually finds the routing already made
+    (off: route on Enter only). It sends text the learner has typed but not yet
+    submitted, which the disclosure says. ``max_calls_per_day`` caps the
+    route's Decider calls a UTC day (counted from their receipts, failed calls
+    included; about $0.0004 a call at the listed price); speculation stops
+    once 80% of it is used, and Enter still routes until the cap.
+    """
+
+    enabled: bool = True
+    speculative_enabled: bool = True
+    speculate_after_ms: int = Field(default=600, ge=100, le=5_000)
+    timeout_seconds: float = Field(default=4.0, gt=0.0, le=30.0)
+    max_calls_per_day: int = Field(default=200, ge=0)
+
+
+class ReaderActiveReadingConfig(BaseModel):
+    """Reader workbench RW1b: active reading (spec_reader_workbench_v1 §4.2).
+
+    On a selected derivation or worked example: "let me try the next step"
+    (the book's following lines fold while the learner tries), "why does
+    this step work?", "what does this assume?", "reconstruct this later" (an
+    escalated item with a ``test_me_later`` commitment, undoable) and "another
+    way to see this" (the sources service's ``find_sources`` with intent
+    ``alternative``, the open passage excluded). The questions are the
+    quick-check producer's selection-scoped rows, admitted under
+    ``[reader_inquiry]``'s caps; answering them and the learner's three-way
+    self-check are formative and never an attempt. ``enabled`` is the kill
+    switch: off, none of these actions is offered and their RPCs refuse.
+    """
+
+    enabled: bool = True
+
+
+class ReaderFormativeConfig(BaseModel):
+    """Reader workbench RW1b: missed answers as learner text (spec_reader_workbench_v1 §4.2, W1).
+
+    A next-step, why-step or assumption answer the learner marks *partly* or
+    *no* is queued for learner-text gaps as a ``reader_formative`` text (the
+    answer, the selection and the expected answer), so the pipeline can name
+    what was missing, as it does for reader questions; a match writes nothing
+    new. Tier 2: never an attempt, evidence, mastery, certification or FSRS.
+    ``enabled`` is the kill switch: off, no ``reader_formative`` text is
+    queued and the answers stay on their rows and in the report.
+    """
+
+    enabled: bool = True
 
 
 class LearnerTextGapsConfig(BaseModel):
@@ -2861,6 +2932,9 @@ class LearnLoopConfig(BaseModel):
     cues: CuesConfig = Field(default_factory=CuesConfig)
     workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
     recap: RecapConfig = Field(default_factory=RecapConfig)
+    reader_intent: ReaderIntentConfig = Field(default_factory=ReaderIntentConfig)
+    reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
+    reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)

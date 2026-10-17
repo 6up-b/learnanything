@@ -20,7 +20,12 @@ workbench spec and the UX document's §9.2 ask:
   learner's density and per-book choices;
 * **waiting behaviour**: the share of model waits during which the learner
   scrolled, selected or typed;
-* **visits**: visits, active minutes, time to the first action.
+* **visits**: visits, active minutes, time to the first action;
+* **intent box** (RW1b): routings used and discarded (speculative ones apart),
+  fallbacks by reason, the learner's corrections counted on used routings
+  only, and actions by intention (palette and box alike);
+* **active reading** (RW1b): the selection questions by style, answered,
+  their self-checks and the missed answers sent to learner-text gaps.
 
 Reports with noise floors, never thresholds (R6). Read-only: the database is
 opened read-only and never migrated; no model is called; no learner text (no
@@ -132,6 +137,22 @@ def build_reader_report(
             )
             if in_window(row["created_at"])
         ] if has_scopes else []
+        selection_rows = [
+            dict(row)
+            for row in connection.execute(
+                "SELECT question_style, status, self_check, response_md IS NOT NULL AS wrote, created_at "
+                "FROM reader_authored_questions WHERE scope_kind = 'selection' ORDER BY created_at, id"
+            )
+            if in_window(row["created_at"])
+        ] if has_scopes else []
+        has_gap_jobs = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'learner_text_gap_jobs'"
+        ).fetchone() is not None
+        formative_texts = [
+            row["created_at"] for row in connection.execute(
+                "SELECT created_at FROM learner_text_gap_jobs WHERE source_kind = 'reader_formative'"
+            ) if in_window(row["created_at"])
+        ] if has_gap_jobs else []
 
     def actions(event: str) -> list[dict[str, Any]]:
         return [
@@ -252,6 +273,14 @@ def build_reader_report(
         if started is not None and when is not None and visit not in first_action:
             first_action[visit] = (when - started).total_seconds()
 
+    # -- the intent box and active reading (RW1b) -----------------------------
+    routed = actions("intent_routed")
+    used = [e for e in routed if e["payload"].get("used") is True]
+    used_ids = {str(e["payload"].get("routing_id")) for e in used}
+    corrections = actions("intent_corrected")
+    intent_jobs = [c for c in completions if c["payload"].get("job_kind") == "intent_routing"]
+    styles = ("next_step", "why_step", "assumptions", "reconstruct")
+
     return {
         "version": REPORT_VERSION,
         "window": {"since": since_at.isoformat() if since_at else None, "until": now.isoformat()},
@@ -320,6 +349,35 @@ def build_reader_report(
             "visits": len(opens),
             "active_minutes": round(active_seconds / 60, 3),
             "time_to_first_action_seconds": _percentiles(first_action.values()),
+        },
+        "intent": {
+            "routings": len(intent_jobs),
+            "speculative": sum(1 for c in intent_jobs if c["payload"].get("speculative") is True),
+            "used": len(used),
+            "used_speculative": sum(1 for e in used if e["payload"].get("speculative") is True),
+            "discarded": sum(1 for e in routed if e["payload"].get("used") is False),
+            "fallbacks": dict(Counter(
+                str(c["payload"].get("failure_reason") or "unknown")
+                for c in intent_jobs if c["payload"].get("status") == "failed"
+            )),
+            # Routing error, counted on used routings only (spec §4.2).
+            "corrected": _share(
+                sum(1 for e in corrections if str(e["payload"].get("routing_id")) in used_ids), len(used)
+            ),
+            "actions_by_intention": dict(Counter(
+                str(a["payload"].get("intention") or "mark") for a in invoked if a["payload"].get("entry")
+            )),
+        },
+        "active_reading": {
+            "questions": {style: sum(1 for r in selection_rows if r["question_style"] == style) for style in styles},
+            "answered": sum(1 for r in selection_rows if r["status"] == "answered"),
+            "self_check": {
+                style: {value: sum(1 for r in selection_rows if r["question_style"] == style
+                                   and r["self_check"] == value)
+                        for value in ("matches", "partly", "no")}
+                for style in styles[:3]
+            },
+            "formative_texts_queued": len(formative_texts),
         },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),

@@ -130,8 +130,12 @@ def _span_learning_objects(vault: Any, repository: Any, extraction_id: str, span
     return tuple(sorted(found))
 
 
-def named_gaps(repository: Any, question_event_ids: Sequence[str]) -> dict[str, list[dict[str, Any]]]:
-    """Gaps learner-text gaps named from these reader questions, by question.
+def named_gaps(
+    repository: Any, question_event_ids: Sequence[str], *, source_kind: str = "tutor_question",
+) -> dict[str, list[dict[str, Any]]]:
+    """Gaps learner-text gaps named from these reader questions, by question
+    (``source_kind = 'reader_formative'``: from RW1b's missed formative
+    answers, by authored question).
 
     Only rows that named something (``kind`` other than none / unread). Ids,
     kinds and targets; never the learner's text."""
@@ -143,8 +147,8 @@ def named_gaps(repository: Any, question_event_ids: Sequence[str]) -> dict[str, 
     with repository.connection() as connection:
         rows = connection.execute(
             f"SELECT id, source_id, kind, target_kind, target_id, created_at FROM learner_text_gaps "
-            f"WHERE source_kind = 'tutor_question' AND source_id IN ({marks}) ORDER BY created_at, id",
-            wanted,
+            f"WHERE source_kind = ? AND source_id IN ({marks}) ORDER BY created_at, id",
+            (source_kind, *wanted),
         ).fetchall()
     out: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -231,13 +235,16 @@ def formative_answers(repository: Any, *, extraction_id: str, session: ReaderSes
 def formative_answer_observations(
     repository: Any, *, extraction_id: str, session: ReaderSession, vault: Any | None = None,
 ) -> list[ReaderObservationV1]:
-    """RW1b: the missed (``partly`` / ``no``) formative answers, one record each.
-    Reads nothing until RW1b writes these rows."""
+    """RW1b: the missed (``partly`` / ``no``) formative answers, one record
+    each, with the gaps learner-text gaps named from them as hypotheses."""
 
     records = []
-    for row in formative_answers(repository, extraction_id=extraction_id, session=session):
-        if row["self_check"] not in MISSED_SELF_CHECKS:
-            continue
+    missed = [row for row in formative_answers(repository, extraction_id=extraction_id, session=session)
+              if row["self_check"] in MISSED_SELF_CHECKS]
+    # The gaps learner-text gaps named from each missed answer (RW1b's
+    # reader_formative texts), as the record's hypotheses.
+    gaps = named_gaps(repository, [str(row["id"]) for row in missed], source_kind="reader_formative")
+    for row in missed:
         spans = tuple(_span_list(row["anchor_span_ids_json"]) or _span_list(row["span_ids_json"]))
         records.append(ReaderObservationV1(
             kind=FORMATIVE_STYLE_KINDS[row["question_style"]],
@@ -248,6 +255,7 @@ def formative_answer_observations(
             facet_candidates=(
                 _span_learning_objects(vault, repository, extraction_id, spans) if vault is not None else ()
             ),
+            hypotheses=tuple(g["gap_id"] for g in gaps.get(str(row["id"]), [])),
         ))
     return records
 

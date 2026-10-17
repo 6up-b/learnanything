@@ -30,7 +30,11 @@ PIPELINE_VERSION = "learner-text-gaps-v1"
 #: Versioned provenance of what the pipeline writes into the vault: a created
 #: concept / LO, an added prerequisite edge (the serving gate reads it).
 PROVENANCE_MECHANISM = LEARNER_TEXT_GAP_MECHANISM
-SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis")
+SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text")
+#: The kinds this pipeline reads today: ``workbench_text`` is admitted by the
+#: schema (migration 208) for RW2b, which builds its adapter; until then a
+#: queued one is skipped as having nothing to read.
+READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative")
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
 KINDS = LEARNER_GAP_KINDS
@@ -48,6 +52,8 @@ DECIDER_KIND_QUESTION_SET = "learner-gap-kind-qs-v1"
 DECIDER_PAIR_QUESTION_SET = "learner-gap-pair-qs-v1"
 DECIDER_NEEDED_QUESTION_SET = "prerequisite-needed-qs-v1"
 READER_PROMPT_VERSION = "learner-gap-reader-v1"
+#: RW1b: the same reader, told it reads a missed active-reading answer.
+READER_FORMATIVE_PROMPT_VERSION = "learner-gap-reader-formative-v1"
 NEEDED_PROMPT_VERSION = "prerequisite-needed-v1"
 DRAFT_PROMPT_VERSION = "learner-gap-prerequisite-draft-v1"
 
@@ -247,6 +253,19 @@ READER_TASK = (
     "it is background only: report on the learner's own words."
 )
 
+# RW1b (spec_reader_workbench_v1 §4.2): a next-step, why-step or assumption
+# answer the learner wrote while reading and then marked, after seeing the
+# expected answer, as only partly matching or not matching it.
+READER_FORMATIVE_TASK = (
+    "You read ONE answer a learner wrote while reading a book: they were asked a short question "
+    "about a passage (`context.question`: predict the next step, justify a step, or name what it "
+    "assumes), answered it, were shown the expected answer (`context.expected_answer`, the book's "
+    "own lines or, when `context.expected_answer_from` says so, LearnLoop's model's) and judged their "
+    "own answer as `context.self_check` (partly, or no). Name what their answer shows they were "
+    "missing. Return a LearnerGap as schema-valid JSON only. " + LEARNER_GAP_RULES + " The passage "
+    "and the expected answer are background only: report on the learner's own words."
+)
+
 NEEDED_TASK_TEXT = (
     "Decide whether the learning objective in `context.prerequisite` is NEEDED to do the "
     "practice item in `context.item`: the item builds on it, so a learner without it could "
@@ -297,6 +316,9 @@ __all__ = [
     "READER_PROMPT_VERSION",
     "READER_PURPOSE",
     "READER_ROUTE",
+    "READER_FORMATIVE_PROMPT_VERSION",
+    "READER_FORMATIVE_TASK",
+    "READABLE_SOURCE_KINDS",
     "READER_TASK",
     "SAME_BELIEF_TASK",
     "SAME_PREREQUISITE_TASK",

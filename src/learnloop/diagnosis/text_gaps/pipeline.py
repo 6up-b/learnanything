@@ -889,13 +889,21 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
     itself (rule (b)) and needs no record."""
 
     from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
-    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, question_record
+    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, formative_record, question_record
 
     if text.source_kind == "tutor_question":
         record_text_write(
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=question_record(connection, str(text.question_event_id or text.source_id),
                                    topics=text.anchor_learning_object_ids),
+            clock=clock,
+        )
+    elif text.source_kind == "reader_formative":
+        # RW1b: the learner's words come from no attempt, so they carry the
+        # record of what they were written beside (the passage, the topics).
+        record_text_write(
+            connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
+            record=formative_record(connection, str(text.source_id), topics=text.anchor_learning_object_ids),
             clock=clock,
         )
     created = outcome.created_learning_object_id

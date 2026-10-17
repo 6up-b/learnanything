@@ -111,6 +111,8 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
     topics = tuple(text.anchor_learning_object_ids or ())
     if text.source_kind == "tutor_question":
         return question_record(connection, str(text.question_event_id or text.source_id), topics=topics)
+    if text.source_kind == "reader_formative":
+        return formative_record(connection, str(text.source_id), topics=topics)
     inputs = answer_inputs(connection, [text.attempt_id]).union(
         Inputs.of(items=[text.practice_item_id], topics=topics))
     if text.source_kind == "diagnosis":
@@ -119,6 +121,28 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
     # A stuck answer: the answer, its item's question, its topic and the
     # grader's verbatim quote of the answer.
     return WriteRecord(inputs)
+
+
+def formative_record(connection: Any, question_id: str, *, topics: Iterable[str] = ()) -> WriteRecord:
+    """RW1b: what a missed active-reading answer shows its reader -- the
+    learner's answer (not an attempt, so no answer contract), the book's
+    passage and the cited spans of the expected answer, and the topics."""
+
+    row = connection.execute(
+        "SELECT extraction_id, source_id, span_ids_json, anchor_span_ids_json FROM reader_authored_questions "
+        "WHERE id = ?", (question_id,),
+    ).fetchone()
+    if row is None:
+        return WriteRecord.incomplete("the active-reading question is gone", inputs=Inputs.of(topics=topics))
+    spans: set[str] = set()
+    for raw in (row[2], row[3]):
+        try:
+            spans.update(str(span) for span in json.loads(raw or "[]"))
+        except (TypeError, ValueError):
+            continue
+    source = {"ref_type": "canonical_source", "ref_id": row[1] or row[0], "source_id": row[1],
+              "extraction_id": row[0], "span_ids": sorted(spans)}
+    return WriteRecord(Inputs.of(topics=topics, sources=[source]))
 
 
 def reading_record(connection: Any, text: Any, reading: Any = None) -> WriteRecord:
@@ -165,6 +189,7 @@ def drafter_record(connection: Any, vault: Any, text: Any, reading: Any, *, subj
 __all__ = [
     "TUTOR_UNRECORDED",
     "drafter_record",
+    "formative_record",
     "question_record",
     "reading_record",
     "text_record",
