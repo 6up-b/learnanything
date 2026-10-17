@@ -175,10 +175,10 @@ A workbench submit is an ordinary submit, so `attempts._resolve_attempt_target` 
 
 1. **Five columns beyond §5.7 on `workbench_sessions`**: `import_batch_id`, `import_request_json`, `import_error` (the import a session waits on, so binding and *try again* survive a restart), `source_shown_at` (when the book first counted, since `source_visible` is only the current choice and `source_hidden_at` the last hiding) and `client_idempotency_key`. Additive; no spec column is changed.
 2. **A stuck-only submit** (stuck text and no ordinary step) is the existing *written* "I'm stuck" answer (`declared_stuck = true`, graded), the natural reading of §5.1 next to §5.4's "stuck text, then Submit" row (which has steps). An empty one is the existing empty stuck answer.
-3. **Check me (RW3a) still opens on the practice screen**, where *Work in steps* is now offered; moving it into the Reader's working posture (entry `check_me`, book hidden by default, already in the data and the rule) needs `plan_learner_pick`'s presentation carried into `workbench.submit`, which already accepts it. Left for a follow-up (open question 1).
+3. **Check me (RW3a) opens in the Reader's working posture** (D40; added by the Codex review's F12, `docs/reviews/reader-rw2a-codex-review.md`): `plan_learner_pick` as before, the item served once as the practice screen served it, then entry `check_me` with the book hidden, answering the pick's candidate and presentation. With the workbench off it opens on the practice screen as before.
 4. **The rail's tabs do not fold into the workbench header's `⋯`**: the rail is hidden while working and returns, as it was, on leaving. The `⋯` holds Abandon.
 5. **The `✎` mark is drawn on the extracted-text view only**; on the original PDF and on a transcript the rail's line is the resume entry. **"original page ↗"** in the header is not built.
-6. **Exposures.** The book's visibility changes are recorded as `book_visibility_changed` events with whether it counts; the workbench writes no `source_exposure_events` of its own (the Reader's own reading signals continue as before).
+6. **Exposures.** The book's visibility changes are recorded as `book_visibility_changed` events with whether it counts, and every showing of the book (the initial visible opening included) records `source_exposure_events` on the anchored spans, context `reader` (review F11).
 7. **No answer-confidence row** in the workbench yet (D22; `workbench.submit` accepts `answerConfidence`): open question 3.
 8. **Grading unavailable**: a workbench submit says so and keeps the steps; it offers no self-grade (the answer box's fallback). Open question 2.
 9. **Leave on navigation**: navigating away or closing keeps the session open and flushes resting edits; the `workbench_left` event is written by the explicit Leave (button or Esc Esc), not by an unmount.
@@ -209,7 +209,7 @@ Keyboard reachability: every new action has its key (UX §3.5), the separator is
 
 ## 6. Open questions (with the default taken)
 
-1. *Check me* from a cue in the Reader's working posture, book hidden (D40)? **Default: a follow-up after RW2a lands, keeping `plan_learner_pick`.**
+1. *Check me* from a cue in the Reader's working posture, book hidden (D40)? **Built in the review fix step (F12), keeping `plan_learner_pick`.**
 2. A self-grade fallback in the workbench when AI grading is unavailable? **Default: no; the refusal says so and keeps the steps; the answer box still has its fallback.**
 3. The optional answer-confidence row before Submit (D22)? **Default: add with RW2b's submit-line work.**
 4. A stuck-only submit as the written "I'm stuck" answer (decision 2)? **Default: as built.**
@@ -218,6 +218,10 @@ Keyboard reachability: every new action has its key (UX §3.5), the separator is
 ## 7. Owner-run commands
 
 None needed: RW2a makes no model call of its own. To try it on a backup copy (never the tracked vaults), make a copy with `learnloop.db.copies.copy_tree_with_databases` into `fixtures-local/`, then `LEARNLOOP_VAULT=<abs path to the copy> npm run dev` from `apps/learnloop-tauri`; *work through this* on a selection starts the existing exercise import on its own route and caps. `uv run learnloop doctor --fix-state --vault <copy>` after manual edits.
+
+## 7a. Codex review
+
+Twelve findings (nine High) were fixed or answered in `docs/reviews/reader-rw2a-codex-review.md`: the presented contract and the item's whole presentation, carried hints, the cross-surface resume, the write queue (frozen payloads, refusals held, the book serialised, Abandon, a vault switch and closing all drained), the lost submit receipt, the book's exposures and check me in the Reader. Migration 207 gained `assessment_contract_version_id` and `carried_hints` and the head fixture was rebuilt. The gate below is this stage's first run; the review file records the gate after the fixes.
 
 ## 8. Gate
 
