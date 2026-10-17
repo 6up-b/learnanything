@@ -152,11 +152,14 @@ class TimelinePoint:
     # predicate as of any moment.
     attempt_credit: float = 0.0
     capability_credit: tuple[tuple[str, float], ...] = ()
-    # RW6a review round 2 F3 (read-side only, not in ``as_dict``): what this
-    # attempt's credit after this epoch adds to its cells as the ledger banks
-    # them (the embedded-share cap applied), at this event. Embedded-only
-    # credit in a cell with no direct credit banks nothing, so it is 0 there
-    # although ``attempt_credit`` is not.
+    # RW6a review round 2 F3, round 3 F2 (read-side only, not in ``as_dict``):
+    # what this attempt's latest grading adds to its cells as the ledger banks
+    # them (the embedded-share cap applied) at the END of the curve, against
+    # the cells' final totals: the same value on every point of the attempt.
+    # Embedded-only credit in a cell with no direct credit banks nothing, so it
+    # is 0 there although ``attempt_credit`` is not; and embedded credit that
+    # banked only beside direct credit a later correction took away banks
+    # nothing now.
     attempt_banked_credit: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
@@ -242,20 +245,31 @@ def _at_or_before(stamp: str | None, cutoff: str) -> bool:
         return str(stamp) <= str(cutoff)
 
 
-def snapshot_as_of(snapshot: FacetTimelineSnapshot, cutoff: str) -> FacetTimelineSnapshot:
+def snapshot_as_of(
+    snapshot: FacetTimelineSnapshot, cutoff: str, *, vault: LoadedVault | None = None
+) -> FacetTimelineSnapshot:
     """The grading ledger as it stood at ``cutoff`` (RW6a review round 2 F1).
 
     Keeps only the grading-evidence rows written at or before ``cutoff`` (a
     first grade, a regrade or a correction written later had not happened),
     and a row superseded after ``cutoff`` still stood then. The extraction's
     novelty and discount accounting reads each attempt's latest epoch, so
-    replaying this snapshot makes that the latest epoch *at the cutoff*. The
-    replay hold (``contract_unrecorded``) is a flag on the attempt's current
-    epoch with no stamp of its own: it is kept only for an attempt whose every
-    row was written by the cutoff (its current epoch then), and dropped for
-    one whose current epoch came later. Other inputs (the attempts, trace
-    observations, activity classifications, P0 masses) are read as they are
-    now. A read for a display only: the current-state path never calls it.
+    replaying this snapshot makes that the latest epoch *at the cutoff*.
+
+    The replay hold (``contract_unrecorded``) is decided as of the cutoff too
+    (round 3 F1). An attempt with no row written after the cutoff has the
+    same current epoch then as now, so it keeps the hold the ledger records
+    on it now. For an attempt whose current epoch came later, the recorded
+    hold describes that later epoch, so the hold is decided from the epoch
+    effective at the cutoff by the predicate replay applies when it records
+    the hold (:func:`_epoch_held_as_of`): a later contract-bearing regrade
+    releasing a hold does not lift it at the cutoff, and a later contractless
+    regrade does not place one there. ``vault`` supplies today's item maximum
+    for the predicate's only-grade exception, as replay reads it.
+
+    Other inputs (the attempts, trace observations, activity classifications,
+    P0 masses) are read as they are now. A read for a display only: the
+    current-state path never calls it.
     """
 
     grading: dict[str, tuple[GradingEvidenceRecord, ...]] = {}
@@ -272,13 +286,48 @@ def snapshot_as_of(snapshot: FacetTimelineSnapshot, cutoff: str) -> FacetTimelin
             trimmed.add(attempt_id)
         if kept:
             grading[attempt_id] = kept
-    return replace(
-        snapshot,
-        grading_by_attempt=grading,
-        contract_unrecorded=frozenset(
-            attempt_id for attempt_id in snapshot.contract_unrecorded if attempt_id not in trimmed
-        ),
+    items_by_attempt = {
+        str(attempt["id"]): attempt.get("practice_item_id") for attempt in snapshot.attempts
+    }
+    held = {
+        attempt_id for attempt_id in snapshot.contract_unrecorded if attempt_id not in trimmed
+    }
+    held.update(
+        attempt_id
+        for attempt_id in trimmed
+        if attempt_id in grading
+        and _epoch_held_as_of(grading[attempt_id], vault, items_by_attempt.get(attempt_id))
     )
+    return replace(snapshot, grading_by_attempt=grading, contract_unrecorded=frozenset(held))
+
+
+def _epoch_held_as_of(
+    rows: tuple[GradingEvidenceRecord, ...], vault: LoadedVault | None, item_id: str | None
+) -> bool:
+    """Replay's unrecorded-contract hold (mvp-0.26) for an attempt's rows as
+    they stood at a cutoff: ``attempts.current_epoch_reading`` over them.
+
+    Held: the current epoch (among the rows standing then) cites no contract,
+    and it is not the attempt's only grade (``grading_epochs.only_grade``)
+    made before contracts whose score fits today's item maximum. Production
+    reads that score from the attempt row, which a later grade has since
+    overwritten, so here it is the epoch's points as the score is summed
+    (``int(round(sum))``); a fatal-error cap or the PF-c rescale could make
+    the true score differ (a residual recorded in the RW6a review, round 3).
+    """
+
+    from learnloop.grading_epochs import current_epoch, only_grade
+
+    epoch = current_epoch(rows)
+    if epoch is None or epoch.contract_version_id is not None:
+        return False
+    if only_grade(rows):
+        item = vault.practice_items.get(str(item_id)) if vault is not None else None
+        rubric = vault.rubric_for_item(item) if item is not None else None
+        score = int(round(sum(float(row.points_awarded or 0.0) for row in epoch.rows)))
+        if rubric is None or score <= max(int(rubric.max_points), 1):
+            return False
+    return True
 
 
 def _contract_unrecorded(repository: Repository) -> frozenset[str]:
@@ -393,7 +442,9 @@ def fold_demonstrated_timeline(
 
     Events MUST already be in stable chronological order. The result is a
     deterministic function of the input alone — folding prefixes incrementally
-    yields the identical series (the §16 replay invariant).
+    yields the identical series (the §16 replay invariant). The one exception
+    is the read-side ``attempt_banked_credit`` (outside ``as_dict``), measured
+    against the curve's end by design (RW6a review round 3 F2).
 
     ``max_embedded_credit_share`` is A1 guard 2 (Meas §3.A1), applied here rather
     than per event because the cap is a statement about a CELL's whole history:
@@ -413,7 +464,9 @@ def fold_demonstrated_timeline(
     attempt_capability: dict[str, dict[str, float]] = {}
     attempt_capability_embedded: dict[str, dict[str, float]] = {}
     cumulative = 0.0
-    series: list[TimelinePoint] = []
+    # The points' fields, built into points once every event is folded (the
+    # attempts' banked credit is read against the cells' final totals).
+    pending: list[dict[str, Any]] = []
 
     def _capped_total() -> float:
         return sum(
@@ -500,30 +553,8 @@ def fold_demonstrated_timeline(
                 for capability, total in per_capability_total.items()
             )
         )
-        # Without this attempt's latest-epoch credit, each of its cells would
-        # bank this much less; summed, that is what the attempt banks now.
-        attempt_banked_credit = sum(
-            cap_embedded_credit(
-                per_capability_total.get(capability, 0.0)
-                - per_capability_embedded_total.get(capability, 0.0),
-                per_capability_embedded_total.get(capability, 0.0),
-                max_embedded_share=max_embedded_credit_share,
-            )
-            - cap_embedded_credit(
-                per_capability_total.get(capability, 0.0)
-                - value
-                - (
-                    per_capability_embedded_total.get(capability, 0.0)
-                    - new_embedded.get(capability, 0.0)
-                ),
-                per_capability_embedded_total.get(capability, 0.0)
-                - new_embedded.get(capability, 0.0),
-                max_embedded_share=max_embedded_credit_share,
-            )
-            for capability, value in new_caps.items()
-        )
-        series.append(
-            TimelinePoint(
+        pending.append(
+            dict(
                 t=event.event_at,
                 demonstrated=cumulative,
                 delta=delta,
@@ -537,10 +568,37 @@ def fold_demonstrated_timeline(
                 derivation=event.derivation,
                 attempt_credit=new_contrib,
                 capability_credit=capability_credit,
-                attempt_banked_credit=attempt_banked_credit,
             )
         )
-    return series
+
+    # RW6a review round 3 F2: what each attempt's latest grading adds to its
+    # cells at the END of the curve, against the cells' final totals with the
+    # embedded-share cap applied (each cell's banked credit with it minus
+    # without it). Measured at the attempt's own event instead, a later
+    # correction elsewhere in the cell (the direct credit an embedded share
+    # leaned on, regraded away) would leave it banking credit the cell no
+    # longer banks. One value per attempt, carried on each of its points.
+    def _capped(total: float, embedded: float) -> float:
+        return cap_embedded_credit(
+            total - embedded, embedded, max_embedded_share=max_embedded_credit_share
+        )
+
+    banked_now: dict[str, float] = {}
+    for attempt_id, caps in attempt_capability.items():
+        embedded_own = attempt_capability_embedded.get(attempt_id, {})
+        banked = 0.0
+        for capability, value in caps.items():
+            total = per_capability_total.get(capability, 0.0)
+            embedded = per_capability_embedded_total.get(capability, 0.0)
+            banked += _capped(total, embedded) - _capped(
+                total - value,
+                embedded - embedded_own.get(capability, 0.0),
+            )
+        banked_now[attempt_id] = banked
+    return [
+        TimelinePoint(**fields, attempt_banked_credit=banked_now.get(fields["attempt_id"], 0.0))
+        for fields in pending
+    ]
 
 
 def _epoch_certification_credit(
@@ -990,7 +1048,7 @@ def facet_evidence_timelines(
         vault, repository, snapshot or load_facet_timeline_snapshot(repository)
     )
     if as_of is not None:
-        loaded = snapshot_as_of(loaded, as_of)
+        loaded = snapshot_as_of(loaded, as_of, vault=vault)
     events_by_facet = _observation_events_by_facet(vault, loaded, canonical)
     repeat_discount = configured_repeat_discount(vault)
     return {

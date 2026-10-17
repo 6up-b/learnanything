@@ -449,6 +449,10 @@ def _claims(
     # credit, without help or priming, made at or after the session's start.
     # A success regraded to nothing answers nothing (review F3), and neither
     # does embedded credit the embedded-share cap banks as nothing (round 2 F3).
+    # Whether it still banks is read on the current state: against the cell's
+    # final totals, so a later correction elsewhere in the cell (the direct
+    # credit an embedded share leaned on, regraded away) takes it back too
+    # (round 3 F2).
     curves = facet_evidence_timelines(vault, repository, sorted(assisted))
     answered = {facet for facet, points in curves.items() if _effective_success_since(points, session.started_at)}
     return [
@@ -460,7 +464,8 @@ def _claims(
 def _effective_success_since(points: Sequence[Any], since: str) -> bool:
     """Some attempt made at or after ``since`` whose latest point still banks
     unassisted, unprimed credit (the attempt's effective grading, after the
-    embedded-share cap: what it adds to certification credit)."""
+    embedded-share cap: what it adds to certification credit now, against
+    the cells' final totals)."""
 
     latest: dict[str, Any] = {}
     first_seen: dict[str, str] = {}
