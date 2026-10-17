@@ -21,7 +21,8 @@
 // book is on screen. A write the server refuses for good (a step too long, a closed problem) is kept as "not
 // saved", and nothing that needs the work persisted (Submit, Abandon, a vault
 // switch, closing the window) goes ahead until the learner fixes or deletes
-// it (review F6, F7). A vault switch freezes editing and waits for the queue
+// it (review F6, F7); Leave for now holds once and then goes, saying what it
+// did not keep (final verification F8). A vault switch freezes editing and waits for the queue
 // against the vault the steps belong to; closing the window waits for it too
 // (review F8). Nothing a write or a poll returns moves focus (W12).
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -67,6 +68,20 @@ function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k${Date.now()}${Math.random()}`;
 }
 
+/** What Leave says when it stays (the first press) and when it goes anyway
+ *  (the second): Leave waits for the steps like Abandon and closing do
+ *  (final verification F8), and never drops text silently. */
+export function leaveHeldNote(reason: string | null): string {
+  return reason
+    ? `A step isn't saved (${reason}), so you're still here. Shorten it or delete it, or leave again to leave without it.`
+    : "Your latest steps aren't saved yet, so you're still here. Leave again to leave anyway.";
+}
+export function leftUnsavedNote(reason: string | null): string {
+  return reason
+    ? `Left without saving a step (${reason}): its unsaved text was discarded.`
+    : "Left before your latest steps were saved: they keep trying to save for a little while, and may be lost.";
+}
+
 /** A write that has not landed: what Submit, Abandon and a vault switch refuse on. */
 export function notSavedError(reason: string | null, action: string): { code: "not_saved"; message: string } {
   return {
@@ -96,7 +111,10 @@ export interface WorkbenchSessionControls {
   /** Resolves true once every write has landed, false when one is failing or refused. */
   drained: () => Promise<boolean>;
   setBook: (visible: boolean) => Promise<void>;
-  leave: () => Promise<void>;
+  /** Leave for now, once every write landed. A first Leave with a write not
+   *  saved stays (`left` false, `note` says why); a second leaves anyway,
+   *  its `note` saying what was not kept. */
+  leave: () => Promise<{ left: boolean; note: string | null }>;
   abandon: () => Promise<WorkbenchSessionDto | null>;
   reopen: () => Promise<void>;
   retryImport: () => Promise<void>;
@@ -373,14 +391,35 @@ export function useWorkbenchSession(
     enqueue({ kind: "book", key: BOOK_KEY, idem: newKey(), visible });
   }, [commitSession, enqueue, flushEdits, readOnly]);
 
+  // Leave for now follows the rule Abandon and closing the window follow
+  // (final verification F8): it goes once every write has landed. A write
+  // not saved holds the first Leave, with why, so the workbench (and its
+  // vault-switch and close protection) stays mounted; a second Leave goes
+  // anyway, so an unfixable refusal never traps the learner, and says what
+  // was not kept, never silently.
+  const leaveHeld = useRef(false);
   const leave = useCallback(async () => {
-    flushEdits();
+    let note: string | null = null;
+    if (!readOnly) {
+      flushEdits();
+      if (!(await drained())) {
+        const reason = firstRejection();
+        if (!leaveHeld.current) {
+          leaveHeld.current = true;
+          return { left: false, note: leaveHeldNote(reason) };
+        }
+        note = leftUnsavedNote(reason);
+        rejected.current.clear();
+      }
+    }
+    leaveHeld.current = false;
     try {
       await api.workbenchLeave({ sessionId: sessionRef.current.sessionId });
     } catch {
       // Leaving never fails for the learner: the problem stays open either way.
     }
-  }, [flushEdits]);
+    return { left: true, note };
+  }, [drained, firstRejection, flushEdits, readOnly]);
 
   const abandon = useCallback(async () => {
     try {

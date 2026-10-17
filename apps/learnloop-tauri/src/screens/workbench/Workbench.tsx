@@ -36,7 +36,8 @@ export interface WorkbenchProps {
   readOnly?: boolean;
   /** The app's open practice session, when there is one. */
   practiceSessionId?: string | null;
-  /** The serve this answers (the practice screen and the plan). */
+  /** The serve this answers (the practice screen, the plan, a "check me"),
+   *  as one pair; left undefined, the submit answers the serve the problem kept. */
   schedulerCandidateId?: string | null;
   planPresentationId?: string | null;
   /** The learner opened it just now: step 1 takes the caret. */
@@ -110,10 +111,12 @@ export function Workbench(props: WorkbenchProps) {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // The serve is one pair (review F15): the surface's own, both
+      // identifiers, or neither, and the server answers the one it kept.
+      const named = props.schedulerCandidateId !== undefined || props.planPresentationId !== undefined;
       const result = await wb.submit({
         practiceSessionId,
-        schedulerCandidateId: props.schedulerCandidateId ?? null,
-        planPresentationId: props.planPresentationId ?? null,
+        ...(named ? { schedulerCandidateId: props.schedulerCandidateId ?? null, planPresentationId: props.planPresentationId ?? null } : {}),
         latencySeconds: Math.max(0, Math.round((Date.now() - openedAt.current) / 1000)),
       });
       props.onSubmitted(result);
@@ -125,9 +128,22 @@ export function Workbench(props: WorkbenchProps) {
     }
   }
 
+  // Leave for now and "answer box instead" wait for the steps to save
+  // (final verification F8): a step not saved holds the first press here,
+  // with why; a second goes anyway, and the screen is told what was lost.
+  const [leaveNote, setLeaveNote] = useState<string | null>(null);
+  async function depart(then: (session: WorkbenchSessionDto) => void) {
+    const result = await wb.leave();
+    if (!result.left) {
+      setLeaveNote(result.note);
+      return;
+    }
+    setLeaveNote(null);
+    if (result.note) onError(result.note);
+    then(wb.session);
+  }
   async function leave() {
-    await wb.leave();
-    props.onLeave(wb.session);
+    await depart(props.onLeave);
   }
 
   async function abandon() {
@@ -217,7 +233,7 @@ export function Workbench(props: WorkbenchProps) {
         <button type="button" onClick={props.onShowInBook} style={{ ...linkStyle, marginLeft: "auto" }}>show in the book ▾</button>
       ) : null}
       {layout === "full" && props.onAnswerBox && !readOnly ? (
-        <button type="button" onClick={() => props.onAnswerBox?.(wb.session)} style={{ ...linkStyle, marginLeft: "auto" }}>answer box instead</button>
+        <button type="button" onClick={() => void depart((left) => props.onAnswerBox?.(left))} style={{ ...linkStyle, marginLeft: "auto" }}>answer box instead</button>
       ) : null}
     </div>
   );
@@ -430,6 +446,11 @@ export function Workbench(props: WorkbenchProps) {
             {`${submitError} ${WORKBENCH_COPY.kept}`}
           </MeaningLabel>{" "}
           <button type="button" style={linkStyle} onClick={() => void submit()}>try again ↵</button>
+        </div>
+      ) : null}
+      {leaveNote ? (
+        <div role="status" aria-live="polite">
+          <MeaningLabel style={{ fontSize: 11, color: COLOR.amber }}>{leaveNote}</MeaningLabel>
         </div>
       ) : null}
       {recordLine}

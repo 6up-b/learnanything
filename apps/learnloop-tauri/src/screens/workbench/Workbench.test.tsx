@@ -580,3 +580,61 @@ it("re-review F8: closing with a step that cannot be saved keeps the window open
   await act(async () => { await handler({ preventDefault: vi.fn() }); });
   expect(windowApi.destroy).toHaveBeenCalledTimes(1);
 });
+
+// Final verification F8: Leave for now waits for the steps like Abandon and
+// closing the window do, so leaving first never strips their protection.
+it("final F8: Leave with a refused step stays, says why, and keeps the vault switch and close held; a second Leave leaves and says the text was discarded", async () => {
+  const { selectWithDraftFlush } = await import("../../app/vaultTransition");
+  windowApi.closeHandlers = [];
+  const onLeave = vi.fn();
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string }) => {
+    if ((input.bodyMd ?? "").length > 20_000) throw { code: "validation_error", message: "This step is too long to save." };
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  render(<Workbench {...props({ onLeave, onError })} />);
+  await waitFor(() => expect(windowApi.closeHandlers.length).toBeGreaterThan(0));
+  await typeStep(1, "x".repeat(20_001));
+  expect(await screen.findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
+  // It stays, and says why in plain words.
+  expect(onLeave).not.toHaveBeenCalled();
+  expect(await screen.findByText(/This step is too long to save\.\), so you're still here/)).toBeTruthy();
+  expect(stepBox(1).value).toBe("x".repeat(20_001));
+  // Still mounted, so a vault switch and the window's close stay held.
+  const select = vi.fn();
+  let refused: unknown = null;
+  await act(async () => { await selectWithDraftFlush(select).catch((error: unknown) => { refused = error; }); });
+  expect(select).not.toHaveBeenCalled();
+  expect(refused).toMatchObject({ code: "not_saved" });
+  expect(windowApi.closeHandlers.length).toBeGreaterThan(0);
+  // A second Leave leaves anyway, and the discarded text is said, never silent.
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
+  await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
+  expect(onError).toHaveBeenCalledWith(expect.stringContaining("its unsaved text was discarded"));
+  expect(api.workbenchLeave).toHaveBeenCalledWith({ sessionId: "wb1" });
+});
+
+it("final F8: answer box instead waits for the steps the same way", async () => {
+  const onAnswerBox = vi.fn();
+  api.workbenchSaveStep.mockRejectedValue({ code: "validation_error", message: "This step is too long to save." });
+  render(<Workbench {...props({ layout: "full", onAnswerBox, initial: session({ origin: "practice", sourceVisible: false }) })} />);
+  await typeStep(1, "x".repeat(20_001));
+  expect(await screen.findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "answer box instead" })); });
+  expect(onAnswerBox).not.toHaveBeenCalled();
+  expect(await screen.findByText(/so you're still here/)).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "answer box instead" })); });
+  await waitFor(() => expect(onAnswerBox).toHaveBeenCalledTimes(1));
+});
+
+// Review F15: the submit names its surface's serve as one pair, or none.
+it("final F15: a submit with no serve of its own names none, so the server answers the pair the problem kept", async () => {
+  api.workbenchSubmit.mockResolvedValue({ version: 1, attempt: { attemptId: "att_1" }, session: session({ status: "submitted" }), practiceSession: null });
+  const onSubmitted = vi.fn();
+  render(<Workbench {...props({ onSubmitted, initial: session({ steps: [SAVED_STEPS[0]] }) })} />);
+  fireEvent.click(screen.getByRole("button", { name: /^submit/ }));
+  await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
+  const sent = api.workbenchSubmit.mock.calls[0][0];
+  expect("schedulerCandidateId" in sent || "planPresentationId" in sent).toBe(false);
+});

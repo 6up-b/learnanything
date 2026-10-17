@@ -23,6 +23,18 @@ const api = vi.hoisted(() => ({
   workbenchSessionForAttempt: vi.fn(),
 }));
 vi.mock("../api/client", () => ({ api }));
+// The window's close request (final verification F8): kept so a test can fire it.
+const windowApi = vi.hoisted(() => ({
+  closeHandlers: [] as Array<(event: { preventDefault: () => void }) => Promise<void>>,
+  destroy: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
+  onCloseRequested: async (handler: (event: { preventDefault: () => void }) => Promise<void>) => {
+    windowApi.closeHandlers.push(handler);
+    return () => { windowApi.closeHandlers = windowApi.closeHandlers.filter((candidate) => candidate !== handler); };
+  },
+  destroy: windowApi.destroy,
+}) }));
 vi.mock("../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? { readerEnabled: true, inquiryEnabled: true } : { sources: [source.card] }, error: null }) }));
 vi.mock("./reader/readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
 vi.mock("./reader/guidePlan", () => ({ readGuidePlan: () => Promise.resolve({ sections: [] }), useGuideDiagnosisRefresh: () => undefined }));
@@ -293,4 +305,35 @@ it("check me puts the pick's serve on the problem, so it survives leaving and re
   // A reused problem left with the book open comes back with it covered.
   await screen.findByRole("region", { name: "workbench" });
   expect(screen.getByTestId("workbench-book-cover")).toBeTruthy();
+});
+
+// Final verification F8: closing from the Reader hits the same protection.
+// Leave for now with a step that cannot be saved keeps the workbench (and the
+// window's close protection) in place; a second Leave collapses to reading.
+it("final F8: in the Reader, Leave with a refused step keeps the workbench and the window's close held", async () => {
+  windowApi.closeHandlers = [];
+  windowApi.destroy.mockReset();
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockRejectedValue({ code: "validation_error", message: "This step is too long to save." });
+  render(<ReaderScreen initialSource={source} onError={onError} />);
+  await selectProse();
+  fireEvent.click(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(await screen.findByRole("button", { name: /work through this/ }));
+  const pane = await screen.findByRole("region", { name: "workbench" });
+  fireEvent.change(within(pane).getByRole("textbox", { name: "Step 1" }), { target: { value: "x".repeat(20_001) } });
+  expect(await within(pane).findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  await act(async () => { fireEvent.click(within(pane).getByRole("button", { name: /leave for now/ })); });
+  expect(await within(pane).findByText(/so you're still here/)).toBeTruthy();
+  expect(screen.getByRole("region", { name: "workbench" })).toBe(pane);
+  expect(api.workbenchLeave).not.toHaveBeenCalled();
+  // The window's close is still held by the steps.
+  await waitFor(() => expect(windowApi.closeHandlers.length).toBeGreaterThan(0));
+  const close = windowApi.closeHandlers[windowApi.closeHandlers.length - 1];
+  await act(async () => { await close({ preventDefault: vi.fn() }); });
+  expect(windowApi.destroy).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledWith(expect.stringContaining("Close it again to close anyway"));
+  // A second Leave collapses back into reading, and says what was not kept.
+  await act(async () => { fireEvent.click(within(pane).getByRole("button", { name: /leave for now/ })); });
+  await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
+  expect(onError).toHaveBeenCalledWith(expect.stringContaining("its unsaved text was discarded"));
 });

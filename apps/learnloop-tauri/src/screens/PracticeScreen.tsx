@@ -598,7 +598,13 @@ export function PracticeScreen({
   const workbenchAvailable = algoConfig().workbench && practiceReady && committedRecovery === null && !probeActive && !isTeachBack && !redo && !primed;
   const workbenchOffered = workbenchAvailable && !vaultChanging;
   const [wbSession, setWbSession] = useState<WorkbenchSessionDto | null>(null);
-  const [wbItemSessions, setWbItemSessions] = useState<WorkbenchSummaryDto[]>([]);
+  // The item's problems in steps, looked up for this item (final
+  // verification F2): Submit waits for the lookup, and a failed one is never
+  // read as "no assistance" (the server folds a problem's assistance in
+  // either way; this is what the learner is shown before Submit).
+  const [wbItems, setWbItems] = useState<{ itemId: string | null; sessions: WorkbenchSummaryDto[]; state: "pending" | "ready" | "failed" }>(
+    { itemId: null, sessions: [], state: "pending" },
+  );
   const wbAutoOpened = useRef(false);
   const wbOrigin = planPresentationId ? "plan" : "practice";
   const wbEntry = wbOrigin === "plan" ? "plan" : "practice_screen";
@@ -641,16 +647,24 @@ export function PracticeScreen({
   }, [onError, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
-    if (carried > 0) setHintsUsed((value) => Math.min(item?.hints.length ?? carried, Math.max(value, carried)));
+    // Hints seen count as seen, even when the item shows fewer today (the
+    // authored hints changed since): never clamped to the list (final F2).
+    if (carried > 0) setHintsUsed((value) => Math.max(value, carried));
     // Every assist the problem held comes back: its hints and its book (F2).
     if (closing?.record.bookCounted) setBookLeft(true);
     setWbSession(null);
   }, [item]);
   const refreshWbItemSessions = useCallback(() => {
     if (!item) return;
-    void api.workbenchForItem({ practiceItemId: item.id })
-      .then((result) => setWbItemSessions(result.sessions))
-      .catch(() => setWbItemSessions([]));
+    const itemId = item.id;
+    // A refresh of a lookup that landed keeps showing what it found; a first
+    // lookup (or a retry of a failed one) holds Submit until it answers.
+    setWbItems((current) => (current.itemId !== itemId
+      ? { itemId, sessions: [], state: "pending" }
+      : current.state === "failed" ? { ...current, state: "pending" } : current));
+    void api.workbenchForItem({ practiceItemId: itemId })
+      .then((result) => setWbItems((current) => (current.itemId === itemId ? { itemId, sessions: result.sessions, state: "ready" } : current)))
+      .catch(() => setWbItems((current) => (current.itemId === itemId && current.state !== "ready" ? { ...current, state: "failed" } : current)));
   }, [item]);
   useEffect(() => {
     if (!workbenchOffered) return;
@@ -660,6 +674,12 @@ export function PracticeScreen({
       void openWorkbench();
     }
   }, [workbenchOffered, refreshWbItemSessions, openWorkbench]);
+  const wbItemSessions = item && wbItems.itemId === item.id ? wbItems.sessions : [];
+  // Submit waits while this item's problems are being looked up.
+  const assistPending = workbenchOffered && item !== null && (wbItems.itemId !== item.id || wbItems.state === "pending");
+  const assistLookupFailed = workbenchOffered && item !== null && wbItems.itemId === item.id && wbItems.state === "failed";
+  const assistPendingRef = useRef(assistPending);
+  assistPendingRef.current = assistPending;
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
   const stepsMode = workbenchAvailable && wbSession !== null;
   // A book counted on this problem, in steps left this visit or on its open
@@ -864,7 +884,7 @@ export function PracticeScreen({
   }
 
   async function submit(gradeOverride?: SelfGradeInputDto) {
-    if (!item || !interactionReady || submitting) return;
+    if (!item || !interactionReady || submitting || assistPendingRef.current) return;
     const submittedItemId = item.id;
     const submittedKey = submissionId.current;
     // The plain self-grade's Got it / Partly / Missed submit the grade they
@@ -967,7 +987,7 @@ export function PracticeScreen({
   }
 
   async function dontKnow() {
-    if (!item || !interactionReady || submitting) return;
+    if (!item || !interactionReady || submitting || assistPendingRef.current) return;
     const submittedItemId = item.id;
     const submittedKey = submissionId.current;
     setSubmitting(true);
@@ -1487,8 +1507,9 @@ export function PracticeScreen({
                 hideProblem
                 autoFocus
                 practiceSessionId={session.sessionId}
-                schedulerCandidateId={schedulerCandidateId}
-                planPresentationId={planPresentationId}
+                // This screen's serve, always named as one pair (review F15).
+                schedulerCandidateId={schedulerCandidateId ?? null}
+                planPresentationId={planPresentationId ?? null}
                 onLeave={(closing) => {
                   backToAnswerBox(closing);
                   refreshWbItemSessions();
@@ -1638,9 +1659,21 @@ export function PracticeScreen({
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
+            {hintsUsed > item.hints.length ? (
+              // Hints seen in steps that the item no longer shows still count (final F2).
+              <div className="hint-banner" data-testid="hints-carried">
+                <Pill tone="amber">hint</Pill> {hintsUsed - item.hints.length} hint{hintsUsed - item.hints.length === 1 ? "" : "s"} you saw earlier on this problem {hintsUsed - item.hints.length === 1 ? "counts" : "count"}
+              </div>
+            ) : null}
             {bookCarried ? (
               <div className="hint-banner" data-testid="book-carried">
                 <Pill tone="amber">book</Pill> the book you had open while working in steps counts as one hint
+              </div>
+            ) : null}
+            {assistLookupFailed ? (
+              <div style={{ ...quietLine, marginTop: 6 }} data-testid="assist-lookup-failed">
+                Couldn't check this problem's earlier steps. Any help they counted still counts when you submit.{" "}
+                <button type="button" style={quietLink} onClick={refreshWbItemSessions}>check again</button>
               </div>
             ) : null}
             {submitting ? <div className="grading-panel">{simple ? "Reading your answer…" : "grading attempt..."}</div> : null}
@@ -1702,7 +1735,7 @@ export function PracticeScreen({
               // check on your own offers no hint.
               <div className="form-row" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
-                  <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting}>Submit</PrimaryAction>
+                  <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting || assistPending}>Submit</PrimaryAction>
                 )}
                 {!probeActive && !onYourOwnCheck && hintsUsed < item.hints.length && !selfGradeVisible ? (
                   <QuietAction onClick={revealHint} disabled={submitting}>{hintsUsed > 0 ? "Hint again" : "Hint"}</QuietAction>
@@ -1721,7 +1754,7 @@ export function PracticeScreen({
               </div>
             ) : (
             <div className="form-row" style={{ marginTop: 16 }}>
-              <button className="queue-row focused" type="button" onClick={() => void submit()} disabled={submitting}>
+              <button className="queue-row focused" type="button" onClick={() => void submit()} disabled={submitting || assistPending}>
                 <span className="queue-hotkey">^↵</span>
                 <span className="queue-title">Submit</span>
                 <span className="queue-score">

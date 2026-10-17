@@ -7987,7 +7987,9 @@ export interface WorkbenchOpenInput {
   carriedHints?: number;
   /** A book a problem left for the answer box counted (review F2). */
   carriedBook?: boolean;
-  /** The serve the problem answers, kept on it for a resume (review F13). */
+  /** The serve the problem answers, kept on it for a resume (review F13).
+   *  One pair (review F15): send both (a null included) to replace the pair
+   *  the problem holds, or neither to keep it. */
   schedulerCandidateId?: string | null;
   planPresentationId?: string | null;
   stemMd?: string | null;
@@ -8022,6 +8024,8 @@ export interface WorkbenchSubmitInput {
   practiceSessionId?: string | null;
   answerConfidence?: number | null;
   latencySeconds?: number | null;
+  /** The serve this submit answers, as one pair (review F15): both, or
+   *  neither to answer the serve the problem kept. */
   schedulerCandidateId?: string | null;
   planPresentationId?: string | null;
 }

@@ -283,3 +283,66 @@ it("opening steps puts this serve's offer and plan presentation on the problem",
     schedulerCandidateId: "cand_1", planPresentationId: "pres_1",
   })));
 });
+
+// Final verification F2: the answer box never submits a problem's
+// assistance as the learner's own because its lookup had not answered yet.
+it("final F2: Submit waits for the item's problems to be looked up, then counts the book one counted", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt", "hinted_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+  });
+  let answer!: (value: unknown) => void;
+  api.workbenchForItem.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
+  api.submitAttempt.mockRejectedValue({ code: "grading_unavailable", message: "stop here" });
+  render(<PracticeScreen {...props()} />);
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "A = U Sigma V^T" } });
+  await waitFor(() => expect(api.workbenchForItem).toHaveBeenCalled());
+  fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(api.submitAttempt).not.toHaveBeenCalled();
+  answer({ sessions: [{ sessionId: "wb_r", status: "open", stepCount: 1, bookCounted: true }] });
+  expect(await screen.findByTestId("book-carried")).toBeTruthy();
+  fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({ hintsUsed: 1, attemptType: "hinted_attempt" })));
+});
+
+it("final F2: a failed lookup is never read as no assistance: it says so, and a later failure keeps what was found", async () => {
+  api.workbenchForItem.mockRejectedValueOnce({ code: "sidecar_unavailable", message: "down" });
+  const first = render(<PracticeScreen {...props()} />);
+  expect(await screen.findByTestId("assist-lookup-failed")).toBeTruthy();
+  first.unmount();
+  api.workbenchForItem.mockReset();
+  api.workbenchForItem.mockResolvedValueOnce({ sessions: [{ sessionId: "wb_r", status: "open", stepCount: 1, bookCounted: true }] });
+  api.workbenchForItem.mockRejectedValue({ code: "sidecar_unavailable", message: "down" });
+  render(<PracticeScreen {...props()} />);
+  expect(await screen.findByTestId("book-carried")).toBeTruthy();
+  // Into steps and back: the refresh after leaving fails, and the book still counts.
+  fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: /leave for now/ }));
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.workbenchForItem).toHaveBeenCalledTimes(2));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(screen.getByTestId("book-carried")).toBeTruthy();
+});
+
+it("final F2: hints a problem carried still count after the item's authored hints were removed", async () => {
+  // The item shows no hints today; the problem carried two from before.
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt", "hinted_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+  });
+  api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "open", stepCount: 1 }] });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wb({ sessionId: "wb_old", carriedHints: 2 }) });
+  api.submitAttempt.mockRejectedValue({ code: "grading_unavailable", message: "stop here" });
+  render(<PracticeScreen {...props()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "resume your steps" }));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "A = U Sigma V^T" } });
+  expect(screen.getByTestId("hints-carried").textContent).toContain("2 hints you saw earlier on this problem count");
+  fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({ hintsUsed: 2, attemptType: "hinted_attempt" })));
+});

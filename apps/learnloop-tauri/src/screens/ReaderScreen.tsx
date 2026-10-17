@@ -2413,8 +2413,8 @@ export function ReaderScreen({
                 readOnly={wbActive.readOnly}
                 autoFocus={wbActive.autoFocus}
                 practiceSessionId={workbench?.practiceSessionId ?? null}
-                schedulerCandidateId={wbActive.schedulerCandidateId ?? null}
-                planPresentationId={wbActive.planPresentationId ?? null}
+                schedulerCandidateId={wbActive.schedulerCandidateId}
+                planPresentationId={wbActive.planPresentationId}
                 onSession={wbCtl.update}
                 onLeave={(session) => leaveWorkbench(session)}
                 onAbandoned={(session) => leaveWorkbench(session, true)}
