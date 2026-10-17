@@ -223,8 +223,10 @@ def formative_answers(repository: Any, *, extraction_id: str, session: ReaderSes
         columns = {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}
         if not {"scope_kind", "question_style", "self_check"} <= columns:
             return []
+        # RW1b's migration 208 says whose words the expected answer was.
+        basis = ", answer_basis" if "answer_basis" in columns else ", NULL AS answer_basis"
         rows = connection.execute(
-            "SELECT id, question_style, self_check, anchor_span_ids_json, span_ids_json, answered_at "
+            "SELECT id, question_style, self_check, anchor_span_ids_json, span_ids_json, answered_at" + basis + " "
             "FROM reader_authored_questions WHERE extraction_id = ? AND scope_kind = 'selection' "
             f"AND question_style IN ({marks}) AND answered_at IS NOT NULL ORDER BY answered_at, id",
             (extraction_id, *styles),
@@ -250,7 +252,8 @@ def formative_answer_observations(
             kind=FORMATIVE_STYLE_KINDS[row["question_style"]],
             source_event_ids=(str(row["id"]),),
             span_ids=spans,
-            observed={"self_check": row["self_check"], "style": row["question_style"]},
+            observed={"self_check": row["self_check"], "style": row["question_style"],
+                      "answer_basis": row["answer_basis"]},
             observed_at=str(row["answered_at"]),
             facet_candidates=(
                 _span_learning_objects(vault, repository, extraction_id, spans) if vault is not None else ()

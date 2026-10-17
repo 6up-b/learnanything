@@ -48,16 +48,19 @@ export function aboutMinutes(minutes: number): string | null {
 }
 
 /** A formative record in plain words (the learner's quoted words where it has them). */
-export function observationLine(kind: ReaderObservationKind | string, quoted?: string | null): string {
+export function observationLine(kind: ReaderObservationKind | string, quoted?: string | null, observed?: Record<string, unknown> | null): string {
+  // RW1b: whose answer it was compared with -- the book's own lines, or
+  // LearnLoop's model's when the book does not say it (answer_basis).
+  const whose = observed?.answerBasis === "model" ? "LearnLoop's model's answer" : "the book's";
   switch (kind) {
     case "still_unclear":
       return quoted ? `your question “${quoted}” — still unclear when you came back to it` : "a question still unclear when you came back to it";
     case "next_step_missed":
-      return "your next-step guess differed from the book's";
+      return `your next-step guess differed from ${whose}`;
     case "why_step_missed":
-      return "your answer to why a step holds differed from the book's";
+      return `your answer to why a step holds differed from ${whose}`;
     case "assumption_missed":
-      return "your answer about the assumptions differed from the book's";
+      return `your answer about the assumptions differed from ${whose}`;
     case "prediction_missed":
       return "a figure prediction that turned out differently";
     default:

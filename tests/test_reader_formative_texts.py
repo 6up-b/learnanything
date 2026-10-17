@@ -157,6 +157,8 @@ def test_reading_it_writes_only_gap_rows_and_names_the_observations_hypothesis(t
     session = ReaderSession("ext1", ("v1",), "2000-01-01T00:00:00Z", "2100-01-01T00:00:00Z")
     (record,) = RO.formative_answer_observations(repo, extraction_id="ext1", session=session)
     assert (record.kind, record.hypotheses, record.authority) == ("next_step_missed", (gap["id"],), "routing_only")
+    # Whose answer it was compared with, so the recap says it honestly.
+    assert record.observed == {"self_check": "partly", "style": "next_step", "answer_basis": "source"}
 
 
 def test_the_widened_kinds_reach_the_salience_firewall_unchanged():

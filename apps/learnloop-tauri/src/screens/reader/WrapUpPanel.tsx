@@ -36,7 +36,7 @@ const lineStyle: CSSProperties = { fontFamily: FONT_MONO, fontSize: 11, color: C
 function reinforceLine(line: ReaderWrapUpReinforceLineDto): string {
   if (line.kind === "with_help") return `${line.marker} ${line.title || "a problem"} · with help · ${line.helpLine ?? ""}`.trim();
   if (line.kind === "claim") return `${line.marker} worked with help — not yet checked on your own`;
-  return `${line.marker} ${observationLine(line.kind)}`;
+  return `${line.marker} ${observationLine(line.kind, null, line.observed)}`;
 }
 
 export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone }: WrapUpPanelProps) {
