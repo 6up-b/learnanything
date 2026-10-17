@@ -11,6 +11,8 @@ export const RECAP_COPY = {
   sinceLastTime: "Since last time",
   lastTime: "last time ▸",
   resume: "Resume this problem ▸",
+  reopen: "Reopen this problem ▸",
+  setAside: "set aside",
   wrapUp: "Wrap up",
   wrapUpOffer: "Wrap up (under a minute)",
   wrapUpReady: "Reading wrap-up ready — under a minute ▸",

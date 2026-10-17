@@ -4,7 +4,8 @@
 // one view. It never blocks, never takes focus and is not a modal: pressed,
 // Wrap up opens in place; Esc closes it. Whether to offer is the sidecar's
 // pure read (the last session had activity and was not wrapped up); opening
-// writes wrap_up_opened, and its actions are the status chips' own RPC.
+// writes wrap_up_opened once the lists are shown, and its actions are the
+// status chips' own RPC.
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderWrapUpActionDto, ReaderWrapUpDto, ReaderWrapUpInquiryLineDto, ReaderWrapUpOfferDto } from "../../api/dto";
@@ -45,15 +46,19 @@ export function WrapUpOffer({ armed, onError }: WrapUpOfferProps) {
 
   const open = useCallback(async () => {
     if (!offer) return;
+    let result: ReaderWrapUpDto;
     try {
-      const [result] = await Promise.all([
-        api.readerWrapUp({ extractionId: offer.extractionId }),
-        api.readerRecapEvent({ extractionId: offer.extractionId, event: "wrap_up_opened" }),
-      ]);
-      setPanel(result);
+      result = await api.readerWrapUp({ extractionId: offer.extractionId });
     } catch (error) {
+      // Nothing shown, nothing recorded: the offer stands (review F7).
       onError(errorMessage(error));
+      return;
     }
+    setPanel(result);
+    // Recorded once the lists are shown; a failed write leaves them shown.
+    void Promise.resolve()
+      .then(() => api.readerRecapEvent({ extractionId: offer.extractionId, event: "wrap_up_opened" }))
+      .catch(() => undefined);
   }, [offer, onError]);
 
   const act = useCallback(async (_line: ReaderWrapUpInquiryLineDto, action: ReaderWrapUpActionDto) => {

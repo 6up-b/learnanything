@@ -26,6 +26,8 @@ export interface RecapCardProps {
   onSetStatus: (rootExchangeId: string, resolution: "resolved") => void;
   /** "revisit once": the RW1a test_me_later chip (absent where it can't run). */
   onRevisit?: (rootExchangeId: string) => void;
+  /** The inquiry already has its revisit (the Ask chip's state, shared). */
+  revisited?: (rootExchangeId: string) => boolean;
   onResume: (sessionId: string) => void;
 }
 
@@ -67,7 +69,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function RecapCard({
-  recap, collapsed, now, onExpand, onContinue, onDismiss, onOpenInquiry, onSetStatus, onRevisit, onResume,
+  recap, collapsed, now, onExpand, onContinue, onDismiss, onOpenInquiry, onSetStatus, onRevisit, revisited, onResume,
 }: RecapCardProps) {
   const [kept, setKept] = useState<Set<string>>(new Set());
   const continueLabel = recap.continueAt?.label ? `continue at ${recap.continueAt.label}` : "continue where you left off";
@@ -110,7 +112,9 @@ export function RecapCard({
                   {isKept ? <MeaningLabel>kept open</MeaningLabel> : (
                     <>
                       <RecapLink onClick={() => onSetStatus(line.rootExchangeId, "resolved")}>resolved</RecapLink>
-                      {onRevisit ? <RecapLink onClick={() => onRevisit(line.rootExchangeId)}>revisit once</RecapLink> : null}
+                      {onRevisit ? (revisited?.(line.rootExchangeId)
+                        ? <MeaningLabel>revisit once ✓</MeaningLabel>
+                        : <RecapLink onClick={() => onRevisit(line.rootExchangeId)}>revisit once</RecapLink>) : null}
                       <RecapLink onClick={() => setKept((current) => new Set(current).add(line.rootExchangeId))}>keep open</RecapLink>
                     </>
                   )}
@@ -122,13 +126,18 @@ export function RecapCard({
       ) : null}
       {unfinished.length > 0 ? (
         <Section title={RECAP_COPY.unfinished}>
-          {unfinished.map((line) => (
-            <li key={line.sessionId} style={lineStyle}>
-              <span aria-hidden="true">✎ </span>
-              <span>{line.title} · {stepsLabel(line.stepCount)} · {line.helpLine}</span>{" "}
-              <RecapLink onClick={() => onResume(line.sessionId)}>{RECAP_COPY.resume}</RecapLink>
-            </li>
-          ))}
+          {unfinished.map((line) => {
+            // An abandoned problem keeps its steps (spec §5.4): it says it was
+            // set aside, and its link reopens it through the same resume.
+            const abandoned = line.status === "abandoned";
+            return (
+              <li key={line.sessionId} style={lineStyle}>
+                <span aria-hidden="true">✎ </span>
+                <span>{line.title} · {stepsLabel(line.stepCount)} · {line.helpLine}{abandoned ? ` · ${RECAP_COPY.setAside}` : ""}</span>{" "}
+                <RecapLink onClick={() => onResume(line.sessionId)}>{abandoned ? RECAP_COPY.reopen : RECAP_COPY.resume}</RecapLink>
+              </li>
+            );
+          })}
         </Section>
       ) : null}
       {secondLook.length > 0 ? (

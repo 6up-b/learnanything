@@ -7,7 +7,12 @@
 //   it for this source until the next session (recap_dismissed).
 // * Wrap up: the rail footer's offer appears once the session has activity
 //   (re-read when an Ask lands or a problem changes); `w` outside a text field
-//   opens it in the rail and records wrap_up_opened.
+//   opens it in the rail. Both go through one opening: the Guide is shown and
+//   the rail expanded first (`reveal`), and wrap_up_opened is recorded only
+//   once the lists are on screen (review F6, F7).
+// * Skim is the mute button (UX §4.12; review F9): while muted the card is not
+//   presented (it waits folded, so "last time ▸" reopens it after skimming)
+//   and the rail's offer is withheld; `w` still opens Wrap up on request.
 // Off (the sidecar sends no `recap` key) nothing here asks the sidecar
 // anything. Nothing takes focus, animates or opens a modal.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,6 +34,10 @@ export interface ReaderRecapInput {
   activityKey: string;
   /** The working posture hides the rail: `w` waits until it is back. */
   suspended?: boolean;
+  /** Skim mode: nothing LearnLoop starts is presented (UX §4.12). */
+  muted?: boolean;
+  /** Show the Guide with the rail expanded, where Wrap up opens. */
+  reveal?: () => void;
   onError: (message: string) => void;
 }
 
@@ -43,13 +52,16 @@ export interface ReaderRecapCtl {
   /** Re-read the card and Wrap up after an action changed them. */
   reload: () => void;
   wrapUpAvailable: boolean;
+  /** The rail's offer may show: available, and not muted by skim. */
+  wrapUpOffered: boolean;
   wrapUpOpen: ReaderWrapUpDto | null;
   openWrapUp: () => Promise<void>;
   closeWrapUp: () => void;
 }
 
 export function useReaderRecap({
-  enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, suspended = false, onError,
+  enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, suspended = false, muted = false,
+  reveal, onError,
 }: ReaderRecapInput): ReaderRecapCtl {
   const [recap, setRecap] = useState<ReaderRecapCardDto | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -62,6 +74,8 @@ export function useReaderRecap({
   extractionRef.current = extractionId;
   const visitIdRef = useRef(visitId);
   visitIdRef.current = visitId;
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
 
   const record = useCallback((event: ReaderRecapEvent) => {
     const extraction = extractionRef.current;
@@ -105,6 +119,13 @@ export function useReaderRecap({
     autoFoldedRef.current = true;
     setCollapsed(true);
   }, [recap, readingMoved]);
+
+  // Skimming: the card is not presented on its own; it waits folded.
+  useEffect(() => {
+    if (!muted) return;
+    autoFoldedRef.current = true;
+    setCollapsed(true);
+  }, [muted, recap]);
 
   // Wrap up's availability (the activity rule is the sidecar's).
   useEffect(() => {
@@ -153,15 +174,20 @@ export function useReaderRecap({
   const openWrapUp = useCallback(async () => {
     const extraction = extractionRef.current;
     if (!wrapUpEnabled || !extraction) return;
+    // Where it opens is on screen first: the Guide, the rail expanded.
+    revealRef.current?.();
+    let result: ReaderWrapUpDto;
     try {
-      const [result] = await Promise.all([
-        api.readerWrapUp({ extractionId: extraction, visitId: visitIdRef.current() }),
-        record("wrap_up_opened"),
-      ]);
-      if (extractionRef.current === extraction) setWrapUpOpen(result);
+      result = await api.readerWrapUp({ extractionId: extraction, visitId: visitIdRef.current() });
     } catch (error) {
+      // Nothing shown, nothing recorded: the offer stands.
       onError(errorMessage(error));
+      return;
     }
+    if (extractionRef.current !== extraction) return;
+    setWrapUpOpen(result);
+    // Recorded once the lists are shown; a failed write leaves them shown.
+    void record("wrap_up_opened").catch(() => undefined);
   }, [wrapUpEnabled, record, onError]);
   const closeWrapUp = useCallback(() => setWrapUpOpen(null), []);
 
@@ -198,6 +224,6 @@ export function useReaderRecap({
 
   return {
     recap, collapsed, expand, continueReading, dismiss, noteShown, reload,
-    wrapUpAvailable, wrapUpOpen, openWrapUp, closeWrapUp,
+    wrapUpAvailable, wrapUpOffered: wrapUpAvailable && !muted, wrapUpOpen, openWrapUp, closeWrapUp,
   };
 }

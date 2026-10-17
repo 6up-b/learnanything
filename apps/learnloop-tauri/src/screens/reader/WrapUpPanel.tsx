@@ -17,6 +17,9 @@ export interface WrapUpPanelProps {
   where: "reader" | "destination";
   onAction: (line: ReaderWrapUpInquiryLineDto, action: ReaderWrapUpActionDto) => Promise<void> | void;
   onClose: () => void;
+  /** An action already taken for this line (revisit once: the Ask chip's
+   *  shared state), shown done and not offered again. */
+  isDone?: (line: ReaderWrapUpInquiryLineDto, action: ReaderWrapUpActionDto) => boolean;
 }
 
 const ACTION_LABELS: Record<ReaderWrapUpActionDto["action"], string> = {
@@ -36,7 +39,7 @@ function reinforceLine(line: ReaderWrapUpReinforceLineDto): string {
   return `${line.marker} ${observationLine(line.kind)}`;
 }
 
-export function WrapUpPanel({ wrapUp, where, onAction, onClose }: WrapUpPanelProps) {
+export function WrapUpPanel({ wrapUp, where, onAction, onClose, isDone }: WrapUpPanelProps) {
   const [kept, setKept] = useState<Set<string>>(new Set());
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -57,7 +60,9 @@ export function WrapUpPanel({ wrapUp, where, onAction, onClose }: WrapUpPanelPro
     <li key={line.rootExchangeId} style={lineStyle}>
       <span aria-hidden="true">{glyph} </span><Quoted text={line.questionMd} />{" "}
       <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
-        {kept.has(line.rootExchangeId) ? <MeaningLabel>kept open</MeaningLabel> : actionsFor(line).map((action) => (
+        {kept.has(line.rootExchangeId) ? <MeaningLabel>kept open</MeaningLabel> : actionsFor(line).map((action) => isDone?.(line, action) ? (
+          <MeaningLabel key={action.action}>{ACTION_LABELS[action.action]} ✓</MeaningLabel>
+        ) : (
           <RecapLink
             key={action.action}
             onClick={() => {

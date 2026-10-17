@@ -8059,9 +8059,11 @@ export interface ReaderRecapOpenDto {
   openedAt: string | null;
 }
 
-/** Unfinished: an open workbench problem on this source. */
+/** Unfinished: an open workbench problem on this source, or one set aside
+ *  (abandoned: its steps kept, "Reopen this problem"; review F8). */
 export interface ReaderRecapUnfinishedDto {
   sessionId: string;
+  status?: "open" | "abandoned";
   title: string;
   stepCount: number;
   help: { bookCounted: boolean; hints: number };
@@ -8092,7 +8094,8 @@ export interface ReaderRecapDemonstratedDto {
   learningObjectId: string;
   title: string;
   demonstratedOn: string;
-  attemptId: string;
+  /** The certifying attempt (the point at which the LO's recipe was met). */
+  attemptId: string | null;
 }
 
 export interface ReaderRecapCardDto {

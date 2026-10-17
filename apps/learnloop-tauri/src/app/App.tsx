@@ -101,11 +101,18 @@ export function App() {
   // after leaving the Reader -- Today or the library -- for that one view.
   const [wrapUpLanding, setWrapUpLanding] = useState<{ tab: WrapUpLanding; seq: number } | null>(null);
   const previousTabRef = useRef<TopTab>(tab);
+  // Skim is the mute button (UX §4.12): a Reader left while skimming offers
+  // nothing where the learner lands (review F9).
+  const readerSkimmingRef = useRef(false);
+  const noteReaderSkimming = useCallback((muted: boolean) => {
+    readerSkimmingRef.current = muted;
+  }, []);
   useEffect(() => {
     const previous = previousTabRef.current;
     previousTabRef.current = tab;
     if (previous === tab) return;
-    setWrapUpLanding(wrapUpOfferArmed(previous, tab) ? { tab: tab as WrapUpLanding, seq: Date.now() } : null);
+    const armed = wrapUpOfferArmed(previous, tab) && !readerSkimmingRef.current;
+    setWrapUpLanding(armed ? { tab: tab as WrapUpLanding, seq: Date.now() } : null);
   }, [tab]);
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
@@ -1450,11 +1457,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return (

@@ -177,6 +177,7 @@ export function ReaderScreen({
   shelf,
   onCheckMe,
   workbench,
+  onSkimmingChange,
 }: {
   onError: (message: string) => void;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
@@ -195,6 +196,9 @@ export function ReaderScreen({
    *  hand-off to feedback, back from feedback to the problem). The workbench
    *  itself shows only while workbench.enabled is on. */
   workbench?: ReaderWorkbenchProps;
+  /** RW6a: whether the Reader is muted by skim (so leaving it while skimming
+   *  arms no wrap-up offer where the learner lands; review F9). */
+  onSkimmingChange?: (muted: boolean) => void;
 }) {
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
@@ -422,7 +426,7 @@ export function ReaderScreen({
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
     inquiryChecks, passageCheckOffered, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
-    committedFor, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
+    committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState,
   } = useReaderInquiry({
@@ -498,9 +502,17 @@ export function ReaderScreen({
     readingMoved,
     activityKey: `${history.length}:${wbCtl.sessions.length}:${wbCtl.active?.session.sessionId ?? ""}`,
     suspended: working,
+    // Skim is the mute button (UX §4.12; review F9).
+    muted,
+    // `w` and the footer open Wrap up where it can be seen (review F6).
+    reveal: showGuideRail,
     onError,
   });
-  const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  // Leaving while skimming offers no wrap-up where the learner lands (F9).
+  useEffect(() => {
+    onSkimmingChange?.(muted);
+  }, [muted, onSkimmingChange]);
   const { noteShown: noteRecapShown } = recapCtl;
   useEffect(() => {
     if (recapShown) noteRecapShown();
@@ -519,15 +531,22 @@ export function ReaderScreen({
     }
     recapCtl.reload();
   }, [history, setInquiryStatus, render, onError, recapCtl]);
+  // "revisit once" from the card or Wrap up is the Ask chip's own commitment:
+  // one state, one in-flight guard, one idempotency key (review F2).
+  const recapRevisited = useCallback((rootId: string) => {
+    const root = history.find((entry) => entry.id === rootId);
+    return Boolean(root && committedFor(root).has("test_me_later"));
+  }, [history, committedFor]);
   const recapRevisit = useCallback(async (rootId: string) => {
     const root = history.find((entry) => entry.id === rootId);
-    if (root) await commitInquiry(root, "test_me_later");
+    if (!root || committedFor(root).has("test_me_later")) return;
+    await commitInquiry(root, "test_me_later");
     recapCtl.reload();
-  }, [history, commitInquiry, recapCtl]);
-  const recapOpenInquiry = useCallback((_rootId: string, spanId: string) => {
-    setRailTab("ask");
-    peekPassage(spanId);
-  }, [peekPassage]);
+  }, [history, commitInquiry, committedFor, recapCtl]);
+  // "open": that inquiry, expanded and in view on Ask, with its crumb (F5).
+  const recapOpenInquiry = useCallback((rootId: string, spanId: string) => {
+    openInquiry(rootId, spanId);
+  }, [openInquiry]);
   const renderMark = (cue: ReaderCueDto, markSurface: "text" | "pdf" | "watch") => (
     <MarginMark
       key={cue.cueId}
@@ -2603,13 +2622,14 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
-            header={recapCtl.wrapUpOpen || recapCtl.recap ? (
+            header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
               <>
                 {recapCtl.wrapUpOpen ? (
                   <WrapUpPanel
                     wrapUp={recapCtl.wrapUpOpen}
                     where="reader"
                     onClose={recapCtl.closeWrapUp}
+                    isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
                     onAction={async (line, action) => {
                       const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
                       if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
@@ -2620,7 +2640,7 @@ export function ReaderScreen({
                     }}
                   />
                 ) : null}
-                {recapCtl.recap ? (
+                {recapCtl.recap && !muted ? (
                   <RecapCard
                     recap={recapCtl.recap}
                     collapsed={recapCtl.collapsed}
@@ -2633,6 +2653,7 @@ export function ReaderScreen({
                     onOpenInquiry={recapOpenInquiry}
                     onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
                     onRevisit={(rootId) => void recapRevisit(rootId)}
+                    revisited={recapRevisited}
                     onResume={(sessionId) => void wbCtl.resume(sessionId)}
                   />
                 ) : null}
@@ -2763,15 +2784,13 @@ export function ReaderScreen({
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
           />
-          {recapCtl.wrapUpAvailable && !recapCtl.wrapUpOpen ? (
-            // RW6a: offered once the session has activity (D34); `w` too.
+          {recapCtl.wrapUpOffered && !recapCtl.wrapUpOpen ? (
+            // RW6a: offered once the session has activity (D34), never while
+            // skimming; `w` too.
             <div style={{ borderTop: `1px solid ${COLOR.border}`, marginTop: 16, paddingTop: 8 }}>
               <button
                 type="button"
-                onClick={() => {
-                  setRailTab("guide");
-                  void recapCtl.openWrapUp();
-                }}
+                onClick={() => void recapCtl.openWrapUp()}
                 style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11 }}
               >
                 {RECAP_COPY.wrapUpOffer}
@@ -2851,7 +2870,7 @@ export function ReaderScreen({
           // RW3a: the margin marks, when any is drawn (UX §3.5).
           ...(cueCtl.placement.shown.length > 0 ? [{ key: "alt+↓", label: "next mark" }] : []),
           // RW6a: once the session has something to wrap up (UX W1).
-          ...(recapCtl.wrapUpAvailable && !working ? [{ key: "w", label: "wrap up" }] : []),
+          ...(recapCtl.wrapUpOffered && !working ? [{ key: "w", label: "wrap up" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />
