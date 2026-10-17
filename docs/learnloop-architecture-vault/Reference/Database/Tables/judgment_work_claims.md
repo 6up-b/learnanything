@@ -3,13 +3,13 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
+source_commit_timestamp: "2026-10-17T14:51:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 207
+schema_head: 208
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"
@@ -103,6 +103,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_reader_active_reading.py`
+- `tests/test_reader_formative_texts.py`
 - `tests/test_recurrence_merge_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

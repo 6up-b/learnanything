@@ -3,13 +3,13 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
+source_commit_timestamp: "2026-10-17T14:51:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
   - "table learner_text_gaps"
-schema_head: 207
+schema_head: 208
 table_name: "learner_text_gaps"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -142,10 +142,13 @@ None found by exact static reference scan.
 - `tests/test_learner_text_gaps_flow.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_gaps_review.py`
+- `tests/test_learner_text_source_widening.py`
 - `tests/test_mcp_c1a_landing.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mvp016_upgrade.py`
 - `tests/test_probability_cli.py`
+- `tests/test_reader_active_reading.py`
+- `tests/test_reader_formative_texts.py`
 - `tests/test_tier1_decider.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -163,10 +166,13 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE learner_text_gaps (
+CREATE TABLE "learner_text_gaps" (
   id TEXT PRIMARY KEY,
-  source_kind TEXT NOT NULL CHECK (source_kind IN ('tutor_question', 'stuck_answer', 'diagnosis')),
-  -- question_events.id | practice_attempts.id | attempt_diagnoses.id
+  source_kind TEXT NOT NULL CHECK (source_kind IN (
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative'
+  )),
+  -- question_events.id | practice_attempts.id | attempt_diagnoses.id |
+  -- reader_authored_questions.id (reader_formative) | RW2b's row (workbench_text)
   source_id TEXT NOT NULL,
   attempt_id TEXT,
   practice_item_id TEXT,

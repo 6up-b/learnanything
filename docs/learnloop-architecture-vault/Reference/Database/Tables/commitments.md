@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
+source_commit_timestamp: "2026-10-17T14:51:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 207
+schema_head: 208
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -29,7 +29,7 @@ source_paths:
   - "src/learnloop/curriculum/golden_path_restoration.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/reader/reader_authoring.py"
+  - "src/learnloop/reader/active_reading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -93,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
 
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_dialogue.py`

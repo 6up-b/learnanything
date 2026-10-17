@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
+source_commit_timestamp: "2026-10-17T14:51:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -35,8 +35,8 @@ source_paths:
   - "tests/test_question_signal.py"
   - "tests/test_quick_check.py"
   - "tests/test_reader_dialogue.py"
+  - "tests/test_reader_intent.py"
   - "tests/test_sidecar_reader.py"
-  - "tests/test_sidecar_reader_p3.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -90,8 +90,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_question_signal.py`
 - `tests/test_quick_check.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_reader_intent.py`
 - `tests/test_sidecar_reader.py`
-- `tests/test_sidecar_reader_p3.py`
 
 ## Extension and modification guidance
 

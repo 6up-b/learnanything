@@ -3,13 +3,13 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "cad657eb92a78cf517b5d0f2ce36e2c1c78337af"
+source_commit_timestamp: "2026-10-17T14:51:16-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 207
+schema_head: 208
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -120,10 +120,10 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop/reader/reader_progression.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
+- `tests/test_reader_active_reading.py`
 - `tests/test_reader_pdf_selection.py`
 - `tests/test_reading_hardening_landing.py`
 - `tests/test_reread_safety.py`
@@ -149,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
-- `tests/test_source_ingestion_v2lite.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

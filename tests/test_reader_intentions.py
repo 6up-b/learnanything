@@ -110,3 +110,23 @@ def test_active_reading_works_on_a_transcript(tmp_path):
         clock=FrozenClock(NOW), owner="job_t",
     )
     assert row["answer_basis"] == "source" and row["expected_answer_md"]
+
+
+def test_the_readers_test_fixture_is_the_sidecars_palette():
+    """The frontend's RW1b tests use a copy of the contract; it must not drift."""
+
+    import json
+
+    from learnloop.config.schema import LearnLoopConfig
+    from learnloop_sidecar.dto import to_camel
+
+    fixture = ROOT / "apps" / "learnloop-tauri" / "src" / "fixtures" / "readerIntentContract.ts"
+    text = fixture.read_text(encoding="utf-8")
+    body = text[text.index("= {") + 2:text.rindex("};") + 1]
+    config = LearnLoopConfig()
+    expected = to_camel({
+        "palette": RI.palette(RI.Availability.from_config(config)),
+        "notes_palette": RI.palette(RI.Availability.from_config(config, notes=True)),
+        "speculative": True, "speculate_after_ms": 600, "timeout_seconds": 4.0,
+    })
+    assert json.loads(body) == expected
