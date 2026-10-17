@@ -331,3 +331,198 @@ c8f92b946.
 | `npm run frontend:build` | ok |
 | `cargo check` | not rerun: nothing under `src-tauri` changed |
 | References and snapshots | not needed: no config default and no schema changed |
+
+## Round 3
+
+A Codex verify of round 2 (20fa20a69) confirmed that the A/B regrade and the
+embedded-only regressions are fixed through the production paths, and found
+no default-output change: 600 fold histories with 13,425 points matched
+c8f92b946. It came back **REOPENED** on two Medium findings. The fixes are
+ebcfe6ff4 on `reader/rw6a` after 3747dd91d.
+
+### Findings and rulings
+
+**F1 (round 3) [Medium]: the cutoff replay lost historical replay holds**
+(`facet_evidence_timeline.py:278`, `snapshot_as_of`). An attempt's
+contractless regrade is held at the cutoff (the mvp-0.26 regrade-contract
+hold, `grade_contract_unrecorded`). A later contract-bearing regrade
+releases the hold. `snapshot_as_of` dropped the later grading, but it took
+the historical holds only from the *current* `contract_unrecorded` set,
+which no longer has the attempt. So the epoch that was held at the cutoff
+banked credit in the replay (its credit at the cutoff went from 0 to its
+full value), which can hide a real "Since last time" gain.
+*Ruling:* decide the hold as of the cutoff from the grading epoch effective
+then, by the predicate production uses when it records the hold
+(`attempts.current_epoch_reading`), applied to the grading rows written by
+the cutoff, the legacy only-grade exception included. Where part of it
+cannot be rebuilt from timestamped rows, add no storage (no table, no
+migration in this stage): take the reading that matches what the ledger
+credited at the cutoff wherever that is known, and record the gap.
+
+**F2 (round 3) [Medium]: a later correction left claim-clearing banked
+credit stale** (`facet_evidence_timeline.py:505`, read at `recap.py:471`
+`_effective_success_since`). Before the session, attempt D banks direct
+credit. In the session, unassisted attempt E adds embedded credit, which
+banks under the 0.5 cap beside D's. Then D is regraded to zero. The cell
+banks zero, but E's last point still carried the `attempt_banked_credit`
+measured at E's own event, so the claim was cleared.
+*Ruling:* whether an attempt clears an independent-check claim is decided
+on the current state: each attempt's latest grading, against the cell's
+final totals with the cap (the cell's banked credit now with and without
+the attempt). Rounds 1 and 2 stand: a success regraded to nothing does not
+clear, and uncapped embedded credit does not clear. Recap-only: no change
+to the default extraction or fold output, or to `as_dict`.
+
+### Fixes
+
+- **F1.** `snapshot_as_of(snapshot, cutoff, *, vault=None)` now decides the
+  hold per attempt as of the cutoff. An attempt with no row written after
+  the cutoff has the same current epoch then as now, so it keeps the hold
+  the ledger records on it now (that is production's own verdict on that
+  epoch, and it keeps the as-of-after-every-write replay equal to the
+  current curve). For an attempt with a row written later, the recorded
+  hold describes the later epoch, so the new `_epoch_held_as_of(rows,
+  vault, item_id)` evaluates `current_epoch_reading`'s predicate over the
+  rows as they stood at the cutoff: the current epoch among the rows
+  standing then (`grading_epochs.current_epoch`), held when it cites no
+  contract, unless it is the attempt's only grade
+  (`grading_epochs.only_grade` over the rows written by then, superseded
+  ones included) and its score fits today's item maximum
+  (`max(rubric.max_points, 1)`, no rubric: not held). A later
+  contract-bearing regrade therefore no longer lifts a hold at the cutoff,
+  and a later contractless one does not place one there.
+  `facet_evidence_timelines(..., as_of=...)` passes the vault. The
+  extraction's own gate is unchanged: the set is read only at
+  `REGRADE_CONTRACT_VERSIONS`.
+- **F2.** `fold_demonstrated_timeline` now measures `attempt_banked_credit`
+  at the end of the curve. After every event is folded, each attempt's
+  latest-epoch credit is evaluated against the cells' final totals with the
+  embedded-share cap: per cell, the capped total minus the capped total
+  without the attempt's credit (its embedded share removed with it). The
+  value is the same on every point of the attempt. The points are built
+  once, after the fold, so there is no second construction pass.
+  `_effective_success_since` reads it unchanged, so a claim is cleared only
+  by an attempt whose credit still banks now. The field stays read-side and
+  outside `as_dict`. `recap._effective_success_since` is its only reader
+  (no other caller, test or frontend reads it). The fold's prefix
+  invariant (§16) compares `as_dict`, which does not carry the field; the
+  fold's docstring names it as the one field measured against the curve's
+  end.
+- **Tests** (`tests/test_reader_recap_review_r3.py`). Everything goes
+  through the production writes: `complete_self_graded_attempt`, the
+  regrade door `regrade_attempt` with a deterministic points grader fake,
+  and `upgrade_to_mvp026`. Then extraction, fold, `lo_certification` and the
+  recap. No snapshot or timeline is mocked.
+  - F1, held then released: at mvp-0.25, H is self-graded 0 of 4 (minute
+    5), O 2 of 4 on a second surface (minute 10), and H is regraded to 4 of
+    4 by the predecessor's door, which cites no contract (minute 20). The
+    upgrade to mvp-0.26 holds H (minute 30). The session ends (minute 40).
+    H is regraded again at mvp-0.26, citing its contract, which releases the
+    hold (minute 50). H's credit at the cutoff is 0, the as-of curve equals
+    the curve as it stood before the release, and `demonstrated_since(after
+    = minute 40)` reports the LO, dated minute 50, by H. After the release
+    nothing is new, and as of a moment after every write the replay equals
+    the current curve.
+  - F1, predicate parity: on that vault, and on the upgrade suite's
+    predecessor vault (a seeded history of only grades, a contract-cited
+    grade, and two uncited regrades, one with a blind record), the predicate
+    over every attempt's whole ledger holds exactly the attempts the
+    upgrade's replay held.
+  - F2, at mvp-0.7 and the latest tag: D before the session (4 of 4 on a
+    `recall`-targeted item), the assisted session's claim, E in the session
+    (embedded `recall` credit, trace-licensed), then D regraded to 0 through
+    `regrade_attempt`. The ledger cell banks 0 (`facet_capability_evidence`),
+    the curve ends at 0, E's banked credit is 0, and the claim stays open.
+    The inverse control (D stands): E's capped embedded credit banks and
+    the claim clears.
+
+### Fail-first
+
+The edited `facet_evidence_timeline.py` and `recap.py` were copied to the
+scratchpad. 3747dd91d's versions were written from `git show`, the new
+tests were run, and the edits were restored from the copies
+(`cmp`-verified both times).
+
+- **5 of 5** new regression tests fail on 3747dd91d:
+  - F1 held then released fails on the behaviour: H's credit at the cutoff
+    is 0.6957788 (its uncited regrade banking), not 0.
+  - The two F1 predicate-parity tests (the held-then-released vault and the
+    upgrade suite's vault) fail because the predicate does not exist there
+    (`ImportError` on `_epoch_held_as_of`). They pin the new function
+    against the holds the upgrade's replay recorded.
+  - F2 at mvp-0.7 and at the latest tag (mvp-0.27) both fail on the claim:
+    `[] == ['recall']`, so E cleared it.
+- The F2 inverse control passes on both trees at both versions, as it
+  should: it pins behaviour that was already right.
+
+### Default path against c8f92b946
+
+Round 2's seeded comparison was rerun unchanged against this tree. It ran
+as a temporary pytest file (removed afterwards), with c8f92b946's
+`facet_evidence_timeline.py` and `goal_certification.py` loaded from
+`git show` into separate scratchpad modules:
+
+- **300 randomized ledger histories**: mvp-0.7 or the latest tag (174 and
+  126), a default cap of 0.5 or 1.0 (219 and 81), 1,862 timeline points,
+  363 corrections, 623 discounted points and 25 certified LOs. The
+  extraction's events, every facet's folded curve (`as_dict` serialized,
+  plus every field c8f92b946's `TimelinePoint` had), the single-facet
+  curve, `recipe_gaps` and `lo_certification` (default arguments) are
+  identical. A replay `as_of` a moment after every write equals the
+  current curve exactly, `attempt_banked_credit` included.
+- **300 randomized pure folds** (random events, caps 1.0, 0.5, 0.25 and
+  0.0, and repeat discounts) are identical.
+
+Result: **600 of 600 identical.** `attempt_banked_credit` is the one value
+that changed, by the ruling. It is not a field c8f92b946 had, and it is not
+in `as_dict`.
+
+### Residuals (F1: what the cutoff cannot rebuild from timestamped rows)
+
+- **The only-grade exception's score.** Production compares the attempt
+  row's `rubric_score` with today's item maximum. When a later grade has
+  overwritten that row, the score as it stood at the cutoff is on no
+  timestamped row. So the predicate sums the epoch's `points_awarded` (as
+  `calculate_rubric_score` sums them, `int(round(...))`). A fatal-error cap
+  or the PF-c assessed-fraction rescale could make the true score differ.
+  That only matters for an attempt whose only grade, at the cutoff, was
+  later regraded *and* whose item maximum has since dropped below that
+  score. When the attempt has no later row, the recorded hold is used, so
+  this does not arise.
+- **The hold is read under today's tag.** The extraction applies the
+  regrade-contract reading (and so the hold) whenever the vault is at
+  mvp-0.26 or later now, across its whole history, as the current curve
+  does. A cutoff that fell before the vault's upgrade sees an uncited
+  regrade as held, although the ledger then (mvp-0.25) banked it. When the
+  vault crossed the tag is recorded only in the rebuild and manifest log,
+  not on the grading rows, and the stage's ruling adds no storage.
+- **Today's item, as replay reads it.** The predicate reads today's rubric
+  maximum, as `current_epoch_reading` does at every replay. An item edit
+  after the cutoff counts at the cutoff.
+
+### Open (found, not fixed: out of scope)
+
+- **[Low, pre-existing, default path] The current curve has no point where
+  a replay hold is placed.** A hold is recorded by replay (the mvp-0.26
+  upgrade, or a rebuild) without a grading row. So the current Demonstrated
+  curve shows the held attempt's earlier, uncited epoch banking from when it
+  was written until the releasing regrade, and only the held epoch, when it
+  is last, banks nothing. The recap's "Since last time" no longer reads
+  those intermediate points: it replays as of each moment. But the plotted
+  history for a held-then-released attempt overstates the hold interval.
+  Fixing it would change the default extraction.
+- Round 2's open items stand unchanged: a zero regrade on items without
+  authored targets never reaches the curve (queued separately), and trace
+  observations, activity classifications and the P0 masses are read as
+  they are now.
+
+### Gate (round 3)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run --no-sync lint-imports --no-cache` | 24 kept, 0 broken |
+| Full suite, `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 12941 passed, 2 xfailed, 0 failed (12934 plus the 7 round 3 tests); no flakes |
+| Durability lane, `pytest -m durability` | 106 passed |
+| Frontend gate | not run: nothing under `apps/` changed |
+| References and snapshots | not needed: no config default and no schema changed |
