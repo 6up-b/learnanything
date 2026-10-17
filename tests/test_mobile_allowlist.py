@@ -198,6 +198,18 @@ READER_RW2A_RPCS = (
 )
 
 
+# Reader workbench RW6a ("Last time here") adds four RPCs -- the returning
+# card, its events (recap_shown, recap_dismissed, wrap_up_opened), Wrap up and
+# the wrap-up offer at the destination. All pure reads but the events.
+# Desktop only (spec D20).
+READER_RW6A_RPCS = (
+    "reader.recap",
+    "reader.recap_event",
+    "reader.wrap_up",
+    "reader.wrap_up_offer",
+)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -366,7 +378,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + READER_RW2A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
 )
