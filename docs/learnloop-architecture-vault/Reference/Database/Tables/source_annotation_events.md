@@ -3,8 +3,8 @@ title: "source_annotation_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6c63eceb3bcc07bda543dbf8fc4272dbf965abc3"
-source_commit_timestamp: "2026-10-17T17:20:52-04:00"
+source_commit: "527e3fb1ddff173159bc5c08fb96faa55cee253f"
+source_commit_timestamp: "2026-10-17T17:58:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_events"
@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
+  - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
@@ -87,7 +87,6 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
-- `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 
@@ -97,6 +96,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
+- `src/learnloop/reader/reader_intent.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw1b_final_verify.py`
 - `tests/test_reader_rw1b_review.py`
 - `tests/test_annotations.py`
 - `tests/test_reader_capture.py`

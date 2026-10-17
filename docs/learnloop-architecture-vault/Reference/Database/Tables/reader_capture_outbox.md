@@ -3,8 +3,8 @@ title: "reader_capture_outbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6c63eceb3bcc07bda543dbf8fc4272dbf965abc3"
-source_commit_timestamp: "2026-10-17T17:20:52-04:00"
+source_commit: "527e3fb1ddff173159bc5c08fb96faa55cee253f"
+source_commit_timestamp: "2026-10-17T17:58:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_capture_outbox"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `Repository.get_capture_outbox()`
 - `Repository.mark_capture_outbox()`
 - `Repository.pending_capture_outbox()`
+- `Repository.reader_request_standing_holder()`
 - `Repository.reader_request_still_held()`
 - `Repository.recoverable_capture_outbox()`
 
@@ -121,6 +122,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_capture.py`
+- `tests/test_reader_rw1b_final_verify.py`
 - `tests/test_reader_rw1b_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
