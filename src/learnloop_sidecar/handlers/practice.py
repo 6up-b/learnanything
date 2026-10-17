@@ -693,12 +693,16 @@ def _plan_presentation(repository, params: Any) -> str | None:
     )
 
 
-def _bind_offer(repository, params, submission_id):
+def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
+    # Reader workbench RW2a: a workbench submit names its own surface; every
+    # other caller binds exactly as before (the store's default surface).
+    surface = {} if entry_surface is None else {"entry_surface": entry_surface}
     try:
         return repository.bind_submission_offer(
             submission_id=submission_id, session_id=params.session_id,
             practice_item_id=params.practice_item_id,
             scheduler_candidate_id=params.scheduler_candidate_id,
+            **surface,
         )
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
@@ -779,7 +783,20 @@ def acknowledge_practice_submission(
 
 @method("submit_attempt", SubmitAttemptInput)
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
+    return submit_attempt_on(ctx, params)
+
+
+def submit_attempt_on(
+    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice"
+) -> dict[str, Any]:
+    """``submit_attempt``, recorded on ``entry_surface``. The one submit
+    implementation: the Reader workbench (RW2a) composes its answer and calls
+    this with its own surface, so a workbench submit is validated, graded,
+    diagnosed and admitted (the one eligibility decision) exactly as every
+    other; the RPC passes the practice screen's surface, unchanged."""
+
     vault, repository = ctx.require_vault()
+    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
     submission_id = submission_key(params)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
@@ -791,7 +808,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         # A stuck answer from a surface drawn before stuck_prompt was turned
         # off is recorded exactly as that switch says today: an empty one is
         # "I don't know" (and a non-empty one the ordinary attempt below).
-        return submit_dont_know(
+        return submit_dont_know_on(
             ctx,
             DontKnowInput(
                 session_id=params.session_id,
@@ -805,6 +822,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
                 scheduler_candidate_id=params.scheduler_candidate_id,
                 plan_presentation_id=params.plan_presentation_id,
             ),
+            entry_surface=entry_surface,
         )
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
@@ -832,7 +850,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         primed = True
         log_event("self_grade_trace_changed_after_disclosure", session_id=params.session_id,
                   practice_item_id=params.practice_item_id)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md=learner_answer_md,
@@ -848,7 +866,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
         scheduler_candidate_id=scheduler_candidate_id,
-        entry_surface="desktop_practice",
+        entry_surface=entry_surface,
         evidence_origin="human",
         declared_stuck=declared_stuck,
     )
@@ -943,7 +961,14 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 
 @method("submit_dont_know", DontKnowInput)
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
+    return submit_dont_know_on(ctx, params)
+
+
+def submit_dont_know_on(
+    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice"
+) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
     submission_id = submission_key(params)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
@@ -971,14 +996,14 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
             answer_confidence=params.answer_confidence,
             assessment_contract_version_id=params.assessment_contract_version_id,
             submission_id=submission_id,
-            scheduler_candidate_id=_bind_offer(repository, params, submission_id),
-            entry_surface="desktop_practice",
+            scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=workbench_surface),
+            entry_surface=entry_surface,
             evidence_origin="human",
             declared_stuck=True,
         )
         return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
@@ -992,7 +1017,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
         scheduler_candidate_id=scheduler_candidate_id,
-        entry_surface="desktop_practice",
+        entry_surface=entry_surface,
         evidence_origin="human",
         declared_dont_know=True,
     )

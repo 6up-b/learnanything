@@ -1,0 +1,460 @@
+"""Reader workbench RW2a RPCs: the resumable scratchpad (spec_reader_workbench_v1 §5.1).
+
+The adapter around :mod:`learnloop.reader.workbench`. It adds what needs the
+sidecar: the exercise import a selected problem waits on (enqueued with the
+same code as ``reader.import_exercise``, bound when its job lands), the
+practice session a submit runs in, and the submit itself, which goes through
+the one submit implementation (``practice.submit_attempt_on``) with the
+workbench's entry surface, so it is graded, diagnosed and admitted by the one
+eligibility decision exactly like every other answer.
+
+Every RPC refuses ``workbench_disabled`` while ``workbench.enabled`` is off,
+before reading or writing anything. Desktop only (spec D20).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, TypeVar
+
+from learnloop.attempts.stuck import stuck_attempt_type
+from learnloop.reader import workbench as WB
+from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop_sidecar.context import SidecarContext, session_snapshot
+from learnloop_sidecar.dto import ParamsModel, to_camel
+from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.registry import method
+
+T = TypeVar("T")
+
+#: Import job statuses that are still running (``reader.exercise_import_status``).
+_IMPORT_RUNNING = frozenset({"queued", "running", "blocked", "pending"})
+
+
+def _require(ctx: SidecarContext):
+    vault, repository = ctx.require_vault()
+    if not WB.workbench_enabled(vault):
+        raise SidecarError("workbench_disabled", "The workbench is switched off (workbench.enabled = false).")
+    return vault, repository
+
+
+def _run(fn: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    try:
+        return fn(*args, **kwargs)
+    except WB.WorkbenchError as exc:
+        raise SidecarError(exc.code, exc.message, details=to_camel(exc.details)) from exc
+
+
+def _question_hints(vault, repository, session: dict[str, Any]) -> int:
+    """The tutor questions the submit's existing fold will add (G62)."""
+
+    item_id = session.get("practice_item_id")
+    if not item_id or session.get("status") != "open" or item_id not in vault.practice_items:
+        return 0
+    practice_session = session.get("practice_session_id")
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    if not practice_session:
+        return 0
+    try:
+        return int(hint_equivalents_for_submission(repository, item_id, practice_session))
+    except Exception:  # noqa: BLE001 - a display line never fails a read
+        return 0
+
+
+def _source_id(repository, extraction_id: str | None) -> str | None:
+    if not extraction_id:
+        return None
+    from learnloop_sidecar.handlers.reader import _source_id_for_extraction
+
+    try:
+        return _source_id_for_extraction(repository, extraction_id)
+    except Exception:  # noqa: BLE001 - an unknown extraction has no source
+        return None
+
+
+def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    row = _run(WB.session_row, repository, session_id)
+    view = _run(
+        WB.session_view, repository, session_id,
+        question_hints=_question_hints(vault, repository, row),
+        extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts},
+    )
+    return to_camel(view)
+
+
+def _answer(payload: dict[str, Any]) -> dict[str, Any]:
+    return {"version": 1, **payload}
+
+
+# -- the exercise import a selected problem waits on (UX S2) ----------------------------------------
+
+
+def _enqueue_import(ctx: SidecarContext, vault, repository, request: dict[str, Any]) -> str:
+    """Queue the exercise import exactly as ``reader.import_exercise`` does."""
+
+    from learnloop.reader import reader_dialogue as RD
+    from learnloop_sidecar.handlers.reader import ReaderImportExerciseInput, enqueue_exercise_import
+
+    if not RD.reader_enabled(vault):
+        raise SidecarError("reader_disabled", "The reader is switched off, so this problem cannot be set up.")
+    params = ReaderImportExerciseInput.model_validate(request)
+    return enqueue_exercise_import(ctx, vault, repository, params)
+
+
+def _import_job(ctx: SidecarContext, repository, batch_id: str) -> dict[str, Any] | None:
+    """The import batch's job, reloading the vault once when it completed (as
+    ``reader.exercise_import_status`` does), so its items schedule."""
+
+    jobs = repository.ingest_jobs_for_batch(batch_id)
+    if not jobs:
+        return None
+    job = jobs[0]
+    if job.get("status") == "completed" and ctx.ingest_jobs.needs_reload(job["id"]):
+        ctx.reload(maintenance=False)
+        ctx.ingest_jobs.mark_reloaded(job["id"])
+    return {"status": job.get("status"), "result": job.get("result"), "error": job.get("error"),
+            "message": job.get("message")}
+
+
+def _job_parts(job: dict[str, Any]) -> list[dict[str, Any]]:
+    result = to_camel(job.get("result") or {})
+    parts = []
+    for item in result.get("items") or []:
+        item_id = item.get("practiceItemId")
+        if item_id:
+            parts.append({"practiceItemId": item_id, "title": item.get("title") or "", "prompt": item.get("prompt") or ""})
+    return parts
+
+
+def _job_error(job: dict[str, Any]) -> str:
+    error = job.get("error")
+    if isinstance(error, dict) and error.get("message"):
+        return str(error["message"])
+    return str(job.get("message") or "Setting up this exercise did not finish.")
+
+
+def _start_import(ctx: SidecarContext, vault, repository, request: dict[str, Any]) -> tuple[str | None, str | None]:
+    try:
+        return _enqueue_import(ctx, vault, repository, request), None
+    except SidecarError as exc:
+        return None, exc.message
+
+
+# -- inputs -------------------------------------------------------------------------------------------
+
+
+class WorkbenchOpenInput(ParamsModel):
+    origin: str
+    entry: str
+    stem_md: str | None = None
+    practice_item_id: str | None = None
+    extraction_id: str | None = None
+    span_ids: list[str] = []
+    parent_session_id: str | None = None
+    source_visible: bool | None = None
+    client_idempotency_key: str | None = None
+    #: A selected problem that is not an item yet: the reader.import_exercise
+    #: request the workbench enqueues and binds when it lands.
+    import_request: dict[str, Any] | None = None
+
+
+class WorkbenchSessionInput(ParamsModel):
+    session_id: str
+
+
+class WorkbenchSaveStepInput(ParamsModel):
+    session_id: str
+    client_idempotency_key: str
+    op: str
+    step_id: str | None = None
+    after_step_id: str | None = None
+    kind: str = "step"
+    body_md: str | None = None
+
+
+class WorkbenchSetBookInput(ParamsModel):
+    session_id: str
+    visible: bool
+
+
+class WorkbenchBindInput(ParamsModel):
+    session_id: str
+    practice_item_id: str
+
+
+class WorkbenchSubmitInput(ParamsModel):
+    session_id: str
+    #: The app's open practice session, when there is one.
+    practice_session_id: str | None = None
+    answer_confidence: int | None = None
+    latency_seconds: int | None = None
+    scheduler_candidate_id: str | None = None
+    plan_presentation_id: str | None = None
+
+
+class WorkbenchAttemptInput(ParamsModel):
+    attempt_id: str
+
+
+class WorkbenchItemInput(ParamsModel):
+    practice_item_id: str
+
+
+class WorkbenchSourceInput(ParamsModel):
+    extraction_id: str
+
+
+# -- RPCs ---------------------------------------------------------------------------------------------
+
+
+@method("workbench.open", WorkbenchOpenInput)
+def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str, Any]:
+    """Open a problem at once (or resume the open one for the same item or
+    selection). On a selection that is not an item yet, the stem is the
+    verbatim selection and the import runs in the background."""
+
+    vault, repository = _require(ctx)
+    stem = (params.stem_md or "").strip()
+    import_status, batch_id, error = "none", None, None
+    if params.practice_item_id:
+        item = vault.practice_items.get(params.practice_item_id)
+        if item is None:
+            raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+        stem = stem or str(getattr(item, "prompt", "") or "")
+    else:
+        if not params.import_request:
+            raise SidecarError("validation_error", "A problem that is not an item yet needs its import request.")
+        import_status = "pending"
+        resumable = WB.resumable_session(
+            repository, extraction_id=params.extraction_id, span_ids=params.span_ids, stem_md=stem,
+        )
+        if resumable is None and not (
+            params.client_idempotency_key
+            and _key_exists(repository, params.client_idempotency_key)
+        ):
+            batch_id, error = _start_import(ctx, vault, repository, dict(params.import_request))
+            import_status = "pending" if batch_id else "failed"
+    row, resumed = _run(
+        WB.open_session, repository,
+        origin=params.origin, entry=params.entry, stem_md=stem,
+        practice_item_id=params.practice_item_id, extraction_id=params.extraction_id,
+        span_ids=params.span_ids, parent_session_id=params.parent_session_id,
+        source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
+        import_status=import_status, import_batch_id=batch_id,
+        import_request=params.import_request, import_error=error,
+    )
+    return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
+
+
+def _key_exists(repository, key: str) -> bool:
+    from learnloop.db.stores import workbench as store
+
+    with repository.connection() as connection:
+        return store.session_by_key(connection, key) is not None
+
+
+@method("workbench.get", WorkbenchSessionInput)
+def workbench_get(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    vault, repository = _require(ctx)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.save_step", WorkbenchSaveStepInput)
+def workbench_save_step(ctx: SidecarContext, params: WorkbenchSaveStepInput) -> dict[str, Any]:
+    """One change to the work, saved as it is typed (idempotent by key)."""
+
+    vault, repository = _require(ctx)
+    step = _run(
+        WB.save_step, repository, params.session_id,
+        op=params.op, client_idempotency_key=params.client_idempotency_key, step_id=params.step_id,
+        after_step_id=params.after_step_id, kind=params.kind, body_md=params.body_md,
+    )
+    view = _view(vault, repository, params.session_id)
+    return _answer({"step": to_camel(step), "savedAt": view["updatedAt"], "record": view["record"]})
+
+
+@method("workbench.set_book", WorkbenchSetBookInput)
+def workbench_set_book(ctx: SidecarContext, params: WorkbenchSetBookInput) -> dict[str, Any]:
+    vault, repository = _require(ctx)
+    _run(WB.set_book, repository, params.session_id, params.visible)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.leave", WorkbenchSessionInput)
+def workbench_leave(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    vault, repository = _require(ctx)
+    _run(WB.leave, repository, params.session_id)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.abandon", WorkbenchSessionInput)
+def workbench_abandon(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    vault, repository = _require(ctx)
+    _run(WB.abandon, repository, params.session_id)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.reopen", WorkbenchSessionInput)
+def workbench_reopen(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    vault, repository = _require(ctx)
+    _run(WB.reopen, repository, params.session_id)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.refresh_import", WorkbenchSessionInput)
+def workbench_refresh_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    """Bind the problem when its import has landed: one item binds; several
+    ask which part (``parts``); none, or a failed job, is ``failed`` with the
+    steps kept and "try again"."""
+
+    vault, repository = _require(ctx)
+    row = _run(WB.session_row, repository, params.session_id)
+    if row["import_status"] != "pending" or not row.get("import_batch_id"):
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    job = _import_job(ctx, repository, row["import_batch_id"])
+    vault, repository = ctx.require_vault()
+    if job is None:
+        _run(WB.mark_import, repository, params.session_id, status="failed",
+             error="Setting up this exercise was lost. Try again.")
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    status = str(job.get("status") or "")
+    if status in _IMPORT_RUNNING or not status:
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    if status != "completed":
+        _run(WB.mark_import, repository, params.session_id, status="failed", error=_job_error(job))
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    parts = [part for part in _job_parts(job) if part["practiceItemId"] in vault.practice_items]
+    if len(parts) == 1:
+        _run(WB.bind, repository, params.session_id, parts[0]["practiceItemId"])
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    if not parts:
+        _run(WB.mark_import, repository, params.session_id, status="failed",
+             error="Setup made no practice from this selection. Try again, or select the problem's full text.")
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    return _answer({"session": _view(vault, repository, params.session_id, parts=parts)})
+
+
+@method("workbench.bind", WorkbenchBindInput)
+def workbench_bind(ctx: SidecarContext, params: WorkbenchBindInput) -> dict[str, Any]:
+    """Bind a multi-part import to the part the learner picked (one of its own)."""
+
+    vault, repository = _require(ctx)
+    row = _run(WB.session_row, repository, params.session_id)
+    job = _import_job(ctx, repository, row["import_batch_id"]) if row.get("import_batch_id") else None
+    vault, repository = ctx.require_vault()
+    parts = {part["practiceItemId"] for part in _job_parts(job)} if job and job.get("status") == "completed" else set()
+    if params.practice_item_id not in parts or params.practice_item_id not in vault.practice_items:
+        raise SidecarError("validation_error", "That part is not one this problem's setup made.")
+    _run(WB.bind, repository, params.session_id, params.practice_item_id)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+@method("workbench.retry_import", WorkbenchSessionInput)
+def workbench_retry_import(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
+    """"Try again" on a failed setup: the same request, enqueued again."""
+
+    vault, repository = _require(ctx)
+    row = _run(WB.session_row, repository, params.session_id)
+    if row["import_status"] != "failed":
+        return _answer({"session": _view(vault, repository, params.session_id)})
+    request = WB.import_request(row)
+    if request is None:
+        raise SidecarError("validation_error", "This problem has no setup to try again.")
+    batch_id, error = _start_import(ctx, vault, repository, request)
+    if batch_id:
+        _run(WB.mark_import, repository, params.session_id, status="pending", batch_id=batch_id)
+    else:
+        _run(WB.mark_import, repository, params.session_id, status="failed", error=error)
+    return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+def _practice_session(ctx: SidecarContext, repository, requested: str | None) -> str:
+    """The practice session a workbench submit runs in: the app's open one,
+    else the most recent open one, else a new one (``start_session``)."""
+
+    if requested:
+        session = repository.fetch_session(requested)
+        if session is not None and session["ended_at"] is None:
+            return requested
+    recent = repository.most_recent_open_session()
+    if recent is not None:
+        return str(recent["id"])
+    from learnloop_sidecar.handlers.sessions import SessionStartInput, start_session
+
+    return str(start_session(ctx, SessionStartInput())["sessionId"])
+
+
+@method("workbench.submit", WorkbenchSubmitInput)
+def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[str, Any]:
+    """Submit the work through the ordinary attempt path (spec §5.4).
+
+    The answer is the live steps in order; ``hints_used`` is the book's one
+    hint-equivalent when it counted; the attempt type is the one the answer
+    box would pick. A refusal (a cold check answered with the book, grading
+    unavailable) keeps the session open with its steps.
+    """
+
+    from learnloop_sidecar.handlers.practice import SubmitAttemptInput, submit_attempt_on
+
+    vault, repository = _require(ctx)
+    plan = _run(WB.submission_plan, repository, params.session_id)
+    item = vault.practice_items.get(plan.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Unknown Practice Item {plan.practice_item_id}.")
+    practice_session_id = _practice_session(ctx, repository, params.practice_session_id)
+    submission = SubmitAttemptInput(
+        session_id=practice_session_id,
+        practice_item_id=plan.practice_item_id,
+        answer_md=plan.composed.answer_md,
+        attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=plan.book_hints),
+        hints_used=plan.book_hints,
+        latency_seconds=params.latency_seconds,
+        answer_confidence=params.answer_confidence,
+        submission_id=plan.submission_id,
+        scheduler_candidate_id=params.scheduler_candidate_id,
+        plan_presentation_id=params.plan_presentation_id,
+        declared_stuck=plan.composed.declared_stuck,
+    )
+    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface)
+    vault, repository = ctx.require_vault()
+    _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
+         practice_session_id=practice_session_id)
+    return _answer({
+        "attempt": attempt,
+        "session": _view(vault, repository, params.session_id),
+        "practiceSession": session_snapshot(repository, practice_session_id),
+    })
+
+
+@method("workbench.session_for_attempt", WorkbenchAttemptInput)
+def workbench_session_for_attempt(ctx: SidecarContext, params: WorkbenchAttemptInput) -> dict[str, Any]:
+    """The submitted problem behind an attempt, for back-from-feedback (UX S6);
+    ``null`` for every attempt the workbench did not write."""
+
+    vault, repository = _require(ctx)
+    row = WB.session_for_attempt(repository, params.attempt_id)
+    return _answer({"session": _view(vault, repository, row["id"]) if row else None})
+
+
+@method("workbench.for_item", WorkbenchItemInput)
+def workbench_for_item(ctx: SidecarContext, params: WorkbenchItemInput) -> dict[str, Any]:
+    """The item's open or abandoned problems ("resume your steps" on its card)."""
+
+    vault, repository = _require(ctx)
+    rows = WB.sessions_for_item(repository, params.practice_item_id, now=datetime.now(UTC),
+                                open_days=WB.open_session_days(vault))
+    return _answer({"sessions": to_camel(rows)})
+
+
+@method("workbench.for_source", WorkbenchSourceInput)
+def workbench_for_source(ctx: SidecarContext, params: WorkbenchSourceInput) -> dict[str, Any]:
+    """The source's open or abandoned problems: the ``✎`` marks, the rail and
+    RW6a's recap (``unfinished`` past ``workbench.open_session_days``)."""
+
+    vault, repository = _require(ctx)
+    rows = WB.sessions_for_source(repository, params.extraction_id, now=datetime.now(UTC),
+                                  open_days=WB.open_session_days(vault))
+    return _answer({"sessions": to_camel(rows), "openSessionDays": WB.open_session_days(vault)})

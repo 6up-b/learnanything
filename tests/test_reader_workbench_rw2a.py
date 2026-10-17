@@ -582,15 +582,16 @@ def test_an_abandoned_session_writes_no_attempt_and_a_rebuild_leaves_the_workben
             return {table: sorted(json.dumps(dict(row), sort_keys=True, default=str)
                                   for row in connection.execute(f'SELECT * FROM "{table}"')) for table in tables}
 
-    workbench_before = snapshot(WORKBENCH_TABLES)
-    attempt_row = _attempt(repository, kept_attempt := _call(ctx, "workbench.get", {"sessionId": kept["sessionId"]})["session"]["attemptId"])
+    kept_attempt = _call(ctx, "workbench.get", {"sessionId": kept["sessionId"]})["session"]["attemptId"]
+    evidence = ("practice_attempts", "grading_evidence")
+    before = snapshot((*WORKBENCH_TABLES, *evidence))
     vault = load_vault(paths.root)
-    rebuild_all_derived_state(vault, repository)
-    derived = snapshot(tables_for_role(TableRole.DERIVED))
-    rebuild_all_derived_state(vault, repository)
-    assert snapshot(tables_for_role(TableRole.DERIVED)) == derived
-    assert snapshot(WORKBENCH_TABLES) == workbench_before
-    assert _attempt(repository, kept_attempt)["hints_used"] == attempt_row["hints_used"] == 1
+    clock = FrozenClock(datetime(2026, 10, 30, 12, 0, tzinfo=UTC))
+    rebuild_all_derived_state(vault, repository, clock=clock)
+    rebuild_all_derived_state(vault, repository, clock=clock)
+    # A rebuild reads the attempt (its hints_used) and never the workbench.
+    assert snapshot((*WORKBENCH_TABLES, *evidence)) == before
+    assert _attempt(repository, kept_attempt)["hints_used"] == 1
 
 
 # -- the grader stays blind (G6) ---------------------------------------------------------------------
@@ -637,12 +638,20 @@ def test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit(t
     monkeypatch.setattr(serve_eligibility, "decide", spy)
     paths, _repository = _vault(tmp_path)
     ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    # The practice screen's answer box with one hint: the reference.
+    _call(ctx, "submit_attempt", {"sessionId": practice_session, "practiceItemId": OTHER_ITEM, "answerMd": "M^T",
+                                  "attemptType": "hinted_attempt", "hintsUsed": 1})
+    ordinary = [inputs for request, inputs in asked if request == serve_eligibility.SUBMIT]
+    asked.clear()
     session = _open(ctx)
     _step(ctx, session["sessionId"], "a", bodyMd="A = U Sigma V^T")
-    _submit(ctx, session["sessionId"])
-    submits = [inputs for request, inputs in asked if request == serve_eligibility.SUBMIT]
-    assert len(submits) == 1
-    assert submits[0].hints_used == 1
+    _submit(ctx, session["sessionId"], practiceSessionId=practice_session)
+    workbench = [inputs for request, inputs in asked if request == serve_eligibility.SUBMIT]
+    assert workbench and len(workbench) == len(ordinary)
+    assert {(inputs.practice_item_id, inputs.hints_used, inputs.attempt_type) for inputs in workbench} == {
+        (ITEM, 1, "hinted_attempt")
+    }
 
 
 def test_a_cold_check_with_the_book_open_is_refused_and_the_session_and_steps_stay(tmp_path, grader):
