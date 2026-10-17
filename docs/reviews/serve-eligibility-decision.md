@@ -221,3 +221,132 @@ Only this record changed after `f0d3de361`. No run had a timing failure.
 - **Q42 (submit's quirk).** Submit's cold guard applies only when the first due task on the item, of any kind, is a cold one. This is kept exactly as persisted admissibility, and the decision reproduces it. *Default: unchanged.*
 - **Q43 (a stale client).** A queue build that does not persist (`persist_explanations=False`) shows the item as practice without re-timing. A client that submits a cold check without a fresh serve (a stale screen) is still refused, now with the reveal named. Every serve path re-times first. *Default: as built.*
 - **Q22 to Q35** stand.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/eligibility-onto-main`. The stage's base and main's tip are both `a26284876` (mvp-0.26, schema head 206). The stage's tip is `0afc12379`, unchanged. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `19c196e5c`: a real `--no-ff` merge of `serving/one-eligibility-decision` (9 commits) onto `a26284876`. The merged tree is byte-identical to the stage tip's (`git diff 0afc12379 19c196e5c` is empty).
+- `542511db6`: the references regenerated on the merged tree, and the Pipeline Map entry.
+- This record.
+
+### Merge
+
+- **No conflicts.** Main had not moved since the stage's base. Nothing under `apps/` differs from main.
+- **No migration** (207 stays free). One config key (`[eligibility] enabled`). No RPC name.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors** (325 table notes). Only the 380 notes' `source_commit` and `source_commit_timestamp` labels moved. The branch's content (the `Config - eligibility` note, the 53 sections) was already current.
+- **Defaults snapshots.** The template `.pyc` was deleted and `template.py` touched. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.27`) equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change from the branch's.
+- **The Pipeline Map.** `implementation_version` and the version authority move to `mvp-0.27`. The successor gates are cumulative through `mvp-0.27`. The source paths gain `serve_eligibility.py` and `eligibility_decision_upgrade.py`. A new entry, "One eligibility decision (`mvp-0.27+`, kill switch `eligibility.enabled`)", sits after the regrade-contract entry. It covers the decision, the paths that ask it, the withdrawal, submit's refusal, Q33 and the upgrade. `validate_vault.py` passes (1,112 notes, 1,110/1,110 reachable).
+
+### Gate
+
+Run on `542511db6`, the final code tree; the only later commit adds this section.
+- **Environment:** Python 3.12.14, with `TMPDIR` set to merge2's `fixtures-local/tmp`.
+- **Commands:** `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`.
+- **Cost:** no paid call. Every test uses fakes.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **12,797 passed, 2 xfailed**, 0 failed (14 min 17 s; `fixtures-local/eligibility-landing-fullsuite.log`) |
+| `pytest -m durability` | **106 passed**, 12,693 deselected (2 min 46 s; `fixtures-local/eligibility-landing-durability.log`) |
+| frontend / `src-tauri` | not run: nothing under `apps/` differs from main |
+| tracked fixtures | `git status` clean after both lanes |
+
+The 2 xfails are main's strict marks. Nothing failed, so nothing was rerun. `test_mcp_c1a_review.py`'s known `"8841"` flake did not fire. The count equals the stage's last gate on `0194079fc`.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-eligibility/orig/`. Each original was read once. Every other copy was made from `orig/`, or from another copy, with the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive a26284876`: the whole tree except the top-level `fixtures/`, first on `PYTHONPATH`. Every run printed the `learnloop` package it imported.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory. `LEARNLOOP_AI_PROVIDER` was unset. `model_call_receipts` is 0 in every copy.
+- **Starting state.** Both vaults were at schema 165, label `mvp-0.8`. linear_algebra has 70 attempts and probability 2.
+- **Cleanup.** The previous landing's `fixtures-local/landing-regrade/` (1.6 GB) was deleted once these copies existed. The guards checked the exact path, that git ignores it, and that it holds no tracked file.
+
+**(a) At the vaults' own label (mvp-0.8), main's code against the merge's:**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code and the merge's | 165 → 206 (41 migrations) on both; `sqlite_master` hash identical (`7b8f3398f1fed234`) | 165 → 206 (41) on both; identical (`84e519863059c42f`) |
+| the two migrated databases, `.dump` compared | **identical** (17,443 lines) once the `schema_migrations.applied_at` stamps are masked | **identical** (8,541 lines) |
+| `rebuild --shadow --json`, main vs merge | **0 differences** besides the live file's sha256 and the marker id. Summary: facet 0, mastery 2, schedule 8; live unchanged | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** once the copy's path is normalized (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| upgrade shadow: main's code migrates a copy, then the merge's code opens it | **0 migrations**; shadow and doctor equal main's | **0 migrations**; equal |
+
+The shadow and doctor runs left every live database byte-identical: the sha256 matched before and after.
+
+**(b) The upgrade on copies (the owner's vaults untouched):**
+- **`--to mvp-0.27` at mvp-0.8 is refused:** "cannot upgrade from 'mvp-0.8'; only 'mvp-0.26' (or 'mvp-0.9' to 'mvp-0.25', through it) may activate mvp-0.27". The refusal wrote nothing: the `.dump` and `learnloop.toml` were identical afterwards.
+- **`--to mvp-0.9`** (61 s) succeeded on both vaults.
+- **The owner's last-landing path**, `--to mvp-0.26` (855 s), then `--to mvp-0.27` (80 s), succeeded on both. The mvp-0.26 step prints the recurrence guard's advisory notes, and on linear_algebra the hold on `01KYCM9NYBGYDKGR2GGYQYSV23` (`grade_contract_unrecorded`), as in the regrade-contract landing.
+- **Directly from mvp-0.9, `--to mvp-0.27`** (about 22 min, under load) succeeded on both. It prints the same notes, chaining mvp-0.10..mvp-0.26 and then activating. Compared with the stepwise copy, it differs only in generated ids: the diagnosis receipt's hypothesis ids, and the dual-write rows' administration and observation ids. Learner state is equal.
+- **So two commands per vault:** `--to mvp-0.9`, then `--to mvp-0.27`.
+
+**What the mvp-0.27 step changes.** The mvp-0.26 copy and the mvp-0.27 copy were compared table by table, on both vaults:
+- **`learnloop.toml`:** only `algorithm_version = "mvp-0.26"` → `"mvp-0.27"`. No `[eligibility]` section is written; the switch is on by its modelled default.
+- **Rows appended:**
+  - one `derived_state_rebuilds` marker (`p0_projection_activation`, label mvp-0.27);
+  - one `parameter_registry_manifests` row freezing mvp-0.26's manifest.
+- **Labels and stamps only:** `facet_capability_evidence` and `facet_recall_state` take the new `algorithm_version` and `updated_at`, and `parameter_registry` takes a new `updated_at`. No value moves.
+- **Unchanged:**
+  - learner state: mastery, schedule and facet values;
+  - attempts and their `primed` flags;
+  - follow-up tasks, cold outcomes and certification outcomes;
+  - coldness receipts and the reveal ledger.
+- **The activation withdraws nothing, re-times nothing and serves nothing as ordinary.** No row in `causal_cold_outcomes`, `certification_cold_probe_outcomes` or `coldness_receipts` is written.
+
+**Settling, doctor, keys** (on copies of the directly upgraded vaults):
+- `rebuild-derived-state` run twice gives identical learner state. Linear_algebra rebuilds 8 learning objects and replays 70 attempts; probability rebuilds 1 and replays 2.
+- **Pre-existing, as in the regrade-contract landing:** each full rebuild appends 38 dual-write rows per table (`raw_grade_events`, `grade_interpretations`, `activity_observations`) and 152 `measurement_events` on linear_algebra; on probability it is 2 rows per table and 8 events. It also moves `hypothesis_recurrence_state.input_fingerprint`, the FTS segments and the watermark's `checked_at`.
+- `doctor`: 57 and 101 issues before the upgrade, after it and after both rebuilds, the same by code and severity.
+- `PRAGMA foreign_key_check` is empty after the upgrade and after the rebuilds.
+
+**What serving changes on these vaults.** Neither vault has a reveal ledger row. Probability has no open follow-up task. Linear_algebra has one, the `certification_cold_probe` `01KYH5ERAB3Z8N744KKVS601S3`:
+- It was created on 2026-07-27T06:51:03Z for `pi_orient_to_the_vector_space_idea_teach_back_phcbsn`.
+- It was due from 2026-08-10T06:49:38Z and expired on 2026-08-17T06:49:38Z. It is still `pending` because no queue build has run since.
+- Its item was answered by a teach-back at 07:19:25Z, 28 minutes after the check was set.
+
+The probe was run on fresh copies, one per instant and version, at mvp-0.26, mvp-0.27, and mvp-0.27 with `eligibility.enabled = false`:
+- **Today (2026-10-17T12:00Z):** all three are identical. The queue is 43 items with no follow-up, and the first persisting build expires the stale task (`expired`, no outcome row) on every version. **So on the owner's vaults today, mvp-0.27 serves exactly as mvp-0.26.**
+- **Inside the task's window** (2026-08-10T06:50Z and 2026-08-12T00:00Z), mvp-0.27 behaves differently, as Q45 says it should:
+  - mvp-0.26 serves the item as the certification probe ("held-out check on a certified skill"), and a persisting serve marks the task `served`.
+  - mvp-0.27 decides `serve_as_ordinary`, `cold_check_practised_since_scheduled`: the item was attempted after the check was set. The task is withdrawn through the certification lane's stale-probe door (`expired`, no outcome row), and the item stays in the queue as ordinary practice, labelled "Practice: you've answered this question since its check was set, so it no longer counts as a check."
+  - Both versions keep the queue at 43 items. Only that item's lane and label differ.
+
+**(c) The kill switch.** The mvp-0.27 copy with `[eligibility] enabled = false` appended to its toml (`config effective` shows it) reads `decision_active = False`. At all three instants its queue (items, lanes, modes, priorities and reasons), its deferred cold checks, its serve-time decision (`eligible`, no withdrawal) and its persisting serve's writes equal mvp-0.26's exactly. Switched on, the same copy gives the withdrawal above.
+
+### The owner's upgrade steps (run by the owner; never run here)
+
+For each vault, close the desktop app, the MCP runtime and the mobile host first.
+
+1. **Back up** with the backup API, from the repository root:
+   `uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/linear_algebra'), Path('fixtures-local/backup-linear_algebra-pre-mvp027'))"`.
+   Do the same for `probability`; its copy includes `.learnloop/state.sqlite`.
+2. **Upgrade.** The first open migrates 165 → 206. mvp-0.27 refuses mvp-0.8, so each vault needs two commands:
+   - `uv run learnloop upgrade --to mvp-0.9 --vault fixtures/linear_algebra`
+   - `uv run learnloop upgrade --to mvp-0.27 --vault fixtures/linear_algebra`
+
+   Then the same two for `fixtures/probability`.
+   - The second command chains through mvp-0.26, with its own activation and its hold on `01KYCM9NYBGYDKGR2GGYQYSV23`. It took 15 to 22 minutes per vault on these copies, under load.
+   - A vault already at mvp-0.26 needs only the second command (about 80 s).
+3. **Optional:** `uv run learnloop rebuild-derived-state --vault <vault>`, then `uv run learnloop doctor --vault <vault>`.
+
+Both vaults are tracked fixtures, so their `state.sqlite` and `learnloop.toml` will show as modified afterwards. That is expected for the owner's working vaults.
+- **Rolling back:** set `[eligibility] enabled = false` in the vault's `learnloop.toml` to serve and admit exactly as mvp-0.26 (shown above). Rolling the version itself back is restore-only: restore the step-1 backup.
+- **The one stale check:** after the upgrade, the first Today or queue build expires linear_algebra's stale certification probe. mvp-0.26 would do the same.
+
+### Open items
+
+1. **Q44 (a replacement surface).** A withdrawn cold check ends its measurement. Re-selecting a fresh held-out surface is a follow-up stage that would change measurement selection. *Default: end it honestly.*
+2. **Q45 (practised since scheduled)** is the rule behind the only behavioural difference these vaults could have shown. linear_algebra's certification probe would have been withdrawn because of a teach-back answer 28 minutes after the check was set. That answer is on the probe's own item, and the coldness receipt would read it as a hard exposure. The owner may want to confirm that an attempt this soon after a check is set should end it. *Default: as built.*
+3. **Q36, Q38, Q40 and Q43** are revised by the Codex review. **Q37, Q39, Q41 and Q42** stand. **Q22 to Q35** stand.
+4. **Two commands per vault**, as for mvp-0.26: mvp-0.27 refuses below mvp-0.9. Chaining from mvp-0.8 remains a possible follow-up; it is not needed.
+5. **Pre-existing:** every full rebuild appends dual-write rows and `measurement_events`, and moves the recurrence input fingerprint (above). It is out of this stage.
+6. **Pre-existing flake:** `test_mcp_c1a_review.py`'s literal `"8841"` can match inside a random hex id. It did not fire here. The fix belongs to the MCP stage.
