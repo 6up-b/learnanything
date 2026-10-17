@@ -160,3 +160,174 @@ no Wrap up, no offer") instead of relying on the absence of visits.
 | `npm run frontend:build` | ok |
 | `cargo check` | not rerun: nothing under `src-tauri` changed in this fix step (the stage's own gate ran it) |
 | DB references | not needed: no schema change |
+
+## Round 2
+
+A Codex verify of the round 1 fixes (1d83a114c, 296db5f43) came back
+**REOPENED** on two findings. It found F2 and F4–F10 fixed, and no
+default-path regression: 300 certification cases and 300 timeline histories
+matched c8f92b946, and all 24 import contracts passed. It also asked for one
+missing test (F9). The fixes are on `reader/rw6a` after e8d624fc4.
+
+### Findings and rulings
+
+**F1 (round 2) [Medium]: historical certification still took in later
+regrades** (`recap.py:513`, `facet_evidence_timeline.py:717`). Attempt A is
+first unassessed. Before the previous session ends, attempt B on the same
+surface earns 1.0 and certifies the LO. Later A is regraded successfully.
+The extraction worked out B's novelty discount from A's *latest* grading, so
+B's earlier credit was cut to 0.25 after the fact. The "as of the session's
+end" read then found the LO uncertified and reported A's regrade as a new
+gain.
+*Ruling:* the as-of-cutoff read uses only the grading state in effect at the
+cutoff: gradings, regrades and corrections written at or before it, the
+novelty and discount accounting included. "Now" reads the current state, as
+before. It is a recap-only read: with default arguments, every existing
+caller of `recipe_gaps`, `lo_certification`, the timeline extraction and
+fold, `TimelinePoint.as_dict` and the receipts stays byte-identical to
+c8f92b946. No algorithm successor, and no change to scoring, scheduling,
+projections or serialization.
+
+**F3 (round 2) [Medium]: uncredited embedded evidence cleared the
+independent-check claim** (`recap.py:469` `_effective_success_since`,
+`facet_evidence_timeline.py:453`). An unassisted attempt that supplies only
+embedded credit for the facet banks nothing under the default
+embedded-share cap of 0.5 when the cell has no direct credit. But
+`attempt_credit` held the uncapped contribution, so the claim was cleared.
+*Ruling:* only credit that banks toward certification after the cap clears
+a claim. Round 1's correction handling stays: a success regraded to nothing
+still does not clear.
+
+**F9 [Low, test only]:** skim suppressing the destination wrap-up offer in
+`App.tsx` had only been inspected. It needed a direct integration assertion.
+
+### Fixes
+
+- **F1.** `facet_evidence_timeline.snapshot_as_of(snapshot, cutoff)` is the
+  grading ledger as it stood at the cutoff. It keeps only the
+  grading-evidence rows written by then, and a row superseded later counts
+  as still standing. Replaying that snapshot makes each attempt's latest
+  epoch *at the cutoff* the one that drives novelty, so a later regrade
+  cannot rewrite what an earlier attempt banked. The replay hold
+  (`contract_unrecorded`) has no timestamp of its own, so it is kept only
+  for attempts whose rows were all written by the cutoff.
+  `facet_evidence_timelines` gains an optional keyword `as_of` (default
+  `None`: the ledger now, unchanged). A new `vault_timeline_snapshot` loads
+  the snapshot, P0 masses included, once. `demonstrated_since` now evaluates
+  `certified(lo, moment)` on the curve replayed as of that moment, both at
+  the cutoff and at each candidate dating moment, memoized per moment over
+  one snapshot. "Now" is still `lo_certification` on the ledger.
+- **F3.** `TimelinePoint` gains one read-side field outside `as_dict`:
+  `attempt_banked_credit`. It is what this attempt's latest-epoch credit adds
+  to its cells, as the ledger banks them with the embedded-share cap
+  applied, at this event: for each cell, the capped total minus the capped
+  total without the attempt. `_effective_success_since` reads it instead of
+  `attempt_credit`. Embedded-only credit in a cell with no direct credit
+  banks 0 under the cap, so the claim stays. The latest-point rule (a
+  success regraded to nothing does not clear) is unchanged.
+- **Tests.** In `tests/test_reader_recap_review_r2.py`, everything runs
+  through the production ledger writes (`complete_self_graded_attempt`,
+  `apply_attempt` with a PF-c unassessed criterion, `supersede_self_grade_rows`
+  plus `insert_grading_evidence` for a regrade, the canonical projection),
+  extraction, fold, `lo_certification` and the recap. No timeline is mocked.
+  - F1: the exact A/B scenario through `demonstrated_since`. Nothing is new
+    since minute 60, and B is still the gain since minute 7. The as-of curve
+    equals the curve as it stood before the later regrades, at mvp-0.7 and
+    at the latest tag (regrade-contract epochs).
+  - F3: the embedded-only case under the vault's real default cap (asserted
+    0.5 from `vault.config`), plus a control with the cap off (1.0), where
+    the same embedded credit banks and answers the claim.
+  - Round 1's F3 regression folded synthetic, uncapped events into a mocked
+    `facet_evidence_timelines`. It is rewritten through the real ledger as
+    four cases: revoked, standing, regraded up, and before the session. The
+    mocked version in `tests/test_reader_recap_review.py` is removed. The
+    second half of `test_reader_recap.py::test_claims_needing_an_independent_check_are_assisted_only_facets`
+    also patched in synthetic points with `attempt_credit=1.0`. It now uses
+    real attempts: an assisted one, one before the session, and an
+    unassisted one.
+- **F9.** `apps/learnloop-tauri/src/app/App.wrapUpSkim.test.tsx` renders the
+  real `App` shell, with stubs for the Reader, the library and the offer, an
+  api Proxy, and the Tauri event and file-drop hooks. It goes Reader →
+  Library through the nav. Not skimming, the wrap-up line is armed. When the
+  Reader reports skim through `onSkimmingChange`, no offer renders. No
+  production frontend code changed.
+
+### Fail-first
+
+Each new test was run against the old code without overwriting the
+edits. The edited files were copied to the scratchpad first, the old
+files were written from `git show`, and the edits were restored from the
+copies afterwards (`cmp`-verified).
+
+- pytest against e8d624fc4's `recap.py` and `facet_evidence_timeline.py`:
+  **4 of 4** new regression tests fail. That is the F1 scenario, the as-of
+  curve test (both versions; the `as_of` keyword does not exist there), and
+  the F3 embedded-only test, which fails at its final assertion: the claim
+  is cleared. The F3 cap-off control and the four rewritten round 1 cases
+  pass on both trees, as expected: they pin behaviour that was already
+  right, now through the real path.
+- vitest: the F9 suppression is already in e8d624fc4 (round 1), so the test
+  passes there. Against c8f92b946's `App.tsx` (before round 1's F9 fix), the
+  skim case fails, **1 of 1**, and the control passes. `App.tsx` was
+  restored and is identical to HEAD.
+
+### Default path against c8f92b946
+
+A seeded comparison, run as a temporary pytest file and then removed, loads
+c8f92b946's `facet_evidence_timeline.py` and `goal_certification.py` from
+`git show` as separate modules and checks them against the working tree:
+
+- **300 randomized ledger histories.** Each has a recipe of 3 kinds, mvp-0.7
+  or the latest tag (174 and 126 cases), a default cap of 0.5 or 1.0 (219
+  and 81), and 2–9 operations: self-graded attempts with random points and
+  hints, PF-c unassessed attempts, regrades, and trace observations
+  licensing a supporting target. Across them: 1,862 timeline points, 363
+  corrections, 623 discounted points, 13 points with capped embedded credit
+  and 25 certified LOs. For each history the extraction's events, every
+  facet's folded curve (`as_dict` serialized, plus every field c8f92b946's
+  `TimelinePoint` had), the single-facet curve, `recipe_gaps` and
+  `lo_certification` (default arguments) are identical. A replay
+  `as_of` a moment after every write also equals the current curve exactly.
+- **300 randomized pure folds**, with random events, caps (1.0, 0.5, 0.25,
+  0.0) and repeat discounts. They are identical.
+
+Result: **600 of 600 identical.** The default path is byte-identical to
+c8f92b946.
+
+### Open (found, not fixed: out of scope)
+
+- **[Medium, pre-existing, default path] A regrade to zero on an item whose
+  criteria have no authored targets never reaches the Demonstrated curve.**
+  `_observation_events_by_facet` emits an epoch's event only for
+  `requested & (historical_facets | credited_facets)`. `historical_facets`
+  reads authored `criterion.targets` only, and a zero-credit epoch credits
+  nothing, so the correction is dropped. The attempt keeps its earlier
+  credit on the curve. On an mvp-0.7 vault with the basic item
+  (`pi_svd_define_001`, compiled targets), self-graded 4/4 and then
+  regraded to 0, the ledger banks 0.0 (`facet_capability_evidence`), but
+  the curve still ends at 1.0. That breaks the receipt-exactness invariant
+  for such items, and for them round 1's "a success regraded to nothing
+  does not clear" does not hold, because the recap reads the curve. The fix
+  would change the default extraction (the compiled targets would have to
+  count as historical facets). That is a change to the persisted-meaning
+  read, which belongs to the algorithm-change playbook and is not in this
+  ruling. The round 2 tests use items with authored targets.
+- **The as-of read replays the grading ledger only.** Trace observations,
+  causal activity classifications and the P0 active interpretation masses
+  are read as they are now. None of them carries an "effective at" stamp
+  the timeline snapshot could filter on. The replay hold is approximated as
+  described under Fixes.
+
+### Gate (round 2)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run --no-sync lint-imports --no-cache` | 24 kept, 0 broken |
+| Full suite, `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 12934 passed, 2 xfailed, 0 failed |
+| Durability lane, `pytest -m durability` | 106 passed |
+| `npm run typecheck` | ok |
+| `npm test` (vitest) | 115 files, 936 passed (934 plus the 2 F9 tests). The first run, made while the full suite held the machine, had 2 timing failures in files this step does not touch: `FeedbackScreen.test.tsx` *keeps the old Next …* and the known `Workbench.test.tsx` *F8: a vault switch …*. Rerun alone, the two files passed 46 of 46 in 2 of 3 runs while the suite was running, then 3 of 3 afterwards. The whole run passed 936 of 936 afterwards |
+| `npm run frontend:build` | ok |
+| `cargo check` | not rerun: nothing under `src-tauri` changed |
+| References and snapshots | not needed: no config default and no schema changed |
