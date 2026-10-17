@@ -6519,8 +6519,101 @@ export interface ReaderPromptContractDto {
   exposureOnCommit: string;
   /** RW1a: reader_inquiry.enabled (present only when on; absent means off). */
   inquiryEnabled?: boolean;
+  /** RW1b: the intent box (present only while reader_intent and reader_inquiry are on). */
+  intent?: ReaderIntentContractDto;
+  /** RW1b: active reading (present only while reader_active_reading and reader_inquiry are on). */
+  activeReading?: { foldBlocks: number };
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
+
+// ── Reader workbench RW1b: the intent box and active reading ───────────────
+// spec_reader_workbench_v1 §4.2; UX §4.1, §4.3, W2.
+
+export type ReaderIntentEffect =
+  | { kind: "ask"; answerMode: ReaderAnswerMode }
+  | { kind: "preset"; preset: string }
+  | { kind: "highlight"; note?: boolean }
+  | { kind: "import_exercise" }
+  | { kind: "work_through" }
+  | { kind: "active_reading"; style: ReaderActiveStyle }
+  | { kind: "another_way" };
+export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
+export interface ReaderIntentActionDto {
+  id: string;
+  group: ReaderIntention | "mark";
+  intention: ReaderIntention | null;
+  label: string;
+  effect: ReaderIntentEffect;
+  /** Whether the action shows the selection to a model (absent for held-out passages). */
+  model: boolean;
+}
+export interface ReaderIntentGroupDto {
+  group: ReaderIntention | "mark";
+  label: string;
+  intention: ReaderIntention | null;
+  actions: ReaderIntentActionDto[];
+}
+export interface ReaderIntentContractDto {
+  palette: ReaderIntentGroupDto[];
+  /** The learner's own notes: only the actions that need no source anchor. */
+  notesPalette: ReaderIntentGroupDto[];
+  speculative: boolean;
+  speculateAfterMs: number;
+  timeoutSeconds: number;
+}
+/** reader.route_intent / reader.intent_routing: pending, or the action and why. */
+export interface ReaderIntentRoutingDto {
+  state: "pending" | "done";
+  routingId: string;
+  speculative: boolean;
+  action?: string;
+  /** routed (the Decider chose) · empty (an empty Enter) · fallback (Ask, see reason) · not_made (speculation). */
+  status?: "routed" | "empty" | "fallback" | "not_made";
+  reason?: string | null;
+  intention?: ReaderIntention | null;
+  group?: string | null;
+  label?: string | null;
+  effect?: ReaderIntentEffect | null;
+  latencyMs?: number | null;
+}
+export type ReaderActiveStyle = "next_step" | "why_step" | "assumptions" | "reconstruct";
+export interface ReaderActiveQuestionDto {
+  id: string;
+  extractionId: string;
+  sectionId: string;
+  status: "proposed" | "answered" | "dismissed" | "escalated";
+  questionMd: string;
+  expectedAnswerMd: string;
+  spanIds: string[];
+  practiceItemId: string | null;
+  answeredAt: string | null;
+  scopeKind: "selection";
+  questionStyle: ReaderActiveStyle;
+  anchorSpanIds: string[];
+  responseMd: string | null;
+  selfCheck: InquirySelfCheck | null;
+  /** Whose words the expected answer is: the book's (quote-checked in code) or LearnLoop's model's. */
+  answerBasis: "source" | "model" | null;
+  escalationLearningObjectId: string | null;
+  missed: boolean;
+  reconstruct?: { commitmentId: string; practiceItemId: string | null; disposition: string } | null;
+  model?: string | null;
+  promptVersion?: string | null;
+}
+export interface ReaderActiveQuestionRequestDto {
+  style: ReaderActiveStyle;
+  anchorSpanIds: string[];
+  /** The book's next blocks, folded at once while the learner tries the next step. */
+  foldedSpanIds: string[];
+  status: "queued" | "exists" | "provider_unavailable" | "no_next_step";
+  batchId: string | null;
+  message: string | null;
+  question: ReaderActiveQuestionDto | null;
+}
+export interface ReaderActiveQuestionStatusDto {
+  question: ReaderActiveQuestionDto | null;
+  job: ReaderInquiryCheckJobDto | null;
+}
 
 /** reader.ask — a span-grounded exchange in the reader tutor context. */
 export interface ReaderAskInput {
