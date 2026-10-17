@@ -12,7 +12,8 @@
 // collapse back into reading at the problem's passage. "Check me" on a margin
 // cue opens here too (D40, UX S7): the shell records the learner pick and
 // hands the check over, and it opens in the working posture with the book
-// hidden, answering the pick's own serve. Resuming a problem worked on the
+// hidden (also on a problem left with the book open), answering the pick's
+// own serve, which the problem keeps across a resume. Resuming a problem worked on the
 // practice screen moves it here explicitly (review F4).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
@@ -227,6 +228,10 @@ export function useReaderWorkbench(input: {
     void api.workbenchOpen({
       origin: "reader", entry: "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
       extractionId: wanted, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
+      // The pick's serve goes on the problem itself, so leaving and resuming
+      // it still submits as that serve (review F13); the server also hides
+      // the book on a reused problem, keeping what it counted (F14).
+      schedulerCandidateId: checkMe.schedulerCandidateId, planPresentationId: checkMe.planPresentationId,
     })
       .then((result) => {
         props?.onCheckMeShown?.();

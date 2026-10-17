@@ -13,8 +13,12 @@
 //
 // The book's visibility is a write in the same queue (review F3): the text
 // typed with the book shown is flushed and saved before the book's change, so
-// the server records the book under which it was written. A write the server
-// refuses for good (a step too long, a closed problem) is kept as "not
+// the server records the book under which it was written. While a step's
+// write stands refused, hiding the book waits behind it (the step was written
+// with the book shown, and its corrected text is saved that way first), and
+// every later book change waits in order behind the hide (review re-review F3);
+// showing it never waits, so new work is never saved as unassisted while the
+// book is on screen. A write the server refuses for good (a step too long, a closed problem) is kept as "not
 // saved", and nothing that needs the work persisted (Submit, Abandon, a vault
 // switch, closing the window) goes ahead until the learner fixes or deletes
 // it (review F6, F7). A vault switch freezes editing and waits for the queue
@@ -179,10 +183,25 @@ export function useWorkbenchSession(
   const hasUnsentWrite = useCallback((key: string) =>
     queue.current.some((queued) => queued.key === key && (queued.kind === "add" || queued.kind === "edit") && !queued.payload), []);
 
+  /** The next write to send: the queue's head, except that hiding the book
+   *  (and every book change after it) waits while a step's write stands
+   *  refused, and the step writes behind it go first (re-review F3). */
+  const nextOp = useCallback((): Op | undefined => {
+    const stepRefused = [...rejected.current.keys()].some((key) => key !== BOOK_KEY);
+    const firstBook = queue.current.find((queued) => queued.kind === "book") as BookOp | undefined;
+    const holdBook = stepRefused && firstBook !== undefined && !firstBook.payload && !firstBook.visible;
+    return holdBook ? queue.current.find((queued) => queued.kind !== "book") : queue.current[0];
+  }, []);
+  const dequeue = useCallback((op: Op) => {
+    queue.current = queue.current.filter((queued) => queued !== op);
+  }, []);
+
   const pump = useCallback(async () => {
     if (running.current || retryTimer.current) return;
-    const op = queue.current[0];
+    const op = nextOp();
     if (!op) {
+      // Empty, or only a held book change: saved, or "not saved" while a
+      // refused write stands.
       settleIdle();
       return;
     }
@@ -193,7 +212,7 @@ export function useWorkbenchSession(
       // frozen under its key: a retry resends exactly what was sent.
       const input = stepInput(op);
       if (input === null) {
-        queue.current.shift();
+        dequeue(op);
         void pump();
         return;
       }
@@ -204,14 +223,14 @@ export function useWorkbenchSession(
     try {
       if (op.kind === "book") {
         const result = await api.workbenchSetBook(op.payload!);
-        queue.current.shift();
+        dequeue(op);
         rejected.current.delete(BOOK_KEY);
         // A later change of the book is still on its way: keep showing it.
         if (!queue.current.some((queued) => queued.kind === "book")) commitSession(result.session);
         else setRecord(result.session.record);
       } else {
         const result = await api.workbenchSaveStep(op.payload!);
-        queue.current.shift();
+        dequeue(op);
         rejected.current.delete(op.key);
         commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId }));
         setRecord(result.record);
@@ -231,7 +250,7 @@ export function useWorkbenchSession(
       if (PERMANENT.has(code)) {
         // Refused for good: the text stays in the window and counts as not
         // saved until a later write of this step lands or it is deleted.
-        queue.current.shift();
+        dequeue(op);
         rejected.current.set(op.key, errorMessage(error));
         onErrorRef.current(errorMessage(error));
         void pump();
@@ -247,7 +266,7 @@ export function useWorkbenchSession(
         void pump();
       }, delay);
     }
-  }, [commitSession, commitSteps, hasUnsentWrite, settleIdle, settleWaiters, stepInput]);
+  }, [commitSession, commitSteps, dequeue, hasUnsentWrite, nextOp, settleIdle, settleWaiters, stepInput]);
 
   const enqueue = useCallback((op: Op) => {
     // An unsent write of the step already sends its newest text when it goes.
@@ -319,7 +338,8 @@ export function useWorkbenchSession(
       // Never saved: nothing to keep, so it simply goes (and a refusal with it).
       rejected.current.delete(key);
       commitSteps(stepsRef.current.filter((candidate) => candidate.key !== key));
-      if (!running.current && !retryTimer.current && queue.current.length === 0) settleIdle();
+      // A book change it held goes now (or the queue settles as saved).
+      void pump();
       return;
     }
     commitSteps(deleteLocal(stepsRef.current, key));
@@ -333,10 +353,11 @@ export function useWorkbenchSession(
   }, [commitSteps, enqueue]);
 
   const drained = useCallback(() => {
-    if (!running.current && !retryTimer.current && queue.current.length === 0) return Promise.resolve(rejected.current.size === 0);
+    // Nothing left to send (a held book change waits on a refusal): settled.
+    if (!running.current && !retryTimer.current && nextOp() === undefined) return Promise.resolve(rejected.current.size === 0);
     if (retryTimer.current) return Promise.resolve(false);
     return new Promise<boolean>((resolve) => waiters.current.push(resolve));
-  }, []);
+  }, [nextOp]);
 
   /** Every change typed so far, saved, or a typed refusal naming why not. */
   const persist = useCallback(async (action: string) => {

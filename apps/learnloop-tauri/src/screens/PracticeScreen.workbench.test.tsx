@@ -24,7 +24,11 @@ vi.mock("../api/client", () => ({ api }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn(), destroy: vi.fn() }) }));
 vi.mock("../render/MathLiveEditor", () => ({ MathLiveEditor: (props: { value: string; onChange: (value: string) => void; disabled: boolean }) => <textarea aria-label="answer" role="textbox" value={props.value} disabled={props.disabled} onChange={(event) => props.onChange(event.target.value)} /> }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
-vi.mock("../components/ItemPresentation", () => ({ ItemPresentation: () => <p>Question</p> }));
+vi.mock("../components/ItemPresentation", () => ({
+  ItemPresentation: ({ presentation }: { presentation?: { blocks?: Array<{ markdown: string }> } }) => (
+    <p data-testid="item-presentation">{presentation?.blocks?.map((block) => block.markdown).join(" | ") || "Question"}</p>
+  ),
+}));
 vi.mock("../render/LiveMarkdownEditor", () => ({
   LiveMarkdownEditor: (p: { value: string; onChange: (value: string) => void; ariaLabel?: string }) => (
     <textarea aria-label={p.ariaLabel} value={p.value} onChange={(event) => p.onChange(event.target.value)} />
@@ -209,4 +213,73 @@ it("a diagnostic check never offers Work in steps", async () => {
   await screen.findByRole("textbox", { name: "answer" });
   expect(screen.queryByRole("button", { name: /work in steps/i })).toBeNull();
   expect(api.workbenchForItem).not.toHaveBeenCalled();
+});
+
+// Re-review F1: in steps the problem shows as the session froze it, the
+// contract its submit is graded against, not the item as it is now.
+it("in steps the problem shows the presentation the session froze, not the item's current one", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+    presentation: { practiceItemId: "pi_1", blocks: [
+      { kind: "prompt", markdown: PROMPT, label: null },
+      { kind: "required_method_instruction", markdown: "Use the eigendecomposition of A^T A.", label: null },
+    ] },
+  });
+  api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "open", stepCount: 1 }] });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wb({ sessionId: "wb_old", presentation: { practiceItemId: "pi_1", blocks: [
+    { kind: "prompt", markdown: PROMPT, label: null },
+    { kind: "required_method_instruction", markdown: "Use Gram-Schmidt.", label: null },
+  ] } }) });
+  render(<PracticeScreen {...props()} />);
+  expect((await screen.findByTestId("item-presentation")).textContent).toContain("eigendecomposition");
+  fireEvent.click(await screen.findByRole("button", { name: "resume your steps" }));
+  await screen.findByRole("region", { name: "workbench" });
+  const shown = screen.getByTestId("item-presentation").textContent ?? "";
+  expect(shown).toContain("Use Gram-Schmidt.");
+  expect(shown).not.toContain("eigendecomposition");
+});
+
+// Re-review F2: a book the problem counted comes back to the answer box
+// (and counts there), and goes back into steps with the learner.
+it("a book counted in steps counts on the answer box and goes back into steps", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt", "hinted_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+  });
+  api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "abandoned", stepCount: 1, bookCounted: true }] });
+  const counted = wb({ sessionId: "wb_old", sourceShownAt: "x", record: { ...wb().record, bookCounted: true, hints: 1, ownAttempt: false,
+    line: "book open · 1 hint → practice with help ◌ (not yet checked on your own)", footer: "book open = 1 hint · help used: none" } });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: counted });
+  api.workbenchSubmit.mockResolvedValue({});
+  api.submitAttempt.mockRejectedValue({ code: "grading_unavailable", message: "stop here" });
+  render(<PracticeScreen {...props({ planPresentationId: "pres_1" })} />);
+  fireEvent.click(await screen.findByRole("button", { name: "reopen your steps" }));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  const box = await screen.findByRole("textbox", { name: "answer" });
+  expect(screen.getByTestId("book-carried").textContent).toContain("counts as one hint");
+  // Into steps again (a new problem, say): the book goes with the learner.
+  api.workbenchOpen.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ carriedBook: true, carriedHints: 0 })));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  // Answered on the answer box, the attempt counts the book.
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "A = U Sigma V^T" } });
+  fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({ hintsUsed: 1, attemptType: "hinted_attempt" })));
+  expect(box).toBeTruthy();
+});
+
+// Re-review F13: the practice screen's serve goes on the problem, so a
+// resume elsewhere still submits as it.
+it("opening steps puts this serve's offer and plan presentation on the problem", async () => {
+  render(<PracticeScreen {...props({ planPresentationId: "pres_1" })} />);
+  fireEvent.click(await screen.findByRole("button", { name: /work in steps/i }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({
+    schedulerCandidateId: "cand_1", planPresentationId: "pres_1",
+  })));
 });

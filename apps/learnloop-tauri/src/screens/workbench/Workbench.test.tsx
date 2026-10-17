@@ -514,3 +514,69 @@ it("F9: a bound problem shows the item's whole presentation, the required method
   expect(problem.textContent).toContain("Use the law of total probability in your answer.");
   expect(screen.queryByText(/Let X be Uniform/)).toBeNull();
 });
+
+it("re-review F3: a refused step holds hiding the book, so its corrected text is saved with the book shown", async () => {
+  // A previous test's closed workbench may still be retrying its own text.
+  const seen: string[] = [];
+  const mine = () => seen.filter((entry) => entry === "refused" || entry === "save:shortened" || entry.startsWith("book:"));
+  const order = { push: (entry: string) => seen.push(entry) };
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string }) => {
+    if ((input.bodyMd ?? "").length > 20_000) {
+      order.push("refused");
+      throw { code: "validation_error", message: "This step is too long to save." };
+    }
+    order.push(`save:${input.bodyMd}`);
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  api.workbenchSetBook.mockImplementation(async (input: { visible: boolean }) => {
+    order.push(`book:${input.visible}`);
+    return { session: session({ sourceVisible: input.visible, sourceShownAt: "x" }) };
+  });
+  const onSession = vi.fn();
+  render(<Workbench {...props({ onSession })} />);
+  await typeStep(1, "x".repeat(20_001));
+  expect(await screen.findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "B", ctrlKey: true, shiftKey: true });
+  // The Reader covers the book at once, but the server keeps it shown...
+  expect(onSession).toHaveBeenCalledWith(expect.objectContaining({ sourceVisible: false }));
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(mine()).toEqual(["refused"]);
+  // ...until the step written beside it is saved, beside it.
+  fireEvent.change(stepBox(1), { target: { value: "shortened" } });
+  await waitFor(() => expect(mine()).toEqual(["refused", "save:shortened", "book:false"]), { timeout: 3000 });
+  expect(await screen.findByText("saved · just now", undefined, { timeout: 3000 })).toBeTruthy();
+});
+
+it("re-review F3: showing the book never waits behind a refused step", async () => {
+  const order: string[] = [];
+  api.workbenchSaveStep.mockImplementation(async () => {
+    order.push("refused");
+    throw { code: "validation_error", message: "This step is too long to save." };
+  });
+  api.workbenchSetBook.mockImplementation(async (input: { visible: boolean }) => {
+    order.push(`book:${input.visible}`);
+    return { session: session({ sourceVisible: input.visible }) };
+  });
+  render(<Workbench {...props({ initial: session({ sourceVisible: false }) })} />);
+  await typeStep(1, "x".repeat(20_001));
+  await waitFor(() => expect(order).toEqual(["refused"]), { timeout: 3000 });
+  fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "B", ctrlKey: true, shiftKey: true });
+  await waitFor(() => expect(order).toContain("book:true"), { timeout: 3000 });
+});
+
+it("re-review F8: closing with a step that cannot be saved keeps the window open once, then closes on a second request", async () => {
+  windowApi.closeHandlers = [];
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockRejectedValue({ code: "validation_error", message: "This step is too long to save." });
+  render(<Workbench {...props({ onError })} />);
+  await waitFor(() => expect(windowApi.closeHandlers.length).toBeGreaterThan(0));
+  await typeStep(1, "x".repeat(50));
+  expect(await screen.findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  const handler = windowApi.closeHandlers[windowApi.closeHandlers.length - 1];
+  await act(async () => { await handler({ preventDefault: vi.fn() }); });
+  expect(windowApi.destroy).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledWith(expect.stringContaining("Close it again to close anyway"));
+  expect(stepBox(1).value).toBe("x".repeat(50));
+  await act(async () => { await handler({ preventDefault: vi.fn() }); });
+  expect(windowApi.destroy).toHaveBeenCalledTimes(1);
+});

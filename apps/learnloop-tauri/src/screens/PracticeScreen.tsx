@@ -219,6 +219,9 @@ export function PracticeScreen({
   // approach]" block would make the learner's line un-retractable.
   const [whyLine, setWhyLine] = useState("");
   const [hintsUsed, setHintsUsed] = useState(restoredHints ?? 0);
+  // RW2a review F2: a book a problem in steps counted comes back to the
+  // answer box with the learner, and counts there as the one hint it was.
+  const [bookLeft, setBookLeft] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // mvp-0.13: "I'm stuck" replaces "I don't know". One tap turns the answer
   // box into "write what you can, or what's confusing you"; the same Submit
@@ -438,6 +441,7 @@ export function PracticeScreen({
   useEffect(() => {
     setAnswer(restoredAnswer ?? "");
     setHintsUsed(restoredHints ?? 0);
+    setBookLeft(false);
     setFallbackRequired(!gradingReady);
     // A draft whose full answer was already shown reopens locked to the
     // trace it froze, at the self-grade when it is still needed (F1).
@@ -603,12 +607,19 @@ export function PracticeScreen({
   // record line and the submit read one durable number.
   const hintsUsedRef = useRef(hintsUsed);
   hintsUsedRef.current = hintsUsed;
+  // The answer box's assistance as steps take it over: its hints, and a book
+  // a problem counted (the server counts a book once, so it is never doubled).
+  const carriedRef = useRef({ hints: hintsUsed, book: false });
+  // The serve this screen answers goes on the problem, so a resume elsewhere
+  // still submits as it (review F13).
+  const serveRef = useRef({ schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null });
+  serveRef.current = { schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null };
   const openWorkbench = useCallback(async () => {
     if (!item) return;
     try {
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
-        carriedHints: hintsUsedRef.current,
+        carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
       setWbSession(result.session);
     } catch (error) {
@@ -620,7 +631,8 @@ export function PracticeScreen({
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({
-        origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId, carriedHints: hintsUsedRef.current,
+        origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
+        carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
       setWbSession(result.session);
     } catch (error) {
@@ -630,6 +642,8 @@ export function PracticeScreen({
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
     if (carried > 0) setHintsUsed((value) => Math.min(item?.hints.length ?? carried, Math.max(value, carried)));
+    // Every assist the problem held comes back: its hints and its book (F2).
+    if (closing?.record.bookCounted) setBookLeft(true);
     setWbSession(null);
   }, [item]);
   const refreshWbItemSessions = useCallback(() => {
@@ -648,6 +662,11 @@ export function PracticeScreen({
   }, [workbenchOffered, refreshWbItemSessions, openWorkbench]);
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
   const stepsMode = workbenchAvailable && wbSession !== null;
+  // A book counted on this problem, in steps left this visit or on its open
+  // problem (after a restart too), counts on the answer box as one hint.
+  const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
+  const answerHints = hintsUsed + (bookCarried ? 1 : 0);
+  carriedRef.current = { hints: hintsUsed, book: bookCarried };
 
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
@@ -894,8 +913,9 @@ export function PracticeScreen({
         // skip, or a failure.
         explanationMd: disclosed ? disclosed.explanationMd : whyLine.trim() || null,
         // §12: an active diagnostic block forces the recording attempt type.
-        attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, hintsUsed),
-        hintsUsed,
+        attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, answerHints),
+        // The answer box's hints and a book counted in steps (review F2).
+        hintsUsed: answerHints,
         latencySeconds: elapsedSeconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
@@ -957,7 +977,7 @@ export function PracticeScreen({
       const result = await api.submitDontKnow({
         sessionId: session.sessionId,
         practiceItemId: submittedItemId,
-        hintsUsed,
+        hintsUsed: answerHints,
         latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
@@ -1254,7 +1274,9 @@ export function PracticeScreen({
               setup are as load-bearing as the question itself, and this is the
               renderer both practice and exams mount so a surface cannot carry
               one and forget the other. */}
-          <ItemPresentation presentation={item.presentation} />
+          {/* In steps, the problem as the session froze it (RW2a review F1):
+              the statement and required method it is graded against. */}
+          <ItemPresentation presentation={stepsMode && wbSession?.presentation ? wbSession.presentation : item.presentation} />
           {item.canonicalExercise ? (
             // Canonical sources S1: where this exercise comes from and how far
             // its answer key has been checked, said plainly.
@@ -1616,6 +1638,11 @@ export function PracticeScreen({
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
+            {bookCarried ? (
+              <div className="hint-banner" data-testid="book-carried">
+                <Pill tone="amber">book</Pill> the book you had open while working in steps counts as one hint
+              </div>
+            ) : null}
             {submitting ? <div className="grading-panel">{simple ? "Reading your answer…" : "grading attempt..."}</div> : null}
             {fallbackRequired && selfGradeVisible && simple ? (
               <PlainSelfGrade

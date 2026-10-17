@@ -51,3 +51,21 @@ it("keeps the window open through repeated close requests until the pending save
   await act(async () => { finish(); await firstClose; });
   expect(windowApi.destroy).toHaveBeenCalledTimes(1);
 });
+
+it("a save that fails keeps the window open once and says so; a second close request closes it", async () => {
+  windowApi.onCloseRequested.mockResolvedValue(vi.fn());
+  windowApi.destroy.mockReset();
+  const onError = vi.fn();
+  const flush = vi.fn().mockRejectedValue(new Error("the sidecar is down"));
+  renderHook(() => useCloseWithFlush(flush, onError, "Could not save before closing."));
+  const calls = windowApi.onCloseRequested.mock.calls;
+  const handler: CloseHandler = calls[calls.length - 1][0];
+
+  await emitCloseRequest(handler);
+  expect(windowApi.destroy).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledWith(expect.stringContaining("Close it again to close anyway"));
+
+  await emitCloseRequest(handler);
+  expect(flush).toHaveBeenCalledTimes(2);
+  expect(windowApi.destroy).toHaveBeenCalledTimes(1);
+});

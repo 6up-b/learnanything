@@ -273,3 +273,24 @@ it("check me opens in the working posture with the book hidden and submits as th
   })));
   await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
 });
+
+// Re-review F13: the pick's serve goes on the problem when "check me" opens
+// it, so a resume after leaving (which knows nothing of the pick) still
+// submits as that serve; F14: the server hides the book on a reused problem.
+it("check me puts the pick's serve on the problem, so it survives leaving and resuming", async () => {
+  const check = {
+    practiceItemId: "pi_check", spanId: "span_spectral_worked", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
+    schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+  };
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wbSession({ sessionId: "wb_check", practiceItemId: "pi_check",
+    importStatus: "none", entry: "work_through", sourceVisible: false, sourceShownAt: "2026-10-17T08:00:00Z",
+    schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick", spanIds: ["span_spectral_worked"] }) });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} workbench={{ practiceSessionId: "s1", checkMe: check, onCheckMeShown: vi.fn() }} />);
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({
+    entry: "check_me", schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+  });
+  // A reused problem left with the book open comes back with it covered.
+  await screen.findByRole("region", { name: "workbench" });
+  expect(screen.getByTestId("workbench-book-cover")).toBeTruthy();
+});

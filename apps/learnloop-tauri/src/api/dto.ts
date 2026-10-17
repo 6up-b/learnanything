@@ -7937,6 +7937,9 @@ export interface WorkbenchSessionDto {
   assessmentContractVersionId?: string | null;
   /** The answer box's hints shown before working in steps (review F2). */
   carriedHints?: number;
+  /** The serve the problem answers, kept across a resume (review F13). */
+  schedulerCandidateId?: string | null;
+  planPresentationId?: string | null;
   helpStyle: string | null;
   status: WorkbenchStatus;
   attemptId: string | null;
@@ -7965,6 +7968,8 @@ export interface WorkbenchSummaryDto {
   spanIds: string[];
   importStatus: WorkbenchImportStatus;
   sourceVisible: boolean;
+  /** The book counted on this problem: the answer box counts it too (review F2). */
+  bookCounted?: boolean;
   stepCount: number;
   createdAt: string;
   updatedAt: string;
@@ -7980,6 +7985,11 @@ export interface WorkbenchOpenInput {
   sessionId?: string | null;
   /** The answer box's hints the learner saw before working in steps. */
   carriedHints?: number;
+  /** A book a problem left for the answer box counted (review F2). */
+  carriedBook?: boolean;
+  /** The serve the problem answers, kept on it for a resume (review F13). */
+  schedulerCandidateId?: string | null;
+  planPresentationId?: string | null;
   stemMd?: string | null;
   practiceItemId?: string | null;
   extractionId?: string | null;
