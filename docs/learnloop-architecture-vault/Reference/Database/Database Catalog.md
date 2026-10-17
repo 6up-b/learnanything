@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19c196e5c358efbd542c8d1f56b75cd12a3e8d23"
-source_commit_timestamp: "2026-10-17T03:15:18-04:00"
+source_commit: "49065fa71c1de061d0083c16a9abf8799b8f8d7d"
+source_commit_timestamp: "2026-10-17T04:28:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 206
-table_count: 325
+schema_head: 207
+table_count: 327
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_206/state.sqlite"
+  - "fixtures/migration_head_207/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-206"
+  - "learnloop/database/schema-head-207"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 325 user tables at migration head 206. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 327 user tables at migration head 207. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 325 user tables at migration head 206. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 146 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 147 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 68 |
-| [[Table Roles#Workflow|`workflow`]] | 82 |
+| [[Table Roles#Workflow|`workflow`]] | 83 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 312 |
+| `active` | 314 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -465,6 +465,8 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/text_write_provenance|text_write_provenance]] — `raw_ledger` · `active` · Gives text write provenance a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `record_id`, `provenance_version`, `kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/vault_epigraphs|vault_epigraphs]] — `raw_ledger` · `active` · Gives vault epigraph a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `subject_id`, `source_set_id`, `synthesis_run_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/voi_forecasts|voi_forecasts]] — `receipt` · `active` · Gives voi forecast a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `learning_object_id`, `probe_episode_id`, `presentation_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/workbench_sessions|workbench_sessions]] — `workflow` · `active` · Holds each problem worked in steps (reader workbench RW2a, migration 207): beside the source in the Reader or full width on the practice screen, opened at once with its verbatim stem before the exercise import binds it to an item (import_status, the batch and its request for try again), how it was opened (origin, entry), the book's visibility and when it first counted as one hint-equivalent (source_shown_at), and its lifecycle (open, submitted with its attempt, abandoned and reopened). Lifecycle state, updated in place; replay never reads it, because the submitted attempt carries the evidence (hints_used, entry_surface). Kill switch workbench.enabled. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `practice_item_id`, `import_batch_id`, `parent_session_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/workbench_steps|workbench_steps]] — `raw_ledger` · `active` · Appends one row per change to a workbench problem's steps (reader workbench RW2a, migration 207): a new step at its fractional ordinal, an edit superseding the newest version of its chain, a tombstone for a delete and an undo superseding it, each under the client's idempotency key, so nothing the learner wrote is lost and a retried write is answered from its row. Append-only (an update or delete aborts); stuck steps stay learner work and never enter the submitted answer. Replay never reads it. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `supersedes_id`, `ordinal`, making the operational relationship explicit.
 
 ## Maintenance contract
 
