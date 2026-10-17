@@ -11,6 +11,7 @@ what it changes. Playbook items 1, 3, 4, 7 and 8. Fakes only; no network.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -340,6 +341,62 @@ def test_a_failed_commit_after_publication_restores_the_predecessors_label(tmp_p
     assert published == [TARGET, PREDECESSOR]
     assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR
     assert _whole_database(paths.sqlite_path) == before
+
+
+@pytest.mark.parametrize("target", ["file", "directory"])
+def test_a_failed_publication_fsync_leaves_the_predecessors_label(tmp_path, monkeypatch, target):
+    """Re-review F4: the publication's durability steps fail like any other
+    step. The config file is fsynced (as the temporary file, before the
+    rename) and then its directory (after the rename); whichever fsync
+    raises, the transaction rolls back and the config names mvp-0.25 again,
+    with no temporary file left beside it; the upgrade, run again, then
+    succeeds."""
+
+    import learnloop.regrade_contract_upgrade as upgrade
+
+    paths, vault, repository = _legacy_vault(tmp_path)
+    before = _whole_database(paths.sqlite_path)
+    real_fsync = os.fsync
+    real_publish = upgrade.rewrite_algorithm_version
+    published: list[str] = []
+    failed: list[int] = []
+
+    def publication_files():
+        # The config (or its temporary file) for a file fsync, the vault's
+        # directory for a directory fsync; the vault lock's fsync passes.
+        if target == "directory":
+            return [paths.root]
+        return [path for path in (paths.root / "learnloop.toml", paths.root / "learnloop.toml.tmp") if path.exists()]
+
+    def fsync_fails_once(fd):
+        status = os.fstat(fd)
+        if not failed and any(os.path.samestat(status, path.stat()) for path in publication_files()):
+            failed.append(fd)
+            raise OSError(f"injected: {target} fsync")
+        return real_fsync(fd)
+
+    def publish(*args, **kwargs):
+        try:
+            real_publish(*args, **kwargs)
+        finally:
+            published.append(load_vault(paths.root).config.algorithms.algorithm_version)
+
+    monkeypatch.setattr(os, "fsync", fsync_fails_once)
+    monkeypatch.setattr(upgrade, "rewrite_algorithm_version", publish)
+    with pytest.raises(OSError, match=f"injected: {target} fsync"):
+        upgrade_to_mvp026(paths.root, clock=CLOCK)
+
+    assert failed
+    assert load_vault(paths.root).config.algorithms.algorithm_version == PREDECESSOR
+    assert _whole_database(paths.sqlite_path) == before
+    assert not (paths.root / "learnloop.toml.tmp").exists()
+    # The file's fsync precedes the rename (nothing to restore); the
+    # directory's follows it (the config is restored).
+    assert published == ([PREDECESSOR] if target == "file" else [TARGET, PREDECESSOR])
+    monkeypatch.undo()
+    result = upgrade_to_mvp026(paths.root, clock=CLOCK)
+    assert result.upgraded, result.problems
+    assert load_vault(paths.root).config.algorithms.algorithm_version == TARGET
 
 
 _CRASH_AFTER_PUBLICATION = """

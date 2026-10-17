@@ -46,13 +46,13 @@ never commits that state under the predecessor's label:
 * under the vault mutation lock, ONE ``BEGIN IMMEDIATE`` transaction covers
   the predecessor's manifest, the scan of the attempts it holds, the replay,
   the re-projection and the registry refresh, and the config's publication
-  (write, fsync, atomic rename, fsync of the directory) is its LAST step, so
-  no regrade, adjudication or item edit lands between what it read and what
-  it publishes;
+  (write and fsync of a temporary file, atomic rename, fsync of the
+  directory) is its LAST step, so no regrade, adjudication or item edit
+  lands between what it read and what it publishes;
 * a failure before or at the publication rolls the transaction back: the
   predecessor's database is exactly as it was and its config still names it;
-* a commit that fails after the publication rolls back too, and the config
-  is restored to the predecessor;
+* a failure after the rename (the directory's fsync, or the commit) rolls
+  back too, and the config is restored to the predecessor;
 * a process that dies after the publication and before the commit leaves the
   successor's label over the predecessor's untouched database: the transient
   state every successor leaves until a rebuild (doctor reports it as
@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -217,8 +218,14 @@ def _activate(
             if publish:
                 # Last: the commit follows the publication, so the database
                 # never holds the successor's state under the predecessor's label.
-                _publish_algorithm_version(config_path, predecessor, target)
-                published = True
+                # ``published`` is set as soon as the rename lands, before the
+                # directory's fsync, so a failure from there on restores the
+                # predecessor's label (re-review F4).
+                def renamed() -> None:
+                    nonlocal published
+                    published = True
+
+                _publish_algorithm_version(config_path, predecessor, target, renamed=renamed)
     except BaseException as failure:
         if published:
             # The transaction rolled back after the config named the
@@ -236,14 +243,19 @@ def _activate(
     return held
 
 
-def _publish_algorithm_version(config_path: Path, from_version: str, to_version: str) -> None:
+def _publish_algorithm_version(
+    config_path: Path, from_version: str, to_version: str, *, renamed: Callable[[], None] | None = None
+) -> None:
     """The atomic config rename (``ops.vault_upgrade.rewrite_algorithm_version``),
-    made durable before the caller commits: the file and its directory are
-    fsynced, so after a power loss the rename is never older than the commit."""
+    made durable before the caller commits: the temporary file is fsynced
+    before the rename and the directory after it, so after a power loss the
+    rename is never older than the commit. ``renamed`` is called once the
+    rename has landed (and before the directory's fsync, which can still
+    fail): from then on the config names ``to_version``."""
 
-    rewrite_algorithm_version(config_path, from_version, to_version)
-    with open(config_path, "rb") as handle:
-        os.fsync(handle.fileno())
+    rewrite_algorithm_version(config_path, from_version, to_version, durable=True)
+    if renamed is not None:
+        renamed()
     directory = os.open(config_path.parent, os.O_RDONLY)
     try:
         os.fsync(directory)
