@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2750fbd9c003840ca1410e37838a93d55ec31afa"
-source_commit_timestamp: "2026-10-17T06:35:59-04:00"
+source_commit: "7c92629fb3ae3c90eb28cb0b2243edf11c864ec7"
+source_commit_timestamp: "2026-10-17T07:02:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -70,6 +70,8 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `practice_session_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `assessment_contract_version_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `carried_hints` | `INTEGER` | yes | `0` | — | Stored value |
+| `scheduler_candidate_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `plan_presentation_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `help_style` | `TEXT` | no | — | — | Stored value |
 | `status` | `TEXT` | yes | `'open'` | — | Stored value |
 | `attempt_id` | `TEXT` | no | — | — | Application-validated soft reference |
@@ -176,6 +178,12 @@ CREATE TABLE workbench_sessions (
   -- Hints the learner revealed on the practice screen's answer box before
   -- working in steps. Never taken back; the submit counts them with the book.
   carried_hints INTEGER NOT NULL DEFAULT 0 CHECK (carried_hints >= 0),
+  -- The serve the problem answers: the scheduler offer and the daily-plan
+  -- presentation it was opened from ("check me", the practice screen), kept
+  -- so a resumed problem still submits as that serve. A later serve of the
+  -- same item replaces them; a resume without one keeps them.
+  scheduler_candidate_id TEXT,
+  plan_presentation_id TEXT,
   -- The help style's per-session override (RW2b, D31); NULL until then.
   help_style TEXT CHECK (help_style IS NULL OR help_style IN ('let_me_struggle', 'balanced', 'guide_me')),
   -- open -> submitted, or open -> abandoned -> open on reopen (UX S13).
