@@ -45,8 +45,10 @@ vi.mock("./reader/useReaderRequests", () => ({
 vi.mock("../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
 vi.mock("../render/LiveMarkdownEditor", () => ({
-  LiveMarkdownEditor: (p: { value: string; onChange: (value: string) => void; ariaLabel?: string }) => (
-    <textarea aria-label={p.ariaLabel} value={p.value} onChange={(event) => p.onChange(event.target.value)} />
+  LiveMarkdownEditor: (p: { value: string; onChange: (value: string) => void; ariaLabel?: string; readOnly?: boolean }) => (
+    // A change to a read-only box is still reported (round 4 F8), so a test
+    // sees the workbench itself refuse it.
+    <textarea aria-label={p.ariaLabel} value={p.value} readOnly={p.readOnly} onChange={(event) => p.onChange(event.target.value)} />
   ),
 }));
 
@@ -336,4 +338,42 @@ it("final F8: in the Reader, Leave with a refused step keeps the workbench and t
   await act(async () => { fireEvent.click(within(pane).getByRole("button", { name: /leave for now/ })); });
   await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
   expect(onError).toHaveBeenCalledWith(expect.stringContaining("its unsaved text was discarded"));
+});
+
+// Round 4 F8 (Codex's reproduction, in the Reader): saved work, Leave pressed
+// with its response delayed, 20,001 characters typed meanwhile, then the
+// response arrives. The steps were read-only while it was under way, so
+// nothing was refused after the check, and the Reader collapses with the
+// steps exactly as saved.
+it("round 4 F8: in the Reader, Leave freezes the steps while it is under way, so nothing typed then is lost unseen", async () => {
+  windowApi.closeHandlers = [];
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string; stepId?: string; kind?: string }) => {
+    if ((input.bodyMd ?? "").length > 20_000) throw { code: "validation_error", message: "This step is too long to save." };
+    return { version: 1, savedAt: "x", record: wbSession().record,
+      step: { stepId: "row_1", chainId: "row_1", ordinal: 1, kind: input.kind ?? "step", bodyMd: input.bodyMd ?? "",
+              deleted: false, createdAt: "x", editedAt: "x", versions: [] } };
+  });
+  let release!: (value: unknown) => void;
+  api.workbenchLeave.mockReturnValue(new Promise((done) => { release = done; }));
+  render(<ReaderScreen initialSource={source} onError={onError} />);
+  await selectProse();
+  fireEvent.click(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(await screen.findByRole("button", { name: /work through this/ }));
+  const pane = await screen.findByRole("region", { name: "workbench" });
+  const box = () => within(pane).getByRole("textbox", { name: "Step 1" }) as HTMLTextAreaElement;
+  fireEvent.change(box(), { target: { value: "A = Q D Q^T" } });
+  expect(await within(pane).findByText(/^saved/, undefined, { timeout: 3000 })).toBeTruthy();
+  await act(async () => { fireEvent.click(within(pane).getByRole("button", { name: /leave for now/ })); });
+  await waitFor(() => expect(api.workbenchLeave).toHaveBeenCalledTimes(1));
+  expect(box().readOnly).toBe(true);
+  expect(within(pane).getByText(/leaving… · editing is paused/)).toBeTruthy();
+  const writes = api.workbenchSaveStep.mock.calls.length;
+  fireEvent.change(box(), { target: { value: "x".repeat(20_001) } });
+  await act(async () => { await new Promise((done) => setTimeout(done, 800)); });
+  expect(api.workbenchSaveStep.mock.calls.length).toBe(writes);
+  expect(box().value).toBe("A = Q D Q^T");
+  await act(async () => { release({ session: wbSession() }); });
+  await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
+  expect(onError).not.toHaveBeenCalled();
 });

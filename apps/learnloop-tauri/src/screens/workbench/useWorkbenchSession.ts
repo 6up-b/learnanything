@@ -22,7 +22,10 @@
 // saved", and nothing that needs the work persisted (Submit, Abandon, a vault
 // switch, closing the window) goes ahead until the learner fixes or deletes
 // it (review F6, F7); Leave for now holds once and then goes, saying what it
-// did not keep (final verification F8). A vault switch freezes editing and waits for the queue
+// did not keep (final verification F8). While Leave (or "answer box instead")
+// is under way the steps are read-only, "leaving…", so nothing typed then can
+// slip past the check; a held departure gives editing back (round 4, F8).
+// A vault switch freezes editing and waits for the queue
 // against the vault the steps belong to; closing the window waits for it too
 // (review F8). Nothing a write or a poll returns moves focus (W12).
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -101,6 +104,9 @@ export interface WorkbenchSessionControls {
   started: boolean;
   /** A vault switch is waiting on these steps: editing is paused. */
   frozen: boolean;
+  /** Leave (or "answer box instead") is under way: the steps are read-only
+   *  until it goes, or is held and gives editing back (round 4, F8). */
+  leaving: boolean;
   setBody: (key: string, body: string) => void;
   /** A new step after `afterKey` (or at the end); returns its key. */
   addStep: (afterKey: string | null, kind?: WorkbenchStepKind) => string;
@@ -137,6 +143,7 @@ export function useWorkbenchSession(
   const [save, setSave] = useState<SaveStatus>({ state: "saved", savedAt: initial.updatedAt });
   const [started, setStarted] = useState(() => initial.steps.length > 0);
   const [frozen, setFrozen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   const sessionRef = useRef(session);
   const stepsRef = useRef(steps);
@@ -146,6 +153,10 @@ export function useWorkbenchSession(
   const failures = useRef(0);
   const closed = useRef(false);
   const frozenRef = useRef(false);
+  /** A departure is under way: no edit, step or book change is accepted. */
+  const leavingRef = useRef(false);
+  /** Nothing may change the steps now: a vault switch or a departure holds them. */
+  const paused = () => frozenRef.current || leavingRef.current;
   /** Writes the server refused for good, by step key (or the book's), with why. */
   const rejected = useRef(new Map<string, string>());
   const editTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -310,7 +321,7 @@ export function useWorkbenchSession(
   }, [queueEdit]);
 
   const setBody = useCallback((key: string, body: string) => {
-    if (readOnly || frozenRef.current) return;
+    if (readOnly || paused()) return;
     commitSteps(updateLocal(stepsRef.current, key, { body }));
     setStarted(true);
     const timers = editTimers.current;
@@ -324,7 +335,7 @@ export function useWorkbenchSession(
 
   const addStep = useCallback((afterKey: string | null, kind: WorkbenchStepKind = "step") => {
     const key = newKey();
-    if (frozenRef.current) return key;
+    if (paused()) return key;
     let list = stepsRef.current;
     if (kind === "stuck") {
       // An empty step the learner never wrote in gives way to "I'm stuck".
@@ -343,7 +354,7 @@ export function useWorkbenchSession(
   }, [commitSteps, enqueue]);
 
   const deleteStep = useCallback((key: string) => {
-    if (frozenRef.current) return;
+    if (paused()) return;
     const step = stepsRef.current.find((candidate) => candidate.key === key);
     if (!step) return;
     const timer = editTimers.current.get(key);
@@ -365,7 +376,7 @@ export function useWorkbenchSession(
   }, [commitSteps, enqueue, settleIdle]);
 
   const undoDelete = useCallback((key: string) => {
-    if (frozenRef.current) return;
+    if (paused()) return;
     commitSteps(restoreLocal(stepsRef.current, key));
     enqueue({ kind: "restore", key, idem: newKey() });
   }, [commitSteps, enqueue]);
@@ -384,7 +395,7 @@ export function useWorkbenchSession(
   }, [drained, firstRejection, flushEdits]);
 
   const setBook = useCallback(async (visible: boolean) => {
-    if (readOnly || frozenRef.current) return;
+    if (readOnly || paused()) return;
     // The text typed under the current visibility is saved before the change.
     flushEdits();
     commitSession({ ...sessionRef.current, sourceVisible: visible });
@@ -397,28 +408,71 @@ export function useWorkbenchSession(
   // vault-switch and close protection) stays mounted; a second Leave goes
   // anyway, so an unfixable refusal never traps the learner, and says what
   // was not kept, never silently.
+  //
+  // The departure freezes the steps from the press until it goes (round 4,
+  // F8): nothing typed while the queue drains or the leave is on its way
+  // can be refused after the check and unmounted unsaved. Just before it
+  // goes, every step is checked again; a held departure gives editing back.
   const leaveHeld = useRef(false);
-  const leave = useCallback(async () => {
-    let note: string | null = null;
-    if (!readOnly) {
+  const departure = useRef<Promise<{ left: boolean; note: string | null }> | null>(null);
+  const leave = useCallback(() => {
+    // A second press while one is under way is the same departure.
+    if (departure.current) return departure.current;
+    const startPause = () => {
+      leavingRef.current = true;
+      setLeaving(true);
+    };
+    const endPause = () => {
+      leavingRef.current = false;
+      setLeaving(false);
+    };
+    /** Every write landed; otherwise a first press is held (editing back), a
+     *  second goes, saying what it did not keep. */
+    const check = async (): Promise<{ held: boolean; note: string | null }> => {
       flushEdits();
-      if (!(await drained())) {
-        const reason = firstRejection();
-        if (!leaveHeld.current) {
-          leaveHeld.current = true;
-          return { left: false, note: leaveHeldNote(reason) };
-        }
-        note = leftUnsavedNote(reason);
-        rejected.current.clear();
+      if (await drained()) return { held: false, note: null };
+      const reason = firstRejection();
+      if (!leaveHeld.current) {
+        leaveHeld.current = true;
+        return { held: true, note: leaveHeldNote(reason) };
       }
-    }
-    leaveHeld.current = false;
-    try {
-      await api.workbenchLeave({ sessionId: sessionRef.current.sessionId });
-    } catch {
-      // Leaving never fails for the learner: the problem stays open either way.
-    }
-    return { left: true, note };
+      rejected.current.clear();
+      return { held: false, note: leftUnsavedNote(reason) };
+    };
+    const run = async () => {
+      if (readOnly) {
+        try {
+          await api.workbenchLeave({ sessionId: sessionRef.current.sessionId });
+        } catch {
+          // Leaving never fails for the learner.
+        }
+        return { left: true, note: null };
+      }
+      startPause();
+      const first = await check();
+      if (first.held) {
+        endPause();
+        return { left: false, note: first.note };
+      }
+      try {
+        await api.workbenchLeave({ sessionId: sessionRef.current.sessionId });
+      } catch {
+        // Leaving never fails for the learner: the problem stays open either way.
+      }
+      // Immediately before the workbench goes: every step is still saved.
+      const last = first.note === null ? await check() : first;
+      if (last.held) {
+        endPause();
+        return { left: false, note: last.note };
+      }
+      leaveHeld.current = false;
+      return { left: true, note: last.note };
+    };
+    const pending = run().finally(() => {
+      departure.current = null;
+    });
+    departure.current = pending;
+    return pending;
   }, [drained, firstRejection, flushEdits, readOnly]);
 
   const abandon = useCallback(async () => {
@@ -536,7 +590,7 @@ export function useWorkbenchSession(
   }, [queueEdit]);
 
   return {
-    session, steps, record, save, started, frozen, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
+    session, steps, record, save, started, frozen, leaving, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
     setBook, leave, abandon, reopen, retryImport, bind, submit,
   };
 }

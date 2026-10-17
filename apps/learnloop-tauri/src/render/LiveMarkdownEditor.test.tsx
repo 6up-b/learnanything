@@ -54,3 +54,19 @@ it("reports whether a key was pressed at the step's very end, and whether the st
   fireEvent.keyDown(area, { key: "Enter" });
   expect(onKeyDown.mock.calls[1][1]).toEqual({ atEnd: false, empty: false });
 });
+
+// RW2a round 4 F8: while Leave is under way the workbench shows its steps
+// read-only. The box says so and accepts no change, so nothing typed is
+// dropped unseen.
+it("a read-only editor still opens its text but accepts no change", async () => {
+  const onChange = vi.fn();
+  render(<LiveMarkdownEditor value="one" onChange={onChange} ariaLabel="Step 1" focusable compact readOnly />);
+  const rest = screen.getByRole("textbox", { name: "Step 1" });
+  expect(rest.getAttribute("aria-readonly")).toBe("true");
+  fireEvent.focus(rest);
+  const area = (await screen.findByRole("textbox", { name: "Step 1" })) as HTMLTextAreaElement;
+  expect(area.tagName).toBe("TEXTAREA");
+  expect(area.readOnly).toBe(true);
+  fireEvent.change(area, { target: { value: "one more" } });
+  expect(onChange).not.toHaveBeenCalled();
+});

@@ -95,6 +95,7 @@ export function LiveMarkdownEditor({
   focusSignal = 0,
   onKeyDown,
   onBlur,
+  readOnly = false,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -110,6 +111,9 @@ export function LiveMarkdownEditor({
   /** A key in the active block, with where the caret is in the whole value. */
   onKeyDown?: (event: ReactKeyboardEvent<HTMLTextAreaElement>, info: LiveMarkdownKeyInfo) => void;
   onBlur?: () => void;
+  /** Shown but not editable (the RW2a workbench while Leave is under way):
+   *  the text box refuses keystrokes rather than dropping them unseen. */
+  readOnly?: boolean;
 }) {
   // While a block is active we hold the frozen text on either side of it.
   const [editing, setEditing] = useState<{ before: string; after: string } | null>(null);
@@ -131,7 +135,7 @@ export function LiveMarkdownEditor({
   }
 
   function onDraftChange(next: string) {
-    if (!editing) return;
+    if (!editing || readOnly) return;
     onChange(editing.before + next + editing.after);
   }
 
@@ -211,6 +215,8 @@ export function LiveMarkdownEditor({
       }}
       {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
       {...keyProps}
+      readOnly={readOnly}
+      aria-readonly={readOnly || undefined}
       spellCheck={false}
       rows={1}
       style={{
@@ -263,6 +269,7 @@ export function LiveMarkdownEditor({
           tabIndex: 0,
           "aria-label": ariaLabel,
           "aria-multiline": true,
+          ...(readOnly ? { "aria-readonly": true } : {}),
           onFocus: () => startEditAtEnd(),
         }
       : {};

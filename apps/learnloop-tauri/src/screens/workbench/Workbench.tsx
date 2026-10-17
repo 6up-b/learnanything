@@ -97,13 +97,16 @@ export function Workbench(props: WorkbenchProps) {
   const bound = session.practiceItemId !== null;
   const open = session.status === "open";
   const live = liveSteps(steps);
+  // Leave or "answer box instead" is under way (round 4, F8): the steps and
+  // their actions are read-only, and say so, until it goes or is held.
+  const leaving = wb.leaving;
 
   function requestFocus(key: string) {
     setFocus((previous) => ({ key, n: (previous?.n ?? 0) + 1 }));
   }
 
   async function submit() {
-    if (readOnly || !open || submitting) return;
+    if (readOnly || !open || submitting || leaving) return;
     if (!bound) {
       setSubmitError(null);
       return;
@@ -132,8 +135,18 @@ export function Workbench(props: WorkbenchProps) {
   // (final verification F8): a step not saved holds the first press here,
   // with why; a second goes anyway, and the screen is told what was lost.
   const [leaveNote, setLeaveNote] = useState<string | null>(null);
+  const departing = useRef(false);
   async function depart(then: (session: WorkbenchSessionDto) => void) {
-    const result = await wb.leave();
+    // A press while the departure is under way is that departure, not a
+    // second one: it neither leaves twice nor counts as the second press.
+    if (departing.current) return;
+    departing.current = true;
+    let result: { left: boolean; note: string | null };
+    try {
+      result = await wb.leave();
+    } finally {
+      departing.current = false;
+    }
     if (!result.left) {
       setLeaveNote(result.note);
       return;
@@ -148,18 +161,19 @@ export function Workbench(props: WorkbenchProps) {
 
   async function abandon() {
     setMenuOpen(false);
+    if (leaving) return;
     const closed = await wb.abandon();
     if (closed) props.onAbandoned(closed);
   }
 
   function stuck() {
-    if (readOnly || !open) return;
+    if (readOnly || !open || leaving) return;
     const key = wb.addStep(null, "stuck");
     requestFocus(key);
   }
 
   function toggleBook() {
-    if (readOnly || !open || !fromBook) return;
+    if (readOnly || !open || !fromBook || leaving) return;
     void wb.setBook(!session.sourceVisible);
   }
 
@@ -297,8 +311,9 @@ export function Workbench(props: WorkbenchProps) {
             type="button"
             role="radio"
             aria-checked={checked}
+            aria-disabled={leaving}
             onClick={() => {
-              if (!checked) void wb.setBook(visible);
+              if (!checked && !leaving) void wb.setBook(visible);
             }}
             style={{ ...linkStyle, textDecoration: "none", color: checked ? COLOR.text : COLOR.textDim, textAlign: "left" }}
           >
@@ -319,6 +334,11 @@ export function Workbench(props: WorkbenchProps) {
             <MeaningLabel style={{ color: wb.save.state === "saved" || wb.save.state === "saving" ? COLOR.textDim : COLOR.amber }}>
               {savedLabel(wb.save, nowMs)}
             </MeaningLabel>
+            {leaving ? (
+              <span role="status" aria-live="polite">
+                <MeaningLabel style={{ color: COLOR.textDim }}>{" · "}{WORKBENCH_COPY.leavingPaused}</MeaningLabel>
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -330,7 +350,7 @@ export function Workbench(props: WorkbenchProps) {
             return (
               <li key={step.key} data-step-key={step.key} style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
                 <span>{`step ${number} deleted ·`}</span>{" "}
-                <button type="button" style={linkStyle} onClick={() => wb.undoDelete(step.key)}>undo</button>
+                <button type="button" style={linkStyle} aria-disabled={leaving} onClick={() => wb.undoDelete(step.key)}>undo</button>
               </li>
             );
           }
@@ -340,6 +360,7 @@ export function Workbench(props: WorkbenchProps) {
             <LiveMarkdownEditor
               value={step.body}
               onChange={(body) => wb.setBody(step.key, body)}
+              readOnly={leaving}
               ariaLabel={label}
               placeholder={step.kind === "stuck" ? WORKBENCH_COPY.stuckPrompt : "your next step — $math$ renders as you move off it"}
               focusable
@@ -370,7 +391,7 @@ export function Workbench(props: WorkbenchProps) {
                 ) : null}
               </div>
               {!readOnly ? (
-                <button type="button" aria-label={`delete step ${number}`} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
+                <button type="button" aria-label={`delete step ${number}`} aria-disabled={leaving} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
                   delete
                 </button>
               ) : null}
@@ -379,7 +400,7 @@ export function Workbench(props: WorkbenchProps) {
         })}
       </ol>
       {!readOnly && open ? (
-        <button type="button" style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step"))}>
+        <button type="button" aria-disabled={leaving} style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => { if (!leaving) requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step")); }}>
           + a step
         </button>
       ) : null}
@@ -396,17 +417,19 @@ export function Workbench(props: WorkbenchProps) {
   const actions = !readOnly && open ? (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", position: "relative" }}>
       <div role="group" aria-label="workbench actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" style={actionStyle} onClick={stuck}>I'm stuck · ctrl+d</button>
+        <button type="button" style={actionStyle} aria-disabled={leaving} onClick={stuck}>I'm stuck · ctrl+d</button>
         <button
           type="button"
           style={{ ...actionStyle, borderColor: bound ? COLOR.borderFocus : COLOR.border, color: bound ? COLOR.text : COLOR.textDim }}
-          aria-disabled={!bound || submitting}
+          aria-disabled={!bound || submitting || leaving}
           onClick={() => void submit()}
         >
           {bound ? (submitting ? "submit · sending…" : "submit · ctrl+↵") : `submit · ${WORKBENCH_COPY.waitsForSetup}`}
         </button>
-        <button type="button" style={actionStyle} onClick={() => void leave()}>leave for now · esc esc</button>
-        <button type="button" aria-label="more actions" aria-haspopup="menu" aria-expanded={menuOpen} style={actionStyle} onClick={() => setMenuOpen((value) => !value)}>⋯</button>
+        <button type="button" style={actionStyle} aria-disabled={leaving} onClick={() => void leave()}>
+          {leaving ? WORKBENCH_COPY.leaving : "leave for now · esc esc"}
+        </button>
+        <button type="button" aria-label="more actions" aria-haspopup="menu" aria-expanded={menuOpen} aria-disabled={leaving} style={actionStyle} onClick={() => { if (!leaving) setMenuOpen((value) => !value); }}>⋯</button>
       </div>
       {menuOpen ? (
         <div role="menu" aria-label="more actions" style={{ position: "absolute", bottom: "100%", right: 0, background: COLOR.bgElev, border: `1px solid ${COLOR.border}`, padding: 6, zIndex: 5 }}>

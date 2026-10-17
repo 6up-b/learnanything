@@ -87,6 +87,9 @@ export const WORKBENCH_COPY = {
   partsAsk: "This selection set up more than one problem. Which one are you working?",
   setupDidNotFinish: "Setup didn't finish.",
   leftKept: "kept — resume any time",
+  // Round 4 F8: while Leave or "answer box instead" is under way.
+  leaving: "leaving…",
+  leavingPaused: "leaving… · editing is paused until your steps are checked",
 } as const;
 
 export function savedLabel(status: SaveStatus, nowMs: number = Date.now()): string {

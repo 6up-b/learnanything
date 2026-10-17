@@ -38,13 +38,16 @@ vi.mock("../../render/LiveMarkdownEditor", async () => {
   return {
     LiveMarkdownEditor: (p: {
       value: string; onChange: (value: string) => void; placeholder?: string; ariaLabel?: string; focusSignal?: number;
+      readOnly?: boolean;
       onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>, info: { atEnd: boolean; empty: boolean }) => void;
     }) => {
       const ref = React.useRef<HTMLTextAreaElement | null>(null);
       React.useEffect(() => { if (p.focusSignal) ref.current?.focus(); }, [p.focusSignal]);
       return (
         <textarea
-          ref={ref} aria-label={p.ariaLabel} placeholder={p.placeholder} value={p.value}
+          ref={ref} aria-label={p.ariaLabel} placeholder={p.placeholder} value={p.value} readOnly={p.readOnly}
+          // A change to a read-only box is still reported (round 4 F8), so a
+          // test sees the workbench itself refuse it, not only the editor.
           onChange={(event) => p.onChange(event.target.value)}
           onKeyDown={(event) => {
             const box = event.currentTarget;
@@ -637,4 +640,90 @@ it("final F15: a submit with no serve of its own names none, so the server answe
   await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
   const sent = api.workbenchSubmit.mock.calls[0][0];
   expect("schedulerCandidateId" in sent || "planPresentationId" in sent).toBe(false);
+});
+
+// Round 4 F8 (Codex's reproduction): saved work, Leave pressed and its
+// response delayed, 20,001 characters typed meanwhile (a step the server
+// refuses for good), then the response arrives. The departure froze the
+// steps, so nothing typed then was accepted, and what leaves is what is saved.
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+async function rest(ms = 800) {
+  await act(async () => { await new Promise((done) => setTimeout(done, ms)); });
+}
+
+function refusesLongSteps() {
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string; stepId?: string; kind?: string }) => {
+    if ((input.bodyMd ?? "").length > 20_000) throw { code: "validation_error", message: "This step is too long to save." };
+    return stepRow(input, input.bodyMd ?? "");
+  });
+}
+
+async function departWhileTyping(button: RegExp | string, then: ReturnType<typeof vi.fn>, onError: ReturnType<typeof vi.fn>) {
+  const pending = deferred<{ session: WorkbenchSessionDto }>();
+  api.workbenchLeave.mockReturnValue(pending.promise);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: button })); });
+  await waitFor(() => expect(api.workbenchLeave).toHaveBeenCalledTimes(1));
+  // Under way: the steps are read-only and say so.
+  expect(stepBox(1).readOnly).toBe(true);
+  expect(screen.getByText(/leaving… · editing is paused/)).toBeTruthy();
+  const writes = api.workbenchSaveStep.mock.calls.length;
+  await typeStep(1, "x".repeat(20_001));
+  await rest();
+  expect(api.workbenchSaveStep.mock.calls.length).toBe(writes);
+  expect(stepBox(1).value).toBe("one");
+  await act(async () => { pending.resolve({ session: session() }); });
+  await waitFor(() => expect(then).toHaveBeenCalledTimes(1));
+  // Nothing was refused or discarded: the steps left exactly as saved.
+  expect(onError).not.toHaveBeenCalled();
+  expect(screen.queryByText(/not saved/)).toBeNull();
+}
+
+it("round 4 F8: Leave freezes the steps while it is under way, so text typed then is never refused and unmounted unseen", async () => {
+  refusesLongSteps();
+  const onLeave = vi.fn();
+  const onError = vi.fn();
+  render(<Workbench {...props({ onLeave, onError, initial: session({ steps: [SAVED_STEPS[0]] }) })} />);
+  await departWhileTyping(/leave for now/, onLeave, onError);
+});
+
+it("round 4 F8: answer box instead freezes the steps the same way", async () => {
+  refusesLongSteps();
+  const onAnswerBox = vi.fn();
+  const onError = vi.fn();
+  render(<Workbench {...props({ layout: "full", onAnswerBox, onError, initial: session({ origin: "practice", sourceVisible: false, steps: [SAVED_STEPS[0]] }) })} />);
+  await departWhileTyping("answer box instead", onAnswerBox, onError);
+});
+
+it("round 4 F8: a departure held by a refusal gives editing back with the first-press message, and a fixed step then leaves", async () => {
+  const save = deferred<never>();
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string; stepId?: string; kind?: string }) => {
+    if ((input.bodyMd ?? "").length > 20_000) return save.promise;
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  const onLeave = vi.fn();
+  render(<Workbench {...props({ onLeave, initial: session({ steps: [SAVED_STEPS[0]] }) })} />);
+  await typeStep(1, "x".repeat(20_001));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
+  // The long write is still in flight: the departure waits, read-only.
+  expect(stepBox(1).readOnly).toBe(true);
+  expect(screen.getByRole("button", { name: "leaving…" })).toBeTruthy();
+  // A second press while it is under way is the same departure.
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "leaving…" })); });
+  await act(async () => { save.reject({ code: "validation_error", message: "This step is too long to save." }); });
+  expect(await screen.findByText(/This step is too long to save\.\), so you're still here/)).toBeTruthy();
+  expect(onLeave).not.toHaveBeenCalled();
+  expect(api.workbenchLeave).not.toHaveBeenCalled();
+  // Editing is back: the learner shortens the step, it saves, and Leave goes.
+  expect(stepBox(1).readOnly).toBe(false);
+  await typeStep(1, "shorter");
+  await rest();
+  expect(await screen.findByText(/^saved/)).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /leave for now/ })); });
+  await waitFor(() => expect(onLeave).toHaveBeenCalledTimes(1));
 });
