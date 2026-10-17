@@ -693,6 +693,25 @@ def _plan_presentation(repository, params: Any) -> str | None:
     )
 
 
+def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tuple[int, str]:
+    """Fold in the assistance the item's open workbench problems hold (Reader
+    workbench RW2a, review F2): the book one counted and the answer-box hints
+    it carried. The server holds them, so the record never depends on a
+    client having restored them before Submit, and it is never clamped to the
+    hints the item shows today. The larger of the two counts, never their sum
+    (a client that restored them already sends them), and an independent
+    attempt type becomes the assisted one the answer box picks."""
+
+    from learnloop.reader.workbench import held_hints
+
+    held = held_hints(repository, item.id)
+    if held <= 0:
+        return hints_used, attempt_type
+    if attempt_type == "independent_attempt":
+        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=held)
+    return max(int(hints_used), held), attempt_type
+
+
 def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
     # Reader workbench RW2a: a workbench submit names its own surface; every
     # other caller binds exactly as before (the store's default surface).
@@ -827,12 +846,13 @@ def submit_attempt_on(
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
+    client_hints, attempt_type = _held_assistance(repository, item, params.hints_used, params.attempt_type)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
     question_hints = hint_equivalents_for_submission(
         repository, params.practice_item_id, params.session_id
     )
-    hints_used = params.hints_used + question_hints
+    hints_used = client_hints + question_hints
     if item.hint_policy.max_useful_hints > 0:
         hints_used = min(hints_used, item.hint_policy.max_useful_hints)
     # A6: compose the one trace the grader reads, here and nowhere else. The
@@ -855,7 +875,7 @@ def submit_attempt_on(
         practice_item_id=params.practice_item_id,
         learner_answer_md=learner_answer_md,
         elicited_explanation_md=explanation_md,
-        attempt_type=params.attempt_type,
+        attempt_type=attempt_type,
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
@@ -976,6 +996,8 @@ def submit_dont_know_on(
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
+    # The item's open workbench problems' assistance counts here too (RW2a F2).
+    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
     if stuck_prompt_active(vault):
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:
@@ -985,10 +1007,10 @@ def submit_dont_know_on(
             learner_answer_md="",
             attempt_type=stuck_attempt_type(
                 item.attempt_types_allowed,
-                hints_used=params.hints_used,
+                hints_used=hints_used,
                 probe=params.probe_presentation_id is not None,
             ),
-            hints_used=params.hints_used,
+            hints_used=hints_used,
             latency_seconds=params.latency_seconds,
             session_id=params.session_id,
             probe_presentation_id=params.probe_presentation_id,
@@ -1008,7 +1030,7 @@ def submit_dont_know_on(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
         attempt_type="diagnostic_probe" if params.probe_presentation_id else "dont_know",
-        hints_used=params.hints_used,
+        hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
         probe_presentation_id=params.probe_presentation_id,

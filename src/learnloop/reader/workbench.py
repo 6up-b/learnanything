@@ -30,7 +30,11 @@ goes with them (the answer box counts it) and comes back into steps as a
 counted book (``carried_book``), so neither direction drops it. The submit
 therefore sends ``hints_used`` = the book's one plus the
 carried hints and nothing else new: any of them makes the attempt assisted
-(FSRS-fed, certifying nothing); none leaves it the learner's own. It is graded
+(FSRS-fed, certifying nothing); none leaves it the learner's own. The server
+holds this, not the client: every submit for the item, the answer box's
+included, records at least what its open problems hold (:func:`held_hints`,
+the larger of that and what the client sent, never their sum), and an
+independent attempt type becomes the assisted one (review F2). It is graded
 against the assessment contract the session showed
 (``assessment_contract_version_id``), and answers the serve it was opened
 from (``scheduler_candidate_id``, ``plan_presentation_id``), kept across a
@@ -392,15 +396,36 @@ def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Cl
     return ids
 
 
-def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
-    """The serve ids a request names, to store on the session (review F13)."""
+SERVE_COLUMNS: tuple[str, ...] = ("scheduler_candidate_id", "plan_presentation_id")
 
-    serve = serve or {}
-    return {
-        column: str(serve[column])
-        for column in ("scheduler_candidate_id", "plan_presentation_id")
-        if serve.get(column)
-    }
+
+def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
+    """The serve a request names, to store on the session (review F13, F15).
+
+    A serve is one pair: a request names none (``None``: the rail, the ``✎``
+    mark, a resume that knows nothing of the serve), which keeps the pair the
+    session holds, or it names a replacement, which replaces both identifiers
+    together, an explicit null included. Never one of each: a new candidate
+    beside the previous plan presentation would credit that plan with an
+    answer to a serve it did not make."""
+
+    if serve is None:
+        return {}
+    return {column: (str(serve[column]) if serve.get(column) else None) for column in SERVE_COLUMNS}
+
+
+def held_hints(repository: Any, practice_item_id: str) -> int:
+    """The hint-equivalents the item's open problems hold (review F2): the
+    book one counted and the answer-box hints it carried. Every submit for the
+    item folds this in (the larger of it and what the client sent), so the
+    record never depends on a client having restored it first, and nothing
+    clamps it to the hints the item shows today."""
+
+    with repository.connection() as connection:
+        sessions = store.sessions_where(
+            connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
+        )
+    return max((session_hints(session) for session in sessions), default=0)
 
 
 def _resume_existing(
@@ -431,7 +456,7 @@ def _resume_existing(
     "Check me" always opens with the book hidden, on any surface it comes
     from (UX S7), keeping whatever the book already counted. A serve the
     resume names (its scheduler offer, its plan presentation) replaces the
-    one kept; a resume that names none keeps it.
+    pair kept, both identifiers together; a resume that names none keeps it.
     """
 
     changes: dict[str, Any] = {"updated_at": now}

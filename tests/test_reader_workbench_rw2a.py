@@ -1127,3 +1127,116 @@ def test_f14_check_me_on_a_problem_left_with_the_book_open_opens_it_hidden_keepi
     assert own["sessionId"] == untouched["sessionId"] and own["sourceVisible"] is False
     assert own["record"]["ownAttempt"] is True
     assert _count(repository, "source_exposure_events") == exposures
+
+
+# -- Codex final verification (F2, F15) ------------------------------------------------------------
+
+
+def _answer_box(ctx, practice_session: str, **params):
+    """The practice screen's own answer box: the ordinary ``submit_attempt``."""
+
+    payload = {"sessionId": practice_session, "practiceItemId": ITEM, "answerMd": "A = U Sigma V^T",
+               "attemptType": "independent_attempt", "hintsUsed": 0, **params}
+    return _call(ctx, "submit_attempt", payload)
+
+
+def test_final_f2_an_answer_box_submit_counts_the_book_its_open_problem_counted_whatever_the_client_sent(
+    tmp_path, grader,
+):
+    # Reproduction 1: steps left in the Reader with the book counted; the
+    # answer box submits before its lookup of the item's problems returns, so
+    # the client sends no hint and an independent attempt.
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    worked = _open(ctx)
+    _step(ctx, worked["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.leave", {"sessionId": worked["sessionId"]})
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    row = _attempt(repository, _answer_box(ctx, practice_session)["attemptId"])
+    assert row["hints_used"] == 1 and row["attempt_type"] == "hinted_attempt"
+    assert _policy(row).counts_as_assisted and not _policy(row).eligible_for_certification
+    # A client that already counts the book sends it once: the larger of the
+    # two, never their sum.
+    row = _attempt(repository, _answer_box(ctx, practice_session, hintsUsed=1, attemptType="hinted_attempt")["attemptId"])
+    assert row["hints_used"] == 1
+    # An empty "I'm stuck" answer counts it too.
+    row = _attempt(repository, _call(ctx, "submit_dont_know", {
+        "sessionId": practice_session, "practiceItemId": ITEM, "hintsUsed": 0,
+    })["attemptId"])
+    assert row["hints_used"] == 1 and row["attempt_type"] == "hinted_attempt"
+
+
+def test_final_f2_carried_hints_still_count_after_the_items_authored_hints_were_removed(tmp_path, grader):
+    # Reproduction 2: a problem carrying two answer-box hints, resumed after
+    # the item's authored hints were removed, then answered on the answer box.
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    opened = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
+                                           "stemMd": "Write the SVD of A.", "carriedHints": 2})["session"]
+    assert opened["record"]["hints"] == 2
+    item_path = paths.practice_item_path("linear-algebra", ITEM)
+    item = read_yaml(item_path)
+    item["hints"] = []
+    write_yaml(item_path, item)
+    ctx = _context(paths.root)
+    assert ctx.require_vault()[0].practice_items[ITEM].hints == []
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    row = _attempt(repository, _answer_box(ctx, practice_session)["attemptId"])
+    assert row["hints_used"] == 2 and row["attempt_type"] == "hinted_attempt"
+
+
+def _capture_submits(monkeypatch) -> list:
+    import learnloop_sidecar.handlers.practice as practice
+
+    seen: list = []
+    original = practice.submit_attempt_on
+
+    def spy(ctx, params, **kwargs):
+        seen.append(params)
+        return original(ctx, params, **kwargs)
+
+    monkeypatch.setattr(practice, "submit_attempt_on", spy)
+    return seen
+
+
+def test_final_f15_a_replacement_serve_replaces_both_identifiers_and_a_resume_naming_none_keeps_both(
+    tmp_path, grader, monkeypatch,
+):
+    seen = _capture_submits(monkeypatch)
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    candidate_b = _offer(ctx, practice_session, ITEM)
+    check = _open(ctx, entry="check_me", schedulerCandidateId="cand_A", planPresentationId="pres_P")
+    assert (check["schedulerCandidateId"], check["planPresentationId"]) == ("cand_A", "pres_P")
+    _step(ctx, check["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    # An ordinary serve of the item names candidate B and no plan presentation:
+    # both identifiers are replaced, the explicit null included.
+    replaced = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                             "sessionId": check["sessionId"], "schedulerCandidateId": candidate_b,
+                                             "planPresentationId": None})["session"]
+    assert (replaced["schedulerCandidateId"], replaced["planPresentationId"]) == (candidate_b, None)
+    # A resume that names no serve (the rail, the ✎ mark) keeps both.
+    kept = _call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": check["sessionId"],
+                                         "extractionId": EXTRACTION})["session"]
+    assert (kept["schedulerCandidateId"], kept["planPresentationId"]) == (candidate_b, None)
+    payload = _submit(ctx, check["sessionId"], practiceSessionId=practice_session)
+    [sent] = seen
+    assert (sent.scheduler_candidate_id, sent.plan_presentation_id) == (candidate_b, None)
+    assert _attempt(repository, payload["attempt"]["attemptId"])["scheduler_candidate_id"] == candidate_b
+
+
+def test_final_f15_a_submit_naming_a_serve_never_mixes_it_with_the_kept_one(tmp_path, grader, monkeypatch):
+    seen = _capture_submits(monkeypatch)
+    paths, _repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    candidate_b = _offer(ctx, practice_session, ITEM)
+    check = _open(ctx, entry="check_me", schedulerCandidateId="cand_A", planPresentationId="pres_P")
+    _step(ctx, check["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _submit(ctx, check["sessionId"], practiceSessionId=practice_session, schedulerCandidateId=candidate_b,
+            planPresentationId=None)
+    [sent] = seen
+    assert (sent.scheduler_candidate_id, sent.plan_presentation_id) == (candidate_b, None)

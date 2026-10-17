@@ -220,6 +220,8 @@ class WorkbenchOpenInput(ParamsModel):
     carried_book: bool = False
     #: The serve the problem answers ("check me", the practice screen's
     #: serve), kept on the session so a resume still submits as it (F13).
+    #: One pair: naming either replaces both, nulls included; naming neither
+    #: keeps the pair the session holds (F15).
     scheduler_candidate_id: str | None = None
     plan_presentation_id: str | None = None
     stem_md: str | None = None
@@ -291,8 +293,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
 
     vault, repository = _require(ctx)
     carried = max(0, int(params.carried_hints or 0))
-    serve = {"scheduler_candidate_id": params.scheduler_candidate_id,
-             "plan_presentation_id": params.plan_presentation_id}
+    serve = _named_serve(params)
     if params.session_id:
         row = _run(
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
@@ -333,6 +334,16 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     )
     _ensure_contract(vault, repository, row["id"])
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
+
+
+def _named_serve(params: ParamsModel) -> dict[str, str | None] | None:
+    """The serve a request names, as one pair (review F15): ``None`` when it
+    names neither identifier (keep the pair the session holds), else both,
+    an explicit null included (replace the pair)."""
+
+    if not set(WB.SERVE_COLUMNS) & params.model_fields_set:
+        return None
+    return {column: getattr(params, column) for column in WB.SERVE_COLUMNS}
 
 
 def _key_exists(repository, key: str) -> bool:
@@ -497,7 +508,7 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     hint-equivalents (the book when it counted, the answer box's hints shown
     before steps); the attempt type is the one the answer box would pick; the
     contract is the one the session showed; the serve is the one the request
-    names, else the one the session kept when it opened. A refusal (a cold check answered
+    names (both identifiers), else the one the session kept (both). A refusal (a cold check answered
     with the book, grading unavailable) keeps the session open with its steps.
     A retry after a lost response is answered from the submission's receipt.
     """
@@ -522,6 +533,16 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     if item is None:
         raise SidecarError("not_found", f"Unknown Practice Item {plan.practice_item_id}.")
     practice_session_id = _practice_session(ctx, repository, params.practice_session_id)
+    # The serve is one pair (review F15): the one the request names, both
+    # identifiers, or else the one the session kept, both identifiers.
+    named = _named_serve(params)
+    if named is not None:
+        scheduler_candidate_id, plan_presentation_id = named["scheduler_candidate_id"], named["plan_presentation_id"]
+    else:
+        scheduler_candidate_id = _kept_offer(
+            repository, plan.scheduler_candidate_id, practice_session_id, plan.practice_item_id,
+        )
+        plan_presentation_id = plan.plan_presentation_id
     submission = SubmitAttemptInput(
         session_id=practice_session_id,
         practice_item_id=plan.practice_item_id,
@@ -532,10 +553,8 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         latency_seconds=params.latency_seconds,
         answer_confidence=params.answer_confidence,
         submission_id=plan.submission_id,
-        scheduler_candidate_id=params.scheduler_candidate_id or _kept_offer(
-            repository, plan.scheduler_candidate_id, practice_session_id, plan.practice_item_id,
-        ),
-        plan_presentation_id=params.plan_presentation_id or plan.plan_presentation_id,
+        scheduler_candidate_id=scheduler_candidate_id,
+        plan_presentation_id=plan_presentation_id,
         declared_stuck=plan.composed.declared_stuck,
     )
     attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface)
