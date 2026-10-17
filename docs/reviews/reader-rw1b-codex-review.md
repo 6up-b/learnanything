@@ -120,3 +120,75 @@ on `fbd198c5a`.
 | Frontend (npm typecheck/test/build), `cargo check` | not needed: nothing under `apps/` changed |
 | `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels and the config leaves' line citations; schema head 208); errors [] |
 | `git diff --check` | clean |
+
+## Fix round 3 (orchestrator, after final verify)
+
+Codex's final verify (codex-job `20261017-174618-UNt9pX`, at `fb80d9c7c`)
+confirmed F1 (High) and F15 as fixed. It reopened F14 and raised one new Medium
+finding, F16. Both were reproduced on `fb80d9c7c` with
+`tests/test_reader_rw1b_final_verify.py`, a new file with 8 cases, and **all 8
+fail there**. That run used `git archive fb80d9c7c src migrations tests
+pyproject.toml` with the new file copied in, because the worktree's
+`pythonpath = ["src"]` would shadow a `PYTHONPATH` override. The fixes are in
+`527e3fb1d`, and the references were regenerated in `91549192f`. **No
+migration and no schema change.** No paid or live model call was made.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F14 | Medium | A revert after an undone revert lets synthesis run (reopened) | fixed | `527e3fb1d` | `test_f14_a_revert_after_an_undone_revert_converts_to_no_work` (Codex's repro: capture, revert, restore naming that delete, revert, drain. On `fb80d9c7c` the second revert wrote no tombstone, 1 ≠ 2), `test_f14_revert_restore_revert_then_a_retried_conversion_enqueues_nothing` (on `fb80d9c7c` a live request was queued), `test_f14_revert_restore_revert_restore_converts` (converts, one queued request; on `fb80d9c7c` it failed on its F16 assertion, a mapping to the retired commitment). `revert_capture` now asks `Repository.capture_reverted` inside its write transaction. That is the predicate the conversion reads: a revert tombstone with reason `intent_changed` that no undo names. If none stands, even when an earlier one was undone, the revert writes a new tombstone and cancels as F15's hold check allows. The revert and the conversion read one predicate |
+| F16 | Medium | Revived synthesis uses the reverted capture's instructions and commitment | fixed | `527e3fb1d` | `test_f16_captures_with_different_instructions_never_share_or_revive` (Codex's repro: A "emphasize the matrix algebra", drained, reverted; B "emphasize the geometry". Now there are two requests. A's stays cancelled. B's carries B's annotation and commitment, and the model is told only B's instructions. The one commitment mapping is B's, none is A's. On `fb80d9c7c` there was 1 request), `test_f16_a_same_instruction_revival_rebinds_to_the_reviving_capture` (the same instructions, spaced differently, revive one request, rebound to B's annotation and commitment; the mapping is B's), `test_f16_a_running_revival_lands_on_the_reviving_capture`, `test_f16_reverting_the_bound_capture_of_shared_work_rebinds_it`, `test_f16_a_key_without_instructions_is_unchanged` (on `fb80d9c7c` each failed: A's binding, or no `instructions` parameter) |
+
+**How F16 is fixed.**
+
+- **Identity.** A capture's instructions are its annotation's `learner_text`,
+  which is what `model_synthesis` gives the model. They are now part of its
+  request's key. `reader_capture._enqueue_for` reads them from the annotation
+  head inside the conversion's transaction and passes them to
+  `rr.enqueue_request(instructions=...)`. `rr.request_key` folds
+  `instructions_hash`, the sha256 of the instructions with whitespace
+  collapsed (`rr.normalized_instructions`), into the canonical JSON **only
+  when there are some**. This uses the existing `request_key` column and its
+  unique index, with no new column, index or migration. A key without
+  instructions is byte-identical to before. That covers every existing row, a
+  capture with no note, and the explicit `reader.enqueue_request` RPC, which
+  passes none. The new key cannot collide with a key without instructions.
+- **Revival.** `Repository.enqueue_reader_request(revive_cancelled=True)` only
+  revives a row whose key matches, so the instructions match. It now sets the
+  row's `annotation_id` and `commitment_id` to the reviving capture's.
+- **A held request whose bound capture is reverted.** F15 keeps a request
+  that another capture still holds. When the request was bound to the
+  reverted capture, `revert_capture` now rebinds it to the latest standing
+  holder (`Repository.reader_request_standing_holder`, then
+  `rebind_reader_request`).
+- **Landing.** `_land_proposals` re-reads the row's binding when it lands, so
+  a running request revived after it was claimed maps to the reviving capture.
+  It never proposes a commitment mapping onto a `stopped` commitment. A retired
+  one is what a reverted capture leaves, and a restore does not un-retire it.
+  An unknown commitment keeps the old behaviour.
+
+**Base behaviour.** Request rows change only on the revert, revive and
+landing paths, plus one case named by the ruling ("captures with different
+instructions never share"): two captures of one passage and preset with
+*different, non-empty* notes used to share one request. The second capture's
+note was silently ignored, and its commitment got no mapping. Now each gets
+its own request. Kill switches off: the prompt contract and the RPC contracts
+are unchanged (contract pins pass). With `reader_intent` off nothing reverts,
+so nothing revives or rebinds. A stopped commitment could only gain a mapping
+on the base if the learner stopped it before its synthesis ran. That mapping
+is now withheld.
+
+### Fix round 3 gate (targeted, per the owner's rule of 2026-10-17)
+
+The full suite, the whole durability lane and the whole vitest run are left
+to the landing gate. Run in the worktree with `TMPDIR=fixtures-local/tmp`,
+using `uv run --no-sync` after the install.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken (`reader_requests` imports `curriculum.commitments` at module level, as `reader_capture` and `reader_intent` already do) |
+| `pytest -n auto`, 61 files | **1,421 passed**, 0 failed (68 s): every `tests/test_reader_*.py` and `tests/test_sidecar_reader*.py` (the RW1b review 16, re-review 7 and final-verify 8 files included), and every other file that exercises `reader_capture`, `reader_requests`, `reader_intent` or the touched repository methods (`test_annotations`, `test_codex_output_schema`, `test_exam_protection`, `test_ingest_jobs`, `test_judge_routes`, `test_keep_local_retired`, `test_mobile_allowlist`, `test_p3_journeys`, `test_practice_proposal_caller_columns`, `test_reread_safety`, `test_salience_firewall`, `test_structured_transport_parity`). Also the contract pins: `test_architecture`, `test_table_roles`, `test_coordinated_migrations`, `test_desktop_rpc_contract`, `test_sidecar_contract`, `test_sidecar_serializer_snapshot`, `test_cli_help_snapshot`, `test_reference_check_binding`, `test_reference_gate_imports` |
+| `tests/test_reader_rw1b_final_verify.py tests/test_reader_rw1b_rereview.py --durable-sqlite` | 15 passed |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels, the config leaves' line citations, the new repository methods' notes; schema head 208, 327 table notes); errors [] |
+| Frontend, `cargo check` | not needed: nothing under `apps/` changed |
+| `git diff --check` | clean |
