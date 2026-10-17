@@ -20,6 +20,7 @@ const { api, contract } = vi.hoisted(() => ({
     readerDrainOutbox: vi.fn(), readerSourceAnnotations: vi.fn(), readerAskHistory: vi.fn(), readerAsk: vi.fn(),
     readerLogActivity: vi.fn(), readerRouteIntent: vi.fn(), readerIntentRouting: vi.fn(), readerIntentOutcome: vi.fn(),
     readerInvokePreset: vi.fn(), readerCapture: vi.fn(), readerActiveQuestion: vi.fn(), readerActiveQuestionStatus: vi.fn(),
+    readerSetMode: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
 }));
@@ -76,6 +77,7 @@ beforeEach(() => {
   api.readerAskHistory.mockResolvedValue({ exchanges: [] });
   api.readerLogActivity.mockResolvedValue({ recorded: 0 });
   api.readerIntentOutcome.mockResolvedValue({ routingId: "r", recorded: true });
+  api.readerSetMode.mockResolvedValue({ mode: "skim" });
   api.readerInvokePreset.mockResolvedValue({ annotationId: "ann_1", anchorStatus: "exact", arc: null });
   api.readerAsk.mockResolvedValue({ eventId: "q", readerAnswerEventId: "a", parentExchangeId: null, answerMd: "Landed answer", answerMode: "help_me_reason", citations: [], manifest: {} });
 });
@@ -93,7 +95,8 @@ it("a selection shows the box unfocused, and the rail does not switch tabs", asy
   expect(document.activeElement).not.toBe(box);
   expect(screen.getByText("↵ ask · tab actions · esc")).toBeTruthy();
   // The rail stays where it was (the Guide); Notes' capture is not opened.
-  expect(screen.queryByText(/^selected ·/)).toBeNull();
+  expect(screen.getByRole("button", { name: "guide" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "notes" }).getAttribute("aria-pressed")).toBe("false");
   elsewhere.remove();
 });
 
@@ -215,20 +218,26 @@ it("change opens the palette with the text kept and records the learner's pick",
 });
 
 it("a palette pick makes exactly the Notes palette's call (G3)", async () => {
-  const { box } = await openBox();
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  // Today's Notes palette, opened by the learner.
+  select(block);
+  await screen.findByRole("textbox", { name: BOX });
+  fireEvent.mouseDown(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(screen.getByRole("button", { name: "notes" }));
+  fireEvent.click(await screen.findByRole("button", { name: "help me remember" }));
+  await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalledTimes(1));
+  const fromNotes = { ...api.readerInvokePreset.mock.calls[0][0], clientIdempotencyKey: "k" };
+  // The same action from the intent box's palette, on the same passage.
+  select(block);
+  await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
   const palette = await screen.findByRole("group", { name: "what do you want to do?" });
   fireEvent.click(within(palette).getByRole("button", { name: "help me remember" }));
-  await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalledTimes(1));
-  const fromBox = { ...api.readerInvokePreset.mock.calls[0][0], clientIdempotencyKey: "k" };
-  // The same preset from the Notes rail (the learner opens it themselves).
-  fireEvent.click(screen.getByRole("button", { name: "notes" }));
-  fireEvent.click(await screen.findByRole("button", { name: "help me remember" }));
   await waitFor(() => expect(api.readerInvokePreset).toHaveBeenCalledTimes(2));
-  const fromNotes = { ...api.readerInvokePreset.mock.calls[1][0], clientIdempotencyKey: "k" };
+  const fromBox = { ...api.readerInvokePreset.mock.calls[1][0], clientIdempotencyKey: "k" };
   expect(fromBox).toEqual(fromNotes);
   expect(api.readerRouteIntent).not.toHaveBeenCalled();
-  void box;
 });
 
 it("the box never appears for a selection inside the rail", async () => {
@@ -239,4 +248,30 @@ it("the box never appears for a selection inside the rail", async () => {
   fireEvent.mouseUp(composer);
   await new Promise((resolve) => setTimeout(resolve, 200));
   expect(screen.queryByRole("textbox", { name: BOX })).toBeNull();
+});
+
+it("a key on a rail button keeps its own meaning while the box shows", async () => {
+  await openBox();
+  const tab = screen.getByRole("button", { name: "ask" });
+  tab.focus();
+  const event = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+  tab.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  fireEvent.keyDown(tab, { key: "w" });
+  expect((screen.getByRole("textbox", { name: BOX }) as HTMLInputElement).value).toBe("");
+  expect(api.readerRouteIntent).not.toHaveBeenCalled();
+});
+
+it("in skim mode the box opens only on ? or Tab after a selection", async () => {
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const block = await screen.findByText(view.blocks[1].markdown);
+  const [modeSelect] = screen.getAllByRole("combobox");
+  fireEvent.keyDown(modeSelect, { key: "Enter" });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+  await waitFor(() => expect(api.readerSetMode).toHaveBeenCalled());
+  select(block);
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  expect(screen.queryByRole("textbox", { name: BOX })).toBeNull();
+  fireEvent.keyDown(window, { key: "?" });
+  expect(await screen.findByRole("textbox", { name: BOX })).toBeTruthy();
 });

@@ -56,6 +56,13 @@ function select(block: HTMLElement): void {
   fireEvent.mouseUp(block);
 }
 
+/** Past the first read-back of the question being written. */
+async function untilWritten() {
+  await waitFor(() => expect(api.readerActiveQuestion).toHaveBeenCalled());
+  await act(async () => { await Promise.resolve(); });
+  await act(async () => { vi.advanceTimersByTime(2500); });
+}
+
 async function tryNextStep() {
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(SELECTED.markdown);
@@ -106,7 +113,7 @@ it("an answer shows the book's step beside it, opens the fold and asks for the s
     .mockResolvedValueOnce({ question: question({ status: "answered", responseMd: "the eigenvalues are 3 and 1", answeredAt: "t" }), formativeJobId: null })
     .mockResolvedValueOnce({ question: question({ status: "answered", responseMd: "the eigenvalues are 3 and 1", answeredAt: "t", selfCheck: "partly", missed: true }), formativeJobId: "ltgj_1" });
   await tryNextStep();
-  await act(async () => { vi.advanceTimersByTime(2500); });
+  await untilWritten();
   expect(await screen.findByText("What comes next after this line?")).toBeTruthy();
   expect(screen.queryByText(NEXT.markdown)).toBeNull();
   fireEvent.change(screen.getByRole("textbox", { name: "Your next step" }), { target: { value: "the eigenvalues are 3 and 1" } });
@@ -126,7 +133,7 @@ it("show me reveals the book's step without an answer", async () => {
   api.readerActiveQuestionStatus.mockResolvedValue({ question: question(), job: { status: "completed" } });
   api.readerActiveQuestionAction.mockResolvedValue({ question: question({ status: "answered", answeredAt: "t" }), formativeJobId: null });
   await tryNextStep();
-  await act(async () => { vi.advanceTimersByTime(2500); });
+  await untilWritten();
   fireEvent.click(await screen.findByRole("button", { name: "show me" }));
   await waitFor(() => expect(api.readerActiveQuestionAction).toHaveBeenCalledWith({ questionId: "raq_1", action: "answered", response: null }));
 });

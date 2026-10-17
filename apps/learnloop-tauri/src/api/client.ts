@@ -22,6 +22,7 @@ import type {
   ReaderInquiryQuestionDto,
   ReaderIntentRoutingDto,
   ReaderActiveStyle,
+  InquirySelfCheck,
   ReaderActiveQuestionDto,
   ReaderActiveQuestionRequestDto,
   ReaderActiveQuestionStatusDto,

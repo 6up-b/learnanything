@@ -170,7 +170,7 @@ export interface ReaderInquiry {
   reconnect: ReconnectState | null;
   inquiryChecks: Record<string, InquiryCheckState>;
   passageCheckOffered: boolean;
-  submitAsk: (asked: string, parent: ReaderExchange | null) => Promise<void>;
+  submitAsk: (asked: string, parent: ReaderExchange | null, override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown> }) => Promise<void>;
   ask: () => void;
   cancelAsk: () => void;
   setInquiryStatus: (root: ReaderExchange, resolution: InquiryResolution, trigger?: "chip" | "key") => Promise<void>;
@@ -543,7 +543,13 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
   // words stay in the composer until the answer lands; a failure keeps them.
   const [askPhase, setAskPhase] = useState<ModelActionPhase>("idle");
   const askJobRef = useRef<{ jobId: string; kind: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
-  const submitAsk = useCallback(async (asked: string, parent: ReaderExchange | null) => {
+  const submitAsk = useCallback(async (
+    asked: string,
+    parent: ReaderExchange | null,
+    // RW1b: a routed Ask runs in its routed answer mode, and its funnel event
+    // names the intention and the entry (the intent box or its palette).
+    override?: { answerMode?: ReaderAnswerMode; meta?: Record<string, unknown> },
+  ) => {
     // A follow-up keeps its saved anchor even when the current selection moves.
     // New roots use the capture selection (the same selection Notes>Capture
     // acts on), then the jump/resume fallback.
@@ -570,7 +576,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     const jobKind = parent ? "follow_up" : "ask";
     const job = { jobId: newActivityId(), kind: jobKind, startedAt: Date.now(), activity: learnerActivitySnapshot() };
     askJobRef.current = job;
-    logReaderAction("action_invoked", { ...visitPayload(), action_kind: jobKind });
+    logReaderAction("action_invoked", { ...visitPayload(), action_kind: jobKind, ...(override?.meta ?? {}) });
     logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: job.jobId, job_kind: jobKind } });
     setBusy(true);
     if (inquiry) setAskPhase("pending");
@@ -580,7 +586,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         spanId: groundingSpan,
         question: asked,
         ...(inquiry ? { parentExchangeId: parent?.id ?? null } : {}),
-        answerMode,
+        answerMode: override?.answerMode ?? answerMode,
         selectionSpanIds,
         selectionQuote,
         ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),

@@ -1,7 +1,7 @@
 // The Reader rail's Notes tab (RW1a split of ReaderScreen; a move, not a
 // redesign): capture and the palette, exercise import, "make your own
 // practice", background requests, the commitment arc and the annotations.
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ReaderArcDto, ReaderCoachLintDto, ReaderExerciseImportResult, ReaderRenderBlockDto } from "../../api/dto";
 import { COLOR, Card, Faint, FONT_MONO, Pill, SectionHeader } from "../../components/term";
 import { PrimaryButton, SecondaryButton } from "../../components/goldenpath/shared";
@@ -134,6 +134,8 @@ export interface NotesRailProps {
    *  protection decides): the reason. Highlights, notes and marks stay; no
    *  action that would show it to a model is offered. */
   protectionMessage?: string | null;
+  /** RW1b: active reading's card, at the head of Notes while one is open. */
+  header?: ReactNode;
 }
 
 /** The palette groups that send the selection to a model (background
@@ -155,10 +157,11 @@ export function NotesRail(props: NotesRailProps) {
     arc, pauseArc, setArcPolicy,
     annotations, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
     editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText,
-    saveAnnotationEdit, deleteAnnotation, protectionMessage = null,
+    saveAnnotationEdit, deleteAnnotation, protectionMessage = null, header,
   } = props;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
+      {header}
       <SectionHeader style={{ marginTop: 0 }}>Capture</SectionHeader>
       {selection ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

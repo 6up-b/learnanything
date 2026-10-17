@@ -122,6 +122,9 @@ interface PdfReaderPaneProps {
    *  the width changes (zoom, resize): the Reader's one-mark-per-screenful
    *  spacing places marks on this layout (RW3a review F5). */
   onPageLayout?: (layout: PdfPageLayout) => void;
+  /** RW1b: blocks covered by an opaque fold while the learner tries the next
+   *  step (the original-page view's fold, spec §4.2). */
+  coveredSpans?: ReadonlySet<string>;
 }
 
 interface FindMatch {
@@ -164,6 +167,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     inlineNote = null,
     marks = null,
     onPageLayout,
+    coveredSpans,
   }: PdfReaderPaneProps,
   handleRef,
 ) {
@@ -899,6 +903,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
                 registerPage={registerPage}
                 blocks={blocksByPage.get(page) ?? NO_BLOCKS}
                 guidanceSpans={guidanceSpans}
+                {...(coveredSpans ? { coveredSpans } : {})}
                 activeSpan={framedSpan}
                 findQuery={findOpen ? findQuery.trim() : ""}
                 inlineNote={inlineNote}
@@ -1029,6 +1034,7 @@ interface PdfPageProps {
   registerPage: (page: number, element: HTMLElement | null) => void;
   blocks: ReaderPdfBlockDto[];
   guidanceSpans: Set<string>;
+  coveredSpans?: ReadonlySet<string>;
   activeSpan: string | null;
   findQuery: string;
   inlineNote: { spanId: string; node: ReactNode } | null;
@@ -1059,6 +1065,7 @@ const PdfPage = memo(function PdfPage({
   registerPage,
   blocks,
   guidanceSpans,
+  coveredSpans,
   activeSpan,
   findQuery,
   inlineNote,
@@ -1263,11 +1270,15 @@ const PdfPage = memo(function PdfPage({
               // dashed frame. A selection paints its own words (the layer).
               const active = activeSpan === b.spanId;
               const guided = guidanceSpans.has(b.spanId);
+              // RW1b: the next step's fold on the original page -- an opaque
+              // cover over the book's next lines while the learner tries.
+              const covered = Boolean(coveredSpans?.has(b.spanId));
               return (
                 <div
                   key={b.spanId}
                   data-span-id={b.spanId}
-                  title={guided ? "Worth a second look for your learning path" : undefined}
+                  title={covered ? "Folded while you try the next step" : guided ? "Worth a second look for your learning path" : undefined}
+                  {...(covered ? { "data-folded": "" } : {})}
                   style={{
                     position: "absolute",
                     left: b.bbox[0] * scale,
@@ -1275,8 +1286,8 @@ const PdfPage = memo(function PdfPage({
                     width: (b.bbox[2] - b.bbox[0]) * scale,
                     height: (b.bbox[3] - b.bbox[1]) * scale,
                     pointerEvents: "none",
-                    border: active ? `2px solid ${COLOR.amber}` : guided ? `2px dashed ${COLOR.purplePill}` : "2px solid transparent",
-                    background: active ? "rgba(245, 166, 35, 0.06)" : guided ? "rgba(90, 77, 138, 0.10)" : "transparent",
+                    border: covered ? `1px dotted ${COLOR.textDim}` : active ? `2px solid ${COLOR.amber}` : guided ? `2px dashed ${COLOR.purplePill}` : "2px solid transparent",
+                    background: covered ? COLOR.bg : active ? "rgba(245, 166, 35, 0.06)" : guided ? "rgba(90, 77, 138, 0.10)" : "transparent",
                     // Paint changes are instant, never eased: the Reader does not animate (attention
                     // budget, UX §4.12; gate G54).
                   }}
