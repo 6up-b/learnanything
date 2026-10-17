@@ -78,7 +78,17 @@ async function selectProse() {
 beforeEach(() => {
   vi.resetAllMocks();
   setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 } });
-  try { window.localStorage.clear(); } catch { /* storage may be unavailable */ }
+  // jsdom's storage is shadowed in this Node; give the screen a real one.
+  const store = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+    },
+  });
   setWidth(1600);
   Element.prototype.scrollIntoView = vi.fn();
   api.readerRenderView.mockResolvedValue(view);
@@ -115,8 +125,9 @@ it("work through this on a selected problem opens the working posture at once, b
   expect(width).toBe(800);
   const divider = screen.getByRole("separator", { name: "resize the workbench" });
   expect(divider.getAttribute("aria-valuemin")).toBe("480");
-  // The book stays: the source column still shows the passage.
-  expect(screen.getByText(PROSE)).toBeTruthy();
+  // The book stays: the source column still shows the passage, beside the stem.
+  expect(within(screen.getByRole("main")).getByText(PROSE)).toBeTruthy();
+  expect(within(pane).getByText(PROSE)).toBeTruthy();
   expect(screen.queryByText(/The book is hidden/)).toBeNull();
 });
 

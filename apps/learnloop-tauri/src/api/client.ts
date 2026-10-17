@@ -2,6 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
+  WorkbenchOpenInput,
+  WorkbenchSaveStepDto,
+  WorkbenchSaveStepInput,
+  WorkbenchSessionDto,
+  WorkbenchSubmitDto,
+  WorkbenchSubmitInput,
+  WorkbenchSummaryDto,
   ReaderActivityEvent,
   CueDensity,
   ReaderCueAction,
@@ -1449,6 +1456,35 @@ export const api = {
   // reader.* (P3 slice 3: authoring + coach + maintenance, arcs + depth + primes, restoration)
   readerAuthorQA: (input: ReaderAuthorQAInput) =>
     mutatingReader(call<ReaderAuthoredCardDto>("reader_author_qa", { input }), [TAG.queue, TAG.proposals]),
+  // Reader workbench RW2a (the resumable scratchpad): desktop only. A session
+  // and its steps are learner work; only the submit writes an attempt.
+  workbenchOpen: (input: WorkbenchOpenInput) =>
+    mutatingReader(call<{ version: number; session: WorkbenchSessionDto; resumed: boolean }>("workbench_open", { input }), [TAG.queue, TAG.proposals]),
+  workbenchGet: (input: { sessionId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_get", { input }),
+  workbenchSaveStep: (input: WorkbenchSaveStepInput) => call<WorkbenchSaveStepDto>("workbench_save_step", { input }),
+  workbenchSetBook: (input: { sessionId: string; visible: boolean }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_set_book", { input }),
+  workbenchLeave: (input: { sessionId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_leave", { input }),
+  workbenchAbandon: (input: { sessionId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_abandon", { input }),
+  workbenchReopen: (input: { sessionId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_reopen", { input }),
+  workbenchRefreshImport: (input: { sessionId: string }) =>
+    mutatingReader(call<{ version: number; session: WorkbenchSessionDto }>("workbench_refresh_import", { input }), [TAG.queue]),
+  workbenchBind: (input: { sessionId: string; practiceItemId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto }>("workbench_bind", { input }),
+  workbenchRetryImport: (input: { sessionId: string }) =>
+    mutatingReader(call<{ version: number; session: WorkbenchSessionDto }>("workbench_retry_import", { input }), [TAG.queue, TAG.proposals]),
+  workbenchSubmit: (input: WorkbenchSubmitInput) =>
+    mutating(ATTEMPT_TAGS, call<WorkbenchSubmitDto>("workbench_submit", { input })),
+  workbenchSessionForAttempt: (input: { attemptId: string }) =>
+    call<{ version: number; session: WorkbenchSessionDto | null }>("workbench_session_for_attempt", { input }),
+  workbenchForItem: (input: { practiceItemId: string }) =>
+    call<{ version: number; sessions: WorkbenchSummaryDto[] }>("workbench_for_item", { input }),
+  workbenchForSource: (input: { extractionId: string }) =>
+    call<{ version: number; sessions: WorkbenchSummaryDto[]; openSessionDays: number }>("workbench_for_source", { input }),
   readerImportExercise: (input: ReaderImportExerciseInput) =>
     mutatingReader(call<ReaderExerciseImportReceiptDto>("reader_import_exercise", { input }), [TAG.queue, TAG.proposals]),
   readerExerciseImportStatus: (input: { batchId: string }) =>

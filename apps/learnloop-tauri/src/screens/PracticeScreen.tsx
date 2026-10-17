@@ -32,6 +32,26 @@ import { expectedAnswerText, simplePracticeFeedback } from "../app/practiceFeedb
 import { DetailsToggle, PrimaryAction, QuietAction, VoicePanel, quietLine, quietLink } from "../components/PlainParts";
 import { useAnswerExposure, type RecordDisplay } from "./feedback/answerExposure";
 import { AnswerWaiting } from "./feedback/FeedbackSurface";
+import type { WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
+import { Workbench } from "./workbench/Workbench";
+
+/** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
+const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
+function rememberedWorkInSteps(): boolean {
+  try {
+    return window.localStorage.getItem(WORK_IN_STEPS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function rememberWorkInSteps(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(WORK_IN_STEPS_KEY, "1");
+    else window.localStorage.removeItem(WORK_IN_STEPS_KEY);
+  } catch {
+    // A convenience only: the button still works without storage.
+  }
+}
 
 type CommittedAttemptRecovery = {
   attemptId: string;
@@ -567,6 +587,52 @@ export function PracticeScreen({
   const probeActive = Boolean(probe?.active && probe.presentationId);
   const interactionReady = practiceReady && committedRecovery === null && !vaultChanging;
 
+  // RW2a: "Work in steps" on an ordinary serve (never a diagnostic check, a
+  // teach-back, a guided redo or a primed retry), behind workbench.enabled.
+  const workbenchOffered = algoConfig().workbench && interactionReady && !probeActive && !isTeachBack && !redo && !primed;
+  const [wbSession, setWbSession] = useState<WorkbenchSessionDto | null>(null);
+  const [wbItemSessions, setWbItemSessions] = useState<WorkbenchSummaryDto[]>([]);
+  const wbAutoOpened = useRef(false);
+  const wbOrigin = planPresentationId ? "plan" : "practice";
+  const openWorkbench = useCallback(async () => {
+    if (!item) return;
+    try {
+      const result = await api.workbenchOpen({
+        origin: wbOrigin, entry: wbOrigin === "plan" ? "plan" : "practice_screen",
+        practiceItemId: item.id, stemMd: item.prompt,
+      });
+      setWbSession(result.session);
+    } catch (error) {
+      onError(errorMessage(error, "Couldn't open the step workbench."));
+    }
+  }, [item, onError, wbOrigin]);
+  const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
+    try {
+      const result = entry.status === "abandoned"
+        ? await api.workbenchReopen({ sessionId: entry.sessionId })
+        : await api.workbenchGet({ sessionId: entry.sessionId });
+      setWbSession(result.session);
+    } catch (error) {
+      onError(errorMessage(error, "Couldn't reopen your steps."));
+    }
+  }, [onError]);
+  const refreshWbItemSessions = useCallback(() => {
+    if (!item) return;
+    void api.workbenchForItem({ practiceItemId: item.id })
+      .then((result) => setWbItemSessions(result.sessions))
+      .catch(() => setWbItemSessions([]));
+  }, [item]);
+  useEffect(() => {
+    if (!workbenchOffered) return;
+    refreshWbItemSessions();
+    if (!wbAutoOpened.current && rememberedWorkInSteps()) {
+      wbAutoOpened.current = true;
+      void openWorkbench();
+    }
+  }, [workbenchOffered, refreshWbItemSessions, openWorkbench]);
+  const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
+  const stepsMode = workbenchOffered && wbSession !== null;
+
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
     return () => onAskAvailabilityChange(false);
@@ -575,6 +641,8 @@ export function PracticeScreen({
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (vaultFrozen.current) return;
+      // RW2a: in steps, the workbench owns the keys (Esc twice is Leave for now).
+      if (stepsMode) return;
       if (committedRecovery) {
         if (event.key.toLowerCase() === "r") {
           event.preventDefault();
@@ -1345,6 +1413,56 @@ export function PracticeScreen({
               ) : null}
             </div>
           ) : null}
+          {workbenchOffered && !stepsMode ? (
+            // RW2a (D9): a remembered choice, beside the answer box, never instead of it.
+            <div style={{ display: "flex", gap: 12, alignItems: "baseline", marginTop: 6, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="queue-row"
+                style={{ padding: "0 7px" }}
+                onClick={() => {
+                  rememberWorkInSteps(true);
+                  void openWorkbench();
+                }}
+              >
+                Work in steps
+              </button>
+              {wbOpenEntry ? (
+                <button type="button" style={quietLink} onClick={() => void resumeWorkbench(wbOpenEntry)}>
+                  {wbOpenEntry.status === "abandoned" ? "reopen your steps" : "resume your steps"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {stepsMode && wbSession ? (
+            <div data-workbench-pane="" data-layout="full" style={{ marginTop: 10 }}>
+              <Workbench
+                key={wbSession.sessionId}
+                initial={wbSession}
+                layout="full"
+                hideProblem
+                autoFocus
+                practiceSessionId={session.sessionId}
+                schedulerCandidateId={schedulerCandidateId}
+                planPresentationId={planPresentationId}
+                onLeave={() => {
+                  setWbSession(null);
+                  refreshWbItemSessions();
+                }}
+                onAbandoned={() => {
+                  setWbSession(null);
+                  refreshWbItemSessions();
+                }}
+                onAnswerBox={() => {
+                  rememberWorkInSteps(false);
+                  setWbSession(null);
+                  refreshWbItemSessions();
+                }}
+                onSubmitted={(result) => onFeedback(result.attempt.attemptId)}
+                onError={onError}
+              />
+            </div>
+          ) : (<>
           <div className="answer-editor-slot" ref={editorSlotRef}>
             <MathLiveEditor
               value={answer}
@@ -1592,6 +1710,7 @@ export function PracticeScreen({
               </div>
             ) : null}
           </div>
+          </>)}
           </>
           )}
         </Card>

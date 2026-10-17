@@ -7859,3 +7859,153 @@ export interface TodayHeadlineDto {
   expectedRecallTooltip?: string;
   line?: string;
 }
+
+// -- Reader workbench RW2a: the resumable scratchpad (spec_reader_workbench_v1 §5.1, §5.7) --
+
+export type WorkbenchOrigin = "reader" | "practice" | "plan";
+export type WorkbenchEntry =
+  | "work_through"
+  | "resume"
+  | "check_me"
+  | "practice_this"
+  | "path_exercise"
+  | "discriminating_problem"
+  | "practice_screen"
+  | "plan";
+export type WorkbenchStatus = "open" | "submitted" | "abandoned";
+export type WorkbenchImportStatus = "none" | "pending" | "bound" | "failed";
+export type WorkbenchStepKind = "step" | "stuck";
+
+export interface WorkbenchStepVersionDto {
+  stepId: string;
+  bodyMd: string;
+  createdAt: string;
+}
+
+export interface WorkbenchStepDto {
+  /** The newest version's row id (what an edit supersedes). */
+  stepId: string;
+  /** The step's first row: a stable key across its versions. */
+  chainId: string;
+  ordinal: number;
+  kind: WorkbenchStepKind;
+  bodyMd: string;
+  deleted: boolean;
+  createdAt: string;
+  editedAt: string;
+  /** Earlier texts, newest first (shown dimmed on request). */
+  versions: WorkbenchStepVersionDto[];
+}
+
+/** What the attempt will record, stated before Submit (spec §5.1, G62). */
+export interface WorkbenchRecordDto {
+  bookCounted: boolean;
+  bookVisible: boolean;
+  hints: number;
+  questionHints: number;
+  ownAttempt: boolean;
+  line: string;
+  footer: string;
+  stuckNote: string | null;
+}
+
+export interface WorkbenchPartDto {
+  practiceItemId: string;
+  title: string;
+  prompt: string;
+}
+
+export interface WorkbenchSessionDto {
+  version?: number;
+  sessionId: string;
+  practiceItemId: string | null;
+  stemMd: string;
+  importStatus: WorkbenchImportStatus;
+  importError: string | null;
+  origin: WorkbenchOrigin;
+  entry: WorkbenchEntry;
+  parentSessionId: string | null;
+  extractionId: string | null;
+  spanIds: string[];
+  sourceVisible: boolean;
+  sourceHiddenAt: string | null;
+  sourceShownAt: string | null;
+  practiceSessionId: string | null;
+  helpStyle: string | null;
+  status: WorkbenchStatus;
+  attemptId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  steps: WorkbenchStepDto[];
+  lastEditedStepId: string | null;
+  record: WorkbenchRecordDto;
+  /** A multi-part import asks which part this problem is. */
+  parts: WorkbenchPartDto[] | null;
+  sourceId: string | null;
+}
+
+/** One unfinished problem: the ✎ mark, the rail, the practice card, RW6a's recap. */
+export interface WorkbenchSummaryDto {
+  sessionId: string;
+  status: WorkbenchStatus;
+  practiceItemId: string | null;
+  stemMd: string;
+  origin: WorkbenchOrigin;
+  entry: WorkbenchEntry;
+  extractionId: string | null;
+  spanIds: string[];
+  importStatus: WorkbenchImportStatus;
+  sourceVisible: boolean;
+  stepCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** Open and untouched for longer than workbench.open_session_days. */
+  unfinished: boolean;
+}
+
+export interface WorkbenchOpenInput {
+  origin: WorkbenchOrigin;
+  entry: WorkbenchEntry;
+  stemMd?: string | null;
+  practiceItemId?: string | null;
+  extractionId?: string | null;
+  spanIds?: string[];
+  parentSessionId?: string | null;
+  sourceVisible?: boolean | null;
+  clientIdempotencyKey?: string | null;
+  importRequest?: ReaderImportExerciseInput | null;
+}
+
+export interface WorkbenchSaveStepInput {
+  sessionId: string;
+  clientIdempotencyKey: string;
+  op: "add" | "edit" | "delete" | "restore";
+  stepId?: string | null;
+  afterStepId?: string | null;
+  kind?: WorkbenchStepKind;
+  bodyMd?: string | null;
+}
+
+export interface WorkbenchSaveStepDto {
+  version?: number;
+  step: WorkbenchStepDto;
+  savedAt: string;
+  record: WorkbenchRecordDto;
+}
+
+export interface WorkbenchSubmitInput {
+  sessionId: string;
+  practiceSessionId?: string | null;
+  answerConfidence?: number | null;
+  latencySeconds?: number | null;
+  schedulerCandidateId?: string | null;
+  planPresentationId?: string | null;
+}
+
+export interface WorkbenchSubmitDto {
+  version?: number;
+  attempt: AttemptResultDto;
+  session: WorkbenchSessionDto;
+  practiceSession: SessionSnapshot | null;
+}

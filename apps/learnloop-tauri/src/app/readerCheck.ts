@@ -16,6 +16,8 @@ export interface ReaderReturn {
   card: SourceLibraryCard;
   spanId: string;
   practiceItemId: string;
+  /** RW2a: the attempt was a Reader workbench submit; back opens its problem. */
+  workbenchAttemptId?: string;
 }
 
 /** Whether going back from `practiceItemId` returns to the Reader's passage. */

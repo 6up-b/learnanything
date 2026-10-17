@@ -49,6 +49,8 @@ export interface ExerciseImportState {
   quote: string;
   result: ReaderExerciseImportResult | null;
   error: string | null;
+  /** The passages the exercise was selected from (RW2a's workbench anchor). */
+  spanIds?: string[];
 }
 
 export interface NotesRailProps {
@@ -75,6 +77,10 @@ export interface NotesRailProps {
   exerciseImport: ExerciseImportState | null;
   setExerciseImport: Dispatch<SetStateAction<ExerciseImportState | null>>;
   exerciseImportActive: boolean;
+  /** RW2a: "work through this" on the selection (absent while the workbench is off). */
+  onWorkThrough?: () => void;
+  /** RW2a: "work through this" on an imported exercise. */
+  onWorkThroughItem?: (item: ReaderExerciseImportResult["items"][number]) => void;
   // make your own practice
   authoringOpen: boolean;
   setAuthoringOpen: Dispatch<SetStateAction<boolean>>;
@@ -139,7 +145,7 @@ export function NotesRail(props: NotesRailProps) {
     visible, offline, busy, pdfSurfaceActive, activeSpan, activeBlock,
     selection, selectionActions, editingCapture, setEditingCapture, clearSelection,
     editCaptureText, resetCaptureText, note, setNote, captureHighlight, invokePreset,
-    importExercise, exerciseImport, setExerciseImport, exerciseImportActive,
+    importExercise, exerciseImport, setExerciseImport, exerciseImportActive, onWorkThrough, onWorkThroughItem,
     authoringOpen, setAuthoringOpen, setAuthoringSpanId, authoringQuote, setAuthoringQuote,
     authoredQuestion, setAuthoredQuestion, authoredAnswer, setAuthoredAnswer,
     authoredCardId, setAuthoredCardId, authoredStatus, authoringBusy, saveOwnQuestion,
@@ -236,6 +242,14 @@ export function NotesRail(props: NotesRailProps) {
           {!offline && !protectionMessage ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>EXERCISES</Faint>
+              {onWorkThrough ? (
+                <>
+                  <PrimaryButton onClick={() => onWorkThrough()} disabled={busy}>work through this ▸</PrimaryButton>
+                  <MeaningLabel>
+                    opens beside the book now, in steps that save as you type; checks and hints are set up in the background.
+                  </MeaningLabel>
+                </>
+              ) : null}
               <PrimaryButton
                 onClick={() => void importExercise()}
                 disabled={busy || exerciseImportActive || selectionActions.includes("exercise_import")}
@@ -302,6 +316,15 @@ export function NotesRail(props: NotesRailProps) {
                     </Faint>
                     {item.classificationReason ? (
                       <Faint style={{ fontSize: 10 }}>{item.classificationReason}</Faint>
+                    ) : null}
+                    {onWorkThroughItem ? (
+                      <button
+                        type="button"
+                        onClick={() => onWorkThroughItem(item)}
+                        style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+                      >
+                        work through this ▸
+                      </button>
                     ) : null}
                   </div>
                 ))}

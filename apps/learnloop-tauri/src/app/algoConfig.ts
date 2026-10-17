@@ -20,6 +20,10 @@ export interface AlgoDisplayConfig {
    *  simple practice card, feedback, short-check results, repair step and
    *  session finish, or "classic" for the screens exactly as they were. */
   practiceFeedback: "simple" | "classic";
+  /** Reader workbench RW2a's kill switch (`workbench.enabled`): the sidecar
+   *  sends a `workbench` key only while it is on, so false until it says so,
+   *  and off leaves every screen exactly as before RW2a. */
+  workbench: boolean;
 }
 
 const DEFAULTS: AlgoDisplayConfig = {
@@ -28,7 +32,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   tauFollowupNats: 0.05,
   gateScoreThreshold: 0.5,
   stuckPrompt: false,
-  practiceFeedback: "simple"
+  practiceFeedback: "simple",
+  workbench: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -39,6 +44,7 @@ export function setAlgoConfig(config: unknown): void {
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown };
+    workbench?: { enabled?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -47,7 +53,8 @@ export function setAlgoConfig(config: unknown): void {
     gateScoreThreshold: asNumber(root.scheduler?.followup?.gateScoreThreshold, DEFAULTS.gateScoreThreshold),
     stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
-    practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple"
+    practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
+    workbench: root.workbench?.enabled === true
   };
 }
 

@@ -57,7 +57,17 @@ function props(overrides: Partial<ComponentProps<typeof PracticeScreen>> = {}): 
 
 beforeEach(() => {
   for (const mock of Object.values(api)) mock.mockReset();
-  try { window.localStorage.clear(); } catch { /* storage may be unavailable */ }
+  // jsdom's storage is shadowed in this Node; give the screen a real one.
+  const store = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, String(v)),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+    },
+  });
   setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 } });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   api.getPracticeItem.mockResolvedValue({

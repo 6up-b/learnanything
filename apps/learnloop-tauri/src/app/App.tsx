@@ -30,6 +30,9 @@ import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
+import { readerTargetBack, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
+import { algoConfig } from "./algoConfig";
+import type { ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -206,6 +209,9 @@ export function App() {
   // session to begin.
   const [readerReturn, setReaderReturn] = useState<ReaderReturn | null>(null);
   const [pendingCheckMe, setPendingCheckMe] = useState<ReaderCheckMeRequest | null>(null);
+  // RW2a (UX S6): back from a Reader workbench attempt's feedback opens its
+  // problem read-only in the Reader; cleared once the Reader has shown it.
+  const [readerWorkbenchAttempt, setReaderWorkbenchAttempt] = useState<string | null>(null);
   // Same stash-and-resume for a guided redo begun with NO session open:
   // start_guided_redo has already committed the repair episode to treatment on
   // the redo item, so dropping the DTO here would strand that episode exactly
@@ -597,6 +603,29 @@ export function App() {
     }
   }
 
+  // RW2a: a Reader workbench submit goes to feedback, keeping the way back to
+  // its problem; the submit may have started the practice session.
+  const onReaderWorkbenchSubmitted: NonNullable<ReaderWorkbenchProps["onSubmitted"]> = (result, at) => {
+    setSession((current) => sessionAfterWorkbenchSubmit(current, result.practiceSession));
+    setReaderReturn(workbenchReturn(result, at));
+    setPracticeOffer(null);
+    setPrimedRetry(false);
+    setRedoContext(null);
+    setAskTarget(null);
+    setPracticeItemId(result.session.practiceItemId);
+    setAttemptId(result.attempt.attemptId);
+    setTab("today");
+    setTodayStage("feedback");
+  };
+  const readerWorkbench: ReaderWorkbenchProps | undefined = algoConfig().workbench
+    ? {
+        practiceSessionId: session?.sessionId ?? null,
+        onSubmitted: onReaderWorkbenchSubmitted,
+        initialAttemptId: readerWorkbenchAttempt,
+        onInitialAttemptShown: () => setReaderWorkbenchAttempt(null),
+      }
+    : undefined;
+
   function checkMeFromReader(request: ReaderCheckMeRequest) {
     if (!session) {
       setPendingCheckMe(request);
@@ -607,10 +636,13 @@ export function App() {
     void pickCheckMe(request, session.sessionId);
   }
 
-  /** Back from a Reader check's practice or feedback: the passage, in the Reader. */
-  function backFromPractice() {
+  /** Back from a Reader check's practice or feedback: the passage, in the
+   *  Reader; from a Reader workbench attempt (RW2a), its problem read-only. */
+  function backFromPractice(options: { showProblem?: boolean } = {}) {
     if (readerReturn && returnsToReader(readerReturn, practiceItemId)) {
-      setReaderSource({ card: readerReturn.card, spanId: readerReturn.spanId });
+      const target = readerTargetBack(readerReturn, { showProblem: options.showProblem !== false });
+      setReaderSource(target.source);
+      setReaderWorkbenchAttempt(target.initialAttemptId);
       setReaderOpenSeq((seq) => seq + 1);
       setReaderReturn(null);
       setTodayStage("queue");
@@ -1185,7 +1217,7 @@ export function App() {
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
             onContinueDiagnostic={openPractice}
-            onBack={backFromPractice}
+            onBack={() => backFromPractice()}
             onCheckpointCleared={clearLocalCheckpoint}
             onDraftSaved={onPracticeDraft}
             onTeachBackActive={onTeachBackActive}
@@ -1236,8 +1268,8 @@ export function App() {
             onOpenNext={openPractice}
             nextPlan={session && planNext && !fromReader ? { sessionId: session.sessionId } : null}
             onPlanStep={routePlanStep}
-            onNext={fromReader ? backFromPractice : () => setTodayStage("queue")}
-            onBack={backFromPractice}
+            onNext={fromReader ? () => backFromPractice({ showProblem: false }) : () => setTodayStage("queue")}
+            onBack={() => backFromPractice()}
             onOpenNotes={() => gotoTab("library")}
             onPrimedRetry={openPrimedRetry}
             onGuidedRedo={openGuidedRedo}
@@ -1374,11 +1406,11 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} />
+            <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />
           </div>
         );
       }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} />;
+      return <ReaderScreen key={readerOpenSeq} onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} />;
     }
     if (tab === "maintain") {
       return (

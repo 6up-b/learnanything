@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { COLOR, FONT_MONO } from "../components/term";
 import { MarkdownMath } from "./MarkdownMath";
 
@@ -74,15 +74,42 @@ function splitBlocks(value: string): Block[] {
 }
 
 const SCROLL_STYLE = { flex: 1, overflow: "auto", minHeight: 0 } as const;
+// Reader workbench RW2a: a step grows with its text inside the step list.
+const COMPACT_STYLE = { minHeight: 0 } as const;
+
+/** What a key in the active block means for the whole value (RW2a's steps). */
+export interface LiveMarkdownKeyInfo {
+  /** The caret is at the very end of the value (the last block's end). */
+  atEnd: boolean;
+  /** The whole value is blank. */
+  empty: boolean;
+}
 
 export function LiveMarkdownEditor({
   value,
   onChange,
-  placeholder = "type markdown — math renders as you move off a block"
+  placeholder = "type markdown — math renders as you move off a block",
+  ariaLabel,
+  focusable = false,
+  compact = false,
+  focusSignal = 0,
+  onKeyDown,
+  onBlur,
 }: {
   value: string;
   onChange: (next: string) => void;
   placeholder?: string;
+  /** The editor's accessible name (the textarea's, and the box's at rest). */
+  ariaLabel?: string;
+  /** At rest the editor is a focusable text box; focusing it starts editing. */
+  focusable?: boolean;
+  /** Size to the content instead of filling and scrolling a pane. */
+  compact?: boolean;
+  /** Each new non-zero value opens the last block with the caret at the end. */
+  focusSignal?: number;
+  /** A key in the active block, with where the caret is in the whole value. */
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLTextAreaElement>, info: LiveMarkdownKeyInfo) => void;
+  onBlur?: () => void;
 }) {
   // While a block is active we hold the frozen text on either side of it.
   const [editing, setEditing] = useState<{ before: string; after: string } | null>(null);
@@ -107,6 +134,19 @@ export function LiveMarkdownEditor({
     if (!editing) return;
     onChange(editing.before + next + editing.after);
   }
+
+  /** Open the last block (or an empty one) with the caret at the end. */
+  function startEditAtEnd() {
+    const last = blocks[blocks.length - 1];
+    if (last) startEdit(last);
+    else startEditEmpty();
+  }
+
+  // A focus request (RW2a: a new step, Alt+↑/↓ between steps) is the
+  // learner's own act; nothing LearnLoop starts sends one.
+  useEffect(() => {
+    if (focusSignal > 0) startEditAtEnd();
+  }, [focusSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus + caret-to-end whenever a block goes active.
   useLayoutEffect(() => {
@@ -148,12 +188,29 @@ export function LiveMarkdownEditor({
     );
   }
 
+  const keyProps = onKeyDown
+    ? {
+        onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+          const node = event.currentTarget;
+          const caretAtDraftEnd = node.selectionStart === node.value.length && node.selectionEnd === node.value.length;
+          onKeyDown(event, {
+            atEnd: caretAtDraftEnd && (editing?.after ?? "").trim() === "",
+            empty: value.trim() === "",
+          });
+        },
+      }
+    : {};
   const textarea = (
     <textarea
       ref={taRef}
       value={draft}
       onChange={(event) => onDraftChange(event.target.value)}
-      onBlur={() => setEditing(null)}
+      onBlur={() => {
+        setEditing(null);
+        onBlur?.();
+      }}
+      {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
+      {...keyProps}
       spellCheck={false}
       rows={1}
       style={{
@@ -197,9 +254,21 @@ export function LiveMarkdownEditor({
     );
   }
 
+  // At rest, a focusable editor is one labelled text box (UX §5.2: "each step
+  // is a labelled text box"); focusing it starts editing at the end.
+  const restProps =
+    focusable && !editing
+      ? {
+          role: "textbox",
+          tabIndex: 0,
+          "aria-label": ariaLabel,
+          "aria-multiline": true,
+          onFocus: () => startEditAtEnd(),
+        }
+      : {};
   return (
-    <div className="ll-scroll" style={SCROLL_STYLE}>
-      <div style={{ padding: "12px 18px", fontSize: 13, lineHeight: 1.65 }}>{body}</div>
+    <div className="ll-scroll" style={compact ? COMPACT_STYLE : SCROLL_STYLE} {...restProps}>
+      <div style={{ padding: compact ? "2px 8px" : "12px 18px", fontSize: 13, lineHeight: 1.65 }}>{body}</div>
     </div>
   );
 }

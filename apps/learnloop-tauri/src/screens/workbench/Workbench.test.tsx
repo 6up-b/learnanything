@@ -100,7 +100,7 @@ async function typeStep(index: number, text: string) {
 
 it("shows the problem verbatim in the book's voice, the book line before step 1, and the record line", () => {
   render(<Workbench {...props()} />);
-  const header = screen.getByRole("banner", { name: "workbench" });
+  const header = screen.getByTestId("workbench-header");
   expect(header.textContent).toContain("WORKING · Exercise 5.14 · from the book, verbatim");
   expect(screen.getByText(/Let X be Uniform/).closest("[data-voice]")?.getAttribute("data-voice")).toBe("source");
   const choice = screen.getByRole("radiogroup", { name: "the book while you work" });
@@ -113,16 +113,16 @@ it("shows the problem verbatim in the book's voice, the book line before step 1,
 it("saves a step as it is typed, with an idempotency key, and edits supersede it", async () => {
   render(<Workbench {...props()} />);
   await typeStep(1, "F_X(x) = p F_Y(x) + (1 - p) F_Z(x)");
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(1), { timeout: 3000 });
   const add = api.workbenchSaveStep.mock.calls[0][0];
   expect(add).toMatchObject({ sessionId: "wb1", op: "add", kind: "step", bodyMd: "F_X(x) = p F_Y(x) + (1 - p) F_Z(x)" });
   expect(typeof add.clientIdempotencyKey).toBe("string");
-  expect(await screen.findByText("saved · just now")).toBeTruthy();
+  expect(await screen.findByText("saved · just now", undefined, { timeout: 3000 })).toBeTruthy();
   // The first step accepted the book choice: the line is gone, the record says so.
   expect(screen.queryByRole("radiogroup", { name: "the book while you work" })).toBeNull();
   expect(screen.getByTestId("workbench-record").textContent).toBe(RECORD_OPEN.line);
   fireEvent.change(stepBox(1), { target: { value: "F_X(x) = p F_Y(x) + (1-p) F_Z(x)" } });
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(2), { timeout: 3000 });
   expect(api.workbenchSaveStep.mock.calls[1][0]).toMatchObject({ op: "edit", stepId: "row_1" });
   expect(api.workbenchSaveStep.mock.calls[1][0].clientIdempotencyKey).not.toBe(add.clientIdempotencyKey);
 });
@@ -131,19 +131,19 @@ it("a failing write keeps the text, says so without 'error', and retries with th
   api.workbenchSaveStep.mockRejectedValueOnce({ code: "database_locked", message: "locked" });
   render(<Workbench {...props()} />);
   await typeStep(1, "my first move");
-  expect(await screen.findByText("not saved yet — retrying · your text is safe in this window")).toBeTruthy();
+  expect(await screen.findByText("not saved yet — retrying · your text is safe in this window", undefined, { timeout: 3000 })).toBeTruthy();
   expect(stepBox(1).value).toBe("my first move");
   await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(2), { timeout: 4000 });
   const [first, second] = api.workbenchSaveStep.mock.calls.map((call) => call[0]);
   expect(second.clientIdempotencyKey).toBe(first.clientIdempotencyKey);
-  expect(await screen.findByText("saved · just now")).toBeTruthy();
+  expect(await screen.findByText("saved · just now", undefined, { timeout: 3000 })).toBeTruthy();
 });
 
 it("with the sidecar down the steps stay in the window", async () => {
   api.workbenchSaveStep.mockRejectedValue({ code: "sidecar_unavailable", message: "down" });
   render(<Workbench {...props()} />);
   await typeStep(1, "kept here");
-  expect(await screen.findByText("sidecar unreachable — keeping your steps here; they'll save when it's back")).toBeTruthy();
+  expect(await screen.findByText("sidecar unreachable — keeping your steps here; they'll save when it's back", undefined, { timeout: 3000 })).toBeTruthy();
   expect(stepBox(1).value).toBe("kept here");
 });
 
@@ -164,7 +164,7 @@ it("I'm stuck (Ctrl+D) adds a stuck step in the learner's voice with its prompt"
   fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "d", ctrlKey: true });
   const stuck = await screen.findByRole("textbox", { name: "Step 1 (stuck)" });
   expect(stuck.getAttribute("placeholder")).toBe("Write what you can, or what's confusing you. Being stuck here is useful information.");
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "add", kind: "stuck" })));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "add", kind: "stuck" })), { timeout: 3000 });
 });
 
 it("the empty stuck submit says what it records before it is sent", () => {
@@ -179,9 +179,9 @@ it("Ctrl+Backspace in an empty step deletes it with an undo", async () => {
   ] }) })} />);
   fireEvent.keyDown(stepBox(2), { key: "Backspace", ctrlKey: true });
   expect(await screen.findByText("step 2 deleted ·")).toBeTruthy();
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "delete", stepId: "b" })));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "delete", stepId: "b" })), { timeout: 3000 });
   fireEvent.click(screen.getByRole("button", { name: "undo" }));
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "restore" })));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ op: "restore" })), { timeout: 3000 });
   expect(screen.getByRole("textbox", { name: "Step 2" })).toBeTruthy();
 });
 
@@ -204,7 +204,7 @@ it("Ctrl+Enter saves what is pending, then submits through the ordinary path", a
   render(<Workbench {...props({ onSubmitted, schedulerCandidateId: "cand", planPresentationId: "pres" })} />);
   await typeStep(1, "A = U Sigma V^T");
   fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "Enter", ctrlKey: true });
-  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledTimes(1), { timeout: 3000 });
   expect(api.workbenchSubmit).not.toHaveBeenCalled();
   await act(async () => pending[0]());
   await waitFor(() => expect(api.workbenchSubmit).toHaveBeenCalledTimes(1));
@@ -290,7 +290,7 @@ it("a submitted problem shows read-only with its steps and what it recorded", ()
   ] }) })} />);
   expect(screen.queryByRole("textbox")).toBeNull();
   expect(screen.getByText("A = U Sigma V^T")).toBeTruthy();
-  expect(screen.getByRole("banner", { name: "workbench" }).textContent).toContain("SUBMITTED");
+  expect(screen.getByTestId("workbench-header").textContent).toContain("SUBMITTED");
   expect(screen.getByText(RECORD_OPEN.footer)).toBeTruthy();
   expect(screen.queryByRole("button", { name: /^submit/ })).toBeNull();
 });

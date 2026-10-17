@@ -60,6 +60,8 @@ export type CueSurface = "text" | "pdf" | "watch" | "none";
 
 export interface ReaderCuesInput {
   render: ReaderRenderViewDto | null;
+  /** RW2a: the source pane beside the workbench (no marks while working). */
+  working?: boolean;
   offline: boolean;
   guidePlan: ReaderGuidePlanDto | null;
   /** Re-read the plan after a tap or a preference change. */
@@ -135,6 +137,8 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     render, offline, guidePlan, reloadGuidePlan, skimming, restoredSpanId, surface, pdfBlocks, pdfLayout,
     bodyRef, layoutKey, spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement, onCheckMe, onError,
   } = input;
+  // RW2a: the workbench's source pane while working shows no LearnLoop marks.
+  const working = input.working ?? false;
   const cues = render && !offline && guidePlan?.cues && guidePlan.extractionId === render.extractionId ? guidePlan.cues : null;
   const [placedIds, setPlacedIds] = useState<PlacedIds>(NO_PLACEMENT);
   const [openCueId, setOpenCueId] = useState<string | null>(null);
@@ -209,7 +213,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     const next = placeCueMarks({
       marks: cues.marks,
       muted: skimming,
-      working: false,
+      working,
       restoredSpanId,
       onePerViewport: cues.onePerViewport,
       positionOf,
@@ -221,7 +225,7 @@ export function useReaderCues(input: ReaderCuesInput): ReaderCues {
     };
     setPlacedIds((current) => (samePlacement(current, ids) ? current : ids));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marksKey, cues?.onePerViewport, skimming, restoredSpanId, surface, pdfLayout, pdfBlocks, layoutKey, resizeTick]);
+  }, [marksKey, cues?.onePerViewport, skimming, working, restoredSpanId, surface, pdfLayout, pdfBlocks, layoutKey, resizeTick]);
 
   // What each drawn mark says comes from the newest plan (review F2): a
   // diagnosis that lands, or any other change to a cue's content, shows at
