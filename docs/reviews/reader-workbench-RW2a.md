@@ -241,3 +241,75 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`.
 | `tests/test_config_refactor.py` (nineteen snapshots, template `.pyc` cleared), `test_cli_help_snapshot.py`, `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_coordinated_migrations.py` | pass; CLI help and the serializer snapshot unchanged |
 
 **Not done:** no real-UI look (optional; the screens are exercised through the real `ReaderScreen` and `PracticeScreen` in jsdom).
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw2a-onto-main`. The stage's base and main's tip are both `9cdaefb9e` (mvp-0.27, schema head 206). The stage's tip is `9f640a0a6` (21 commits), unchanged. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `1c3f440b3`: a real `--no-ff` merge of `reader/rw2a` onto `9cdaefb9e`. The merged tree is byte-identical to the stage tip's (`git diff 9f640a0a6 1c3f440b3` is empty).
+- `da62f32c0`: the references regenerated on the merged tree.
+- This record.
+
+### Merge
+
+- **No conflicts.** Main had not moved since the stage's base, so migration 207 stays 207 and `fixtures/migration_head_207` keeps its paths.
+- **No algorithm successor** (§5.9): the vaults' labels and the Pipeline Map's `implementation_version` stay as they were. One config section (`[workbench] enabled`, `open_session_days`), fourteen `workbench.*` RPCs (desktop only, pinned off the phone), fourteen Tauri passthroughs.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 207, 327 table notes. 383 notes' `source_commit` and `source_commit_timestamp` labels moved. Content: the two `workbench.*` leaves' line citations in `src/learnloop/reader/workbench.py` (rounds 3-4 moved them) and the test list of one note. Committed as `da62f32c0`.
+- **Defaults snapshots.** The template `.pyc` was deleted and `template.py` touched. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change.
+- **The Pipeline Map.** The stage's RW2a bullet is already there; nothing to add (no successor, so no version or gate change). `validate_vault.py` passes (1,115 notes, 1,113/1,113 reachable).
+- **Head fixture.** `fixtures/migration_head_207/state.sqlite` is rollback-mode (header bytes 18-19 are 1/1, `journal_mode=DELETE`), with no `-wal` or `-shm`.
+
+### Gate
+
+Run on `da62f32c0`, the final code tree; the only later commit adds this section. Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install; both suite lanes under `flock /tmp/learnloop-fullsuite.lock`. No paid call: every test uses fakes.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **23 kept**, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **12,879 passed, 2 xfailed**, 0 failed (15 min 30 s; `fixtures-local/rw2a-landing-fullsuite.log`) |
+| `pytest -m durability` | **106 passed**, 12,775 deselected (1 min 55 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **108 files, 901 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished, exit 0 (`src-tauri` differs from main: the passthroughs) |
+| tracked fixtures | `git status` clean after both lanes |
+
+The counts equal the stage's round-4 gate on `0947b8fce`. Nothing failed, so nothing was rerun; `test_mcp_c1a_review.py`'s known `"8841"` flake did not fire.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-rw2a/orig/`. Each original was read once; every other copy came from `orig/` or another copy through the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive 9cdaefb9e` and the merge's is `git archive da62f32c0` (each without the top-level `fixtures/`), each first on `PYTHONPATH`; every run printed the `learnloop` package it imported.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory, `LEARNLOOP_AI_PROVIDER` unset, the sidecar started with a working directory holding no `.env`. `model_call_receipts` is 0 in every copy.
+- **Starting state.** Both vaults at schema 165, label `mvp-0.8`; linear_algebra has 70 attempts, probability 2.
+- **Cleanup.** The previous landing's `fixtures-local/landing-eligibility/` (2.8 GB) was deleted once these copies existed, behind guards on the exact path, that git ignores it, that it holds no tracked file, nothing in it modified in the last 30 minutes (`-mmin`), and no process working in it.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 206 (41) / 165 → 207 (42); main's `sqlite_master` hash `7b8f3398f1fed234`, as at the last landing | 165 → 206 (41) / 165 → 207 (42); `84e519863059c42f` |
+| `.dump`, main's vs the merge's, outside the two new tables and the `schema_migrations` stamps | **identical** (17,443 lines). Excluded on the merge's side only: the 207 row, the two tables, their five indexes and two triggers | **identical** (8,541 lines), same exclusions |
+| `rebuild --shadow --json`, main vs merge | **0 differences** besides the live file's sha256 and the marker id (facet 0, mastery 2, schedule 8; live unchanged) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** upgrade shadow: main's code migrates to 206, then the merge's opens it | the merge's code applies **207 only** (206 → 207); `.dump` equals main's outside the new tables, and equals the directly migrated merge copy | **207 only**; equal |
+| shadow and doctor on the upgraded copy vs main | **0 differences** (sha and marker id only) / **0** | **0** / **0** |
+| the two new tables | 0 rows in `workbench_sessions` and `workbench_steps` on every 207 copy | 0 rows |
+
+Every shadow and doctor run left its live database byte-identical (sha256 before and after).
+
+**(c) The kill switch, through the real sidecar.** A 207 copy of linear_algebra with `[workbench] enabled = false` appended (`config effective` shows `{"enabled": false, "open_session_days": 30}`) was opened over stdio (`initialize`, `get_config`), and each of the fourteen `workbench.*` RPCs was sent once. All fourteen refused `workbench_disabled`, `get_config` carried no `workbench` key, and the database's `.dump` hash was the same before and after the fourteen calls (both tables 0 rows). A control copy with the switch on carried the key, and the same calls reached the handlers (`not_found` for the placeholder ids, the three reads answered), also writing nothing.
+
+### For the owner
+
+- **No upgrade command.** RW2a has no successor; the vaults keep their label.
+- **The migration applies on the next open** by the new code (206 → 207: two empty tables, nothing else changed, shown above). Before that first open, close the desktop app, the MCP runtime and the mobile host, and back up each vault with the backup API, for example from the repository root: `uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/linear_algebra'), Path('fixtures-local/backup-linear_algebra-pre-207'))"` (the same for `probability`; its copy includes `.learnloop/state.sqlite`). Rolling the schema back is restore-only: restore that backup.
+- **Turning it off:** add `[workbench]` / `enabled = false` to the vault's `learnloop.toml`. Every workbench entry disappears, every workbench RPC refuses and writes nothing, and the practice screen is as before (shown above and by the stage's snapshot tests). Steps already saved stay in the tables, unread.
+- **Open questions (defaults taken):** the stage record's §6 (1 built; 2 no self-grade fallback in the workbench; 3 the answer-confidence row with RW2b; 4 a stuck-only submit as the written "I'm stuck" answer; 5 the rail's tabs with RW2b) and the Codex review's 1-5 (`carried_hints` folded into `help_assists` when that table exists; a practice-screen problem resumed in the Reader opens book hidden; a failed close save holds the window once; a book counted on an open problem counts on its answer box, not on an abandoned one; a failed `workbench.for_item` lookup lets the answer box submit).
+- **Deferred conformance items** (none changes what is recorded): the *original page ↗* link; the `✎` mark on the original PDF and transcripts (the rail's line is the entry there); the rail's tabs in the header's `⋯`; scrolling to the last edited step on resume (`lastEditedStepId` is sent); newly returned step versions merged into *earlier versions* before a reopen; the answer-confidence row; a durable local outbox for unsaved steps across an app restart with the sidecar down (friction note 7); splitting `ReaderScreen.tsx`'s working posture out before RW2b (friction note 5).
+- **Pre-existing, unchanged here:** the `"8841"` flake in `test_mcp_c1a_review.py` (did not fire); the vaults are still at mvp-0.8 (the two-command mvp-0.27 upgrade from the eligibility landing still applies if the owner wants it).
