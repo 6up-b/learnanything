@@ -202,11 +202,14 @@ def enqueue_request(
     selected_text: str = "",
     selection_edited: bool = False,
     selected_span_ids: Sequence[str] = (),
+    revive_cancelled: bool = False,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Enqueue a demand-paged synthesis request (§6). Idempotent on the canonical
     request key; returns visible scope + token/cap metadata (§6.3). The reading path
-    never blocks on this -- it only writes a durable ``queued`` row."""
+    never blocks on this -- it only writes a durable ``queued`` row.
+    ``revive_cancelled``: a capture's conversion makes a cancelled standing
+    row runnable again rather than reusing it dead (Codex re-review of RW1b, F15)."""
 
     window = neighborhood(
         repository,
@@ -253,6 +256,7 @@ def enqueue_request(
             "commitment_id": commitment_id,
             "client_idempotency_key": client_idempotency_key,
         },
+        revive_cancelled=revive_cancelled,
         clock=clock,
     )
     row = repository.get_reader_request(result["id"]) or {}

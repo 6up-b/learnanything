@@ -12946,13 +12946,37 @@ class Repository(
     _READER_REQUEST_TERMINAL = ("complete", "failed", "cancelled", "obsolete")
 
     def enqueue_reader_request(
-        self, *, request_key: str, fields: Mapping[str, Any], clock: Clock | None = None
+        self, *, request_key: str, fields: Mapping[str, Any], revive_cancelled: bool = False,
+        clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Idempotent enqueue keyed on ``request_key`` (§6.2): the same contract reuses
-        the standing row; a material version change has a different key -> a new row."""
+        the standing row; a material version change has a different key -> a new row.
+
+        ``revive_cancelled`` (a capture's conversion, Codex re-review of RW1b, F15):
+        a standing row that was cancelled, or flagged for cancellation while it
+        ran, is made runnable again instead of reused dead, because a new
+        capture asks for that work. The row keeps its id and its first
+        capture; a completed, failed or obsolete row is reused as before."""
 
         existing = self.reader_request_by_key(request_key)
         if existing is not None:
+            if revive_cancelled and (existing["status"] == "cancelled" or (
+                    existing["cancel_requested"] and existing["status"] in ("queued", "running"))):
+                with self.connection() as connection:
+                    connection.execute(
+                        "UPDATE reader_background_requests "
+                        "SET cancel_requested = 0, updated_at = ?, "
+                        "    lease_owner = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_owner END, "
+                        "    lease_expires_at = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_expires_at END, "
+                        "    completed_at = CASE WHEN status = 'cancelled' THEN NULL ELSE completed_at END, "
+                        "    status = CASE WHEN status = 'cancelled' THEN 'queued' ELSE status END "
+                        "WHERE id = ? AND (status = 'cancelled' OR "
+                        "      (cancel_requested = 1 AND status IN ('queued', 'running')))",
+                        (utc_now_iso(clock), existing["id"]),
+                    )
+                    connection.commit()
+                revived = self.get_reader_request(existing["id"]) or existing
+                return {"id": existing["id"], "deduplicated": True, "status": revived["status"], "revived": True}
             return {"id": existing["id"], "deduplicated": True, "status": existing["status"]}
         now = utc_now_iso(clock)
         request_id = new_ulid()
@@ -13123,6 +13147,45 @@ class Repository(
             )
             connection.commit()
         return self.get_reader_request(request_id)
+
+    def reader_request_still_held(self, request_id: str, *, releasing_annotation_id: str) -> bool:
+        """Whether a synthesis request is still wanted once the capture
+        ``releasing_annotation_id`` lets go of it (Codex re-review of RW1b,
+        F15). Requests dedupe by passage and preset, not by capture, so one
+        row can serve several captures: those whose outbox row converted onto
+        it (``target_ref``) and the capture that first made it. It is held
+        while any of them other than the releasing one is not deleted, and
+        always when no capture made it (an explicit enqueue)."""
+
+        with self.connection() as connection:
+            request = connection.execute(
+                "SELECT annotation_id FROM reader_background_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+            if request is None:
+                return False
+            if request["annotation_id"] is None:
+                return True
+            held = connection.execute(
+                "SELECT 1 FROM (SELECT o.annotation_id FROM reader_capture_outbox o WHERE o.target_ref = ? "
+                "UNION SELECT ?) h WHERE h.annotation_id IS NOT NULL AND h.annotation_id != ? AND NOT "
+                + _STANDING_DELETE.format(annotation="h.annotation_id") + " LIMIT 1",
+                (request_id, request["annotation_id"], releasing_annotation_id),
+            ).fetchone()
+        return held is not None
+
+    def capture_reverted(self, annotation_id: str, *, reason: str) -> bool:
+        """Whether a delete of the annotation with this ``reason`` stands (one
+        no undo names): the capture was reverted, so its outbox row converts
+        to no work (Codex re-review of RW1b, F14)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM source_annotation_events d WHERE d.annotation_id = ? "
+                "AND d.event_type = 'delete_intent' AND json_extract(d.payload_json, '$.reason') = ? "
+                "AND NOT EXISTS (" + _UNDO_OF.format(annotation="d.annotation_id", delete="d.id") + ") LIMIT 1",
+                (annotation_id, reason),
+            ).fetchone()
+        return row is not None
 
     def retry_reader_request(self, request_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
         """Reset a failed request to ``queued`` for another drain."""

@@ -66,6 +66,7 @@ from learnloop.curriculum import commitments as C
 from learnloop.db.stores.judgment_claims import claim_work, complete_claim, release_claim
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
+from learnloop.reader import reader_capture as RC
 
 #: The route, the ledger task and the receipts' owner kind.
 ROUTE = "reader_intent"
@@ -619,8 +620,9 @@ def record_correction(repository: Any, judgment_id: str, chosen: str | None, *, 
 #: The capture effects a "change" reverts (the routed action already ran:
 #: an annotation, and for a commit preset its commitment and synthesis).
 REVERTIBLE_EFFECTS = ("preset", "highlight")
-#: The tombstone's reason on an annotation a "change" reverted.
-REVERT_REASON = "intent_changed"
+#: The tombstone's reason on an annotation a "change" reverted; the outbox
+#: conversion reads it, so a reverted capture converts to no work (F14).
+REVERT_REASON = RC.REVERTED_CAPTURE_REASON
 _TERMINAL_REQUESTS = ("complete", "failed", "cancelled", "obsolete")
 
 
@@ -630,35 +632,50 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
     annotation is tombstoned (a delete intent, never a hard delete), the
     commitment a commit preset created with it is retired, and its synthesis
     request is cancelled. Each step is idempotent, so a retry after a crash
-    finishes the rest and a second revert changes nothing."""
+    finishes the rest and a second revert changes nothing.
+
+    All of it is one write transaction, and the outbox conversion reads the
+    tombstone inside the one that enqueues: a revert before the drain
+    converts leaves nothing to enqueue, and one racing it waits and then
+    cancels what it enqueued (Codex re-review of RW1b, F14). A request is
+    shared by every capture of the same passage and preset, so it is
+    cancelled only when no other capture still holding it stands (F15)."""
 
     from learnloop.reader.annotations import delete_intent_annotation
 
     if repository.annotation_head(annotation_id) is None:
         raise ValueError(f"unknown annotation {annotation_id!r}")
-    with repository.connection() as connection:
-        outbox = connection.execute(
-            "SELECT commitment_id FROM reader_capture_outbox WHERE annotation_id = ? ORDER BY created_at, id LIMIT 1",
-            (annotation_id,),
-        ).fetchone()
-        request = connection.execute(
-            "SELECT id, status FROM reader_background_requests WHERE annotation_id = ? "
-            "ORDER BY created_at DESC, id DESC LIMIT 1",
-            (annotation_id,),
-        ).fetchone()
-        tombstoned = connection.execute(
-            "SELECT 1 FROM source_annotation_events WHERE annotation_id = ? AND event_type = 'delete_intent' "
-            "AND json_extract(payload_json, '$.reason') = ?",
-            (annotation_id, REVERT_REASON),
-        ).fetchone() is not None
-    if not tombstoned:
-        delete_intent_annotation(repository, annotation_id=annotation_id, reason=REVERT_REASON, clock=clock)
-    commitment_id = str(outbox[0]) if outbox is not None and outbox[0] else None
-    if commitment_id is not None and C.resolve_disposition(repository, commitment_id) != "stopped":
-        C.retire(repository, commitment_id=commitment_id, clock=clock)
-    request_id = str(request[0]) if request is not None else None
-    if request is not None and request[1] not in _TERMINAL_REQUESTS:
-        repository.cancel_reader_request(request_id, clock=clock)
+    with repository.atomic():
+        with repository.connection() as connection:
+            outbox = connection.execute(
+                "SELECT commitment_id FROM reader_capture_outbox WHERE annotation_id = ? "
+                "ORDER BY created_at, id LIMIT 1",
+                (annotation_id,),
+            ).fetchone()
+            # The requests this capture holds: the one it made, and any its
+            # outbox row converted onto (a request another capture made).
+            requests = [dict(row) for row in connection.execute(
+                "SELECT id, status FROM reader_background_requests WHERE annotation_id = ? "
+                "OR id IN (SELECT target_ref FROM reader_capture_outbox WHERE annotation_id = ?) "
+                "ORDER BY created_at DESC, id DESC",
+                (annotation_id, annotation_id),
+            )]
+            tombstoned = connection.execute(
+                "SELECT 1 FROM source_annotation_events WHERE annotation_id = ? AND event_type = 'delete_intent' "
+                "AND json_extract(payload_json, '$.reason') = ?",
+                (annotation_id, REVERT_REASON),
+            ).fetchone() is not None
+        if not tombstoned:
+            delete_intent_annotation(repository, annotation_id=annotation_id, reason=REVERT_REASON, clock=clock)
+        commitment_id = str(outbox[0]) if outbox is not None and outbox[0] else None
+        if commitment_id is not None and C.resolve_disposition(repository, commitment_id) != "stopped":
+            C.retire(repository, commitment_id=commitment_id, clock=clock)
+        for request in requests:
+            if request["status"] in _TERMINAL_REQUESTS:
+                continue
+            if not repository.reader_request_still_held(str(request["id"]), releasing_annotation_id=annotation_id):
+                repository.cancel_reader_request(str(request["id"]), clock=clock)
+    request_id = str(requests[0]["id"]) if requests else None
     return {"annotation_id": annotation_id, "commitment_id": commitment_id, "request_id": request_id}
 
 
