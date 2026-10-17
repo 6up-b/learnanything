@@ -79,7 +79,7 @@ def upgrade(
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25 or mvp-0.26); default: the latest."
+                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25, mvp-0.26 or mvp-0.27); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -154,11 +154,17 @@ def upgrade(
     criterion tied to an item's required method on use of that method
     (another route fails it with no quoted step), over an mvp-0.24 vault (or an
     mvp-0.9 to mvp-0.23 vault through the chain; kill switch:
-    ``required_method.enabled = false``). ``--to mvp-0.26`` (default, the
-    latest successor) makes every regrade cite the contract it graded against
-    and replay read the current grade's own contract, holding for review a
-    grade whose contract was never recorded, over an mvp-0.25 vault (or an
-    mvp-0.9 to mvp-0.24 vault through the chain; no kill switch)."""
+    ``required_method.enabled = false``). ``--to mvp-0.26`` makes every
+    regrade cite the contract it graded against and replay read the current
+    grade's own contract, holding for review a grade whose contract was never
+    recorded, over an mvp-0.25 vault (or an mvp-0.9 to mvp-0.24 vault through
+    the chain; no kill switch). ``--to mvp-0.27`` (default, the latest
+    successor) makes every serve path ask the one eligibility decision submit
+    asks (a cold check its item can no longer take cold is withdrawn and the
+    item served as practice; an item whose answer was shown is never a probe
+    or a quick-check offer) and bounds a historical writer's auto-prime at its
+    own instant, over an mvp-0.26 vault (or an mvp-0.9 to mvp-0.25 vault
+    through the chain; kill switch: ``eligibility.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -238,12 +244,16 @@ def upgrade(
         from learnloop.regrade_contract_upgrade import upgrade_to_mvp026
 
         result = upgrade_to_mvp026(_root(vault))
+    elif to == "mvp-0.27":
+        from learnloop.eligibility_decision_upgrade import upgrade_to_mvp027
+
+        result = upgrade_to_mvp027(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            "mvp-0.24, mvp-0.25 or mvp-0.26."
+            "mvp-0.24, mvp-0.25, mvp-0.26 or mvp-0.27."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -3368,6 +3378,66 @@ def attempt(
         stuck, attempt_type, answer = True, None, ""
         stuck_note = "\"I don't know\" is \"I'm stuck\" in this vault: recorded as an empty stuck answer."
     rubric = loaded.rubric_for_item(item)
+    resolved_attempt_type = attempt_type or (
+        stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
+        if stuck
+        else default_attempt_type(item.attempt_types_allowed)
+    )
+    # The attempt is a serve and a submit (§12.9): validate the draft BEFORE
+    # asking for an answer, so a draft submit would refuse is refused here,
+    # with the reason, without prompting (at every version: the refusal is
+    # submit's own, only earlier). At mvp-0.27 (``eligibility.enabled``) the
+    # serve asks the one eligibility decision first: a cold check that cannot
+    # be taken now is held or withdrawn and the item served as practice. The
+    # draft is validated as if the decision's writes were made; they are
+    # persisted only once it passes, and never by a dry run, so a refused
+    # command writes nothing.
+    from learnloop import serve_eligibility
+    from learnloop.attempts.attempts import validate_attempt_draft
+    from learnloop.scheduling.scheduler import apply_eligibility_writes, cold_check_serve_decision
+
+    serve_decision = (
+        cold_check_serve_decision(loaded, repository, practice_item_id, persist=False)
+        if serve_eligibility.decision_active(loaded)
+        else None
+    )
+    retimed = serve_eligibility.pending_writes(serve_decision) if serve_decision is not None else {}
+    serve_note = (
+        serve_decision.message
+        if serve_decision is not None
+        and serve_decision.verdict in (serve_eligibility.SERVE_AS_ORDINARY, serve_eligibility.DEFER_UNTIL)
+        else None
+    )
+    try:
+        validate_attempt_draft(
+            loaded,
+            repository,
+            AttemptDraft(
+                entry_surface="cli_practice",
+                evidence_origin="human",
+                practice_item_id=practice_item_id,
+                learner_answer_md=answer if answer is not None else "",
+                attempt_type=resolved_attempt_type,
+                hints_used=hints_used,
+                session_id=session_id,
+                declared_stuck=stuck,
+            ),
+            retimed_tasks=retimed,
+        )
+    except (AttemptValidationError, ValueError) as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": "validation_error", "message": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    if not dry_run and serve_decision is not None and (
+        serve_decision.verdict != serve_eligibility.SERVE or serve_decision.writes
+    ):
+        apply_eligibility_writes(loaded, repository, serve_decision)
+        serve_eligibility.log_decision(serve_decision, path="cli_attempt")
+        retimed = {}
+    if serve_note is not None and not json_output:
+        typer.echo(serve_note)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
     caps = SpendCaps(
         max_candidates=max(max_calls, 1),
@@ -3380,11 +3450,6 @@ def attempt(
     spend = ReviewSpend(caps, price_per_million=price_per_million, config=loaded.config)
     admitted = False
     try:
-        resolved_attempt_type = attempt_type or (
-            stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
-            if stuck
-            else default_attempt_type(item.attempt_types_allowed)
-        )
         draft = AttemptDraft(
             entry_surface="cli_practice",
             evidence_origin="human",
@@ -3395,7 +3460,7 @@ def attempt(
             session_id=session_id,
             declared_stuck=stuck,
         )
-        plan = plan_grading_calls(loaded, repository, draft)
+        plan = plan_grading_calls(loaded, repository, draft, retimed_tasks=retimed)
         if dry_run:
             grading = _attempt_grading_estimate(spend, plan, _grading_route_profile(loaded.config, ai_provider), spend_register_profile=True)
             payload = {
@@ -3407,6 +3472,8 @@ def attempt(
             }
             if stuck_note is not None:
                 payload["note"] = stuck_note
+            if serve_note is not None and serve_decision is not None:
+                payload["eligibility"] = serve_decision.record()
             _echo_attempt_plan(payload, json_output)
             if not grading["admissible"]:
                 raise typer.Exit(code=1)

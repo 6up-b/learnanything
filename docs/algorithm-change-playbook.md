@@ -100,6 +100,17 @@ every reader that needs "the grade now" read it there. An epoch with no contract
 on record is held for review rather than divided by today's maximum (and never
 clamped). See `docs/reviews/regrade-contract-replay.md`.
 
+Recorded rule, 2026-10-17 (one eligibility decision, successor mvp-0.27): a
+change to which items are served as measurements, or to which new attempts are
+primed, is a successor with a kill switch even when replay is unchanged, because
+replay reading recorded flags says nothing about new admissions (the stage
+shipped untagged; its Codex review F4). Below the tag, or with
+`eligibility.enabled` off, every serve path and submit keep the predecessor's
+code, not a re-derivation of it. A cold measurement its selected surface can no
+longer give a cold reading is ended with a typed disposition when a serve sees
+it, never re-timed into a check the practice answer would contaminate. See
+`docs/reviews/serve-eligibility-decision-codex-review.md`.
+
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
 folded into an algorithm bump as incidental cleanup.

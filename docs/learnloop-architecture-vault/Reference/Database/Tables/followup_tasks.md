@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc073330b00047576686a6150238801d1119d365"
-source_commit_timestamp: "2026-10-16T22:36:24-04:00"
+source_commit: "f6623c52f059b7c3a48952c1a22307877bba4e6e"
+source_commit_timestamp: "2026-10-17T00:48:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `Repository.followup_task()`
 - `Repository.followup_task_for_case()`
 - `Repository.followup_tasks_of_kind()`
+- `Repository.open_followup_tasks_for_item()`
 - `Repository.open_followup_tasks_of_kind()`
 
 ### Direct SQL readers
@@ -141,6 +142,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
+- `src/learnloop/serve_eligibility.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/serializers.py`

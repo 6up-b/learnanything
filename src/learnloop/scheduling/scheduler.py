@@ -1759,6 +1759,53 @@ def _cold_task_reveals(
     return sorted(held.values(), key=lambda pair: (str(pair[0].get("created_at") or ""), str(pair[0].get("id") or "")))
 
 
+def cold_check_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    now_iso: str | None = None,
+    learning_object_id: str | None = None,
+):
+    """The one eligibility decision for serving the item's cold check now
+    (``serve_eligibility.decide(..., COLD_CHECK)``): serve it, serve the item
+    as ordinary practice (re-timing the due cold task), or defer it until a
+    time-bounded hold lifts. Every cold-check serve path asks this."""
+
+    from learnloop import serve_eligibility
+
+    item = vault.practice_items.get(practice_item_id)
+    lo = (str(getattr(item, "learning_object_id", "") or "") or None) if item is not None else learning_object_id
+    inputs = serve_eligibility.gather(
+        repository, practice_item_id=practice_item_id, learning_object_id=lo, at=now_iso or utc_now_iso(clock),
+    )
+    return serve_eligibility.decide(inputs, serve_eligibility.COLD_CHECK)
+
+
+def apply_eligibility_writes(
+    vault: LoadedVault,
+    repository: Repository,
+    decision: Any,
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Act on a cold-check decision's writes (the one eligibility decision's
+    imperative shell): its re-times (monotone pushes of a time-bounded hold)
+    and its withdrawals (a check the item can no longer take cold ends now,
+    with its typed disposition: ``remediation.withdraw_cold_measurement``)."""
+
+    from learnloop import serve_eligibility
+    from learnloop.diagnosis.remediation import withdraw_cold_measurement
+
+    serve_eligibility.retime(repository, decision, clock=clock)
+    for task_id, reason in decision.withdrawals:
+        withdraw_cold_measurement(
+            vault, repository, task_id, reason=reason, reveal_event_ids=decision.reveal_event_ids,
+            decision=decision.record(), clock=clock,
+        )
+
+
 def _defer_revealed_cold_followups(
     vault: LoadedVault,
     repository: Repository,
@@ -1767,7 +1814,157 @@ def _defer_revealed_cold_followups(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    """Hold back due cold tasks whose answer has been revealed since creation.
+    """The queue's cold lane: hold back, or withdraw, due cold tasks that
+    cannot be served as cold checks now.
+
+    At ``mvp-0.27`` with ``eligibility.enabled`` it asks the one eligibility
+    decision (``serve_eligibility``) per item, so the lane never serves a cold
+    check submit would refuse:
+
+    * ``defer_until``: a time-bounded hold (a non-routine reveal on the item or
+      its learning object since the task was created, for the lane's delay; a
+      routine display's coverage): the task is withheld and its push persisted,
+      exactly as the lane always deferred;
+    * ``serve_as_ordinary``: the item can never give the task a cold reading
+      (submit primes it with no lapse, or it was attempted since the task was
+      set): the task is withdrawn with its typed disposition and the item stays
+      in the queue as ordinary practice, labelled (Codex review F2, F3).
+
+    The writes are persisted only on a build that is already allowed to write
+    (``persist_explanations``); a side-effect-free build still withholds the
+    task and recomputes the same decision next time. ``expires_at`` is never
+    extended. Non-cold lanes are untouched. Below the tag, or with the switch
+    off, the lane is mvp-0.26's (:func:`_predecessor_defer_revealed_cold_followups`).
+    """
+
+    from learnloop import serve_eligibility
+
+    if not serve_eligibility.decision_active(vault):
+        return _predecessor_defer_revealed_cold_followups(
+            vault, repository, pending_followups, clock=clock, persist=persist
+        )
+    if not pending_followups:
+        return pending_followups, []
+
+    from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+
+    # Second-resolution, exactly like every other timestamp the lane writes
+    # (`clock.utc_now_iso`): these strings are compared against stored ones.
+    now_iso = utc_now_iso(clock)
+    kept: list[dict[str, str]] = []
+    deferrals: list[dict[str, Any]] = []
+    decisions: dict[str, Any] = {}
+    applied: set[str] = set()
+    for pending in pending_followups:
+        task_id = pending.get("followup_task_id")
+        if not task_id or pending.get("action_type") not in COLD_FOLLOWUP_TASK_KINDS:
+            kept.append(pending)
+            continue
+        task = repository.followup_task(str(task_id))
+        if task is None:
+            kept.append(pending)
+            continue
+        item_id = str(task.get("selected_item_id") or "")
+        # The one eligibility decision (``serve_eligibility``), per item: the
+        # scheduler's deferral scope (the item or its learning object, since
+        # the task was created, for the lane's delay), routine-display
+        # coverage, AND submit's own verdict, so the lane never serves a cold
+        # check submit would refuse.
+        try:
+            decision = decisions.get(item_id)
+            if decision is None:
+                decision = decisions[item_id] = cold_check_decision(
+                    vault, repository, item_id, now_iso=now_iso,
+                    learning_object_id=str(task.get("learning_object_id") or "") or None,
+                )
+        except Exception:  # pragma: no cover - a ledger read must not break the queue
+            kept.append(pending)
+            continue
+        if persist and decision.writes and item_id not in applied:
+            applied.add(item_id)
+            apply_eligibility_writes(vault, repository, decision, clock=clock)
+        withdrawn = dict(decision.withdrawals)
+        if str(task_id) not in withdrawn and (
+            decision.verdict == serve_eligibility.SERVE or str(task_id) not in decision.task_ids
+        ):
+            kept.append(pending)
+            continue
+        retimes = dict(decision.retimes)
+        deferred_to = None if str(task_id) in withdrawn else (retimes.get(str(task_id)) or decision.until or now_iso)
+        selected_item = vault.practice_items.get(item_id) if item_id else None
+        reveals = [
+            row
+            for row in repository.reveal_events_for_target(
+                practice_item_id=item_id or None,
+                learning_object_id=(
+                    str(getattr(selected_item, "learning_object_id", "") or "") or None
+                    if selected_item is not None
+                    else (str(task.get("learning_object_id") or "") or None)
+                ),
+            )
+            if str(row.get("id")) in decision.reveal_event_ids
+        ]
+        expires_at = str(task.get("expires_at") or "")
+        withdrawal = withdrawn.get(str(task_id))
+        deferral = {
+            "followup_task_id": str(task_id),
+            "practice_item_id": item_id or None,
+            "kind": str(task.get("kind") or ""),
+            "remediation_episode_id": (
+                str(task.get("remediation_episode_id") or "") or None
+            ),
+            "reveal_event_ids": list(decision.reveal_event_ids),
+            "reveal_amount": sum(float(row.get("amount") or 0.0) for row in reveals),
+            "last_reveal_at": max((str(row.get("created_at") or "") for row in reveals), default=None),
+            "deferred_to": deferred_to,
+            "expires_at": expires_at or None,
+            # No expiry extension: past this point the deferral simply outlives
+            # the task and the expiry sweep records the censoring.
+            "beyond_expiry": bool(expires_at and deferred_to and deferred_to > expires_at),
+            "delay_seconds": serve_eligibility.COLD_RETRIEVAL_DELAY.total_seconds(),
+            "reason": withdrawal or decision.reason,
+            "served_as_practice": withdrawal is not None,
+            "withdrawn": withdrawal is not None,
+        }
+        # A session build also writes the slate annotation below; the log line
+        # is what a CLI or session-less build leaves behind, so the deferral is
+        # never invisible on any path.
+        serve_eligibility.log_decision(decision, path="queue_cold_lane")
+        logger.info(
+            "cold %s task %s %s: %d reveal(s) (%s)",
+            deferral["kind"],
+            task_id,
+            "withdrawn, its item served as practice" if withdrawal else f"deferred to {deferred_to}",
+            len(decision.reveal_event_ids),
+            deferral["reason"],
+        )
+        deferrals.append(deferral)
+        if withdrawal is not None and not any(
+            entry.get("practice_item_id") == item_id and entry.get("action_type") == ANSWER_SHOWN_PRACTICE
+            for entry in kept
+        ):
+            # The item can no longer be the cold check: it stays in the queue as
+            # ordinary practice, labelled; the check itself was withdrawn.
+            kept.append({
+                "practice_item_id": item_id,
+                "action_type": ANSWER_SHOWN_PRACTICE,
+                "followup_task_id": str(task_id),
+                "practice_reason": decision.message or "",
+            })
+    return kept, deferrals
+
+
+def _predecessor_defer_revealed_cold_followups(
+    vault: LoadedVault,
+    repository: Repository,
+    pending_followups: list[dict[str, str]],
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """mvp-0.26's cold lane, kept exactly for the predecessor and the kill switch
+    (``eligibility.enabled = false``): hold back due cold tasks whose answer has
+    been revealed since creation.
 
     A cold task is a SINGLE-USE measurement: the first attempt on its item
     consumes it, and whatever that attempt was worth is what the episode
@@ -1894,6 +2091,12 @@ def _defer_revealed_cold_followups(
     return kept, deferrals
 
 
+#: The pending entry a cold task leaves when its item is served as practice
+#: instead (``serve_eligibility.SERVE_AS_ORDINARY``, the check withdrawn): no
+#: follow-up lane.
+ANSWER_SHOWN_PRACTICE = "answer_shown_practice"
+
+
 #: Why a cold check cannot be served as one now (``cold_check_serve_hold``).
 COLD_CHECK_ROUTINE_DISPLAY = "cold_check_routine_display"
 
@@ -1911,8 +2114,44 @@ def cold_check_hold_until(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """When a cold check's routine-display hold lifts (ledger format), or None
-    when it is not held (UX Phase 4, rounds 5 to 7).
+    """When a cold check's hold lifts (ledger format), or None when it is not
+    held: the one eligibility decision's ``defer_until``
+    (``serve_eligibility``). Every hold is time-bounded (round-6 ruling 2):
+    routine-display coverage (D + G), a reveal since the task was created
+    (one cold delay), or a submit priming that only routine displays cause.
+    Every open, unexpired cold task on the item that falls due within the hold
+    is judged, so a task for later never masks one due now (round 6, E); the
+    held ones are deferred, persisted when ``persist``. An unreadable stamp
+    holds, with :data:`COLD_CHECK_HOLD_UNKNOWN_RELEASE` and nothing persisted.
+
+    A cold check the item can no longer take cold (submit primes it with no
+    lapse, or it was practised since the check was set) is not held: it is
+    withdrawn (persisted when ``persist``) and the item served as ordinary
+    practice, so this returns None. Below ``mvp-0.27``, or with
+    ``eligibility.enabled`` off, it is mvp-0.26's routine-display hold
+    (:func:`_predecessor_cold_check_hold_until`)."""
+
+    from learnloop import serve_eligibility
+
+    if not serve_eligibility.decision_active(vault):
+        return _predecessor_cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
+    decision = cold_check_serve_decision(vault, repository, practice_item_id, clock=clock, persist=persist)
+    if decision.verdict != serve_eligibility.DEFER_UNTIL:
+        return None
+    return decision.until or COLD_CHECK_HOLD_UNKNOWN_RELEASE
+
+
+def _predecessor_cold_check_hold_until(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+) -> str | None:
+    """mvp-0.26's serve-time hold, kept exactly for the predecessor and the kill
+    switch: when a cold check's routine-display hold lifts (ledger format), or
+    None when it is not held (UX Phase 4, rounds 5 to 7).
 
     Only a hold that time alone clears is made here (round-6 ruling 2): a
     routine display covers the item or its learning object now, and an open,
@@ -1968,15 +2207,57 @@ def cold_check_serve_hold(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """Revalidate a cold check against routine-display coverage at the moment it
-    would be served (UX Phase 4, rounds 5 to 7): the reason it cannot be
-    served AS the cold check now (:data:`COLD_CHECK_ROUTINE_DISPLAY`), or
-    None. Every path that serves an item it chose earlier (a daily-plan block,
-    a learner's pick, a session serve, the TUI's open) calls it; the hold is
-    :func:`cold_check_hold_until`'s."""
+    """Revalidate a cold check at the moment it would be served (UX Phase 4,
+    rounds 5 to 7; one eligibility decision): the reason it cannot be served
+    AS the cold check now and must wait (the decision's reason code), or None
+    when it is served, as the cold check or as practice with its check
+    withdrawn (:func:`cold_check_serve_decision` says which). Every path that
+    serves an item it chose earlier (a daily-plan block, a learner's pick, a
+    session serve, the TUI's open) calls it. Below ``mvp-0.27``, or switched
+    off, the hold is mvp-0.26's (routine displays only)."""
 
-    held = cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
-    return COLD_CHECK_ROUTINE_DISPLAY if held is not None else None
+    from learnloop import serve_eligibility
+
+    if not serve_eligibility.decision_active(vault):
+        held = _predecessor_cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
+        return COLD_CHECK_ROUTINE_DISPLAY if held is not None else None
+    decision = cold_check_serve_decision(vault, repository, practice_item_id, clock=clock, persist=persist)
+    return decision.reason if decision.verdict == serve_eligibility.DEFER_UNTIL else None
+
+
+def cold_check_serve_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+):
+    """:func:`cold_check_decision` at a serve, with its writes applied
+    (persisted when ``persist``: :func:`apply_eligibility_writes`) and its
+    record logged. Below ``mvp-0.27``, or with ``eligibility.enabled`` off,
+    the decision is mvp-0.26's serve-time hold put in the record's terms
+    (``defer_until`` while a routine display covers the item, else ``serve``),
+    with that hold's own persistence, so callers stay one path."""
+
+    from learnloop import serve_eligibility
+
+    if not serve_eligibility.decision_active(vault):
+        now_iso = utc_now_iso(clock)
+        held = _predecessor_cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
+        return serve_eligibility.EligibilityDecision(
+            request=serve_eligibility.COLD_CHECK,
+            verdict=serve_eligibility.DEFER_UNTIL if held is not None else serve_eligibility.SERVE,
+            reason=COLD_CHECK_ROUTINE_DISPLAY if held is not None else serve_eligibility.ELIGIBLE,
+            practice_item_id=practice_item_id, at=now_iso, until=held,
+        )
+    decision = cold_check_decision(vault, repository, practice_item_id, clock=clock)
+    if persist and decision.writes:
+        apply_eligibility_writes(vault, repository, decision, clock=clock)
+    if persist and (decision.verdict != serve_eligibility.SERVE or decision.writes):
+        # Logged where it acts; a read (the plan's pool, ``persist=False``) is silent.
+        serve_eligibility.log_decision(decision, path="cold_check_serve")
+    return decision
 
 
 def deferred_cold_followups(
@@ -2057,6 +2338,9 @@ def deferred_cold_followups(
 #: slate. Same "no silent caps" contract as the reserved-probe exclusions: an
 #: item withheld from the queue says why, in the log the queue already writes.
 _COLD_DEFERRAL_REASON = "cold check held back: its answer was shown since it was scheduled"
+#: The same, when the item is served as practice instead and its check
+#: withdrawn (one eligibility decision: the item can no longer be taken cold).
+_COLD_PRACTICE_REASON = "practice, not a check: this question can no longer be a fresh check"
 
 
 def _merge_cold_deferral_explanations(
@@ -2121,7 +2405,32 @@ def _deferral_components(deferral: Mapping[str, Any]) -> dict[str, float]:
 
 
 def _deferral_reasons(deferral: Mapping[str, Any]) -> list[str]:
+    if deferral.get("withdrawn"):
+        return [_COLD_PRACTICE_REASON, "its check no longer counts and was withdrawn"]
     return [_COLD_DEFERRAL_REASON, f"deferred until {deferral.get('deferred_to')}"]
+
+
+def _bare_scheduled(vault: LoadedVault, practice_item: Any, readiness_factor: float | None) -> ScheduledItem | None:
+    """A queue row for an item the ranked queue did not hold (a follow-up's item)."""
+
+    learning_object = vault.learning_object_for_item(practice_item) if practice_item is not None else None
+    if practice_item is None or learning_object is None:
+        return None
+    return ScheduledItem(
+        practice_item_id=practice_item.id,
+        learning_object_id=learning_object.id,
+        priority=0.0,
+        components={
+            "forgetting_risk": 0.0,
+            "goal_frontier": 0.0,
+            "recent_error": 0.0,
+            "probe_eig": 0.0,
+        },
+        readiness_factor=readiness_factor,
+        selected_mode=practice_item.practice_mode,
+        plain_english=[],
+        reward_debug=None,
+    )
 
 
 def _insert_pending_followups(
@@ -2166,6 +2475,24 @@ def _insert_pending_followups(
         if candidate_item is not None and unservable_reason(candidate_item) is not None:
             continue
         action_type = pending.get("action_type") or "negative_surprise_followup"
+        if action_type == ANSWER_SHOWN_PRACTICE:
+            # One eligibility decision: the item's cold check cannot be taken
+            # now (submit would prime it), so the item is ordinary practice,
+            # labelled; the cold task was re-timed. Same doors as above.
+            practice = by_id.get(practice_item_id) or _bare_scheduled(vault, candidate_item, readiness_factor)
+            if practice is None:
+                continue
+            reason = pending.get("practice_reason") or "practice: its answer was shown, so its check comes later"
+            followups.append(
+                replace(
+                    practice,
+                    priority=max_priority + len(pending_followups) - index,
+                    plain_english=[reason] + [existing for existing in practice.plain_english if existing != reason],
+                    followup_kind=None,
+                )
+            )
+            inserted_ids.add(practice_item_id)
+            continue
         # Single-use diagnostic surfaces stay single-use through this door too:
         # a stale GENERIC delayed task naming an ALREADY-ADMINISTERED
         # diagnostic_probe item must not resurrect the burned surface. A fresh

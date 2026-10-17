@@ -416,7 +416,9 @@ def seed_exam_attempts(
         result = apply_attempt(
             vault,
             repository,
-            ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade),
+            # Q33: written at the exam's past instant, so only reveals stamped
+            # by then were in view (``serve_eligibility``).
+            ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True),
             clock=clock,
         )
         seeded += 1

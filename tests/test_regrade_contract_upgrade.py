@@ -224,9 +224,15 @@ def test_upgrade_refuses_older_versions_and_is_idempotent(tmp_path):
 
 def test_upgrade_command_reaches_the_successor(tmp_path):
     paths = create_placement_vault(tmp_path / "vault", version=PREDECESSOR)
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", TARGET])
     assert result.exit_code == 0, result.output
     assert f"{PREDECESSOR} -> {TARGET}" in result.output
+    # The default target is the latest successor (the one eligibility
+    # decision, mvp-0.27), through this step.
+    default = create_placement_vault(tmp_path / "default", version=PREDECESSOR)
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(default.root)])
+    assert result.exit_code == 0, result.output
+    assert f"{PREDECESSOR} -> mvp-0.27" in result.output
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.24")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", TARGET])
     assert result.exit_code == 0, result.output

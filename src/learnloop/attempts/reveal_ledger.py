@@ -33,6 +33,7 @@ from datetime import timedelta
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop import serve_eligibility
 from learnloop.db.repositories import Repository
 from learnloop.reveal_coverage import (
     ROUTINE_DISPLAY_BASES,
@@ -53,7 +54,7 @@ REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_
 #: one-second resolution, and the submit window's lower bound is exclusive).
 #: ``answer_display`` (migration 179, mvp-0.13) is the expected answer itself,
 #: shown on a feedback screen.
-POST_ATTEMPT_REVEAL_KINDS = ("answer_display",)
+POST_ATTEMPT_REVEAL_KINDS = serve_eligibility.POST_ATTEMPT_REVEAL_KINDS
 
 #: The basis of the full answer the desktop's plain feedback shows (UX Phase 4,
 #: Codex review F1), one per exposure (``feedback_full_answer:desktop:<display>``,

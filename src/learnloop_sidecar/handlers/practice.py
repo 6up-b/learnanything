@@ -251,12 +251,15 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # still render it.
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        # UX Phase 4 rounds 5 and 6: a session serve revalidates a cold check
-        # (a stale list, a restored session, a deep link): deferred while a
-        # routine display covers it.
+        # A session serve revalidates a cold check (a stale list, a restored
+        # session, a deep link) against the one eligibility decision: deferred
+        # while a time-bounded hold lasts, served as practice when submit
+        # would prime it (rounds 5 and 6; the eligibility stage).
         from learnloop_sidecar.handlers.queue import revalidate_cold_check
 
-        revalidate_cold_check(vault, repository, item.id)
+        eligibility = revalidate_cold_check(vault, repository, item.id)
+    else:
+        eligibility = None
     pick = None
     if params.session_id is not None and params.proposal_id:
         # A picked proposal is re-checked BEFORE anything is served (an item
@@ -282,6 +285,10 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
             from learnloop_sidecar.handlers.daily_plan import deliver_on_open
 
             detail["proposalDelivery"] = to_camel(deliver_on_open(ctx, *pick))
+    if eligibility is not None:
+        from learnloop_sidecar.handlers.queue import eligibility_dto
+
+        detail["eligibility"] = eligibility_dto(eligibility)
     detail["elicitation"] = (
         None
         if params.session_id is None
@@ -407,7 +414,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
         )
         if validation.valid:
             try:
-                serve_presentation(repository, active.id)
+                serve_presentation(repository, active.id, vault=vault)
             except RoutineDisplayCovered:
                 # Committed before the item's answer was shown on a routine
                 # display: ended, and the item is ordinary practice (round 7).
@@ -445,7 +452,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     if presentation is None:
         # UX Phase 4 round 7: say why when it is the item's answer shown on a
         # routine display (the commit refused it), so the surface can too.
-        if routine_display_covers_item(repository, item.id):
+        if routine_display_covers_item(repository, item.id, vault=vault):
             return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
         return versioned({"active": False, "reason": "no_instrument"})
     contract = episode_contract(vault, repository, item.learning_object_id) or {}

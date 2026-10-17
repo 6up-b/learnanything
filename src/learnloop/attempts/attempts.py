@@ -89,6 +89,7 @@ from learnloop.attempts.blind_grading import (
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.reveal_ledger import POST_ATTEMPT_REVEAL_KINDS
+from learnloop import serve_eligibility
 from learnloop.attempts.stuck import (
     EMPTY_STUCK_EVIDENCE,
     EMPTY_STUCK_FEEDBACK,
@@ -154,8 +155,9 @@ SCAFFOLD_FAILURE_ERROR_TYPE = "scaffold_failure"
 # honest. A vault that could raise it to 0.9 would be configuring away the
 # integrity property the ledger exists to enforce, and one that could drop it to
 # 0.05 would prime on incidental vocabulary overlap. Same reasoning as the
-# causal-factor deferral bounds.
-AUTO_PRIME_REVEAL_THRESHOLD = 0.35
+# causal-factor deferral bounds. One definition, in the eligibility decision
+# every serve path and submit share (``learnloop.serve_eligibility``).
+AUTO_PRIME_REVEAL_THRESHOLD = serve_eligibility.AUTO_PRIME_REVEAL_THRESHOLD
 
 
 @dataclass(frozen=True)
@@ -440,6 +442,11 @@ class ApplyAttemptInput:
     # gives them no facet mass and no outcome. Replay reads them back from the
     # stamped rows, so live, regrade and replay apply one rule.
     unverified_criterion_ids: tuple[str, ...] = ()
+    # Q33 (``serve_eligibility``): a historical writer (exam seeding at the
+    # exam's instant, an exam's finish, a kept-state sim) counts only reveals
+    # stamped at or before its clock's instant when auto-priming. Live
+    # recording leaves it False (a row stamped after the clock still counts).
+    reveal_window_bounded: bool = False
     # mvp-0.17 (re-review F9): the route check left nothing assessed and
     # nothing validated the answer, so the grade is the grader's own,
     # provisional and held for review. While no criterion is assessed the
@@ -538,10 +545,9 @@ class AttemptValidationError(ValueError):
 #: repair-scoped cold retry (causal §6.2, migration 058) and the certification
 #: cold probe (measurement §5.7, migration 139). Named here rather than importing
 #: from either service, because this is the shared attempt validator and it must
-#: not depend on which lane happens to be loaded.
-COLD_FOLLOWUP_TASK_KINDS: frozenset[str] = frozenset(
-    {"cold_retry", "certification_cold_probe"}
-)
+#: not depend on which lane happens to be loaded. One definition, in the
+#: eligibility decision (``learnloop.serve_eligibility``).
+COLD_FOLLOWUP_TASK_KINDS: frozenset[str] = serve_eligibility.COLD_FOLLOWUP_TASK_KINDS
 
 
 def complete_attempt_with_codex_fallback(
@@ -608,7 +614,7 @@ def _complete_attempt_with_agent_fallback(
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
-    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft, clock=clock)
     if is_empty_stuck(draft):
         # Nothing to grade, so no model and no self-grade: before any check.
         return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
@@ -880,6 +886,7 @@ def plan_grading_calls(
     draft: AttemptDraft,
     *,
     clock: Clock | None = None,
+    retimed_tasks: Mapping[str, str] | None = None,
 ) -> GradingCallPlan:
     """What the practice door would send to a grader for ``draft`` (read-only).
 
@@ -894,7 +901,7 @@ def plan_grading_calls(
     from learnloop.attempts.grading_admission import estimated_prompt_tokens
 
     item, _learning_object, rubric, draft = _resolve_attempt_target(
-        vault, repository, draft, clock=clock
+        vault, repository, draft, clock=clock, retimed_tasks=retimed_tasks
     )
     if is_empty_stuck(draft):
         return GradingCallPlan(kind="empty_stuck", calls=0)
@@ -954,7 +961,7 @@ def _complete_attempt_with_agent_required(
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
-    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft, clock=clock)
     if is_empty_stuck(draft):
         # Nothing to grade: an empty stuck answer never needs a provider.
         return complete_empty_stuck_attempt(vault, repository, draft, clock=clock)
@@ -1065,7 +1072,7 @@ def complete_self_graded_attempt(
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
-    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft, clock=clock)
     grader_confidence = confidence_to_grader_confidence(grade.confidence)
     manual_review_reason = "low_self_confidence" if grader_confidence < 0.4 else None
     manual_review_reason = _attempt_manual_review_reason(manual_review_reason, draft)
@@ -1162,7 +1169,7 @@ def complete_empty_stuck_attempt(
         raise AttemptValidationError("only an empty stuck answer is scored without a grader")
     now_iso = utc_now_iso(clock)
     attempt_id = new_ulid()
-    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft, clock=clock)
     criterion_points = {criterion.id: 0.0 for criterion in rubric.criteria}
     evidence_rows = [
         {
@@ -1221,7 +1228,7 @@ def complete_codex_graded_attempt(
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
     # ledger, and everything downstream (grading context, the recorded row,
     # the IRT easiness shift) must use that draft, not the client's.
-    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft)
+    item, _learning_object, rubric, draft = _resolve_attempt_target(vault, repository, draft, clock=clock)
     expected_attempt_id = attempt_id or proposal.attempt_id
     try:
         validated = validate_codex_grading_proposal(
@@ -2523,6 +2530,43 @@ def _assessment_contract(
     return stored.get("contract") or {}
 
 
+def submit_eligibility_inputs(
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    at: str,
+    window_until: str | None = None,
+    learning_object_id: str | None = None,
+    submission_id: str | None = None,
+    learner_answer_md: str | None = None,
+    declared_primed: bool = False,
+    auto_primed: bool = False,
+    hints_used: int = 0,
+    attempt_type: str | None = None,
+) -> serve_eligibility.EligibilityInputs:
+    """The eligibility decision's inputs for a submission (the shell around
+    ``serve_eligibility``): the ledger, the item's last attempt and its open
+    follow-up tasks, with the draft's own disclosure exempt (rounds 4 and 5,
+    F1-2: exactly the trace it froze, ``reveal_ledger.is_own_disclosure``)."""
+
+    from learnloop.attempts.reveal_ledger import is_own_disclosure
+
+    return serve_eligibility.gather(
+        repository,
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        at=at,
+        window_until=window_until,
+        own_disclosure=(
+            (lambda row: is_own_disclosure(row, submission_id, learner_answer_md)) if submission_id else None
+        ),
+        declared_primed=declared_primed,
+        auto_primed=auto_primed,
+        hints_used=hints_used,
+        attempt_type=attempt_type,
+    )
+
+
 def reveal_total_for_submission(
     repository: Repository,
     practice_item_id: str,
@@ -2550,41 +2594,31 @@ def reveal_total_for_submission(
     was written). The submitting draft's own self-grade disclosure is exempt
     only for exactly the trace it froze: rows whose structured identity has
     its retry key AND the hash of the trace submitted, each compared for
-    equality (rounds 4 and 5, F1-2; ``reveal_ledger.is_own_disclosure``)."""
+    equality (rounds 4 and 5, F1-2; ``reveal_ledger.is_own_disclosure``).
 
-    from learnloop.attempts.reveal_ledger import (
-        ROUTINE_ANSWER_DISPLAY_BASES,
-        is_own_disclosure,
-        routine_display_lapsed_before,
-    )
+    ``until`` bounds the window at a historical writer's instant (Q33): rows
+    stamped after it do not count, and the window starts at the last attempt
+    at or before it. The computation is the eligibility decision's
+    (``serve_eligibility.submit_exposure``), the same one every serve path
+    reads."""
 
-    attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
-    since = attempts[0]["created_at"] if attempts else None
-    covered_from = routine_display_lapsed_before(until or utc_now_iso(clock))
-    total = repository.total_reveal_amount(
+    inputs = submit_eligibility_inputs(
+        repository,
         practice_item_id,
-        since=since,
-        until=until,
-        linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
-        linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
-        routine_basis_prefixes=ROUTINE_ANSWER_DISPLAY_BASES,
-        routine_covered_from=covered_from,
+        at=until or utc_now_iso(clock),
+        window_until=until,
+        submission_id=submission_id,
+        learner_answer_md=learner_answer_md,
     )
-    if submission_id and covered_from is not None:
-        # The submission's own disclosure rows among those counted: parsed and
-        # compared field by field, never matched by string.
-        total -= sum(
-            float(row.get("amount") or 0.0)
-            for row in repository.reveal_events(practice_item_id=practice_item_id, source_kind="answer_display")
-            if is_own_disclosure(row, submission_id, learner_answer_md)
-            and str(row.get("created_at") or "") >= covered_from
-            and (until is None or str(row.get("created_at") or "") <= until)
-        )
-    return max(total, 0.0)
+    return serve_eligibility.submit_exposure(inputs).total
 
 
 def auto_primed_draft(
-    repository: Repository, draft: AttemptDraft, *, clock: Clock | None = None
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+    window_bounded: bool = False,
 ) -> tuple[AttemptDraft, float]:
     """Force ``primed`` on a draft whose answer has already been handed over.
 
@@ -2598,6 +2632,10 @@ def auto_primed_draft(
     reveal an answer are exactly the ones that never set it. Reading the
     persisted ledger instead of a client flag is what closes that hole.
 
+    ``window_bounded`` (Q33): a historical writer (exam seeding, an exam's
+    finish, a kept-state sim) writes at its clock's instant, so it counts only
+    reveals stamped at or before it.
+
     Best-effort by construction: a ledger read failure must not block a
     submission, so it degrades to "no evidence of a reveal" and logs."""
 
@@ -2607,6 +2645,7 @@ def auto_primed_draft(
         total = reveal_total_for_submission(
             repository,
             draft.practice_item_id,
+            until=utc_now_iso(clock) if window_bounded else None,
             clock=clock,
             submission_id=draft.submission_id,
             learner_answer_md=draft.learner_answer_md,
@@ -2623,6 +2662,63 @@ def auto_primed_draft(
     return replace(draft, primed=True, auto_primed_reveal_total=total), total
 
 
+def submit_decision(
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+    learning_object_id: str | None = None,
+    retimed: Mapping[str, str | None] | None = None,
+    window_bounded: bool = False,
+) -> serve_eligibility.EligibilityDecision:
+    """Submit's admissibility, asked of the one eligibility decision: a cold
+    check (the first due task on the item is a cold one) must be unassisted
+    and unprimed, and ANY primed draft is refused one (Codex review F1: an
+    auto-primed draft is not exempt; its provenance only explains the
+    refusal); anything else is admissible, primed as the ledger says.
+    ``retimed`` (the CLI's validation before it prompts, a dry run) applies
+    the writes a serve would persist (``serve_eligibility.pending_writes``:
+    re-times, and None for a withdrawn task)."""
+
+    at = utc_now_iso(clock)
+    inputs = submit_eligibility_inputs(
+        repository,
+        draft.practice_item_id,
+        at=at,
+        window_until=at if window_bounded else None,
+        learning_object_id=learning_object_id,
+        submission_id=draft.submission_id,
+        learner_answer_md=draft.learner_answer_md,
+        declared_primed=bool(draft.primed),
+        auto_primed=draft.auto_primed_reveal_total is not None,
+        hints_used=draft.hints_used,
+        attempt_type=draft.attempt_type,
+    )
+    inputs = serve_eligibility.with_pending_writes(inputs, retimed)
+    return serve_eligibility.decide(inputs, serve_eligibility.SUBMIT)
+
+
+def validate_attempt_draft(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    *,
+    clock: Clock | None = None,
+    retimed_tasks: Mapping[str, str | None] | None = None,
+) -> AttemptDraft:
+    """Submit's validation of ``draft`` (read-only), raising
+    :class:`AttemptValidationError` exactly as the completion doors would, so
+    a door that asks the learner for an answer can ask it first (the CLI's
+    attempt, §12.9). Returns the draft as submit would record it (primed
+    forced from the ledger). ``retimed_tasks``: re-times a serve would
+    persist, for a dry run that persists nothing."""
+
+    _item, _learning_object, _rubric, resolved = _resolve_attempt_target(
+        vault, repository, draft, clock=clock, retimed_tasks=retimed_tasks
+    )
+    return resolved
+
+
 def _resolve_attempt_target(
     vault: LoadedVault,
     repository: Repository,
@@ -2630,6 +2726,8 @@ def _resolve_attempt_target(
     *,
     replay: bool = False,
     clock: Clock | None = None,
+    retimed_tasks: Mapping[str, str | None] | None = None,
+    window_bounded: bool = False,
 ):
     unsupported = unsupported_attempt_types([draft.attempt_type])
     if unsupported:
@@ -2705,18 +2803,37 @@ def _resolve_attempt_target(
         # as if it were clean — the guard has to see the forced value and
         # reject. On replay the recorded attempt is authoritative and the
         # ledger window has already moved past it, so this is skipped.
-        draft, _reveal_total = auto_primed_draft(repository, draft, clock=clock)
-        cold_task = repository.active_followup_task_for_item(
-            draft.practice_item_id, at=utc_now_iso(clock)
+        # The one eligibility decision is the successor's (mvp-0.27, kill
+        # switch ``eligibility.enabled``); below it, or off, submit is
+        # mvp-0.26's exactly: an unbounded window and the bare guard.
+        eligibility = serve_eligibility.decision_active(vault)
+        draft, _reveal_total = auto_primed_draft(
+            repository, draft, clock=clock, window_bounded=window_bounded and eligibility
         )
         # Both delayed lanes are COLD by definition: the repair-scoped
         # `cold_retry` (§6.2) and the §5.7 certification probe, whose whole claim
         # is "unassisted performance on a held-out surface two-to-three weeks
         # later". A primed or hinted attempt cannot make that claim, so the guard
         # is on the lane class, not on one kind.
-        if cold_task is not None and cold_task.get("kind") in COLD_FOLLOWUP_TASK_KINDS:
-            if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
-                raise AttemptValidationError("a cold retry must be unassisted and unprimed")
+        if eligibility:
+            # The question is the one every serve path asks first
+            # (``serve_eligibility``), so an item served as a cold check is
+            # refused here only when its state changed since the serve, and
+            # the refusal names the change.
+            decision = submit_decision(
+                repository, draft, clock=clock, learning_object_id=learning_object.id, retimed=retimed_tasks,
+                window_bounded=window_bounded,
+            )
+            if decision.verdict == serve_eligibility.REFUSE:
+                serve_eligibility.log_decision(decision, path="submit")
+                raise AttemptValidationError(decision.message or serve_eligibility.COLD_CHECK_REFUSAL)
+        else:
+            cold_task = repository.active_followup_task_for_item(
+                draft.practice_item_id, at=utc_now_iso(clock)
+            )
+            if cold_task is not None and cold_task.get("kind") in COLD_FOLLOWUP_TASK_KINDS:
+                if draft.primed or draft.hints_used > 0 or draft.attempt_type == "hinted_attempt":
+                    raise AttemptValidationError("a cold retry must be unassisted and unprimed")
     return item, learning_object, rubric, draft
 
 
@@ -2932,7 +3049,11 @@ def _apply_attempt_in_transaction(
     # authoritative and the ledger window has already moved past it.
     if not attempt.replace_existing:
         normalized_draft, _reveal_total = auto_primed_draft(
-            repository, attempt.draft, clock=clock
+            repository, attempt.draft, clock=clock,
+            # Q33's bounded window is the eligibility successor's (mvp-0.27,
+            # ``eligibility.enabled``); below it a historical writer reads as
+            # it did.
+            window_bounded=attempt.reveal_window_bounded and serve_eligibility.decision_active(vault),
         )
         if normalized_draft is not attempt.draft:
             attempt = replace(attempt, draft=normalized_draft)
@@ -3272,6 +3393,7 @@ def compute_attempt_application(
         error_event_ids_override=attempt.error_event_ids_override,
         prior_state=prior_state,
         replay=attempt.replace_existing,
+        reveal_window_bounded=attempt.reveal_window_bounded,
         grading_source=attempt.grading_source,
         agent_run_id=attempt.grading_agent_run_id or attempt.fallback_agent_run_id,
         fallback_reason=attempt.fallback_reason,
@@ -3939,9 +4061,10 @@ def _compute_resolved_grade_application(
     grade_held_for_review: bool = False,
     grade_contract_unrecorded: bool = False,
     unrecorded_correctness: float | None = None,
+    reveal_window_bounded: bool = False,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
-        vault, repository, draft, replay=replay, clock=clock
+        vault, repository, draft, replay=replay, clock=clock, window_bounded=reveal_window_bounded,
     )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
     now_iso = utc_now_iso(clock)

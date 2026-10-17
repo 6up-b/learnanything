@@ -879,6 +879,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",
     "required_method": "method-explicit items (mvp-0.25): the kill switch of the own-route rules' required method (own-route-v2: a criterion tied to an item's required method is graded on use of that method)",
     "ui": "how the desktop presents learner surfaces (docs/specs/ux_learnloop_v1.md §10, display only): UX Phase 4's kill switch of the plain practice card, feedback, short-check results, repair step and session finish (\"classic\" restores the screens exactly)",
+    "eligibility": "one serve/administration eligibility decision (mvp-0.27): the kill switch of every serve path asking the decision submit asks (cold checks, probes, quick-check offers) and of historical writers' bounded auto-prime window",
 }
 
 
@@ -1309,6 +1310,18 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "exactly as mvp-0.24. Dormant below the successor and when proof_check.enabled is off; "
         "replay reads the blind record, never this switch. Generation phrasing criteria by fact and "
         "doctor's criterion:method_phrased are content paths, not gated here."
+    ),
+    "eligibility.enabled": (
+        "Kill switch for the one eligibility decision's successor (mvp-0.27; "
+        "learnloop.serve_eligibility). On, every serve path asks the decision submit asks: an item "
+        "submit would prime is never served as a cold check, a probe or a quick-check offer; a cold "
+        "check its item can no longer take cold (the answer shown with no lapse, or the item "
+        "practised since the check was set) is withdrawn with its typed disposition "
+        "(unmeasurable_no_held_out_surface for a repair cold retry; an expired certification probe) "
+        "and the item served as ordinary practice; exam seeding, an exam's finish and a kept-state "
+        "sim count only reveals up to their own instant when auto-priming. Off, every path serves "
+        "and admits exactly as mvp-0.26. Dormant below the successor; replay reads each attempt's "
+        "recorded primed flag, never this switch."
     ),
     "practice_index.enabled": (
         "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "

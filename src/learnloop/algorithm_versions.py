@@ -344,6 +344,29 @@ METHOD_EXPLICIT_ALGORITHM_VERSION = "mvp-0.25"
 # version back is restore-only).
 REGRADE_CONTRACT_ALGORITHM_VERSION = "mvp-0.26"
 
+# mvp-0.27 (one serve/administration eligibility decision, queued 2026-10-16;
+# docs/reviews/serve-eligibility-decision.md and its Codex review), on top of
+# mvp-0.26 (the chain stays linear: mvp-0.27 means everything mvp-0.26 means
+# PLUS this). Every serve path (the queue's cold lane, the daily plan's pool,
+# reconcile, serve and pick, the session serve, ``open_queue_item``, the TUI's
+# open, the CLI's attempt, every probe and placement presentation, the
+# placement quick check's offers) asks the one decision submit asks
+# (``learnloop.serve_eligibility``), so an item submit would prime is never
+# served as a measurement. A cold check whose item submit primes with no
+# lapse, or whose item was attempted after the check was scheduled, can never
+# be taken cold on that item: the item is served as ordinary practice and the
+# check withdrawn with its typed disposition (``unmeasurable_no_held_out_surface`` for
+# a repair cold retry; an expired certification probe). Historical writers
+# (exam seeding, an exam's finish, a kept-state sim) count only reveals at or
+# before their own instant when auto-priming (Q33). Submit's rule is kept
+# exactly (any primed draft is refused a cold check). It changes what is
+# SERVED and which new seeded or simulated attempts are primed, not the
+# projection, so it is another successor tag on the mvp-0.8 namespace; replay
+# reads every recorded flag as written. Kill switch: ``eligibility.enabled``
+# (off: every path serves and admits exactly as mvp-0.26). The branch built it
+# without a tag; the Codex review (F4) required this one.
+ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -370,6 +393,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     ROUTER_MIXTURE_ALGORITHM_VERSION,
     METHOD_EXPLICIT_ALGORITHM_VERSION,
     REGRADE_CONTRACT_ALGORITHM_VERSION,
+    ELIGIBILITY_DECISION_ALGORITHM_VERSION,
 )
 
 
@@ -481,6 +505,12 @@ METHOD_EXPLICIT_VERSIONS: frozenset[str] = successors_from(METHOD_EXPLICIT_ALGOR
 # grading epoch's own contract (holding an epoch that cites none). Every
 # later successor keeps them; gates must use this set, never equality.
 REGRADE_CONTRACT_VERSIONS: frozenset[str] = successors_from(REGRADE_CONTRACT_ALGORITHM_VERSION)
+
+# Versions whose serve paths and submit ask the one eligibility decision
+# (behind ``eligibility.enabled``), and whose historical writers bound their
+# auto-prime window at their own instant. Every later successor keeps them;
+# gates must use this set, never equality.
+ELIGIBILITY_DECISION_VERSIONS: frozenset[str] = successors_from(ELIGIBILITY_DECISION_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

@@ -1035,6 +1035,121 @@ def record_remediation_attempt(
         )
 
 
+#: The terminal disposition of a repair cold retry withdrawn because its
+#: surface can no longer be taken cold (``withdraw_cold_measurement``): its
+#: selected surface is no longer held out, so the retry is unmeasurable there.
+#: Not ``contaminated_or_assisted``, which (like every consume-time
+#: disposition) is about a concrete cold attempt (migration 145's CHECK); and
+#: not ``right_censored_expired``, which claims a genuine opportunity the
+#: learner never took.
+WITHDRAWN_COLD_RETRY_OUTCOME = "unmeasurable_no_held_out_surface"
+
+
+def withdraw_cold_measurement(
+    vault: LoadedVault | None,
+    repository: Repository,
+    task_id: str,
+    *,
+    reason: str,
+    reveal_event_ids: tuple[str, ...] | list[str] = (),
+    decision: Mapping[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Withdraw an open cold measurement its selected surface can no longer
+    give a cold reading (the one eligibility decision, ``mvp-0.27``; Codex
+    review F2): the item's answer was shown with no lapse (submit primes it
+    until an attempt, and an attempt on it is a hard exposure of the cold item
+    in the receipt's scan), or the item was attempted since the check was set.
+
+    Re-timing such a check only promised a measurement that could not be
+    cold, and spent the learner's answer on it. So it ends now, honestly:
+
+    * a repair ``cold_retry`` records its typed §4.3 disposition
+      (:data:`WITHDRAWN_COLD_RETRY_OUTCOME`, no servable independent
+      opportunity, ``detail.stage = "serve"`` with the reason and the reveal
+      rows) and its final coldness receipt, as the expiry sweep does for an
+      expiry, then expires (the sweep sees the outcome and writes nothing
+      more). If the disposition cannot be written the task is left open, so
+      nothing ends unlabelled;
+    * a ``certification_cold_probe`` expires, the existing door for a probe
+      whose claim no longer stands (``_cancel_stale_probes``); its rate reads
+      it as unmeasured.
+
+    One transaction; idempotent (the outcome's content id, the expiry's
+    status guard). Returns the task as it now stands, or None when it was not
+    open.
+
+    The task is read and checked inside that transaction (Codex re-review
+    F5): a submit may consume it between a caller's look and the lock, with
+    its consume-time disposition still to be written, and the one-row-per-task
+    outcome index would then keep this withdrawal's label on a consumed task
+    for good. Under ``BEGIN IMMEDIATE`` a consume either committed first (so
+    the task is not open and nothing is written) or waits for this one (and
+    its status guard leaves the expired task alone)."""
+
+    with repository.atomic():
+        task = repository.followup_task(task_id)
+        if task is None or str(task.get("status") or "") not in ("pending", "served"):
+            return None
+        if str(task.get("kind") or "") == "cold_retry":
+            from learnloop.attempts.coldness_receipt import evaluate_final_coldness, record_final_receipt
+            from learnloop.diagnosis.causal_probe_coherence import record_causal_cold_outcome
+
+            context = task.get("context")
+            context = context if isinstance(context, Mapping) else {}
+            recorded = record_causal_cold_outcome(
+                repository,
+                outcome=WITHDRAWN_COLD_RETRY_OUTCOME,
+                followup_task_id=str(task["id"]),
+                remediation_episode_id=str(task.get("remediation_episode_id") or "") or None,
+                case_kind=str(task.get("case_kind") or "") or None,
+                case_ref=str(task.get("case_ref") or "") or None,
+                source_attempt_id=(
+                    str(context.get("source_attempt_id") or "") or (str(task.get("source_attempt_id") or "") or None)
+                ),
+                repair_class_id=str(context.get("repair_class_id") or "") or None,
+                hypothesis_ids=[str(value) for value in context.get("hypothesis_ids") or []],
+                # The surface stopped being an independent opportunity before
+                # it was administered (spec §4.3: only a genuine one
+                # right-censors).
+                servable_opportunity=False,
+                detail={
+                    "stage": "serve",
+                    "reason": reason,
+                    "reveal_event_ids": [str(value) for value in reveal_event_ids],
+                    "eligibility": dict(decision or {}),
+                },
+                scheduled_not_before=str(task.get("not_before") or "") or None,
+                scheduled_expires_at=str(task.get("expires_at") or "") or None,
+                clock=clock,
+            )
+            if recorded is None and repository.causal_cold_outcome_for_task(str(task["id"])) is None:
+                logging.getLogger(__name__).warning(
+                    "cold retry %s not withdrawn: its disposition could not be recorded", task_id,
+                )
+                return None
+            if vault is not None:
+                try:
+                    record_final_receipt(
+                        repository,
+                        task=task,
+                        evaluation=evaluate_final_coldness(
+                            vault, repository, task=task, cold_attempt_id=None, clock=clock
+                        ),
+                        outcome=WITHDRAWN_COLD_RETRY_OUTCOME,
+                        clock=clock,
+                    )
+                except Exception:  # pragma: no cover - receipts must not fail a serve
+                    logging.getLogger(__name__).warning(
+                        "coldness final receipt failed for withdrawn task %s", task_id, exc_info=True,
+                    )
+        repository.expire_followup_task(str(task["id"]), clock=clock)
+    logging.getLogger(__name__).info(
+        "cold %s task %s withdrawn: %s (%d reveal(s))", task.get("kind"), task_id, reason, len(reveal_event_ids),
+    )
+    return repository.followup_task(str(task["id"]))
+
+
 def misconception_status_history(repository: Repository, misconception_id: str) -> list[dict[str, Any]]:
     history = []
     for event in repository.misconception_transition_events(misconception_id):

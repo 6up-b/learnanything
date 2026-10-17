@@ -72,10 +72,10 @@ CLOCK = FrozenClock(datetime(2026, 10, 13, 12, 0, tzinfo=UTC))
 
 def test_the_router_successor_follows_the_decider_and_keeps_every_predecessor():
     assert ROUTER_STAGED_FRAME_ALGORITHM_VERSION == "mvp-0.23"
-    assert SUCCESSOR_CHAIN[-5:-3] == (DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
+    assert SUCCESSOR_CHAIN[-6:-4] == (DECIDER_TIER1_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION)
     # Router R2b + R2c's model mixture (mvp-0.24) followed it as the latest successor.
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.26"
-    assert ROUTER_STAGED_FRAME_VERSIONS == frozenset({"mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26"})
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.27"
+    assert ROUTER_STAGED_FRAME_VERSIONS == frozenset({"mvp-0.23", "mvp-0.24", "mvp-0.25", "mvp-0.26", "mvp-0.27"})
     for versions in (
         P0_SUCCESSOR_VERSIONS, P0_PROJECTION_VERSIONS, CANONICAL_STATE_VERSIONS, DIAGNOSIS_SPLIT_VERSIONS,
         PLACEMENT_VERSIONS, RECURRENCE_GROUP_VERSIONS, STUCK_PROMPT_VERSIONS, DAILY_PLAN_VERSIONS,
@@ -211,7 +211,7 @@ def test_upgrade_command_defaults_to_the_latest(tmp_path):
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
     assert result.exit_code == 0, result.output
     assert f"mvp-0.22 -> {LATEST_ALGORITHM_VERSION}" in result.output
-    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.26"
+    assert load_vault(paths.root).config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.27"
     explicit = create_placement_vault(tmp_path / "explicit", version="mvp-0.20")
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(explicit.root), "--to", "mvp-0.23"])
     assert result.exit_code == 0, result.output
@@ -232,7 +232,7 @@ def test_new_vaults_start_at_the_router_successor(tmp_path):
     fresh = load_vault(tmp_path / "fresh")
     # mvp-0.24 since router R2b + R2c merged; it keeps the staged frame (the
     # mixture's default mode serves on top of it).
-    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.26"
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION == "mvp-0.27"
     assert fresh.config.router.enabled and fresh.config.router.mode == "mixture"
     assert router_active(fresh)
 

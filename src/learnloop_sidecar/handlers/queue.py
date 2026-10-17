@@ -293,7 +293,9 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
     if item is not None:
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        revalidate_cold_check(vault, repository, item.id)
+        eligibility = revalidate_cold_check(vault, repository, item.id)
+    else:
+        eligibility = None
     refusal = unservable_refusal(item) if item is not None else None
     if refusal is not None:
         raise SidecarError(
@@ -304,20 +306,45 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
     # An unknown id still belongs to `practice_item_detail`'s typed not_found;
     # only a KNOWN-but-unrenderable item takes the branch above.
     # A serve: the cold administration opens here, behind the guard (round 6).
-    return practice_item_detail(vault, repository, params.practice_item_id, administer=True)
+    detail = practice_item_detail(vault, repository, params.practice_item_id, administer=True)
+    if eligibility is not None:
+        detail["eligibility"] = eligibility_dto(eligibility)
+    return detail
 
 
-def revalidate_cold_check(vault, repository, practice_item_id: str) -> None:
-    """UX Phase 4, rounds 5 and 6: a serve revalidates a cold check against
-    routine-display coverage (``scheduler.cold_check_serve_hold``). A due cold
-    retry a routine display covers is deferred here (persisted) until that
-    coverage ends, so the serve opens no cold administration and the answer is
-    an ordinary one. Nothing is refused: every other reveal kind keeps main's
-    serving behaviour (round-6 ruling 2)."""
+def revalidate_cold_check(vault, repository, practice_item_id: str):
+    """A serve revalidates a cold check (UX Phase 4 rounds 5 and 6; the one
+    eligibility decision, ``scheduler.cold_check_serve_decision``). A due cold
+    task whose hold time clears (a routine display, a reveal since it was
+    scheduled) is deferred until it lifts; one the item can no longer take
+    cold (submit primes it with no lapse, or it was practised since the check
+    was set) is withdrawn with its typed disposition. Both persisted, so the
+    serve opens no cold administration and the answer is an ordinary one,
+    accepted. Nothing is refused. Returns the decision when it is not a plain
+    serve, else None; below ``mvp-0.27`` (or with ``eligibility.enabled``
+    off) the revalidation is mvp-0.26's routine-display hold and returns None,
+    so the detail carries no ``eligibility`` key, as before."""
 
-    from learnloop.scheduling.scheduler import cold_check_serve_hold
+    from learnloop import serve_eligibility
+    from learnloop.scheduling.scheduler import cold_check_serve_decision
 
-    cold_check_serve_hold(vault, repository, practice_item_id)
+    decision = cold_check_serve_decision(vault, repository, practice_item_id)
+    if not serve_eligibility.decision_active(vault):
+        return None
+    return None if decision.verdict == serve_eligibility.SERVE else decision
+
+
+def eligibility_dto(decision) -> dict[str, Any] | None:
+    """The served item's honest label, when its cold check could not be taken."""
+
+    if decision is None:
+        return None
+    return {
+        "verdict": decision.verdict,
+        "reason": decision.reason,
+        "message": decision.message,
+        "checkDueAt": decision.until,
+    }
 
 
 #: Today's sections in display order. Today focuses (and "Next" opens) the
