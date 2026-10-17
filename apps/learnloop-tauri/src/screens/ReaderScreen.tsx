@@ -2850,6 +2850,8 @@ export function ReaderScreen({
             : []),
           // RW3a: the margin marks, when any is drawn (UX §3.5).
           ...(cueCtl.placement.shown.length > 0 ? [{ key: "alt+↓", label: "next mark" }] : []),
+          // RW6a: once the session has something to wrap up (UX W1).
+          ...(recapCtl.wrapUpAvailable && !working ? [{ key: "w", label: "wrap up" }] : []),
         ]}
         right={{ key: "^p", label: "palette" }}
       />

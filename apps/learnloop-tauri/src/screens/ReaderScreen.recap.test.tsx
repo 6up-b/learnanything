@@ -95,6 +95,7 @@ it("the rail footer offers Wrap up after activity and opens the three lists in t
   });
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   const offer = await screen.findByRole("button", { name: "Wrap up (under a minute)" });
+  expect(screen.getByText("wrap up")).toBeTruthy(); // the key bar names w
   fireEvent.click(offer);
   const panel = await screen.findByRole("region", { name: "Wrap up" });
   expect(screen.getByRole("complementary", { name: "Reading guide" }).contains(panel)).toBe(true);
