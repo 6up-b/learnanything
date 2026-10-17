@@ -10,6 +10,8 @@
  * goes back as today.
  */
 import type { SessionSnapshot, SourceLibraryCard, WorkbenchSubmitDto } from "../api/dto";
+import type { ReaderWorkbenchCheck } from "../screens/reader/useReaderWorkbench";
+import type { PracticeOffer } from "./practiceOffer";
 import type { ReaderReturn } from "./readerCheck";
 
 export interface ReaderWorkbenchOrigin {
@@ -46,4 +48,26 @@ export function sessionAfterWorkbenchSubmit(
   if (!practiceSession) return current;
   if (current && current.sessionId === practiceSession.sessionId) return current;
   return practiceSession;
+}
+
+/**
+ * "Check me" on a margin cue with the workbench on (D40, UX S7): the check the
+ * Reader opens in its working posture, book hidden, answering the pick's own
+ * serve (its scheduler candidate and plan presentation, as `readerCheckOffer`
+ * worked them out). The plan-off proposal's delivery is recorded by the serve
+ * the shell makes first, exactly as the practice screen's serve did.
+ */
+export function readerWorkbenchCheck(
+  request: { practiceItemId: string; spanId: string; card: SourceLibraryCard },
+  offer: PracticeOffer,
+  servedPrompt: string,
+): ReaderWorkbenchCheck {
+  return {
+    practiceItemId: request.practiceItemId,
+    spanId: request.spanId,
+    sourceId: request.card.sourceId,
+    stemMd: servedPrompt,
+    schedulerCandidateId: offer.candidateId ?? null,
+    planPresentationId: offer.presentationId ?? null,
+  };
 }

@@ -18,6 +18,18 @@ const api = vi.hoisted(() => ({
   workbenchSubmit: vi.fn(), workbenchGet: vi.fn(),
 }));
 vi.mock("../../api/client", () => ({ api }));
+// The window's close request (review F8): the handler is kept so a test can fire it.
+const windowApi = vi.hoisted(() => ({
+  closeHandlers: [] as Array<(event: { preventDefault: () => void }) => Promise<void>>,
+  destroy: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
+  onCloseRequested: async (handler: (event: { preventDefault: () => void }) => Promise<void>) => {
+    windowApi.closeHandlers.push(handler);
+    return () => { windowApi.closeHandlers = windowApi.closeHandlers.filter((candidate) => candidate !== handler); };
+  },
+  destroy: windowApi.destroy,
+}) }));
 vi.mock("../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
 // The editor's own behaviour is tested in LiveMarkdownEditor.test.tsx; here a
 // textarea stands in, reporting the same key information.
@@ -293,4 +305,212 @@ it("a submitted problem shows read-only with its steps and what it recorded", ()
   expect(screen.getByTestId("workbench-header").textContent).toContain("SUBMITTED");
   expect(screen.getByText(RECORD_OPEN.footer)).toBeTruthy();
   expect(screen.queryByRole("button", { name: /^submit/ })).toBeNull();
+});
+
+
+// -- review fixes (docs/reviews/reader-rw2a-codex-review.md) ------------------------------------
+
+const SAVED_STEPS = [
+  { stepId: "a", chainId: "a", ordinal: 1, kind: "step" as const, bodyMd: "one", deleted: false, createdAt: "x", editedAt: "x", versions: [] },
+  { stepId: "b", chainId: "b", ordinal: 2, kind: "step" as const, bodyMd: "two", deleted: false, createdAt: "x", editedAt: "x", versions: [] },
+];
+
+function stepRow(input: { stepId?: string; op: string; kind?: string }, bodyMd: string) {
+  return {
+    version: 1, savedAt: "x", record: RECORD_OPEN,
+    step: { stepId: `${input.stepId ?? "new"}_v`, chainId: input.stepId ?? "new", ordinal: 1, kind: input.kind ?? "step",
+            bodyMd, deleted: input.op === "delete", createdAt: "x", editedAt: "x", versions: [] },
+  };
+}
+
+it("F5: a write retried after its response was lost resends what it sent, and newer text saves under a new key", async () => {
+  // The server: each key commits once; a replayed key answers what it committed.
+  const committed = new Map<string, string>();
+  let head = "one";
+  let lose = true;
+  api.workbenchSaveStep.mockImplementation(async (input: { clientIdempotencyKey: string; op: string; stepId?: string; bodyMd?: string }) => {
+    if (!committed.has(input.clientIdempotencyKey)) {
+      committed.set(input.clientIdempotencyKey, input.bodyMd ?? head);
+      head = input.bodyMd ?? head;
+      if (lose) {
+        lose = false;
+        throw { code: "database_locked", message: "the response was lost" };
+      }
+    }
+    return stepRow(input, committed.get(input.clientIdempotencyKey)!);
+  });
+  render(<Workbench {...props({ initial: session({ steps: [SAVED_STEPS[0]] }) })} />);
+  await typeStep(1, "first edit");
+  expect(await screen.findByText("not saved yet — retrying · your text is safe in this window", undefined, { timeout: 3000 })).toBeTruthy();
+  // During the backoff the learner keeps typing.
+  fireEvent.change(stepBox(1), { target: { value: "newer edit" } });
+  await waitFor(() => expect(head).toBe("newer edit"), { timeout: 6000 });
+  const calls = api.workbenchSaveStep.mock.calls.map((call) => call[0]);
+  expect(calls[1].clientIdempotencyKey).toBe(calls[0].clientIdempotencyKey);
+  expect(calls[1].bodyMd).toBe("first edit");
+  expect(calls[2].bodyMd).toBe("newer edit");
+  expect(calls[2].clientIdempotencyKey).not.toBe(calls[0].clientIdempotencyKey);
+  expect(await screen.findByText("saved · just now", undefined, { timeout: 3000 })).toBeTruthy();
+  expect(stepBox(1).value).toBe("newer edit");
+}, 12000);
+
+it("F6: a write the server refuses stays not saved, and Submit sends nothing until it is fixed", async () => {
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockRejectedValueOnce({ code: "validation_error", message: "This step is too long to save." });
+  api.workbenchSubmit.mockResolvedValue({ version: 1, attempt: { attemptId: "att_1" }, session: session({ status: "submitted", attemptId: "att_1" }), practiceSession: null });
+  render(<Workbench {...props({ onError })} />);
+  await typeStep(1, "x".repeat(50));
+  expect(await screen.findByText(/^not saved \(This step is too long to save\.\)/, undefined, { timeout: 3000 })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^submit/ }));
+  expect(await screen.findByText(/A step isn't saved \(This step is too long to save\.\), so nothing was submitted/)).toBeTruthy();
+  expect(api.workbenchSubmit).not.toHaveBeenCalled();
+  expect(stepBox(1).value).toBe("x".repeat(50));
+  // Shortened, it saves, and Submit goes.
+  fireEvent.change(stepBox(1), { target: { value: "short" } });
+  expect(await screen.findByText("saved · just now", undefined, { timeout: 3000 })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "try again ↵" }));
+  await waitFor(() => expect(api.workbenchSubmit).toHaveBeenCalledTimes(1));
+});
+
+it("F3: hiding the book within the save's debounce saves the step written with it shown first", async () => {
+  const order: string[] = [];
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string }) => {
+    order.push(`save:${input.bodyMd}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  api.workbenchSetBook.mockImplementation(async (input: { visible: boolean }) => {
+    order.push(`book:${input.visible}`);
+    return { session: session({ sourceVisible: input.visible, sourceShownAt: "x" }) };
+  });
+  const onSession = vi.fn();
+  render(<Workbench {...props({ onSession })} />);
+  await typeStep(1, "written beside the book");
+  fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "B", ctrlKey: true, shiftKey: true });
+  // The Reader covers the book at once...
+  expect(onSession).toHaveBeenCalledWith(expect.objectContaining({ sourceVisible: false }));
+  // ...and the server hears the step before the book's change.
+  await waitFor(() => expect(order).toEqual(["save:written beside the book", "book:false"]), { timeout: 3000 });
+});
+
+it("F3: a failing save holds the book's change behind it, so the assistance is never lost", async () => {
+  const order: string[] = [];
+  api.workbenchSaveStep.mockRejectedValueOnce({ code: "database_locked", message: "locked" })
+    .mockImplementation(async (input: { op: string; bodyMd?: string }) => {
+      order.push(`save:${input.bodyMd}`);
+      return stepRow(input, input.bodyMd ?? "");
+    });
+  api.workbenchSetBook.mockImplementation(async (input: { visible: boolean }) => {
+    order.push(`book:${input.visible}`);
+    return { session: session({ sourceVisible: input.visible }) };
+  });
+  render(<Workbench {...props()} />);
+  await typeStep(1, "beside the book");
+  fireEvent.keyDown(screen.getByRole("region", { name: "workbench" }), { key: "B", ctrlKey: true, shiftKey: true });
+  await waitFor(() => expect(order).toEqual(["save:beside the book", "book:false"]), { timeout: 5000 });
+}, 8000);
+
+it("F7: Abandon waits for every queued save before setting the problem aside", async () => {
+  const order: string[] = [];
+  let releaseFirst!: () => void;
+  api.workbenchSaveStep.mockImplementationOnce((input: { op: string; stepId?: string; bodyMd?: string }) => new Promise((resolve) => {
+    order.push(`save:${input.stepId}`);
+    releaseFirst = () => resolve(stepRow(input, input.bodyMd ?? ""));
+  })).mockImplementation(async (input: { op: string; stepId?: string; bodyMd?: string }) => {
+    order.push(`save:${input.stepId}`);
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  api.workbenchAbandon.mockImplementation(async () => {
+    order.push("abandon");
+    return { session: session({ status: "abandoned" }) };
+  });
+  const onAbandoned = vi.fn();
+  render(<Workbench {...props({ onAbandoned, initial: session({ steps: SAVED_STEPS }) })} />);
+  await typeStep(1, "one, revised");
+  await typeStep(2, "two, revised");
+  fireEvent.click(screen.getByRole("button", { name: "more actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Abandon this problem" }));
+  await waitFor(() => expect(order).toEqual(["save:a"]));
+  await act(async () => releaseFirst());
+  await waitFor(() => expect(order).toEqual(["save:a", "save:b", "abandon"]));
+  await waitFor(() => expect(onAbandoned).toHaveBeenCalled());
+});
+
+it("F7: Abandon with a save still retrying sets nothing aside and says the steps are not saved yet", async () => {
+  const onError = vi.fn();
+  api.workbenchSaveStep.mockRejectedValue({ code: "database_locked", message: "locked" });
+  render(<Workbench {...props({ onError, initial: session({ steps: SAVED_STEPS }) })} />);
+  await typeStep(1, "one, revised");
+  expect(await screen.findByText("not saved yet — retrying · your text is safe in this window", undefined, { timeout: 3000 })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "more actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Abandon this problem" }));
+  await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringContaining("not saved yet, so this problem was not set aside")));
+  expect(api.workbenchAbandon).not.toHaveBeenCalled();
+});
+
+it("F8: a vault switch freezes the steps and saves them against their own vault before it selects the next", async () => {
+  const { selectWithDraftFlush } = await import("../../app/vaultTransition");
+  const order: string[] = [];
+  api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string }) => {
+    order.push(`save:${input.bodyMd}`);
+    return stepRow(input, input.bodyMd ?? "");
+  });
+  const view = render(<Workbench {...props()} />);
+  await typeStep(1, "typed just before the switch");
+  await act(async () => {
+    await selectWithDraftFlush(async () => {
+      order.push("select");
+      // Frozen: typing during the switch changes nothing.
+      fireEvent.change(stepBox(1), { target: { value: "typed during the switch" } });
+    });
+  });
+  expect(order).toEqual(["save:typed just before the switch", "select"]);
+  expect(stepBox(1).value).toBe("typed just before the switch");
+  // Unmounted after the switch: nothing is sent to the next vault.
+  view.unmount();
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  expect(order).toEqual(["save:typed just before the switch", "select"]);
+});
+
+it("F8: a vault switch with steps that cannot be saved does not happen, and editing resumes", async () => {
+  const { selectWithDraftFlush } = await import("../../app/vaultTransition");
+  api.workbenchSaveStep.mockRejectedValue({ code: "database_locked", message: "locked" });
+  render(<Workbench {...props()} />);
+  await typeStep(1, "not yet saved");
+  const select = vi.fn();
+  let refused: unknown = null;
+  await act(async () => {
+    await selectWithDraftFlush(select).catch((error: unknown) => { refused = error; });
+  });
+  expect(select).not.toHaveBeenCalled();
+  expect(refused).toMatchObject({ code: "not_saved" });
+  fireEvent.change(stepBox(1), { target: { value: "still editable" } });
+  expect(stepBox(1).value).toBe("still editable");
+});
+
+it("F8: closing the window waits for the steps to save before it goes", async () => {
+  windowApi.closeHandlers = [];
+  let release!: () => void;
+  api.workbenchSaveStep.mockImplementation((input: { op: string; bodyMd?: string }) => new Promise((resolve) => {
+    release = () => resolve(stepRow(input, input.bodyMd ?? ""));
+  }));
+  render(<Workbench {...props()} />);
+  await waitFor(() => expect(windowApi.closeHandlers.length).toBeGreaterThan(0));
+  await typeStep(1, "typed just before closing");
+  const closing = windowApi.closeHandlers[windowApi.closeHandlers.length - 1]({ preventDefault: vi.fn() });
+  await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ bodyMd: "typed just before closing" })));
+  expect(windowApi.destroy).not.toHaveBeenCalled();
+  await act(async () => { release(); await closing; });
+  expect(windowApi.destroy).toHaveBeenCalledTimes(1);
+});
+
+it("F9: a bound problem shows the item's whole presentation, the required method's instruction included", () => {
+  render(<Workbench {...props({ initial: session({ presentation: { practiceItemId: "pi_514", blocks: [
+    { kind: "prompt", markdown: "Find the CDF of X.", label: null },
+    { kind: "required_method_instruction", markdown: "Use the law of total probability in your answer.", label: null },
+  ] } }) })} />);
+  const problem = screen.getByTestId("workbench-presentation");
+  expect(problem.textContent).toContain("Find the CDF of X.");
+  expect(problem.textContent).toContain("Use the law of total probability in your answer.");
+  expect(screen.queryByText(/Let X be Uniform/)).toBeNull();
 });

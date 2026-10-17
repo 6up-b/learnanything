@@ -9,7 +9,11 @@
 // exercise it opens bound. The workbench takes half the window (resizable,
 // remembered on this device, at least 480 px), or the whole screen below the
 // 1,040 px breakpoint with the book in a sheet. Leave, Submit and Abandon
-// collapse back into reading at the problem's passage.
+// collapse back into reading at the problem's passage. "Check me" on a margin
+// cue opens here too (D40, UX S7): the shell records the learner pick and
+// hands the check over, and it opens in the working posture with the book
+// hidden, answering the pick's own serve. Resuming a problem worked on the
+// practice screen moves it here explicitly (review F4).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -29,9 +33,25 @@ import {
   writeSplitWidth,
 } from "../workbench/splitWidth";
 
+/** A margin cue's "check me", picked by the shell (D40): the item and the
+ *  serve its answer is to. */
+export interface ReaderWorkbenchCheck {
+  practiceItemId: string;
+  /** The passage the cue sits beside, and the source it is on. */
+  spanId: string;
+  sourceId: string;
+  stemMd: string;
+  schedulerCandidateId: string | null;
+  planPresentationId: string | null;
+}
+
 export interface ReaderWorkbenchProps {
   /** The app's open practice session, when there is one (the submit uses it). */
   practiceSessionId?: string | null;
+  /** "Check me" to open in the working posture, book hidden (D40). */
+  checkMe?: ReaderWorkbenchCheck | null;
+  /** The check opened (the shell forgets it). */
+  onCheckMeShown?: () => void;
   /** A submit hands its attempt to the shell, with the way back to its passage. */
   onSubmitted?: (result: WorkbenchSubmitDto, at: { card: SourceLibraryCard; spanId: string }) => void;
   /** Back from feedback: open this attempt's problem read-only (UX S6). */
@@ -45,6 +65,9 @@ export interface ActiveWorkbench {
   readOnly: boolean;
   /** Opened by the learner just now: step 1 takes the caret. */
   autoFocus: boolean;
+  /** The serve a "check me" answers (its candidate and plan presentation). */
+  schedulerCandidateId?: string | null;
+  planPresentationId?: string | null;
 }
 
 export interface ReaderWorkbench {
@@ -148,10 +171,10 @@ export function useReaderWorkbench(input: {
     });
   }, []);
 
-  const begin = useCallback((session: WorkbenchSessionDto, readOnly = false) => {
+  const begin = useCallback((session: WorkbenchSessionDto, readOnly = false, serve?: { schedulerCandidateId: string | null; planPresentationId: string | null }) => {
     setAbandoned(null);
     setSheetOpen(false);
-    setActive({ session, readOnly, autoFocus: !readOnly });
+    setActive({ session, readOnly, autoFocus: !readOnly, ...(serve ?? {}) });
   }, []);
 
   const openSelection = useCallback(async (request: { stemMd: string; spanIds: string[]; importRequest: ReaderImportExerciseInput }) => {
@@ -182,13 +205,42 @@ export function useReaderWorkbench(input: {
 
   const resume = useCallback(async (sessionId: string) => {
     try {
-      const read = await api.workbenchGet({ sessionId });
-      const session = read.session.status === "abandoned" ? (await api.workbenchReopen({ sessionId })).session : read.session;
-      begin(session);
+      // One explicit resume: reopened when set aside, and moved into the
+      // Reader (its anchors here, the book hidden once steps exist) when it
+      // was worked on the practice screen (review F4).
+      const result = await api.workbenchOpen({ origin: "reader", entry: "resume", sessionId, extractionId: extractionRef.current });
+      begin(result.session);
     } catch (error) {
       onError(errorMessage(error, "Couldn't reopen this problem."));
     }
   }, [begin, onError]);
+
+  // "Check me" (D40): once its source is the one open, the check opens in the
+  // working posture with the book hidden, as the pick's own serve.
+  const checkMe = props?.checkMe ?? null;
+  const openedCheckRef = useRef<ReaderWorkbenchCheck | null>(null);
+  useEffect(() => {
+    if (!enabled || !checkMe || !extractionId || !card || card.sourceId !== checkMe.sourceId) return;
+    if (openedCheckRef.current === checkMe) return;
+    openedCheckRef.current = checkMe;
+    const wanted = extractionId;
+    void api.workbenchOpen({
+      origin: "reader", entry: "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
+      extractionId: wanted, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
+    })
+      .then((result) => {
+        props?.onCheckMeShown?.();
+        if (extractionRef.current !== wanted) return;
+        begin(result.session, false, {
+          schedulerCandidateId: checkMe.schedulerCandidateId, planPresentationId: checkMe.planPresentationId,
+        });
+      })
+      .catch((error) => {
+        props?.onCheckMeShown?.();
+        onError(errorMessage(error, "Couldn't open the check."));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, checkMe, extractionId, card?.sourceId]);
 
   const reopenAbandoned = useCallback(async () => {
     if (!abandoned) return;

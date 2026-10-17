@@ -7903,6 +7903,8 @@ export interface WorkbenchRecordDto {
   bookVisible: boolean;
   hints: number;
   questionHints: number;
+  /** The answer box's hints shown before working in steps (review F2). */
+  carriedHints?: number;
   ownAttempt: boolean;
   line: string;
   footer: string;
@@ -7931,6 +7933,10 @@ export interface WorkbenchSessionDto {
   sourceHiddenAt: string | null;
   sourceShownAt: string | null;
   practiceSessionId: string | null;
+  /** The assessment contract the session shows (review F1). */
+  assessmentContractVersionId?: string | null;
+  /** The answer box's hints shown before working in steps (review F2). */
+  carriedHints?: number;
   helpStyle: string | null;
   status: WorkbenchStatus;
   attemptId: string | null;
@@ -7943,6 +7949,8 @@ export interface WorkbenchSessionDto {
   /** A multi-part import asks which part this problem is. */
   parts: WorkbenchPartDto[] | null;
   sourceId: string | null;
+  /** Once bound: the item's whole frozen presentation (review F9). */
+  presentation?: ItemPresentationDto | null;
 }
 
 /** One unfinished problem: the ✎ mark, the rail, the practice card, RW6a's recap. */
@@ -7967,6 +7975,11 @@ export interface WorkbenchSummaryDto {
 export interface WorkbenchOpenInput {
   origin: WorkbenchOrigin;
   entry: WorkbenchEntry;
+  /** Resume this session on the asking surface (reopened when set aside,
+   *  moved when it was worked on another surface; review F4). */
+  sessionId?: string | null;
+  /** The answer box's hints the learner saw before working in steps. */
+  carriedHints?: number;
   stemMd?: string | null;
   practiceItemId?: string | null;
   extractionId?: string | null;

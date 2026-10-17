@@ -59,13 +59,21 @@ export function problemTitle(stem: string): string {
   return match ? `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${match[2]}` : "this problem";
 }
 
-export type SaveState = "saved" | "saving" | "retrying" | "offline";
+export type SaveState = "saved" | "saving" | "retrying" | "offline" | "rejected";
+
+/** The save line's state: "rejected" carries why the server refused a write. */
+export interface SaveStatus {
+  state: SaveState;
+  savedAt: string | null;
+  reason?: string | null;
+}
 
 /** Every fixed line the workbench shows. Never "error" (UX §5.3, U6). */
 export const WORKBENCH_COPY = {
   savedJustNow: "saved · just now",
   retrying: "not saved yet — retrying · your text is safe in this window",
   offline: "sidecar unreachable — keeping your steps here; they'll save when it's back",
+  rejected: "not saved — your text is still here; shorten or delete the step to save the rest",
   saving: "saving…",
   setup: "setting up checks and hints for this exercise…",
   waitsForSetup: "available once setup finishes",
@@ -81,7 +89,8 @@ export const WORKBENCH_COPY = {
   leftKept: "kept — resume any time",
 } as const;
 
-export function savedLabel(status: { state: SaveState; savedAt: string | null }, nowMs: number = Date.now()): string {
+export function savedLabel(status: SaveStatus, nowMs: number = Date.now()): string {
+  if (status.state === "rejected") return status.reason ? `not saved (${status.reason}) — your text is still here` : WORKBENCH_COPY.rejected;
   if (status.state === "retrying") return WORKBENCH_COPY.retrying;
   if (status.state === "offline") return WORKBENCH_COPY.offline;
   if (status.state === "saving") return WORKBENCH_COPY.saving;

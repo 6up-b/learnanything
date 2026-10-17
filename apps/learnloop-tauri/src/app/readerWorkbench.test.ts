@@ -5,7 +5,8 @@
 import { expect, it } from "vitest";
 import type { SessionSnapshot, SourceLibraryCard, WorkbenchSubmitDto } from "../api/dto";
 import { returnsToReader } from "./readerCheck";
-import { readerTargetBack, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
+import { readerCheckOffer } from "./readerCheck";
+import { readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 
 const card = { sourceId: "src", title: "Probability" } as SourceLibraryCard;
 const result = {
@@ -39,4 +40,19 @@ it("the submit's practice session becomes the app's when it had none or another"
   expect(sessionAfterWorkbenchSubmit(app, fresh)).toBe(fresh);
   expect(sessionAfterWorkbenchSubmit(app, { sessionId: "ps_app" } as SessionSnapshot)).toBe(app);
   expect(sessionAfterWorkbenchSubmit(app, null)).toBe(app);
+});
+
+// Review F12 (D40): check me stays in the Reader as the pick's own serve.
+it("check me with the workbench on opens in the Reader as the pick's serve, plan on or off", () => {
+  const request = { practiceItemId: "pi_c", spanId: "b4", card };
+  const planOn = readerCheckOffer(
+    { enabled: true, step: { kind: "item", practiceItemId: "pi_c", schedulerCandidateId: "cand", presentationId: "pres" } } as never,
+    "pi_c", "prop_1",
+  );
+  expect(readerWorkbenchCheck(request, planOn, "Is A^T A symmetric?")).toEqual({
+    practiceItemId: "pi_c", spanId: "b4", sourceId: "src", stemMd: "Is A^T A symmetric?",
+    schedulerCandidateId: "cand", planPresentationId: "pres",
+  });
+  const planOff = readerCheckOffer({ enabled: false, step: null } as never, "pi_c", "prop_1");
+  expect(readerWorkbenchCheck(request, planOff, "Q")).toMatchObject({ schedulerCandidateId: null, planPresentationId: null });
 });

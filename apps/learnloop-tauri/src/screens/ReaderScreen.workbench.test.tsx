@@ -159,7 +159,7 @@ it("with the book hidden the source pane says why and how to bring it back (W8)"
 
 it("an unfinished problem is a ✎ mark beside its passage and a line in the rail, and resumes where it was", async () => {
   api.workbenchForSource.mockResolvedValue({ sessions: [summary()], openSessionDays: 30 });
-  api.workbenchGet.mockResolvedValue({ session: wbSession({ sessionId: "wb_old", practiceItemId: "pi_514", importStatus: "none", stemMd: "Exercise 5.14 Find the CDF of X.",
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wbSession({ sessionId: "wb_old", practiceItemId: "pi_514", importStatus: "none", stemMd: "Exercise 5.14 Find the CDF of X.",
     steps: [{ stepId: "s1", chainId: "s1", ordinal: 1, kind: "step", bodyMd: "F(x) = p F_Y(x)", deleted: false, createdAt: "x", editedAt: "x", versions: [] }] }) });
   render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
   const mark = await screen.findByRole("button", { name: "Resume this problem: Exercise 5.14" });
@@ -168,7 +168,9 @@ it("an unfinished problem is a ✎ mark beside its passage and a line in the rai
   expect(within(rail).getByText(/Exercise 5.14/)).toBeTruthy();
   expect(within(rail).queryByText(/\d+ unfinished/)).toBeNull();
   fireEvent.click(mark);
-  await waitFor(() => expect(api.workbenchGet).toHaveBeenCalledWith({ sessionId: "wb_old" }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({
+    origin: "reader", entry: "resume", sessionId: "wb_old", extractionId: view.extractionId,
+  })));
   expect((await screen.findByRole("textbox", { name: "Step 1" }) as HTMLTextAreaElement).value).toBe("F(x) = p F_Y(x)");
 });
 
@@ -228,4 +230,46 @@ it("back from feedback opens the submitted problem read-only; Esc returns to rea
   await act(async () => { fireEvent.keyDown(pane, { key: "Escape" }); });
   await waitFor(() => expect(screen.queryByRole("region", { name: "workbench" })).toBeNull());
   expect(screen.getByRole("complementary")).toBeTruthy();
+});
+
+// Review F4: only a shown book counts, so an unshown one is never in view,
+// whatever surface the session came from.
+it("a resumed problem whose book is not shown has the source covered, whatever its origin", async () => {
+  api.workbenchForSource.mockResolvedValue({ sessions: [summary()], openSessionDays: 30 });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wbSession({ sessionId: "wb_old", origin: "practice", sourceVisible: false,
+    practiceItemId: "pi_514", importStatus: "none" }) });
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Resume this problem: Exercise 5.14" }));
+  await screen.findByRole("region", { name: "workbench" });
+  expect(screen.getByTestId("workbench-book-cover")).toBeTruthy();
+});
+
+// Review F12 (D40, UX S7): "check me" opens in the Reader's working posture,
+// book hidden, answering the pick's own serve.
+it("check me opens in the working posture with the book hidden and submits as the pick's serve", async () => {
+  const onCheckMeShown = vi.fn();
+  const check = {
+    practiceItemId: "pi_check", spanId: "span_spectral_worked", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
+    schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+  };
+  api.workbenchOpen.mockResolvedValue({ resumed: false, session: wbSession({ sessionId: "wb_check", practiceItemId: "pi_check",
+    importStatus: "none", entry: "check_me", sourceVisible: false, stemMd: "Is A^T A symmetric?", spanIds: ["span_spectral_worked"],
+    steps: [{ stepId: "s1", chainId: "s1", ordinal: 1, kind: "step", bodyMd: "yes", deleted: false, createdAt: "x", editedAt: "x", versions: [] }] }) });
+  api.workbenchSubmit.mockResolvedValue({ version: 1, attempt: { attemptId: "att_c" }, session: wbSession({ sessionId: "wb_check", status: "submitted", attemptId: "att_c" }), practiceSession: null });
+  const onSubmitted = vi.fn();
+  render(<ReaderScreen initialSource={source} onError={vi.fn()} workbench={{ practiceSessionId: "s1", checkMe: check, onCheckMeShown, onSubmitted }} />);
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(1));
+  expect(api.workbenchOpen.mock.calls[0][0]).toMatchObject({
+    origin: "reader", entry: "check_me", practiceItemId: "pi_check", extractionId: view.extractionId, spanIds: ["span_spectral_worked"],
+  });
+  // The book's default for a check is hidden (the server's rule): the client sends no choice.
+  expect(api.workbenchOpen.mock.calls[0][0].sourceVisible).toBeUndefined();
+  await screen.findByRole("region", { name: "workbench" });
+  expect(screen.getByTestId("workbench-book-cover")).toBeTruthy();
+  expect(onCheckMeShown).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /^submit/ }));
+  await waitFor(() => expect(api.workbenchSubmit).toHaveBeenCalledWith(expect.objectContaining({
+    sessionId: "wb_check", practiceSessionId: "s1", schedulerCandidateId: "cand_pick", planPresentationId: "pres_pick",
+  })));
+  await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
 });

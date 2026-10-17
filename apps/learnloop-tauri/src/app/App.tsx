@@ -30,9 +30,9 @@ import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
 import type { ReaderCheckMeRequest, ReaderOpenSource } from "../screens/ReaderScreen";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
-import { readerTargetBack, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
+import { readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig } from "./algoConfig";
-import type { ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
+import type { ReaderWorkbenchCheck, ReaderWorkbenchProps } from "../screens/reader/useReaderWorkbench";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -212,6 +212,9 @@ export function App() {
   // RW2a (UX S6): back from a Reader workbench attempt's feedback opens its
   // problem read-only in the Reader; cleared once the Reader has shown it.
   const [readerWorkbenchAttempt, setReaderWorkbenchAttempt] = useState<string | null>(null);
+  // RW2a (D40): a cue's "check me", picked and served, waiting for the Reader
+  // to open it in the working posture with the book hidden.
+  const [readerCheck, setReaderCheck] = useState<ReaderWorkbenchCheck | null>(null);
   // Same stash-and-resume for a guided redo begun with NO session open:
   // start_guided_redo has already committed the repair episode to treatment on
   // the redo item, so dropping the DTO here would strand that episode exactly
@@ -510,7 +513,7 @@ export function App() {
     // RW3a: a Reader check waiting on a session opens now, as a learner pick.
     if (pendingCheckMe) {
       setPendingCheckMe(null);
-      void pickCheckMe(pendingCheckMe, next.sessionId);
+      void pickCheckMe(pendingCheckMe, next.sessionId, { fromStart: true });
       return;
     }
     // Daily-loop DL1: Begin starts today's plan at its first step (§6.7).
@@ -587,10 +590,28 @@ export function App() {
   // when it serves, else the open serves it with the proposal's delivery --
   // on the practice screen, so the book is out of view until the workbench's
   // working posture lands (RW2a). Back from it returns to the passage.
-  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string) {
+  //
+  // RW2a (D40, UX S7): with the workbench on, it stays in the Reader. The
+  // pick is recorded exactly as before, the item is served once as the
+  // practice screen would serve it (the plan-off proposal's delivery
+  // included), and the Reader opens it in the working posture with the book
+  // hidden, answering the pick's own candidate and presentation. Feedback's
+  // back returns to the problem, Next to the passage.
+  async function pickCheckMe(request: ReaderCheckMeRequest, sessionId: string, options: { fromStart?: boolean } = {}) {
     try {
       const result = await api.planLearnerPick(request.practiceItemId, sessionId, null, request.proposalId ?? null);
-      setPracticeOffer(readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null));
+      const offer = readerCheckOffer(result, request.practiceItemId, request.proposalId ?? null);
+      if (algoConfig().workbench) {
+        const served = await api.getPracticeItem(request.practiceItemId, sessionId, offer.proposalOrigin ?? null);
+        setReaderCheck(readerWorkbenchCheck(request, offer, served.prompt));
+        if (options.fromStart) {
+          setReaderSource({ card: request.card, spanId: request.spanId });
+          setReaderOpenSeq((seq) => seq + 1);
+          setTab("reader");
+        }
+        return;
+      }
+      setPracticeOffer(offer);
       setReaderReturn({ card: request.card, spanId: request.spanId, practiceItemId: request.practiceItemId });
       setPrimedRetry(false);
       setRedoContext(null);
@@ -623,6 +644,8 @@ export function App() {
         onSubmitted: onReaderWorkbenchSubmitted,
         initialAttemptId: readerWorkbenchAttempt,
         onInitialAttemptShown: () => setReaderWorkbenchAttempt(null),
+        checkMe: readerCheck,
+        onCheckMeShown: () => setReaderCheck(null),
       }
     : undefined;
 

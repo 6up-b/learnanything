@@ -589,33 +589,49 @@ export function PracticeScreen({
 
   // RW2a: "Work in steps" on an ordinary serve (never a diagnostic check, a
   // teach-back, a guided redo or a primed retry), behind workbench.enabled.
-  const workbenchOffered = algoConfig().workbench && interactionReady && !probeActive && !isTeachBack && !redo && !primed;
+  // An open workbench stays mounted through a vault switch's freeze: it
+  // registers its own steps with the switch and pauses itself (review F8).
+  const workbenchAvailable = algoConfig().workbench && practiceReady && committedRecovery === null && !probeActive && !isTeachBack && !redo && !primed;
+  const workbenchOffered = workbenchAvailable && !vaultChanging;
   const [wbSession, setWbSession] = useState<WorkbenchSessionDto | null>(null);
   const [wbItemSessions, setWbItemSessions] = useState<WorkbenchSummaryDto[]>([]);
   const wbAutoOpened = useRef(false);
   const wbOrigin = planPresentationId ? "plan" : "practice";
+  const wbEntry = wbOrigin === "plan" ? "plan" : "practice_screen";
+  // The hints already shown on the answer box go with the work into steps,
+  // and come back from it (review F2): the session holds the count, so the
+  // record line and the submit read one durable number.
+  const hintsUsedRef = useRef(hintsUsed);
+  hintsUsedRef.current = hintsUsed;
   const openWorkbench = useCallback(async () => {
     if (!item) return;
     try {
       const result = await api.workbenchOpen({
-        origin: wbOrigin, entry: wbOrigin === "plan" ? "plan" : "practice_screen",
-        practiceItemId: item.id, stemMd: item.prompt,
+        origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
+        carriedHints: hintsUsedRef.current,
       });
       setWbSession(result.session);
     } catch (error) {
       onError(errorMessage(error, "Couldn't open the step workbench."));
     }
-  }, [item, onError, wbOrigin]);
+  }, [item, onError, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     try {
-      const result = entry.status === "abandoned"
-        ? await api.workbenchReopen({ sessionId: entry.sessionId })
-        : await api.workbenchGet({ sessionId: entry.sessionId });
+      // One explicit resume: reopened when set aside, and moved here when it
+      // was worked in the Reader (no book on this screen; review F4).
+      const result = await api.workbenchOpen({
+        origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId, carriedHints: hintsUsedRef.current,
+      });
       setWbSession(result.session);
     } catch (error) {
       onError(errorMessage(error, "Couldn't reopen your steps."));
     }
-  }, [onError]);
+  }, [onError, wbEntry, wbOrigin]);
+  const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
+    const carried = closing?.carriedHints ?? 0;
+    if (carried > 0) setHintsUsed((value) => Math.min(item?.hints.length ?? carried, Math.max(value, carried)));
+    setWbSession(null);
+  }, [item]);
   const refreshWbItemSessions = useCallback(() => {
     if (!item) return;
     void api.workbenchForItem({ practiceItemId: item.id })
@@ -631,7 +647,7 @@ export function PracticeScreen({
     }
   }, [workbenchOffered, refreshWbItemSessions, openWorkbench]);
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
-  const stepsMode = workbenchOffered && wbSession !== null;
+  const stepsMode = workbenchAvailable && wbSession !== null;
 
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
@@ -1436,6 +1452,12 @@ export function PracticeScreen({
           ) : null}
           {stepsMode && wbSession ? (
             <div data-workbench-pane="" data-layout="full" style={{ marginTop: 10 }}>
+              {item.hints.slice(0, hintsUsed).map((hint, index) => (
+                // The hints shown before working in steps stay in view (they count).
+                <div className="hint-banner" key={hint}>
+                  {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
+                </div>
+              ))}
               <Workbench
                 key={wbSession.sessionId}
                 initial={wbSession}
@@ -1445,17 +1467,17 @@ export function PracticeScreen({
                 practiceSessionId={session.sessionId}
                 schedulerCandidateId={schedulerCandidateId}
                 planPresentationId={planPresentationId}
-                onLeave={() => {
-                  setWbSession(null);
+                onLeave={(closing) => {
+                  backToAnswerBox(closing);
                   refreshWbItemSessions();
                 }}
-                onAbandoned={() => {
-                  setWbSession(null);
+                onAbandoned={(closing) => {
+                  backToAnswerBox(closing);
                   refreshWbItemSessions();
                 }}
-                onAnswerBox={() => {
+                onAnswerBox={(closing) => {
                   rememberWorkInSteps(false);
-                  setWbSession(null);
+                  backToAnswerBox(closing);
                   refreshWbItemSessions();
                 }}
                 onSubmitted={(result) => onFeedback(result.attempt.attemptId)}

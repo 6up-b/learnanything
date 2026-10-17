@@ -117,20 +117,70 @@ it("the choice is remembered on this device, and the answer box is one click bac
 
 it("the practice card offers to resume an open problem's steps, or reopen a set-aside one", async () => {
   api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "open", stepCount: 3 }] });
-  api.workbenchGet.mockResolvedValue({ session: wb({ sessionId: "wb_old", steps: [
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wb({ sessionId: "wb_old", steps: [
     { stepId: "a", chainId: "a", ordinal: 1, kind: "step", bodyMd: "U Sigma", deleted: false, createdAt: "x", editedAt: "x", versions: [] },
   ] }) });
   const view = render(<PracticeScreen {...props()} />);
   fireEvent.click(await screen.findByRole("button", { name: "resume your steps" }));
-  await waitFor(() => expect(api.workbenchGet).toHaveBeenCalledWith({ sessionId: "wb_old" }));
+  // One explicit resume on this surface (review F4): a Reader problem moves here.
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({
+    origin: "practice", entry: "practice_screen", sessionId: "wb_old",
+  })));
   expect(((await screen.findByRole("textbox", { name: "Step 1" })) as HTMLTextAreaElement).value).toBe("U Sigma");
   view.unmount();
   window.localStorage.clear();
+  api.workbenchOpen.mockClear();
   api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "abandoned", stepCount: 3 }] });
-  api.workbenchReopen.mockResolvedValue({ session: wb({ sessionId: "wb_old" }) });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wb({ sessionId: "wb_old" }) });
   render(<PracticeScreen {...props()} />);
   fireEvent.click(await screen.findByRole("button", { name: "reopen your steps" }));
-  await waitFor(() => expect(api.workbenchReopen).toHaveBeenCalledWith({ sessionId: "wb_old" }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ sessionId: "wb_old" })));
+  expect(api.workbenchGet).not.toHaveBeenCalled();
+});
+
+// Review F2: assistance survives switching between the answer box and steps.
+it("hints shown on the answer box go into steps with the work, and come back with it", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt", "hinted_attempt"], evidenceFacets: [], evidenceWeights: {},
+    hints: ["Start from A^T A.", "Its eigenvectors are V."], hintPolicy: { maxUsefulHints: 2 }, candidateErrorTypes: [],
+    tags: [], sourceRefs: [], attempts: [], rubric: null,
+  });
+  const carried = wb({ carriedHints: 1, record: { ...wb().record, hints: 1, carriedHints: 1, ownAttempt: false,
+    line: "1 hint (1 shown on the answer box) → practice with help ◌ (not yet checked on your own)" } });
+  api.workbenchOpen.mockResolvedValue({ session: carried, resumed: false });
+  render(<PracticeScreen {...props()} />);
+  fireEvent.click(await screen.findByRole("button", { name: /^hint$/i }));
+  expect(await screen.findByText(/Start from A\^T A\./)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ carriedHints: 1 })));
+  await screen.findByRole("region", { name: "workbench" });
+  // The hint stays in view, and the record line counts it before Submit.
+  expect(screen.getByText(/Start from A\^T A\./)).toBeTruthy();
+  expect(screen.getByTestId("workbench-record").textContent).toContain("1 shown on the answer box");
+  // Back to the answer box: the hint is still counted (and shown) there.
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(screen.getByText(/Start from A\^T A\./)).toBeTruthy();
+});
+
+it("a resumed problem that carried hints brings them back to the answer box", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "pi_1", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text", prompt: PROMPT,
+    attemptTypesAllowed: ["independent_attempt", "hinted_attempt"], evidenceFacets: [], evidenceWeights: {},
+    hints: ["Start from A^T A.", "Its eigenvectors are V."], hintPolicy: { maxUsefulHints: 2 }, candidateErrorTypes: [],
+    tags: [], sourceRefs: [], attempts: [], rubric: null,
+  });
+  api.workbenchForItem.mockResolvedValue({ sessions: [{ sessionId: "wb_old", status: "open", stepCount: 1 }] });
+  api.workbenchOpen.mockResolvedValue({ resumed: true, session: wb({ sessionId: "wb_old", carriedHints: 2 }) });
+  render(<PracticeScreen {...props()} />);
+  fireEvent.click(await screen.findByRole("button", { name: "resume your steps" }));
+  await screen.findByRole("region", { name: "workbench" });
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(screen.getByText(/Start from A\^T A\./)).toBeTruthy();
+  expect(screen.getByText(/Its eigenvectors are V\./)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /hint again/i })).toBeNull();
 });
 
 it("Submit in steps uses this serve's offer and presentation and lands on feedback", async () => {

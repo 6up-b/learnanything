@@ -1981,7 +1981,9 @@ export function ReaderScreen({
   // ── RW2a: the working posture ──
   const wbActive = wbCtl.active;
   const wbStacked = working && wbCtl.narrow;
-  const wbBookHidden = Boolean(wbActive && wbActive.session.origin === "reader" && !wbActive.session.sourceVisible);
+  // The source pane is covered whenever the session's book is not shown:
+  // only a shown book counts, so an uncounted one is never in view (review F4).
+  const wbBookHidden = Boolean(wbActive && !wbActive.session.sourceVisible);
   const wbSourceShown = !wbStacked || wbCtl.sheetOpen;
   const wbOpenSessions = wbCtl.enabled ? wbCtl.sessions.filter((entry) => entry.sessionId !== wbActive?.session.sessionId) : [];
   const wbResumeBySpan = new Map<string, (typeof wbOpenSessions)[number]>();
@@ -2411,6 +2413,8 @@ export function ReaderScreen({
                 readOnly={wbActive.readOnly}
                 autoFocus={wbActive.autoFocus}
                 practiceSessionId={workbench?.practiceSessionId ?? null}
+                schedulerCandidateId={wbActive.schedulerCandidateId ?? null}
+                planPresentationId={wbActive.planPresentationId ?? null}
                 onSession={wbCtl.update}
                 onLeave={(session) => leaveWorkbench(session)}
                 onAbandoned={(session) => leaveWorkbench(session, true)}

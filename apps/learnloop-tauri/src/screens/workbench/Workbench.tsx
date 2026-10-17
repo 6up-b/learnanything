@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { WorkbenchSessionDto, WorkbenchSubmitDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { ItemPresentation } from "../../components/ItemPresentation";
 import { LiveMarkdownEditor, type LiveMarkdownKeyInfo } from "../../render/LiveMarkdownEditor";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { errorMessage, getCommandError } from "../../errors";
@@ -47,8 +48,9 @@ export interface WorkbenchProps {
   onSubmitted: (result: WorkbenchSubmitDto) => void;
   /** Stacked layout: open the book in a sheet. */
   onShowInBook?: () => void;
-  /** Practice screen: back to the plain answer box. */
-  onAnswerBox?: () => void;
+  /** Practice screen: back to the plain answer box (the session carries the
+   *  hints it holds back to it). */
+  onAnswerBox?: (session: WorkbenchSessionDto) => void;
   /** The practice card already shows the item's own presentation above. */
   hideProblem?: boolean;
   onError: (message: string) => void;
@@ -215,7 +217,7 @@ export function Workbench(props: WorkbenchProps) {
         <button type="button" onClick={props.onShowInBook} style={{ ...linkStyle, marginLeft: "auto" }}>show in the book ▾</button>
       ) : null}
       {layout === "full" && props.onAnswerBox && !readOnly ? (
-        <button type="button" onClick={props.onAnswerBox} style={{ ...linkStyle, marginLeft: "auto" }}>answer box instead</button>
+        <button type="button" onClick={() => props.onAnswerBox?.(wb.session)} style={{ ...linkStyle, marginLeft: "auto" }}>answer box instead</button>
       ) : null}
     </div>
   );
@@ -246,10 +248,18 @@ export function Workbench(props: WorkbenchProps) {
     ) : null
   ) : null;
 
+  // Bound, the problem is the item's whole frozen presentation (a required
+  // method's instruction, a shared setup, an error hunt's worked solution),
+  // exactly what the grader is sent (review F9); before binding, the
+  // verbatim selection is the provisional display.
   const problem = (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <span style={{ fontFamily: FONT_MONO, fontSize: 10, letterSpacing: "0.14em", color: COLOR.textFaint }}>PROBLEM</span>
-      {fromBook ? (
+      {session.presentation && session.presentation.blocks.length > 0 ? (
+        <div data-testid="workbench-presentation" style={{ fontSize: 13, color: COLOR.text, lineHeight: 1.6 }}>
+          <ItemPresentation presentation={session.presentation} />
+        </div>
+      ) : fromBook ? (
         <SourceVoice locator="verbatim">
           <MarkdownMath value={session.stemMd} />
         </SourceVoice>
