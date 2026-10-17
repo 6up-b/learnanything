@@ -27,6 +27,8 @@ export interface ReaderRecapInput {
   readingMoved: boolean;
   /** Changes when something that may count as activity happened. */
   activityKey: string;
+  /** The working posture hides the rail: `w` waits until it is back. */
+  suspended?: boolean;
   onError: (message: string) => void;
 }
 
@@ -47,7 +49,7 @@ export interface ReaderRecapCtl {
 }
 
 export function useReaderRecap({
-  enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, onError,
+  enabled, wrapUpEnabled, extractionId, visitId, readingMoved, activityKey, suspended = false, onError,
 }: ReaderRecapInput): ReaderRecapCtl {
   const [recap, setRecap] = useState<ReaderRecapCardDto | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -166,7 +168,7 @@ export function useReaderRecap({
   // `w` (UX §3.5): outside text fields, without modifiers, once there is
   // something to wrap up.
   useEffect(() => {
-    if (!wrapUpEnabled || !wrapUpAvailable || !extractionId) return;
+    if (!wrapUpEnabled || !wrapUpAvailable || !extractionId || suspended) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "w" || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
@@ -176,7 +178,7 @@ export function useReaderRecap({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [wrapUpEnabled, wrapUpAvailable, extractionId, openWrapUp]);
+  }, [wrapUpEnabled, wrapUpAvailable, extractionId, suspended, openWrapUp]);
 
   // Re-read an open Wrap up after an action, so its lines follow the chips.
   useEffect(() => {

@@ -497,6 +497,7 @@ export function ReaderScreen({
     visitId: () => visit.visitRef.current?.id ?? null,
     readingMoved,
     activityKey: `${history.length}:${wbCtl.sessions.length}:${wbCtl.active?.session.sessionId ?? ""}`,
+    suspended: working,
     onError,
   });
   const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && railTab === "guide" && !(inquiry && railCollapsed) && !working);

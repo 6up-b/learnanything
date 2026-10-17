@@ -148,3 +148,12 @@ it("no line when nothing is offered, when not armed, or switched off", async () 
   expect(off.container.innerHTML).toBe("");
   expect(api.readerWrapUpOffer).not.toHaveBeenCalled();
 });
+
+it("w waits while the workbench hides the rail", async () => {
+  api.readerWrapUp.mockResolvedValue(wrapUp());
+  const { result } = renderHook((props) => useReaderRecap(props), { initialProps: hookProps({ suspended: true }) });
+  await waitFor(() => expect(result.current.wrapUpAvailable).toBe(true));
+  fireEvent.keyDown(window, { key: "w" });
+  expect(result.current.wrapUpOpen).toBeNull();
+  expect(api.readerRecapEvent).not.toHaveBeenCalled();
+});
