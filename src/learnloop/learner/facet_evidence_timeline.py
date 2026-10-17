@@ -152,6 +152,12 @@ class TimelinePoint:
     # predicate as of any moment.
     attempt_credit: float = 0.0
     capability_credit: tuple[tuple[str, float], ...] = ()
+    # RW6a review round 2 F3 (read-side only, not in ``as_dict``): what this
+    # attempt's credit after this epoch adds to its cells as the ledger banks
+    # them (the embedded-share cap applied), at this event. Embedded-only
+    # credit in a cell with no direct credit banks nothing, so it is 0 there
+    # although ``attempt_credit`` is not.
+    attempt_banked_credit: float = 0.0
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -224,6 +230,54 @@ def load_facet_timeline_snapshot(repository: Repository) -> FacetTimelineSnapsho
         ),
         activity_by_attempt=repository.all_causal_activity_classifications(),
         contract_unrecorded=_contract_unrecorded(repository),
+    )
+
+
+def _at_or_before(stamp: str | None, cutoff: str) -> bool:
+    if not stamp:
+        return False
+    try:
+        return parse_utc(stamp) <= parse_utc(cutoff)
+    except ValueError:
+        return str(stamp) <= str(cutoff)
+
+
+def snapshot_as_of(snapshot: FacetTimelineSnapshot, cutoff: str) -> FacetTimelineSnapshot:
+    """The grading ledger as it stood at ``cutoff`` (RW6a review round 2 F1).
+
+    Keeps only the grading-evidence rows written at or before ``cutoff`` (a
+    first grade, a regrade or a correction written later had not happened),
+    and a row superseded after ``cutoff`` still stood then. The extraction's
+    novelty and discount accounting reads each attempt's latest epoch, so
+    replaying this snapshot makes that the latest epoch *at the cutoff*. The
+    replay hold (``contract_unrecorded``) is a flag on the attempt's current
+    epoch with no stamp of its own: it is kept only for an attempt whose every
+    row was written by the cutoff (its current epoch then), and dropped for
+    one whose current epoch came later. Other inputs (the attempts, trace
+    observations, activity classifications, P0 masses) are read as they are
+    now. A read for a display only: the current-state path never calls it.
+    """
+
+    grading: dict[str, tuple[GradingEvidenceRecord, ...]] = {}
+    trimmed: set[str] = set()
+    for attempt_id, records in snapshot.grading_by_attempt.items():
+        kept = tuple(
+            record
+            if record.superseded_at is None or _at_or_before(record.superseded_at, cutoff)
+            else replace(record, superseded_at=None, superseded_by_evidence_id=None)
+            for record in records
+            if _at_or_before(record.created_at, cutoff)
+        )
+        if len(kept) != len(records):
+            trimmed.add(attempt_id)
+        if kept:
+            grading[attempt_id] = kept
+    return replace(
+        snapshot,
+        grading_by_attempt=grading,
+        contract_unrecorded=frozenset(
+            attempt_id for attempt_id in snapshot.contract_unrecorded if attempt_id not in trimmed
+        ),
     )
 
 
@@ -319,6 +373,14 @@ def _with_p0_masses(
         snapshot,
         p0_evidence_mass_by_attempt=p0_evidence_mass_by_attempt(vault, repository),
     )
+
+
+def vault_timeline_snapshot(vault: LoadedVault, repository: Repository) -> FacetTimelineSnapshot:
+    """The ledger snapshot :func:`facet_evidence_timelines` would load, P0
+    masses attached, so a caller replaying it several times (as of several
+    moments) loads it once."""
+
+    return _with_p0_masses(vault, repository, load_facet_timeline_snapshot(repository))
 
 
 def fold_demonstrated_timeline(
@@ -438,6 +500,28 @@ def fold_demonstrated_timeline(
                 for capability, total in per_capability_total.items()
             )
         )
+        # Without this attempt's latest-epoch credit, each of its cells would
+        # bank this much less; summed, that is what the attempt banks now.
+        attempt_banked_credit = sum(
+            cap_embedded_credit(
+                per_capability_total.get(capability, 0.0)
+                - per_capability_embedded_total.get(capability, 0.0),
+                per_capability_embedded_total.get(capability, 0.0),
+                max_embedded_share=max_embedded_credit_share,
+            )
+            - cap_embedded_credit(
+                per_capability_total.get(capability, 0.0)
+                - value
+                - (
+                    per_capability_embedded_total.get(capability, 0.0)
+                    - new_embedded.get(capability, 0.0)
+                ),
+                per_capability_embedded_total.get(capability, 0.0)
+                - new_embedded.get(capability, 0.0),
+                max_embedded_share=max_embedded_credit_share,
+            )
+            for capability, value in new_caps.items()
+        )
         series.append(
             TimelinePoint(
                 t=event.event_at,
@@ -453,6 +537,7 @@ def fold_demonstrated_timeline(
                 derivation=event.derivation,
                 attempt_credit=new_contrib,
                 capability_credit=capability_credit,
+                attempt_banked_credit=attempt_banked_credit,
             )
         )
     return series
@@ -888,8 +973,13 @@ def facet_evidence_timelines(
     facet_ids: Iterable[str],
     *,
     snapshot: FacetTimelineSnapshot | None = None,
+    as_of: str | None = None,
 ) -> dict[str, list[TimelinePoint]]:
-    """Build multiple Demonstrated curves from one bulk ledger replay."""
+    """Build multiple Demonstrated curves from one bulk ledger replay.
+
+    ``as_of`` replays the grading ledger as it stood at that moment
+    (:func:`snapshot_as_of`), for a display asking what was demonstrated then
+    (RW6a "Since last time"); by default it is the ledger now."""
 
     canonical = {
         vault.canonical_facet_id(str(facet_id)) for facet_id in facet_ids
@@ -899,6 +989,8 @@ def facet_evidence_timelines(
     loaded = _with_p0_masses(
         vault, repository, snapshot or load_facet_timeline_snapshot(repository)
     )
+    if as_of is not None:
+        loaded = snapshot_as_of(loaded, as_of)
     events_by_facet = _observation_events_by_facet(vault, loaded, canonical)
     repeat_discount = configured_repeat_discount(vault)
     return {

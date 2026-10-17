@@ -22,7 +22,6 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.learner.facet_evidence_timeline import TimelinePoint
 from learnloop.reader import reader_sessions as RS
 from learnloop.reader import recap as RC
 from learnloop.vault.loader import load_vault
@@ -163,7 +162,7 @@ def test_the_summary_keeps_to_its_session(tmp_path):
     assert len(early_summary["inquiries"]["opened"]) == 2
 
 
-def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path, monkeypatch):
+def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path):
     vault, repo = _setup(tmp_path)
     visit(repo, "v1", 0, 40)
     row = problem(repo, 2, steps=1, book=True)
@@ -176,23 +175,26 @@ def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path, 
     assert claim["attempt_ids"] == ["att_book"]
     assert claim["basis"] == "source_visible"
 
-    # An unassisted success on the facet afterwards (credit on its
+    # An unassisted success on the facet afterwards (credit it banks on its
     # Demonstrated curve, the evidence system's own reading) answers it; an
-    # assisted one, or one before the session, does not.
-    facet = vault.canonical_facet_id("recall")
+    # assisted one, or one before the session, does not. Real attempts, the
+    # production timeline (review round 2 F3: no synthetic curve).
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.clock import FrozenClock
 
-    def curve(*points):
-        return lambda _vault, _repo, facets: {facet: list(points)} if facet in facets else {}
+    def graded(minutes, *, hints=0):
+        complete_self_graded_attempt(
+            vault, repo,
+            AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="U Sigma V^T",
+                         attempt_type="hinted_attempt" if hints else "independent_attempt", hints_used=hints),
+            SelfGradeInput(criterion_points={"correctness": 4}, fatal_errors=[], confidence=4),
+            clock=FrozenClock(T0 + timedelta(minutes=minutes)),
+        )
 
-    def point(minutes, *, assisted=False):
-        return TimelinePoint(t=iso(minutes), demonstrated=1.0, delta=1.0, kind="observation", is_correction=False,
-                             attempt_id="att_own", surface_group="g", assisted=assisted,
-                             demonstrated_capabilities=("recall",), attempt_credit=1.0)
-
-    for points, answered in (((point(200, assisted=True),), False), ((point(-10),), False), ((point(200),), True)):
-        monkeypatch.setattr(RC, "facet_evidence_timelines", curve(*points))
+    for minutes, hints, answered in ((200, 1, False), (-10, 0, False), (210, 0, True)):
+        graded(minutes, hints=hints)
         summary = RC.session_summary(vault, repo, extraction_id=EXT, session=session, now=_now(300))
-        assert (summary["claims_needing_independent_check"] == []) is answered
+        assert (summary["claims_needing_independent_check"] == []) is answered, (minutes, hints)
 
 
 def _attempt(repo, attempt_id: str, *, minutes: float, hints: int) -> None:

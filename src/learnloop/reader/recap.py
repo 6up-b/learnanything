@@ -39,7 +39,7 @@ from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc
 from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.goals.goal_certification import lo_certification
-from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
+from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines, vault_timeline_snapshot
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_observations as RO
 from learnloop.reader import reader_sessions as RS
@@ -445,9 +445,10 @@ def _claims(
         return []
     # An unassisted success is what the evidence system itself counts as one:
     # an attempt on the facet's Demonstrated curve whose *effective* grading
-    # (its latest epoch: a regrade replaces the attempt's credit) still earns
+    # (its latest epoch: a regrade replaces the attempt's credit) still banks
     # credit, without help or priming, made at or after the session's start.
-    # A success regraded to nothing answers nothing (review F3).
+    # A success regraded to nothing answers nothing (review F3), and neither
+    # does embedded credit the embedded-share cap banks as nothing (round 2 F3).
     curves = facet_evidence_timelines(vault, repository, sorted(assisted))
     answered = {facet for facet, points in curves.items() if _effective_success_since(points, session.started_at)}
     return [
@@ -457,8 +458,9 @@ def _claims(
 
 
 def _effective_success_since(points: Sequence[Any], since: str) -> bool:
-    """Some attempt made at or after ``since`` whose latest point still holds
-    unassisted, unprimed credit (the attempt's effective grading)."""
+    """Some attempt made at or after ``since`` whose latest point still banks
+    unassisted, unprimed credit (the attempt's effective grading, after the
+    embedded-share cap: what it adds to certification credit)."""
 
     latest: dict[str, Any] = {}
     first_seen: dict[str, str] = {}
@@ -466,7 +468,7 @@ def _effective_success_since(points: Sequence[Any], since: str) -> bool:
         latest[point.attempt_id] = point
         first_seen.setdefault(point.attempt_id, point.t)
     return any(
-        float(point.attempt_credit) > 1e-9 and not point.assisted and not point.primed
+        float(point.attempt_banked_credit) > 1e-9 and not point.assisted and not point.primed
         and not _later(since, first_seen[attempt_id])
         for attempt_id, point in latest.items()
     )
@@ -496,11 +498,13 @@ def demonstrated_since(
     An LO counts when ``lo_certification(...).demonstrated`` holds now and the
     same predicate -- every recipe obligation at its capability, one
     alternative per ``any_of`` group, the integration cell -- did not hold at
-    ``after``. "As of a moment" reads each facet's capability credit from its
-    Demonstrated curve, corrections included, so a regrade counts when it
-    landed. It is dated by the certifying attempt: the point after ``after``
-    at which the LO last went from not demonstrated to demonstrated. Newest
-    first; ties by id (review F1)."""
+    ``after``. "As of a moment" replays the grading ledger as it stood then
+    (gradings, regrades and corrections written by that moment, novelty and
+    discounts included) and reads each facet's capability credit from that
+    Demonstrated curve, so a regrade counts when it landed and never rewrites
+    what an earlier attempt banked before it (round 2 F1). It is dated by the
+    certifying attempt: the point after ``after`` at which the LO last went
+    from not demonstrated to demonstrated. Newest first; ties by id (review F1)."""
 
     los = [vault.learning_objects[lo] for lo in sorted(set(learning_object_ids)) if lo in vault.learning_objects]
     now_demonstrated = [lo for lo in los if lo_certification(vault, repository, lo).demonstrated]
@@ -510,11 +514,19 @@ def demonstrated_since(
         lo.id: sorted({vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(lo)})
         for lo in now_demonstrated
     }
-    curves = facet_evidence_timelines(vault, repository, sorted({f for fs in facets_by_lo.values() for f in fs}))
+    facets = sorted({f for fs in facets_by_lo.values() for f in fs})
+    snapshot = vault_timeline_snapshot(vault, repository)
+    curves = facet_evidence_timelines(vault, repository, facets, snapshot=snapshot)
+    curves_then: dict[str, dict[str, list[Any]]] = {}
 
     def certified(lo: Any, moment: str) -> bool:
+        if moment not in curves_then:
+            curves_then[moment] = facet_evidence_timelines(vault, repository, facets, snapshot=snapshot,
+                                                           as_of=moment)
+        then = curves_then[moment]
+
         def as_of(facet_id: str) -> set[str]:
-            return _capabilities_at(curves.get(vault.canonical_facet_id(facet_id)) or [], moment)
+            return _capabilities_at(then.get(vault.canonical_facet_id(facet_id)) or [], moment)
 
         return lo_certification(vault, repository, lo, demonstrated=as_of).demonstrated
 

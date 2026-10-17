@@ -27,7 +27,6 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.goals.goal_certification import lo_certification
-from learnloop.reader import reader_sessions as RS
 from learnloop.reader import recap as RC
 from learnloop.reader import workbench as WB
 from learnloop.substrate.state_sync import sync_vault_state
@@ -136,47 +135,9 @@ def test_f1_nothing_is_claimed_while_the_lo_is_not_demonstrated_now(tmp_path):
 # -- F3: a revoked success does not answer a claim -------------------------------------------------
 
 
-def _attempt(repo, attempt_id: str, *, minutes: float, hints: int) -> None:
-    repo.insert_practice_attempt({
-        "id": attempt_id, "practice_item_id": "pi_svd_define_001", "learning_object_id": "lo_svd_definition",
-        "subject": "linear-algebra", "concept": "singular_value_decomposition", "practice_mode": "short_answer",
-        "attempt_type": "hinted_attempt" if hints else "independent_attempt",
-        "learner_answer_md": "U Sigma V^T", "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
-        "rubric_score": 4, "correctness": 1.0, "confidence": 3, "latency_seconds": 30, "hints_used": hints,
-        "error_type": None, "grader_confidence": 1.0, "created_at": iso(minutes), "updated_at": iso(minutes),
-        "entry_surface": "desktop_reader_workbench",
-    })
-
-
-def test_f3_a_success_regraded_to_nothing_leaves_the_claim_open(tmp_path, monkeypatch):
-    """Assisted work, then an unassisted success regraded to zero: the
-    production fold keeps the original positive point and its correction."""
-
-    from learnloop.learner.facet_evidence_timeline import ObservationEvent, fold_demonstrated_timeline
-
-    vault, repo = _setup(tmp_path)
-    visit(repo, "v1", 0, 40)
-    row = problem(repo, 2, steps=1, book=True)
-    _attempt(repo, "att_book", minutes=20, hints=1)
-    WB.mark_submitted(repo, row["id"], attempt_id="att_book", practice_session_id="ps_1", clock=at(20))
-    session = RS.sessions_for_source(repo, EXT)[0]
-    facet = vault.canonical_facet_id("recall")
-
-    def event(minutes, credit, *, kind="observation", attempt="att_own"):
-        return ObservationEvent(attempt_id=attempt, event_at=iso(minutes), kind=kind, surface_group="g",
-                                assisted=False, per_capability_positive={"recall": credit} if credit else {},
-                                authoritative=True)
-
-    revoked = [event(200, 1.0), event(260, 0.0, kind="correction")]
-    standing = [event(200, 1.0)]
-    regraded_up = [event(200, 0.0), event(260, 1.0, kind="correction")]
-    before_session = [event(-10, 1.0, attempt="att_old"), event(250, 1.0, kind="correction", attempt="att_old")]
-    for events, answered in ((revoked, False), (standing, True), (regraded_up, True), (before_session, False)):
-        points = fold_demonstrated_timeline(events)
-        monkeypatch.setattr(RC, "facet_evidence_timelines",
-                            lambda _v, _r, facets, points=points: {facet: list(points)} if facet in facets else {})
-        summary = RC.session_summary(vault, repo, extraction_id=EXT, session=session, now=_now(300))
-        assert (summary["claims_needing_independent_check"] == []) is answered, events
+# The regression for a success regraded to nothing runs through the real
+# ledger in tests/test_reader_recap_review_r2.py (round 2 rewrote it: it used
+# to fold synthetic, uncapped events into a mocked timeline).
 
 
 def test_f3_the_timeline_carries_each_attempts_effective_credit_and_capability_credit():
