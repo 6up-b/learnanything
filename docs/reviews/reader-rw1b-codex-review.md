@@ -192,3 +192,143 @@ using `uv run --no-sync` after the install.
 | `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels, the config leaves' line citations, the new repository methods' notes; schema head 208, 327 table notes); errors [] |
 | Frontend, `cargo check` | not needed: nothing under `apps/` changed |
 | `git diff --check` | clean |
+
+## Fix round 4 (orchestrator, after verify 20261017-180320-JrVMYw)
+
+Codex's verify of round 3 (codex-job `20261017-180320-JrVMYw`, at `9714a4a33`)
+confirmed F14 as fixed and reopened F16 (Medium) with four interleavings
+through the real drain. All four were reproduced on `9714a4a33` with
+`tests/test_reader_rw1b_fix_round4.py`, a new file with 10 cases. **6 of them
+fail there**, run the way round 3 ran (`git archive 9714a4a33 src migrations
+tests pyproject.toml` with the new file copied in). The other 4 guard
+behaviour that must not change. The fix is in `c1ec76c7d`, and the references
+were regenerated in `c1a9bccfa`. **No migration and no schema change.** No
+paid or live model call was made.
+
+The interleavings are deterministic, with no timing and no sleeps. The
+interfering write (a revert or a revival) runs at a seam of the landing:
+`RR._stopped`, `Repository.get_reader_request` after the model returned, or
+the fake model call. It runs right there when the database would let another
+writer commit at that point (a `BEGIN IMMEDIATE` probe with no busy wait).
+Otherwise it runs right after the landing commits. On `9714a4a33` every seam
+lets it run mid-landing. On the fix, every landing seam is inside the landing's
+write transaction, so the write runs after it. Each test also asserts that its
+seam was reached.
+
+| ID | Case | Verdict | Commit | Test, and the result on `9714a4a33` |
+|---|---|---|---|---|
+| F16 | (a) A and B share a request. Landing reads A's binding, a revert of A rebinds the request to B, then landing finds A's commitment stopped and maps nothing | fixed | `c1ec76c7d` | `test_a_revert_after_the_binding_read_still_maps_the_holder`: B's commitment had 0 mappings (expected 1) |
+| F16 | (b) A revert of A right after the stopped-check maps the proposal onto stopped A, though the request is bound to B | fixed | `c1ec76c7d` | `test_b_a_revert_after_the_stopped_check_moves_the_mapping`: B 0 mappings, A 1 |
+| F16 | (c) A is reverted during the model call (the request is flagged), then B revives it between landing's binding read and its writes | fixed | `c1ec76c7d` | `test_c_a_revival_during_landing_ends_mapped_to_the_reviving_capture`: completed with B 0 mappings, and nothing left to run |
+| F16 | (d) A legacy running request (unhashed key, instructions "matrix algebra") is reverted, then revived by a no-note capture with the same key | fixed | `c1ec76c7d` | `test_d_a_no_note_capture_never_revives_a_legacy_request_asking_something_else`: the legacy row completed on B with the old instructions (`complete` ≠ `cancelled`). `test_d_a_legacy_rekey_that_collides_takes_a_key_no_enqueue_computes`: 2 rows, not 3 (it was revived) |
+| F16 | Ruling 2: a revert of a COMPLETED shared request | fixed | `c1ec76c7d` | `test_a_revert_of_a_completed_shared_request_moves_its_commitment_mapping`: still bound to A, with the mapping on A's stopped commitment |
+| guard | A compatible no-note revival keeps its exact key; a completed request no one else holds is left as it is; an explicit cancel of a running request still lands; the landing writes the row the drain wrote | passes on both | `c1ec76c7d` | `test_d_a_compatible_no_note_revival_keeps_its_exact_key`, `test_a_revert_of_a_completed_request_nobody_else_holds_leaves_it`, `test_an_explicit_cancel_of_a_running_request_still_lands`, `test_the_landing_writes_the_drains_result` |
+
+Each failing case now ends with the request bound to live B. B's commitment
+has exactly one mapping, and A's stopped commitment has none. In (c) and (d)
+the model was given B's instructions for the work that landed: the same
+instructions in (c), and B's empty ones in (d), where the legacy request's
+output was discarded and B got its own request.
+
+**How it is fixed.**
+
+- **Landing serializes with binding changes (ruling 1).** The model call
+  stays outside any transaction. `_land_proposals` then runs one
+  `Repository.atomic()` (`BEGIN IMMEDIATE`) transaction, which does four
+  things:
+  - it re-reads the request's binding and its commitment's status;
+  - it authors the proposed source object and the `new_object` mapping for
+    the current annotation;
+  - it writes the commitment mapping only when the current commitment is not
+    stopped;
+  - for a request the drain claimed, it marks the request complete (fenced
+    on the claimed `lease_epoch`).
+
+  Its result is the dict the drain used to write, and the drain's own write
+  after the seam returns then matches nothing (`test_the_landing_writes_the_drains_result`).
+  Revert, rebind and revival already run in write transactions, so each one
+  lands wholly before the landing or wholly after it. No mapping decision
+  reads a binding outside that transaction.
+- **A request a revert cancelled while it ran discards its result.** Such a
+  request is still flagged at landing: a revival clears the flag, and a
+  holder would have been rebound to. Its bound capture has a standing revert
+  tombstone. It resolves `cancelled` with nothing landed (no source object,
+  no mapping), and the drain skips it, as it skips a request cancelled
+  before its claim (`LandingDiscarded`). On the base a flagged running
+  request still landed. An explicit `reader.cancel_request` of a running
+  request, with no revert, still lands as before. This is how (c) ends right:
+  the revert-cancelled run is discarded and B's revival makes the request
+  runnable again, bound to B.
+- **A binding change after completion reconciles (ruling 2).** In its write
+  transaction, `revert_capture` now handles a `complete` request that is
+  bound to the reverted capture while another standing capture holds it. It
+  rebinds the request to that holder (`RR.rebind_completed`) and moves the
+  undecided commitment mapping from the reverted capture's commitment to the
+  holder's live one (`Repository.repoint_mapping_proposal`, an UPDATE of
+  `target_ref`). It adds a mapping only when the result has none to move,
+  and records it in the result (`append_reader_request_proposal`). It never
+  adds a second one. A decided mapping is the learner's and stays. The
+  mapping table (`canonical_mapping_proposals`, WORKFLOW) already allowed
+  this, so no schema change was needed. **The base never revives a completed
+  request, and that is kept.** A later capture of the same passage and
+  instructions reuses a completed result without a mapping of its own, as
+  two sharing captures always have.
+- **Legacy rows (ruling 3).** A revival (`rr.enqueue_request` with
+  `revive_cancelled=True`, inside the conversion's write transaction) now
+  compares the row's effective instructions with the reviving capture's,
+  after `normalized_instructions`. The effective instructions are the bound
+  annotation's head `learner_text`, which `model_synthesis` gives the model
+  (`rr.annotation_instructions`, now shared by both). If they differ, the
+  row is not revived:
+  - it is re-keyed to the hashed key its own instructions give it
+    (`Repository.rekey_reader_request`, an UPDATE of `request_key`);
+  - it keeps its status and its cancel flag, so a running one discards its
+    result on landing;
+  - the capture gets a fresh request under its own key.
+
+  On a collision, when that hashed key already belongs to another row, the
+  legacy row takes `<hashed key>#legacy:<its id>`. No enqueue computes that
+  key, so the row is never reused or revived again. No-note captures with no
+  conflict keep their exact key. The check applies to any revivable row, but
+  it can only differ from before for a legacy row or for an annotation whose
+  text was edited after its enqueue.
+
+**Base behaviour.** Request rows change only on the revert, revive and
+landing paths. With the kill switches off nothing reverts, so nothing is
+re-keyed, discarded or reconciled. The landing writes the same rows with the
+same values as before. The only differences are that its writes commit
+together and that the request completes inside the same transaction. The
+prompt and RPC contracts are unchanged (the contract pins pass).
+
+**Open questions (with the default taken).**
+
+1. A no-note capture that *shares* a live legacy request (queued or running,
+   not cancelled), as opposed to reviving it, still shares it, as on the
+   base. Ruling 3 covers revival only. **Default: unchanged.** If A is later
+   reverted, the request is rebound to the no-note capture. A run that has
+   already started then lands with A's instructions.
+2. Should an explicit `reader.cancel_request` of a running request also
+   discard its result at landing, as `cancel_reader_request`'s docstring
+   suggests ("flagged so the worker stops")? **Default: no.** That would
+   change base behaviour with the switches off. Only a revert-cancelled run
+   is discarded.
+3. The reconcile moves only the commitment mapping. The source object's
+   `new_object` mapping keeps the annotation it was landed for.
+   **Default: kept.** The ruling names the commitment mapping, and that
+   proposal records the capture the result was made for.
+
+### Fix round 4 gate (targeted, per the owner's rule of 2026-10-17)
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp`, using `uv run
+--no-sync` (the install from round 3 was reused). The full suite, the whole
+durability lane and the whole vitest run are left to the landing gate.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken (`reader_intent` now imports `reader_requests` at module level) |
+| `pytest -n auto`, 63 files | **1,434 passed**, 0 failed (68 s). These are round 3's 61 files (every `tests/test_reader_*.py`, now including the new round-4 file, and `tests/test_sidecar_reader*.py`, plus the listed callers and contract pins), with `tests/test_source_objects.py` added because it exercises the mapping-proposal methods |
+| `tests/test_reader_rw1b_fix_round4.py tests/test_reader_rw1b_final_verify.py tests/test_reader_rw1b_rereview.py --durable-sqlite` | 25 passed (WAL and production pragmas; the interleaving probe holds under WAL too) |
+| Fail-first on `9714a4a33` | 6 of 10 fail, as in the table above; the 4 guards pass |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels, the config leaves' line citations, and the notes for `repoint_mapping_proposal` and the other new repository methods; schema head 208, 327 table notes); errors [] |
+| Frontend, `cargo check` | not needed: nothing under `apps/` changed |
+| `git diff --check` | clean |
