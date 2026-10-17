@@ -244,6 +244,34 @@ def test_the_cli_attempt_records_a_primed_cold_check_as_practice(tmp_path):
     assert repository.followup_task(task["id"])["not_before"] > _iso(now)
 
 
+def test_a_refused_cli_attempt_writes_nothing(tmp_path):
+    """A refusal before the prompt leaves the cold task as it was: the serve's
+    re-time is persisted only once the draft passes."""
+
+    from learnloop.db.repositories import Repository
+    from tests.helpers import create_basic_vault, seed_due_item
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    repository = Repository(paths.sqlite_path)
+    now = datetime.now(UTC).replace(microsecond=0)
+    task = repository.create_followup_task(
+        kind="cold_retry", case_kind="misconception", case_ref="ep_cli",
+        not_before=_iso(now - timedelta(hours=1)), expires_at=_iso(now + timedelta(days=30)),
+        selected_item_id="pi_svd_define_001", clock=FrozenClock(now - timedelta(days=1)),
+    )
+    repository.insert_reveal_event(
+        {"practice_item_id": "pi_svd_define_001", "learning_object_id": "lo_svd_definition",
+         "source_kind": "tutor_answer", "amount": 1.0, "basis": "tutor_answer"},
+        clock=FrozenClock(now - timedelta(hours=26)),
+    )
+
+    result = _cli("attempt", "pi_svd_define_001", "--attempt-type", "diagnostic_probe", "--vault", str(paths.root))
+
+    assert result.exit_code == 1 and "Answer" not in result.output
+    assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
+
+
 # -- Q33: a historical writer counts only reveals at or before its instant --------------------------
 
 

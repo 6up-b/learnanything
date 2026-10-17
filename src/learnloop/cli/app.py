@@ -3375,15 +3375,16 @@ def attempt(
     )
     # The attempt is a serve and a submit (§12.9): ask the one eligibility
     # decision BEFORE asking for an answer. A cold check that cannot be taken
-    # now is served as practice (its task re-timed; a dry run persists
-    # nothing and validates as if it had), and a draft submit would refuse is
-    # refused here, with the reason, without prompting.
+    # now is served as practice (its task re-timed), and a draft submit would
+    # refuse is refused here, with the reason, without prompting. The draft is
+    # validated as if the re-times were made; they are persisted only once it
+    # passes, and never by a dry run, so a refused command writes nothing.
     from learnloop import serve_eligibility
     from learnloop.attempts.attempts import validate_attempt_draft
     from learnloop.scheduling.scheduler import cold_check_serve_decision
 
-    serve_decision = cold_check_serve_decision(loaded, repository, practice_item_id, persist=not dry_run)
-    retimed = dict(serve_decision.retimes) if dry_run else None
+    serve_decision = cold_check_serve_decision(loaded, repository, practice_item_id, persist=False)
+    retimed = dict(serve_decision.retimes)
     serve_note = (
         serve_decision.message
         if serve_decision.verdict in (serve_eligibility.SERVE_AS_ORDINARY, serve_eligibility.DEFER_UNTIL)
@@ -3411,6 +3412,10 @@ def attempt(
         else:
             typer.echo(str(exc), err=True)
         raise typer.Exit(code=1)
+    if not dry_run and serve_decision.verdict != serve_eligibility.SERVE:
+        serve_eligibility.retime(repository, serve_decision)
+        serve_eligibility.log_decision(serve_decision, path="cli_attempt")
+        retimed = {}
     if serve_note is not None and not json_output:
         typer.echo(serve_note)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
