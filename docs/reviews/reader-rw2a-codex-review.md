@@ -208,3 +208,117 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `0b2d4eb85`
 | `cargo check` | not needed: nothing under `src-tauri` changed in this step |
 | `db_generate_reference.py`, `db_validate_reference.py` | regenerated (327 table notes; `workbench_sessions` gains the two columns); errors [] |
 | `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_cli_help_snapshot.py`, `test_config_refactor.py`, `test_coordinated_migrations.py`, `test_architecture.py`, `test_tracked_fixture_databases.py`, `test_sqlite_file_copies.py`, `test_migrations.py`, `test_table_roles.py`, `test_mobile_allowlist.py`, `test_reader_workbench_rw2a.py` | **346 passed**; no snapshot, CLI help or RPC pin changed |
+
+## Re-review (codex job `20261017-070302-R8NqXR`)
+
+Codex re-reviewed `39d859e2d..reader/rw2a` at `7c92629fb`: F4, F5, F6, F7 and
+F9 confirmed fixed; F1, F2, F3 and F8 reopened; two new Medium defects (F13,
+F14). Each was reproduced first with a failing test, then fixed. The
+fail-first runs swapped the reviewed versions of the changed source files back
+in (backend: `reader/workbench.py`, `handlers/workbench.py`,
+`db/stores/collection.py`, `db/stores/workbench.py`, migration 207; frontend:
+`PracticeScreen.tsx`, `useWorkbenchSession.ts`, `useCloseWithFlush.ts`,
+`useReaderWorkbench.ts`, `dto.ts`), ran the new tests, and restored the fix:
+**4 of 4** new backend tests and **7 of 8** new vitest tests failed on the
+reviewed code (the eighth, *showing the book never waits behind a refused
+step*, guards the fix's own rule and passes on both). All pass on the fix.
+
+**Paid calls:** none ($0.00). Fakes only; no provider, no key, no vault opened.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Practice shows the item's current presentation, not the workbench's frozen one | fixed | `10b5f8cf9` | vitest *in steps the problem shows the presentation the session froze, not the item's current one* |
+| F2 | High | Going back to the answer box drops a book the problem counted | fixed | `7943a9259`, `10b5f8cf9` | `test_f2_a_book_counted_in_steps_goes_to_the_answer_box_and_back_into_steps_counted`; vitest *a book counted in steps counts on the answer box and goes back into steps* |
+| F3 | High | A permanently refused step lets a queued book-hide apply | fixed | `10b5f8cf9` | vitest *re-review F3: a refused step holds hiding the book, so its corrected text is saved with the book shown* (the reviewer's 20,001-character scenario), guard *re-review F3: showing the book never waits behind a refused step* |
+| F4-F7, F9 | High | (confirmed fixed by the re-review) | — | — | no change |
+| F8 | High | `useCloseWithFlush` destroys the window after a failed flush | fixed | `10b5f8cf9` | vitest *a save that fails keeps the window open once and says so; a second close request closes it* (hook), *re-review F8: closing with a step that cannot be saved keeps the window open once, then closes on a second request* (workbench) |
+| F13 | Medium | Leaving "check me" loses its submission attribution | fixed | `7943a9259`, `10b5f8cf9` | `test_f13_a_resumed_check_still_submits_as_the_serve_it_was_opened_from`, `test_f13_a_kept_offer_that_went_stale_never_fails_the_submit`; vitest *check me puts the pick's serve on the problem, so it survives leaving and resuming*, *opening steps puts this serve's offer and plan presentation on the problem* |
+| F14 | Medium | "Check me" can reopen a reused problem with the book visible | fixed | `7943a9259` | `test_f14_check_me_on_a_problem_left_with_the_book_open_opens_it_hidden_keeping_what_it_counted` |
+
+Four High findings fixed (F1, F2, F3, F8), two Medium fixed, none rejected.
+References regenerated in `f34c7186b`.
+
+### What changed
+
+**F1.** In steps the practice card renders the session's `presentation` (the
+statement and required method the session's contract froze, review F9), and
+the item's current presentation only on the answer box.
+
+**F2.** A book counted in steps now travels both ways. Back on the answer box
+(*answer box instead*, Leave, Abandon) the screen keeps a book the closing
+session counted, and also counts one on the item's open problem after a
+restart (`workbench.for_item` summaries carry `bookCounted`). The answer box
+says so ("the book you had open while working in steps counts as one hint"),
+and its submit and "I'm stuck" send `hintsUsed` = its hints + 1 (attempt type
+`hinted_attempt` where allowed). Into steps again, `workbench.open` takes
+`carriedBook`, which marks the session's book counted (`source_shown_at`) when
+it was not counted already. A book is one hint, so carrying it into the
+session that counted it never counts it twice. `carried_hints` stays the
+answer box's own hint count, so the hints shown come back exactly.
+
+**F3.** While a step's write stands refused, the queue holds a book *hide* and
+every book change queued after it, and sends the step writes behind them
+first. So the corrected text of a step written with the book shown is saved
+while the server still has the book shown, and counts it. Showing the book is
+never held: holding it would save new work as unassisted while the book is on
+screen. Deleting the refused step releases the hold. `drained()` treats a
+queue with only held writes as settled, and settled as not saved while the
+refusal stands.
+
+**F8.** A close save that fails now keeps the window open and tells the
+learner why, adding "The window stayed open so nothing is lost. Close it again
+to close anyway." Every mounted listener (the practice draft, a workbench)
+reports whether its save landed, and the window goes only when all of them
+did. A second close request after a hold closes the window, so a refusal the
+learner cannot fix never traps them. This applies to the practice draft too,
+which shares the hook: it used to close on a failed save.
+
+**F13.** Migration 207 (still unlanded) gains `scheduler_candidate_id` and
+`plan_presentation_id` on `workbench_sessions`, with no new table or role.
+`workbench.open` stores the serve it names: *check me* sends the pick's offer
+and plan presentation, and the practice screen sends its serve on open and
+resume. A later serve of the item replaces them, and a resume that names none
+(the rail, the `✎` mark) keeps them. `workbench.submit` uses the request's
+serve when it sends one. Otherwise it uses the kept offer, but only while that
+is still an unanswered offer of the item in the practice session the submit
+runs in (`Repository.scheduler_offer_open`, the read-only form of the check
+`bind_submission_offer` makes). A stale offer is dropped, never refused. The
+kept plan presentation is validated where every plan presentation is, at the
+attempt insert. The head fixture was rebuilt: a backup-API copy of the base's
+`migration_head_206` with only the revised 207 applied, with
+`wal_checkpoint(TRUNCATE)` `(0, 0, 0)`, `journal_mode=DELETE` (header bytes
+18-19 are 1/1), `integrity_check` ok, `foreign_key_check` empty and no
+companion files. Its README says so.
+
+**F14.** A resume with entry `check_me` hides the book (`source_visible = 0`,
+`source_hidden_at` set) on the same surface as well as across surfaces, and
+records no exposure. It keeps `source_shown_at`, so a book already counted
+stays counted.
+
+### Open questions (with the default taken)
+
+3. A failed close save holds the window once, and the second close request
+   closes it anyway. **Default: as built.** An unfixable refusal (a step that
+   is too long) must never trap the learner in the window.
+4. A book counted on the item's *open* problem counts on its answer box. A
+   book counted on an abandoned one counts only for the visit that left it.
+   **Default: as built.** A problem set aside long ago does not tax today's
+   answer.
+
+### Gate (re-review)
+
+Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `f34c7186b`
+(code) plus this record.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (`pypdfium2` 5.14.0) |
+| `uv run lint-imports --no-cache` | **23 kept**, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **12,873 passed**, 2 xfailed, 0 failed (904 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 12,769 deselected (112 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **108 files, 889 tests passed** (8 new) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not needed: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (327 table notes; `workbench_sessions` gains the two serve columns); errors [] |
+| `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_cli_help_snapshot.py`, `test_config_refactor.py`, `test_coordinated_migrations.py`, `test_architecture.py`, `test_tracked_fixture_databases.py`, `test_sqlite_file_copies.py`, `test_migrations.py`, `test_table_roles.py`, `test_mobile_allowlist.py`, `test_reader_workbench_rw2a.py` | **350 passed**; no snapshot, CLI help or RPC pin changed (the template `.pyc` was cleared first) |
