@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_206/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_207/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_206" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_207" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 206
+SCHEMA_HEAD = 207
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -122,6 +122,8 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "daily_plans": "Holds each local day's finite daily plan (daily-loop DL1, mvp-0.14): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
     "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
+    "workbench_sessions": "Holds each problem worked in steps (reader workbench RW2a, migration 207): beside the source in the Reader or full width on the practice screen, opened at once with its verbatim stem before the exercise import binds it to an item (import_status, the batch and its request for try again), how it was opened (origin, entry), the book's visibility and when it first counted as one hint-equivalent (source_shown_at), and its lifecycle (open, submitted with its attempt, abandoned and reopened). Lifecycle state, updated in place; replay never reads it, because the submitted attempt carries the evidence (hints_used, entry_surface). Kill switch workbench.enabled.",
+    "workbench_steps": "Appends one row per change to a workbench problem's steps (reader workbench RW2a, migration 207): a new step at its fractional ordinal, an edit superseding the newest version of its chain, a tombstone for a delete and an undo superseding it, each under the client's idempotency key, so nothing the learner wrote is lost and a retried write is answered from its row. Append-only (an update or delete aborts); stuck steps stay learner work and never enter the submitted answer. Replay never reads it.",
     "forecast_receipts": "Keeps every saved forecast a decision states before its outcome is known (saved diagnosis forecasts, migration 206): a completed diagnosis's prediction of the next unaided observation of each facet it explains, and a scheduled repair cold check's predicted cold outcome, each written in its decision's transaction with its forecaster, scope, inputs as of when, the forecast payload (the voi_forecasts body) and its exact binding, or the reason it has none (censored at birth). Resolutions are derived at read time by `learnloop diagnosis calibration`; nothing serving, scoring or scheduling reads it and no rebuild writes or clears it. Append-only (an update or delete aborts); kill switch diagnosis.forecast_receipts.",
     "followup_value_decisions": "Keeps one immutable receipt per follow-up decision the value-of-information rule takes part in (mvp-0.21): each decision on a source attempt gets its own id and ordinal (an automatic decision and a later manual follow-up, or a recorded generation need and a later queue), with the value decision's forecasts in `decision_json` (NULL when no candidate was valued), so no later decision overwrites an earlier one and no rebuild clears them.",
     "decision_features": "Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names.",
@@ -873,6 +875,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
     "evsi": "EVSI calibration: the value-of-information forecast log (voi_forecasts, logging only) and the measured-loss regime's switch and shrinkage strength (Part C, default off)",
     "reader_inquiry": "reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only)",
+    "workbench": "reader workbench RW2a: the resumable scratchpad (a problem worked in steps beside the source, submitted through the ordinary attempt path with a visible book as one hint-equivalent): the kill switch, and how long an untouched open problem waits before the recap calls it unfinished (a display limit; nothing is closed automatically)",
     "cues": "reader workbench RW3a: margin cues from the Guide's own citations (display only): the kill switch, the learner's density per section, at most one mark per screenful, and the books cues are switched off for",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
@@ -1219,6 +1222,17 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "cues.off_sources": (
         "Source ids the learner switched margin cues off for (from a mark's popover; undoable until "
         "they leave the source)."
+    ),
+    "workbench.enabled": (
+        "Kill switch for reader workbench RW2a (no successor): the step workbench beside the source in "
+        "the Reader and the practice screen's \"Work in steps\", saved as typed, resumable, abandonable "
+        "and reopened, submitted through the ordinary attempt path (a visible book is one "
+        "hints_used). Off: no workbench entry anywhere, every workbench RPC refuses, the config DTO "
+        "carries no workbench key, and the practice screen is byte-identical."
+    ),
+    "workbench.open_session_days": (
+        "Days an open workbench problem may go untouched before the recap shows it as \"unfinished\", "
+        "without alarm. A display limit only: nothing is closed automatically."
     ),
     "stuck_prompt.enabled": (
         "Kill switch for mvp-0.13's \"I'm stuck\" control (write what you can, or what's confusing "
@@ -2012,7 +2026,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_206/state.sqlite",
+                "fixtures/migration_head_207/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

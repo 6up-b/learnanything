@@ -491,6 +491,10 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # UX Phase 4's kill switch (display only): "simple" practice and
             # feedback surfaces, or "classic" for the screens as they were.
             "ui": {"practice_feedback": config.ui.practice_feedback},
+            # Reader workbench RW2a's kill switch: present only while on, so
+            # with it off the snapshot is exactly what it was before RW2a.
+            **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days}}
+               if config.workbench.enabled else {}),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

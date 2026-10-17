@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19c196e5c358efbd542c8d1f56b75cd12a3e8d23"
-source_commit_timestamp: "2026-10-17T03:15:18-04:00"
+source_commit: "7c92629fb3ae3c90eb28cb0b2243edf11c864ec7"
+source_commit_timestamp: "2026-10-17T07:02:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 206
+schema_head: 207
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
+- `src/learnloop_sidecar/handlers/workbench.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -132,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
+- `tests/test_reader_workbench_rw2a.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_rereview.py`
 - `tests/test_required_method_round3_final_verify.py`

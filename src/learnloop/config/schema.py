@@ -1930,6 +1930,25 @@ class CuesConfig(BaseModel):
     off_sources: list[str] = Field(default_factory=list)
 
 
+class WorkbenchConfig(BaseModel):
+    """Reader workbench RW2a: the resumable scratchpad (spec_reader_workbench_v1 §5.1, §5.9).
+
+    A problem worked in steps beside the source in the Reader (or full width
+    on the practice screen), saved as it is typed, resumable, abandonable and
+    reopened, and submitted through the ordinary attempt path. A visible book
+    is one hint-equivalent, the rule ``submit_reading_question`` already
+    records, so the attempt maps onto existing fields (``hints_used``) and no
+    algorithm successor is needed; nothing else here is evidence. ``enabled``
+    is the kill switch: off, no workbench entry anywhere, every workbench RPC
+    refuses, and the practice screen is byte-identical. ``open_session_days``
+    is a display limit: an open session untouched for longer is shown as
+    "unfinished" in the recap, without alarm, and never closed automatically.
+    """
+
+    enabled: bool = True
+    open_session_days: int = Field(default=30, ge=1)
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -2819,6 +2838,7 @@ class LearnLoopConfig(BaseModel):
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
     cues: CuesConfig = Field(default_factory=CuesConfig)
+    workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)

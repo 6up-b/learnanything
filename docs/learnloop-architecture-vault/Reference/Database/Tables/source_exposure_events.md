@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "19c196e5c358efbd542c8d1f56b75cd12a3e8d23"
-source_commit_timestamp: "2026-10-17T03:15:18-04:00"
+source_commit: "7c92629fb3ae3c90eb28cb0b2243edf11c864ec7"
+source_commit_timestamp: "2026-10-17T07:02:26-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 206
+schema_head: 207
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/instructional/interventions.py"
-  - "src/learnloop/remote/telemetry.py"
+  - "src/learnloop/reader/workbench.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
 tags:
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/reader/span_view.py`
+- `src/learnloop/reader/workbench.py`
 - `src/learnloop/remote/telemetry.py`
 
 > [!note] Static-reference boundary
@@ -129,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
 - `tests/test_reader_restoration.py`
+- `tests/test_reader_workbench_rw2a.py`
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_sidecar_span_view.py`

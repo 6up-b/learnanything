@@ -176,6 +176,28 @@ READER_RW3A_RPCS = (
 )
 
 
+# Reader workbench RW2a (the resumable scratchpad) adds fourteen RPCs -- a
+# session's open, read, step save, book choice, leave, abandon, reopen, import
+# binding (refresh, bind a part, retry), submit, and the reads for an attempt,
+# an item and a source (RW6a's recap). Desktop only (spec D20).
+READER_RW2A_RPCS = (
+    "workbench.open",
+    "workbench.get",
+    "workbench.save_step",
+    "workbench.set_book",
+    "workbench.leave",
+    "workbench.abandon",
+    "workbench.reopen",
+    "workbench.refresh_import",
+    "workbench.bind",
+    "workbench.retry_import",
+    "workbench.submit",
+    "workbench.session_for_attempt",
+    "workbench.for_item",
+    "workbench.for_source",
+)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -344,7 +366,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
 )

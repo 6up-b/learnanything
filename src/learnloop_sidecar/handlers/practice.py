@@ -693,12 +693,43 @@ def _plan_presentation(repository, params: Any) -> str | None:
     )
 
 
-def _bind_offer(repository, params, submission_id):
+def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tuple[int, str]:
+    """Fold in the assistance the item's open workbench problems hold (Reader
+    workbench RW2a, review F2): the book one counted and the answer-box hints
+    it carried. The server holds them, so the record never depends on a
+    client having restored them before Submit, and it is never clamped to the
+    hints the item shows today. The larger of the two counts, never their sum
+    (a client that restored them already sends them), and an independent
+    attempt type becomes the assisted one the answer box picks.
+
+    On an item that allows only ``independent_attempt`` that type stays, with
+    ``hints_used`` > 0: exactly what main records for an authored hint
+    revealed there (the answer box's ``chooseAttemptType`` and
+    ``stuck_attempt_type`` fall back to the item's default type). The one
+    activity policy (``resolve_attempt_activity_policy``) reads ``hints_used``
+    > 0 as assisted and never certifying whatever the type, so the attempt is
+    never unassisted evidence (RW2a round 4, F2)."""
+
+    from learnloop.reader.workbench import held_hints
+
+    held = held_hints(repository, item.id)
+    if held <= 0:
+        return hints_used, attempt_type
+    if attempt_type == "independent_attempt":
+        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=held)
+    return max(int(hints_used), held), attempt_type
+
+
+def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
+    # Reader workbench RW2a: a workbench submit names its own surface; every
+    # other caller binds exactly as before (the store's default surface).
+    surface = {} if entry_surface is None else {"entry_surface": entry_surface}
     try:
         return repository.bind_submission_offer(
             submission_id=submission_id, session_id=params.session_id,
             practice_item_id=params.practice_item_id,
             scheduler_candidate_id=params.scheduler_candidate_id,
+            **surface,
         )
     except ValueError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
@@ -779,7 +810,20 @@ def acknowledge_practice_submission(
 
 @method("submit_attempt", SubmitAttemptInput)
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
+    return submit_attempt_on(ctx, params)
+
+
+def submit_attempt_on(
+    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice"
+) -> dict[str, Any]:
+    """``submit_attempt``, recorded on ``entry_surface``. The one submit
+    implementation: the Reader workbench (RW2a) composes its answer and calls
+    this with its own surface, so a workbench submit is validated, graded,
+    diagnosed and admitted (the one eligibility decision) exactly as every
+    other; the RPC passes the practice screen's surface, unchanged."""
+
     vault, repository = ctx.require_vault()
+    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
     submission_id = submission_key(params)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
@@ -791,7 +835,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         # A stuck answer from a surface drawn before stuck_prompt was turned
         # off is recorded exactly as that switch says today: an empty one is
         # "I don't know" (and a non-empty one the ordinary attempt below).
-        return submit_dont_know(
+        return submit_dont_know_on(
             ctx,
             DontKnowInput(
                 session_id=params.session_id,
@@ -805,16 +849,18 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
                 scheduler_candidate_id=params.scheduler_candidate_id,
                 plan_presentation_id=params.plan_presentation_id,
             ),
+            entry_surface=entry_surface,
         )
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
+    client_hints, attempt_type = _held_assistance(repository, item, params.hints_used, params.attempt_type)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
     question_hints = hint_equivalents_for_submission(
         repository, params.practice_item_id, params.session_id
     )
-    hints_used = params.hints_used + question_hints
+    hints_used = client_hints + question_hints
     if item.hint_policy.max_useful_hints > 0:
         hints_used = min(hints_used, item.hint_policy.max_useful_hints)
     # A6: compose the one trace the grader reads, here and nowhere else. The
@@ -832,12 +878,12 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         primed = True
         log_event("self_grade_trace_changed_after_disclosure", session_id=params.session_id,
                   practice_item_id=params.practice_item_id)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md=learner_answer_md,
         elicited_explanation_md=explanation_md,
-        attempt_type=params.attempt_type,
+        attempt_type=attempt_type,
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
@@ -848,7 +894,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
         scheduler_candidate_id=scheduler_candidate_id,
-        entry_surface="desktop_practice",
+        entry_surface=entry_surface,
         evidence_origin="human",
         declared_stuck=declared_stuck,
     )
@@ -943,7 +989,14 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 
 @method("submit_dont_know", DontKnowInput)
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
+    return submit_dont_know_on(ctx, params)
+
+
+def submit_dont_know_on(
+    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice"
+) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
     submission_id = submission_key(params)
     cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
@@ -951,6 +1004,8 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
+    # The item's open workbench problems' assistance counts here too (RW2a F2).
+    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
     if stuck_prompt_active(vault):
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:
@@ -960,10 +1015,10 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
             learner_answer_md="",
             attempt_type=stuck_attempt_type(
                 item.attempt_types_allowed,
-                hints_used=params.hints_used,
+                hints_used=hints_used,
                 probe=params.probe_presentation_id is not None,
             ),
-            hints_used=params.hints_used,
+            hints_used=hints_used,
             latency_seconds=params.latency_seconds,
             session_id=params.session_id,
             probe_presentation_id=params.probe_presentation_id,
@@ -971,19 +1026,19 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
             answer_confidence=params.answer_confidence,
             assessment_contract_version_id=params.assessment_contract_version_id,
             submission_id=submission_id,
-            scheduler_candidate_id=_bind_offer(repository, params, submission_id),
-            entry_surface="desktop_practice",
+            scheduler_candidate_id=_bind_offer(repository, params, submission_id, entry_surface=workbench_surface),
+            entry_surface=entry_surface,
             evidence_origin="human",
             declared_stuck=True,
         )
         return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
-    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
         attempt_type="diagnostic_probe" if params.probe_presentation_id else "dont_know",
-        hints_used=params.hints_used,
+        hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
         probe_presentation_id=params.probe_presentation_id,
@@ -992,7 +1047,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
         scheduler_candidate_id=scheduler_candidate_id,
-        entry_surface="desktop_practice",
+        entry_surface=entry_surface,
         evidence_origin="human",
         declared_dont_know=True,
     )

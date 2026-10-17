@@ -1784,10 +1784,20 @@ def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInpu
     per-block nodes) becomes one background authoring job that writes complete,
     schedulable PracticeItems around the verbatim exercise text."""
 
+    vault, repository = _require_reader(ctx)
+    batch_id = enqueue_exercise_import(ctx, vault, repository, params)
+    return versioned({"status": "queued", "batch_id": batch_id})
+
+
+def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: ReaderImportExerciseInput) -> str:
+    """Queue one exercise-import job and return its batch id (raises
+    ``SidecarError`` when it cannot start). Shared by ``reader.import_exercise``
+    and the workbench's "work through this" on a selection (RW2a, UX S2),
+    which opens the problem at once and binds it when this job lands."""
+
     from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
-    vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id)
     if resolved is None:
         raise SidecarError(
@@ -1818,7 +1828,7 @@ def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInpu
         revision_id=params.revision_id,
         learning_object_hint=params.learning_object_id,
     )
-    return versioned({"status": "queued", "batch_id": batch_id})
+    return batch_id
 
 
 class ReaderExerciseImportStatusInput(ParamsModel):

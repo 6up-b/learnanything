@@ -466,6 +466,13 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # decision ran on, recorded beside it. A historical decision artifact,
     # never recomputed (the inputs it froze are gone by rebuild time).
     ("voi_forecasts", TableRole.RECEIPT),
+    # Reader workbench RW2a (migration 207): a problem worked in steps. The
+    # session is in-flight lifecycle state (open, submitted, abandoned and
+    # reopened; the import binding); its steps are the learner's own writing,
+    # append-only, superseded and tombstoned but never cleared. Neither is
+    # replayed: the submitted attempt carries the evidence.
+    ("workbench_sessions", TableRole.WORKFLOW),
+    ("workbench_steps", TableRole.RAW_LEDGER),
 )
 
 

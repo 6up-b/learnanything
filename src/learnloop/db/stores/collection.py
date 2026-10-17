@@ -42,6 +42,14 @@ def _check_evidence_reference(connection: sqlite3.Connection, reference: object)
         raise ValueError(f"Evidence reference {table}.{key_column}={key!r} does not exist.")
 
 
+
+def _offer_open(connection, candidate_id: str, session_id: str, practice_item_id: str) -> bool:
+    return connection.execute(
+        """SELECT c.id FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id=c.slate_id
+           WHERE c.id=? AND s.session_id=? AND c.practice_item_id=? AND c.was_returned=1 AND c.chosen_attempt_id IS NULL""",
+        (candidate_id, session_id, practice_item_id),
+    ).fetchone() is not None
+
 class CollectionStoreMixin:
     def finalize_scheduler_offer(
         self,
@@ -96,6 +104,13 @@ class CollectionStoreMixin:
             )
         return identifier
 
+    def scheduler_offer_open(self, *, scheduler_candidate_id: str, session_id: str, practice_item_id: str) -> bool:
+        """Whether an offer is still an unanswered offer of this item in this
+        session: the check :meth:`bind_submission_offer` makes, read-only."""
+
+        with self.connection() as connection:
+            return _offer_open(connection, scheduler_candidate_id, session_id, practice_item_id)
+
     def bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str = "desktop_practice", record_pick: bool = True) -> str | None:
         """Return the scheduler offer a submission answers, binding it on first use.
 
@@ -112,12 +127,7 @@ class CollectionStoreMixin:
         """
 
         def require_offered(connection, candidate_id: str) -> None:
-            candidate = connection.execute(
-                """SELECT c.id FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id=c.slate_id
-                   WHERE c.id=? AND s.session_id=? AND c.practice_item_id=? AND c.was_returned=1 AND c.chosen_attempt_id IS NULL""",
-                (candidate_id, session_id, practice_item_id),
-            ).fetchone()
-            if candidate is None:
+            if not _offer_open(connection, candidate_id, session_id, practice_item_id):
                 raise ValueError("The scheduler offer does not belong to this item/session or was already consumed.")
 
         def bound_offer(connection) -> tuple[bool, str | None]:

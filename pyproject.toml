@@ -402,6 +402,24 @@ forbidden_modules = ["learnloop.remote", "learnloop.learner_context"]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "evidence-never-reads-the-workbench"
+name = "Replay, evidence and serving internals never read the workbench (RW2a: W1, spec 5.7)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+]
+forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbench"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "learner-protection-sits-below-its-readers"
 name = "The shared learner protection depends on neither of its readers (the router card, the chat read model)"
 type = "forbidden"

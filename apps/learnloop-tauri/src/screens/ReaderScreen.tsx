@@ -78,6 +78,11 @@ import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import { algoConfig } from "../app/algoConfig";
+import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
+import { Workbench } from "./workbench/Workbench";
+import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
+import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "./workbench/splitWidth";
 import {
   askGroundingSpans,
   clip,
@@ -167,6 +172,7 @@ export function ReaderScreen({
   onOpenLibrary,
   shelf,
   onCheckMe,
+  workbench,
 }: {
   onError: (message: string) => void;
   /** The source that was open when the Reader last unmounted (hoisted by the shell). */
@@ -181,6 +187,10 @@ export function ReaderScreen({
   /** RW3a: open the item a margin cue's "check me" found, as a learner pick
    *  with the book out of view; absent, the cue offers no check me. */
   onCheckMe?: (request: ReaderCheckMeRequest) => void;
+  /** RW2a: the workbench's shell wiring (the practice session, the submit's
+   *  hand-off to feedback, back from feedback to the problem). The workbench
+   *  itself shows only while workbench.enabled is on. */
+  workbench?: ReaderWorkbenchProps;
 }) {
   // The prompt contract only changes with settings, so it is cached until a
   // settings mutation invalidates it; the picker's library list is shared with
@@ -457,7 +467,17 @@ export function ReaderScreen({
     if (card.sourceId !== origin.sourceId || openExtractionRef.current !== origin.extractionId) return;
     onCheckMe({ ...request, card });
   }, [onCheckMe]);
+  // RW2a: the working posture (off: no entry anywhere, the Reader as before).
+  const wbCtl = useReaderWorkbench({
+    enabled: algoConfig().workbench && !offline,
+    extractionId: render?.extractionId ?? null,
+    card: openCardRef.current,
+    props: workbench,
+    onError,
+  });
+  const working = wbCtl.active !== null;
   const cueCtl = useReaderCues({
+    working,
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,
     surface: cueSurface, pdfBlocks: pdfView?.blocks ?? null, pdfLayout, bodyRef,
     layoutKey: `${render?.renderViewId ?? ""}:${surface}:${guidePlan?.extractionId ?? ""}:${blocks.length}:${railCollapsed ? 1 : 0}`,
@@ -1572,6 +1592,7 @@ export function ReaderScreen({
         quote: editedText ? editedText.replace(/\s+/g, " ") : selection.quote,
         result: null,
         error: null,
+        spanIds: [...new Set(nodes.map((node) => node.spanId))],
       });
       setSelectionActions((prev) => [...prev, "exercise_import"]);
       logReaderAction("action_invoked", { ...visitPayload(), action_kind: "import_exercise" });
@@ -1957,6 +1978,65 @@ export function ReaderScreen({
     );
   }
 
+  // ── RW2a: the working posture ──
+  const wbActive = wbCtl.active;
+  const wbStacked = working && wbCtl.narrow;
+  // The source pane is covered whenever the session's book is not shown:
+  // only a shown book counts, so an uncounted one is never in view (review F4).
+  const wbBookHidden = Boolean(wbActive && !wbActive.session.sourceVisible);
+  const wbSourceShown = !wbStacked || wbCtl.sheetOpen;
+  const wbOpenSessions = wbCtl.enabled ? wbCtl.sessions.filter((entry) => entry.sessionId !== wbActive?.session.sessionId) : [];
+  const wbResumeBySpan = new Map<string, (typeof wbOpenSessions)[number]>();
+  for (const entry of wbOpenSessions) {
+    const first = entry.spanIds[0];
+    if (first && !wbResumeBySpan.has(first)) wbResumeBySpan.set(first, entry);
+  }
+  const wbLabel = (stem: string) => {
+    const title = problemTitle(stem);
+    return title === "this problem" ? clip(stem, 48) : title;
+  };
+  const workThroughSelection = () => {
+    if (!render || !selection) return;
+    const nodes = selectionNodes(selection);
+    const editedText = selection.editedText?.trim();
+    void wbCtl.openSelection({
+      stemMd: editedText || selection.quote,
+      spanIds: [...new Set(nodes.map((node) => node.spanId))],
+      importRequest: {
+        extractionId: render.extractionId,
+        sourceId: render.sourceId,
+        revisionId: render.revisionId,
+        renderViewId: render.renderViewId,
+        rawSelection: editedText ? { nodes, editedText } : { nodes },
+        clientIdempotencyKey: newKey(),
+      },
+    });
+  };
+  const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false) => {
+    const spanId = wbCtl.close(session, { abandoned: abandonedNow });
+    // Collapse back into ordinary reading at the problem's passage.
+    if (spanId) window.setTimeout(() => jumpToSpan(spanId), 0);
+  };
+  const resumeMark = (spanId: string | null | undefined) => {
+    const entry = spanId ? wbResumeBySpan.get(spanId) : undefined;
+    if (!entry || working) return null;
+    const verb = entry.status === "abandoned" ? "Reopen" : "Resume";
+    return (
+      <button
+        type="button"
+        aria-label={`${verb} this problem: ${wbLabel(entry.stemMd)}`}
+        title={`${verb.toLowerCase()} your steps${entry.unfinished ? " · unfinished" : ""}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          void wbCtl.resume(entry.sessionId);
+        }}
+        style={{ position: "absolute", left: -22, top: 2, border: 0, background: "transparent", color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 12, padding: 0, cursor: "pointer" }}
+      >
+        ✎
+      </button>
+    );
+  };
+
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "22px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -2029,11 +2109,12 @@ export function ReaderScreen({
           }}
         />
       ) : null}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", overflow: "hidden", ...(working ? { position: "relative" as const, flexDirection: wbStacked ? "column" as const : "row" as const } : {}) }}>
         <div
           ref={bodyRef}
           role={inquiry ? "main" : undefined}
           aria-label={inquiry ? [sourceTitle, currentGuideSection?.label].filter(Boolean).join(", ") || "Source" : undefined}
+          {...(working && wbBookHidden ? { "aria-hidden": true } : {})}
           onMouseDown={(event) => {
             noteUserScroll();
             onBodyMouseDown(event);
@@ -2052,6 +2133,7 @@ export function ReaderScreen({
             gap: 12,
             position: "relative",
             cursor: domArmed && !pdfSurfaceActive ? "crosshair" : undefined,
+            ...(wbStacked ? { order: 1, flex: wbSourceShown ? "0 0 50%" : undefined, display: wbSourceShown ? "flex" : "none", borderTop: `1px solid ${COLOR.border}` } : {}),
           }}
         >
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
@@ -2214,10 +2296,11 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark ? "relative" : undefined,
+                  position: cueMark || (block.spanId && wbResumeBySpan.has(block.spanId) && !working) ? "relative" : undefined,
                 }}
               >
                 {cueMark ? renderMark(cueMark, "text") : null}
+                {resumeMark(block.spanId)}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -2265,8 +2348,85 @@ export function ReaderScreen({
           })}
         </div>
 
+        {working && wbActive ? (
+          <>
+            {wbBookHidden && wbSourceShown ? (
+              // W8: the book hidden so this can be the learner's own attempt.
+              <div
+                data-testid="workbench-book-cover"
+                style={{
+                  position: "absolute", zIndex: 20, background: COLOR.bg, display: "flex", alignItems: "center",
+                  justifyContent: "center", padding: 32, textAlign: "center",
+                  ...(wbStacked ? { left: 0, right: 0, bottom: 0, top: "50%" } : { left: 0, top: 0, bottom: 0, width: `calc(100% - ${wbCtl.width + 6}px)` }),
+                }}
+              >
+                <div style={{ maxWidth: 360, fontFamily: FONT_MONO, fontSize: 12, lineHeight: 1.7, color: COLOR.textDim }}>
+                  <p style={{ margin: 0 }}>{WORKBENCH_COPY.bookHiddenCover}</p>
+                  <p style={{ margin: "10px 0 0" }}>{WORKBENCH_COPY.bookHiddenHow}</p>
+                </div>
+              </div>
+            ) : null}
+            {!wbStacked ? (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="resize the workbench"
+                aria-valuemin={MIN_WORKBENCH_WIDTH}
+                aria-valuemax={clampSplitWidth(Number.MAX_SAFE_INTEGER, window.innerWidth)}
+                aria-valuenow={wbCtl.width}
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    event.preventDefault();
+                    // The workbench is on the right: dragging the edge left widens it.
+                    wbCtl.resizeBy(event.key === "ArrowLeft" ? SPLIT_STEP : -SPLIT_STEP);
+                  }
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  const startX = event.clientX;
+                  const startWidth = wbCtl.width;
+                  const onMove = (move: MouseEvent) => wbCtl.setWidth(startWidth + (startX - move.clientX));
+                  const onUp = () => {
+                    window.removeEventListener("mousemove", onMove);
+                    window.removeEventListener("mouseup", onUp);
+                  };
+                  window.addEventListener("mousemove", onMove);
+                  window.addEventListener("mouseup", onUp);
+                }}
+                style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
+              />
+            ) : null}
+            <div
+              data-workbench-pane=""
+              data-layout={wbStacked ? "stacked" : "split"}
+              className="ll-scroll"
+              style={{
+                width: wbStacked ? "100%" : wbCtl.width, flexShrink: 0, minHeight: 0, overflowY: "auto",
+                ...(wbStacked ? { flex: wbSourceShown ? "0 0 50%" : "1 1 auto" } : { height: "100%" }),
+              }}
+            >
+              <Workbench
+                key={wbActive.session.sessionId}
+                initial={wbActive.session}
+                layout={wbStacked ? "stacked" : "split"}
+                readOnly={wbActive.readOnly}
+                autoFocus={wbActive.autoFocus}
+                practiceSessionId={workbench?.practiceSessionId ?? null}
+                schedulerCandidateId={wbActive.schedulerCandidateId}
+                planPresentationId={wbActive.planPresentationId}
+                onSession={wbCtl.update}
+                onLeave={(session) => leaveWorkbench(session)}
+                onAbandoned={(session) => leaveWorkbench(session, true)}
+                onSubmitted={wbCtl.submitted}
+                onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
+                onError={onError}
+              />
+            </div>
+          </>
+        ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {inquiry && railCollapsed ? (
+        {inquiry && railCollapsed && !working ? (
           <button
             type="button"
             onClick={() => setRailCollapsed(false)}
@@ -2292,7 +2452,7 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
-            display: inquiry && railCollapsed ? "none" : undefined,
+            display: (inquiry && railCollapsed) || working ? "none" : undefined,
           }}
           className="ll-scroll"
         >
@@ -2327,6 +2487,34 @@ export function ReaderScreen({
               })}
             </div>
           </div>
+          {wbOpenSessions.length > 0 || wbCtl.abandoned ? (
+            // RW2a: the problems worked here and not submitted, each one key to
+            // resume (no count: threads to pick up, never a debt, UX U12).
+            <div aria-label="your problems here" style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+              {wbCtl.abandoned ? (
+                <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>
+                  {WORKBENCH_COPY.abandoned}{" "}
+                  <button
+                    type="button"
+                    onClick={() => void wbCtl.reopenAbandoned()}
+                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+                  >
+                    reopen
+                  </button>
+                </span>
+              ) : null}
+              {wbOpenSessions.filter((entry) => entry.sessionId !== wbCtl.abandoned?.sessionId).map((entry) => (
+                <button
+                  key={entry.sessionId}
+                  type="button"
+                  onClick={() => void wbCtl.resume(entry.sessionId)}
+                  style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, padding: 0, cursor: "pointer", textAlign: "left" }}
+                >
+                  ✎ {wbLabel(entry.stemMd)} · {entry.status === "abandoned" ? "reopen" : entry.unfinished ? "unfinished · resume" : "resume"}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <GuideRail
             visible={railTab === "guide"}
@@ -2401,6 +2589,12 @@ export function ReaderScreen({
             captureHighlight={captureHighlight}
             invokePreset={invokePreset}
             importExercise={importExercise}
+            onWorkThrough={wbCtl.enabled && selection ? workThroughSelection : undefined}
+            onWorkThroughItem={wbCtl.enabled ? (item) => void wbCtl.openItem({
+              practiceItemId: item.practiceItemId,
+              stemMd: item.prompt,
+              spanIds: exerciseImport?.spanIds ?? (activeSpan ? [activeSpan] : []),
+            }) : undefined}
             exerciseImport={exerciseImport}
             setExerciseImport={setExerciseImport}
             exerciseImportActive={exerciseImportActive}
