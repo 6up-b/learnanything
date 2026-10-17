@@ -12956,23 +12956,33 @@ class Repository(
         a standing row that was cancelled, or flagged for cancellation while it
         ran, is made runnable again instead of reused dead, because a new
         capture asks for that work. The row keeps its id and its first
-        capture; a completed, failed or obsolete row is reused as before."""
+        capture; a completed, failed or obsolete row is reused as before.
+
+        A revival rebinds the row to the reviving capture (its annotation and
+        commitment), so the model sees the live capture's inputs and the result
+        maps to its commitment, never the reverted capture's stopped one (Codex
+        final verify of RW1b, F16). The key carries the capture's instructions,
+        so a revival only ever happens between captures asking the same thing."""
 
         existing = self.reader_request_by_key(request_key)
         if existing is not None:
             if revive_cancelled and (existing["status"] == "cancelled" or (
                     existing["cancel_requested"] and existing["status"] in ("queued", "running"))):
+                rebind = fields.get("annotation_id") is not None
                 with self.connection() as connection:
                     connection.execute(
                         "UPDATE reader_background_requests "
                         "SET cancel_requested = 0, updated_at = ?, "
+                        "    annotation_id = CASE WHEN ? THEN ? ELSE annotation_id END, "
+                        "    commitment_id = CASE WHEN ? THEN ? ELSE commitment_id END, "
                         "    lease_owner = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_owner END, "
                         "    lease_expires_at = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_expires_at END, "
                         "    completed_at = CASE WHEN status = 'cancelled' THEN NULL ELSE completed_at END, "
                         "    status = CASE WHEN status = 'cancelled' THEN 'queued' ELSE status END "
                         "WHERE id = ? AND (status = 'cancelled' OR "
                         "      (cancel_requested = 1 AND status IN ('queued', 'running')))",
-                        (utc_now_iso(clock), existing["id"]),
+                        (utc_now_iso(clock), int(rebind), fields.get("annotation_id"),
+                         int(rebind), fields.get("commitment_id"), existing["id"]),
                     )
                     connection.commit()
                 revived = self.get_reader_request(existing["id"]) or existing
@@ -13173,10 +13183,45 @@ class Repository(
             ).fetchone()
         return held is not None
 
+    def reader_request_standing_holder(
+        self, request_id: str, *, releasing_annotation_id: str
+    ) -> dict[str, Any] | None:
+        """The latest capture other than ``releasing_annotation_id`` whose
+        outbox row converted onto this request and whose annotation has no
+        standing delete: the capture a request is rebound to when the capture
+        it is bound to is reverted while another still holds it (Codex final
+        verify of RW1b, F16). ``None`` when there is none."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT o.annotation_id, o.commitment_id FROM reader_capture_outbox o "
+                "WHERE o.target_ref = ? AND o.annotation_id IS NOT NULL AND o.annotation_id != ? AND NOT "
+                + _STANDING_DELETE.format(annotation="o.annotation_id")
+                + " ORDER BY o.created_at DESC, o.id DESC LIMIT 1",
+                (request_id, releasing_annotation_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def rebind_reader_request(
+        self, request_id: str, *, annotation_id: str, commitment_id: str | None, clock: Clock | None = None
+    ) -> None:
+        """Bind a request to the capture it now serves (F16): the annotation
+        whose instructions the model reads and the commitment its result maps to."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE reader_background_requests SET annotation_id = ?, commitment_id = ?, updated_at = ? "
+                "WHERE id = ?",
+                (annotation_id, commitment_id, utc_now_iso(clock), request_id),
+            )
+            connection.commit()
+
     def capture_reverted(self, annotation_id: str, *, reason: str) -> bool:
         """Whether a delete of the annotation with this ``reason`` stands (one
         no undo names): the capture was reverted, so its outbox row converts
-        to no work (Codex re-review of RW1b, F14)."""
+        to no work (Codex re-review of RW1b, F14). The revert reads the same
+        predicate before it tombstones, so a revert after an undone one writes
+        a new tombstone (Codex final verify of RW1b, F14)."""
 
         with self.connection() as connection:
             row = connection.execute(

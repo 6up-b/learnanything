@@ -28,6 +28,7 @@ from learnloop.reader.ai_contracts import (
 )
 from learnloop.clock import Clock, utc_now_iso, parse_utc
 from learnloop.content.sources.exam_material import held_out_among, held_out_material, held_out_refusal
+from learnloop.curriculum import commitments as C
 from learnloop.db.repositories import Repository
 from learnloop.reader import source_objects as SO
 
@@ -60,6 +61,14 @@ _PRESET_OBJECT_TYPE: dict[str, str] = {
     "connect_it": "claim",
     "mark_confusing": "claim",
 }
+
+
+def normalized_instructions(text: Any) -> str:
+    """The learner's instructions for a capture (its ``learner_text``, what
+    the model is told to do with the passage), whitespace collapsed: part of
+    a capture's synthesis request identity (Codex final verify of RW1b, F16)."""
+
+    return " ".join(str(text or "").split())
 
 
 class ReaderRequestError(ValueError):
@@ -153,13 +162,26 @@ def request_key(
     model: str,
     config_hash: str,
     inventory_profile: str = "semantic",
+    instructions: str = "",
 ) -> str:
     """Canonical idempotency key over {revision, window, preset, inventory schema +
     profile, synthesis/output schema, prompt+provider+model, config/policy} (§6.2).
-    Keyed on the REVISION -- not a mutable 'current source'."""
+    Keyed on the REVISION -- not a mutable 'current source'.
 
+    ``instructions``: a capture's learner instructions. Two captures of one
+    passage and preset that ask for different things never share (or revive)
+    one request, so the model always sees the live capture's instructions
+    (Codex final verify of RW1b, F16). Folded in only when there are some, so
+    every key without instructions -- every existing row's -- is unchanged."""
+
+    instructions = normalized_instructions(instructions)
+    extra = (
+        {"instructions_hash": hashlib.sha256(instructions.encode("utf-8")).hexdigest()}
+        if instructions else {}
+    )
     canonical = json.dumps(
         {
+            **extra,
             "revision_id": revision_id,
             "span_ids": window.get("span_ids", []),
             "selected_span_ids": window.get("selected_span_ids", []),
@@ -203,13 +225,17 @@ def enqueue_request(
     selection_edited: bool = False,
     selected_span_ids: Sequence[str] = (),
     revive_cancelled: bool = False,
+    instructions: str = "",
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Enqueue a demand-paged synthesis request (§6). Idempotent on the canonical
     request key; returns visible scope + token/cap metadata (§6.3). The reading path
     never blocks on this -- it only writes a durable ``queued`` row.
     ``revive_cancelled``: a capture's conversion makes a cancelled standing
-    row runnable again rather than reusing it dead (Codex re-review of RW1b, F15)."""
+    row runnable again rather than reusing it dead (Codex re-review of RW1b, F15),
+    bound to the reviving capture's annotation and commitment.
+    ``instructions``: the capture's learner instructions, part of the request
+    key (F16; see :func:`request_key`)."""
 
     window = neighborhood(
         repository,
@@ -223,7 +249,7 @@ def enqueue_request(
     key = request_key(
         revision_id=revision_id, window=window, preset=preset,
         provider=provider, model=model, config_hash=config_hash,
-        inventory_profile=inventory_profile,
+        inventory_profile=inventory_profile, instructions=instructions,
     )
     est_input = window["prompt_char_count"] // _chars_per_token + 1
     est_output = 512
@@ -327,6 +353,12 @@ def _land_proposals(
     # safety: never "the latest reading + this span id").
     ir = repository.load_document_ir(str(request.get("extraction_id") or "")) if request.get("extraction_id") else None
     hashes = {block.span_id: block.content_hash for block in (ir.blocks if ir is not None else [])}
+    # The capture the request serves now: a revival rebinds a running request
+    # to the reviving capture after it was claimed (Codex final verify of RW1b,
+    # F16). Without a rebind the row's binding is the one it was claimed with.
+    current = repository.get_reader_request(str(request["id"])) if request.get("id") else None
+    annotation_id = (current or request).get("annotation_id")
+    commitment_id = (current or request).get("commitment_id")
     authored = SO.author_source_object(
         repository,
         source_id=request["source_id"],
@@ -345,7 +377,7 @@ def _land_proposals(
         repository,
         target_kind="new_object",
         source_object_id=authored["source_object_id"],
-        annotation_id=request.get("annotation_id"),
+        annotation_id=annotation_id,
         confidence=0.5,
         rationale=f"demand-paged synthesis for reader preset {request.get('preset')!r}",
         provenance={"request_key": request.get("request_key"), "revision_id": request.get("revision_id")},
@@ -355,15 +387,25 @@ def _land_proposals(
         {"kind": "source_object", "source_object_id": authored["source_object_id"], "object_type": object_type},
         {"kind": "canonical_mapping", "proposal_id": mapping["proposal_id"]},
     ]
-    if request.get("commitment_id"):
+    if commitment_id and not _stopped(repository, str(commitment_id)):
         commit_map = SO.propose_mapping(
             repository, target_kind="commitment",
             source_object_id=authored["source_object_id"],
-            target_ref=request["commitment_id"], confidence=0.5,
+            target_ref=commitment_id, confidence=0.5,
             rationale="reader commit preset relationship", clock=clock,
         )
         proposals.append({"kind": "canonical_mapping", "proposal_id": commit_map["proposal_id"]})
     return proposals
+
+
+def _stopped(repository: Repository, commitment_id: str) -> bool:
+    """A stopped commitment (a reverted capture's, retired) never receives a
+    mapping (Codex final verify of RW1b, F16)."""
+
+    try:
+        return C.resolve_disposition(repository, commitment_id) == "stopped"
+    except C.UnknownCommitment:
+        return False
 
 
 def model_synthesis(

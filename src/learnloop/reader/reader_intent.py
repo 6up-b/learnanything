@@ -638,8 +638,11 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
     tombstone inside the one that enqueues: a revert before the drain
     converts leaves nothing to enqueue, and one racing it waits and then
     cancels what it enqueued (Codex re-review of RW1b, F14). A request is
-    shared by every capture of the same passage and preset, so it is
-    cancelled only when no other capture still holding it stands (F15)."""
+    shared by every capture of the same passage, preset and instructions, so
+    it is cancelled only when no other capture still holding it stands (F15);
+    one kept for another capture is rebound to it (Codex final verify, F16).
+    The tombstone check reads :meth:`Repository.capture_reverted`, the
+    predicate the conversion reads, which honours an undo (F14)."""
 
     from learnloop.reader.annotations import delete_intent_annotation
 
@@ -655,17 +658,15 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
             # The requests this capture holds: the one it made, and any its
             # outbox row converted onto (a request another capture made).
             requests = [dict(row) for row in connection.execute(
-                "SELECT id, status FROM reader_background_requests WHERE annotation_id = ? "
+                "SELECT id, status, annotation_id FROM reader_background_requests WHERE annotation_id = ? "
                 "OR id IN (SELECT target_ref FROM reader_capture_outbox WHERE annotation_id = ?) "
                 "ORDER BY created_at DESC, id DESC",
                 (annotation_id, annotation_id),
             )]
-            tombstoned = connection.execute(
-                "SELECT 1 FROM source_annotation_events WHERE annotation_id = ? AND event_type = 'delete_intent' "
-                "AND json_extract(payload_json, '$.reason') = ?",
-                (annotation_id, REVERT_REASON),
-            ).fetchone() is not None
-        if not tombstoned:
+        # The same predicate the conversion reads: a revert tombstone that
+        # stands (no undo names it). After an undone revert there is none, so
+        # this revert writes a new one (Codex final verify of RW1b, F14).
+        if not repository.capture_reverted(annotation_id, reason=REVERT_REASON):
             delete_intent_annotation(repository, annotation_id=annotation_id, reason=REVERT_REASON, clock=clock)
         commitment_id = str(outbox[0]) if outbox is not None and outbox[0] else None
         if commitment_id is not None and C.resolve_disposition(repository, commitment_id) != "stopped":
@@ -675,6 +676,16 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
                 continue
             if not repository.reader_request_still_held(str(request["id"]), releasing_annotation_id=annotation_id):
                 repository.cancel_reader_request(str(request["id"]), clock=clock)
+            elif request["annotation_id"] == annotation_id:
+                # Another capture still holds it: it now serves that one, so
+                # the result maps to a live commitment, never this capture's
+                # stopped one (Codex final verify of RW1b, F16).
+                holder = repository.reader_request_standing_holder(
+                    str(request["id"]), releasing_annotation_id=annotation_id)
+                if holder is not None:
+                    repository.rebind_reader_request(
+                        str(request["id"]), annotation_id=str(holder["annotation_id"]),
+                        commitment_id=holder["commitment_id"], clock=clock)
     request_id = str(requests[0]["id"]) if requests else None
     return {"annotation_id": annotation_id, "commitment_id": commitment_id, "request_id": request_id}
 

@@ -383,6 +383,11 @@ def _default_convert(repository: Repository, row: Mapping[str, Any]) -> str | No
 
 
 def _enqueue_for(repository: Repository, row: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
+    # The capture's instructions (its learner text, what the model is asked
+    # to do) are part of its request's identity: captures asking different
+    # things never share or revive one request (Codex final verify, F16).
+    head = repository.annotation_head(str(row["annotation_id"])) if row.get("annotation_id") else None
+    instructions = str(((head or {}).get("version") or {}).get("learner_text") or "")
     result = rr.enqueue_request(
         repository,
         source_id=row["source_id"],
@@ -400,6 +405,7 @@ def _enqueue_for(repository: Repository, row: Mapping[str, Any], payload: Mappin
             if span_id
         ],
         revive_cancelled=True,
+        instructions=instructions,
     )
     return str(result["request_id"])
 
