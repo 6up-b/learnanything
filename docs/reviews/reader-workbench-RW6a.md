@@ -261,3 +261,89 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`.
 | `tests/test_config_refactor.py` (nineteen snapshots recomputed, config `.pyc` cleared), `test_cli_help_snapshot.py`, `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_architecture.py`, `test_coordinated_migrations.py` | pass (in the full suite); CLI help unchanged, no migration |
 
 **Pre-existing, not RW6a:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"), a file on the base from the Reader PDF selection stage; RW6a's files were not reached. **Not done:** no adversarial (Codex) review in this stage, no real-UI look (the screens are exercised through the real `ReaderScreen` in jsdom). Manual run: two backup-API copies in `fixtures-local/` (`rw6a-probability`, upgraded with `doctor --fix-state`, synthetic visits written on the copy only; `rw6a-linear_algebra`, copied, unused); no tracked vault was opened or changed.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw6a-onto-main`. The stage's base and main's tip are both `e182f3ec8` (RW2a, mvp-0.27, schema head 207). The stage's tip is `2444257c5` (16 commits, after the Codex review's three rounds; the round 3 verify, job `20261017-130629-eROC0Q`, is clean), unchanged. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `a44fe3b88`: a real `--no-ff` merge of `reader/rw6a` onto `e182f3ec8`. The merged tree is byte-identical to the stage tip's (`git diff 2444257c5 a44fe3b88` is empty).
+- `e4155b989`: the references regenerated on the merged tree.
+- This record.
+
+### Merge
+
+- **No conflicts.** Main had not moved since the stage's base. No migration, no table, so `fixtures/migration_head_207` is untouched (rollback-mode: header bytes 18-19 are 1/1, no `-wal` or `-shm`).
+- **No algorithm successor:** the vaults' labels and the Pipeline Map's `implementation_version` stay as they were. One config section (`[recap] enabled`, `wrap_up_enabled`), four `reader.*` RPCs (desktop only, pinned off the phone), four Tauri passthroughs, one import-linter contract.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 207, 327 table notes. 384 notes changed: the `source_commit` labels, and the configuration leaves' line citations that moved in `src/learnloop_sidecar/context.py` (the review's F10 config DTO) and `src/learnloop/learner/facet_evidence_timeline.py` (the review's timeline fields). Committed as `e4155b989`.
+- **Defaults snapshots.** The template `.pyc` was deleted and `template.py` touched. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change.
+- **The Pipeline Map.** The stage's RW6a bullet is already there; nothing to add. `validate_vault.py` passes (1,116 notes, 1,114/1,114 reachable); `module_validate.py` passes.
+
+### Gate
+
+Run on `e4155b989`, the final code tree; the only later commit adds this section. Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install; both suite lanes under `flock /tmp/learnloop-fullsuite.lock`. No paid call: every test uses fakes.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **24 kept**, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **12,941 passed, 2 xfailed**, 0 failed (18 min 12 s; `fixtures-local/rw6a-landing-fullsuite.log`) |
+| `pytest -m durability` | **106 passed**, 12,837 deselected (3 min 38 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **115 files, 936 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished, exit 0 (`src-tauri` differs from main: the four passthroughs) |
+| tracked fixtures | `git status` clean after both lanes |
+
+The counts equal the stage's last gates (backend on `ebcfe6ff4`, frontend on `12aed8c89`). Nothing failed, so nothing was rerun; none of the known flakes (`"8841"` in `test_mcp_c1a_review.py`, `test_reading_usable_with_synthesis_worker_down`, the vitest timing cases in `Workbench.test.tsx` and `FeedbackScreen.test.tsx`) fired.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-rw6a/orig/`. Each original was read once; every other copy came from `orig/` or another copy through the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive e182f3ec8` and the merge's is `git archive e4155b989` (each without the top-level `fixtures/`), each first on `PYTHONPATH`; every run printed the `learnloop` package it imported. Both archives were removed afterwards.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory, `LEARNLOOP_AI_PROVIDER` unset, every process started in a directory holding no `.env`. `model_call_receipts` is 0 on the recap copies.
+- **Starting state.** Both vaults at schema 165, label `mvp-0.8`.
+- **Cleanup.** The previous landing's `fixtures-local/landing-rw2a/` (1.5 GB) was deleted once these copies existed, behind guards on the exact path, that git ignores it, that it holds no tracked file, nothing in it modified in the last 30 minutes (`-mmin`), and no process with a file open in it.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 207 (42) / 165 → 207 (42) | 165 → 207 (42) / 165 → 207 (42) |
+| `.dump`, main's vs the merge's, outside the `schema_migrations` stamps | **identical** (22,746 lines; the 194 `schema_migrations` rows differ only in their applied-at stamps) | **identical** (14,315 lines; same) |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live unchanged on both sides) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** at `mvp-0.8`: every facet's `facet_evidence_timelines(...)` (`as_dict`, plus each of main's eleven `TimelinePoint` fields), 40 single-facet `facet_evidence_timeline` curves, every LO's `recipe_gaps` and `lo_certification` (default arguments) | **byte-identical JSON** (39 facets, 84 points, 2 corrections; 21 LOs, 23 recipes, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the same, on a copy upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), so the regrade-contract reading and its hold are live | **byte-identical** (82 points, 7 corrections, 1 attempt held `grade_contract_unrecorded`; 1 LO certified) | **byte-identical** |
+
+Every shadow, doctor and certification run left its database byte-identical (sha256 before and after).
+
+**(c) The recap, through the real sidecar** (merge code over stdio: `initialize`, `get_config`, then the RPCs). On a 207 copy of probability, two synthetic sessions were written through the Reader's own code (`reader_inquiry.record_activity` with a frozen clock, and one question through `reader_dialogue.ask` with the stub client): a previous session 4 h to 3 h ago on `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` with one question, and the current visit opened a minute ago (a second copy leaves the current visit out, as at the destination). Each read was sent three times; the times are the third call's, from the client, while nothing else ran.
+
+| Case | Result |
+|---|---|
+| recap on, in the Reader (`visitId` = the current visit) | `reader.recap` 136 ms (card present: the session, Still open 4, Since last time read); `reader.wrap_up` 47 ms (the current session: empty lists); `reader.wrap_up_offer` 36 ms (`offer: false`: the most recent session has no activity yet); `get_config` carries `recap: {enabled, wrapUpEnabled}` |
+| recap on, at the destination (no current visit) | `reader.recap` 138 ms; `reader.wrap_up` 110 ms (the source's latest session: Still open 1); `reader.wrap_up_offer` 74 ms (`offer: true`) |
+| what the reads write | nothing: the `.dump` is identical before and after the twelve reads |
+| `reader.recap_event` `recap_shown` | exactly **one** new row: `interaction_events`, `reader_action_invoked` on `reader_extraction`, payload `{authority_class: salience_only, event: recap_shown, extraction_id, visit_id}`, origin `learner`; nothing else changed or removed |
+| `[recap] enabled = false`, `wrap_up_enabled = false` | `reader.recap` and the `recap_shown` / `recap_dismissed` events refuse `recap_disabled`; `reader.wrap_up`, `reader.wrap_up_offer` and `wrap_up_opened` refuse `wrap_up_disabled`; `get_config` has no `recap` key; the `.dump` is unchanged across all seven calls |
+| `[reader_inquiry] enabled = false` (recap on) | all seven calls refuse `inquiry_disabled`; no `recap` key; `.dump` unchanged |
+
+The sidecar's `initialize` itself re-stamps three derived rows' timestamps on open (`facet_recall_state`, `facet_capability_evidence`); main's code does exactly the same on the same copy, so it is pre-existing and not RW6a's. The stage's own measurement (§5 item 5: 0.03-0.05 s) is in-process; these are client round trips over stdio with fsync-on-commit.
+
+### For the owner
+
+- **No upgrade command, no migration.** RW6a has no successor and no schema change; the vaults keep their label and schema head 207. Nothing runs on first open beyond what main already does.
+- **Turning it off:** in the vault's `learnloop.toml`, `[recap]` / `enabled = false` hides the card and refuses its RPCs; `wrap_up_enabled = false` does the same for Wrap up and the destination line. They are independent. Both need `reader_inquiry.enabled` on (RW1a's switch, the default): with it off there are no sessions and every recap RPC refuses `inquiry_disabled`.
+- **To look at it:** the stage record's §7 (a backup-API copy, `doctor --fix-state`, `LEARNLOOP_VAULT=<copy> npm run dev`; read, close, come back after 30 minutes). Visits before RW1a landed were never recorded, so the first card appears after the first recorded session.
+- **Open questions (defaults taken):** the stage record's §6: 1 no card in Today's re-entry panel (DL1); 2 sessions per source; 3 no visits while `reader_inquiry` is off; 4 no *on the map ▸* yet; 5 *keep open* writes nothing; 6 the quick check's own self-check is not a second-look record.
+- **Residuals of the review's F1 round 3** (what the cutoff replay cannot rebuild from timestamped rows, recap-only): the only-grade exception's score at the cutoff is re-summed from `points_awarded` when a later grade overwrote the attempt row; the hold is read under today's tag, so a cutoff before the vault's mvp-0.26 upgrade sees an uncited regrade as held; today's item maximum counts at the cutoff. The as-of read replays the grading ledger only: trace observations, activity classifications and the P0 masses are read as they are now.
+- **Pre-existing, default path, left open (not RW6a's):**
+  - **[Medium] A regrade to zero on an item whose criteria have no authored targets never reaches the Demonstrated curve.** `_observation_events_by_facet` emits an epoch's event only for `requested & (historical_facets | credited_facets)`, `historical_facets` reads authored `criterion.targets` only, and a zero-credit epoch credits nothing, so the correction is dropped: the ledger banks 0 but the curve keeps the earlier credit. That breaks receipt exactness for such items, and for them "a success regraded to nothing does not clear an independent-check claim" does not hold, because the recap reads the curve. The fix changes the default extraction, so it goes through the algorithm-change playbook (queued separately).
+  - **[Low]** The current curve has no point where a replay hold is placed (holds are recorded by replay, without a grading row), so the plotted history of a held-then-released attempt overstates the hold interval. "Since last time" no longer reads those points (it replays as of each moment).
+  - `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"), a file on the base from the Reader PDF selection stage.
+- **Friction notes for the next stages** (stage record §5): RW1b's `reader_authored_questions` columns, RW2b's `highest_help_level` and level 3+ claims, RW6b's `retired` / `no_longer_needed` commitment events and the `reader_session_digests` input, RW5a's `figure_predictions(extraction_id, matched, created_at)` read.
+- **Not done in the stage:** no real-UI look (the screens are exercised through the real `ReaderScreen` in jsdom).
