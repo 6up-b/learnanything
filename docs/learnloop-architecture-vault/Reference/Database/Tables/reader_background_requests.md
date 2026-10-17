@@ -3,8 +3,8 @@ title: "reader_background_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd6c379502bf2997d3ddbfff4845203a193faa55"
-source_commit_timestamp: "2026-10-17T16:51:26-04:00"
+source_commit: "6c63eceb3bcc07bda543dbf8fc4272dbf965abc3"
+source_commit_timestamp: "2026-10-17T17:20:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_background_requests"
@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `Repository.get_reader_request()`
 - `Repository.has_queued_reader_requests()`
 - `Repository.reader_request_by_key()`
+- `Repository.reader_request_still_held()`
 - `Repository.reader_requests_for_source()`
 - `Repository.resolve_reader_request()`
 - `Repository.retry_reader_request()`
@@ -146,6 +147,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw1b_rereview.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_p3_journeys.py`

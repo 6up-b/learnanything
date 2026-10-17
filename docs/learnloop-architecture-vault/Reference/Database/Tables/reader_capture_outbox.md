@@ -3,8 +3,8 @@ title: "reader_capture_outbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd6c379502bf2997d3ddbfff4845203a193faa55"
-source_commit_timestamp: "2026-10-17T16:51:26-04:00"
+source_commit: "6c63eceb3bcc07bda543dbf8fc4272dbf965abc3"
+source_commit_timestamp: "2026-10-17T17:20:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_capture_outbox"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `Repository.get_capture_outbox()`
 - `Repository.mark_capture_outbox()`
 - `Repository.pending_capture_outbox()`
+- `Repository.reader_request_still_held()`
 - `Repository.recoverable_capture_outbox()`
 
 ### Direct SQL readers
@@ -112,6 +113,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/reader_capture.py`
+- `src/learnloop/reader/reader_intent.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -119,6 +121,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_capture.py`
+- `tests/test_reader_rw1b_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
