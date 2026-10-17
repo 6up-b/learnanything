@@ -216,6 +216,12 @@ class WorkbenchOpenInput(ParamsModel):
     session_id: str | None = None
     #: The answer box's hints the learner saw before working in steps.
     carried_hints: int = 0
+    #: A book a problem the learner left for the answer box counted (review F2).
+    carried_book: bool = False
+    #: The serve the problem answers ("check me", the practice screen's
+    #: serve), kept on the session so a resume still submits as it (F13).
+    scheduler_candidate_id: str | None = None
+    plan_presentation_id: str | None = None
     stem_md: str | None = None
     practice_item_id: str | None = None
     extraction_id: str | None = None
@@ -285,10 +291,13 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
 
     vault, repository = _require(ctx)
     carried = max(0, int(params.carried_hints or 0))
+    serve = {"scheduler_candidate_id": params.scheduler_candidate_id,
+             "plan_presentation_id": params.plan_presentation_id}
     if params.session_id:
         row = _run(
             WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
             extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
+            carried_book=params.carried_book, serve=serve,
         )
         _ensure_contract(vault, repository, row["id"])
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
@@ -320,6 +329,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
         import_status=import_status, import_batch_id=batch_id,
         import_request=params.import_request, import_error=error, carried=carried,
+        carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
@@ -449,6 +459,20 @@ def workbench_retry_import(ctx: SidecarContext, params: WorkbenchSessionInput) -
     return _answer({"session": _view(vault, repository, params.session_id)})
 
 
+def _kept_offer(repository, candidate_id: str | None, practice_session_id: str, practice_item_id: str) -> str | None:
+    """The scheduler offer kept on the session, when it is still an
+    unanswered offer of this item in the session the submit runs in; a stale
+    one (answered elsewhere, another session after a restart) is dropped, so
+    the attribution it carried never fails the submit (review F13)."""
+
+    if not candidate_id:
+        return None
+    open_offer = repository.scheduler_offer_open(
+        scheduler_candidate_id=candidate_id, session_id=practice_session_id, practice_item_id=practice_item_id,
+    )
+    return candidate_id if open_offer else None
+
+
 def _practice_session(ctx: SidecarContext, repository, requested: str | None) -> str:
     """The practice session a workbench submit runs in: the app's open one,
     else the most recent open one, else a new one (``start_session``)."""
@@ -472,7 +496,8 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     The answer is the live steps in order; ``hints_used`` is the session's
     hint-equivalents (the book when it counted, the answer box's hints shown
     before steps); the attempt type is the one the answer box would pick; the
-    contract is the one the session showed. A refusal (a cold check answered
+    contract is the one the session showed; the serve is the one the request
+    names, else the one the session kept when it opened. A refusal (a cold check answered
     with the book, grading unavailable) keeps the session open with its steps.
     A retry after a lost response is answered from the submission's receipt.
     """
@@ -507,8 +532,10 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         latency_seconds=params.latency_seconds,
         answer_confidence=params.answer_confidence,
         submission_id=plan.submission_id,
-        scheduler_candidate_id=params.scheduler_candidate_id,
-        plan_presentation_id=params.plan_presentation_id,
+        scheduler_candidate_id=params.scheduler_candidate_id or _kept_offer(
+            repository, plan.scheduler_candidate_id, practice_session_id, plan.practice_item_id,
+        ),
+        plan_presentation_id=params.plan_presentation_id or plan.plan_presentation_id,
         declared_stuck=plan.composed.declared_stuck,
     )
     attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface)

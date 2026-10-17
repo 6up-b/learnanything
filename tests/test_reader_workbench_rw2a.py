@@ -1038,3 +1038,92 @@ def test_f11_showing_the_book_records_an_exposure_of_the_anchored_spans(tmp_path
     # Hiding records nothing; off the Reader there is no book to show.
     _call(ctx, "workbench.set_book", {"sessionId": hidden["sessionId"], "visible": False})
     assert len(_exposures(repository)) == before + 3
+
+
+# -- Codex re-review (F2, F13, F14) --------------------------------------------------------------
+
+
+def test_f2_a_book_counted_in_steps_goes_to_the_answer_box_and_back_into_steps_counted(tmp_path, grader):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    counted = _open(ctx)
+    _step(ctx, counted["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.abandon", {"sessionId": counted["sessionId"]})
+    # The item's card says the book counted, so the answer box counts it.
+    [summary] = _call(ctx, "workbench.for_item", {"practiceItemId": ITEM})["sessions"]
+    assert summary["bookCounted"] is True
+    # Into steps again on the practice screen: a new problem, the book counted.
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    fresh = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
+                                          "stemMd": "Write the SVD of A.", "carriedBook": True})
+    assert fresh["resumed"] is False and fresh["session"]["sessionId"] != counted["sessionId"]
+    assert fresh["session"]["record"]["bookCounted"] is True and fresh["session"]["record"]["hints"] == 1
+    # Carried into the session that counted it already, it is not counted twice.
+    again = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                          "sessionId": counted["sessionId"], "carriedBook": True})["session"]
+    assert again["record"]["hints"] == 1
+    _step(ctx, fresh["session"]["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    payload = _submit(ctx, fresh["session"]["sessionId"], practiceSessionId=practice_session)
+    row = _attempt(repository, payload["attempt"]["attemptId"])
+    assert row["hints_used"] == 1 and _policy(row).counts_as_assisted
+
+
+def _offer(ctx, practice_session: str, item_id: str) -> str:
+    queue = _call(ctx, "get_today_queue", {"sessionId": practice_session})
+    return next(entry["schedulerCandidateId"] for section in queue["sections"] for entry in section["items"]
+                if entry["practiceItemId"] == item_id)
+
+
+def test_f13_a_resumed_check_still_submits_as_the_serve_it_was_opened_from(tmp_path, grader):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    candidate = _offer(ctx, practice_session, ITEM)
+    check = _open(ctx, entry="check_me", schedulerCandidateId=candidate)
+    _step(ctx, check["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.leave", {"sessionId": check["sessionId"]})
+    # Resumed from the rail, which knows nothing of the serve.
+    resumed = _call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": check["sessionId"],
+                                            "extractionId": EXTRACTION})["session"]
+    assert resumed["schedulerCandidateId"] == candidate
+    payload = _submit(ctx, check["sessionId"], practiceSessionId=practice_session)
+    assert _attempt(repository, payload["attempt"]["attemptId"])["scheduler_candidate_id"] == candidate
+
+
+def test_f13_a_kept_offer_that_went_stale_never_fails_the_submit(tmp_path, grader):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    first = _call(ctx, "start_session", {})["sessionId"]
+    candidate = _offer(ctx, first, ITEM)
+    check = _open(ctx, entry="check_me", schedulerCandidateId=candidate)
+    _step(ctx, check["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    # Submitted in another practice session (after a restart, say): the
+    # kept offer belongs to the first one, so it is dropped, not refused.
+    _call(ctx, "end_session", {"sessionId": first})
+    payload = _submit(ctx, check["sessionId"])
+    assert payload["practiceSession"]["sessionId"] != first
+    assert _attempt(repository, payload["attempt"]["attemptId"])["scheduler_candidate_id"] is None
+
+
+def test_f14_check_me_on_a_problem_left_with_the_book_open_opens_it_hidden_keeping_what_it_counted(tmp_path):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    worked = _open(ctx)
+    _step(ctx, worked["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.leave", {"sessionId": worked["sessionId"]})
+    check = _call(ctx, "workbench.open", {"origin": "reader", "entry": "check_me", "practiceItemId": ITEM,
+                                          "stemMd": STEM, "extractionId": EXTRACTION, "spanIds": ["s5"]})
+    assert check["resumed"] is True and check["session"]["sessionId"] == worked["sessionId"]
+    assert check["session"]["sourceVisible"] is False and check["session"]["sourceHiddenAt"]
+    # The book already counted stays counted.
+    assert check["session"]["record"]["bookCounted"] is True
+    # A problem with the book open and no step yet: the check is the learner's own.
+    untouched = _open(ctx, practiceItemId=OTHER_ITEM)
+    assert untouched["sourceVisible"] is True
+    exposures = _count(repository, "source_exposure_events")
+    own = _call(ctx, "workbench.open", {"origin": "reader", "entry": "check_me", "practiceItemId": OTHER_ITEM,
+                                        "stemMd": "Transpose the matrix M.", "extractionId": EXTRACTION,
+                                        "spanIds": ["s5"]})["session"]
+    assert own["sessionId"] == untouched["sessionId"] and own["sourceVisible"] is False
+    assert own["record"]["ownAttempt"] is True
+    assert _count(repository, "source_exposure_events") == exposures

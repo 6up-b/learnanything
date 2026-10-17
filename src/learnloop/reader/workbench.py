@@ -25,11 +25,16 @@ showing records an exposure of the problem's anchored spans
 (``source_exposure_events``, context ``reader``), as opening the source does.
 Hints the learner revealed on the practice screen's answer box before working
 in steps (``carried_hints``) count too, and both survive a move to another
-surface. The submit therefore sends ``hints_used`` = the book's one plus the
+surface. A book counted in a session the learner left for the answer box
+goes with them (the answer box counts it) and comes back into steps as a
+counted book (``carried_book``), so neither direction drops it. The submit
+therefore sends ``hints_used`` = the book's one plus the
 carried hints and nothing else new: any of them makes the attempt assisted
 (FSRS-fed, certifying nothing); none leaves it the learner's own. It is graded
 against the assessment contract the session showed
-(``assessment_contract_version_id``). Stuck steps stay learner work and are
+(``assessment_contract_version_id``), and answers the serve it was opened
+from (``scheduler_candidate_id``, ``plan_presentation_id``), kept across a
+resume. Stuck steps stay learner work and are
 left out of the answer; with no ordinary step the stuck text (or an empty box)
 is the existing "I'm stuck" answer. Abandoned sessions write no attempt.
 Replay and rebuild never read the workbench tables (an import-linter contract
@@ -387,6 +392,17 @@ def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Cl
     return ids
 
 
+def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
+    """The serve ids a request names, to store on the session (review F13)."""
+
+    serve = serve or {}
+    return {
+        column: str(serve[column])
+        for column in ("scheduler_candidate_id", "plan_presentation_id")
+        if serve.get(column)
+    }
+
+
 def _resume_existing(
     repository: Any,
     connection: Any,
@@ -400,6 +416,8 @@ def _resume_existing(
     carried: int,
     now: str,
     clock: Clock | None,
+    carried_book: bool = False,
+    serve: Mapping[str, str | None] | None = None,
 ) -> dict[str, Any]:
     """Resume an existing session on the surface asking for it.
 
@@ -410,11 +428,18 @@ def _resume_existing(
     entry's default, UX S7), so work written without the book stays the
     learner's own until they choose to show it; out of the Reader there is no
     book. The book once counted, and the carried hints, stay counted.
+    "Check me" always opens with the book hidden, on any surface it comes
+    from (UX S7), keeping whatever the book already counted. A serve the
+    resume names (its scheduler offer, its plan presentation) replaces the
+    one kept; a resume that names none keeps it.
     """
 
     changes: dict[str, Any] = {"updated_at": now}
     if carried > carried_hints(existing):
         changes["carried_hints"] = carried
+    if carried_book and not existing.get("source_shown_at"):
+        changes["source_shown_at"] = now
+    changes.update(_serve_changes(serve))
     moved_from = None
     becomes_visible = False
     if (existing["origin"] == "reader") != (origin == "reader"):
@@ -433,6 +458,12 @@ def _resume_existing(
     elif origin != existing["origin"]:
         # Practice screen and plan: the same surface, no book.
         changes["origin"] = origin
+    if entry == "check_me" and (changes.get("source_visible", existing["source_visible"])):
+        # A check is the learner's own retrieval: the book starts hidden even
+        # on a problem left with it open (review F14).
+        changes["source_visible"] = 0
+        changes["source_hidden_at"] = now
+        becomes_visible = False
     store.update_session(connection, existing["id"], changes)
     row = _require(connection, existing["id"])
     _log(repository, row, "workbench_resumed", clock, via=entry,
@@ -459,6 +490,8 @@ def open_session(
     import_request: Mapping[str, Any] | None = None,
     import_error: str | None = None,
     carried: int = 0,
+    carried_book: bool = False,
+    serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Open a session (or resume the open one for the same item or selection).
@@ -466,7 +499,10 @@ def open_session(
     Returns ``(session row, resumed)``. A retried request with the same key
     answers the session it made. A resumed session on another surface moves
     to it (:func:`_resume_existing`); ``carried`` is the answer box's hints
-    shown before steps, kept at the highest count seen.
+    shown before steps, kept at the highest count seen; ``carried_book`` a
+    book a session the learner left for the answer box counted, which this
+    session counts too. ``serve`` names the scheduler offer and the plan
+    presentation the problem answers.
     """
 
     if origin not in ORIGINS:
@@ -502,6 +538,7 @@ def open_session(
             row = _resume_existing(
                 repository, connection, existing, origin=origin, entry=entry, extraction_id=extraction_id,
                 span_ids=spans, source_visible=source_visible, carried=carried, now=now, clock=clock,
+                carried_book=carried_book, serve=serve,
             )
             return row, True
         if parent_session_id is not None:
@@ -522,6 +559,8 @@ def open_session(
             "span_ids_json": json.dumps(spans),
             "source_visible": 1 if visible and origin == "reader" else 0,
             "carried_hints": max(0, int(carried or 0)),
+            "source_shown_at": now if carried_book else None,
+            **_serve_changes(serve),
             "status": "open",
             "client_idempotency_key": client_idempotency_key,
             "created_at": now,
@@ -545,6 +584,8 @@ def resume_session(
     extraction_id: str | None = None,
     span_ids: Sequence[str] = (),
     carried: int = 0,
+    carried_book: bool = False,
+    serve: Mapping[str, str | None] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Resume a named session on the surface asking ("resume your steps", the
@@ -570,6 +611,7 @@ def resume_session(
         return _resume_existing(
             repository, connection, session, origin=origin, entry=entry, extraction_id=extraction_id,
             span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
+            carried_book=carried_book, serve=serve,
         )
 
 
@@ -821,6 +863,9 @@ class SubmissionPlan:
     book_hints: int
     carried_hints: int = 0
     assessment_contract_version_id: str | None = None
+    #: The serve the session was opened from (review F13).
+    scheduler_candidate_id: str | None = None
+    plan_presentation_id: str | None = None
 
     @property
     def hints_used(self) -> int:
@@ -858,6 +903,8 @@ def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
         book_hints=book_hints(session),
         carried_hints=carried_hints(session),
         assessment_contract_version_id=session.get("assessment_contract_version_id"),
+        scheduler_candidate_id=session.get("scheduler_candidate_id"),
+        plan_presentation_id=session.get("plan_presentation_id"),
     )
 
 
@@ -921,6 +968,8 @@ def session_view(
         "practice_session_id": session["practice_session_id"],
         "assessment_contract_version_id": session["assessment_contract_version_id"],
         "carried_hints": carried_hints(session),
+        "scheduler_candidate_id": session["scheduler_candidate_id"],
+        "plan_presentation_id": session["plan_presentation_id"],
         "help_style": session["help_style"],
         "status": session["status"],
         "attempt_id": session["attempt_id"],
@@ -955,6 +1004,8 @@ def _summary(session: Mapping[str, Any], rows: Sequence[Mapping[str, Any]], *, n
         "span_ids": _spans(session),
         "import_status": session["import_status"],
         "source_visible": bool(session["source_visible"]),
+        # The book this problem counted: the answer box counts it too (review F2).
+        "book_counted": book_counted(session),
         "step_count": len(live_steps(rows)),
         "created_at": session["created_at"],
         "updated_at": session["updated_at"],
