@@ -334,7 +334,8 @@ def session_summary(
 
     # Gaps named from the session's questions (learner-text gaps).
     question_ids = [str(e["question_event_id"]) for e in in_session if e.get("question_event_id")]
-    gaps = [gap for q in question_ids for gap in RO.named_gaps(repository, question_ids).get(q, [])]
+    named = RO.named_gaps(repository, question_ids)
+    gaps = [gap for q in question_ids for gap in named.get(q, [])]
 
     # Facets touched: the problems' items, and the LOs of the inquiries' anchors.
     learning_objects: list[str] = []

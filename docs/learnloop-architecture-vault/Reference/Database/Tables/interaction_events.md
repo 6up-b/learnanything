@@ -3,8 +3,8 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1c3f440b329d81ca71c91f611ac942accd3383e5"
-source_commit_timestamp: "2026-10-17T09:13:35-04:00"
+source_commit: "3182337e2f850d4122a71f8434a2ae66373e054b"
+source_commit_timestamp: "2026-10-17T10:27:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/reader/reader_report.py`
+- `src/learnloop/reader/reader_sessions.py`
 - `src/learnloop/scheduling/action_loss.py`
 
 ### Direct SQL writers
@@ -148,7 +149,9 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_guidance.py`
+- `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_quick_check.py`
+- `src/learnloop/reader/recap.py`
 - `src/learnloop/remote/telemetry.py`
 - `src/learnloop/substrate/activities.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
@@ -158,6 +161,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/recap_fixtures.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_exam_protection.py`
 - `tests/test_grading_cli.py`
@@ -168,6 +172,7 @@ Indexes and uniqueness:
 - `tests/test_reader_cues.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_reader_inquiry_status.py`
+- `tests/test_reader_recap.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_source_exercise_import.py`
 - `tests/test_voi_stopping.py`
@@ -176,8 +181,6 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reader_retire.py`
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_mcp_c1a_review.py`
-- `tests/test_mcp_http.py`
-- `tests/test_mcp_runtime.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
