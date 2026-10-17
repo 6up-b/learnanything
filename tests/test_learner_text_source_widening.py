@@ -14,7 +14,6 @@ pragmas (WAL, ``synchronous=FULL``).
 
 from __future__ import annotations
 
-import shutil
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -39,7 +38,7 @@ def _database_at_207(tmp_path: Path) -> Path:
     through.mkdir()
     for migration in discover_migrations():
         if migration.version <= 207:
-            shutil.copy2(migration.path, through / migration.path.name)
+            (through / migration.path.name).write_text(migration.path.read_text(encoding="utf-8"), encoding="utf-8")
     database = tmp_path / "state.sqlite"
     apply_migrations(database, migrations_dir=through)
     assert max(applied_versions(database)) == 207
