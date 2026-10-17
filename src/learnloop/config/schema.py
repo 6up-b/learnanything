@@ -1949,6 +1949,27 @@ class WorkbenchConfig(BaseModel):
     open_session_days: int = Field(default=30, ge=1)
 
 
+class RecapConfig(BaseModel):
+    """Reader workbench RW6a: "Last time here" and Wrap up (spec_reader_workbench_v1 §9.1, §9.6).
+
+    On returning to a source the Guide opens with a compact card: where
+    reading stopped, the questions still open, the unfinished problems, what
+    is worth a second look, and what the learner has since demonstrated on
+    their own. Wrap up lists a session's resolved, still-open and
+    worth-reinforcing threads, offered in the rail after activity and, after
+    leaving, once where the learner lands. Both are pure reads over existing
+    ledgers: no model call, nothing stored but three salience-only events
+    (``recap_shown``, ``recap_dismissed``, ``wrap_up_opened``), and nothing
+    here is read by scoring, scheduling, projection or serving, so no
+    algorithm successor. ``enabled`` is the card's kill switch and
+    ``wrap_up_enabled`` Wrap up's; off, the Reader and Today render exactly as
+    before RW6a and the RPCs refuse.
+    """
+
+    enabled: bool = True
+    wrap_up_enabled: bool = True
+
+
 class LearnerTextGapsConfig(BaseModel):
     """Learner-text gaps (implementation_handoffs §4, owner-directed 2026-10-12).
 
@@ -2839,6 +2860,7 @@ class LearnLoopConfig(BaseModel):
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)
     cues: CuesConfig = Field(default_factory=CuesConfig)
     workbench: WorkbenchConfig = Field(default_factory=WorkbenchConfig)
+    recap: RecapConfig = Field(default_factory=RecapConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)

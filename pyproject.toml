@@ -420,6 +420,28 @@ forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbenc
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "evidence-never-reads-reader-observations"
+name = "Nothing that writes evidence reads the reader session summary or ReaderObservationV1 (RW6a: W1, G50)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+]
+forbidden_modules = [
+    "learnloop.reader.reader_observations",
+    "learnloop.reader.reader_sessions",
+    "learnloop.reader.recap",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "learner-protection-sits-below-its-readers"
 name = "The shared learner protection depends on neither of its readers (the router card, the chat read model)"
 type = "forbidden"

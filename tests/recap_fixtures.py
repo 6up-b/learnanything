@@ -84,10 +84,11 @@ def selection(repo: Repository, minutes: float, visit_id: str) -> None:
 
 
 def problem(repo: Repository, minutes: float, *, steps: int = 2, book: bool = True,
-            stem: str = "Exercise 5.14: write the CDF of the mixture.") -> dict[str, Any]:
+            stem: str = "Exercise 5.14: write the CDF of the mixture.",
+            item: str = "pi_svd_define_001") -> dict[str, Any]:
     session, _resumed = WB.open_session(
-        repo, origin="reader", entry="work_through", stem_md=stem, extraction_id=EXT, span_ids=["s1"],
-        source_visible=book, clock=at(minutes),
+        repo, origin="reader", entry="work_through", stem_md=stem, practice_item_id=item, extraction_id=EXT,
+        span_ids=["s1"], source_visible=book, clock=at(minutes),
     )
     for index in range(steps):
         WB.save_step(repo, session["id"], op="add", client_idempotency_key=f"{session['id']}-{index}",

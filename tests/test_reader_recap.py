@@ -163,7 +163,7 @@ def test_the_summary_keeps_to_its_session(tmp_path):
     assert len(early_summary["inquiries"]["opened"]) == 2
 
 
-def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path):
+def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path, monkeypatch):
     vault, repo = _setup(tmp_path)
     visit(repo, "v1", 0, 40)
     row = problem(repo, 2, steps=1, book=True)
@@ -176,13 +176,26 @@ def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path):
     assert claim["attempt_ids"] == ["att_book"]
     assert claim["basis"] == "source_visible"
 
-    # An unassisted full success on the facet afterwards answers the claim.
-    _attempt(repo, "att_own", minutes=200, hints=0, item_check=False)
-    summary = RC.session_summary(vault, repo, extraction_id=EXT, session=session, now=_now(300))
-    assert summary["claims_needing_independent_check"] == []
+    # An unassisted success on the facet afterwards (credit on its
+    # Demonstrated curve, the evidence system's own reading) answers it; an
+    # assisted one, or one before the session, does not.
+    facet = vault.canonical_facet_id("recall")
+
+    def curve(*points):
+        return lambda _vault, _repo, facets: {facet: list(points)} if facet in facets else {}
+
+    def point(minutes, *, assisted=False):
+        return TimelinePoint(t=iso(minutes), demonstrated=1.0, delta=1.0, kind="observation", is_correction=False,
+                             attempt_id="att_own", surface_group="g", assisted=assisted,
+                             demonstrated_capabilities=("recall",))
+
+    for points, answered in (((point(200, assisted=True),), False), ((point(-10),), False), ((point(200),), True)):
+        monkeypatch.setattr(RC, "facet_evidence_timelines", curve(*points))
+        summary = RC.session_summary(vault, repo, extraction_id=EXT, session=session, now=_now(300))
+        assert (summary["claims_needing_independent_check"] == []) is answered
 
 
-def _attempt(repo, attempt_id: str, *, minutes: float, hints: int, item_check: bool = True) -> None:
+def _attempt(repo, attempt_id: str, *, minutes: float, hints: int) -> None:
     repo.insert_practice_attempt({
         "id": attempt_id, "practice_item_id": "pi_svd_define_001", "learning_object_id": "lo_svd_definition",
         "subject": "linear-algebra", "concept": "singular_value_decomposition", "practice_mode": "short_answer",
@@ -190,7 +203,7 @@ def _attempt(repo, attempt_id: str, *, minutes: float, hints: int, item_check: b
         "learner_answer_md": "U Sigma V^T", "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
         "rubric_score": 4, "correctness": 1.0, "confidence": 3, "latency_seconds": 30, "hints_used": hints,
         "error_type": None, "grader_confidence": 1.0, "created_at": iso(minutes), "updated_at": iso(minutes),
-        "entry_surface": "desktop_reader_workbench" if item_check else "desktop_practice",
+        "entry_surface": "desktop_reader_workbench",
     })
 
 
@@ -198,7 +211,6 @@ def _link(repo, session_id: str, attempt_id: str, *, minutes: float) -> None:
     from learnloop.reader import workbench as WB
     from tests.recap_fixtures import at
 
-    WB.bind(repo, session_id, "pi_svd_define_001", clock=at(minutes))
     WB.mark_submitted(repo, session_id, attempt_id=attempt_id, practice_session_id="ps_1", clock=at(minutes))
 
 

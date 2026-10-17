@@ -1264,7 +1264,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # it acts at every version. Every snapshot moves only because the
     # effective config gains the section; all nineteen were recomputed from
     # the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "a903e1b90585985fb6bc8831ea2e7a6825a1863b101c175f9d0f21487e8133cd",
+    # Reader workbench RW6a ("Last time here"; docs/reviews/
+    # reader-workbench-RW6a.md) adds [recap] enabled = true and
+    # wrap_up_enabled = true (modelled defaults, left out of the
+    # decision-only template): the kill switches of the returning card and
+    # of Wrap up. Both are pure reads over existing ledgers that write only
+    # salience-only reader events, and nothing in scoring, scheduling,
+    # projection or serving reads them, so no scoring, scheduling,
+    # projection or serving change and no successor; they act at every
+    # version. Every snapshot moves only because the effective config gains
+    # the section; all nineteen were recomputed from the composed defaults
+    # (defaults_fingerprint_for_version).
+    "mvp-0.9": "769172aaa32c5c5e187d1b4169ad6a0947cf68e9f5bf82593c78b3df9b2879c3",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1303,7 +1314,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.10": "3f72d2a1fd35bb4643adbadae79dc4baceaa5893dea6cd741c231736b630feb5",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.10": "c435599b733d2b7f5c84925b9ad2f509104ba5896156e1bba30a41d474776c6f",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1350,7 +1362,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.11": "91864bce32968f4042bc1730a05c8712e485c7e7ba6f8c6de4e6af65ca7d872e",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.11": "3eb6d925bf80d0403fefb2ea374128655c19dc803153e80c44b96f2c346342b7",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1391,7 +1404,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.12": "dfb52a5d15f6960b895fe171dab26ca697863c5c665a7a098289f25b4e799426",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.12": "877110b68e4de6a847bea1e7f74f5c38169d051ffbb2008bb889467c498dda92",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1427,7 +1441,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.13": "4774621ea8cb6d92fcda31031ff93d21ae26a81a03048676a4c057835cb7a56b",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.13": "8c1c2c779a7b59d10fb30bca9556658fb2b198a07cdc4bb06343f407d967a524",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1462,7 +1477,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.14": "54b8a6111525f75fabcf5dfa039a30da52b3f79018e170fc4bfe08fca2c27eb4",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.14": "afc931f68bf87bd330d1ca8147f5bd4bcc4cc5b8ce54b0ceb6800483bc826c3f",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1495,7 +1511,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.15": "5d2eea65a3d6ece45d482ec8067dab2e5cb5991d80e1a7cbf2e69ea7dc48408a",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.15": "11c4655f307f77aa8302d635dc7d88455c24fa491476fe5aa60ccb2c8db5bf19",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1535,7 +1552,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.16": "a630b56c672ea39d8c491a7b54f2c5b66c629c70f32b42cfc285144177795839",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.16": "f1fc1031ac1cd3a876ce6bceba5dc2c5533c7d3dcdeecf3d72b269a5be2888e0",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1571,7 +1589,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.17": "e8399a70670f2c1e90367e70cf3f7a9b34b159b14dc370e5cc17fc1251ceeab3",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.17": "85601ff08d8d01219796adcf1082d32cd8198c5157bc0cdf31381c40e0964150",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1600,7 +1619,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.18": "fd592d2879ce9c7a5e70b2c55f913474d9721d1c771cebfab24dada90bf7101b",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.18": "6fcf0b575e1f3d3e8d1e9f561cfaf85d44b0ba964a147c6979fbbd67592ddd1e",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1629,7 +1649,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.19": "c2baac627c45e0a8d3854afdd57323391f0c9ff4223e6df141b37d79ef43b197",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.19": "3cc3636f89e5450e7b5e70a984a2c200f4a053af3eed00641b836396a3bece73",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1654,7 +1675,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.20": "e025e91dbec8e3d50e9957afe33c858739265bfd0d2e22cceed047035185c13a",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.20": "4df8870886ce420244c3aef6210da03a01b41997c0fb9bf58eeb45b0f24d4b7f",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1688,7 +1710,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.21": "acf736aeb1a90bfa05f0623e66fccc0bfa41632b874514afd14b9ad725eaae06",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.21": "c6f3aa3f13357a3bea9c03e562fd2f467faf3f354b6eafac04db71c106e910c4",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1714,7 +1737,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.22": "195001b56e56d46792b906efc133281a72b1ce9a8dc7de959855881d4b268cbe",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.22": "08f7fd8bd81a4e369212c38efe3c3d22917eb64003e2d578e383d85600b2c1b7",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1735,7 +1759,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.23": "ae470ec74c926409c4718d91d0a9432854020a3b5bf192e663b73b8cb71c125c",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.23": "2e6d82101dc46281ce1574ad5e96c1f5d57b6d13a8a732fdba0954f460f729cb",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1753,7 +1778,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.24": "a3d555d620fb95025b8cdf7b5939cb1534a2228b5b055b07d12abf19b4b98631",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.24": "d8b711493354bdb836e4598de1b582c9b409cc5076fd64285f99e4fe3aa452d8",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -1769,7 +1795,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Saved diagnosis forecasts' diagnosis.forecast_receipts moves it too (see mvp-0.9).
     # UX Phase 4's [ui] practice_feedback moves it too (see mvp-0.9).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.25": "aadda79d2cfd464fd1ea0f406ca3b109cb4054db296da6383ae85caa081b2e71",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.25": "b032beaea928e2bc8336edb83527d3f7b1170abf71bad9d2f23a494902fa1116",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -1784,7 +1811,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # started here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12) until mvp-0.27 merged.
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.26": "ada30db0df0ae0813588e10afbf995afaeb42fcb7dc3d6fcef5f59b3d26efb64",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.26": "4d8e81748e172fe49ca65f22dc9cadced1c97f521a63a8da22de1c3540890dc4",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -1799,7 +1827,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # start here (the template's LATEST_ALGORITHM_VERSION; owner decision
     # 2026-10-12).
     # Reader workbench RW2a's [workbench] moves it too (see mvp-0.9).
-    "mvp-0.27": "3dbc4e1a80b9c0456660b9db65eeae81b6246751d5089e4aaf9c099c5811567c",
+    # Reader workbench RW6a's [recap] moves it too (see mvp-0.9).
+    "mvp-0.27": "10872685cbf33d22a827eab82dfa7b578d8eea5ef9bb9c82be104283fbdf0c27",
 }
 
 

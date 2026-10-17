@@ -122,13 +122,14 @@ def test_wrap_up_is_a_pure_read_and_its_actions_are_the_chips_rpcs(tmp_path):
     assert wrap["available"] is True and "offer" in offer
     assert table_counts(repo) == before_counts and interaction_rows(repo) == before_rows
 
-    actions = {action["rpc"] for line in wrap["resolved"] + wrap["stillOpen"] for action in line["actions"]}
+    actions = {action["rpc"] for line in wrap["resolved"] + wrap["stillOpen"] for action in line["actions"]
+               if action.get("rpc")}
     import learnloop_sidecar.handlers  # noqa: F401
     assert actions and actions <= set(METHOD_REGISTRY)
     assert actions <= {"reader.set_inquiry_status", "reader.invoke_preset"}
     # "keep open" writes nothing: it carries no RPC at all.
     keep = [a for line in wrap["stillOpen"] for a in line["actions"] if a["action"] == "keep_open"]
-    assert keep == [] or all(a.get("rpc") is None for a in keep)
+    assert keep and all(a.get("rpc") is None for a in keep)
 
 
 def test_opening_wrap_up_writes_only_the_wrap_up_opened_event(tmp_path):
