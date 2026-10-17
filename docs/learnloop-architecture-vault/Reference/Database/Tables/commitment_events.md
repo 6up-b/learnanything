@@ -3,8 +3,8 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1c3f440b329d81ca71c91f611ac942accd3383e5"
-source_commit_timestamp: "2026-10-17T09:13:35-04:00"
+source_commit: "3182337e2f850d4122a71f8434a2ae66373e054b"
+source_commit_timestamp: "2026-10-17T10:27:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_authoring.py"
+  - "src/learnloop/reader/recap.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/daily_plan/engine.py"
@@ -90,6 +91,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/reader_authoring.py`
+- `src/learnloop/reader/recap.py`
 
 ### Direct SQL writers
 

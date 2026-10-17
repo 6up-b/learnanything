@@ -177,6 +177,8 @@ export interface ReaderInquiry {
   markBranchDone: (branch: ReaderExchange) => Promise<void>;
   commitInquiry: (root: ReaderExchange, preset: InquiryCommitment) => Promise<void>;
   committedFor: (root: ReaderExchange) => Set<InquiryCommitment>;
+  /** Open an inquiry named elsewhere (the recap card, Wrap up). */
+  openInquiry: (rootId: string, fallbackSpanId?: string | null) => void;
   startQuickCheck: (rootId: string, via: "inline" | "rail") => Promise<void>;
   cancelQuickCheck: (rootId: string) => void;
   dismissInquiryCheck: (rootId: string) => void;
@@ -743,32 +745,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     }
   }, [offline, updateExchange, visitPayload, showReconnect, onError]);
 
-  /** "revisit once" / "make it something I can do": the existing test_me_later
-   *  and help_me_remember presets on the root's anchor (no new status words). */
-  const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment) => {
-    if (!render || offline) return;
-    const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId];
-    try {
-      const receipt = await api.readerInvokePreset({
-        preset,
-        sourceId: render.sourceId,
-        revisionId: render.revisionId,
-        extractionId: render.extractionId,
-        clientIdempotencyKey: newKey(),
-        renderViewId: render.renderViewId,
-        rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
-        learnerText: "",
-        subjectId: root.spanId,
-      });
-      setInquiryCommitments((done) => ({ ...done, [root.id]: [...new Set([...(done[root.id] ?? []), preset])] }));
-      if (receipt.arc) setArc(receipt.arc);
-      logReaderAction("action_invoked", { ...visitPayload(), action_kind: `inquiry:${preset}` });
-      void refreshAnnotations();
-    } catch (error) {
-      onError(errorMessage(error));
-    }
-  }, [render, offline, visitPayload, refreshAnnotations, onError, setArc]);
-
   const committedFor = useCallback((root: ReaderExchange): Set<InquiryCommitment> => {
     const done = new Set<InquiryCommitment>(inquiryCommitments[root.id] ?? []);
     for (const annotation of annotations) {
@@ -779,6 +755,81 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     }
     return done;
   }, [inquiryCommitments, annotations]);
+
+  // One commitment per inquiry and preset, whichever surface asks (the Ask
+  // chip, the recap card, Wrap up; RW6a review F2): a request in flight
+  // refuses a second, and a retry after an uncertain result reuses its key so
+  // the server keeps one commitment.
+  const commitPendingRef = useRef<Set<string>>(new Set());
+  const commitKeysRef = useRef<Record<string, string>>({});
+
+  /** "revisit once" / "make it something I can do": the existing test_me_later
+   *  and help_me_remember presets on the root's anchor (no new status words). */
+  const commitInquiry = useCallback(async (root: ReaderExchange, preset: InquiryCommitment) => {
+    if (!render || offline) return;
+    const slot = `${root.id}:${preset}`;
+    if (commitPendingRef.current.has(slot) || committedFor(root).has(preset)) return;
+    commitPendingRef.current.add(slot);
+    const key = commitKeysRef.current[slot] ?? (commitKeysRef.current[slot] = newKey());
+    const spanIds = root.selectionSpanIds.length ? root.selectionSpanIds : [root.spanId];
+    try {
+      const receipt = await api.readerInvokePreset({
+        preset,
+        sourceId: render.sourceId,
+        revisionId: render.revisionId,
+        extractionId: render.extractionId,
+        clientIdempotencyKey: key,
+        renderViewId: render.renderViewId,
+        rawSelection: { nodes: spanIds.map((spanId) => ({ spanId, start: 0, end: 1_000_000 })) },
+        learnerText: "",
+        subjectId: root.spanId,
+      });
+      delete commitKeysRef.current[slot];
+      setInquiryCommitments((done) => ({ ...done, [root.id]: [...new Set([...(done[root.id] ?? []), preset])] }));
+      if (receipt.arc) setArc(receipt.arc);
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: `inquiry:${preset}` });
+      void refreshAnnotations();
+    } catch (error) {
+      onError(errorMessage(error));
+    } finally {
+      commitPendingRef.current.delete(slot);
+    }
+  }, [render, offline, committedFor, visitPayload, refreshAnnotations, onError, setArc]);
+
+  /** "open" on an inquiry named elsewhere (the recap card, Wrap up; RW6a
+   *  review F5): the Ask rail with that inquiry expanded and in view, any find
+   *  filter that could hide it cleared, its passage shown, and a crumb on the
+   *  detour strip for the way back. An id not in this source's history falls
+   *  back to a peek at the passage. */
+  const openInquiry = useCallback((rootId: string, fallbackSpanId?: string | null) => {
+    const root = history.find((exchange) => exchange.id === rootId) ?? null;
+    if (!root || !render) {
+      if (fallbackSpanId) peekPassage(fallbackSpanId);
+      return;
+    }
+    setAskFindQuery("");
+    setAskFindOpen(false);
+    setCollapsedAskIds((ids) => {
+      if (!ids.has(root.id)) return ids;
+      const next = new Set(ids);
+      next.delete(root.id);
+      return next;
+    });
+    pushDetours([{
+      id: newActivityId(), kind: "branch", sourceId: render.sourceId, sourceTitle,
+      extractionId: render.extractionId, spanId: root.spanId, selection: null, railTab: "ask",
+      exchangeId: root.id, label: clip(root.question, 48), openedAt: Date.now(),
+    }]);
+    jumpToSpan(root.spanId);
+    setRailTab("ask");
+    setAskTabMarked(false);
+    window.requestAnimationFrame(() => {
+      const card = Array.from(document.querySelectorAll<HTMLElement>("[data-ask-id]")).find(
+        (element) => element.dataset.askId === root.id,
+      );
+      card?.scrollIntoView?.({ block: "start" });
+    });
+  }, [history, render, peekPassage, pushDetours, sourceTitle, jumpToSpan, setRailTab]);
 
   /** End a quick check's wait in the funnel, once (F8): its status, the
    *  route it came from, and what the learner did while it was written.
@@ -1058,7 +1109,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
     inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone,
-    commitInquiry, committedFor, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
+    commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,
     noteSourceOpened, rememberLeftSource, resetInquiryState,
   };

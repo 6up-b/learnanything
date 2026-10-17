@@ -127,6 +127,73 @@ def learning_objects_for_section(
     return sorted(matched)
 
 
+def learning_objects_by_section(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    extraction_id: str,
+) -> dict[str, list[str]]:
+    """Every section of an extraction with its provenance-linked Learning Objects.
+
+    The same answer as :func:`learning_objects_for_section` for each section
+    (each section's refs resolve against that section's own blocks), with the
+    IR, the artifact and the alias translator loaded once. RW6a's "Since last
+    time" reads it for the LOs a source teaches. Sections with no linked LO
+    are left out.
+    """
+
+    run = repository.get_extraction_run(extraction_id)
+    if run is None:
+        return {}
+    revision = repository.get_source_revision(run["revision_id"])
+    source_id = str((revision or {}).get("source_id") or "")
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return {}
+    section_rows, block_by_span, _span_to_section = extraction_sections(ir)
+
+    from learnloop.reader.reader_guidance import _canonical_note_ids
+
+    artifact = repository.get_source_artifact(source_id) or {}
+    note_ids = _canonical_note_ids(vault, artifact)
+    translator = SpanTranslator(repository, extraction_id)
+
+    refs_by_lo: list[tuple[str, list[Any]]] = []
+    for learning_object in vault.learning_objects.values():
+        if learning_object.status != "active":
+            continue
+        refs = list(learning_object.provenance.source_refs)
+        for facet_id in learning_object_facet_union(learning_object):
+            facet = vault.evidence_facets.get(vault.canonical_facet_id(str(facet_id)))
+            if facet is not None:
+                refs.extend(facet.provenance.source_refs)
+        if refs:
+            refs_by_lo.append((learning_object.id, refs))
+
+    out: dict[str, list[str]] = {}
+    for section in section_rows:
+        section_spans = set(section["span_ids"])
+        blocks = [block_by_span[span_id] for span_id in section["span_ids"] if span_id in block_by_span]
+        matched: set[str] = set()
+        for learning_object_id, refs in refs_by_lo:
+            for ref in refs:
+                span_id = _span_for_ref(
+                    ref,
+                    source_id=source_id,
+                    extraction_id=extraction_id,
+                    note_ids=note_ids,
+                    blocks=blocks,
+                    translator=translator,
+                    accept_moved=True,
+                )
+                if span_id is not None and span_id in section_spans:
+                    matched.add(learning_object_id)
+                    break
+        if matched:
+            out[str(section["id"])] = sorted(matched)
+    return out
+
+
 def source_refs_for_span(
     vault: LoadedVault,
     repository: Repository,

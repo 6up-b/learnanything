@@ -8036,3 +8036,132 @@ export interface WorkbenchSubmitDto {
   session: WorkbenchSessionDto;
   practiceSession: SessionSnapshot | null;
 }
+
+// ── Reader workbench RW6a: "Last time here" and Wrap up (spec §9.1) ──────────
+
+/** One reader session: a visit on a source, or visits less than 30 minutes apart. */
+export interface ReaderRecapSessionDto {
+  sessionId: string;
+  extractionId: string;
+  visitIds: string[];
+  startedAt: string;
+  endedAt: string;
+  minutes: number;
+}
+
+/** Still open: an inquiry's root, in the learner's own words. */
+export interface ReaderRecapOpenDto {
+  rootExchangeId: string;
+  questionEventId: string | null;
+  questionMd: string;
+  spanId: string;
+  anchorSpanIds: string[];
+  openedAt: string | null;
+}
+
+/** Unfinished: an open workbench problem on this source, or one set aside
+ *  (abandoned: its steps kept, "Reopen this problem"; review F8). */
+export interface ReaderRecapUnfinishedDto {
+  sessionId: string;
+  status?: "open" | "abandoned";
+  title: string;
+  stepCount: number;
+  help: { bookCounted: boolean; hints: number };
+  helpLine: string;
+  unfinished: boolean;
+  spanIds: string[];
+  updatedAt: string;
+}
+
+/** The kinds of ReaderObservationV1 (spec §9.1). */
+export type ReaderObservationKind =
+  | "still_unclear" | "next_step_missed" | "why_step_missed" | "assumption_missed" | "prediction_missed"
+  | "check_questionable" | "hint_taken" | "doesnt_connect" | "discriminate_answer";
+
+/** Worth a second look: one formative record (routing only). */
+export interface ReaderRecapSecondLookDto {
+  kind: ReaderObservationKind;
+  rootExchangeId: string | null;
+  spanId: string | null;
+  questionMd: string | null;
+  observedAt: string;
+  sourceEventIds: string[];
+  observed?: Record<string, unknown>;
+}
+
+/** Since last time: an LO demonstrated on your own since the session ended. */
+export interface ReaderRecapDemonstratedDto {
+  learningObjectId: string;
+  title: string;
+  demonstratedOn: string;
+  /** The certifying attempt (the point at which the LO's recipe was met). */
+  attemptId: string | null;
+}
+
+export interface ReaderRecapCardDto {
+  recapVersion: string;
+  extractionId: string;
+  session: ReaderRecapSessionDto;
+  continueAt: { sectionId: string; label: string | null } | null;
+  stillOpen: ReaderRecapOpenDto[];
+  unfinished: ReaderRecapUnfinishedDto[];
+  worthASecondLook: ReaderRecapSecondLookDto[];
+  sinceLastTime: {
+    demonstrated: ReaderRecapDemonstratedDto[];
+    checksRetired: Array<{ commitmentId: string; retiredAt: string; solvedAttemptId?: string | null }>;
+  };
+}
+
+export interface ReaderRecapDto {
+  version: number;
+  recap: ReaderRecapCardDto | null;
+  dismissed: boolean;
+}
+
+export type ReaderRecapEvent = "recap_shown" | "recap_dismissed" | "wrap_up_opened";
+
+/** One action on a Wrap up line: the RPC the same chip calls elsewhere (none for keep open). */
+export interface ReaderWrapUpActionDto {
+  action: "undo" | "resolve" | "revisit_once" | "keep_open";
+  rpc?: string;
+  params?: Record<string, unknown>;
+  /** "reader": only where the open reading is (the preset needs it). */
+  where?: string;
+}
+
+export interface ReaderWrapUpInquiryLineDto {
+  rootExchangeId: string;
+  questionMd: string;
+  spanIds?: string[];
+  actions: ReaderWrapUpActionDto[];
+}
+
+export interface ReaderWrapUpReinforceLineDto {
+  kind: string;
+  marker: string;
+  sessionId?: string;
+  title?: string;
+  status?: string;
+  helpLine?: string;
+  facetId?: string;
+  basis?: string;
+  attemptIds?: string[];
+  spanIds?: string[];
+  observed?: Record<string, unknown>;
+}
+
+export interface ReaderWrapUpDto {
+  version: number;
+  wrapUpVersion: string;
+  available: boolean;
+  extractionId: string;
+  session: ReaderRecapSessionDto | null;
+  resolved: ReaderWrapUpInquiryLineDto[];
+  stillOpen: ReaderWrapUpInquiryLineDto[];
+  worthReinforcing: ReaderWrapUpReinforceLineDto[];
+}
+
+export interface ReaderWrapUpOfferDto {
+  version: number;
+  offer: { extractionId: string; sourceId: string | null; session: ReaderRecapSessionDto } | null;
+}

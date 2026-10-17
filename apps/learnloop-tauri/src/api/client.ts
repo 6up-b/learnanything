@@ -9,6 +9,10 @@ import type {
   WorkbenchSubmitDto,
   WorkbenchSubmitInput,
   WorkbenchSummaryDto,
+  ReaderRecapDto,
+  ReaderRecapEvent,
+  ReaderWrapUpDto,
+  ReaderWrapUpOfferDto,
   ReaderActivityEvent,
   CueDensity,
   ReaderCueAction,
@@ -1485,6 +1489,15 @@ export const api = {
     call<{ version: number; sessions: WorkbenchSummaryDto[] }>("workbench_for_item", { input }),
   workbenchForSource: (input: { extractionId: string }) =>
     call<{ version: number; sessions: WorkbenchSummaryDto[]; openSessionDays: number }>("workbench_for_source", { input }),
+  // Reader workbench RW6a: "Last time here" and Wrap up (pure reads), and the
+  // three events (recap_shown, recap_dismissed, wrap_up_opened). Desktop only.
+  readerRecap: (input: { extractionId: string; visitId?: string | null }) =>
+    call<ReaderRecapDto>("reader_recap", { input }),
+  readerRecapEvent: (input: { extractionId: string; event: ReaderRecapEvent; visitId?: string | null }) =>
+    call<{ version: number; eventId: string; event: ReaderRecapEvent }>("reader_recap_event", { input }),
+  readerWrapUp: (input: { extractionId: string; visitId?: string | null }) =>
+    call<ReaderWrapUpDto>("reader_wrap_up", { input }),
+  readerWrapUpOffer: () => call<ReaderWrapUpOfferDto>("reader_wrap_up_offer", { input: {} }),
   readerImportExercise: (input: ReaderImportExerciseInput) =>
     mutatingReader(call<ReaderExerciseImportReceiptDto>("reader_import_exercise", { input }), [TAG.queue, TAG.proposals]),
   readerExerciseImportStatus: (input: { batchId: string }) =>

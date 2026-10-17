@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1c3f440b329d81ca71c91f611ac942accd3383e5"
-source_commit_timestamp: "2026-10-17T09:13:35-04:00"
+source_commit: "3182337e2f850d4122a71f8434a2ae66373e054b"
+source_commit_timestamp: "2026-10-17T10:27:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -21,8 +21,10 @@ source_paths:
   - "migrations/105_reader_authored_questions.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_guidance.py"
+  - "src/learnloop/reader/reader_observations.py"
   - "src/learnloop/reader/reader_quick_check.py"
   - "src/learnloop/reader/reader_report.py"
+  - "src/learnloop/reader/recap.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
 tags:
@@ -108,6 +110,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers

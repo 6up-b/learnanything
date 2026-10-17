@@ -84,6 +84,8 @@ export interface GuideRailProps {
   chooseDisposition: (d: ReaderDisposition) => void | Promise<void>;
   /** RW3a: the margin marks' density control, legend and receipt (absent when cues are off). */
   footer?: ReactNode;
+  /** RW6a: "Last time here" and Wrap up at the head of the Guide (absent when off). */
+  header?: ReactNode;
 }
 
 export function GuideRail({
@@ -130,12 +132,14 @@ export function GuideRail({
   disposition,
   chooseDisposition,
   footer = null,
+  header = null,
 }: GuideRailProps) {
   const peek = peekPassage ?? jumpToSpan;
   // Without a read count (an older caller) the bar follows the reading marker.
   const sectionRead = currentSectionRead ?? currentSectionProgress;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
+      {header}
       <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
       {guidePlan?.goalContext ? (
         <Card style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10, background: COLOR.washCyan }}>
