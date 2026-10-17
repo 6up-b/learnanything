@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 207
+schema_head: 208
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -167,20 +167,20 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_reader_active_reading.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_cues.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_reader_formative_texts.py`
 - `tests/test_reader_inquiry_status.py`
+- `tests/test_reader_intent.py`
 - `tests/test_reader_recap.py`
+- `tests/test_reader_reconstruct.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_source_exercise_import.py`
 - `tests/test_voi_stopping.py`
 - `tests/voi_restore_scenarios.py`
-- `tests/test_activity_backfill.py`
-- `tests/test_daily_loop_reader_retire.py`
-- `tests/test_daily_loop_reference_adoption.py`
-- `tests/test_mcp_c1a_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

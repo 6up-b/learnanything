@@ -1329,6 +1329,15 @@ sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");
 sidecar_passthrough!(reader_wrap_up, "reader.wrap_up");
 sidecar_passthrough!(reader_wrap_up_offer, "reader.wrap_up_offer");
+// Reader workbench RW1b (the intent box and active reading): desktop only.
+sidecar_passthrough!(reader_route_intent, "reader.route_intent");
+sidecar_passthrough!(reader_intent_routing, "reader.intent_routing");
+sidecar_passthrough!(reader_intent_outcome, "reader.intent_outcome");
+sidecar_passthrough!(reader_active_question, "reader.active_question");
+sidecar_passthrough!(reader_active_question_status, "reader.active_question_status");
+sidecar_passthrough!(reader_active_question_action, "reader.active_question_action");
+sidecar_passthrough!(reader_reconstruct, "reader.reconstruct");
+sidecar_passthrough!(reader_reconstruct_undo, "reader.reconstruct_undo");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

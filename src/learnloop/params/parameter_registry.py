@@ -957,6 +957,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "days before an untouched open workbench problem shows as unfinished; a display limit, no "
         "measurement, scheduling or serving authority (nothing is closed automatically)."),
+    # Reader workbench RW1b: the intent box's router (one Decider choice per
+    # routing; verdicts go to judgment_ledger, never evidence): the typing
+    # pause before a speculative routing, the routing's deadline and the
+    # route's daily call cap (speculation stops at 80% of it).
+    _ConfigRule(_exact(
+        "reader_intent.speculate_after_ms",
+        "reader_intent.timeout_seconds",
+        "reader_intent.max_calls_per_day",
+    ), "structural", "operational",
+        "the typing pause before a speculative intent routing / its deadline / the route's daily Decider "
+        "call cap; latency and spend bounds, no measurement authority (a routing only picks which palette "
+        "action runs)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

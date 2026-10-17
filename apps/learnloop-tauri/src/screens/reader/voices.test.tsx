@@ -76,7 +76,11 @@ it("lint: model text in the Reader renders through ModelVoice", () => {
     lines.forEach((line, index) => {
       if (!modelFields.test(line)) return;
       const before = lines.slice(Math.max(0, index - 3), index).join("\n");
-      if (!before.includes("<ModelVoice")) offenders.push(`${file}:${index + 1}`);
+      // RW1b: an expected answer that is the book's own lines (answer_basis =
+      // "source", found in the passage in code) renders through SourceVoice,
+      // and only on that branch.
+      const bookBranch = before.includes("<SourceVoice") && lines.slice(Math.max(0, index - 4), index).join("\n").includes("fromBook ?");
+      if (!before.includes("<ModelVoice") && !bookBranch) offenders.push(`${file}:${index + 1}`);
     });
   }
   expect(offenders).toEqual([]);

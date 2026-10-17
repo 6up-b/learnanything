@@ -12946,13 +12946,47 @@ class Repository(
     _READER_REQUEST_TERMINAL = ("complete", "failed", "cancelled", "obsolete")
 
     def enqueue_reader_request(
-        self, *, request_key: str, fields: Mapping[str, Any], clock: Clock | None = None
+        self, *, request_key: str, fields: Mapping[str, Any], revive_cancelled: bool = False,
+        clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Idempotent enqueue keyed on ``request_key`` (§6.2): the same contract reuses
-        the standing row; a material version change has a different key -> a new row."""
+        the standing row; a material version change has a different key -> a new row.
+
+        ``revive_cancelled`` (a capture's conversion, Codex re-review of RW1b, F15):
+        a standing row that was cancelled, or flagged for cancellation while it
+        ran, is made runnable again instead of reused dead, because a new
+        capture asks for that work. The row keeps its id and its first
+        capture; a completed, failed or obsolete row is reused as before.
+
+        A revival rebinds the row to the reviving capture (its annotation and
+        commitment), so the model sees the live capture's inputs and the result
+        maps to its commitment, never the reverted capture's stopped one (Codex
+        final verify of RW1b, F16). The key carries the capture's instructions,
+        so a revival only ever happens between captures asking the same thing."""
 
         existing = self.reader_request_by_key(request_key)
         if existing is not None:
+            if revive_cancelled and (existing["status"] == "cancelled" or (
+                    existing["cancel_requested"] and existing["status"] in ("queued", "running"))):
+                rebind = fields.get("annotation_id") is not None
+                with self.connection() as connection:
+                    connection.execute(
+                        "UPDATE reader_background_requests "
+                        "SET cancel_requested = 0, updated_at = ?, "
+                        "    annotation_id = CASE WHEN ? THEN ? ELSE annotation_id END, "
+                        "    commitment_id = CASE WHEN ? THEN ? ELSE commitment_id END, "
+                        "    lease_owner = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_owner END, "
+                        "    lease_expires_at = CASE WHEN status = 'cancelled' THEN NULL ELSE lease_expires_at END, "
+                        "    completed_at = CASE WHEN status = 'cancelled' THEN NULL ELSE completed_at END, "
+                        "    status = CASE WHEN status = 'cancelled' THEN 'queued' ELSE status END "
+                        "WHERE id = ? AND (status = 'cancelled' OR "
+                        "      (cancel_requested = 1 AND status IN ('queued', 'running')))",
+                        (utc_now_iso(clock), int(rebind), fields.get("annotation_id"),
+                         int(rebind), fields.get("commitment_id"), existing["id"]),
+                    )
+                    connection.commit()
+                revived = self.get_reader_request(existing["id"]) or existing
+                return {"id": existing["id"], "deduplicated": True, "status": revived["status"], "revived": True}
             return {"id": existing["id"], "deduplicated": True, "status": existing["status"]}
         now = utc_now_iso(clock)
         request_id = new_ulid()
@@ -13124,6 +13158,122 @@ class Repository(
             connection.commit()
         return self.get_reader_request(request_id)
 
+    def reader_request_still_held(self, request_id: str, *, releasing_annotation_id: str) -> bool:
+        """Whether a synthesis request is still wanted once the capture
+        ``releasing_annotation_id`` lets go of it (Codex re-review of RW1b,
+        F15). Requests dedupe by passage and preset, not by capture, so one
+        row can serve several captures: those whose outbox row converted onto
+        it (``target_ref``) and the capture that first made it. It is held
+        while any of them other than the releasing one is not deleted, and
+        always when no capture made it (an explicit enqueue)."""
+
+        with self.connection() as connection:
+            request = connection.execute(
+                "SELECT annotation_id FROM reader_background_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+            if request is None:
+                return False
+            if request["annotation_id"] is None:
+                return True
+            held = connection.execute(
+                "SELECT 1 FROM (SELECT o.annotation_id FROM reader_capture_outbox o WHERE o.target_ref = ? "
+                "UNION SELECT ?) h WHERE h.annotation_id IS NOT NULL AND h.annotation_id != ? AND NOT "
+                + _STANDING_DELETE.format(annotation="h.annotation_id") + " LIMIT 1",
+                (request_id, request["annotation_id"], releasing_annotation_id),
+            ).fetchone()
+        return held is not None
+
+    def reader_request_standing_holder(
+        self, request_id: str, *, releasing_annotation_id: str
+    ) -> dict[str, Any] | None:
+        """The latest capture other than ``releasing_annotation_id`` whose
+        outbox row converted onto this request and whose annotation has no
+        standing delete: the capture a request is rebound to when the capture
+        it is bound to is reverted while another still holds it (Codex final
+        verify of RW1b, F16). ``None`` when there is none."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT o.annotation_id, o.commitment_id FROM reader_capture_outbox o "
+                "WHERE o.target_ref = ? AND o.annotation_id IS NOT NULL AND o.annotation_id != ? AND NOT "
+                + _STANDING_DELETE.format(annotation="o.annotation_id")
+                + " ORDER BY o.created_at DESC, o.id DESC LIMIT 1",
+                (request_id, releasing_annotation_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def rebind_reader_request(
+        self, request_id: str, *, annotation_id: str, commitment_id: str | None, clock: Clock | None = None
+    ) -> None:
+        """Bind a request to the capture it now serves (F16): the annotation
+        whose instructions the model reads and the commitment its result maps to."""
+
+        with self.connection() as connection:
+            connection.execute(
+                "UPDATE reader_background_requests SET annotation_id = ?, commitment_id = ?, updated_at = ? "
+                "WHERE id = ?",
+                (annotation_id, commitment_id, utc_now_iso(clock), request_id),
+            )
+            connection.commit()
+
+    def rekey_reader_request(
+        self, request_id: str, *, request_key: str, clock: Clock | None = None
+    ) -> str:
+        """Move a request to the key its own instructions give it, freeing the
+        key it held for a capture asking something else (Codex verify of RW1b
+        fix round 3, F16 legacy rows). The caller runs this inside the write
+        transaction that enqueues. When another row already holds that key the
+        request takes ``<key>#legacy:<request id>``, a key no enqueue computes,
+        so it is never reused or revived again. Returns the key it now holds."""
+
+        with self.connection() as connection:
+            taken = connection.execute(
+                "SELECT 1 FROM reader_background_requests WHERE request_key = ? AND id != ?",
+                (request_key, request_id),
+            ).fetchone()
+            key = f"{request_key}#legacy:{request_id}" if taken is not None else request_key
+            connection.execute(
+                "UPDATE reader_background_requests SET request_key = ?, updated_at = ? WHERE id = ?",
+                (key, utc_now_iso(clock), request_id),
+            )
+            connection.commit()
+        return key
+
+    def append_reader_request_proposal(self, request_id: str, proposal: Mapping[str, Any]) -> None:
+        """Record one more proposal in a completed request's result: the
+        commitment mapping a rebind adds when the result had none to move
+        (Codex verify of RW1b fix round 3, F16)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT result_json FROM reader_background_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+            if row is None:
+                return
+            result = _loads(row["result_json"], {}) or {}
+            result["proposals"] = [*(result.get("proposals") or []), dict(proposal)]
+            connection.execute(
+                "UPDATE reader_background_requests SET result_json = ? WHERE id = ?",
+                (_json(result), request_id),
+            )
+            connection.commit()
+
+    def capture_reverted(self, annotation_id: str, *, reason: str) -> bool:
+        """Whether a delete of the annotation with this ``reason`` stands (one
+        no undo names): the capture was reverted, so its outbox row converts
+        to no work (Codex re-review of RW1b, F14). The revert reads the same
+        predicate before it tombstones, so a revert after an undone one writes
+        a new tombstone (Codex final verify of RW1b, F14)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM source_annotation_events d WHERE d.annotation_id = ? "
+                "AND d.event_type = 'delete_intent' AND json_extract(d.payload_json, '$.reason') = ? "
+                "AND NOT EXISTS (" + _UNDO_OF.format(annotation="d.annotation_id", delete="d.id") + ") LIMIT 1",
+                (annotation_id, reason),
+            ).fetchone()
+        return row is not None
+
     def retry_reader_request(self, request_id: str, *, clock: Clock | None = None) -> dict[str, Any] | None:
         """Reset a failed request to ``queued`` for another drain."""
 
@@ -13191,6 +13341,11 @@ class Repository(
             _json(list(fields.get("anchor_span_ids") or [])),
             fields.get("inquiry_root_event_id"),
         ]
+        if scope_kind == "selection":
+            # RW1b (migration 208): whose words the expected answer is, and the
+            # selection reuse key the database keeps unique.
+            columns.append("answer_basis")
+            values.append(fields.get("answer_basis"))
         # An inquiry row's reuse key (root exchange, prompt version) is unique
         # (migration 185): a second insert for the key writes nothing and the
         # row already there -- the one the learner may have answered -- wins.
@@ -13203,10 +13358,18 @@ class Repository(
             connection.commit()
         if inserted:
             return question_id
-        existing = self.inquiry_reader_authored_question(
-            inquiry_root_event_id=str(fields.get("inquiry_root_event_id") or ""),
-            prompt_version=str(fields.get("prompt_version", "")),
-        )
+        if scope_kind == "selection":
+            existing = self.selection_reader_authored_question(
+                extraction_id=str(fields["extraction_id"]),
+                anchor_span_ids=list(fields.get("anchor_span_ids") or []),
+                question_style=str(fields.get("question_style") or "recall"),
+                prompt_version=str(fields.get("prompt_version", "")),
+            )
+        else:
+            existing = self.inquiry_reader_authored_question(
+                inquiry_root_event_id=str(fields.get("inquiry_root_event_id") or ""),
+                prompt_version=str(fields.get("prompt_version", "")),
+            )
         if existing is None:
             raise sqlite3.IntegrityError("reader_authored_questions refused a scoped row")
         return str(existing["id"])
@@ -13226,6 +13389,35 @@ class Repository(
                 (inquiry_root_event_id, prompt_version),
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def selection_reader_authored_question(
+        self, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], question_style: str,
+        prompt_version: str,
+    ) -> dict[str, Any] | None:
+        """RW1b: the selection-scoped question for one reuse key (extraction,
+        anchor spans in reading order, style, prompt version), any status --
+        a dismissed row suppresses re-authoring for its own key."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM reader_authored_questions WHERE scope_kind = 'selection' AND extraction_id = ? "
+                "AND anchor_span_ids_json = ? AND question_style = ? AND prompt_version = ? LIMIT 1",
+                (extraction_id, _json(list(anchor_span_ids)), question_style, prompt_version),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def selection_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
+        """Every selection-scoped question (oldest first), for the reader report."""
+
+        query = "SELECT * FROM reader_authored_questions WHERE scope_kind = 'selection'"
+        params: list[Any] = []
+        if since is not None:
+            query += " AND created_at >= ?"
+            params.append(since)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [dict(r) for r in rows]
 
     def inquiry_reader_authored_questions(self, *, since: str | None = None) -> list[dict[str, Any]]:
         """Every inquiry-scoped question (oldest first), for the reader report."""
@@ -13726,6 +13918,20 @@ class Repository(
                 "SELECT * FROM canonical_mapping_proposals WHERE id = ?", (proposal_id,)
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def repoint_mapping_proposal(self, proposal_id: str, *, target_ref: str) -> bool:
+        """Point an undecided mapping proposal at another target: a completed
+        synthesis request rebound to the capture that still holds it moves its
+        commitment mapping to that capture's commitment (Codex verify of RW1b
+        fix round 3, F16). A decided proposal is the learner's and never moves."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE canonical_mapping_proposals SET target_ref = ? WHERE id = ? AND status = 'proposed'",
+                (target_ref, proposal_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def set_source_object_status(
         self, *, source_object_id: str, status: str, clock: Clock | None = None

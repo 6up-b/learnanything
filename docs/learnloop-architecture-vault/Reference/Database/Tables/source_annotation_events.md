@@ -3,13 +3,13 @@ title: "source_annotation_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotation_events"
   - "table source_annotation_events"
-schema_head: 207
+schema_head: 208
 table_name: "source_annotation_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/reader_capture.py"
+  - "src/learnloop/reader/reader_intent.py"
+  - "src/learnloop/reader/reader_requests.py"
   - "src/learnloop_sidecar/handlers/reader.py"
 tags:
   - "learnloop/database/table"
@@ -80,6 +82,7 @@ Indexes and uniqueness:
 - `Repository.append_annotation_event()`
 - `Repository.append_annotation_version()`
 - `Repository.capture_local_transaction()`
+- `Repository.capture_reverted()`
 - `Repository.withdraw_annotation_delete()`
 
 ### Direct SQL readers
@@ -94,6 +97,8 @@ Indexes and uniqueness:
 
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
+- `src/learnloop/reader/reader_intent.py`
+- `src/learnloop/reader/reader_requests.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -101,6 +106,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw1b_final_verify.py`
+- `tests/test_reader_rw1b_review.py`
 - `tests/test_annotations.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_pdf_selection.py`

@@ -391,6 +391,10 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     if inquiry:
         # RW1a's switch, read by the Reader (absent when off: the wire is unchanged).
         contract["inquiry_enabled"] = True
+    # RW1b's intent box and active reading (each absent while its switch is off).
+    from learnloop_sidecar.handlers.reader_intent import prompt_contract_fields
+
+    contract.update(prompt_contract_fields(vault))
     return versioned(contract)
 
 

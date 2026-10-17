@@ -3,13 +3,13 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
   - "table probe_observations"
-schema_head: 207
+schema_head: 208
 table_name: "probe_observations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -125,6 +125,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_probe_audit.py`
+- `tests/test_reader_active_reading.py`
+- `tests/test_reader_reconstruct.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_characterization_probe_regrade.py`
 - `tests/test_characterization_probe_replay.py`

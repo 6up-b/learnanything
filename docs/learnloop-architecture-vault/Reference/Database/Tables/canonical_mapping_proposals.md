@@ -3,13 +3,13 @@ title: "canonical_mapping_proposals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite canonical_mapping_proposals"
   - "table canonical_mapping_proposals"
-schema_head: 207
+schema_head: 208
 table_name: "canonical_mapping_proposals"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/094_source_objects.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_requests.py"
   - "src/learnloop/reader/source_objects.py"
 tags:
   - "learnloop/database/table"
@@ -84,6 +85,7 @@ Indexes and uniqueness:
 - `Repository.create_mapping_proposal()`
 - `Repository.decide_mapping_proposal()`
 - `Repository.mapping_proposals()`
+- `Repository.repoint_mapping_proposal()`
 
 ### Direct SQL readers
 
@@ -95,6 +97,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_objects.py`
 
 > [!note] Static-reference boundary
@@ -103,6 +106,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_requests.py`
+- `tests/test_reader_rw1b_final_verify.py`
+- `tests/test_reader_rw1b_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

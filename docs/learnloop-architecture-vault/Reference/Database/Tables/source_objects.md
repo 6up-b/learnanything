@@ -3,13 +3,13 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
   - "table source_objects"
-schema_head: 207
+schema_head: 208
 table_name: "source_objects"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 - `tests/test_source_objects.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_reader_requests.py`
+- `tests/test_reader_rw1b_fix_round4.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

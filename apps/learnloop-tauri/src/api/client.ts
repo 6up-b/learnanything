@@ -20,6 +20,12 @@ import type {
   ReaderCuePreferencesDto,
   ReaderInquiryQuestionActionInput,
   ReaderInquiryQuestionDto,
+  ReaderIntentRoutingDto,
+  ReaderActiveStyle,
+  InquirySelfCheck,
+  ReaderActiveQuestionDto,
+  ReaderActiveQuestionRequestDto,
+  ReaderActiveQuestionStatusDto,
   ReaderInquiryQuestionReadDto,
   ReaderInquiryStatusDto,
   ReaderReconnectAnswerDto,
@@ -1440,6 +1446,27 @@ export const api = {
     mutatingReader(call<{ question: ReaderInquiryQuestionDto }>("reader_inquiry_question_action", { input })),
   readerLogActivity: (input: { events: ReaderActivityEvent[] }) =>
     call<{ recorded: number }>("reader_log_activity", { input }),
+  // Reader workbench RW1b: the intent box's router (start, read, outcome) and
+  // active reading (a question on a selection, its status and actions,
+  // "reconstruct this later" and its undo).
+  readerRouteIntent: (input: { extractionId: string; spanIds: string[]; text: string; quote?: string; speculative?: boolean; notes?: boolean }) =>
+    call<ReaderIntentRoutingDto>("reader_route_intent", { input }),
+  readerIntentRouting: (input: { routingId: string; waitMs?: number }) =>
+    call<ReaderIntentRoutingDto>("reader_intent_routing", { input }),
+  // "reverted" undoes the capture a routed action made ("change"); a fate
+  // asked while the routing still runs is recorded when it lands (deferred).
+  readerIntentOutcome: (input: { routingId: string; outcome: "used" | "discarded" | "corrected" | "reverted"; action?: string | null; annotationId?: string | null }) =>
+    call<{ routingId: string; recorded: boolean; deferred?: boolean; reverted?: { annotationId: string; commitmentId: string | null; requestId: string | null } }>("reader_intent_outcome", { input }),
+  readerActiveQuestion: (input: { extractionId: string; spanIds: string[]; style: ReaderActiveStyle }) =>
+    mutatingReader(call<ReaderActiveQuestionRequestDto>("reader_active_question", { input })),
+  readerActiveQuestionStatus: (input: { extractionId: string; anchorSpanIds: string[]; style: ReaderActiveStyle; batchId?: string | null }) =>
+    call<ReaderActiveQuestionStatusDto>("reader_active_question_status", { input }),
+  readerActiveQuestionAction: (input: { questionId: string; action: "answered" | "self_checked" | "dismissed"; response?: string | null; selfCheck?: InquirySelfCheck | null }) =>
+    mutatingReader(call<{ question: ReaderActiveQuestionDto; formativeJobId: string | null }>("reader_active_question_action", { input })),
+  readerReconstruct: (input: { questionId: string; learningObjectId?: string | null }) =>
+    mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string; commitmentId: string; dueHint: string; question: ReaderActiveQuestionDto }>("reader_reconstruct", { input }))),
+  readerReconstructUndo: (input: { questionId: string }) =>
+    mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string | null; commitmentId: string | null; question: ReaderActiveQuestionDto | null }>("reader_reconstruct_undo", { input }))),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>

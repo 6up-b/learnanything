@@ -41,6 +41,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     provenance,
     queue,
     reader,
+    reader_intent,
     recap,
     registry,
     remediation,

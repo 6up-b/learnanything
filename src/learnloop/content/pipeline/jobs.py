@@ -2756,6 +2756,8 @@ def handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]:
     payload = ctx.payload
     if payload.get("scope_kind") == "inquiry":
         return _handle_reader_inquiry_check(ctx)
+    if payload.get("scope_kind") == "selection":
+        return _handle_reader_selection_check(ctx)
     extraction_id = str(payload.get("extraction_id") or "")
     section_id = str(payload.get("section_id") or "")
     if not extraction_id or not section_id:
@@ -2925,6 +2927,77 @@ def _handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]:
             ctx.report("waiting", message="Waiting for the job already writing this quick check")
             _pause_while_inquiry_held(ctx, INQUIRY_HELD_POLL_SECONDS)
             continue
+        except AIProviderUnavailable as exc:
+            raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+        return {"question_id": row["id"], "deduplicated": False}
+
+
+def _handle_reader_selection_check(ctx: JobContext) -> dict[str, Any]:
+    """RW1b: author one active-reading question on a selection (next step, why
+    step, assumptions, reconstruct). The inquiry check's job type, lane,
+    client and admission (``[reader_inquiry]``'s caps, an isolated turn), with
+    a durable claim on the selection's reuse key; held-out material is refused
+    before any call. Refusals fail the job with their reason as its code, as
+    the inquiry check's do."""
+
+    payload = ctx.payload
+    extraction_id = str(payload.get("extraction_id") or "")
+    style = str(payload.get("question_style") or "")
+    anchors = [str(span_id) for span_id in payload.get("anchor_span_ids") or [] if span_id]
+    if not extraction_id or not anchors or style not in RQC.SELECTION_STYLES:
+        raise IngestRunnerError(
+            "an active-reading question needs extraction_id, anchor_span_ids and a question_style."
+        )
+    try:
+        view = RQC.selection_view(ctx.repo, extraction_id=extraction_id, anchor_span_ids=anchors, style=style)
+    except RQC.ReaderQuickCheckError as exc:
+        raise IngestRunnerError(str(exc), code="no_passage") from exc
+    passage = [*view["anchor_span_ids"], *(b["span_id"] for b in [*view["before"], *view["selected"], *view["following"]])]
+    _refuse_held_out_reader_material(ctx, extraction_id, passage)
+    existing = RQC.selection_question(ctx.repo, extraction_id=extraction_id,
+                                      anchor_span_ids=view["anchor_span_ids"], style=style)
+    if existing is not None:
+        return {"question_id": existing["id"], "deduplicated": True}
+    ctx.report("authoring", message="Writing the question for this passage")
+    try:
+        client = ctx.services.quick_check_client(ctx)
+    except IngestRunnerError as exc:
+        raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
+    bind = getattr(ctx, "bind_interruptible", None)
+    if callable(bind):
+        bind(client)
+    spend = _passage_check_spend(ctx)
+    owner = str((getattr(ctx, "job", None) or {}).get("id") or "") or None
+    polls = 0
+    while True:
+        try:
+            row = RQC.author_selection_question(
+                ctx.repo, client, extraction_id=extraction_id, anchor_span_ids=anchors, style=style,
+                clock=ctx.clock, spend=spend, owner=owner,
+                owner_ended=lambda holder: _inquiry_owner_ended(ctx.repo, holder),
+            )
+        except RQC.PassageCheckRefused as exc:
+            raise IngestRunnerError(str(exc), code=exc.reason, details={
+                "refusal": exc.refusal,
+                "max_checks_per_day": spend.max_checks_per_day,
+                "max_usd_per_check": spend.max_usd_per_check,
+                "price_per_million": spend.price_per_million,
+            }) from exc
+        except RQC.InquiryCheckHeld:
+            landed = RQC.selection_question(ctx.repo, extraction_id=extraction_id,
+                                            anchor_span_ids=view["anchor_span_ids"], style=style)
+            if landed is not None:
+                return {"question_id": landed["id"], "deduplicated": True}
+            if polls >= INQUIRY_HELD_MAX_POLLS:
+                raise IngestRunnerError(
+                    "Another job is still writing this question.", code="held", retryable=True,
+                ) from None
+            polls += 1
+            ctx.report("waiting", message="Waiting for the job already writing this question")
+            _pause_while_inquiry_held(ctx, INQUIRY_HELD_POLL_SECONDS)
+            continue
+        except RQC.ReaderQuickCheckError as exc:
+            raise IngestRunnerError(str(exc), code="no_question") from exc
         except AIProviderUnavailable as exc:
             raise IngestRunnerError(str(exc), code="provider_unavailable") from exc
         return {"question_id": row["id"], "deduplicated": False}
@@ -4237,6 +4310,39 @@ class DurableIngestJobs:
                         "extraction_id": extraction_id,
                         "inquiry_root_event_id": inquiry_root_event_id,
                         "anchor_span_ids": list(anchor_span_ids),
+                    })],
+                    subject_id=subject,
+                    priority=QUICK_ADD_PRIORITY,
+                )
+        self._ensure_worker()
+        return batch_id
+
+    def enqueue_reader_selection_check(
+        self, *, extraction_id: str, anchor_span_ids: list[str], question_style: str
+    ) -> str:
+        """Enqueue one active-reading question on a selection (RW1b).
+
+        The inquiry check's job type, priority and lane. One live job per
+        reuse key (extraction, anchor spans, style): a second request while a
+        batch for the key is queued or running joins it."""
+
+        runner = self._require_runner()
+        key = RQC.selection_claim_key(extraction_id, list(anchor_span_ids), question_style)
+        subject = f"reader_selection_check:{key}"
+        with runner.repo.atomic():
+            live = runner.repo.live_ingest_batch_for_subject(
+                workflow_type="reader_quick_check", subject_id=subject
+            )
+            if live is not None:
+                batch_id = str(live["id"])
+            else:
+                batch_id = runner.enqueue_batch(
+                    "reader_quick_check",
+                    [JobSpec("reader_quick_check", {
+                        "scope_kind": "selection",
+                        "extraction_id": extraction_id,
+                        "anchor_span_ids": list(anchor_span_ids),
+                        "question_style": question_style,
                     })],
                     subject_id=subject,
                     priority=QUICK_ADD_PRIORITY,

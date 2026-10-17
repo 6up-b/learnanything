@@ -145,7 +145,7 @@ export function RecapCard({
           {secondLook.map((line) => (
             <li key={`${line.kind}:${line.sourceEventIds.join(",")}`} style={lineStyle}>
               <span aria-hidden="true">◌ </span>
-              <span>{observationLine(line.kind, line.questionMd)}</span>{" "}
+              <span>{observationLine(line.kind, line.questionMd, line.observed)}</span>{" "}
               {line.rootExchangeId && line.spanId ? (
                 <RecapLink onClick={() => onOpenInquiry(line.rootExchangeId as string, line.spanId as string)}>open ▸</RecapLink>
               ) : null}

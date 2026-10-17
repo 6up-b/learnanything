@@ -421,8 +421,13 @@ def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
     (``learner_text_gaps.enabled``) and the successor's kill switch
     (``learner_text_gaps.sooner_check_enabled``) on. Below it, switched off,
     or for a vault whose version is unknown, the F11 grounded rule applies
-    exactly as at mvp-0.15. Undone creations are left out.
+    exactly as at mvp-0.15. Undone creations are left out, and so are gaps
+    read from a source whose gaps stay content only
+    (``NON_SERVING_SOURCE_KINDS``: a missed active-reading answer, RW1b review
+    F1), which has no successor to change serving.
     """
+
+    from learnloop.diagnosis.text_gaps.contract import NON_SERVING_SOURCE_KINDS
 
     config = getattr(vault, "config", None)
     algorithms = getattr(config, "algorithms", None)
@@ -436,15 +441,17 @@ def learner_gap_targets(connection: Any, vault: Any) -> list[dict[str, Any]]:
     ).fetchone() is None:
         return []
     cursor = connection.execute(
-        """
+        f"""
         SELECT g.id, g.source_kind, g.source_id, g.attempt_id, g.target_id, g.target_subject_id, g.created_at
           FROM learner_text_gaps g
          WHERE g.kind = 'prerequisite' AND g.target_kind = 'learning_object' AND g.target_id IS NOT NULL
            AND g.action IN ('matched_prerequisite', 'created_prerequisite')
+           AND g.source_kind NOT IN ({",".join("?" for _ in NON_SERVING_SOURCE_KINDS)})
            AND NOT EXISTS (SELECT 1 FROM learner_text_gap_reversals r
                             WHERE r.gap_id = g.id AND r.reversal = 'undo_creation')
          ORDER BY g.created_at, g.id
-        """
+        """,
+        NON_SERVING_SOURCE_KINDS,
     )
     names = [column[0] for column in cursor.description]
     return [dict(zip(names, row, strict=True)) for row in cursor]

@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 207
+schema_head: 208
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,13 +20,15 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/105_reader_authored_questions.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/text_gaps/provenance.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/reader/reader_guidance.py"
   - "src/learnloop/reader/reader_observations.py"
   - "src/learnloop/reader/reader_quick_check.py"
   - "src/learnloop/reader/reader_report.py"
-  - "src/learnloop/reader/recap.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/reader/active_reading.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -53,7 +55,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/105_reader_authored_questions.sql`.
-- **Schema touched by:** `105_reader_authored_questions.sql`, `185_reader_authored_question_scopes.sql`.
+- **Schema touched by:** `105_reader_authored_questions.sql`, `185_reader_authored_question_scopes.sql`, `208_learner_text_source_kinds.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -83,6 +85,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `anchor_span_ids_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `inquiry_root_event_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `self_check` | `TEXT` | no | — | — | Stored value |
+| `answer_basis` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -90,6 +93,7 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 
 Indexes and uniqueness:
 
+- `idx_reader_authored_questions_selection` on `extraction_id`, `anchor_span_ids_json`, `question_style`, `prompt_version` (unique).
 - `idx_reader_authored_questions_inquiry` on `inquiry_root_event_id`, `prompt_version` (unique).
 - `idx_reader_authored_questions_section` on `extraction_id`, `section_id`, `status`.
 - `sqlite_autoindex_reader_authored_questions_1` on `id` (unique).
@@ -105,11 +109,15 @@ Indexes and uniqueness:
 - `Repository.insert_reader_authored_question()`
 - `Repository.latest_reader_authored_question()`
 - `Repository.reader_authored_questions_for_extraction()`
+- `Repository.selection_reader_authored_question()`
+- `Repository.selection_reader_authored_questions()`
 - `Repository.transition_reader_authored_question()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/text_gaps/provenance.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_report.py`
 
@@ -122,18 +130,24 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/reader/active_reading.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_quick_check.py`
 - `src/learnloop_sidecar/handlers/reader.py`
+- `src/learnloop_sidecar/handlers/reader_intent.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_learner_text_source_widening.py`
+- `tests/test_reader_active_reading.py`
 - `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
 - `tests/test_reader_quick_check.py`
+- `tests/test_reader_rw1b_review.py`
 - `tests/test_reading_hardening_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -172,7 +186,8 @@ CREATE TABLE reader_authored_questions (
 , scope_kind TEXT NOT NULL DEFAULT 'section'
   CHECK (scope_kind IN ('section', 'inquiry', 'selection')), question_style TEXT NOT NULL DEFAULT 'recall'
   CHECK (question_style IN ('recall', 'next_step', 'why_step', 'assumptions', 'reconstruct')), anchor_span_ids_json TEXT, inquiry_root_event_id TEXT, self_check TEXT
-  CHECK (self_check IS NULL OR self_check IN ('matches', 'partly', 'no')));
+  CHECK (self_check IS NULL OR self_check IN ('matches', 'partly', 'no')), answer_basis TEXT
+  CHECK (answer_basis IS NULL OR answer_basis IN ('source', 'model')));
 ```
 
 ## Related notes

@@ -22,6 +22,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("router_llm", "llm", "router"),
     ("tier1_decider", "decider", "tier1"),
     ("learner_gap_decider", "decider", "learner_text_gaps"),
+    ("reader_intent", "decider", "reader_intent"),
 )
 
 _WHEN = {
@@ -56,6 +57,14 @@ _WHEN = {
         "readings (learner_text_gaps.enabled and learner_text_gaps.decider_enabled): the text, what "
         "it was about, and the candidate prerequisites or beliefs it might match. At mvp-0.22 the "
         "Decider decides; before it, its answer is a logged second opinion."
+    ),
+    "reader_intent": (
+        "While reader_intent.enabled is on, each time you type into the Reader's intent box (the "
+        "small box under a selection) and press Enter: your words, the selected passage (cut to a "
+        "short excerpt) and the names of the actions on offer, so the Decider can pick the one you "
+        "meant. With reader_intent.speculative_enabled on (the default) the same is sent once you "
+        "pause typing for a moment, before you press Enter, so the action is ready when you do; "
+        "switching it off sends nothing until Enter. An empty Enter sends nothing."
     ),
 }
 

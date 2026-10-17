@@ -3,13 +3,13 @@ title: "reader_capture_outbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_capture_outbox"
   - "table reader_capture_outbox"
-schema_head: 207
+schema_head: 208
 table_name: "reader_capture_outbox"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/091_interaction_events_reader_envelope.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_capture.py"
+  - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
@@ -95,11 +96,14 @@ Indexes and uniqueness:
 - `Repository.get_capture_outbox()`
 - `Repository.mark_capture_outbox()`
 - `Repository.pending_capture_outbox()`
+- `Repository.reader_request_standing_holder()`
+- `Repository.reader_request_still_held()`
 - `Repository.recoverable_capture_outbox()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 
@@ -110,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/reader_capture.py`
+- `src/learnloop/reader/reader_intent.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -117,6 +122,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_capture.py`
+- `tests/test_reader_rw1b_final_verify.py`
+- `tests/test_reader_rw1b_rereview.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

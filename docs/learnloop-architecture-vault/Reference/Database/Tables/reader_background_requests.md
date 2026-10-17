@@ -3,13 +3,13 @@ title: "reader_background_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
-source_commit_timestamp: "2026-10-17T13:10:13-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_background_requests"
   - "table reader_background_requests"
-schema_head: 207
+schema_head: 208
 table_name: "reader_background_requests"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/093_reader_background_requests.sql"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/reader_requests.py"
@@ -111,6 +112,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.append_reader_request_proposal()`
 - `Repository.cancel_reader_request()`
 - `Repository.claim_next_reader_request()`
 - `Repository.delete_source_artifact()`
@@ -118,13 +120,17 @@ Indexes and uniqueness:
 - `Repository.get_reader_request()`
 - `Repository.has_queued_reader_requests()`
 - `Repository.reader_request_by_key()`
+- `Repository.reader_request_still_held()`
 - `Repository.reader_requests_for_source()`
+- `Repository.rebind_reader_request()`
+- `Repository.rekey_reader_request()`
 - `Repository.resolve_reader_request()`
 - `Repository.retry_reader_request()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 
@@ -135,6 +141,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
@@ -143,11 +150,15 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw1b_rereview.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_requests.py`
+- `tests/test_reader_rw1b_final_verify.py`
+- `tests/test_reader_rw1b_fix_round4.py`
+- `tests/test_reader_rw1b_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

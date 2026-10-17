@@ -1,4 +1,4 @@
-"""The three learner-text sources, each read into one :class:`LearnerText`.
+"""The learner-text sources, each read into one :class:`LearnerText`.
 
 * **Tutor question** (``question_events``): the question, read by the tutor in
   the call that answered it (``source_context.learner_gap``).
@@ -7,6 +7,12 @@
   change): validated ``prerequisite_gap_hypotheses`` -> prerequisite; a
   learner-state event with a ``misconception_statement`` -> misconception;
   ``transient_execution`` -> slip; otherwise none.
+* **Reader formative answer** (RW1b, ``reader_authored_questions``): a
+  next-step, why-step or assumption answer the learner wrote while reading
+  and marked *partly* or *no* against the expected answer; read by the
+  stuck-text reader with its own task (:data:`~.contract.READER_FORMATIVE_TASK`).
+  ``workbench_text`` (RW2b) is admitted by the schema and read once RW2b
+  builds its adapter.
 * **Stuck answer**: a non-empty answer written under "I'm stuck" (the
   stuck prompt, mvp-0.13). ``learnloop.attempts.stuck`` owns the marker
   (``practice_attempts.declared_stuck``) and the read-only views: one stuck
@@ -29,6 +35,7 @@ from learnloop.attempts import stuck as stuck_module
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.text_gaps.contract import GapReading, LearnerText
+from learnloop.reader.reader_progression import learning_objects_for_span
 from learnloop.substrate.canonical_projection import held_for_review_attempts
 from learnloop.vault.models import LoadedVault, learning_object_facet_union
 from learnloop.vault.required_method import presented_prompt
@@ -365,6 +372,110 @@ def stuck_answer_text(
     )
 
 
+# -- reader formative answers (RW1b) ---------------------------------------------------------
+
+#: The active-reading styles whose missed answer is read (spec_reader_workbench_v1 §4.2).
+FORMATIVE_STYLES = ("next_step", "why_step", "assumptions")
+MISSED_SELF_CHECKS = ("partly", "no")
+#: Bounds on what the reader is shown besides the answer (prompt size only).
+FORMATIVE_PASSAGE_CHARS = 2_000
+FORMATIVE_EXPECTED_CHARS = 2_000
+
+
+def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | None:
+    """A missed formative answer (``reader_authored_questions``), or None.
+
+    Selection-scoped, in a next-step, why-step or assumption style, marked
+    partly or no by the learner, with an answer they wrote, and not added to
+    practice since (an escalated question's expected answer is an item's key
+    now, which no learner text carries)."""
+
+    row = repository.get_reader_authored_question(question_id)
+    if row is None or row.get("scope_kind") != "selection" or row.get("question_style") not in FORMATIVE_STYLES:
+        return None
+    if row.get("self_check") not in MISSED_SELF_CHECKS or row.get("status") != "answered":
+        return None
+    if not str(row.get("response_md") or "").strip():
+        return None
+    return row
+
+
+def missed_formative_ids(repository: Repository) -> list[str]:
+    """Every missed formative answer (:func:`formative_row`'s rule), oldest
+    first: what the backlog sweep may queue."""
+
+    with repository.connection() as connection:
+        if "scope_kind" not in {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}:
+            return []
+        styles, checks = tuple(FORMATIVE_STYLES), tuple(MISSED_SELF_CHECKS)
+        rows = connection.execute(
+            f"SELECT id FROM reader_authored_questions WHERE scope_kind = 'selection' "
+            f"AND question_style IN ({','.join('?' for _ in styles)}) "
+            f"AND self_check IN ({','.join('?' for _ in checks)}) AND status = 'answered' "
+            "AND TRIM(COALESCE(response_md, '')) != '' ORDER BY created_at, id",
+            (*styles, *checks),
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def _span_texts(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str:
+    ir = repository.load_document_ir(extraction_id)
+    if ir is None:
+        return ""
+    by_span = {block.span_id: block for block in ir.blocks}
+    parts = [" ".join((by_span[span].text or "").split()) for span in span_ids if span in by_span]
+    return " ".join(part for part in parts if part)[:FORMATIVE_PASSAGE_CHARS]
+
+
+def reader_formative_text(vault: LoadedVault, repository: Repository, question_id: str) -> LearnerText | None:
+    """A missed next-step, why-step or assumption answer, read by the gap reader.
+
+    The text is the learner's own answer; the context is the question, the
+    selected passage and the expected answer with whose words it is (the
+    book's or LearnLoop's model's). The LOs are the passage's provenance-linked
+    ones, and the subject theirs when they share one."""
+
+    row = formative_row(repository, question_id)
+    if row is None:
+        return None
+    try:
+        anchors = [str(span) for span in json.loads(row.get("anchor_span_ids_json") or "[]")]
+    except (TypeError, ValueError):
+        anchors = []
+    extraction_id = str(row["extraction_id"])
+    los: list[str] = []
+    for span_id in anchors:
+        for lo_id in learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id):
+            if lo_id in vault.learning_objects and lo_id not in los:
+                los.append(lo_id)
+    los.sort()
+    subjects = {s for lo in los for s in vault.learning_objects[lo].subjects[:1]}
+    subject = next(iter(subjects)) if len(subjects) == 1 else None
+    context: dict[str, Any] = {
+        "surface": "reader_formative",
+        "style": str(row["question_style"]),
+        "question": str(row.get("question_md") or ""),
+        "passage": _span_texts(repository, extraction_id, anchors),
+        "expected_answer": str(row.get("expected_answer_md") or "")[:FORMATIVE_EXPECTED_CHARS],
+        "expected_answer_from": "the book" if row.get("answer_basis") == "source" else "LearnLoop's model",
+        "self_check": str(row["self_check"]),
+    }
+    titles = [vault.learning_objects[lo].title for lo in los]
+    if titles:
+        context["learning_objects"] = titles
+    return LearnerText(
+        source_kind="reader_formative",
+        source_id=str(row["id"]),
+        text=str(row["response_md"]),
+        context_judge="gap_reader",
+        created_at=str(row.get("updated_at") or row.get("answered_at") or ""),
+        subject_id=subject,
+        anchor_learning_object_ids=tuple(los),
+        reading=None,
+        context=context,
+    )
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -375,6 +486,12 @@ def learner_text(
         return diagnosis_text(vault, repository, source_id)
     if source_kind == "stuck_answer":
         return stuck_answer_text(vault, repository, source_id, stuck_source)
+    if source_kind == "reader_formative":
+        return reader_formative_text(vault, repository, source_id)
+    if source_kind == "workbench_text":
+        # Admitted by the schema (migration 208); RW2b builds this adapter.
+        # Until then there is nothing to read, so the job is skipped.
+        return None
     raise ValueError(f"unknown learner-text source {source_kind!r}")
 
 
@@ -384,7 +501,10 @@ __all__ = [
     "StuckText",
     "StuckTextSource",
     "diagnosis_text",
+    "formative_row",
     "learner_text",
+    "missed_formative_ids",
+    "reader_formative_text",
     "reading_from_diagnosis",
     "resolve_prerequisite_ref",
     "stuck_answer_text",

@@ -350,35 +350,64 @@ def invoke_preset(
     return receipt
 
 
+#: The tombstone reason of a capture the intent box's "change" reverted
+#: (:func:`learnloop.reader.reader_intent.revert_capture`): its outbox row
+#: converts to no work, and a request the revert flagged while it ran
+#: discards its result on landing (defined beside the landing).
+REVERTED_CAPTURE_REASON = rr.REVERTED_CAPTURE_REASON
+
+
 def _default_convert(repository: Repository, row: Mapping[str, Any]) -> str | None:
     """Idempotent outbox conversion (§5.3 step 6 seam). The durable target (the
     annotation/commitment) already exists from the capture transaction. For a preset
     that needs semantic work, enqueue a demand-paged synthesis request (§6) -- the
     ONLY place the reading path touches a model, and off the hot path. Idempotent on
-    the canonical request key: a re-drain after a crash never double-enqueues (§15.2)."""
+    the canonical request key: a re-drain after a crash never double-enqueues (§15.2).
+
+    One write transaction reads whether the capture was reverted, enqueues, and
+    records the request as this row's target, so a revert racing the drain
+    either lands first (nothing is enqueued) or waits and then finds the
+    request this capture holds (Codex re-review of RW1b, F14). A request a
+    revert cancelled is revived: this capture still wants it (F15)."""
 
     payload = _loads(row.get("payload_json"))
     if payload.get("enqueue_synth") and row.get("source_id") and row.get("revision_id") \
             and payload.get("extraction_id") and payload.get("span_id"):
-        result = rr.enqueue_request(
-            repository,
-            source_id=row["source_id"],
-            revision_id=row["revision_id"],
-            extraction_id=payload["extraction_id"],
-            span_id=payload["span_id"],
-            preset=payload.get("preset", ""),
-            annotation_id=row.get("annotation_id"),
-            commitment_id=row.get("commitment_id"),
-            client_idempotency_key=row.get("client_idempotency_key"),
-            selected_text=str(payload.get("selected_text") or ""),
-            selection_edited=bool(payload.get("selection_edited")),
-            selected_span_ids=[
-                str(span_id) for span_id in payload.get("span_ids") or []
-                if span_id
-            ],
-        )
-        return result["request_id"]
+        with repository.atomic():
+            if row.get("annotation_id") and repository.capture_reverted(
+                    str(row["annotation_id"]), reason=REVERTED_CAPTURE_REASON):
+                return row.get("annotation_id")
+            request_id = _enqueue_for(repository, row, payload)
+            repository.mark_capture_outbox(str(row["id"]), state="draining", target_ref=request_id)
+        return request_id
     return row.get("annotation_id")
+
+
+def _enqueue_for(repository: Repository, row: Mapping[str, Any], payload: Mapping[str, Any]) -> str:
+    # The capture's instructions (its learner text, what the model is asked
+    # to do) are part of its request's identity: captures asking different
+    # things never share or revive one request (Codex final verify, F16).
+    instructions = rr.annotation_instructions(repository, row.get("annotation_id"))
+    result = rr.enqueue_request(
+        repository,
+        source_id=row["source_id"],
+        revision_id=row["revision_id"],
+        extraction_id=payload["extraction_id"],
+        span_id=payload["span_id"],
+        preset=payload.get("preset", ""),
+        annotation_id=row.get("annotation_id"),
+        commitment_id=row.get("commitment_id"),
+        client_idempotency_key=row.get("client_idempotency_key"),
+        selected_text=str(payload.get("selected_text") or ""),
+        selection_edited=bool(payload.get("selection_edited")),
+        selected_span_ids=[
+            str(span_id) for span_id in payload.get("span_ids") or []
+            if span_id
+        ],
+        revive_cancelled=True,
+        instructions=instructions,
+    )
+    return str(result["request_id"])
 
 
 def _loads(value: Any) -> dict[str, Any]:

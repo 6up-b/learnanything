@@ -67,6 +67,7 @@ from learnloop.diagnosis.text_gaps import actions
 from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequisite_candidates
 from learnloop.diagnosis.text_gaps.contract import (
     DRAFT_ROUTE,
+    NON_SERVING_SOURCE_KINDS,
     PIPELINE_VERSION,
     UNREAD,
     GapReading,
@@ -829,7 +830,10 @@ def process_learner_text(
             outcome = actions.ActionOutcome("none", detail={"reason": "unread"} if kind == UNREAD else {})
     vault = load_vault(root)
     advance = None
-    if outcome.action == "matched_prerequisite" and outcome.target_id:
+    # A missed active-reading answer's gap is content only: no sooner check
+    # (NON_SERVING_SOURCE_KINDS; RW1b review F1).
+    if outcome.action == "matched_prerequisite" and outcome.target_id \
+            and text.source_kind not in NON_SERVING_SOURCE_KINDS:
         try:
             advance = actions.advance_check(vault, repository, learning_object_id=str(outcome.target_id),
                                             now_iso=now_iso)
@@ -889,13 +893,21 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
     itself (rule (b)) and needs no record."""
 
     from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
-    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, question_record
+    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, formative_record, question_record
 
     if text.source_kind == "tutor_question":
         record_text_write(
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=question_record(connection, str(text.question_event_id or text.source_id),
                                    topics=text.anchor_learning_object_ids),
+            clock=clock,
+        )
+    elif text.source_kind == "reader_formative":
+        # RW1b: the learner's words come from no attempt, so they carry the
+        # record of what they were written beside (the passage, the topics).
+        record_text_write(
+            connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
+            record=formative_record(connection, str(text.source_id), topics=text.anchor_learning_object_ids),
             clock=clock,
         )
     created = outcome.created_learning_object_id

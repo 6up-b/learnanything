@@ -82,6 +82,11 @@ import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
 import { RECAP_COPY } from "./reader/recapCopy";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import { IntentBox } from "./reader/IntentBox";
+import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
+import { useActiveReading } from "./reader/useActiveReading";
+import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
+import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
 import { Workbench } from "./workbench/Workbench";
@@ -332,6 +337,10 @@ export function ReaderScreen({
   // Skim is the mute button (UX §3.1): with inquiry on, nothing LearnLoop
   // starts shows while skimming -- no reconnect line, no section offer.
   const muted = inquiry && mode === "skim";
+  // RW1b's switches (the sidecar names each only while it is on, and only with
+  // reader_inquiry on): the intent box, and active reading.
+  const intentContract = inquiry && !offline ? contract?.intent ?? null : null;
+  const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -425,7 +434,7 @@ export function ReaderScreen({
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
     setAskFindQuery, askFindInputRef, askPhase, askTabMarked, returnStack, returnStackRef, reconnect,
-    inquiryChecks, passageCheckOffered, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
+    inquiryChecks, passageCheckOffered, submitAsk, ask, cancelAsk, setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
     resetInquiryState,
@@ -1102,6 +1111,40 @@ export function ReaderScreen({
     return nodes;
   }, [renderBlocksBySpan]);
 
+  // RW1b: the intent box on a learner's selection, and active reading. Its
+  // actions run through the palette's own handlers (runIntentRef, set below
+  // once they exist), so a routed action makes exactly the palette's call.
+  const runIntentRef = useRef<(action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void>(() => undefined);
+  const cancelIntentRunRef = useRef<(cancel: IntentCancel) => void>(() => undefined);
+  const selectionSpanIds = useMemo(
+    () => (selection ? [...new Set(selectionNodes(selection).map((node) => node.spanId))] : []),
+    [selection],
+  );
+  const intentBox = useIntentBox({
+    contract: intentContract,
+    extractionId: render && !offline ? render.extractionId : null,
+    spanIds: selectionSpanIds,
+    quote: selection ? (selection.editedText ?? selection.quote) : "",
+    muted,
+    protectedSelection,
+    notes: openCardRef.current?.acquisitionKind === "textfile",
+    canWorkThrough: wbCtl.enabled,
+    hostRef: bodyRef,
+    onRun: (action, text, how) => runIntentRef.current(action, text, how),
+    onCancelRun: (cancel) => cancelIntentRunRef.current(cancel),
+  });
+  const { noteSelection: noteIntentSelection, noteSelectionCleared: noteIntentCleared } = intentBox;
+  const openActiveRail = useCallback(() => {
+    setRailCollapsed(false);
+    setRailTab("notes");
+  }, []);
+  const activeCtl = useActiveReading({
+    extractionId: activeReadingOn && render ? render.extractionId : null,
+    sourceId: render?.sourceId ?? null,
+    onError,
+    onOpenRail: openActiveRail,
+  });
+
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
@@ -1121,9 +1164,11 @@ export function ReaderScreen({
     noteSelection(nodes.length, "text");
     // A selection updates Ask's grounding too. Do not unexpectedly hide an Ask
     // conversation; Guide still yields to Capture so a first-time selection
-    // exposes the annotation actions.
-    setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [collectSelectionNodes, noteSelection]);
+    // exposes the annotation actions. RW1b: with the intent box, selecting
+    // never changes the rail tab (UX §3.2, G57); the box appears instead.
+    if (intentContract) noteIntentSelection();
+    else setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
+  }, [collectSelectionNodes, noteSelection, intentContract, noteIntentSelection]);
 
   // ---- ctrl-marquee union capture (markdown + transcript surfaces) --------
   // Hold ctrl (or cmd) and drag any number of boxes over the reading column;
@@ -1265,8 +1310,9 @@ export function ReaderScreen({
     setEditingCapture(false);
     setActiveSpan(nodes[0].spanId);
     noteSelection(nodes.length, "text_boxes");
-    setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
-  }, [resolveDomBoxes, noteSelection]);
+    if (intentContract) noteIntentSelection();
+    else setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
+  }, [resolveDomBoxes, noteSelection, intentContract, noteIntentSelection]);
   const commitDomBoxesRef = useRef(commitDomBoxes);
   useEffect(() => {
     commitDomBoxesRef.current = commitDomBoxes;
@@ -1452,7 +1498,8 @@ export function ReaderScreen({
     setEditingCapture(false);
     setTagMenu(null);
     window.getSelection()?.removeAllRanges();
-  }, []);
+    noteIntentCleared();
+  }, [noteIntentCleared]);
   useBareAltClear(clearSelection);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
@@ -1506,18 +1553,21 @@ export function ReaderScreen({
   // Palette (§5.2): a preset runs the local-first capture transaction. Commit presets
   // also create a commitment; synthesis is enqueued off the hot path (§5.3, §6).
   const invokePreset = useCallback(
-    async (preset: string) => {
-      if (!render || !selection) return;
+    // RW1b: the intent box passes its own words as the annotation's learner
+    // text, and names the intention and entry in the funnel event.
+    async (preset: string, learnerTextOverride?: string, meta?: Record<string, unknown>): Promise<string | null> => {
+      if (!render || !selection) return null;
+      const note_ = learnerTextOverride ?? note;
       const nodes = selectionNodes(selection);
       const editedText = selection.editedText?.trim();
       if (offline) {
         setAnnotations((a) => [
-          { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: preset, segments: optimisticSegments(nodes) },
+          { annotationId: null, quote: selection.quote, status: "exact", learnerText: note_, kind: preset, segments: optimisticSegments(nodes) },
           ...a,
         ]);
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
         setNote("");
-        return;
+        return null;
       }
       setBusy(true);
       try {
@@ -1529,17 +1579,17 @@ export function ReaderScreen({
           clientIdempotencyKey: newKey(),
           renderViewId: render.renderViewId,
           rawSelection: editedText ? { nodes, editedText } : { nodes },
-          learnerText: note,
+          learnerText: note_,
           subjectId: selection.spanId,
         });
         setAnnotations((a) => [
-          { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus, learnerText: note, kind: preset, segments: optimisticSegments(nodes) },
+          { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus, learnerText: note_, kind: preset, segments: optimisticSegments(nodes) },
           ...a,
         ]);
         // §10.2 / Journey 2: a commit shows a durable, immediately visible arc.
         if (receipt.arc) setArc(receipt.arc);
         setSelectionActions((actions) => [...new Set([...actions, preset])]);
-        logReaderAction("action_invoked", { ...visitPayload(), action_kind: `preset:${preset}` });
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: `preset:${preset}`, ...(meta ?? {}) });
         setNote("");
         // Drain the local outbox so the demand-paged request is enqueued + visible.
         // The capture is already durable at this point, so a drain failure is a
@@ -1554,8 +1604,10 @@ export function ReaderScreen({
         }
         void refreshAnnotations();
         void refreshRequests();
+        return receipt.annotationId ?? null;
       } catch (error) {
         onError(errorMessage(error));
+        return null;
       } finally {
         setBusy(false);
       }
@@ -1566,17 +1618,18 @@ export function ReaderScreen({
   // A plain highlight is a slice-1 CAPTURE action, not one of the nine presets —
   // reader.invoke_preset rejects "highlight" deterministically. Route it through
   // reader.capture so the annotation lands with no commitment and no synthesis.
-  const captureHighlight = useCallback(async () => {
-    if (!render || !selection) return;
+  const captureHighlight = useCallback(async (learnerTextOverride?: string, meta?: Record<string, unknown>): Promise<string | null> => {
+    if (!render || !selection) return null;
+    const note_ = learnerTextOverride ?? note;
     const nodes = selectionNodes(selection);
     if (offline) {
       setAnnotations((a) => [
-        { annotationId: null, quote: selection.quote, status: "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodes) },
+        { annotationId: null, quote: selection.quote, status: "exact", learnerText: note_, kind: "highlight", segments: optimisticSegments(nodes) },
         ...a,
       ]);
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
       setNote("");
-      return;
+      return null;
     }
     setBusy(true);
     try {
@@ -1588,18 +1641,20 @@ export function ReaderScreen({
         clientIdempotencyKey: newKey(),
         renderViewId: render.renderViewId,
         rawSelection: { nodes },
-        learnerText: note,
+        learnerText: note_,
       });
       setAnnotations((a) => [
-        { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note, kind: "highlight", segments: optimisticSegments(nodes) },
+        { annotationId: receipt.annotationId, quote: selection.quote, status: receipt.anchorStatus ?? "exact", learnerText: note_, kind: "highlight", segments: optimisticSegments(nodes) },
         ...a,
       ]);
-      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight" });
+      logReaderAction("action_invoked", { ...visitPayload(), action_kind: "highlight", ...(meta ?? {}) });
       setSelectionActions((actions) => [...new Set([...actions, "highlight"])]);
       setNote("");
       void refreshAnnotations();
+      return receipt.annotationId ?? null;
     } catch (error) {
       onError(errorMessage(error));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -1635,8 +1690,8 @@ export function ReaderScreen({
   // background authoring job. The exercise text stays verbatim (source-owned);
   // AI completes the answer, rubric, facets, hints, and depth-rung metadata.
   const importJobRef = useRef<{ jobId: string; startedAt: number; activity: ReturnType<typeof learnerActivitySnapshot> } | null>(null);
-  const importExercise = useCallback(async () => {
-    if (!render || !selection || offline) return;
+  const importExercise = useCallback(async (): Promise<string | null> => {
+    if (!render || !selection || offline) return null;
     const nodes = selectionNodes(selection);
     const editedText = selection.editedText?.trim();
     setBusy(true);
@@ -1661,8 +1716,10 @@ export function ReaderScreen({
       logReaderAction("action_invoked", { ...visitPayload(), action_kind: "import_exercise" });
       importJobRef.current = { jobId: receipt.batchId, startedAt: Date.now(), activity: learnerActivitySnapshot() };
       logReaderActivity({ kind: "reader_job_queued", payload: { ...visitPayload(), job_id: receipt.batchId, job_kind: "import_exercise" } });
+      return receipt.batchId ?? null;
     } catch (error) {
       onError(errorMessage(error));
+      return null;
     } finally {
       setBusy(false);
     }
@@ -2075,6 +2132,87 @@ export function ReaderScreen({
       },
     });
   };
+  // RW1b: what the intent box runs -- each action through the palette's own
+  // handler (the same RPC and payload, G3). The box's words are the question
+  // (an ask) or the annotation's learner text (everything else).
+  const foldBlocks = contract?.activeReading?.foldBlocks ?? 3;
+  const localFold = (spanIds: string[]): string[] => {
+    const positions = spanIds.map((spanId) => blocks.findIndex((block) => block.spanId === spanId)).filter((i) => i >= 0);
+    if (!positions.length) return [];
+    const last = Math.max(...positions);
+    return blocks.slice(last + 1, last + 1 + foldBlocks).flatMap((block) => (block.spanId ? [block.spanId] : []));
+  };
+  runIntentRef.current = (action, text, how) => {
+    const meta = { intention: action.intention, entry: how.entry };
+    const effect = action.effect;
+    switch (effect.kind) {
+      case "ask": {
+        // A routed Ask opens the Ask tab, because the learner asked (D41).
+        setRailCollapsed(false);
+        setRailTab("ask");
+        if (text) {
+          void submitAsk(text, null, { answerMode: "answerMode" in effect ? effect.answerMode : undefined, meta });
+        } else {
+          // An empty Enter asks with no model call: the composer, on the selection.
+          logReaderAction("action_invoked", { ...visitPayload(), action_kind: "ask_opened", ...meta });
+          window.requestAnimationFrame(() => askComposerRef.current?.focus({ preventScroll: true }));
+        }
+        return;
+      }
+      // A capture or an import resolves to what "change" may undo (F4).
+      case "preset":
+        return invokePreset(effect.preset, text, meta).then((annotationId) => ({ annotationId }));
+      case "highlight":
+        return captureHighlight(text, meta).then((annotationId) => ({ annotationId }));
+      case "import_exercise":
+        return importExercise().then((importBatchId) => ({ importBatchId }));
+      case "work_through":
+        workThroughSelection();
+        return;
+      case "active_reading":
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.style, ...meta });
+        void activeCtl.start(effect.style, selectionSpanIds, localFold(selectionSpanIds));
+        return;
+      case "another_way":
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: "another_way", ...meta });
+        void activeCtl.anotherWay(selection ? (selection.editedText ?? selection.quote) : "", selectionSpanIds);
+        return;
+    }
+  };
+  // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
+  // still pending stops; an active-reading card or "another way" closes (its
+  // late result can't reopen it); a capture already made is reverted (its
+  // annotation, and a commit preset's commitment and synthesis, through the
+  // sidecar); an import still running is cancelled.
+  cancelIntentRunRef.current = (cancel) => {
+    const kind = cancel.action.effect.kind;
+    if (kind === "ask" && askPhase === "pending") cancelAsk();
+    if (kind === "active_reading") activeCtl.close();
+    if (kind === "another_way") activeCtl.closeAnother();
+    void cancel.handle.then(async (handle) => {
+      if (handle?.annotationId && cancel.routingId) {
+        const annotationId = handle.annotationId;
+        try {
+          await api.readerIntentOutcome({ routingId: cancel.routingId, outcome: "reverted", annotationId });
+          setAnnotations((list) => list.filter((a) => a.annotationId !== annotationId));
+          setSelectionActions((actions) => actions.filter((action) => action !== (kind === "preset" && "preset" in cancel.action.effect ? cancel.action.effect.preset : "highlight")));
+          void refreshAnnotations();
+          void refreshRequests();
+        } catch (error) {
+          onError(errorMessage(error));
+        }
+      }
+      if (handle?.importBatchId) {
+        const batchId = handle.importBatchId;
+        try {
+          await api.cancelIngestBatch(batchId);
+        } catch {
+          /* already finished: its card in Notes keeps its own controls */
+        }
+        setExerciseImport((current) => (current && current.batchId === batchId ? null : current));
+      }
+    });
+  };
   const leaveWorkbench = (session: Parameters<typeof wbCtl.close>[0], abandonedNow = false) => {
     const spanId = wbCtl.close(session, { abandoned: abandonedNow });
     // Collapse back into ordinary reading at the problem's passage.
@@ -2199,6 +2337,7 @@ export function ReaderScreen({
             ...(wbStacked ? { order: 1, flex: wbSourceShown ? "0 0 50%" : undefined, display: wbSourceShown ? "flex" : "none", borderTop: `1px solid ${COLOR.border}` } : {}),
           }}
         >
+          <IntentBox box={intentBox} />
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
               {!domArmed && !domDraft ? (
@@ -2253,6 +2392,7 @@ export function ReaderScreen({
               onTagMenu={openDomTagMenu}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("watch")}
+              {...(activeCtl.folded.size ? { fold: { spans: activeCtl.folded, line: <NextStepFoldLine ctl={activeCtl} /> } } : {})}
             />
           ) : watchLoading ? (
             <Card style={{ padding: 18 }}><Faint style={{ fontSize: 12 }}>◐ preparing video and synchronized transcript…</Faint></Card>
@@ -2274,7 +2414,8 @@ export function ReaderScreen({
                 setEditingCapture(false);
                 setActiveSpan(sel.spanId);
                 noteSelection(sel.nodes?.length ?? 1, "pdf");
-                setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
+                if (intentContract) noteIntentSelection();
+                else setRailTab((tab) => (tab === "ask" ? "ask" : "notes"));
               }}
               onSelectionCleared={clearSelection}
               onHighlightOpen={openAnnotationNote}
@@ -2284,6 +2425,7 @@ export function ReaderScreen({
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("pdf")}
               onPageLayout={setPdfLayout}
+              {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
             />
           ) : null}
           {removed ? (
@@ -2333,6 +2475,9 @@ export function ReaderScreen({
             const endQuestionAvailable = Boolean(endSection
               && endSection.question?.readingPhase === "after_section"
               && offeredCheckSections.has(endSection.id));
+            // RW1b: the book's next lines fold while the learner tries the next step.
+            const folded = Boolean(block.spanId && activeCtl.folded.has(block.spanId));
+            const firstFolded = folded && !(i > 0 && blocks[i - 1].spanId && activeCtl.folded.has(blocks[i - 1].spanId ?? ""));
             const offerSection = endSection
               && !muted
               && !dismissedSections.includes(endSection.id)
@@ -2340,8 +2485,14 @@ export function ReaderScreen({
               && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0);
             return (
               <Fragment key={block.displayNodeId ?? `p${i}`}>
+              {firstFolded ? (
+                <div data-next-step-fold="">
+                  <NextStepFoldLine ctl={activeCtl} />
+                </div>
+              ) : null}
               <div
                 data-span-id={block.spanId ?? undefined}
+                {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
@@ -2362,6 +2513,7 @@ export function ReaderScreen({
                   position: cueMark || (block.spanId && wbResumeBySpan.has(block.spanId) && !working) ? "relative" : undefined,
                 }}
               >
+                {folded ? null : (<>
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2392,6 +2544,7 @@ export function ReaderScreen({
                     <Faint style={{ fontSize: 10 }}>extracted text unreliable — view original region</Faint>
                   )
                 ) : null}
+                </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
               {offerSection ? (
@@ -2671,6 +2824,9 @@ export function ReaderScreen({
           />
 
           <NotesRail
+            {...(activeReadingOn && (activeCtl.active || activeCtl.another) ? {
+              header: <ActiveReadingCard ctl={activeCtl} sourceTitle={sourceTitle} onShowPassage={jumpToSpan} />,
+            } : {})}
             visible={railTab === "notes"}
             offline={offline}
             busy={busy}
@@ -2686,9 +2842,9 @@ export function ReaderScreen({
             resetCaptureText={resetCaptureText}
             note={note}
             setNote={setNote}
-            captureHighlight={captureHighlight}
-            invokePreset={invokePreset}
-            importExercise={importExercise}
+            captureHighlight={async () => { await captureHighlight(); }}
+            invokePreset={async (preset) => { await invokePreset(preset); }}
+            importExercise={async () => { await importExercise(); }}
             onWorkThrough={wbCtl.enabled && selection ? workThroughSelection : undefined}
             onWorkThroughItem={wbCtl.enabled ? (item) => void wbCtl.openItem({
               practiceItemId: item.practiceItemId,
