@@ -700,7 +700,15 @@ def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tu
     client having restored them before Submit, and it is never clamped to the
     hints the item shows today. The larger of the two counts, never their sum
     (a client that restored them already sends them), and an independent
-    attempt type becomes the assisted one the answer box picks."""
+    attempt type becomes the assisted one the answer box picks.
+
+    On an item that allows only ``independent_attempt`` that type stays, with
+    ``hints_used`` > 0: exactly what main records for an authored hint
+    revealed there (the answer box's ``chooseAttemptType`` and
+    ``stuck_attempt_type`` fall back to the item's default type). The one
+    activity policy (``resolve_attempt_activity_policy``) reads ``hints_used``
+    > 0 as assisted and never certifying whatever the type, so the attempt is
+    never unassisted evidence (RW2a round 4, F2)."""
 
     from learnloop.reader.workbench import held_hints
 

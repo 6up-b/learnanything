@@ -1240,3 +1240,122 @@ def test_final_f15_a_submit_naming_a_serve_never_mixes_it_with_the_kept_one(tmp_
             planPresentationId=None)
     [sent] = seen
     assert (sent.scheduler_candidate_id, sent.plan_presentation_id) == (candidate_b, None)
+
+
+# -- Codex round 4 (F2): an independent-only item ---------------------------------------------------
+#
+# Binding ruling: assisted work is never credited as unassisted evidence or
+# certification. Main's answer box, on an item whose only allowed type is
+# ``independent_attempt``, records a revealed authored hint as that type with
+# ``hints_used`` > 0 (``chooseAttemptType`` falls back to the item's default
+# type; ``stuck_attempt_type`` does the same for "I'm stuck"). The one activity
+# policy reads ``hints_used`` > 0 as assisted and never certifying, whatever
+# the type, so held workbench assistance is recorded exactly that way.
+
+
+def _independent_only(paths) -> None:
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    item_path = paths.practice_item_path("linear-algebra", ITEM)
+    item = read_yaml(item_path)
+    item["attempt_types_allowed"] = ["independent_attempt"]
+    assert item.get("hints"), "the item needs an authored hint to reveal"
+    write_yaml(item_path, item)
+
+
+def _recorded_policy(repository: Repository, row: dict):
+    return resolve_attempt_activity_policy(
+        attempt_type=row["attempt_type"], primed=bool(row["primed"]), hints_used=int(row["hints_used"]),
+        recorded=repository.all_causal_activity_classifications().get(str(row["id"])),
+        reference_status=row.get("reference_status"),
+    )
+
+
+def _timeline_points(paths, repository: Repository, attempt_ids: set[str]) -> list:
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
+
+    from learnloop.attempts.grading import resolved_rubric
+
+    vault = load_vault(paths.root)
+    rubric = resolved_rubric(vault, vault.practice_items[ITEM])
+    facets = sorted({target.facet for criterion in rubric.criteria for target in criterion.targets})
+    timelines = facet_evidence_timelines(vault, repository, facets)
+    return [point for points in timelines.values() for point in points if point.attempt_id in attempt_ids]
+
+
+def _assert_assisted_and_never_certifying(paths, repository: Repository, attempt_ids: list[str], hints: int) -> None:
+    for attempt_id in attempt_ids:
+        row = _attempt(repository, attempt_id)
+        # Recorded exactly as main records an authored hint on this item.
+        assert (row["attempt_type"], row["hints_used"]) == ("independent_attempt", hints), attempt_id
+        policy = _recorded_policy(repository, row)
+        assert policy.counts_as_assisted and not policy.eligible_for_certification, attempt_id
+    # The certification ledger (the Demonstrated fold the canonical projection
+    # shares) reads every point of these attempts as assisted, banking nothing.
+    points = _timeline_points(paths, repository, set(attempt_ids))
+    assert points, "the attempts are graded evidence on some facet"
+    assert all(point.assisted for point in points)
+    assert all(point.delta == 0.0 for point in points)
+
+
+def test_round4_f2_main_records_an_authored_hint_on_an_independent_only_item_as_assisted_and_never_certifying(
+    tmp_path, grader,
+):
+    # What main does, with no workbench involved: the answer box, after
+    # revealing one authored hint, sends the item's only type with the hint
+    # counted; so does "I'm stuck" (empty) and a "don't know" client.
+    paths, repository = _vault(tmp_path)
+    _independent_only(paths)
+    ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    answered = _answer_box(ctx, practice_session, hintsUsed=1)["attemptId"]
+    stuck = _answer_box(ctx, practice_session, answerMd="", declaredStuck=True, hintsUsed=1)["attemptId"]
+    dont_know = _call(ctx, "submit_dont_know", {"sessionId": practice_session, "practiceItemId": ITEM,
+                                                "hintsUsed": 1})["attemptId"]
+    _assert_assisted_and_never_certifying(paths, repository, [answered, stuck, dont_know], hints=1)
+    # Control: the same answer with no hint is unassisted and certifies.
+    own = _attempt(repository, _answer_box(ctx, practice_session)["attemptId"])
+    assert own["hints_used"] == 0 and own["attempt_type"] == "independent_attempt"
+    assert _recorded_policy(repository, own).eligible_for_certification
+    banked = _timeline_points(paths, repository, {own["id"]})
+    assert banked and not any(point.assisted for point in banked) and any(point.delta > 0 for point in banked)
+
+
+def test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay(
+    tmp_path, grader, monkeypatch,
+):
+    # Codex's reproduction: the book counted in a Reader workbench, left, then
+    # every submit path on an independent-only item, the client sending no hint.
+    import learnloop_sidecar.handlers.ai_providers as ai_providers
+
+    monkeypatch.setattr(
+        ai_providers, "ready_grading_provider", lambda vault, override=None: ("fake", ReadyRuntime(), grader)
+    )
+    paths, repository = _vault(tmp_path)
+    _independent_only(paths)
+    ctx = _context(paths.root)
+    worked = _open(ctx)
+    _step(ctx, worked["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.leave", {"sessionId": worked["sessionId"]})
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    answered = _answer_box(ctx, practice_session)["attemptId"]
+    stuck = _answer_box(ctx, practice_session, answerMd="", declaredStuck=True)["attemptId"]
+    dont_know = _call(ctx, "submit_dont_know", {"sessionId": practice_session, "practiceItemId": ITEM,
+                                                "hintsUsed": 0})["attemptId"]
+    _call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": worked["sessionId"],
+                                  "extractionId": EXTRACTION})
+    workbench = _submit(ctx, worked["sessionId"], practiceSessionId=practice_session)["attempt"]["attemptId"]
+    attempt_ids = [answered, stuck, dont_know, workbench]
+    _assert_assisted_and_never_certifying(paths, repository, attempt_ids, hints=1)
+    # A regrade supersedes the grade and replays, never the assistance.
+    graded = {attempt_id: _count(repository, "grading_evidence", "attempt_id = ?", (attempt_id,))
+              for attempt_id in (answered, workbench)}
+    _call(ctx, "trigger_regrade", {"attemptId": answered})
+    _call(ctx, "trigger_regrade", {"attemptId": workbench})
+    assert all(_count(repository, "grading_evidence", "attempt_id = ?", (attempt_id,)) > count
+               for attempt_id, count in graded.items())
+    _assert_assisted_and_never_certifying(paths, repository, attempt_ids, hints=1)
+    # A full replay reads the attempt rows, so the classification is the same.
+    rebuild_all_derived_state(load_vault(paths.root), repository,
+                              clock=FrozenClock(datetime(2026, 10, 30, 12, 0, tzinfo=UTC)))
+    _assert_assisted_and_never_certifying(paths, repository, attempt_ids, hints=1)
