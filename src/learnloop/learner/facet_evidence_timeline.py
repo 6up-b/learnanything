@@ -144,6 +144,14 @@ class TimelinePoint:
     primed: bool = False
     # per-capability §5.1 receipt itemization for this observation's own epoch
     derivation: tuple[ObservationDerivation, ...] = ()
+    # RW6a review F1/F3 (read-side only, not in ``as_dict``): the credit this
+    # attempt contributes after this epoch (a correction replaces it, so an
+    # attempt's last point is its effective grading), and every capability's
+    # cumulative credit after this event as the ledger banks the cell (the
+    # embedded-share cap applied), so a reader can evaluate the certification
+    # predicate as of any moment.
+    attempt_credit: float = 0.0
+    capability_credit: tuple[tuple[str, float], ...] = ()
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -417,6 +425,19 @@ def fold_demonstrated_timeline(
         demonstrated_caps = tuple(
             sorted(cap for cap, value in per_capability_total.items() if value > 1e-9)
         )
+        capability_credit = tuple(
+            sorted(
+                (
+                    capability,
+                    cap_embedded_credit(
+                        total - per_capability_embedded_total.get(capability, 0.0),
+                        per_capability_embedded_total.get(capability, 0.0),
+                        max_embedded_share=max_embedded_credit_share,
+                    ),
+                )
+                for capability, total in per_capability_total.items()
+            )
+        )
         series.append(
             TimelinePoint(
                 t=event.event_at,
@@ -430,6 +451,8 @@ def fold_demonstrated_timeline(
                 demonstrated_capabilities=demonstrated_caps,
                 primed=event.primed,
                 derivation=event.derivation,
+                attempt_credit=new_contrib,
+                capability_credit=capability_credit,
             )
         )
     return series

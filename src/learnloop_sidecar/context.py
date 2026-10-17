@@ -496,9 +496,12 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days}}
                if config.workbench.enabled else {}),
             # Reader workbench RW6a's two kill switches: present only while one
-            # of them is on, so with both off the snapshot is what it was.
+            # of them is on, so with both off the snapshot is what it was. They
+            # depend on RW1a's reader_inquiry.enabled (its sessions and chips):
+            # with that off the key is absent too (review F10).
             **({"recap": {"enabled": config.recap.enabled, "wrap_up_enabled": config.recap.wrap_up_enabled}}
-               if config.recap.enabled or config.recap.wrap_up_enabled else {}),
+               if (config.recap.enabled or config.recap.wrap_up_enabled) and config.reader_inquiry.enabled
+               else {}),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

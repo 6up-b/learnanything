@@ -31,13 +31,13 @@ everything that writes evidence from importing this module (G50).
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
 from learnloop.attempts.salience_firewall import salience_payload
 from learnloop.clock import Clock, parse_utc
-from learnloop.goals.certification import DEMONSTRATED_CREDIT
+from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.goals.goal_certification import lo_certification
 from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
 from learnloop.reader import reader_dialogue as RD
@@ -263,20 +263,8 @@ def session_summary(
         }
 
     opened = [str(e["event_id"]) for e in in_session if roots[str(e["event_id"])] == str(e["event_id"])]
-    touched: list[str] = []
-    for exchange in in_session:
-        root_id = roots[str(exchange["event_id"])]
-        if root_id not in touched:
-            touched.append(root_id)
-    status_events = [
-        e for e in _action_events(repository, ("inquiry_status_set",))
-        if e["payload"].get("extraction_id") == extraction_id and session.contains(e.get("created_at"))
-    ]
-    resolved_ids: list[str] = []
-    for event in status_events:
-        root_id = str(event["payload"].get("root_exchange_id") or "")
-        if root_id in by_id and event["payload"].get("resolution") == "resolved" and root_id not in resolved_ids:
-            resolved_ids.append(root_id)
+    touched = _touched_roots(in_session, roots)
+    resolved_ids = _status_roots(repository, extraction_id, session, by_id, resolution="resolved")
     resolved = [inquiry(r) for r in resolved_ids if (by_id[r].get("resolution") or "open") == "resolved"]
     still_open = [inquiry(r) for r in touched if (by_id[r].get("resolution") or "open") == "open"]
 
@@ -389,6 +377,34 @@ def session_summary(
     }
 
 
+def _touched_roots(in_session: Sequence[Mapping[str, Any]], roots: Mapping[str, str]) -> list[str]:
+    """The inquiries (roots) an exchange of the session belongs to, first seen first."""
+
+    touched: list[str] = []
+    for exchange in in_session:
+        root_id = roots[str(exchange["event_id"])]
+        if root_id not in touched:
+            touched.append(root_id)
+    return touched
+
+
+def _status_roots(
+    repository: Any, extraction_id: str, window: RS.ReaderSession, by_id: Mapping[str, Any],
+    *, resolution: str | None = None,
+) -> list[str]:
+    """Roots whose status was set in ``window`` (to ``resolution`` when given)."""
+
+    found: list[str] = []
+    for event in _action_events(repository, ("inquiry_status_set",)):
+        payload = event["payload"]
+        if payload.get("extraction_id") != extraction_id or not window.contains(event.get("created_at")):
+            continue
+        root_id = str(payload.get("root_exchange_id") or "")
+        if root_id in by_id and (resolution is None or payload.get("resolution") == resolution) and root_id not in found:
+            found.append(root_id)
+    return found
+
+
 def _sections_read(repository: Any, extraction_id: str, session: RS.ReaderSession) -> list[dict[str, Any]]:
     out = []
     for row in _section_progress(repository, extraction_id):
@@ -428,90 +444,102 @@ def _claims(
     if not assisted:
         return []
     # An unassisted success is what the evidence system itself counts as one:
-    # a point on the facet's Demonstrated curve that earned credit, without
-    # help or priming, at or after the session's start.
+    # an attempt on the facet's Demonstrated curve whose *effective* grading
+    # (its latest epoch: a regrade replaces the attempt's credit) still earns
+    # credit, without help or priming, made at or after the session's start.
+    # A success regraded to nothing answers nothing (review F3).
     curves = facet_evidence_timelines(vault, repository, sorted(assisted))
-    answered = {
-        facet for facet, points in curves.items()
-        if any(
-            float(point.delta) > 1e-9 and not point.assisted and not point.primed
-            and not _later(session.started_at, point.t)
-            for point in points
-        )
-    }
+    answered = {facet for facet, points in curves.items() if _effective_success_since(points, session.started_at)}
     return [
         {**claim, "attempt_ids": sorted(claim["attempt_ids"])}
         for facet, claim in sorted(assisted.items()) if facet not in answered
     ]
 
 
+def _effective_success_since(points: Sequence[Any], since: str) -> bool:
+    """Some attempt made at or after ``since`` whose latest point still holds
+    unassisted, unprimed credit (the attempt's effective grading)."""
+
+    latest: dict[str, Any] = {}
+    first_seen: dict[str, str] = {}
+    for point in points:
+        latest[point.attempt_id] = point
+        first_seen.setdefault(point.attempt_id, point.t)
+    return any(
+        float(point.attempt_credit) > 1e-9 and not point.assisted and not point.primed
+        and not _later(since, first_seen[attempt_id])
+        for attempt_id, point in latest.items()
+    )
+
+
 # ---------------------------------------------------------------------------
 # Since last time (UX S10): what became demonstrated since the session ended
 # ---------------------------------------------------------------------------
 
-def _value_at(points: Sequence[Any], moment: str) -> float:
-    value = 0.0
+def _capabilities_at(points: Sequence[Any], moment: str) -> set[str]:
+    """The capabilities a facet had demonstrated credit at, as of ``moment``
+    (its curve's last point at or before it; every cell as the ledger banks it)."""
+
+    credit: Sequence[tuple[str, float]] = ()
     for point in points:
         if _later(point.t, moment):
             break
-        value = float(point.demonstrated)
-    return value
-
-
-def _last_crossing(points: Sequence[Any], *, after: str) -> Any | None:
-    """The last unassisted point after ``after`` that took the facet's
-    Demonstrated credit from below the threshold to it or above."""
-
-    previous = 0.0
-    crossing = None
-    for point in points:
-        value = float(point.demonstrated)
-        if (
-            previous < DEMONSTRATED_CREDIT <= value and float(point.delta) > 1e-9
-            and not point.assisted and not point.primed and _later(point.t, after)
-        ):
-            crossing = point
-        previous = value
-    return crossing
+        credit = point.capability_credit
+    return {capability for capability, value in credit if is_demonstrated_credit(value)}
 
 
 def demonstrated_since(
-    learning_object_ids: Sequence[str],
-    *,
-    after: str,
-    demonstrated: Callable[[str], bool],
-    facets_by_lo: Mapping[str, Sequence[str]],
-    timelines: Callable[[Sequence[str]], Mapping[str, Sequence[Any]]],
-    titles: Mapping[str, str],
+    vault: Any, repository: Any, learning_object_ids: Sequence[str], *, after: str,
 ) -> list[dict[str, Any]]:
-    """The LOs demonstrated now that became so after ``after`` (pure).
+    """The LOs demonstrated now that became so after ``after`` (a pure read).
 
-    An LO counts when ``lo_certification(...).demonstrated`` holds now and one
-    of its facets crossed the demonstrated threshold on its Demonstrated
-    curve after ``after``, starting below it then. It is dated by the
-    certifying attempt: the one whose point made the last such facet cross.
-    Newest first; ties by id."""
+    An LO counts when ``lo_certification(...).demonstrated`` holds now and the
+    same predicate -- every recipe obligation at its capability, one
+    alternative per ``any_of`` group, the integration cell -- did not hold at
+    ``after``. "As of a moment" reads each facet's capability credit from its
+    Demonstrated curve, corrections included, so a regrade counts when it
+    landed. It is dated by the certifying attempt: the point after ``after``
+    at which the LO last went from not demonstrated to demonstrated. Newest
+    first; ties by id (review F1)."""
 
-    candidates = [lo for lo in sorted(set(learning_object_ids)) if facets_by_lo.get(lo) and demonstrated(lo)]
-    wanted = sorted({facet for lo in candidates for facet in facets_by_lo[lo]})
-    curves = timelines(wanted) if wanted else {}
+    los = [vault.learning_objects[lo] for lo in sorted(set(learning_object_ids)) if lo in vault.learning_objects]
+    now_demonstrated = [lo for lo in los if lo_certification(vault, repository, lo).demonstrated]
+    if not now_demonstrated:
+        return []
+    facets_by_lo = {
+        lo.id: sorted({vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(lo)})
+        for lo in now_demonstrated
+    }
+    curves = facet_evidence_timelines(vault, repository, sorted({f for fs in facets_by_lo.values() for f in fs}))
+
+    def certified(lo: Any, moment: str) -> bool:
+        def as_of(facet_id: str) -> set[str]:
+            return _capabilities_at(curves.get(vault.canonical_facet_id(facet_id)) or [], moment)
+
+        return lo_certification(vault, repository, lo, demonstrated=as_of).demonstrated
+
     rows = []
-    for lo in candidates:
-        best = None
-        for facet in facets_by_lo[lo]:
-            points = list(curves.get(facet) or [])
-            if _value_at(points, after) >= DEMONSTRATED_CREDIT:
-                continue
-            crossing = _last_crossing(points, after=after)
-            if crossing is not None and (best is None or _later(crossing.t, best.t)):
-                best = crossing
-        if best is not None:
-            rows.append({
-                "learning_object_id": lo,
-                "title": titles.get(lo, lo),
-                "demonstrated_on": best.t,
-                "attempt_id": best.attempt_id,
-            })
+    for lo in now_demonstrated:
+        if certified(lo, after):
+            continue
+        points = [p for facet in facets_by_lo[lo.id] for p in curves.get(facet) or [] if _later(p.t, after)]
+        moments = sorted({p.t for p in points}, key=lambda t: (_when(t), t))
+        was, dated = False, None
+        for moment in moments:
+            now = certified(lo, moment)
+            if now and not was:
+                dated = moment
+            was = now
+        if dated is None or not was:
+            # The curve and the ledger disagree: claim nothing.
+            continue
+        at_moment = sorted((p for p in points if p.t == dated), key=lambda p: (float(p.delta) <= 1e-9, p.attempt_id))
+        rows.append({
+            "learning_object_id": lo.id,
+            "title": lo.title,
+            "demonstrated_on": dated,
+            "attempt_id": at_moment[0].attempt_id if at_moment else None,
+        })
     return sorted(rows, key=lambda row: (row["demonstrated_on"], row["learning_object_id"]), reverse=True)
 
 
@@ -527,19 +555,7 @@ def source_learning_objects(vault: Any, repository: Any, extraction_id: str) -> 
 def since_last_time(vault: Any, repository: Any, *, extraction_id: str, after: str) -> list[dict[str, Any]]:
     """:func:`demonstrated_since` over the real ledger for this source's LOs."""
 
-    lo_ids = [lo for lo in source_learning_objects(vault, repository, extraction_id) if lo in vault.learning_objects]
-    facets_by_lo = {
-        lo: [vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(vault.learning_objects[lo])]
-        for lo in lo_ids
-    }
-    return demonstrated_since(
-        lo_ids,
-        after=after,
-        demonstrated=lambda lo: lo_certification(vault, repository, vault.learning_objects[lo]).demonstrated,
-        facets_by_lo=facets_by_lo,
-        timelines=lambda facets: facet_evidence_timelines(vault, repository, facets),
-        titles={lo: vault.learning_objects[lo].title for lo in lo_ids},
-    )
+    return demonstrated_since(vault, repository, source_learning_objects(vault, repository, extraction_id), after=after)
 
 
 def retired_checks(repository: Any, *, extraction_id: str, after: str) -> list[dict[str, Any]]:
@@ -649,14 +665,17 @@ def build_recap(
         for e in open_roots if str(e["event_id"]) not in seen_roots
     ]
 
+    # Open problems and abandoned ones (§5.4: their steps stay learner work
+    # and appear here); an abandoned one says so and offers reopen (review F8).
     unfinished = []
     for summary in WB.sessions_for_source(repository, extraction_id, now=now, open_days=WB.open_session_days(vault)):
-        if summary["status"] != "open":
+        if summary["status"] not in ("open", "abandoned"):
             continue
         row = WB.session_row(repository, summary["session_id"])
         carried = WB.carried_hints(row)
         unfinished.append({
             "session_id": summary["session_id"],
+            "status": summary["status"],
             "title": excerpt(str(summary["stem_md"] or "").splitlines()[0] if summary["stem_md"] else "", TITLE_CHARS),
             "step_count": summary["step_count"],
             "help": {"book_counted": bool(summary["book_counted"]), "hints": carried},
@@ -712,15 +731,40 @@ def build_wrap_up(
         return {"wrap_up_version": WRAP_UP_VERSION, "available": False, "extraction_id": extraction_id,
                 "session": None, "resolved": [], "still_open": [], "worth_reinforcing": []}
     summary = session_summary(vault, repository, extraction_id=extraction_id, session=session, now=now)
-    history = {str(e["event_id"]): e for e in RD.ask_history(repository, extraction_id=extraction_id, branches=True)}
+    rows_history = RD.ask_history(repository, extraction_id=extraction_id, branches=True)
+    history = {str(e["event_id"]): e for e in rows_history}
 
     def words(root_id: str) -> str:
         return excerpt((history.get(root_id) or {}).get("question_md"))
 
+    # The session's inquiries are the ones it touched, plus any whose status
+    # was set from the session's start to now -- so a resolve (or its undo)
+    # from Wrap up, in the Reader or where the learner landed, moves a line
+    # between the lists instead of dropping it (review F4). The lists follow
+    # each inquiry's current status.
+    roots = _inquiry_roots(rows_history)
+    in_session = sorted(
+        (e for e in rows_history if session.contains(e.get("created_at"))),
+        key=lambda e: (str(e.get("created_at") or ""), str(e["event_id"])),
+    )
+    through_now = RS.ReaderSession(session.extraction_id, session.visit_ids, session.started_at,
+                                   max(session.ended_at, RS.iso_seconds(now), key=lambda t: (_when(t), t)))
+    members = _touched_roots(in_session, roots)
+    for root_id in _status_roots(repository, extraction_id, through_now, history):
+        if root_id not in members:
+            members.append(root_id)
+
+    def spans(root_id: str) -> list[str]:
+        root = history[root_id]
+        return list(root.get("selection_span_ids") or []) or [root["span_id"]]
+
+    def status(root_id: str) -> str:
+        return history[root_id].get("resolution") or "open"
+
     resolved = [
-        {"root_exchange_id": line["root_exchange_id"], "question_md": words(line["root_exchange_id"]),
-         "actions": [_status_action("undo", extraction_id, line["root_exchange_id"], "open", "undo")]}
-        for line in summary["inquiries"]["resolved"]
+        {"root_exchange_id": root_id, "question_md": words(root_id),
+         "actions": [_status_action("undo", extraction_id, root_id, "open", "undo")]}
+        for root_id in members if status(root_id) == "resolved"
     ]
     still_open = [
         {"root_exchange_id": line["root_exchange_id"], "question_md": words(line["root_exchange_id"]),
@@ -734,7 +778,7 @@ def build_wrap_up(
              # Keep open is the status it already has: nothing is written.
              {"action": "keep_open"},
          ]}
-        for line in summary["inquiries"]["still_open"]
+        for line in ({"root_exchange_id": r, "span_ids": spans(r)} for r in members if status(r) == "open")
     ]
     worth: list[dict[str, Any]] = []
     rows = {row["id"]: row for row in _workbench_rows(repository, extraction_id)[0]}

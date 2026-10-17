@@ -12,7 +12,9 @@ Four desktop RPCs over ``learnloop.reader.recap``:
 
 Kill switches: ``recap.enabled`` (the card and its two events) and
 ``recap.wrap_up_enabled`` (Wrap up, its offer and ``wrap_up_opened``). Each
-RPC refuses before reading or writing anything while its switch is off.
+RPC refuses before reading or writing anything while its switch is off, and
+all four refuse ``inquiry_disabled`` while RW1a's ``reader_inquiry.enabled``
+is off (the sessions and the chips are RW1a's).
 Desktop only (pinned in tests/test_mobile_allowlist.py; spec D20).
 """
 
@@ -42,6 +44,11 @@ def _require(ctx: SidecarContext, *, wrap_up: bool):
         raise SidecarError("recap_disabled", "\"Last time here\" is switched off (recap.enabled = false).")
     if not RD.reader_enabled(vault):
         raise SidecarError("reader_disabled", "The reader dialogue is disabled (tutor_qa.reader_enabled=False).")
+    # Sessions, inquiries and their chips are RW1a's: with its switch off the
+    # card's and Wrap up's actions could not run, and no visit is recorded, so
+    # there is no card, no Wrap up and no offer (review F10).
+    if not RD.inquiry_enabled(vault):
+        raise SidecarError("inquiry_disabled", "Reader inquiries are switched off (reader_inquiry.enabled = false).")
     return vault, repository
 
 

@@ -17,6 +17,7 @@ conservative empty answer there — the caller keeps the legacy mass-gate
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from learnloop.db.repositories import Repository
@@ -190,7 +191,11 @@ def _demonstrated_resolver(vault: LoadedVault, repository: Repository):
 
 
 def recipe_gaps(
-    vault: LoadedVault, repository: Repository, learning_object: LearningObject
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object: LearningObject,
+    *,
+    demonstrated: Callable[[str], set[str]] | None = None,
 ) -> tuple[RecipeGaps, ...]:
     """Per-recipe gaps for every declared recipe, in declaration order.
 
@@ -205,11 +210,15 @@ def recipe_gaps(
     Requires a canonical-state vault with authored blueprints; returns ``()``
     otherwise, exactly as :func:`lo_certification` returns ``demonstrated=False``
     there (nothing to certify against).
+
+    ``demonstrated`` (``facet -> demonstrated capabilities``) replaces the
+    ledger read, so a display can ask the same predicate as of an earlier
+    moment (RW6a "Since last time"); by default it is the ledger now.
     """
 
     if not is_canonical_state_vault(vault) or not learning_object.blueprints:
         return ()
-    demo = _demonstrated_resolver(vault, repository)
+    demo = demonstrated or _demonstrated_resolver(vault, repository)
     rows: list[RecipeGaps] = []
     for blueprint in learning_object.blueprints:
         for recipe in blueprint.recipes:
@@ -273,7 +282,11 @@ def recipe_gaps(
 
 
 def lo_certification(
-    vault: LoadedVault, repository: Repository, learning_object: LearningObject
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object: LearningObject,
+    *,
+    demonstrated: Callable[[str], set[str]] | None = None,
 ) -> LoCertification:
     """Whether a composite LO is demonstrated (§9.2 last bullet, §9.5).
 
@@ -290,12 +303,14 @@ def lo_certification(
     Delegates the per-recipe predicate to :func:`recipe_gaps` — one copy, so the
     §5.7 cold probe (which needs to name the satisfying recipe) and this
     decision can never disagree about what a certificate is.
+    ``demonstrated`` passes through to :func:`recipe_gaps` (the ledger now by
+    default).
     """
 
     any_blueprint_demonstrated = False
     all_component_gaps: set[str] = set()
     all_integration_gaps: set[str] = set()
-    for gaps in recipe_gaps(vault, repository, learning_object):
+    for gaps in recipe_gaps(vault, repository, learning_object, demonstrated=demonstrated):
         all_component_gaps |= set(gaps.component_gaps)
         # An unmet ``any_of`` group contributes every alternative: each is
         # undemonstrated today, and the flat LO-level list has no OR to express.

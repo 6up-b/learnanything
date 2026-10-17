@@ -187,7 +187,7 @@ def test_claims_needing_an_independent_check_are_assisted_only_facets(tmp_path, 
     def point(minutes, *, assisted=False):
         return TimelinePoint(t=iso(minutes), demonstrated=1.0, delta=1.0, kind="observation", is_correction=False,
                              attempt_id="att_own", surface_group="g", assisted=assisted,
-                             demonstrated_capabilities=("recall",))
+                             demonstrated_capabilities=("recall",), attempt_credit=1.0)
 
     for points, answered in (((point(200, assisted=True),), False), ((point(-10),), False), ((point(200),), True)):
         monkeypatch.setattr(RC, "facet_evidence_timelines", curve(*points))
@@ -261,37 +261,8 @@ def test_no_card_on_a_first_visit_or_within_the_same_session(tmp_path):
     assert RC.build_recap(vault, repo, extraction_id=EXT, current_visit_id="v3", now=_now(1440))["recap"] is not None
 
 
-def test_since_last_time_dates_the_certifying_attempt_after_the_previous_session():
-    after = iso(100)
-
-    def point(minutes, value, delta, *, attempt, assisted=False, primed=False):
-        return TimelinePoint(t=iso(minutes), demonstrated=value, delta=delta, kind="observation",
-                             is_correction=False, attempt_id=attempt, surface_group="g", assisted=assisted,
-                             demonstrated_capabilities=("recall",) if value > 0 else (), primed=primed)
-
-    timelines = {
-        # Crossed the threshold after the session: demonstrated since (Monday).
-        "f_new": [point(50, 0.5, 0.5, attempt="a1"), point(200, 1.0, 0.5, attempt="a2")],
-        # Already demonstrated before the session ended: not new.
-        "f_old": [point(20, 1.2, 1.2, attempt="a0"), point(300, 2.0, 0.8, attempt="a3")],
-        # Crossed later still: the LO counts from the LAST facet's crossing.
-        "f_late": [point(400, 1.0, 1.0, attempt="a4")],
-        # An assisted point never credits, so it never dates.
-        "f_help": [point(250, 1.0, 1.0, attempt="a5", assisted=True)],
-    }
-    facets = {"lo_new": ["f_new"], "lo_old": ["f_old"], "lo_both": ["f_new", "f_late"],
-              "lo_undemonstrated": ["f_new"], "lo_help": ["f_help"]}
-    demonstrated = {"lo_new": True, "lo_old": True, "lo_both": True, "lo_undemonstrated": False, "lo_help": True}
-    rows = RC.demonstrated_since(
-        sorted(facets), after=after, demonstrated=lambda lo: demonstrated[lo], facets_by_lo=facets,
-        timelines=lambda wanted: {facet: timelines[facet] for facet in wanted},
-        titles={lo: lo.replace("_", " ") for lo in facets},
-    )
-    assert [(row["learning_object_id"], row["demonstrated_on"], row["attempt_id"]) for row in rows] == [
-        ("lo_both", iso(400), "a4"),
-        ("lo_new", iso(200), "a2"),
-    ]
-    assert set(rows[0]) == {"learning_object_id", "title", "demonstrated_on", "attempt_id"}
+# The dating of "Since last time" runs on the real ledger and the recipe
+# predicate: tests/test_reader_recap_review.py (review F1).
 
 
 def test_since_last_time_reads_the_real_ledger_without_inventing_a_gain(tmp_path):
