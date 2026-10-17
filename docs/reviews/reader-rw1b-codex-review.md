@@ -2,7 +2,7 @@
 
 Branch `reader/rw1b` (worktree `learnanything-merge4`), reviewed at `9fba44812`
 (codex-job `20261017-154349-dk2L7y`). Codex reported 13 findings: 1 High, 12
-Medium. The fixes are in `18472d5ac`. Each finding was reproduced first, with a
+Medium. The fixes are in `18472d5ac` (plus `bd6c37950` for an import-inventory gate fix). Each finding was reproduced first, with a
 test that fails on `9fba44812`:
 
 - backend: `tests/test_reader_rw1b_review.py`. 13 of its 16 cases fail on the
@@ -64,4 +64,18 @@ for F4, which UX §4.1's "change while it runs" also supports.
 
 ## Gate
 
-GATE_RESULTS
+Run in the worktree with `TMPDIR=fixtures-local/tmp` and `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. Fixes are in `18472d5ac`, followed by `bd6c37950` (one import moved to module level) and `4040b14e8` (references).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken |
+| `pytest -n auto` (full suite) | **13,038 passed, 2 xfailed**, 0 failed (14 min 57 s, on `4040b14e8`). Stage tip: 13,022, so +16 (the new review file). The first run, on `18472d5ac`, had 1 failure, `test_architecture.py::test_function_local_domain_imports_match_the_frozen_edge_inventory`, because `revert_capture` imported `curriculum.commitments` inside a function. Fixed in `bd6c37950` (module-level import, as `active_reading` has); that test passed alone, then in the full rerun |
+| `pytest -m durability` | **107 passed**, 12,933 deselected (1 min 56 s, on `4040b14e8`) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **120 files, 971 tests passed**. Stage tip: 959, so +12 (`rw1bReview.test.tsx`) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not needed: nothing under `src-tauri` changed (`reader.intent_outcome` uses the generic passthrough) |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (schema head 208, 327 table notes, 873 configuration leaves); errors [] |
+| Snapshots, CLI help, RPC pins, `test_coordinated_migrations.py`, `test_table_roles.py` | pass (in the full suite); no config, CLI or migration change |
+| `git diff --check` | clean |
