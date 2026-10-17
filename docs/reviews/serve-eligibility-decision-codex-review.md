@@ -157,3 +157,42 @@ Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync 
 - **Q43 (revised).** A non-persisting read (a queue built with `persist_explanations = false`, the CLI's dry run) withdraws nothing: it shows the item as practice and recomputes the same decision next time. A stale client that submits a check it was never served still meets submit's guard, with the cause named. *Default: as built.*
 - **Q45 (practised since scheduled).** A cold check whose item was attempted after the check was set (and the attempt did not answer it) is withdrawn when a serve meets it. That is any attempt, ranked practice included, not only one this stage served. It is the receipt's own hard-exposure rule, applied before the check is spent instead of after. *Default: as built.*
 - Q22 to Q35, Q37, Q39, Q41 and Q42 stand.
+
+## Re-review
+
+**Review:** Codex job `20261017-023031-tOb7UY`, run on `953def204`. It confirmed F1 to F4 fixed (F2 through the withdrawal, with re-selection still deferred under Q44) and reopened the stage with one new Medium finding, F5.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Auto-primed drafts can bypass the cold-submit guard | confirmed fixed | `efc53a86c` | (re-review: confirmed) |
+| F2 | High | Ordinary practice permanently contaminates the promised cold measurement | confirmed fixed (withdrawal; re-selection deferred, Q44) | `efc53a86c` | (re-review: confirmed) |
+| F3 | Medium | Retiming starts at queue construction and is not refreshed by practice | confirmed fixed | `efc53a86c` | (re-review: confirmed) |
+| F4 | Medium | Serving and historical admissibility changes have no successor or kill switch | confirmed fixed | `efc53a86c` | (re-review: confirmed) |
+| F5 | Medium | Withdrawal can permanently mislabel a concurrently consumed task | fixed | `0194079fc` | `test_serve_eligibility_review.py::test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free` |
+
+### F5: the withdrawal reads its task under the lock
+
+`remediation.withdraw_cold_measurement` read the task and checked it was open *before* `repository.atomic()`. A submit could consume the cold retry in that gap, with its post-attempt verification still to run. The withdrawal then wrote `unmeasurable_no_held_out_surface` from the stale snapshot. Its expiry UPDATE correctly left the consumed task alone, but the one-row-per-task index (`uq_causal_cold_outcomes_task`, migration 145) then kept the consume's own disposition out for good.
+
+**Reproduced first.** The regression wraps `repository.atomic` so that a concurrent consume (`consume_followup_task` with a real earlier attempt) commits just before the withdrawal's `BEGIN IMMEDIATE`. On `953def204` the test fails: the withdrawal returns the consumed task, and the vault holds one outcome row for it, `unmeasurable_no_held_out_surface`. That was checked by running the same test against `953def204`'s `withdraw_cold_measurement`.
+
+**Fix.** The task is now read and its status checked *inside* the transaction, and nothing is written if the task is no longer `pending`/`served`. Under `BEGIN IMMEDIATE` there are only two orders. Either the consume committed first, so the withdrawal sees the task consumed and returns `None` without writing anything. Or the consume waits for the withdrawal, and its own status guard (`WHERE status IN ('pending','served')`) leaves the expired task alone. With the fix the test passes: the task stays `consumed`, no withdrawal row exists, and the consume-time `contaminated_or_assisted` row records as the task's one disposition. This changes no serve, submit, grading, regrade or replay rule. It only orders the withdrawal's own check against its write. There is no migration, no config key and no RPC change.
+
+### Re-review gate
+
+Run in the worktree with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`, on `0194079fc`.
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| targeted (`test_serve_eligibility_review`, `test_serve_eligibility`, `test_causal_cold_outcomes`, `test_guided_redo`, `test_remediation_cold_retry`, `test_certification_cold_probe`, `test_ux_phase4_feedback`) | 673 passed |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **12797 passed, 2 xfailed**, 0 failed (14 min 38 s). The 2 xfails are main's strict ones. The first run gave 12790 passed and 7 failed, all in `tests/test_mcp_c1a_review.py` (main's file, not touched here). They share one world, and their assertion `"8841" not in text` matched by chance inside a random hex id in the payload (`…90d232ddaf8841f11d03`). That is a random-id substring collision, unrelated to this stage. The file passed alone 4 times (62 passed each), and the clean full rerun confirms it |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 12693 deselected |
+| `git diff --check` | clean |
+| references, snapshots, CLI help, RPC pins | unchanged: no schema, config, CLI or RPC change |
+| frontend (`npm …`), `cargo check` | not run: nothing under `apps/` changed |
+| migration, head fixture | none (207 stays free) |
+
+**Paid calls:** none. The test uses fakes only.
+
+**Open question (owner, not this stage):** `test_mcp_c1a_review.py`'s literal `"8841"` check can collide with random ids, which makes it flaky about once in several thousand runs. Anchoring it to the tainted title's words would fix it, but that belongs to the MCP stage.
