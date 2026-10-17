@@ -5,7 +5,7 @@
 // (Today or the library), never in the Reader being closed, never blocking.
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { ReaderWrapUpDto } from "../../api/dto";
+import type { ReaderWrapUpActionDto, ReaderWrapUpDto } from "../../api/dto";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { wrapUpOfferArmed } from "../../app/wrapUpOffer";
 import { WrapUpOffer } from "./WrapUpOffer";
@@ -19,7 +19,7 @@ const api = vi.hoisted(() => ({
 vi.mock("../../api/client", () => ({ api }));
 
 function wrapUp(overrides: Partial<ReaderWrapUpDto> = {}): ReaderWrapUpDto {
-  const status = (action: string, resolution: string, trigger: string) => ({
+  const status = (action: ReaderWrapUpActionDto["action"], resolution: string, trigger: string): ReaderWrapUpActionDto => ({
     action, rpc: "reader.set_inquiry_status",
     params: { extractionId: "ext1", exchangeId: action === "undo" ? "r1" : "r2", resolution, trigger },
   });
@@ -49,9 +49,10 @@ it("shows resolved, still open and worth reinforcing, each line with one action"
   expect(panel.textContent).toContain("◌ Exercise 5.14 · with help · help so far: the book");
   fireEvent.click(within(panel).getByRole("button", { name: "undo" }));
   expect(onAction).toHaveBeenCalledWith(expect.objectContaining({ rootExchangeId: "r1" }), expect.objectContaining({ action: "undo" }));
-  fireEvent.click(within(panel).getByRole("button", { name: "keep open" }));
-  expect(onAction).toHaveBeenCalledTimes(1);
   expect(within(panel).getByRole("button", { name: "revisit once" })).toBeTruthy();
+  fireEvent.click(within(panel).getByRole("button", { name: "keep open" }));
+  expect(onAction).toHaveBeenCalledTimes(1); // keep open writes nothing
+  expect(panel.textContent).toContain("kept open");
   expect(panel.textContent?.toLowerCase()).not.toMatch(/overdue|\d+ open/);
 });
 

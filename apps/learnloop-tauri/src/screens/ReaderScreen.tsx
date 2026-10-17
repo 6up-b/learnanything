@@ -77,6 +77,10 @@ import {
 import { goTo as stackGoTo } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { useReaderRecap } from "./reader/useReaderRecap";
+import { RecapCard } from "./reader/RecapCard";
+import { WrapUpPanel } from "./reader/WrapUpPanel";
+import { RECAP_COPY } from "./reader/recapCopy";
 import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
@@ -484,6 +488,45 @@ export function ReaderScreen({
     spanOrder, readingSpan, visitPayload, jumpToSpan, notePlacement: progress.notePlacement,
     onCheckMe: onCheckMe ? checkMeFromCue : undefined, onError,
   });
+  // RW6a: "Last time here" and Wrap up (screens/reader/useReaderRecap). Off
+  // (no `recap` key from the sidecar) it asks nothing and renders nothing.
+  const recapCtl = useReaderRecap({
+    enabled: algoConfig().recap && Boolean(render) && !offline,
+    wrapUpEnabled: algoConfig().wrapUp && Boolean(render) && !offline,
+    extractionId: render && !offline ? render.extractionId : null,
+    visitId: () => visit.visitRef.current?.id ?? null,
+    readingMoved,
+    activityKey: `${history.length}:${wbCtl.sessions.length}:${wbCtl.active?.session.sessionId ?? ""}`,
+    onError,
+  });
+  const recapShown = Boolean(recapCtl.recap && !recapCtl.collapsed && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  const { noteShown: noteRecapShown } = recapCtl;
+  useEffect(() => {
+    if (recapShown) noteRecapShown();
+  }, [recapShown, noteRecapShown]);
+  /** A status chip from the card or Wrap up: the inquiry hook's own call
+   *  when the root is in this source's history, so the Ask rail follows. */
+  const recapSetStatus = useCallback(async (rootId: string, resolution: "open" | "resolved", trigger: "chip" | "undo" = "chip") => {
+    const root = history.find((entry) => entry.id === rootId);
+    if (root) await setInquiryStatus(root, resolution);
+    else if (render) {
+      try {
+        await api.readerSetInquiryStatus({ extractionId: render.extractionId, exchangeId: rootId, resolution, trigger });
+      } catch (error) {
+        onError(errorMessage(error));
+      }
+    }
+    recapCtl.reload();
+  }, [history, setInquiryStatus, render, onError, recapCtl]);
+  const recapRevisit = useCallback(async (rootId: string) => {
+    const root = history.find((entry) => entry.id === rootId);
+    if (root) await commitInquiry(root, "test_me_later");
+    recapCtl.reload();
+  }, [history, commitInquiry, recapCtl]);
+  const recapOpenInquiry = useCallback((_rootId: string, spanId: string) => {
+    setRailTab("ask");
+    peekPassage(spanId);
+  }, [peekPassage]);
   const renderMark = (cue: ReaderCueDto, markSurface: "text" | "pdf" | "watch") => (
     <MarginMark
       key={cue.cueId}
@@ -2559,6 +2602,41 @@ export function ReaderScreen({
             sendQuestionControl={sendQuestionControl}
             disposition={disposition}
             chooseDisposition={chooseDisposition}
+            header={recapCtl.wrapUpOpen || recapCtl.recap ? (
+              <>
+                {recapCtl.wrapUpOpen ? (
+                  <WrapUpPanel
+                    wrapUp={recapCtl.wrapUpOpen}
+                    where="reader"
+                    onClose={recapCtl.closeWrapUp}
+                    onAction={async (line, action) => {
+                      const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
+                      if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
+                        await recapSetStatus(line.rootExchangeId, params.resolution, params.trigger ?? "chip");
+                      } else if (action.rpc === "reader.invoke_preset") {
+                        await recapRevisit(line.rootExchangeId);
+                      }
+                    }}
+                  />
+                ) : null}
+                {recapCtl.recap ? (
+                  <RecapCard
+                    recap={recapCtl.recap}
+                    collapsed={recapCtl.collapsed}
+                    onExpand={recapCtl.expand}
+                    onContinue={() => {
+                      recapCtl.continueReading();
+                      if (progress.restoredSpan) jumpToSpan(progress.restoredSpan);
+                    }}
+                    onDismiss={() => void recapCtl.dismiss()}
+                    onOpenInquiry={recapOpenInquiry}
+                    onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
+                    onRevisit={(rootId) => void recapRevisit(rootId)}
+                    onResume={(sessionId) => void wbCtl.resume(sessionId)}
+                  />
+                ) : null}
+              </>
+            ) : null}
             footer={cueCtl.cues ? (
               <CueFooter
                 density={cueCtl.cues.density}
@@ -2684,6 +2762,21 @@ export function ReaderScreen({
             committed={committedFor}
             renderInquiryTop={renderInquiryTop}
           />
+          {recapCtl.wrapUpAvailable && !recapCtl.wrapUpOpen ? (
+            // RW6a: offered once the session has activity (D34); `w` too.
+            <div style={{ borderTop: `1px solid ${COLOR.border}`, marginTop: 16, paddingTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRailTab("guide");
+                  void recapCtl.openWrapUp();
+                }}
+                style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", color: COLOR.textDim, fontFamily: FONT_MONO, fontSize: 11 }}
+              >
+                {RECAP_COPY.wrapUpOffer}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 

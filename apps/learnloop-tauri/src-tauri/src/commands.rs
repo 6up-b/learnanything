@@ -1324,6 +1324,11 @@ sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");
 sidecar_passthrough!(workbench_for_source, "workbench.for_source");
+// Reader workbench RW6a ("Last time here" and Wrap up): desktop only.
+sidecar_passthrough!(reader_recap, "reader.recap");
+sidecar_passthrough!(reader_recap_event, "reader.recap_event");
+sidecar_passthrough!(reader_wrap_up, "reader.wrap_up");
+sidecar_passthrough!(reader_wrap_up_offer, "reader.wrap_up_offer");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

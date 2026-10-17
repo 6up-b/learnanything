@@ -59,6 +59,8 @@ import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { feedbackOrigin, simplePracticeFeedback } from "./practiceFeedback";
 import { errorMessage } from "../errors";
+import { wrapUpOfferArmed, type WrapUpLanding } from "./wrapUpOffer";
+import { WrapUpOffer } from "../screens/reader/WrapUpOffer";
 
 type OpenSourceTarget = {
   extractionId: string;
@@ -95,6 +97,16 @@ export function App() {
   const [reviewCounts, setReviewCounts] = useState<ReviewCountsDto | null>(null);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [tab, setTab] = useState<TopTab>("start");
+  // RW6a (spec §9.1, UX S11): the wrap-up offer shows where the learner lands
+  // after leaving the Reader -- Today or the library -- for that one view.
+  const [wrapUpLanding, setWrapUpLanding] = useState<{ tab: WrapUpLanding; seq: number } | null>(null);
+  const previousTabRef = useRef<TopTab>(tab);
+  useEffect(() => {
+    const previous = previousTabRef.current;
+    previousTabRef.current = tab;
+    if (previous === tab) return;
+    setWrapUpLanding(wrapUpOfferArmed(previous, tab) ? { tab: tab as WrapUpLanding, seq: Date.now() } : null);
+  }, [tab]);
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
   // The Reader unmounts on every tab switch; the open source is kept here so
@@ -1126,6 +1138,13 @@ export function App() {
     );
   }
 
+  // The one dim, self-dismissing wrap-up line (RW6a): only on the first view
+  // after leaving the Reader, only while recap.wrap_up_enabled is on.
+  function wrapUpLine(landing: WrapUpLanding) {
+    if (!wrapUpLanding || wrapUpLanding.tab !== landing || !algoConfig().wrapUp) return null;
+    return <WrapUpOffer key={wrapUpLanding.seq} armed onError={onError} />;
+  }
+
   function renderBody() {
     if (!snapshot) {
       if (startupError) {
@@ -1310,7 +1329,7 @@ export function App() {
           />
         );
       }
-      return (
+      const today = (
         <TodayScreen
           key={snapshot.vault?.root}
           subjects={subjectOptions}
@@ -1341,6 +1360,8 @@ export function App() {
           onError={onError}
         />
       );
+      // Always the same shape, so the line arriving never remounts Today.
+      return <>{wrapUpLine("today")}{today}</>;
     }
     if (tab === "graph") {
       return <GraphScreen onInspect={setInspectorId} onError={onError} />;
@@ -1362,7 +1383,7 @@ export function App() {
       );
     }
     if (tab === "library") {
-      return libraryPlace();
+      return <>{wrapUpLine("library")}{libraryPlace()}</>;
     }
     if (tab === "proposals") {
       return (

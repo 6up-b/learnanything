@@ -24,6 +24,12 @@ export interface AlgoDisplayConfig {
    *  sends a `workbench` key only while it is on, so false until it says so,
    *  and off leaves every screen exactly as before RW2a. */
   workbench: boolean;
+  /** Reader workbench RW6a's kill switches (`recap.enabled`,
+   *  `recap.wrap_up_enabled`): the sidecar sends a `recap` key only while
+   *  one is on, so both false until it says so, and off leaves the Reader
+   *  and Today exactly as before RW6a. */
+  recap: boolean;
+  wrapUp: boolean;
 }
 
 const DEFAULTS: AlgoDisplayConfig = {
@@ -33,7 +39,9 @@ const DEFAULTS: AlgoDisplayConfig = {
   gateScoreThreshold: 0.5,
   stuckPrompt: false,
   practiceFeedback: "simple",
-  workbench: false
+  workbench: false,
+  recap: false,
+  wrapUp: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -45,6 +53,7 @@ export function setAlgoConfig(config: unknown): void {
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown };
     workbench?: { enabled?: unknown };
+    recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -54,7 +63,9 @@ export function setAlgoConfig(config: unknown): void {
     stuckPrompt: root.practice?.stuckPrompt === true,
     // The sidecar's default; only its other value turns it off.
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
-    workbench: root.workbench?.enabled === true
+    workbench: root.workbench?.enabled === true,
+    recap: root.recap?.enabled === true,
+    wrapUp: root.recap?.wrapUpEnabled === true
   };
 }
 
