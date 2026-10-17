@@ -12,8 +12,16 @@
   practice item, and one ``test_me_later`` commitment on that item is added,
   dated ``RECONSTRUCT_DAYS`` ahead (``due_hint``), so the daily loop's "Check
   once" (DL2, when it lands) serves it as a delayed, cold rebuild.
-  :func:`reconstruct_commit` is idempotent; :func:`reconstruct_undo` retires
-  both, as a capture's undo does.
+  :func:`reconstruct_commit` is idempotent, and crash-idempotent too: the
+  item is named by the question, so a retry after any interrupted write
+  finishes the same item and commitment (Codex review F5).
+  :func:`reconstruct_undo` retires both, as a capture's undo does, and an
+  undone reconstruction stays undone (:class:`ReconstructUndone`, F6; open
+  question 6's default: a second try is not offered).
+* **A self-check and its learner text are one write** (:func:`record_action`):
+  a missed self-check and its ``reader_formative`` job commit together, so a
+  stop between them can't leave a recorded miss that never reaches
+  learner-text gaps (F7); the backlog sweep recovers older ones.
 """
 
 from __future__ import annotations
@@ -38,12 +46,31 @@ class ActiveReadingError(ValueError):
     """Domain error for RW1b's active-reading acts."""
 
 
+class ReconstructUndone(ActiveReadingError):
+    """The learner undid this reconstruction: it is not made again."""
+
+
 def queue_formative(vault: Any, repository: Any, row: dict[str, Any], *, clock: Clock | None = None) -> str | None:
     """Queue a missed formative answer for learner-text gaps (or nothing)."""
 
     if not RQC.is_missed(row):
         return None
     return enqueue_reader_formative(vault, repository, question_id=str(row["id"]), clock=clock)
+
+
+def record_action(
+    vault: Any, repository: Any, *, question_id: str, action: str, response_md: str | None = None,
+    self_check: str | None = None, clock: Clock | None = None,
+) -> tuple[dict[str, Any], str | None]:
+    """The learner's act on an active-reading question and, for a missed
+    self-check, its learner-text job, in one transaction (F7). Returns the
+    row and the job id (or None). The caller wakes the worker after it."""
+
+    with repository.atomic():
+        row = RQC.record_selection_action(repository, question_id=question_id, action=action,
+                                          response_md=response_md, self_check=self_check, clock=clock)
+        job = queue_formative(vault, repository, row, clock=clock) if action == "self_checked" else None
+    return row, job
 
 
 def _key(question_id: str) -> str:
@@ -70,6 +97,9 @@ def reconstruct_commit(
         raise ActiveReadingError("not a reconstruct question")
     if row["status"] == "dismissed":
         raise ActiveReadingError("this reconstruction was undone")
+    existing = _commitment_for(repository, question_id)
+    if existing is not None and C.resolve_disposition(repository, existing) == "stopped":
+        raise ReconstructUndone("You undid this reconstruction, so it won't be asked.")
     escalated = RQC.escalate(root, repository, question_id=question_id, learning_object_id=learning_object_id,
                              clock=clock)
     item_id = str(escalated["practice_item_id"])
@@ -118,7 +148,9 @@ def reconstruct_undo(root: Path, repository: Any, *, question_id: str, vault: An
 __all__ = [
     "ActiveReadingError",
     "RECONSTRUCT_DAYS",
+    "ReconstructUndone",
     "queue_formative",
+    "record_action",
     "reconstruct_commit",
     "reconstruct_undo",
 ]

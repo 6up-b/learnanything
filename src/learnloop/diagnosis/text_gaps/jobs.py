@@ -38,6 +38,7 @@ from learnloop.diagnosis.text_gaps.sources import (
     attempt_grade_held,
     formative_row,
     learner_text,
+    missed_formative_ids,
     stuck_text_for,
     stuck_texts,
 )
@@ -155,12 +156,14 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
                   dry_run: bool = False) -> dict[str, int]:
     """Queue unread learner texts (``learnloop gaps run --backlog``).
 
-    Stuck answers always; with ``include_history`` also answered tutor
-    questions that carry a tutor reading and completed live diagnoses.
-    ``dry_run`` counts what would be queued and writes nothing.
+    Stuck answers always, and missed active-reading answers while
+    ``reader_formative.enabled`` is on (RW1b review F7: one whose job was never
+    written); with ``include_history`` also answered tutor questions that
+    carry a tutor reading and completed live diagnoses. ``dry_run`` counts
+    what would be queued and writes nothing.
     """
 
-    counts = {"stuck_answer": 0, "tutor_question": 0, "diagnosis": 0}
+    counts = {"stuck_answer": 0, "tutor_question": 0, "diagnosis": 0, "reader_formative": 0}
     if not pipeline_enabled(vault):
         return counts
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -176,6 +179,10 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
     for row in stuck_texts(repository, stuck_source):
         if queue("stuck_answer", row.attempt_id):
             counts["stuck_answer"] += 1
+    if bool(getattr(getattr(vault.config, "reader_formative", None), "enabled", False)):
+        for question_id in missed_formative_ids(repository):
+            if queue("reader_formative", question_id):
+                counts["reader_formative"] += 1
     if include_history:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             questions = [str(row[0]) for row in connection.execute(

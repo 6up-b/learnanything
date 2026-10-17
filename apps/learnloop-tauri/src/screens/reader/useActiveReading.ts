@@ -11,7 +11,12 @@
 // derivation into a later practice item (undoable). "Another way to see this"
 // asks the sources service for a different treatment, the open passage left
 // out. None of it is ever an attempt; a missed answer is kept for learner-text
-// gaps by the sidecar.
+// gaps by the sidecar. An answered question can be added to practice (one item,
+// through the quick check's own escalation). A reconstruction undone stays
+// undone and says so (RW1b review F6). "Another way" reads the sources
+// service's status: only a finished search says nothing treats it differently;
+// a verification that failed says so with "try again" (F10); closing it drops
+// a late result (F11).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { InquirySelfCheck, ReaderActiveQuestionDto, ReaderActiveStyle } from "../../api/dto";
@@ -44,6 +49,8 @@ export interface ActiveReadingState {
   failure: string | null;
   busy: boolean;
   reconstruct: { phase: "idle" | "pending" | "done" | "undone" | "failed"; message: string | null };
+  /** "add to practice" on an answered question. */
+  practice: { phase: "idle" | "pending" | "done" | "failed"; message: string | null };
 }
 
 export interface AnotherWayState {
@@ -52,9 +59,24 @@ export interface AnotherWayState {
   hits: AnotherWayHit[];
   failure: string | null;
   quote: string;
+  spanIds: string[];
 }
 
 const NO_RECONSTRUCT = { phase: "idle" as const, message: null };
+const NO_PRACTICE = { phase: "idle" as const, message: null };
+export const UNDONE_EARLIER = "You undid this reconstruction earlier, so it won't be asked.";
+
+/** The sources service's status for a search (find_sources): "ok" is a
+ *  finished search; "unverified: <why>" means the passages could not be
+ *  checked, so none is shown -- never "nothing treats this differently". */
+export function anotherWayOutcome(status: unknown): { phase: ModelActionPhase; failure: string | null } {
+  const value = typeof status === "string" ? status : "ok";
+  if (value === "ok") return { phase: "landed", failure: null };
+  const why = value.includes(":") ? value.slice(value.indexOf(":") + 1).trim() : value;
+  if (why === "unavailable") return { phase: "unreachable", failure: "Couldn't check what your books say about this." };
+  if (why === "over_budget") return { phase: "capped", failure: "Couldn't check what your books say about this." };
+  return { phase: "failed", failure: "Couldn't check what your books say about this." };
+}
 
 function failureLine(code: string | null | undefined, message: string | null | undefined): string {
   if (code === "exam_material") return message ?? "This passage is held out of LearnLoop's models.";
@@ -79,13 +101,20 @@ export function useActiveReading({
   const keyRef = useRef(0);
   const activeRef = useRef<ActiveReadingState | null>(null);
   activeRef.current = active;
+  const anotherRef = useRef<AnotherWayState | null>(null);
+  anotherRef.current = another;
 
   const update = useCallback((key: number, patch: Partial<ActiveReadingState>) => {
     setActive((current) => (current && current.key === key ? { ...current, ...patch } : current));
   }, []);
 
   const commitReconstruct = useCallback(async (key: number, question: ReaderActiveQuestionDto) => {
-    if (question.reconstruct?.disposition && question.reconstruct.disposition !== "stopped") {
+    if (question.reconstruct?.disposition === "stopped") {
+      // Undone earlier: it stays undone, and the card says so (F6).
+      update(key, { reconstruct: { phase: "undone", message: UNDONE_EARLIER } });
+      return;
+    }
+    if (question.reconstruct?.disposition) {
       update(key, { reconstruct: { phase: "done", message: null } });
       return;
     }
@@ -95,6 +124,10 @@ export function useActiveReading({
       update(key, { question: made.question, reconstruct: { phase: "done", message: null } });
     } catch (error) {
       const code = getCommandError(error)?.code;
+      if (code === "reconstruct_undone") {
+        update(key, { reconstruct: { phase: "undone", message: UNDONE_EARLIER } });
+        return;
+      }
       update(key, {
         reconstruct: {
           phase: "failed",
@@ -119,7 +152,7 @@ export function useActiveReading({
     setActive({
       key, style, extractionId, anchorSpanIds: spanIds, foldedSpanIds: style === "next_step" ? localFold : [],
       foldOpen: false, batchId: null, question: null, phase: "pending", failure: null, busy: false,
-      reconstruct: NO_RECONSTRUCT,
+      reconstruct: NO_RECONSTRUCT, practice: NO_PRACTICE,
     });
     onOpenRail();
     try {
@@ -207,6 +240,25 @@ export function useActiveReading({
     if (current) void start(current.style, current.anchorSpanIds, current.foldedSpanIds);
   }, [start]);
 
+  /** "add to practice": the answered question becomes one practice item. */
+  const addToPractice = useCallback(async () => {
+    const current = activeRef.current;
+    const question = current?.question;
+    if (!current || !question?.escalationLearningObjectId) return;
+    const key = current.key;
+    update(key, { practice: { phase: "pending", message: null } });
+    try {
+      const made = await api.readerEscalateAuthoredQuestion({ questionId: question.id, learningObjectId: question.escalationLearningObjectId });
+      if (keyRef.current !== key) return;
+      update(key, {
+        question: { ...question, status: "escalated", practiceItemId: made.practiceItemId },
+        practice: { phase: "done", message: null },
+      });
+    } catch (error) {
+      update(key, { practice: { phase: "failed", message: errorMessage(error) } });
+    }
+  }, [update]);
+
   const undoReconstruct = useCallback(async () => {
     const current = activeRef.current;
     if (!current?.question) return;
@@ -224,7 +276,7 @@ export function useActiveReading({
     if (!extractionId || spanIds.length === 0) return;
     const key = ++keyRef.current;
     setActive(null);
-    setAnother({ key, phase: "pending", hits: [], failure: null, quote });
+    setAnother({ key, phase: "pending", hits: [], failure: null, quote, spanIds });
     onOpenRail();
     try {
       const found = await api.findSources({
@@ -232,17 +284,31 @@ export function useActiveReading({
         excludeSpanKeys: spanIds.map((spanId) => `${extractionId}:${spanId}`),
       });
       if (keyRef.current !== key) return;
+      const outcome = anotherWayOutcome(found.status);
+      if (outcome.phase !== "landed") {
+        setAnother({ key, phase: outcome.phase, hits: [], failure: outcome.failure, quote, spanIds });
+        return;
+      }
       const hits = ((found.hits as Array<Record<string, unknown>> | undefined) ?? []).slice(0, 2).map((hit) => ({
         extractionId: String(hit.extractionId ?? ""), spanId: String(hit.spanId ?? ""),
         sourceId: (hit.sourceId as string | null) ?? null, sourceTitle: (hit.sourceTitle as string | null) ?? null,
         text: String(hit.text ?? ""), role: (hit.role as string | null) ?? null, rationale: (hit.rationale as string | null) ?? null,
       }));
-      setAnother({ key, phase: "landed", hits, failure: null, quote });
+      setAnother({ key, phase: "landed", hits, failure: null, quote, spanIds });
     } catch (error) {
       if (keyRef.current !== key) return;
-      setAnother({ key, phase: phaseForError(error), hits: [], failure: "Couldn't look in your books.", quote });
+      setAnother({ key, phase: phaseForError(error), hits: [], failure: "Couldn't look in your books.", quote, spanIds });
     }
   }, [extractionId, onOpenRail]);
+  const retryAnother = useCallback(() => {
+    const current = anotherRef.current;
+    if (current) void anotherWay(current.quote, current.spanIds);
+  }, [anotherWay]);
+  /** Close "another way": its request is dropped, so a late result can't reopen it (F11). */
+  const closeAnother = useCallback(() => {
+    keyRef.current += 1;
+    setAnother(null);
+  }, []);
 
   // Another book: nothing carries over.
   useEffect(() => {
@@ -254,7 +320,7 @@ export function useActiveReading({
   const folded = new Set(active && !active.foldOpen ? active.foldedSpanIds : []);
   return {
     active, another, folded, start, answer, showMe, selfCheck, dismiss, unfold, close, retry, undoReconstruct,
-    anotherWay, closeAnother: () => setAnother(null), sourceId,
+    addToPractice, anotherWay, retryAnother, closeAnother, sourceId,
   };
 }
 

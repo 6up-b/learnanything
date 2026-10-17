@@ -8,7 +8,9 @@ The intent box's router:
 * ``reader.intent_routing`` -- read it (pending, or the action and why), so
   Enter takes a speculative routing already in flight;
 * ``reader.intent_outcome`` -- the routing was used, discarded, or changed by
-  the learner (the ``learner_card`` correction).
+  the learner (the ``learner_card`` correction); ``reverted`` undoes the
+  capture a routed action made when the learner presses "change". A fate
+  asked of a routing still in flight is kept and recorded when it lands.
 
 Active reading on a selection:
 
@@ -160,6 +162,27 @@ class _Running:
     done: threading.Event = field(default_factory=threading.Event)
     routing: RI.Routing | None = None
     error: str | None = None
+    #: A fate asked while the routing ran (the text changed, the box closed),
+    #: recorded by the worker once the routing lands (Codex review F12).
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    pending_fate: str | None = None
+    #: Set when the worker is finished, its deferred fate included.
+    fate_done: threading.Event = field(default_factory=threading.Event)
+
+
+def _record_fate(repository, running: _Running, fate: str) -> str | None:
+    """One fate (``used`` or ``discarded``) and its funnel event."""
+
+    routing = running.routing
+    assert routing is not None and routing.judgment_id is not None
+    appended = RI.record_fate(repository, routing.judgment_id, fate)
+    _event(repository, "reader_action_invoked", {
+        "event": "intent_routed", "extraction_id": running.extraction_id, "routing_id": routing.routing_id,
+        "action_kind": routing.action, "intention": routing.intention, "status": routing.status,
+        "failure_reason": routing.reason, "speculative": routing.speculative,
+        "used": fate == "used",
+    }, subject_id=running.extraction_id)
+    return appended
 
 
 class IntentRoutings:
@@ -209,7 +232,16 @@ class IntentRoutings:
             except Exception as exc:  # noqa: BLE001 - a routing that broke routes to Ask
                 running.error = type(exc).__name__
             finally:
-                running.done.set()
+                with running.lock:
+                    running.done.set()
+                    fate = running.pending_fate
+                try:
+                    if fate and running.routing is not None and running.routing.judgment_id is not None:
+                        _record_fate(worker_repo, running, fate)
+                except Exception:  # noqa: BLE001 - a fate is a report row, never the Reader's
+                    running.error = running.error or "fate_failed"
+                finally:
+                    running.fate_done.set()
 
         if getattr(ctx, "reader_intent_inline", False):
             run()
@@ -298,27 +330,41 @@ class ReaderIntentOutcomeInput(ParamsModel):
     routing_id: str
     outcome: str
     action: str | None = None
+    #: ``reverted``: the annotation the routed capture made.
+    annotation_id: str | None = None
 
 
 @method("reader.intent_outcome", ReaderIntentOutcomeInput)
 def reader_intent_outcome(ctx: SidecarContext, params: ReaderIntentOutcomeInput) -> dict[str, Any]:
     """``used`` (Enter took it), ``discarded`` (the text changed, the box
-    closed) or ``corrected`` ("change", with the action picked instead, or none)."""
+    closed), ``corrected`` ("change", with the action picked instead, or none)
+    or ``reverted`` ("change" after a routed capture ran: its annotation,
+    commitment and synthesis are undone). A fate asked while the routing is
+    still in flight is kept and recorded when it lands (``deferred``)."""
 
     _vault, repository = _require_intent(ctx)
     running = _routings(ctx).get(params.routing_id)
-    if running is None or running.routing is None or running.routing.judgment_id is None:
+    if running is None:
+        raise SidecarError("not_found", "That routing is no longer kept.")
+    if params.outcome in RI.FATES:
+        with running.lock:
+            if not running.done.is_set():
+                running.pending_fate = params.outcome
+                return versioned({"routing_id": running.routing_id, "recorded": False, "deferred": True})
+    if running.routing is None or running.routing.judgment_id is None:
         raise SidecarError("not_found", "That routing is no longer kept.")
     routing = running.routing
     try:
         if params.outcome in RI.FATES:
-            appended = RI.record_fate(repository, routing.judgment_id, params.outcome)
-            _event(repository, "reader_action_invoked", {
-                "event": "intent_routed", "extraction_id": running.extraction_id, "routing_id": routing.routing_id,
-                "action_kind": routing.action, "intention": routing.intention, "status": routing.status,
-                "failure_reason": routing.reason, "speculative": routing.speculative,
-                "used": params.outcome == "used",
-            }, subject_id=running.extraction_id)
+            appended = _record_fate(repository, running, params.outcome)
+        elif params.outcome == "reverted":
+            action = RI.ACTIONS_BY_ID.get(routing.action)
+            if routing.status != RI.ROUTED or action is None or action.effect.get("kind") not in RI.REVERTIBLE_EFFECTS:
+                raise SidecarError("validation_error", "Only a routed capture can be reverted.")
+            if not params.annotation_id:
+                raise SidecarError("validation_error", "A revert names the capture's annotation.")
+            reverted = RI.revert_capture(repository, annotation_id=params.annotation_id)
+            return versioned({"routing_id": routing.routing_id, "recorded": True, "reverted": reverted})
         elif params.outcome == "corrected":
             appended = RI.record_correction(repository, routing.judgment_id, params.action)
             chosen = RI.ACTIONS_BY_ID.get(params.action or "")
@@ -482,20 +528,19 @@ def reader_active_question_action(ctx: SidecarContext, params: ReaderActiveQuest
 
     vault, repository = _require_active(ctx)
     try:
-        row = RQC.record_selection_action(
-            repository, question_id=params.question_id, action=params.action,
+        # The self-check and its learner-text job are one write (review F7).
+        row, formative_job = AR.record_action(
+            vault, repository, question_id=params.question_id, action=params.action,
             response_md=params.response, self_check=params.self_check,
         )
     except RQC.ReaderQuickCheckError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    formative_job = None
     if params.action == "self_checked":
         _event(repository, "reader_action_invoked", {
             "event": "active_question_answered", "extraction_id": row["extraction_id"],
             "style": row.get("question_style"), "self_check": row.get("self_check"),
             "answered": bool(str(row.get("response_md") or "").strip()),
         }, subject_id=row["extraction_id"])
-        formative_job = AR.queue_formative(vault, repository, row)
         if formative_job is not None:
             ctx.post_attempt_worker.notify()
     return versioned({"question": _question_payload(vault, repository, row), "formative_job_id": formative_job})
@@ -524,6 +569,8 @@ def reader_reconstruct(ctx: SidecarContext, params: ReaderReconstructInput) -> d
     try:
         result = AR.reconstruct_commit(vault.root, repository, question_id=params.question_id,
                                        learning_object_id=str(learning_object_id))
+    except AR.ReconstructUndone as exc:
+        raise SidecarError("reconstruct_undone", str(exc)) from exc
     except (AR.ActiveReadingError, RQC.ReaderQuickCheckError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     _event(repository, "reader_action_invoked", {

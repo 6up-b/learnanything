@@ -276,7 +276,10 @@ def build_reader_report(
     # -- the intent box and active reading (RW1b) -----------------------------
     routed = actions("intent_routed")
     used = [e for e in routed if e["payload"].get("used") is True]
-    used_ids = {str(e["payload"].get("routing_id")) for e in used}
+    # The correction denominator: used routings the Decider chose (a fallback
+    # that ran Ask is used, but has no routing to correct). Every executed
+    # routing, Enter-only included, reports its use (RW1b review F12).
+    used_ids = {str(e["payload"].get("routing_id")) for e in used if e["payload"].get("status") == "routed"}
     corrections = actions("intent_corrected")
     intent_jobs = [c for c in completions if c["payload"].get("job_kind") == "intent_routing"]
     styles = ("next_step", "why_step", "assumptions", "reconstruct")
@@ -362,7 +365,7 @@ def build_reader_report(
             )),
             # Routing error, counted on used routings only (spec §4.2).
             "corrected": _share(
-                sum(1 for e in corrections if str(e["payload"].get("routing_id")) in used_ids), len(used)
+                sum(1 for e in corrections if str(e["payload"].get("routing_id")) in used_ids), len(used_ids)
             ),
             "actions_by_intention": dict(Counter(
                 str(a["payload"].get("intention") or "mark") for a in invoked if a["payload"].get("entry")

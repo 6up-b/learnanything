@@ -128,6 +128,10 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   inlineNote?: { spanId: string; node: ReactNode } | null;
   /** RW3a: margin marks by cue span, drawn in the passage's time column. */
   marks?: ReadonlyMap<string, ReactNode> | null;
+  /** RW1b: "let me try the next step" -- these cues' words are folded while
+   *  the learner tries, under ``line`` (the dotted rule with "show"), as in the
+   *  text view (spec §4.2, UX S5: every source kind; review F9). */
+  fold?: { spans: ReadonlySet<string>; line: ReactNode } | null;
 }>(function YouTubeWatchPanel({
   plan,
   blocks,
@@ -141,6 +145,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   onTagMenu,
   inlineNote = null,
   marks = null,
+  fold = null,
 }, ref) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -208,6 +213,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
   cuesRef.current = transcriptCues;
 
   const transcriptSections = useMemo(() => groupTranscriptCues(transcriptCues), [transcriptCues]);
+  const firstFolded = fold ? transcriptCues.find((cue) => fold.spans.has(cue.block.spanId ?? ""))?.block.spanId ?? null : null;
 
   const activeCue = useMemo(() => cueAt(transcriptCues, currentTime), [transcriptCues, currentTime]);
 
@@ -491,6 +497,21 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                 <span>
                   {section.cues.map((cue, index) => {
                     const spanId = cue.block.spanId ?? "";
+                    if (fold && fold.spans.has(spanId)) {
+                      // Folded while the learner tries the next step: no words,
+                      // no find hit; the dotted rule (with "show") before the first.
+                      return (
+                        <Fragment key={spanId}>
+                          {spanId === firstFolded ? (
+                            <span data-next-step-fold="" style={{ display: "block" }}>{fold.line}</span>
+                          ) : null}
+                          <span data-span-id={spanId} data-transcript-span={spanId} data-folded="" aria-hidden="true" style={{ color: COLOR.textFaint }}>
+                            ···
+                          </span>
+                          {index < section.cues.length - 1 ? " " : null}
+                        </Fragment>
+                      );
+                    }
                     const cueActive = activeSpanId === spanId;
                     const cueAnnotated = annotatedSpans.has(spanId);
                     const cueGuided = guidanceSpans.has(spanId);

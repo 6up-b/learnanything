@@ -26,14 +26,20 @@ disabled (U13).
 threshold). An empty text routes to Ask with no call; an unavailable, timed
 out, spent-out, tied or failing Decider routes to Ask, and so does a day whose
 calls reached ``reader_intent.max_calls_per_day`` (counted from the route's
-receipts, failed calls included). A speculative routing (typing paused) is
-not made once 80% of the day's calls are used, nor while
-``reader_intent.speculative_enabled`` is off. Every routing appends one
-``judgment_ledger`` row (task ``reader_intent``, judge ``decider``); a
-speculative one's fate (``used`` or ``discarded``) is appended as a
-superseding row on the same question (:func:`record_fate`), and a "change" is
-the learner's correction, judge ``learner_card`` (:func:`record_correction`),
-so routing error stays measurable without a review chore.
+reservations, failed calls included). A speculative routing (typing paused)
+is not made once 80% of the day's calls are used, nor while
+``reader_intent.speculative_enabled`` is off. The day's allowance is reserved
+before a request is sent, in one write transaction that counts and claims
+(:func:`_reserve`), so routings racing on worker threads or in two processes
+never pass the cap together (Codex review of RW1b, F2). Every routing appends
+one ``judgment_ledger`` row (task ``reader_intent``, judge ``decider``) on its
+own question (left id: the routing's id; the input's hash stays its
+``input_hash``), so two routings of the same words never share a chain (F3);
+a speculative one's fate (``used`` or ``discarded``) is appended as a row
+superseding the head of that routing's own chain (:func:`record_fate`), and a
+"change" is the learner's correction, judge ``learner_card``
+(:func:`record_correction`), so routing error stays measurable without a
+review chore.
 
 **Never evidence.** Routing writes ledger rows, model-call receipts and
 salience-only reader events; nothing in scoring, scheduling, projection or
@@ -56,6 +62,7 @@ from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.db.stores.judgment_claims import claim_work, complete_claim, release_claim
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
 
@@ -71,9 +78,15 @@ SPECULATION_SHARE = 0.8
 #: What the Decider reads, cut to a bound (prompt size, not a decision).
 TEXT_LIMIT = 1_000
 QUOTE_LIMIT = 600
-#: ``judgment_ledger`` entities.
-LEFT_KIND = "reader_intent_text"
+#: ``judgment_ledger`` entities: the left id is the routing's own id (one
+#: question per routing), the right id the selection's key.
+LEFT_KIND = "reader_intent_routing"
 RIGHT_KIND = "reader_selection"
+#: The day's allowance: one ``judgment_work_claims`` row per admitted request
+#: (task, then ``<day>:<routing id>`` in the key), claimed in the same write
+#: transaction that counts the day's claims (F2).
+ALLOWANCE_TASK = "reader_intent_allowance"
+ALLOWANCE_LEASE_SECONDS = 600
 
 #: The five intentions, then Mark, in the palette's order (UX §4.1, W2).
 INTENTIONS: tuple[str, ...] = ("orient", "understand", "apply", "consolidate", "transfer")
@@ -304,21 +317,79 @@ class Routing:
         }
 
 
-def calls_today(repository: Any, *, clock: Clock | None = None) -> int:
-    """The route's logical Decider calls since today's UTC midnight (its receipts)."""
+def _day(clock: Clock | None) -> str:
+    return parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
 
-    day = parse_utc(utc_now_iso(clock)).strftime("%Y-%m-%d")
-    return repository.model_call_roots_since(owner_kind=RECEIPT_OWNER, since=day)
+
+def _allowance_prefix(day: str) -> str:
+    return f"{ALLOWANCE_TASK}:{day}:"
+
+
+def _used(connection: Any, day: str) -> int:
+    prefix = _allowance_prefix(day)
+    # A range on the primary key (the claim key), not a scan of every claim.
+    row = connection.execute(
+        "SELECT COUNT(*) FROM judgment_work_claims WHERE claim_key >= ? AND claim_key < ? AND state != 'released'",
+        (prefix, prefix + "\uffff"),
+    ).fetchone()
+    return int(row[0] or 0)
+
+
+def calls_today(repository: Any, *, clock: Clock | None = None) -> int:
+    """The route's Decider requests admitted since today's UTC midnight: its
+    reserved allowance (a reservation is made before the request is sent, so
+    failed and unfinished calls count; one given back unsent does not)."""
+
+    with repository.connection() as connection:
+        return _used(connection, _day(clock))
+
+
+def _reserve(repository: Any, *, routing_id: str, limit: int, clock: Clock | None = None) -> str | None:
+    """Claim one request of the day's allowance, or None when ``limit`` is
+    reached. The count and the claim are one ``BEGIN IMMEDIATE`` transaction,
+    so two routings (threads or processes) can never both take the last one."""
+
+    if limit <= 0:
+        return None
+    day = _day(clock)
+    key = f"{_allowance_prefix(day)}{routing_id}"
+    with repository.atomic():
+        connection = repository.connection()
+        if _used(connection, day) >= limit:
+            return None
+        claim_work(connection, claim_key=key, task=ALLOWANCE_TASK, producer=RECEIPT_OWNER,
+                   prompt_version=QUESTION_SET_VERSION, input_hash=day, owner=routing_id,
+                   now=utc_now_iso(clock), lease_seconds=ALLOWANCE_LEASE_SECONDS)
+    return key
+
+
+def _settle_reservation(repository: Any, key: str, *, routing_id: str, judgment_id: str | None,
+                        sent: bool, clock: Clock | None = None) -> None:
+    """A request sent keeps its reservation (``done``, naming its ledger row);
+    one refused before sending (the spend gate) gives it back."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        if sent:
+            complete_claim(connection, claim_key=key, owner=routing_id, epoch=1,
+                           judgment_id=str(judgment_id or ""), now=utc_now_iso(clock))
+        else:
+            release_claim(connection, claim_key=key, owner=routing_id, epoch=1, now=utc_now_iso(clock))
+
+
+def speculation_limit(config: Any) -> int:
+    """How many of the day's requests speculation may use (80% of the cap)."""
+
+    return math.floor(int(config.reader_intent.max_calls_per_day) * SPECULATION_SHARE)
 
 
 def speculation_room(config: Any, repository: Any, *, clock: Clock | None = None) -> bool:
-    """Whether a speculative routing may be made now (switch on, under 80% of the day)."""
+    """Whether a speculative routing may be made now (switch on, under 80% of
+    the day). A read for answering early; :func:`route` reserves atomically."""
 
-    settings = config.reader_intent
-    if not settings.speculative_enabled:
+    if not config.reader_intent.speculative_enabled:
         return False
-    limit = int(settings.max_calls_per_day)
-    return calls_today(repository, clock=clock) < math.floor(limit * SPECULATION_SHARE)
+    return calls_today(repository, clock=clock) < speculation_limit(config)
 
 
 def input_hash(text: str, quote: str, options: Sequence[str]) -> str:
@@ -341,11 +412,11 @@ def _client(root: Any, config: Any) -> Any:
 
 
 def _append(repository: Any, routing: Routing, *, verdict: str, model: str, rationale: Mapping[str, Any],
-            right_id: str, judge: str = "decider", supersedes_id: str | None = None,
+            right_id: str, left_id: str | None = None, judge: str = "decider", supersedes_id: str | None = None,
             clock: Clock | None = None) -> str:
     with repository.atomic():
         return append_judgment(
-            repository.connection(), task=TASK, left_kind=LEFT_KIND, left_id=str(routing.input_hash),
+            repository.connection(), task=TASK, left_kind=LEFT_KIND, left_id=str(left_id or routing.routing_id),
             right_kind=RIGHT_KIND, right_id=right_id, judge=judge,
             judge_model=model if judge == "decider" else None,
             prompt_version=QUESTION_SET_VERSION if judge == "decider" else None,
@@ -392,17 +463,25 @@ def route(
     question = choice_question(actions)
     started = time.monotonic()
     model = "unavailable"
-    limit = int(settings.max_calls_per_day)
-    if calls_today(repository, clock=clock) >= limit:
-        routing.reason = "capped"
-    else:
-        try:
-            client = (client_factory or (lambda: _client(root, config)))()
-            if client is None:
-                raise AIProviderUnavailable("Decider unavailable")
-            model = str(getattr(client, "model", None) or "unknown")
+    limit = speculation_limit(config) if speculative else int(settings.max_calls_per_day)
+    reservation: str | None = None
+    sent = False
+    try:
+        client = (client_factory or (lambda: _client(root, config)))()
+        if client is None:
+            raise AIProviderUnavailable("Decider unavailable")
+        model = str(getattr(client, "model", None) or "unknown")
+        reservation = _reserve(repository, routing_id=routing_id, limit=limit, clock=clock)
+        if reservation is None:
+            if speculative:
+                # Another speculation took the last speculative request.
+                return Routing(routing_id, DEFAULT_ACTION, NOT_MADE, speculative, reason="speculation_stopped",
+                               options=options)
+            routing.reason = "capped"
+        else:
             from learnloop.decider_judgments import ask_decider
 
+            sent = True
             result = ask_decider(
                 client, config=config, repository=repository, task=TASK,
                 state=decider_state(words, quote), questions={QUESTION_NAME: question},
@@ -416,16 +495,19 @@ def route(
                 routing.action, routing.status = leaders[0], ROUTED
             else:
                 routing.reason = "tied"
-        except AIInterrupted:
-            raise
-        except SpendLimitExceeded:
-            routing.reason = "refused"
-        except TimeoutError:
-            routing.reason = "timeout"
-        except AIProviderUnavailable as exc:
-            routing.reason = "timeout" if "timed out" in str(exc).lower() else "unavailable"
-        except Exception:  # noqa: BLE001 - any failure routes to Ask (G3)
-            routing.reason = "failed"
+    except AIInterrupted:
+        raise
+    except SpendLimitExceeded:
+        # The spend gate refuses before the request is sent: the reservation
+        # goes back.
+        routing.reason = "refused"
+        sent = False
+    except TimeoutError:
+        routing.reason = "timeout"
+    except AIProviderUnavailable as exc:
+        routing.reason = "timeout" if "timed out" in str(exc).lower() else "unavailable"
+    except Exception:  # noqa: BLE001 - any failure routes to Ask (G3)
+        routing.reason = "failed"
     routing.latency_ms = int((time.monotonic() - started) * 1000)
     routing.model = model
     rationale: dict[str, Any] = {
@@ -439,6 +521,9 @@ def route(
         repository, routing, verdict=routing.action if routing.status == ROUTED else str(routing.reason),
         model=model, rationale=rationale, right_id=right_id, clock=clock,
     )
+    if reservation is not None:
+        _settle_reservation(repository, reservation, routing_id=routing_id, judgment_id=routing.judgment_id,
+                            sent=sent, clock=clock)
     return routing
 
 
@@ -453,18 +538,24 @@ def _row(repository: Any, judgment_id: str) -> dict[str, Any] | None:
 
 
 def _head(repository: Any, row: Mapping[str, Any]) -> dict[str, Any]:
-    """The newest row on the routing's question (the chain's head)."""
+    """The head of this routing's own chain: the root row, then each row that
+    supersedes the one before (F3: never another routing's row, even one on
+    the same words). Called inside the caller's write transaction, so the
+    head read and the append that supersedes it are one step."""
 
+    head = dict(row)
     with repository.connection() as connection:
-        rows = [dict(r) for r in connection.execute(
-            "SELECT id, judge, judge_model, verdict, score, rationale, supersedes_id FROM judgment_ledger "
-            "WHERE task = ? AND left_kind = ? AND left_id = ? AND right_kind IS ? AND right_id IS ? "
-            "ORDER BY created_at, rowid",
-            (TASK, row["left_kind"], row["left_id"], row["right_kind"], row["right_id"]),
-        )]
-    superseded = {r["supersedes_id"] for r in rows if r["supersedes_id"]}
-    heads = [r for r in rows if r["id"] not in superseded]
-    return heads[-1] if heads else dict(row)
+        seen = {str(head["id"])}
+        while True:
+            nxt = connection.execute(
+                "SELECT id, judge, judge_model, verdict, score, rationale, supersedes_id FROM judgment_ledger "
+                "WHERE task = ? AND supersedes_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                (TASK, head["id"]),
+            ).fetchone()
+            if nxt is None or str(nxt["id"]) in seen:
+                return head
+            head = dict(nxt)
+            seen.add(str(head["id"]))
 
 
 def _rationale(raw: Any) -> dict[str, Any]:
@@ -488,17 +579,18 @@ def record_fate(repository: Any, judgment_id: str, fate: str, *, clock: Clock | 
     rationale = _rationale(row["rationale"])
     if not rationale.get("speculative"):
         return None
-    head = _head(repository, row)
-    head_rationale = _rationale(head.get("rationale"))
-    if head["judge"] != "decider" or head_rationale.get("fate") != "pending":
-        return None
-    routing = Routing(str(rationale.get("routing_id") or ""), str(row["verdict"]), "", True,
-                      probabilities=dict(rationale.get("probabilities") or {}), input_hash=row["input_hash"])
-    return _append(
-        repository, routing, verdict=str(row["verdict"]), model=str(row["judge_model"] or "unavailable"),
-        rationale={**rationale, "fate": fate}, right_id=str(row["right_id"]), supersedes_id=str(head["id"]),
-        clock=clock,
-    )
+    with repository.atomic():
+        head = _head(repository, row)
+        head_rationale = _rationale(head.get("rationale"))
+        if head["judge"] != "decider" or head_rationale.get("fate") != "pending":
+            return None
+        routing = Routing(str(rationale.get("routing_id") or ""), str(row["verdict"]), "", True,
+                          probabilities=dict(rationale.get("probabilities") or {}), input_hash=row["input_hash"])
+        return _append(
+            repository, routing, verdict=str(row["verdict"]), model=str(row["judge_model"] or "unavailable"),
+            rationale={**rationale, "fate": fate}, right_id=str(row["right_id"]), left_id=str(row["left_id"]),
+            supersedes_id=str(head["id"]), clock=clock,
+        )
 
 
 def record_correction(repository: Any, judgment_id: str, chosen: str | None, *, clock: Clock | None = None) -> str:
@@ -511,15 +603,63 @@ def record_correction(repository: Any, judgment_id: str, chosen: str | None, *, 
     if row is None:
         raise ValueError(f"unknown routing {judgment_id!r}")
     rationale = _rationale(row["rationale"])
-    head = _head(repository, row)
     routing = Routing(str(rationale.get("routing_id") or ""), str(row["verdict"]), "", bool(rationale.get("speculative")),
                       input_hash=row["input_hash"])
-    return _append(
-        repository, routing, verdict=chosen or "cancelled", model="", judge="learner_card",
-        rationale={"routing_id": rationale.get("routing_id"), "routed": row["verdict"],
-                   "routing_judgment_id": judgment_id, "speculative": bool(rationale.get("speculative"))},
-        right_id=str(row["right_id"]), supersedes_id=str(head["id"]), clock=clock,
-    )
+    with repository.atomic():
+        head = _head(repository, row)
+        return _append(
+            repository, routing, verdict=chosen or "cancelled", model="", judge="learner_card",
+            rationale={"routing_id": rationale.get("routing_id"), "routed": row["verdict"],
+                       "routing_judgment_id": judgment_id, "speculative": bool(rationale.get("speculative"))},
+            right_id=str(row["right_id"]), left_id=str(row["left_id"]), supersedes_id=str(head["id"]), clock=clock,
+        )
+
+
+#: The capture effects a "change" reverts (the routed action already ran:
+#: an annotation, and for a commit preset its commitment and synthesis).
+REVERTIBLE_EFFECTS = ("preset", "highlight")
+#: The tombstone's reason on an annotation a "change" reverted.
+REVERT_REASON = "intent_changed"
+_TERMINAL_REQUESTS = ("complete", "failed", "cancelled", "obsolete")
+
+
+def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None = None) -> dict[str, Any]:
+    """Undo the capture a routed action made, because the learner pressed
+    "change" (spec §4.2: "change cancels it"; Codex review of RW1b, F4): the
+    annotation is tombstoned (a delete intent, never a hard delete), the
+    commitment a commit preset created with it is retired, and its synthesis
+    request is cancelled. Each step is idempotent, so a retry after a crash
+    finishes the rest and a second revert changes nothing."""
+
+    from learnloop.curriculum import commitments as C
+    from learnloop.reader.annotations import delete_intent_annotation
+
+    if repository.annotation_head(annotation_id) is None:
+        raise ValueError(f"unknown annotation {annotation_id!r}")
+    with repository.connection() as connection:
+        outbox = connection.execute(
+            "SELECT commitment_id FROM reader_capture_outbox WHERE annotation_id = ? ORDER BY created_at, id LIMIT 1",
+            (annotation_id,),
+        ).fetchone()
+        request = connection.execute(
+            "SELECT id, status FROM reader_background_requests WHERE annotation_id = ? "
+            "ORDER BY created_at DESC, id DESC LIMIT 1",
+            (annotation_id,),
+        ).fetchone()
+        tombstoned = connection.execute(
+            "SELECT 1 FROM source_annotation_events WHERE annotation_id = ? AND event_type = 'delete_intent' "
+            "AND json_extract(payload_json, '$.reason') = ?",
+            (annotation_id, REVERT_REASON),
+        ).fetchone() is not None
+    if not tombstoned:
+        delete_intent_annotation(repository, annotation_id=annotation_id, reason=REVERT_REASON, clock=clock)
+    commitment_id = str(outbox[0]) if outbox is not None and outbox[0] else None
+    if commitment_id is not None and C.resolve_disposition(repository, commitment_id) != "stopped":
+        C.retire(repository, commitment_id=commitment_id, clock=clock)
+    request_id = str(request[0]) if request is not None else None
+    if request is not None and request[1] not in _TERMINAL_REQUESTS:
+        repository.cancel_reader_request(request_id, clock=clock)
+    return {"annotation_id": annotation_id, "commitment_id": commitment_id, "request_id": request_id}
 
 
 __all__ = [
@@ -533,6 +673,7 @@ __all__ = [
     "INTENTIONS",
     "IntentAction",
     "QUESTION_SET_VERSION",
+    "REVERTIBLE_EFFECTS",
     "ROUTE",
     "Routing",
     "SPECULATION_SHARE",
@@ -544,6 +685,8 @@ __all__ = [
     "palette",
     "record_correction",
     "record_fate",
+    "revert_capture",
     "route",
+    "speculation_limit",
     "speculation_room",
 ]

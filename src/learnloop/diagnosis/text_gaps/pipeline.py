@@ -67,6 +67,7 @@ from learnloop.diagnosis.text_gaps import actions
 from learnloop.diagnosis.text_gaps.candidates import belief_candidates, prerequisite_candidates
 from learnloop.diagnosis.text_gaps.contract import (
     DRAFT_ROUTE,
+    NON_SERVING_SOURCE_KINDS,
     PIPELINE_VERSION,
     UNREAD,
     GapReading,
@@ -829,7 +830,10 @@ def process_learner_text(
             outcome = actions.ActionOutcome("none", detail={"reason": "unread"} if kind == UNREAD else {})
     vault = load_vault(root)
     advance = None
-    if outcome.action == "matched_prerequisite" and outcome.target_id:
+    # A missed active-reading answer's gap is content only: no sooner check
+    # (NON_SERVING_SOURCE_KINDS; RW1b review F1).
+    if outcome.action == "matched_prerequisite" and outcome.target_id \
+            and text.source_kind not in NON_SERVING_SOURCE_KINDS:
         try:
             advance = actions.advance_check(vault, repository, learning_object_id=str(outcome.target_id),
                                             now_iso=now_iso)

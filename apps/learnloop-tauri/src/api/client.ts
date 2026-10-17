@@ -1453,8 +1453,10 @@ export const api = {
     call<ReaderIntentRoutingDto>("reader_route_intent", { input }),
   readerIntentRouting: (input: { routingId: string; waitMs?: number }) =>
     call<ReaderIntentRoutingDto>("reader_intent_routing", { input }),
-  readerIntentOutcome: (input: { routingId: string; outcome: "used" | "discarded" | "corrected"; action?: string | null }) =>
-    call<{ routingId: string; recorded: boolean }>("reader_intent_outcome", { input }),
+  // "reverted" undoes the capture a routed action made ("change"); a fate
+  // asked while the routing still runs is recorded when it lands (deferred).
+  readerIntentOutcome: (input: { routingId: string; outcome: "used" | "discarded" | "corrected" | "reverted"; action?: string | null; annotationId?: string | null }) =>
+    call<{ routingId: string; recorded: boolean; deferred?: boolean; reverted?: { annotationId: string; commitmentId: string | null; requestId: string | null } }>("reader_intent_outcome", { input }),
   readerActiveQuestion: (input: { extractionId: string; spanIds: string[]; style: ReaderActiveStyle }) =>
     mutatingReader(call<ReaderActiveQuestionRequestDto>("reader_active_question", { input })),
   readerActiveQuestionStatus: (input: { extractionId: string; anchorSpanIds: string[]; style: ReaderActiveStyle; batchId?: string | null }) =>

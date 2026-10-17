@@ -360,14 +360,11 @@ def test_the_disclosure_names_speculative_text(tmp_path):
 
 
 def test_a_later_day_counts_its_own_calls(tmp_path):
-    from datetime import UTC, datetime
-
     vault, repo = _setup(tmp_path)
     _route(vault, repo)
-    # Receipts carry the wall clock's start time; the day is a UTC day.
-    now = datetime.now(UTC)
-    assert RI.calls_today(repo, clock=FrozenClock(now)) == 1
-    assert RI.calls_today(repo, clock=FrozenClock(now + timedelta(days=1))) == 0
+    # The allowance is reserved on the routing's clock; the day is a UTC day.
+    assert RI.calls_today(repo, clock=CLOCK) == 1
+    assert RI.calls_today(repo, clock=FrozenClock(NOW + timedelta(days=1))) == 0
 
 
 def test_the_report_counts_used_routings_and_corrections_on_them_only(tmp_path):

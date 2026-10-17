@@ -9,10 +9,14 @@
 // routing already made; a changed text discards it and Enter routes again. An
 // empty Enter asks with no model call. A routed action runs at once, through
 // the palette's own handler, and shows as one line with "change", which cancels
-// what can be cancelled and opens the palette with the text kept; the pick is
-// the learner's correction. The box closes on Esc or a click elsewhere,
-// recording nothing. Nothing here moves focus on its own, animates or opens a
-// modal (W12): focus moves only on the learner's key.
+// it -- what is still running stops, and a capture it already made is reverted
+// (RW1b review F4) -- and opens the palette with the text kept; the pick is the
+// learner's correction. Every executed routing reports its use, and every
+// speculative routing gets a fate (used or discarded), even one still in
+// flight (F12). Tab from the reading surface opens the palette with its first
+// action focused, so the arrows and Enter work at once (F8). The box closes on
+// Esc or a click elsewhere, recording nothing. Nothing here moves focus on its
+// own, animates or opens a modal (W12): focus moves only on the learner's key.
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "../../api/client";
 import type { ReaderIntentActionDto, ReaderIntentContractDto, ReaderIntentRoutingDto } from "../../api/dto";
@@ -28,6 +32,19 @@ const BOX_HEIGHT = 86;
 
 export type IntentRunHow = { entry: "box" | "palette"; routingId?: string | null };
 
+/** What a run made that "change" can undo: a capture's annotation, an import's batch. */
+export interface IntentRunHandle {
+  annotationId?: string | null;
+  importBatchId?: string | null;
+}
+
+/** "change" on a routed action: what to cancel or revert. */
+export interface IntentCancel {
+  action: ReaderIntentActionDto;
+  routingId: string | null;
+  handle: Promise<IntentRunHandle | null>;
+}
+
 export interface IntentBoxPosition {
   top: number;
   left: number;
@@ -41,7 +58,8 @@ export const FALLBACK_ASK: ReaderIntentActionDto = {
 
 interface Speculation {
   text: string;
-  routingId: string | null;
+  /** The routing's id once the sidecar answered (null: none was made). */
+  started: Promise<string | null>;
   result: Promise<ReaderIntentRoutingDto | null>;
 }
 
@@ -56,9 +74,10 @@ export interface UseIntentBoxArgs {
   notes: boolean;
   canWorkThrough: boolean;
   hostRef: RefObject<HTMLDivElement | null>;
-  onRun: (action: ReaderIntentActionDto, text: string, how: IntentRunHow) => void;
-  /** "change": cancel what can still be cancelled (a pending Ask). */
-  onCancelRun: () => void;
+  /** Run an action; a capture or import resolves to what "change" may undo. */
+  onRun: (action: ReaderIntentActionDto, text: string, how: IntentRunHow) => Promise<IntentRunHandle | null> | void;
+  /** "change": cancel the routed action -- stop what runs, revert what it made. */
+  onCancelRun: (cancel: IntentCancel) => void;
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -81,6 +100,8 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   const showTimer = useRef<number | null>(null);
   const specTimer = useRef<number | null>(null);
   const speculation = useRef<Speculation | null>(null);
+  const lastRun = useRef<Promise<IntentRunHandle | null>>(Promise.resolve(null));
+  const focusPalette = useRef(false);
   const epoch = useRef(0);
   const latest = useRef({ extractionId, spanIds, quote, notes });
   latest.current = { extractionId, spanIds, quote, notes };
@@ -96,17 +117,20 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     specTimer.current = null;
   }, []);
 
-  /** A speculative routing whose text is no longer the box's: its fate is discarded. */
+  /** A speculative routing Enter did not take: its fate is discarded, whatever
+   *  it routed to and even while it still runs (the sidecar records a fate
+   *  asked in flight when the routing lands). */
+  const discard = useCallback((spec: Speculation | null) => {
+    if (!spec) return;
+    void spec.started.then((routingId) => {
+      if (routingId) void api.readerIntentOutcome({ routingId, outcome: "discarded" }).catch(() => undefined);
+    });
+  }, []);
   const discardSpeculation = useCallback(() => {
     const spec = speculation.current;
     speculation.current = null;
-    if (!spec) return;
-    void spec.result.then((result) => {
-      if (result && result.status === "routed" && result.routingId) {
-        void api.readerIntentOutcome({ routingId: result.routingId, outcome: "discarded" }).catch(() => undefined);
-      }
-    });
-  }, []);
+    discard(spec);
+  }, [discard]);
 
   const reset = useCallback(() => {
     clearTimers();
@@ -191,11 +215,13 @@ export function useIntentBox(args: UseIntentBoxArgs) {
   const speculate = useCallback((words: string) => {
     const where = latest.current;
     if (!contract?.speculative || !where.extractionId || protectedSelection || !words) return;
-    const result = api
+    const first = api
       .readerRouteIntent({ extractionId: where.extractionId, spanIds: where.spanIds, text: words, quote: where.quote, speculative: true, notes: where.notes })
-      .then((first) => (first.status === "not_made" ? null : settle(first)))
+      .then((answer) => (answer.status === "not_made" ? null : answer))
       .catch(() => null);
-    speculation.current = { text: words, routingId: null, result };
+    const started = first.then((answer) => answer?.routingId || null);
+    const result = first.then((answer) => (answer ? settle(answer) : null)).catch(() => null);
+    speculation.current = { text: words, started, result };
   }, [contract, protectedSelection, settle]);
 
   const setText = useCallback((value: string) => {
@@ -233,13 +259,13 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     setPhase("pending");
     setPaletteOpen(false);
     let routing: ReaderIntentRoutingDto | null = null;
-    let used = false;
     try {
       const spec = speculation.current;
       if (spec && spec.text === words) {
         speculation.current = null;
         routing = await spec.result;
-        used = Boolean(routing && routing.status === "routed");
+        // A speculation that did not land in time is not taken: discarded.
+        if (!routing) discard(spec);
       }
       if (!routing) {
         discardSpeculation();
@@ -256,23 +282,34 @@ export function useIntentBox(args: UseIntentBoxArgs) {
       routing = null;
     }
     if (mine !== epoch.current) return;
-    if (used && routing?.routingId) {
+    // Every routing whose action runs reports its use, Enter-only and
+    // speculative alike (the report's correction denominator, F12).
+    if (routing?.routingId && (routing.status === "routed" || routing.status === "fallback")) {
       void api.readerIntentOutcome({ routingId: routing.routingId, outcome: "used" }).catch(() => undefined);
     }
     const action = actionFor(routing);
     setRouted({ action, routingId: routing?.status === "routed" ? routing.routingId : null, reason: routing?.reason ?? (routing ? null : "unavailable") });
     setPhase("landed");
-    onRun(action, words, { entry: "box", routingId: routing?.routingId ?? null });
-  }, [text, protectedSelection, onRun, reset, discardSpeculation, settle, actionFor]);
+    lastRun.current = Promise.resolve(onRun(action, words, { entry: "box", routingId: routing?.routingId ?? null }) ?? null).catch(() => null);
+  }, [text, protectedSelection, onRun, reset, discard, discardSpeculation, settle, actionFor]);
 
   const openPalette = useCallback(() => {
     if (!open) show();
     setPaletteOpen(true);
   }, [open, show]);
 
-  /** "change": cancel what can be cancelled; the palette, with the text kept. */
+  // Tab from the reading surface opened the palette: its first action takes
+  // focus (the learner's key), so the arrows and Enter act on the palette.
+  useEffect(() => {
+    if (!paletteOpen || !focusPalette.current) return;
+    focusPalette.current = false;
+    boxRef.current?.querySelector<HTMLButtonElement>("[data-intent-action]")?.focus({ preventScroll: true });
+  }, [paletteOpen, open]);
+
+  /** "change": cancel it (stop or revert); the palette, with the text kept. */
   const change = useCallback(() => {
-    onCancelRun();
+    if (routed) onCancelRun({ action: routed.action, routingId: routed.routingId, handle: lastRun.current });
+    lastRun.current = Promise.resolve(null);
     setCorrecting(routed?.routingId ?? null);
     setRouted(null);
     setPhase("idle");
@@ -328,8 +365,10 @@ export function useIntentBox(args: UseIntentBoxArgs) {
           event.preventDefault();
           event.stopPropagation();
           show();
-          if (event.key === "Tab") setPaletteOpen(true);
-          else window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+          if (event.key === "Tab") {
+            focusPalette.current = true;
+            setPaletteOpen(true);
+          } else window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
         }
         return;
       }
@@ -352,6 +391,9 @@ export function useIntentBox(args: UseIntentBoxArgs) {
       if (event.key === "Tab") {
         event.preventDefault();
         event.stopPropagation();
+        // From the reading surface (focus not in the box), the palette's
+        // first action takes focus so arrows and Enter choose (F8).
+        if (!paletteOpen && !inBox) focusPalette.current = true;
         setPaletteOpen((value) => !value);
         return;
       }

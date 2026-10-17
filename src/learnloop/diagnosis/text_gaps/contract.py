@@ -35,6 +35,15 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: schema (migration 208) for RW2b, which builds its adapter; until then a
 #: queued one is skipped as having nothing to read.
 READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative")
+#: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
+#: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
+#: (and may create one), but never brings a check forward and is never a weak
+#: prerequisite observation for placement's fast track (``field.signals``).
+#: Those are serving changes; feeding them from a missed active-reading answer
+#: (or RW2b's workbench text, RW2d) needs its own algorithm successor with a
+#: kill switch (Codex review of RW1b, F1). Before RW1b no row of either kind
+#: existed, so excluding them changes nothing that was served.
+NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text")
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
 KINDS = LEARNER_GAP_KINDS
@@ -318,6 +327,7 @@ __all__ = [
     "READER_ROUTE",
     "READER_FORMATIVE_PROMPT_VERSION",
     "READER_FORMATIVE_TASK",
+    "NON_SERVING_SOURCE_KINDS",
     "READABLE_SOURCE_KINDS",
     "READER_TASK",
     "SAME_BELIEF_TASK",

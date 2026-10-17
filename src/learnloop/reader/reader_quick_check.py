@@ -871,7 +871,8 @@ def escalate(
         if isinstance(span_id, str)
     ]
     now = utc_now_iso(clock)
-    item_id = f"pi_reader_{new_ulid().lower()}"
+    item_id = selection_item_id(question_id) if row.get("scope_kind") == "selection" \
+        else f"pi_reader_{new_ulid().lower()}"
     payload: dict[str, Any] = {
         "id": item_id,
         "learning_object_id": learning_object_id,
@@ -942,6 +943,16 @@ SELECTION_CLAIM_TASK = "reader_selection_check"
 FOLD_BLOCKS = 3
 MAX_SELECTED_BLOCKS = 12
 MAX_SELECTION_CHARS = 10_000
+
+
+def selection_item_id(question_id: str) -> str:
+    """The practice item an active-reading question escalates into, named by
+    the question (RW1b review F5): the item file is written before the
+    question is linked to it, so a retry after a crash between the two
+    rewrites the same item instead of leaving a second one outside the
+    question's commitment and undo."""
+
+    return f"pi_reader_sel_{content_key(['reader_selection_item', question_id])[:24]}"
 
 
 def _clean(text: str | None) -> str:

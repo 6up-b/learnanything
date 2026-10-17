@@ -400,6 +400,24 @@ def formative_row(repository: Repository, question_id: str) -> dict[str, Any] | 
     return row
 
 
+def missed_formative_ids(repository: Repository) -> list[str]:
+    """Every missed formative answer (:func:`formative_row`'s rule), oldest
+    first: what the backlog sweep may queue."""
+
+    with repository.connection() as connection:
+        if "scope_kind" not in {row[1] for row in connection.execute("PRAGMA table_info(reader_authored_questions)")}:
+            return []
+        styles, checks = tuple(FORMATIVE_STYLES), tuple(MISSED_SELF_CHECKS)
+        rows = connection.execute(
+            f"SELECT id FROM reader_authored_questions WHERE scope_kind = 'selection' "
+            f"AND question_style IN ({','.join('?' for _ in styles)}) "
+            f"AND self_check IN ({','.join('?' for _ in checks)}) AND status = 'answered' "
+            "AND TRIM(COALESCE(response_md, '')) != '' ORDER BY created_at, id",
+            (*styles, *checks),
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def _span_texts(repository: Repository, extraction_id: str, span_ids: Sequence[str]) -> str:
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
@@ -485,6 +503,7 @@ __all__ = [
     "diagnosis_text",
     "formative_row",
     "learner_text",
+    "missed_formative_ids",
     "reader_formative_text",
     "reading_from_diagnosis",
     "resolve_prerequisite_ref",
