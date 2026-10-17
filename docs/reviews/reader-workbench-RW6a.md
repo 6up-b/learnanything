@@ -111,3 +111,153 @@ dating, dismiss, the kill switch), `tests/test_reader_observation_records.py`
 (G50), `tests/test_reader_wrap_up.py` (activity rule, the destination offer,
 pure reads, the switch); vitest `RecapCard.test.tsx`, `WrapUp.test.tsx`,
 `recapSwitchOff.test.tsx` (snapshots written on the base frontend).
+
+## 1. What was built
+
+| Part | What | Commits |
+|---|---|---|
+| Fail-first backend | `tests/test_reader_recap.py` (16), `tests/test_reader_observation_records.py` (6), `tests/test_reader_wrap_up.py` (12), `tests/recap_fixtures.py`, the four RPCs pinned off the phone; the switched-off Reader snapshots written on the base frontend | `90560a639` |
+| Backend | `reader_sessions.py`, `reader_observations.py`, `recap.py`, `reader_progression.learning_objects_by_section`, `handlers/recap.py`, `[recap]`, the config DTO, every defaults snapshot, the import-linter contract | `90c261ba8` |
+| Fail-first frontend | `RecapCard.test.tsx` (8), `WrapUp.test.tsx` (7, then 8), `ReaderScreen.recap.test.tsx` (4) | `f5f10cce2` |
+| Frontend | `useReaderRecap.ts`, `RecapCard.tsx`, `WrapUpPanel.tsx`, `WrapUpOffer.tsx`, `recapCopy.ts`, `app/wrapUpOffer.ts`, the GuideRail header slot, the App's destination line, four Tauri passthroughs | `3182337e2`, `4d3837942` |
+| References | the `[recap]` section (865 leaves in 55 sections), regenerated at head 207, the Pipeline Map bullet | `8c9ce7ce2` |
+| Record | this file | (last commit) |
+
+**Paid calls:** none ($0.00). RW6a has no route, no model call and no spend; every test uses the stub reader client and fakes.
+
+### 1.1 The reader session (`learnloop/reader/reader_sessions.py`)
+
+- A **visit** is RW1a's envelope: `reader_view_opened` (which names the source) and `reader_view_closed` for one `visit_id`; a visit with no close ends at the last event carrying its `visit_id` (a selection, an action, a recap event), else at its open.
+- A **session** groups one source's visits whose gap (next open − previous end) is under 30 minutes (`SESSION_GAP`, a definition rather than a setting, so no config key and no parameter-registry entry). Sessions are per source. `split_sessions` gives the card's *previous* session and the *current* one: the current visit's session, or — when its open has not reached the envelope yet — the last session if it ended under 30 minutes ago, else a new one starting now. A source reopened 20 minutes after closing is the same session, so its card is about the session before.
+- Pure over event rows; one read (`envelope_events`). Visits are recorded only while `reader_inquiry.enabled` is on (RW1a's funnel switch, `activity.ts`); with it off there are no sessions, so no card and no offer (recorded as a deviation, §3 item 1).
+
+### 1.2 The typed session summary (`recap.session_summary`, `ReaderSessionSummaryV1`)
+
+§9.1's list, ids and verdicts only (no learner text; G25's test checks the learner's words are absent):
+- `sections_read`: `reader_section_progress` rows with a reveal, completion or update stamp in the window;
+- `inquiries`: `opened` (roots created in the window), `resolved` (an `inquiry_status_set` to resolved in the window, still resolved), `still_open` (inquiries the session touched — a root or a branch — that are open now), each with its root, question id, anchor spans; `inquiry_exchanges` lists every exchange (activity);
+- `workbench`: problems the session worked on (a step written, a lifecycle event or opened in the window): item, status (open, submitted, abandoned), `highest_help_level: null` (the ladder's levels arrive with RW2b), `book_counted` and `hints` as RW2a records them, the attempt and its grade (`rubric_score`, `correctness`);
+- `cues`: RW3a's opened / check-me taps and not-relevant marks (undo honoured);
+- `predictions_missed`: RW5a's records (none on `main`);
+- `gaps_named`: learner-text gaps named from the session's questions (`source_kind = 'tutor_question'`, kinds other than none / unread);
+- `learning_objects_touched`, `facets_touched`: the problems' item facets and the LOs (and their facets) of the inquiries' anchors;
+- **`claims_needing_independent_check`**: facets of the session's submitted attempts that were assisted (the book counted, or hints), with no unassisted success on the facet from the session's start — an unassisted success read as the evidence system defines it, a point on the facet's Demonstrated curve that earned credit without help or priming (`facet_evidence_timelines`), so this read never re-implements the activity policy;
+- `observations`: the session's `ReaderObservationV1` records;
+- `activity` / `activity_sources` (D34).
+
+Computed twice (the second time from a freshly loaded vault and repository), the JSON is identical (G25's summary part).
+
+### 1.3 `ReaderObservationV1` (`learnloop/reader/reader_observations.py`)
+
+A frozen dataclass with §9.1's fields (`kind`, `source_event_ids`, `span_ids`, `item_id`, `step_id`, `facet_candidates`, `observed`, `hypotheses`, `assistance`, `authority`), plus `root_exchange_id` (the card's *open*), `observed_at` and `record_version`; it refuses an unknown kind or any authority but `routing_only`. Builders:
+- **still unclear** (RW1a, the only tier-2 source on `main`): one record per `reconnect_answered` with `answer = still_unclear` in the session; spans from the root's anchor; facet candidates are the LOs of those spans; `observed = {answer, via}`; hypotheses are the gaps learner-text gaps named from the follow-up the learner asked from that root afterwards;
+- **next step / why step / assumptions** (RW1b, ready): selection-scoped `reader_authored_questions` in those styles with a `partly` / `no` self-check (migration 185 already has the columns); reads nothing until RW1b writes rows;
+- **predictions** (RW5a, ready): `figure_predictions` with `matched = 0` when that table and column exist; nothing until RW5a.
+
+### 1.4 The card (`reader.recap`)
+
+`{recap, dismissed}`; `recap` is null on a first visit, within the first session and after a dismiss in the current session. Its parts: `session` (header *LAST TIME HERE · Thu 9 Oct · about 40 min*), `continue_at` (the session's last section; the Reader's restored place does the scroll), `still_open` (every open root on the source, its words cut to 140 characters), `unfinished` (`workbench.sessions_for_source`'s open problems with `step_count`, `help` and *help so far: the book* / *none* / *2 hints on the answer box*), `worth_a_second_look` (last session's formative records, plus every earlier *still unclear* whose inquiry is still open, one per inquiry; those roots leave Still open so a thread shows once), `since_last_time` (`demonstrated`: this source's LOs — provenance-linked to any section — with `lo_certification(...).demonstrated` now and a facet that crossed the demonstrated threshold, from below it at the session's end, after the session ended; dated by that point's attempt, the last such crossing; `checks_retired`: `retired` commitment events with `reason = no_longer_needed` naming this source, which RW6b's re-valuation will write).
+
+### 1.5 Wrap up (`reader.wrap_up`, `reader.wrap_up_offer`)
+
+- Three lists from the summary: **resolved** (*undo*: `reader.set_inquiry_status` → open, trigger undo), **still open** (*resolve*: the same RPC → resolved; *revisit once*: `reader.invoke_preset` with `test_me_later`, marked `where = reader` because the preset needs the open reading; *keep open*: no RPC, nothing written), **worth reinforcing** (`◌` problems worked with help, claims needing an independent check, RW1b/RW5a misses when they exist).
+- In the Reader the session is the current one (it runs to now); at the destination, the source's latest.
+- **The offer at the destination** is a pure read: the most recent reader session (across sources) had activity and no `wrap_up_opened` for that source at or after its start.
+
+### 1.6 The events (G31) and the switches
+
+- `reader.recap_event` writes one `reader_action_invoked` (subject `reader_extraction`, payload `event`, `extraction_id`, `visit_id`, `authority_class = salience_only`): `recap_shown`, `recap_dismissed` (gated by `recap.enabled`) or `wrap_up_opened` (gated by `recap.wrap_up_enabled`). No new interaction kind (§3.4 item 4).
+- `reader.recap` refuses `recap_disabled`; `reader.wrap_up` and `reader.wrap_up_offer` refuse `wrap_up_disabled`; each before any read or write. The switches are independent: the card off leaves Wrap up on its own switch and vice versa. The config DTO carries `recap: {enabled, wrapUpEnabled}` only while one is on.
+
+### 1.7 Frontend
+
+- **`useReaderRecap`** (kept out of `ReaderScreen.tsx`, which gains about 90 lines of wiring): reads the card per opened source; records `recap_shown` once per visit, only while the card is unfolded on the Guide tab with the rail showing; the learner's first scroll (`readingMoved`, which jumps and the restoration don't set) or *continue* folds it to *last time ▸* · *continue at …*, and later scrolling leaves it as the learner set it; *dismiss* records `recap_dismissed` and removes card and link. Wrap up's availability is re-read when an Ask lands or a problem changes (`activityKey`); `w` outside text fields, without modifiers, outside the working posture, opens it.
+- **`RecapCard`** (W12 without RW6b's *Coming up* and narrative): headings *Still open*, *Unfinished*, *Worth a second look*, *Since last time* with no counts; an empty section is left out; Still open lines carry *open* (the Ask tab and a peek at the passage, with its crumb back) · *resolved* · *revisit once* · *keep open* (writes nothing); Unfinished lines *✎ Exercise 5.14 · 4 steps · help so far: the book · Resume this problem ▸*; *◌ your question "…" — still unclear when you came back to it · open ▸*; *● conditional probability — demonstrated on your own (Mon)*.
+- **`WrapUpPanel`**: the three lists, each line its actions (at the destination only the ones that run there), *kept open* after keep open, *close · esc*, `Esc` closes; a claim already shown as a problem worked with help is not repeated.
+- **`WrapUpOffer`** + **`app/wrapUpOffer.ts`**: the App arms the line on the transition from the Reader to Today or the library and disarms it on the next tab change; it renders above Today's queue and the library (always the same element shape, so its arrival never remounts Today), asks `reader.wrap_up_offer`, shows *Reading wrap-up ready — under a minute ▸* (dim, no focus, no modal); pressed, Wrap up opens in place, `wrap_up_opened` is written, and *resolve* / *undo* call `reader.set_inquiry_status`.
+- **Switched off** (`recap` absent or both false): no call, no element; the Reader matches the base snapshots byte for byte (`recapSwitchOff.test.tsx`, and RW2a's `switchOff.test.tsx` still passes); Today and the library render `<>{null}{…}</>`.
+
+## 2. Gates and where they are tested
+
+| Gate | Backend | Frontend |
+|---|---|---|
+| **G25** (the summary part) | `test_the_typed_summary_is_deterministic_from_the_ledgers` (twice, fresh objects, identical JSON; §9.1's keys; no learner text); `test_the_summary_keeps_to_its_session`; `test_claims_needing_an_independent_check_are_assisted_only_facets` | — |
+| **G31** | `test_opening_a_source_writes_nothing_but_the_recap_shown_event` (every table compared; one salience-only row); `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`; `test_unknown_recap_events_are_refused_before_any_write` | `ReaderScreen.recap.test.tsx`: recap_shown once on opening, nothing focused; first visit: no event |
+| **G50** | `test_reader_observation_records.py`: one routing-only record per still unclear, deterministic, kinds, RW1b/RW5a reads empty, building writes nothing, the import-linter contract and a scan of every evidence package; `test_wrap_up_is_a_pure_read_and_its_actions_are_the_chips_rpcs`; `test_opening_wrap_up_writes_only_the_wrap_up_opened_event` | `WrapUp.test.tsx`: keep open writes nothing; the destination writes only wrap_up_opened and the status RPC |
+| Session boundary (30 min) | `test_visits_less_than_30_minutes_apart_are_one_session` (29.9 vs 30.0 min), `test_sessions_are_per_source_and_a_visit_without_a_close_ends_at_its_last_event`, `test_the_card_is_about_the_session_before_the_current_one`, `test_sessions_are_read_from_the_reader_envelope`, `test_no_card_on_a_first_visit_or_within_the_same_session` | — |
+| Card sections and sources | `test_the_card_reads_still_open_unfinished_and_worth_a_second_look` | `RecapCard.test.tsx` (sections, no counts, empty sections left out, the chips) |
+| Since last time dating | `test_since_last_time_dates_the_certifying_attempt_after_the_previous_session` (crossing after, already demonstrated, the last facet's crossing, undemonstrated, assisted); `test_since_last_time_reads_the_real_ledger_without_inventing_a_gain` | `RecapCard.test.tsx` (*● … (Mon)*) |
+| Wrap up's activity rule | `test_scrolling_highlights_and_cue_taps_alone_are_not_activity`; `test_an_inquiry_or_a_workbench_session_is_activity` (root, branch, problem); `test_the_footer_offer_follows_the_current_session_only` | `WrapUp.test.tsx`: the rail offer only after activity, `w`, `w` in a text field, `w` while working; `ReaderScreen.recap.test.tsx`: the footer and the panel in the rail |
+| Landing-place offer | `test_the_offer_appears_where_the_learner_lands_until_wrap_up_is_opened`; `test_the_offer_reads_the_most_recent_session_only` | `WrapUp.test.tsx`: armed only Reader → Today / library; one dim line, no focus, no dialog, opened in place, Esc |
+| Collapse / reopen / dismiss | `test_dismiss_hides_the_card_until_the_next_session` | `RecapCard.test.tsx` (hook: first scroll and continue fold, only the first scroll, reopen, dismiss); `ReaderScreen.recap.test.tsx` |
+| Switch-off byte identity | `test_switched_off_…`, `test_wrap_up_switched_off_refuses_and_writes_nothing`, `test_the_card_off_leaves_wrap_up_on_its_own_switch`, `test_the_kill_switches_default_on_and_the_config_dto_names_them`; `test_config_refactor.py` (nineteen snapshots) | `recapSwitchOff.test.tsx` (2 configs × 3 snapshots, written on the base; no recap call); `WrapUp.test.tsx` (off: no line, no call) |
+| Attention budget (G54's part) | — | `attentionBudget.test.tsx`'s lint already covers `screens/reader/*.tsx` (no animation or transition in the new components) |
+
+**Fail-first evidence.** Backend (`90560a639`): the three files failed at collection on the base (no `learnloop.reader.reader_sessions`) and 4 mobile pins failed (unregistered RPCs). Frontend (`f5f10cce2`): `RecapCard.test.tsx` and `WrapUp.test.tsx` failed at import, all 4 of `ReaderScreen.recap.test.tsx` failed; the switched-off snapshots were written on the base and pass unchanged after. Tightened after the implementation, each recorded: the problem fixture opens on the basic vault's item (a selection with no import is refused by RW2a's rules, which this stage keeps); the claims test fakes the Demonstrated curve (the implementation reads the evidence system's own unassisted success rather than re-deriving the activity policy, which the frozen-cycle contract forbids the reader package to import); the inquiry exchanges moved out of `inquiries` to their own key; *keep open* carries no RPC, so the action set filters it; the panel's *revisit once* is checked before *keep open* folds the line's chips.
+
+## 3. Decisions taken within the spec, and deviations
+
+1. **Sessions need RW1a's envelope.** Visits are written only while `reader_inquiry.enabled` is on (RW1a's funnel switch in `activity.ts`), so with it off there are no reader sessions: no card, no Wrap up, no offer. The spec defines the session on that envelope; RW6a adds no second visit writer. Visits recorded before RW1a landed don't exist, so the first card appears after the first recorded session.
+2. **Sessions are per source.** §9.1 says "one visit, or several visits less than 30 minutes apart"; the card is about *this* source's last time and the destination offer about the source just left, so visits on two books 10 minutes apart are two sessions, one per book.
+3. **The card's session is the one before the current one**, and a reopen within 30 minutes joins the current session, so its card is about the session before that (or none). Dismiss lasts for the current session, so a reopen within 30 minutes stays dismissed.
+4. **Still open lists every open inquiry on the source**, not only last session's (a thread doesn't stop being open); an inquiry whose last "still unclear" is listed under Worth a second look is shown there only, once.
+5. **"Became demonstrated since" is read from the Demonstrated curve.** `lo_certification(...).demonstrated` now, and one of the LO's facets crossed the certification threshold (`DEMONSTRATED_CREDIT`) after the previous session ended, having been below it at that end; the date and attempt are the last such crossing's. The certificate itself is per (facet, capability) and per recipe; the curve sums a facet's capabilities, so an LO already demonstrated whose other facet crosses later can read as "since" (honest about the attempt, generous about "became"). No certification code changed.
+6. **Claims needing an independent check**: RW2a's assistance only (the book counted, carried hints); RW2b adds help level 3+ through `help_assists`. "Since" starts at the session's start, so an own success in the session answers it.
+7. **"Checks retired since"** reads a `retired` commitment event with `detail.reason = "no_longer_needed"` and `detail.extraction_id`; nothing on `main` writes that shape yet. RW6b should write it (friction note 3) or change this read.
+8. **Wrap up's "revisit once"** runs in the Reader only (the `test_me_later` preset needs the open reading's render view and spans); at the destination still-open lines offer *resolve* and *keep open*, resolved lines *undo*, and worth-reinforcing lines are information without an action there.
+9. **Worth reinforcing** has no per-line action in RW6a: its lines are problems worked with help (resume lives in the card) and claims (RW6b schedules their checks and gives them *undo*).
+10. **No "on the map ▸"** link on Since last time lines yet (the Reader has no handle to open the map at an LO); the marker and wording are the well's.
+11. **Today's re-entry panel (DL1)** does not show the card: the panel is goal-scoped and shown only with the plan off, and the card is per source, so it needs a "most recent source" read on Today — new wiring, outside "if it fits". The destination line is on Today (and the library) as specified.
+12. **The `observed` field of a still-unclear record** is `{answer, via}`, and records carry `root_exchange_id`, `observed_at` and `record_version` beside §9.1's fields (routing data for the card; typed, no prose).
+13. **The `figure_predictions` read** assumes RW5a's table has `extraction_id`, `matched` and `created_at`; it checks the columns and reads nothing otherwise. RW5a should match or adjust it (friction note 4).
+
+## 4. Friction audit (G52) for the workflows RW6a touched
+
+| Workflow | Before RW6a | After |
+|---|---|---|
+| Come back to a book | The restored place; open questions only in the Ask rail or Today's queue; problems as rail lines | One card at the head of the Guide: continue, the open questions in your words with their chips, the problems with *Resume*, what is worth a second look, what you have since shown on your own; folds on the first scroll |
+| End a reading session | Nothing | `w` or the rail footer; or, after leaving, one dim line where you land; under a minute, Esc closes |
+| Check whether reading led anywhere | The map | *Since last time · ● … demonstrated on your own (Mon)* on the book itself |
+
+Keyboard: `w` (outside text fields), Esc closes Wrap up; every line's action is a button in reading order; nothing takes focus.
+
+## 5. Friction notes for RW1b, RW2b and RW6b
+
+1. **RW1b**: next-step, why-step and assumption answers are read from `reader_authored_questions` with `scope_kind = 'selection'`, `question_style IN ('next_step', 'why_step', 'assumptions')` and `answered_at`; a `partly` / `no` `self_check` becomes a `ReaderObservationV1` (`next_step_missed`, `why_step_missed`, `assumption_missed`) and any answered one counts as activity for Wrap up. Write those columns and the card and Wrap up pick them up with no RW6a change. The `reader_formative` texts' gap ids would fill `hypotheses` via `reader_observations.named_gaps` once their `source_kind` exists (today it reads `tutor_question` only).
+2. **RW2b**: `session_summary`'s `workbench[].highest_help_level` is `null` and claims read only the book and carried hints. Fill `highest_help_level` from `help_assists` (max level with `surface = 'workbench'`), add level ≥ 3 to `_claims`, and add builders for `check_questionable`, `hint_taken`, `doesnt_connect` and `discriminate_answer` in `reader_observations.py` (the kinds are declared). The Unfinished line's `help_line` should name the ladder's rungs (*help: check, L1 question, L3 hint*, W12).
+3. **RW6b**: the typed summary (`recap.session_summary`) and `ReaderObservationV1` are the inputs §9.2-9.3 name; `reader_session_digests.summary_json` can store `session_summary(...)` as is (it is deterministic and carries no learner text). "Coming up" and the narrative go in `RecapCard` after Since last time (the card has no slot yet); Wrap up's worth-reinforcing gains the checks with *why* and *undo*. Re-valuation retirements should write `commitment_events(kind = 'retired', detail = {reason: 'no_longer_needed', extraction_id, solved_attempt_id})`, which `recap.retired_checks` already reads for *No longer needed: you solved one like it on …*.
+4. **RW5a**: `reader_observations.prediction_observations` reads `figure_predictions(extraction_id, matched, created_at)`; name the columns so or change the read.
+5. **Performance** (backup-API copy of the tracked `fixtures/probability`, upgraded with `doctor --fix-state`, two synthetic sessions written on the copy): `reader.recap` 0.04-0.05 s, `reader.wrap_up` 0.04 s, `reader.wrap_up_offer` 0.03 s; Since last time over a 17-LO source 0.09 s. The card's cost grows with the source's LOs (one `lo_certification` each) and the attempt ledger (one Demonstrated-curve read for the demonstrated LOs' facets).
+6. `ReaderScreen.tsx` grew by 94 lines (now 2,858); the card, panel and offer live in `screens/reader/`.
+
+## 6. Open questions (with the default taken)
+
+1. Show the card in Today's re-entry panel (DL1) for the most recent source? **Default: not in RW6a** (needs a Today read of the most recent source; the destination line is there).
+2. Count visits on two books less than 30 minutes apart as one reader session? **Default: no, sessions are per source** (§3 item 2).
+3. Record visits (and so sessions) when `reader_inquiry.enabled` is off? **Default: no** — the envelope is RW1a's; off means no card.
+4. "On the map ▸" on Since last time lines? **Default: later**, when the Reader can open the map at an LO.
+5. Should *keep open* write anything (for example a status event with `trigger = "keep"`)? **Default: no**; it is the status the inquiry already has.
+6. Should the inquiry quick check's own `partly` / `no` self-check (RW1a's reconnect *quick check*) count as worth a second look? It has no `ReaderObservationV1` kind in §9.1. **Default: no**, until the spec names one.
+
+## 7. Owner-run commands
+
+None needed (no model call, no migration). To look at it on a copy: make a backup-API copy into `fixtures-local/` (`learnloop.db.copies.copy_tree_with_databases`), `uv run learnloop doctor --fix-state --vault <copy>`, then `LEARNLOOP_VAULT=<abs path to the copy> npm run dev` from `apps/learnloop-tauri`; read a book, close it, wait 30 minutes or more, open it again for the card; ask a question and go back to Today for the wrap-up line. `[recap] enabled = false` / `wrap_up_enabled = false` in the copy's `learnloop.toml` switch each off.
+
+## 8. Gate
+
+Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken (23 on the base plus `evidence-never-reads-reader-observations`) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **12,917 passed**, 2 xfailed, 0 failed (1,096 s), on `8c9ce7ce2` (the backend tip; later commits touch only `apps/` and this file). Base was 12,879: +34 RW6a tests, +4 mobile pins |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 12,813 deselected (115 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **112 files, 923 tests passed** (base 901; +22: recapSwitchOff 2, RecapCard 8, WrapUp 8, ReaderScreen.recap 4) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` | finished, exit 0 (four passthroughs) |
+| `db_generate_reference.py`, `db_validate_reference.py`, `validate_vault.py`, `module_validate.py` | regenerated (head 207, 327 table notes, 865 configuration leaves in 55 sections); errors []; passed, 1,116 notes; passed |
+| `tests/test_config_refactor.py` (nineteen snapshots recomputed, config `.pyc` cleared), `test_cli_help_snapshot.py`, `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_architecture.py`, `test_coordinated_migrations.py` | pass (in the full suite); CLI help unchanged, no migration |
+
+**Pre-existing, not RW6a:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"), a file on the base from the Reader PDF selection stage; RW6a's files were not reached. **Not done:** no adversarial (Codex) review in this stage, no real-UI look (the screens are exercised through the real `ReaderScreen` in jsdom). Manual run: two backup-API copies in `fixtures-local/` (`rw6a-probability`, upgraded with `doctor --fix-state`, synthetic visits written on the copy only; `rw6a-linear_algebra`, copied, unused); no tracked vault was opened or changed.
