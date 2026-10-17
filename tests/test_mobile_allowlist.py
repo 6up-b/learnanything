@@ -235,6 +235,26 @@ def test_the_pinned_rw1b_rpcs_are_all_of_them():
     assert set(READER_RW1B_RPCS) - {"reader.prompt_contract"} == set(RW1B_RPCS)
 
 
+# Reader workbench RW4a (spec_reader_workbench_v1 §7.3): ask your library, its
+# organizer notes, compare pinned passages and the tutor about them; it
+# extends reader.prompt_contract (libraryAsk) and the find_practice RPC's
+# reader caller ("practice this question"). Desktop only (spec D20).
+READER_RW4A_RPCS = (
+    "reader.library_ask",
+    "reader.library_ask_notes",
+    "reader.library_compare",
+    "reader.library_ask_tutor",
+    "reader.prompt_contract",
+    "find_practice",
+)
+
+
+def test_the_pinned_rw4a_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.library_ask import LIBRARY_ASK_RPCS
+
+    assert set(READER_RW4A_RPCS) - {"reader.prompt_contract", "find_practice"} == set(LIBRARY_ASK_RPCS)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -403,7 +423,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + SLICE2_T1_RPCS + SLICE2_T6_RPCS
     + STUCK_PROMPT_RPCS + DAILY_PLAN_RPCS + DAILY_PLAN_EXTENDED_RPCS + ROUTER_R1_LOGGING_RPCS
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
-    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
+    + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
 )

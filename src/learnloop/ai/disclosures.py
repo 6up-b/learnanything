@@ -23,6 +23,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("tier1_decider", "decider", "tier1"),
     ("learner_gap_decider", "decider", "learner_text_gaps"),
     ("reader_intent", "decider", "reader_intent"),
+    ("library_organizer", "llm", "library_ask"),
 )
 
 _WHEN = {
@@ -65,6 +66,16 @@ _WHEN = {
         "meant. With reader_intent.speculative_enabled on (the default) the same is sent once you "
         "pause typing for a moment, before you press Enter, so the action is ready when you do; "
         "switching it off sends nothing until Enter. An empty Enter sends nothing."
+    ),
+    "library_ask": (
+        "While library_ask.enabled is on, each time you ask your library (Shift+Enter in the library "
+        "search, Ctrl+Shift+F in the Reader, or where else is this explained? / where is this used? / "
+        "what do I need first? on a selection): your question and the passages found in your books, so "
+        "LearnLoop's model can note what each one contributes. With the \"personalized\" chip on (the "
+        "default, library_ask.personalized_default) the open questions LearnLoop has named from your "
+        "own words on those passages' topics go too; with it off, none do. Comparing pinned passages "
+        "and asking the tutor about them send those passages to their own routes (source_compare, "
+        "tutor_qa), only when you press them."
     ),
 }
 

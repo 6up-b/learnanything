@@ -101,6 +101,8 @@ AITask = Literal[
     "rubric_phrasing_judge",
     # Reader workbench RW1b: the intent box's router (a decider task).
     "reader_intent",
+    # Reader workbench RW4a: the library answer's organizer (a listwise task).
+    "library_organizer",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -191,6 +193,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "source_compare": "source_compare",
     "exercise_discrimination": "exercise_discrimination",
     "worked_example_equivalence": "worked_example_equivalence",
+    # Reader workbench RW4a: one listwise call noting what each passage of a
+    # library answer contributes.
+    "library_organizer": "library_organizer",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

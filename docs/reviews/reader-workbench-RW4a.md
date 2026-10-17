@@ -49,7 +49,8 @@ hard-coded path; the reference scripts' `SCHEMA_HEAD`.
 **Backend** (`src/learnloop/reader/library_ask.py`, pure composition over
 injected sources-service callables: `learnloop.reader` may not import
 `learnloop.instructional`, so the sidecar injects `propose_sources`,
-`propose_comparison` and the caller):
+`propose_comparison` and the caller; *moved during the build to
+`src/learnloop/source_retrieval/library_ask.py`, see §3*):
 - `ask_library`: the main `find_sources(intent="explain", scope="library",
   personalized=…, limit=8)` under the server-derived Reader caller (policy
   `reading`; a workbench session's item gives `assisted_practice`; an open

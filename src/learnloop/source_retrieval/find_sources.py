@@ -274,27 +274,37 @@ def facet_lists(vault: LoadedVault, repository: Repository,
     return ({"facets": list(dict.fromkeys(ranked))} if ranked else {}), labels
 
 
+def expanded_learning_objects(vault: LoadedVault, lo_ids: Sequence[str], kind: str) -> list[str]:
+    """The LOs one LO-graph expansion reaches from ``lo_ids``, read as the graph
+    is (similarity never creates an edge): ``prerequisites`` and
+    ``confusables`` as the LOs list them, ``applications`` the LOs that list
+    one of them as a prerequisite. Known LOs only, never the starting ones.
+    The Reader's caller-side expansion (its RW4a) reads the graph here too."""
+
+    if kind not in EXPANSIONS:
+        raise ValueError(f"expand must name {', '.join(EXPANSIONS)}")
+    known = vault.learning_objects
+    related: list[str] = []
+    for lo_id in lo_ids:
+        lo = known.get(lo_id)
+        if lo is None:
+            continue
+        if kind == "prerequisites":
+            related.extend(str(value) for value in lo.prerequisites)
+        elif kind == "confusables":
+            related.extend(str(value) for value in lo.confusables)
+        else:
+            related.extend(other.id for other in known.values() if lo_id in other.prerequisites)
+    return [lo for lo in dict.fromkeys(related) if lo in known and lo not in lo_ids]
+
+
 def expansion_lists(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str],
                     expand: Sequence[str]) -> dict[str, list[SpanKey]]:
     """One ranked list per LO-graph expansion, labelled on the hit (the Reader's rule)."""
 
     lists: dict[str, list[SpanKey]] = {}
-    known = vault.learning_objects
     for kind in expand:
-        if kind not in EXPANSIONS:
-            raise ValueError(f"expand must name {', '.join(EXPANSIONS)}")
-        related: list[str] = []
-        for lo_id in lo_ids:
-            lo = known.get(lo_id)
-            if lo is None:
-                continue
-            if kind == "prerequisites":
-                related.extend(str(value) for value in lo.prerequisites)
-            elif kind == "confusables":
-                related.extend(str(value) for value in lo.confusables)
-            else:
-                related.extend(other.id for other in known.values() if lo_id in other.prerequisites)
-        related = [lo for lo in dict.fromkeys(related) if lo in known and lo not in lo_ids]
+        related = expanded_learning_objects(vault, lo_ids, kind)
         keys = _provenance_list(vault, repository, related)
         if keys:
             lists[f"expand_{kind}"] = keys
@@ -777,6 +787,7 @@ __all__ = [
     "IntentVerification",
     "SourceHits",
     "correction_lists",
+    "expanded_learning_objects",
     "expansion_lists",
     "find_sources",
     "find_sources_for_caller",

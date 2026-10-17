@@ -33,9 +33,11 @@ from tests.test_reader_intent import FakeDecider, _prefer
 ROOT = Path(__file__).resolve().parents[1]
 NOTES_RAIL = ROOT / "apps" / "learnloop-tauri" / "src" / "screens" / "reader" / "NotesRail.tsx"
 EVERYTHING = RI.Availability(active_reading=True, workbench=True, sources=True)
-#: Actions §4.2 names for phases that have not landed (RW4a, RW4b, RW5a, RW7a, DL3).
+#: Actions §4.2 names for phases that have not landed (RW4b, RW4d, RW5a, RW7a, DL3). RW4a's
+#: "what do I need first?", "where else is this explained?" and "where is this used?" landed.
 NOT_LANDED = {"compare_sources", "make_explorable", "practice_this_question", "find_exercise", "what_matters",
-              "what_do_i_need_first", "where_is_this_used", "where_else_explained", "practice_new_setting"}
+              "practice_new_setting"}
+RW4A_ACTIONS = {"what_do_i_need_first", "where_else_explained", "where_is_this_used"}
 
 
 def test_the_palette_is_grouped_by_intention_with_mark_last():
@@ -54,7 +56,8 @@ def test_grouping_changes_no_presets_effect():
     for preset, action in by_preset.items():
         assert action.id == preset
     kinds = {a.effect["kind"] for a in RI.ACTIONS}
-    assert kinds == {"ask", "preset", "highlight", "import_exercise", "work_through", "active_reading", "another_way"}
+    assert kinds == {"ask", "preset", "highlight", "import_exercise", "work_through", "active_reading", "another_way",
+                     "library_ask"}
     assert {a.effect["style"] for a in RI.ACTIONS if a.effect["kind"] == "active_reading"} == set(RQC.SELECTION_STYLES)
 
 
@@ -66,6 +69,19 @@ def test_nothing_in_todays_notes_palette_is_missing():
 def test_actions_of_phases_not_landed_are_absent():
     assert not NOT_LANDED & {a.id for a in RI.ACTIONS}
     assert not [g for g in RI.palette(EVERYTHING) if g["group"] == "orient"]
+
+
+def test_rw4a_adds_orient_and_transfer_library_asks_only_with_its_switch():
+    with_library = RI.palette(RI.Availability(active_reading=True, workbench=True, sources=True, library=True))
+    groups = {g["group"]: {a["id"] for a in g["actions"]} for g in with_library}
+    assert groups["orient"] == {"what_do_i_need_first"}
+    assert {"where_else_explained", "where_is_this_used"} <= groups["transfer"]
+    assert [g["group"] for g in with_library] == ["understand", "apply", "consolidate", "transfer", "orient", "mark"]
+    assert all(RI.ACTIONS_BY_ID[action].effect == {"kind": "library_ask", "entry": action} for action in RW4A_ACTIONS)
+    assert not RW4A_ACTIONS & {a.id for a in RI.available_actions(RI.Availability(active_reading=True, sources=True))}
+    # The learner's own notes keep only the anchor-free actions.
+    notes = RI.Availability(active_reading=True, sources=True, library=True, notes=True)
+    assert not RW4A_ACTIONS & {a.id for a in RI.available_actions(notes)}
 
 
 def test_switches_remove_their_actions():

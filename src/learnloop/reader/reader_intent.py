@@ -17,10 +17,12 @@ option description, and its effect (what the Reader calls). The options are
 the actions that exist when the call is made (:func:`available_actions`):
 active reading only while ``reader_active_reading.enabled``, "work through
 this" only while ``workbench.enabled``, "another way to see this" only while
-the sources service is on. Actions of phases that have not landed (RW4a's
-graph expansion and library ask, RW7a's reading path, RW5a's figures, DL3's
-"practice this question", RW4b's exercises from my sources) are absent, not
-disabled (U13).
+the sources service is on, RW4a's library asks ("what do I need first?",
+"where else is this explained?", "where is this used?") only while
+``library_ask.enabled`` (with the sources service and RW1a's inquiry). Actions
+of phases that have not landed (RW7a's reading path, RW5a's figures, DL3's
+"practice this in a new setting", RW4b's exercises from my sources) are
+absent, not disabled (U13).
 
 **Routing.** :func:`route` asks once and takes the argmax (no hand-set
 threshold). An empty text routes to Ask with no call; an unavailable, timed
@@ -199,6 +201,20 @@ ACTIONS: tuple[IntentAction, ...] = (
             "Connect this passage to other ideas the learner knows or names."),
     _preset("why_matters", "transfer", "why this matters",
             "Explain why this idea matters and where it is used."),
+    # RW4a: library asks, answered with passages from the learner's own books.
+    IntentAction("where_else_explained", "transfer", "where else is this explained?",
+                 "Find where the learner's other books, or other parts of this one, explain the same idea, "
+                 "shown as passages grouped by book beside this one.",
+                 {"kind": "library_ask", "entry": "where_else_explained"}, needs=("library",)),
+    IntentAction("where_is_this_used", "transfer", "where is this used?",
+                 "Find passages in the learner's books where this idea is used or applied (the topics that "
+                 "build on it), shown beside this one.",
+                 {"kind": "library_ask", "entry": "where_is_this_used"}, needs=("library",)),
+    # Orient
+    IntentAction("what_do_i_need_first", "orient", "what do I need first?",
+                 "List what this passage builds on (its prerequisite topics), whether the learner has shown "
+                 "each on their own, and a passage from their books for each.",
+                 {"kind": "library_ask", "entry": "what_do_i_need_first"}, needs=("library",)),
     # Mark (describes the passage; no intention)
     IntentAction("highlight", "mark", "highlight", "Highlight the passage, keeping the learner's words as its note.",
                  {"kind": "highlight"}, model=False),
@@ -226,6 +242,9 @@ class Availability:
     active_reading: bool = False
     workbench: bool = False
     sources: bool = False
+    #: RW4a's library answer (``library_ask.enabled`` with the sources service
+    #: and RW1a's inquiry): Orient's and Transfer's library actions.
+    library: bool = False
     #: False when the selection is held out of LearnLoop's models (exam
     #: protection): only actions that show nothing to a model remain.
     model: bool = True
@@ -238,6 +257,11 @@ class Availability:
             active_reading=bool(getattr(getattr(config, "reader_active_reading", None), "enabled", False)),
             workbench=bool(getattr(getattr(config, "workbench", None), "enabled", False)),
             sources=bool(getattr(getattr(config, "source_service", None), "enabled", False)),
+            library=bool(
+                getattr(getattr(config, "library_ask", None), "enabled", False)
+                and getattr(getattr(config, "source_service", None), "enabled", False)
+                and getattr(getattr(config, "reader_inquiry", None), "enabled", False)
+            ),
             model=model,
             notes=notes,
         )

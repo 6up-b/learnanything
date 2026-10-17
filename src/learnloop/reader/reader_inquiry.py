@@ -70,6 +70,15 @@ RW1B_SERVER_EVENTS: tuple[str, ...] = (
     "reconstruct_committed",
     "reconstruct_undone",
 )
+# RW4a's server-owned events (the sidecar's ``library_ask`` handlers): a
+# library question asked, its organizer notes, a comparison opened and the
+# tutor asked about pinned passages (``learnloop.source_retrieval.library_ask.EVENTS``).
+RW4A_SERVER_EVENTS: tuple[str, ...] = (
+    "library_ask",
+    "library_notes",
+    "compare_opened",
+    "library_tutor_asked",
+)
 INQUIRY_EVENTS = CLIENT_ACTION_EVENTS + SERVER_ACTION_EVENTS
 
 # Existing kinds the Reader UI records without an ``event`` field.
@@ -335,6 +344,7 @@ def record_activity(
 __all__ = [
     "CLIENT_ACTION_EVENTS",
     "RW1B_SERVER_EVENTS",
+    "RW4A_SERVER_EVENTS",
     "CLIENT_ACTIVITY_KINDS",
     "INQUIRY_EVENTS",
     "InquiryError",

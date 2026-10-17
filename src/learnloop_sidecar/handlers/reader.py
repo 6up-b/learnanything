@@ -395,6 +395,10 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.reader_intent import prompt_contract_fields
 
     contract.update(prompt_contract_fields(vault))
+    # RW4a's library answer (absent while its switches are off).
+    from learnloop_sidecar.handlers.library_ask import prompt_contract_fields as library_ask_fields
+
+    contract.update(library_ask_fields(vault))
     return versioned(contract)
 
 

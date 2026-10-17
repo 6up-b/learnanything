@@ -328,7 +328,8 @@ def _base_contract(vault) -> dict:
 
 
 @pytest.mark.parametrize("toml", [
-    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n",
+    # RW4a's library ask adds its own key; its switch is off here too (G20).
+    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n",
     "\n[reader_inquiry]\nenabled = false\n",
 ])
 def test_switched_off_the_prompt_contract_is_the_bases(tmp_path, toml):
@@ -345,7 +346,8 @@ def test_switched_on_the_contract_carries_the_grouped_palette(tmp_path):
     vault, _repo = _setup(tmp_path)
     contract = call(context(vault.root), "reader.prompt_contract", {})
     groups = [group["group"] for group in contract["intent"]["palette"]]
-    assert groups == ["understand", "apply", "consolidate", "transfer", "mark"]  # orient: nothing has landed
+    # orient: RW4a's "what do I need first?" (RW7a's reading path has not landed)
+    assert groups == ["understand", "apply", "consolidate", "transfer", "orient", "mark"]
     assert contract["intent"]["speculateAfterMs"] == 600 and contract["intent"]["speculative"] is True
     assert contract["activeReading"] == {"foldBlocks": 3}
 

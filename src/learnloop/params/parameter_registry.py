@@ -969,6 +969,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the typing pause before a speculative intent routing / its deadline / the route's daily Decider "
         "call cap; latency and spend bounds, no measurement authority (a routing only picks which palette "
         "action runs)."),
+    # Reader workbench RW4a: the library answer's organizer (one listwise call
+    # per ask; notes are display, verdicts go to judgment_ledger, never
+    # evidence): its metered spend a UTC day.
+    _ConfigRule(_exact(
+        "library_ask.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the library answer's organizer's metered spend a UTC day; a money bound, no measurement "
+        "authority (its notes are display only)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

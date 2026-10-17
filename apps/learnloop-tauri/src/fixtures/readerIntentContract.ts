@@ -1,7 +1,7 @@
 // The intent box's contract as the sidecar sends it with every RW1b switch on
-// (reader.prompt_contract's `intent`, generated from learnloop.reader.reader_intent's
-// catalogue: tests/test_reader_intentions.py pins the same table). Used by the
-// Reader's RW1b tests.
+// and RW4a's library ask on (reader.prompt_contract's `intent`, generated from
+// learnloop.reader.reader_intent's catalogue: tests/test_reader_intentions.py
+// pins the same table). Used by the Reader's RW1b and RW4a tests.
 import type { ReaderIntentContractDto } from "../api/dto";
 
 export const readerIntentContractFixture: ReaderIntentContractDto = {
@@ -213,6 +213,46 @@ export const readerIntentContractFixture: ReaderIntentContractDto = {
           "effect": {
             "kind": "preset",
             "preset": "why_matters"
+          },
+          "model": true
+        },
+        {
+          "id": "where_else_explained",
+          "group": "transfer",
+          "intention": "transfer",
+          "label": "where else is this explained?",
+          "effect": {
+            "kind": "library_ask",
+            "entry": "where_else_explained"
+          },
+          "model": true
+        },
+        {
+          "id": "where_is_this_used",
+          "group": "transfer",
+          "intention": "transfer",
+          "label": "where is this used?",
+          "effect": {
+            "kind": "library_ask",
+            "entry": "where_is_this_used"
+          },
+          "model": true
+        }
+      ]
+    },
+    {
+      "group": "orient",
+      "label": "Orient",
+      "intention": "orient",
+      "actions": [
+        {
+          "id": "what_do_i_need_first",
+          "group": "orient",
+          "intention": "orient",
+          "label": "what do I need first?",
+          "effect": {
+            "kind": "library_ask",
+            "entry": "what_do_i_need_first"
           },
           "model": true
         }
