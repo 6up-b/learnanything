@@ -96,10 +96,11 @@ class PracticeScreen(Screen):
         # attempt for it. Opening the item again builds a new screen and so
         # starts a new attempt.
         self.submission_id = new_ulid()
-        # UX Phase 4 round 6: opening the item is the TUI's serve. A cold check
-        # whose answer a routine display covers (shown since this list was
-        # built, on the desktop) is deferred here, so the answer is an
-        # ordinary one and no cold check is administered.
+        # Opening the item is the TUI's serve (UX Phase 4 round 6; the one
+        # eligibility decision). A cold check that cannot be taken now (a
+        # routine display covers it, a reveal since it was scheduled, or
+        # submit would prime it) is deferred or re-timed here, so the answer
+        # is an ordinary one, accepted, and no cold check is administered.
         cold_check_serve_hold(state.vault, state.repository, item.practice_item_id)
         # Probe redesign §12: the same measurement contract the Tauri surface
         # enforces. Committing the presentation is the serve event (§5.1).

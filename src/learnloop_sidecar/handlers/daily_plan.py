@@ -302,7 +302,8 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     _vault, _repository, env = required
     from learnloop_sidecar.handlers.queue import revalidate_cold_check
 
-    # A pick revalidates a cold check like every other serve (rounds 5, 6).
+    # A pick revalidates a cold check like every other serve (rounds 5, 6;
+    # the one eligibility decision).
     revalidate_cold_check(env.vault, env.repository, params.practice_item_id)
     try:
         record, step = learner_pick(

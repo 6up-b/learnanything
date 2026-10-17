@@ -1170,39 +1170,59 @@ def shadow_selection_rankings(
 
 
 class RoutineDisplayCovered(Exception):
-    """A probe or placement presentation refused (UX Phase 4 round 6): the
-    item's expected answer was shown on a routine display that still covers
-    now (``learnloop.reveal_coverage``). Time alone clears it, within the
-    coverage (D + G)."""
+    """A probe or placement presentation refused: the item's answer was shown,
+    so it cannot test the learner (the one eligibility decision,
+    ``serve_eligibility.decide(..., PROBE)``). Either a routine display still
+    covers it (UX Phase 4 round 6; time alone clears it, within D + G), or
+    submit would prime an answer to it (a non-routine reveal since its last
+    attempt; only an attempt absorbs it). The name is kept from round 6."""
 
-    def __init__(self, practice_item_id: str) -> None:
-        super().__init__(f"{practice_item_id}: its answer was shown within the routine-display coverage")
+    def __init__(self, practice_item_id: str, *, decision: object | None = None) -> None:
+        super().__init__(f"{practice_item_id}: its answer was shown, so it cannot test the learner yet")
         self.practice_item_id = practice_item_id
+        self.decision = decision
 
 
-#: Why a probe was not administered: its item's answer was shown on a routine
-#: display that still covers now (the causal offer and ``get_probe_contract``).
+#: Why a probe was not administered: its item's answer was shown (the causal
+#: offer and ``get_probe_contract``).
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
+
+
+def probe_eligibility(repository: Repository, practice_item_id: str, *, clock: Clock | None = None):
+    """The one eligibility decision for a probe or placement presentation of
+    the item now (``serve_eligibility``, request ``PROBE``)."""
+
+    from learnloop import serve_eligibility
+
+    inputs = serve_eligibility.gather(
+        repository, practice_item_id=practice_item_id, learning_object_id=None, at=utc_now_iso(clock),
+    )
+    return serve_eligibility.decide(inputs, serve_eligibility.PROBE)
 
 
 def routine_display_covers_item(
     repository: Repository, practice_item_id: str, *, clock: Clock | None = None
 ) -> bool:
-    """Does a routine display of the item's answer cover now?"""
+    """Was the item's answer shown, so that no probe may test it now (a routine
+    display covering it, or a reveal submit would count)? The name is kept
+    from round 6; the question is the one eligibility decision's."""
 
-    from learnloop.reveal_coverage import routine_displays_covering
-
-    return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
+    return not probe_eligibility(repository, practice_item_id, clock=clock).serves
 
 
 def refuse_routine_display_covered(
     repository: Repository, practice_item_id: str, *, clock: Clock | None = None
 ) -> None:
-    """Raise :class:`RoutineDisplayCovered` when a routine display of the item
-    covers now: the one guard every presentation commit passes through."""
+    """Raise :class:`RoutineDisplayCovered` when the one eligibility decision
+    refuses a probe of the item now: the one guard every presentation commit
+    (and serve) passes through."""
 
-    if routine_display_covers_item(repository, practice_item_id, clock=clock):
-        raise RoutineDisplayCovered(practice_item_id)
+    from learnloop import serve_eligibility
+
+    decision = probe_eligibility(repository, practice_item_id, clock=clock)
+    if not decision.serves:
+        serve_eligibility.log_decision(decision, path="probe_commit")
+        raise RoutineDisplayCovered(practice_item_id, decision=decision)
 
 
 def commit_presentation(
@@ -1603,13 +1623,8 @@ def plan_precommitted_block(
     # UX Phase 4 round 7: the block's members are decided before anything is
     # committed. An item whose answer a routine display covers is not one, so
     # the block's size and indices are its real members'.
-    from learnloop.reveal_coverage import routine_displays_covering
-
-    now_iso = utc_now_iso(clock)
     candidates = [
-        entry
-        for entry in candidates
-        if not routine_displays_covering(repository, practice_item_id=entry.item.id, at=now_iso)
+        entry for entry in candidates if not routine_display_covers_item(repository, entry.item.id, clock=clock)
     ]
     if not candidates:
         return []

@@ -2712,13 +2712,16 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
     assert after.status == ("ended" if covered else "served")
 
 
-@pytest.mark.parametrize("basis", ["tutor_answer", "routine_display"])
+@pytest.mark.parametrize("basis", ["tutor_answer_glimpse", "tutor_answer", "routine_display"])
 def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage(tmp_path, basis):
     """Placement's own presentations (``placement_quick_check_items``) are
     excluded upstream: the candidates read the serving exclusions, which read
     routine displays by their coverage. Shown 24 h 30 min ago, a tutor answer
-    has left the one-day window (control: presented first) while a routine
-    display still covers the item (never presented)."""
+    has left the one-day window while a routine display still covers the item
+    (never presented). The "one eligibility decision" stage: a tutor answer
+    submit would prime (a full one, on a never-attempted item) keeps it out
+    too, at any age; a glimpse under the auto-prime threshold does not
+    (control: presented first)."""
 
     from tests.helpers import NOW
     from tests.test_assumed_known import _answer, _setup as placement_setup
@@ -2728,17 +2731,17 @@ def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_cover
     best = _best_item(vault, repository, ["lo_diag"])
     lo = vault.practice_items[best].learning_object_id
     stamp = FrozenClock(NOW - timedelta(hours=24, minutes=30))
-    if basis == "tutor_answer":
+    if basis.startswith("tutor_answer"):
         repository.insert_reveal_event(
             {"practice_item_id": best, "learning_object_id": lo, "source_kind": "tutor_answer",
-             "amount": 1.0, "basis": "tutor_answer"},
+             "amount": 0.2 if basis == "tutor_answer_glimpse" else 1.0, "basis": "tutor_answer"},
             clock=stamp,
         )
     else:
         _routine_disclosure(repository, best, clock=stamp, learning_object_id=lo)
 
     session_id, progress = _start(vault, repository, ["lo_diag"])
-    if basis == "tutor_answer":
+    if basis == "tutor_answer_glimpse":
         assert progress["next_target"]["practice_item_id"] == best
         return
     presented = []

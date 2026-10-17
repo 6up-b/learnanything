@@ -3368,6 +3368,51 @@ def attempt(
         stuck, attempt_type, answer = True, None, ""
         stuck_note = "\"I don't know\" is \"I'm stuck\" in this vault: recorded as an empty stuck answer."
     rubric = loaded.rubric_for_item(item)
+    resolved_attempt_type = attempt_type or (
+        stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
+        if stuck
+        else default_attempt_type(item.attempt_types_allowed)
+    )
+    # The attempt is a serve and a submit (§12.9): ask the one eligibility
+    # decision BEFORE asking for an answer. A cold check that cannot be taken
+    # now is served as practice (its task re-timed; a dry run persists
+    # nothing and validates as if it had), and a draft submit would refuse is
+    # refused here, with the reason, without prompting.
+    from learnloop import serve_eligibility
+    from learnloop.attempts.attempts import validate_attempt_draft
+    from learnloop.scheduling.scheduler import cold_check_serve_decision
+
+    serve_decision = cold_check_serve_decision(loaded, repository, practice_item_id, persist=not dry_run)
+    retimed = dict(serve_decision.retimes) if dry_run else None
+    serve_note = (
+        serve_decision.message
+        if serve_decision.verdict in (serve_eligibility.SERVE_AS_ORDINARY, serve_eligibility.DEFER_UNTIL)
+        else None
+    )
+    try:
+        validate_attempt_draft(
+            loaded,
+            repository,
+            AttemptDraft(
+                entry_surface="cli_practice",
+                evidence_origin="human",
+                practice_item_id=practice_item_id,
+                learner_answer_md=answer if answer is not None else "",
+                attempt_type=resolved_attempt_type,
+                hints_used=hints_used,
+                session_id=session_id,
+                declared_stuck=stuck,
+            ),
+            retimed_tasks=retimed,
+        )
+    except (AttemptValidationError, ValueError) as exc:
+        if json_output:
+            typer.echo(_dump({"version": 1, "error": "validation_error", "message": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    if serve_note is not None and not json_output:
+        typer.echo(serve_note)
     answer_text = answer if answer is not None else typer.prompt("Answer", default="")
     caps = SpendCaps(
         max_candidates=max(max_calls, 1),
@@ -3380,11 +3425,6 @@ def attempt(
     spend = ReviewSpend(caps, price_per_million=price_per_million, config=loaded.config)
     admitted = False
     try:
-        resolved_attempt_type = attempt_type or (
-            stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
-            if stuck
-            else default_attempt_type(item.attempt_types_allowed)
-        )
         draft = AttemptDraft(
             entry_surface="cli_practice",
             evidence_origin="human",
@@ -3395,7 +3435,7 @@ def attempt(
             session_id=session_id,
             declared_stuck=stuck,
         )
-        plan = plan_grading_calls(loaded, repository, draft)
+        plan = plan_grading_calls(loaded, repository, draft, retimed_tasks=retimed)
         if dry_run:
             grading = _attempt_grading_estimate(spend, plan, _grading_route_profile(loaded.config, ai_provider), spend_register_profile=True)
             payload = {
@@ -3407,6 +3447,8 @@ def attempt(
             }
             if stuck_note is not None:
                 payload["note"] = stuck_note
+            if serve_note is not None:
+                payload["eligibility"] = serve_decision.record()
             _echo_attempt_plan(payload, json_output)
             if not grading["admissible"]:
                 raise typer.Exit(code=1)

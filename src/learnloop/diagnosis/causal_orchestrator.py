@@ -2002,10 +2002,9 @@ def _answer_shown(repository: Repository, practice_item_id: str, *, clock: Clock
     """Does a routine display of the item's answer cover now (UX Phase 4
     round 7)? The offer asks before it changes anything."""
 
-    from learnloop.clock import utc_now_iso
-    from learnloop.reveal_coverage import routine_displays_covering
+    from learnloop.diagnosis.probe_episodes import routine_display_covers_item
 
-    return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
+    return routine_display_covers_item(repository, practice_item_id, clock=clock)
 
 
 class _OfferRefusedAtCommit(Exception):

@@ -2823,40 +2823,56 @@ def advance_with_context(
     item = block.next_item()
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
-    if serve and item.served_at is None and _held_cold_check(env, block, item):
-        # Displaced at the serve itself (a block planned in this very call is
-        # not reconciled first): plan the next step instead (round 5). The
-        # pool no longer holds it, so the next step is another item.
-        return advance_with_context(env, serve=serve)
+    eligibility = None
+    if serve and item.served_at is None:
+        held, eligibility = _held_cold_check(env, block, item)
+        if held:
+            # Displaced at the serve itself (a block planned in this very call is
+            # not reconciled first): plan the next step instead (round 5). The
+            # pool no longer holds it, so the next step is another item.
+            return advance_with_context(env, serve=serve)
     candidate_id = context.candidate_ids.get(item.practice_item_id)
     step = _item_step(
         env, record, block, item, boundary=boundary, candidate_id=candidate_id,
         presentation_id=_standing_presentation(env, block, item) if item.served_at is not None else None,
     )
+    if eligibility is not None:
+        # One eligibility decision: its cold check cannot be taken now, so the
+        # item is served as practice (its task re-timed), and the step says so.
+        step["eligibility"] = {
+            "verdict": eligibility.verdict, "reason": eligibility.reason,
+            "message": eligibility.message, "check_due_at": eligibility.until,
+        }
     if serve:
         step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
     return record, step, context
 
 
-def _held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> bool:
-    """Revalidate a cold check at the moment the plan would serve it (UX Phase
-    4 rounds 5 and 6, ``scheduler.cold_check_serve_hold``); one a routine
-    display covers is displaced, with the reason."""
+def _held_cold_check(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> tuple[bool, Any]:
+    """Revalidate a cold check at the moment the plan would serve it (the one
+    eligibility decision, ``scheduler.cold_check_serve_decision``): one whose
+    hold time clears (a routine display, a reveal since it was scheduled) is
+    displaced, with the reason; one submit would prime with no lapse is
+    served as practice, its task re-timed. Returns ``(displaced, decision)``,
+    the decision only when it is not a plain serve."""
 
     if item.practice_item_id not in _open_cold_check_items(env):
-        return False
-    from learnloop.scheduling.scheduler import cold_check_serve_hold
+        return False, None
+    from learnloop import serve_eligibility
+    from learnloop.scheduling.scheduler import cold_check_serve_decision
 
-    hold = cold_check_serve_hold(env.vault, env.repository, item.practice_item_id, clock=env.clock)
-    if hold is None:
-        return False
+    decision = cold_check_serve_decision(env.vault, env.repository, item.practice_item_id, clock=env.clock)
+    if decision.verdict == serve_eligibility.SERVE:
+        return False, None
+    if decision.verdict == serve_eligibility.SERVE_AS_ORDINARY:
+        return False, decision
     with env.repository.atomic(), env.repository.connection() as connection:
         _event(
             connection, block.id, "item_displaced",
-            {"practice_item_id": item.practice_item_id, "reason": hold}, env.now_iso(),
+            {"practice_item_id": item.practice_item_id, "reason": decision.reason}, env.now_iso(),
         )
-    return True
+    return True, decision
 
 
 def _standing_presentation(env: PlanEnv, block: PlannedBlock, item: PlannedItem) -> str | None:

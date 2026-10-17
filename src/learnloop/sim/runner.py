@@ -674,7 +674,9 @@ def _simulate_one_attempt(
     result = apply_attempt(
         vault,
         repository,
-        ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade),
+        # Q33: the simulated day is a past instant on a kept-state copy; only
+        # reveals stamped by then count (``serve_eligibility``).
+        ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True),
         clock=clock,
     )
     decision = evaluate_attempt_intervention_followup(

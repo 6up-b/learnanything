@@ -603,7 +603,8 @@ def finish_exam(
         applied = apply_attempt(
             vault,
             repository,
-            ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade),
+            # Q33: applied at the sitting's own instants (``serve_eligibility``).
+            ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True),
             clock=attempt_clock,
         )
         applied_results.append(applied)

@@ -1362,17 +1362,34 @@ class Repository(
             ).fetchall()
         return [dict(row) for row in rows]
 
-    def list_recent_attempts_by_practice_item(self, practice_item_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    def list_recent_attempts_by_practice_item(
+        self, practice_item_id: str, limit: int = 10, *, until: str | None = None
+    ) -> list[dict[str, Any]]:
+        """The item's latest attempts, newest first. ``until`` (inclusive)
+        bounds them at a historical writer's instant (``serve_eligibility``,
+        Q33); without it the query is unchanged."""
+
         with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM practice_attempts
-                WHERE practice_item_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
-                """,
-                (practice_item_id, limit),
-            ).fetchall()
+            if until is None:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM practice_attempts
+                    WHERE practice_item_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (practice_item_id, limit),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT * FROM practice_attempts
+                    WHERE practice_item_id = ? AND created_at <= ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (practice_item_id, until, limit),
+                ).fetchall()
         return [_decode_attempt(row) for row in rows]
 
     def list_recent_attempts_by_learning_object(
@@ -3930,6 +3947,22 @@ class Repository(
                 ORDER BY not_before, created_at, id
                 """,
                 params,
+            ).fetchall()
+        return [_decode_followup_task(row) for row in rows]
+
+    def open_followup_tasks_for_item(self, practice_item_id: str) -> list[dict[str, Any]]:
+        """Every task of any kind still awaiting an attempt on this item, in
+        ``active_followup_task_for_item``'s order (``serve_eligibility`` judges
+        them all: the first due one is the task submit answers)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM followup_tasks
+                WHERE selected_item_id = ? AND status IN ('pending', 'served')
+                ORDER BY not_before, created_at, id
+                """,
+                (practice_item_id,),
             ).fetchall()
         return [_decode_followup_task(row) for row in rows]
 

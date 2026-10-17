@@ -943,7 +943,7 @@ Both holds read one function, `reveal_coverage.routine_displays_covering`. They 
 
 ### 12.9 Out of scope: the brief for "one serve/administration eligibility decision"
 
-Pre-existing on main, unchanged here (ruling 4).
+Pre-existing on main, unchanged here (ruling 4). Addressed by that stage: `docs/reviews/serve-eligibility-decision.md` (`learnloop.serve_eligibility`), which also settles Q33 (§13.6).
 
 1. **The scheduler's cold lane and submit disagree for non-routine reveals.**
    - **The two rules.** Auto-prime counts non-routine reveals since the item's last attempt (`attempts.reveal_total_for_submission`), and they never lapse. The scheduler's deferral (`_defer_revealed_cold_followups`) counts reveals since the task was created, with the cold delay.

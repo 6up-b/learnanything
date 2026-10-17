@@ -251,12 +251,15 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # still render it.
         refuse_unservable_item(vault, item)
         refuse_held_out_item(vault, repository, item)
-        # UX Phase 4 rounds 5 and 6: a session serve revalidates a cold check
-        # (a stale list, a restored session, a deep link): deferred while a
-        # routine display covers it.
+        # A session serve revalidates a cold check (a stale list, a restored
+        # session, a deep link) against the one eligibility decision: deferred
+        # while a time-bounded hold lasts, served as practice when submit
+        # would prime it (rounds 5 and 6; the eligibility stage).
         from learnloop_sidecar.handlers.queue import revalidate_cold_check
 
-        revalidate_cold_check(vault, repository, item.id)
+        eligibility = revalidate_cold_check(vault, repository, item.id)
+    else:
+        eligibility = None
     pick = None
     if params.session_id is not None and params.proposal_id:
         # A picked proposal is re-checked BEFORE anything is served (an item
@@ -282,6 +285,10 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
             from learnloop_sidecar.handlers.daily_plan import deliver_on_open
 
             detail["proposalDelivery"] = to_camel(deliver_on_open(ctx, *pick))
+    if eligibility is not None:
+        from learnloop_sidecar.handlers.queue import eligibility_dto
+
+        detail["eligibility"] = eligibility_dto(eligibility)
     detail["elicitation"] = (
         None
         if params.session_id is None

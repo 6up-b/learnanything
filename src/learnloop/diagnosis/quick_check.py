@@ -189,11 +189,21 @@ def _candidate_items(
     offer (the shared exclusions apply, with the out-of-timing ones), minus
     ``excluded``."""
 
+    from learnloop import serve_eligibility
+
     item_states = repository.practice_item_states()
     serving_excluded = out_of_timing_serving_exclusions(
         vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
         reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
     ).out_of_timing_item_ids
+    # The one eligibility decision (``serve_eligibility``, QUICK_CHECK): never
+    # an item submit would prime (a reveal of its answer, at any age, since it
+    # has never been attempted). The ledger is read once; an item with no row
+    # cannot be primed, so only items with rows are asked.
+    now_iso = utc_now_iso(clock)
+    reveal_rows: dict[str, list[dict[str, Any]]] = {}
+    for row in repository.reveal_events():
+        reveal_rows.setdefault(str(row.get("practice_item_id") or ""), []).append(row)
     result = []
     for item in vault.practice_items.values():
         if item.learning_object_id not in undecided or item.status != "active" or item.id in attempted:
@@ -209,6 +219,17 @@ def _candidate_items(
             or not practice_item_servable(vault, item)
         ):
             continue
+        if item.id in reveal_rows:
+            decision = serve_eligibility.decide(
+                serve_eligibility.gather(
+                    repository, practice_item_id=item.id, learning_object_id=None, at=now_iso,
+                    reveal_rows=reveal_rows[item.id],
+                ),
+                serve_eligibility.QUICK_CHECK,
+            )
+            if not decision.serves:
+                serve_eligibility.log_decision(decision, path="quick_check_offer")
+                continue
         result.append(item.id)
     return sorted(result)
 

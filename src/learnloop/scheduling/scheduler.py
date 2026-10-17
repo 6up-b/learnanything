@@ -1715,48 +1715,62 @@ def _cold_task_reveals(
     since: str,
     now_iso: str,
 ) -> list[tuple[dict[str, Any], str]]:
-    """The reveals that hold a cold task back now, each with the first moment it
-    no longer holds it (ledger format), oldest first.
+    """The reveals that hold a cold task (created at ``since``) back now, each
+    with the first moment it no longer holds it (ledger format), oldest first:
+    the eligibility decision's serving holds
+    (``serve_eligibility.cold_task_holds``), the one reading every serve path
+    and the submit guard share. A read; nothing is decided here."""
 
-    Every reveal kind except the routine displays: one on the task's item or
-    learning object after the task was created, counting for the lane's own
-    retrieval delay (the reveals before it were visible to the scheduling
-    decision). A routine full-answer display counts by its coverage, the one
-    definition the submit path reads too (``learnloop.reveal_coverage``, UX
-    Phase 4 round 4): whenever it was stamped, until its coverage ends, and
-    also when stamped after now (the clock went back). So the queue never
-    serves a cold task whose submission auto-prime would refuse ("a cold retry
-    must be unassisted and unprimed").
-    """
+    from learnloop import serve_eligibility
 
-    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-    from learnloop.reveal_coverage import is_routine_display, routine_released_at, routine_row_covers
-
+    inputs = serve_eligibility.EligibilityInputs(
+        practice_item_id=item_id,
+        learning_object_id=learning_object_id,
+        at=now_iso,
+        reveals=tuple(
+            serve_eligibility.RevealRow.from_row(row)
+            for row in repository.reveal_events_for_target(
+                practice_item_id=item_id or None, learning_object_id=learning_object_id,
+            )
+        ),
+    )
+    task = serve_eligibility.FollowupTask(id="", kind="cold_retry", created_at=since, not_before=None, expires_at=None)
+    by_id = {
+        str(row.get("id")): row
+        for row in repository.reveal_events_for_target(
+            practice_item_id=item_id or None, learning_object_id=learning_object_id,
+        )
+    }
     held: dict[str, tuple[dict[str, Any], str]] = {}
-    for row in repository.reveal_events_for_target(
-        practice_item_id=item_id or None,
-        learning_object_id=learning_object_id,
-        since=since or None,
-        until=now_iso,
-    ):
-        if is_routine_display(row.get("source_kind"), row.get("basis")):
-            continue
-        stamped = parse_utc(str(row.get("created_at") or ""))
-        if stamped is None:
-            continue
-        until = (stamped.astimezone(UTC) + COLD_RETRIEVAL_DELAY).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        held[str(row.get("id"))] = (row, until)
-    for row in repository.reveal_events_for_target(
-        practice_item_id=item_id or None,
-        learning_object_id=learning_object_id,
-    ):
-        if not is_routine_display(row.get("source_kind"), row.get("basis")):
-            continue
-        created_at = str(row.get("created_at") or "")
-        released = routine_released_at(created_at)
-        if released is not None and routine_row_covers(created_at, now_iso):
-            held[str(row.get("id"))] = (row, released)
+    for reveal, released, _reason in serve_eligibility.cold_task_holds(inputs, task):
+        previous = held.get(reveal.id)
+        if previous is None or released > previous[1]:
+            held[reveal.id] = (by_id.get(reveal.id) or {"id": reveal.id, "created_at": reveal.created_at}, released)
     return sorted(held.values(), key=lambda pair: (str(pair[0].get("created_at") or ""), str(pair[0].get("id") or "")))
+
+
+def cold_check_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    now_iso: str | None = None,
+    learning_object_id: str | None = None,
+):
+    """The one eligibility decision for serving the item's cold check now
+    (``serve_eligibility.decide(..., COLD_CHECK)``): serve it, serve the item
+    as ordinary practice (re-timing the due cold task), or defer it until a
+    time-bounded hold lifts. Every cold-check serve path asks this."""
+
+    from learnloop import serve_eligibility
+
+    item = vault.practice_items.get(practice_item_id)
+    lo = (str(getattr(item, "learning_object_id", "") or "") or None) if item is not None else learning_object_id
+    inputs = serve_eligibility.gather(
+        repository, practice_item_id=practice_item_id, learning_object_id=lo, at=now_iso or utc_now_iso(clock),
+    )
+    return serve_eligibility.decide(inputs, serve_eligibility.COLD_CHECK)
 
 
 def _defer_revealed_cold_followups(
@@ -1797,17 +1811,15 @@ def _defer_revealed_cold_followups(
       reason to withhold it.
     """
 
-    if not pending_followups:
-        return pending_followups, []
-
+    from learnloop import serve_eligibility
     from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-    from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
 
     # Second-resolution, exactly like every other timestamp the lane writes
     # (`clock.utc_now_iso`): these strings are compared against stored ones.
     now_iso = utc_now_iso(clock)
     kept: list[dict[str, str]] = []
     deferrals: list[dict[str, Any]] = []
+    decisions: dict[str, Any] = {}
     for pending in pending_followups:
         task_id = pending.get("followup_task_id")
         if not task_id or pending.get("action_type") not in COLD_FOLLOWUP_TASK_KINDS:
@@ -1818,46 +1830,41 @@ def _defer_revealed_cold_followups(
             kept.append(pending)
             continue
         item_id = str(task.get("selected_item_id") or "")
-        selected_item = vault.practice_items.get(item_id) if item_id else None
-        # The selected item's LO, not the task's column: the repair lane leaves
-        # `followup_tasks.learning_object_id` NULL, and the LO is exactly the
-        # scope a reveal has to be judged in. Note the asymmetry with the
-        # RECEIPT, which treats an LO-wide reveal as soft: a receipt asks
-        # whether a measurement already taken was contaminated, this asks
-        # whether NOW is the moment to spend a single-use one, and "wait a day"
-        # costs nothing while a wrong answer to the first question costs the
-        # whole episode.
-        learning_object_id = (
-            str(getattr(selected_item, "learning_object_id", "") or "") or None
-            if selected_item is not None
-            else (str(task.get("learning_object_id") or "") or None)
-        )
-        # The task's own creation is the window start: reveals BEFORE it were
-        # already visible to the scheduling decision (the primed attempt that
-        # created the task is itself the licensed exposure), so re-counting them
-        # would defer every cold retry the moment its own repair spent budget.
-        since = str(task.get("created_at") or "")
+        # The one eligibility decision (``serve_eligibility``), per item: the
+        # scheduler's deferral scope (the item or its learning object, since
+        # the task was created, for the lane's delay), routine-display
+        # coverage, AND submit's own verdict, so the lane never serves a cold
+        # check submit would refuse.
         try:
-            held = _cold_task_reveals(
-                repository, item_id=item_id, learning_object_id=learning_object_id, since=since, now_iso=now_iso,
-            )
+            decision = decisions.get(item_id)
+            if decision is None:
+                decision = decisions[item_id] = cold_check_decision(
+                    vault, repository, item_id, now_iso=now_iso,
+                    learning_object_id=str(task.get("learning_object_id") or "") or None,
+                )
         except Exception:  # pragma: no cover - a ledger read must not break the queue
             kept.append(pending)
             continue
-        if not held:
+        if decision.verdict == serve_eligibility.SERVE or str(task_id) not in decision.task_ids:
             kept.append(pending)
             continue
-        reveals = [row for row, _until in held]
-        last_at = max(str(row.get("created_at") or "") for row in reveals)
-        # Pushed to when the last reveal stops counting: the lane's delay after
-        # an ordinary reveal, a routine display's coverage (round 4).
-        deferred_to = max(until for _row, until in held)
-        if deferred_to <= now_iso:
-            # The delay has already elapsed since the last reveal: the task is
-            # cold again on its own terms and is served normally.
-            kept.append(pending)
-            continue
+        retimes = dict(decision.retimes)
+        deferred_to = retimes.get(str(task_id)) or decision.until or now_iso
+        selected_item = vault.practice_items.get(item_id) if item_id else None
+        reveals = [
+            row
+            for row in repository.reveal_events_for_target(
+                practice_item_id=item_id or None,
+                learning_object_id=(
+                    str(getattr(selected_item, "learning_object_id", "") or "") or None
+                    if selected_item is not None
+                    else (str(task.get("learning_object_id") or "") or None)
+                ),
+            )
+            if str(row.get("id")) in decision.reveal_event_ids
+        ]
         expires_at = str(task.get("expires_at") or "")
+        served_as_practice = decision.verdict == serve_eligibility.SERVE_AS_ORDINARY
         deferral = {
             "followup_task_id": str(task_id),
             "practice_item_id": item_id or None,
@@ -1865,33 +1872,85 @@ def _defer_revealed_cold_followups(
             "remediation_episode_id": (
                 str(task.get("remediation_episode_id") or "") or None
             ),
-            "reveal_event_ids": [str(row.get("id") or "") for row in reveals],
+            "reveal_event_ids": list(decision.reveal_event_ids),
             "reveal_amount": sum(float(row.get("amount") or 0.0) for row in reveals),
-            "last_reveal_at": last_at,
+            "last_reveal_at": max((str(row.get("created_at") or "") for row in reveals), default=None),
             "deferred_to": deferred_to,
             "expires_at": expires_at or None,
             # No expiry extension: past this point the deferral simply outlives
             # the task and the expiry sweep records the censoring.
             "beyond_expiry": bool(expires_at and deferred_to > expires_at),
-            "delay_seconds": COLD_RETRIEVAL_DELAY.total_seconds(),
+            "delay_seconds": serve_eligibility.COLD_RETRIEVAL_DELAY.total_seconds(),
+            "reason": decision.reason,
+            "served_as_practice": served_as_practice,
         }
-        if persist:
-            repository.defer_followup_task(
-                str(task_id), not_before=deferred_to, clock=clock
-            )
+        if persist and str(task_id) in retimes:
+            repository.defer_followup_task(str(task_id), not_before=retimes[str(task_id)], clock=clock)
         # A session build also writes the slate annotation below; the log line
         # is what a CLI or session-less build leaves behind, so the deferral is
         # never invisible on any path.
+        serve_eligibility.log_decision(decision, path="queue_cold_lane")
         logger.info(
-            "cold %s task %s deferred to %s: %d reveal(s) since %s",
+            "cold %s task %s %s %s: %d reveal(s) (%s)",
             deferral["kind"],
             task_id,
+            "served as practice, re-timed to" if served_as_practice else "deferred to",
             deferred_to,
-            len(reveals),
-            since,
+            len(decision.reveal_event_ids),
+            decision.reason,
         )
         deferrals.append(deferral)
+        if served_as_practice:
+            # Submit would prime the answer and only an attempt absorbs it:
+            # the item stays in the queue as ordinary practice, labelled.
+            kept.append({
+                "practice_item_id": item_id,
+                "action_type": ANSWER_SHOWN_PRACTICE,
+                "followup_task_id": str(task_id),
+                "practice_reason": decision.message or "",
+            })
+    # A cold task re-timed by an earlier build (or serve) because submit would
+    # prime its item stays offered as practice on every build until an attempt
+    # absorbs the exposure: whichever build re-timed it may have been one the
+    # learner never saw (a CLI queue, a session-less read).
+    practising = {entry["practice_item_id"] for entry in kept if entry.get("action_type") == ANSWER_SHOWN_PRACTICE}
+    for kind in sorted(COLD_FOLLOWUP_TASK_KINDS):
+        try:
+            open_tasks = repository.open_followup_tasks_of_kind(kind)
+        except Exception:  # pragma: no cover - a queue read must not break here
+            continue
+        for task in open_tasks:
+            item_id = str(task.get("selected_item_id") or "")
+            not_before = str(task.get("not_before") or "")
+            expires_at = str(task.get("expires_at") or "")
+            if not item_id or item_id in practising or not not_before or not_before <= now_iso:
+                continue
+            if expires_at and expires_at < now_iso:
+                continue
+            try:
+                decision = decisions.get(item_id)
+                if decision is None:
+                    decision = decisions[item_id] = cold_check_decision(
+                        vault, repository, item_id, now_iso=now_iso,
+                        learning_object_id=str(task.get("learning_object_id") or "") or None,
+                    )
+            except Exception:  # pragma: no cover - a ledger read must not break the queue
+                continue
+            if decision.verdict != serve_eligibility.SERVE_AS_ORDINARY:
+                continue
+            practising.add(item_id)
+            kept.append({
+                "practice_item_id": item_id,
+                "action_type": ANSWER_SHOWN_PRACTICE,
+                "followup_task_id": str(task.get("id") or ""),
+                "practice_reason": decision.message or "",
+            })
     return kept, deferrals
+
+
+#: The pending entry a cold task leaves when its item is served as practice
+#: instead (``serve_eligibility.SERVE_AS_ORDINARY``): no follow-up lane.
+ANSWER_SHOWN_PRACTICE = "answer_shown_practice"
 
 
 #: Why a cold check cannot be served as one now (``cold_check_serve_hold``).
@@ -1911,53 +1970,27 @@ def cold_check_hold_until(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """When a cold check's routine-display hold lifts (ledger format), or None
-    when it is not held (UX Phase 4, rounds 5 to 7).
+    """When a cold check's hold lifts (ledger format), or None when it is not
+    held: the one eligibility decision's ``defer_until``
+    (``serve_eligibility``). Every hold is time-bounded (round-6 ruling 2):
+    routine-display coverage (D + G), a reveal since the task was created
+    (one cold delay), or a submit priming that only routine displays cause.
+    Every open, unexpired cold task on the item that falls due within the hold
+    is judged, so a task for later never masks one due now (round 6, E); the
+    held ones are deferred, persisted when ``persist``. An unreadable stamp
+    holds, with :data:`COLD_CHECK_HOLD_UNKNOWN_RELEASE` and nothing persisted.
 
-    Only a hold that time alone clears is made here (round-6 ruling 2): a
-    routine display covers the item or its learning object now, and an open,
-    unexpired cold task on the item falls due no later than that coverage
-    releases it (due now, or deferred by it): every such task is judged, so a
-    task for later never masks one due now (round 6, E). Those tasks are
-    deferred, persisted when ``persist``, to the first second no covering row
-    covers the item (``routine_released_at``), which is returned: the hold
-    ends by itself within the coverage (D + G). Every other reveal kind keeps
-    main's serving behaviour exactly (the scheduler's own deferral and the
-    submit guard, unchanged): no hold. An unreadable stamp holds, with
-    :data:`COLD_CHECK_HOLD_UNKNOWN_RELEASE` and nothing persisted.
-    """
+    A cold check submit would prime with no lapse (a non-routine reveal since
+    the item's last attempt) is not held: it is served as ordinary practice
+    and its due task re-timed (persisted when ``persist``), so this returns
+    None and the item is served."""
 
-    from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-    from learnloop.reveal_coverage import routine_displays_covering, routine_released_at
+    from learnloop import serve_eligibility
 
-    now_iso = utc_now_iso(clock)
-    tasks = [
-        task
-        for kind in sorted(COLD_FOLLOWUP_TASK_KINDS)
-        for task in repository.open_followup_tasks_of_kind(kind)
-        if str(task.get("selected_item_id") or "") == practice_item_id
-        and (not task.get("expires_at") or str(task.get("expires_at")) >= now_iso)
-    ]
-    if not tasks:
+    decision = cold_check_serve_decision(vault, repository, practice_item_id, clock=clock, persist=persist)
+    if decision.verdict != serve_eligibility.DEFER_UNTIL:
         return None
-    item = vault.practice_items.get(practice_item_id)
-    learning_object_id = str(getattr(item, "learning_object_id", "") or "") or None if item is not None else None
-    covering = routine_displays_covering(
-        repository, practice_item_id=practice_item_id, learning_object_id=learning_object_id, at=now_iso,
-    )
-    if not covering:
-        return None
-    releases = [routine_released_at(str(row.get("created_at") or "")) for row in covering]
-    if any(value is None for value in releases):
-        return COLD_CHECK_HOLD_UNKNOWN_RELEASE
-    released = max(value for value in releases if value is not None)
-    held = [task for task in tasks if str(task.get("not_before") or "") <= released]
-    if not held:
-        return None
-    if persist:
-        for task in held:
-            repository.defer_followup_task(str(task["id"]), not_before=released, clock=clock)
-    return released
+    return decision.until or COLD_CHECK_HOLD_UNKNOWN_RELEASE
 
 
 def cold_check_serve_hold(
@@ -1968,15 +2001,39 @@ def cold_check_serve_hold(
     clock: Clock | None = None,
     persist: bool = True,
 ) -> str | None:
-    """Revalidate a cold check against routine-display coverage at the moment it
-    would be served (UX Phase 4, rounds 5 to 7): the reason it cannot be
-    served AS the cold check now (:data:`COLD_CHECK_ROUTINE_DISPLAY`), or
-    None. Every path that serves an item it chose earlier (a daily-plan block,
-    a learner's pick, a session serve, the TUI's open) calls it; the hold is
-    :func:`cold_check_hold_until`'s."""
+    """Revalidate a cold check at the moment it would be served (UX Phase 4,
+    rounds 5 to 7; one eligibility decision): the reason it cannot be served
+    AS the cold check now and must wait (the decision's reason code), or None
+    when it is served, as the cold check or as practice with its task
+    re-timed (:func:`cold_check_serve_decision` says which). Every path that
+    serves an item it chose earlier (a daily-plan block, a learner's pick, a
+    session serve, the TUI's open) calls it."""
 
-    held = cold_check_hold_until(vault, repository, practice_item_id, clock=clock, persist=persist)
-    return COLD_CHECK_ROUTINE_DISPLAY if held is not None else None
+    from learnloop import serve_eligibility
+
+    decision = cold_check_serve_decision(vault, repository, practice_item_id, clock=clock, persist=persist)
+    return decision.reason if decision.verdict == serve_eligibility.DEFER_UNTIL else None
+
+
+def cold_check_serve_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    persist: bool = True,
+):
+    """:func:`cold_check_decision` at a serve, with its re-times applied
+    (persisted when ``persist``) and its record logged."""
+
+    from learnloop import serve_eligibility
+
+    decision = cold_check_decision(vault, repository, practice_item_id, clock=clock)
+    if decision.verdict != serve_eligibility.SERVE and persist:
+        # Logged where it acts; a read (the plan's pool, ``persist=False``) is silent.
+        serve_eligibility.retime(repository, decision, clock=clock)
+        serve_eligibility.log_decision(decision, path="cold_check_serve")
+    return decision
 
 
 def deferred_cold_followups(
@@ -2031,6 +2088,17 @@ def deferred_cold_followups(
                         now_iso=now_iso,
                     )
                 ]
+                if not reveals and item_id:
+                    # One eligibility decision: a task re-timed because submit
+                    # would prime its item (the item was served as practice)
+                    # is waiting too, on the reveals submit counts.
+                    from learnloop import serve_eligibility
+
+                    exposure = serve_eligibility.submit_exposure(serve_eligibility.gather(
+                        repository, practice_item_id=item_id, learning_object_id=learning_object_id, at=now_iso,
+                    ))
+                    if exposure.primed_by_ledger:
+                        reveals = [{"created_at": row.created_at} for row in exposure.counted]
             except Exception:  # pragma: no cover - ledger read is advisory here
                 continue
             if not reveals:
@@ -2057,6 +2125,9 @@ def deferred_cold_followups(
 #: slate. Same "no silent caps" contract as the reserved-probe exclusions: an
 #: item withheld from the queue says why, in the log the queue already writes.
 _COLD_DEFERRAL_REASON = "cold check held back: its answer was shown since it was scheduled"
+#: The same, when the item is served as practice instead (one eligibility
+#: decision: submit would prime it, and only an attempt absorbs that).
+_COLD_PRACTICE_REASON = "practice, not a check: its answer was shown since your last attempt"
 
 
 def _merge_cold_deferral_explanations(
@@ -2121,7 +2192,32 @@ def _deferral_components(deferral: Mapping[str, Any]) -> dict[str, float]:
 
 
 def _deferral_reasons(deferral: Mapping[str, Any]) -> list[str]:
+    if deferral.get("served_as_practice"):
+        return [_COLD_PRACTICE_REASON, f"its check is due again at {deferral.get('deferred_to')}"]
     return [_COLD_DEFERRAL_REASON, f"deferred until {deferral.get('deferred_to')}"]
+
+
+def _bare_scheduled(vault: LoadedVault, practice_item: Any, readiness_factor: float | None) -> ScheduledItem | None:
+    """A queue row for an item the ranked queue did not hold (a follow-up's item)."""
+
+    learning_object = vault.learning_object_for_item(practice_item) if practice_item is not None else None
+    if practice_item is None or learning_object is None:
+        return None
+    return ScheduledItem(
+        practice_item_id=practice_item.id,
+        learning_object_id=learning_object.id,
+        priority=0.0,
+        components={
+            "forgetting_risk": 0.0,
+            "goal_frontier": 0.0,
+            "recent_error": 0.0,
+            "probe_eig": 0.0,
+        },
+        readiness_factor=readiness_factor,
+        selected_mode=practice_item.practice_mode,
+        plain_english=[],
+        reward_debug=None,
+    )
 
 
 def _insert_pending_followups(
@@ -2166,6 +2262,24 @@ def _insert_pending_followups(
         if candidate_item is not None and unservable_reason(candidate_item) is not None:
             continue
         action_type = pending.get("action_type") or "negative_surprise_followup"
+        if action_type == ANSWER_SHOWN_PRACTICE:
+            # One eligibility decision: the item's cold check cannot be taken
+            # now (submit would prime it), so the item is ordinary practice,
+            # labelled; the cold task was re-timed. Same doors as above.
+            practice = by_id.get(practice_item_id) or _bare_scheduled(vault, candidate_item, readiness_factor)
+            if practice is None:
+                continue
+            reason = pending.get("practice_reason") or "practice: its answer was shown, so its check comes later"
+            followups.append(
+                replace(
+                    practice,
+                    priority=max_priority + len(pending_followups) - index,
+                    plain_english=[reason] + [existing for existing in practice.plain_english if existing != reason],
+                    followup_kind=None,
+                )
+            )
+            inserted_ids.add(practice_item_id)
+            continue
         # Single-use diagnostic surfaces stay single-use through this door too:
         # a stale GENERIC delayed task naming an ALREADY-ADMINISTERED
         # diagnostic_probe item must not resurrect the burned surface. A fresh
