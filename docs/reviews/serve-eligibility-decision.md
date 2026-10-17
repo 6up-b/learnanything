@@ -4,6 +4,8 @@
 **Branch:** `serving/one-eligibility-decision`, from main `a26284876` (mvp-0.26, migrations to 206).
 **Commits:** `3c5f0cbca` (the decision, every path routed, tests, the pipeline map), `f0d3de361` (the CLI persists its re-time only after the draft passes), then this record.
 **No successor, no migration** (207 stays free), no config key, no RPC name, no frontend change. Grading, regrade and replay are untouched.
+
+> **Superseded in part by the Codex review** (`docs/reviews/serve-eligibility-decision-codex-review.md`, 2026-10-17). The stage is now the successor **mvp-0.27** with the kill switch `eligibility.enabled` (F4; below the tag, or off, every path keeps mvp-0.26's code). A cold check its item can no longer take cold is **withdrawn** with its typed disposition (`unmeasurable_no_held_out_surface` for a repair cold retry, an expired certification probe), never re-timed (F2, F3): the "re-timed one cold delay on, and the check comes back cold" behaviour described in §3, §4 and §6 below is replaced. Any primed draft, an auto-primed one included, is refused a cold check (F1). Q36, Q38, Q40 and Q43 are revised there. The rest of this record stands.
 **Paid calls:** none. Every test uses fakes. The parity runs read backup-API copies with an empty config directory, so no model could be reached.
 
 ## 1. The cause

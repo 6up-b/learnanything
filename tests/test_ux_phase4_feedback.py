@@ -2712,22 +2712,24 @@ def test_f1l_a_presentation_committed_before_a_display_is_not_served_inside_its_
     assert after.status == ("ended" if covered else "served")
 
 
+@pytest.mark.parametrize("version", ["mvp-0.11", "mvp-0.27"], ids=["predecessor", "eligibility_successor"])
 @pytest.mark.parametrize("basis", ["tutor_answer_glimpse", "tutor_answer", "routine_display"])
-def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage(tmp_path, basis):
+def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_coverage(tmp_path, basis, version):
     """Placement's own presentations (``placement_quick_check_items``) are
     excluded upstream: the candidates read the serving exclusions, which read
     routine displays by their coverage. Shown 24 h 30 min ago, a tutor answer
     has left the one-day window while a routine display still covers the item
-    (never presented). The "one eligibility decision" stage: a tutor answer
-    submit would prime (a full one, on a never-attempted item) keeps it out
-    too, at any age; a glimpse under the auto-prime threshold does not
-    (control: presented first)."""
+    (never presented). From the one eligibility decision's successor
+    (mvp-0.27): a tutor answer submit would prime (a full one, on a
+    never-attempted item) keeps it out too, at any age; a glimpse under the
+    auto-prime threshold does not. Below it the full tutor answer is
+    presented first, as before (control)."""
 
     from tests.helpers import NOW
     from tests.test_assumed_known import _answer, _setup as placement_setup
     from tests.test_quick_check import _best_item, _progress, _start
 
-    _paths, vault, repository = placement_setup(tmp_path)
+    _paths, vault, repository = placement_setup(tmp_path, version=version)
     best = _best_item(vault, repository, ["lo_diag"])
     lo = vault.practice_items[best].learning_object_id
     stamp = FrozenClock(NOW - timedelta(hours=24, minutes=30))
@@ -2741,7 +2743,7 @@ def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_cover
         _routine_disclosure(repository, best, clock=stamp, learning_object_id=lo)
 
     session_id, progress = _start(vault, repository, ["lo_diag"])
-    if basis == "tutor_answer_glimpse":
+    if basis == "tutor_answer_glimpse" or (basis == "tutor_answer" and version == "mvp-0.11"):
         assert progress["next_target"]["practice_item_id"] == best
         return
     presented = []
@@ -2768,11 +2770,11 @@ def test_f1l_the_sim_skips_a_covered_instrument_instead_of_aborting_the_run(tmp_
     refused: list[str] = []
     original = probe_episodes.refuse_routine_display_covered
 
-    def refuse_first(repository, practice_item_id, *, clock=None):
+    def refuse_first(repository, practice_item_id, *, clock=None, vault=None):
         if not refused or practice_item_id == refused[0]:
             refused.append(practice_item_id)
             raise probe_episodes.RoutineDisplayCovered(practice_item_id)
-        return original(repository, practice_item_id, clock=clock)
+        return original(repository, practice_item_id, clock=clock, vault=vault)
 
     monkeypatch.setattr(probe_episodes, "refuse_routine_display_covered", refuse_first)
     vault_root = _vault_with_confusable(tmp_path)

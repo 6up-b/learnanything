@@ -414,7 +414,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
         )
         if validation.valid:
             try:
-                serve_presentation(repository, active.id)
+                serve_presentation(repository, active.id, vault=vault)
             except RoutineDisplayCovered:
                 # Committed before the item's answer was shown on a routine
                 # display: ended, and the item is ordinary practice (round 7).
@@ -452,7 +452,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     if presentation is None:
         # UX Phase 4 round 7: say why when it is the item's answer shown on a
         # routine display (the commit refused it), so the surface can too.
-        if routine_display_covers_item(repository, item.id):
+        if routine_display_covers_item(repository, item.id, vault=vault):
             return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
         return versioned({"active": False, "reason": "no_instrument"})
     contract = episode_contract(vault, repository, item.learning_object_id) or {}

@@ -3,8 +3,12 @@
 
 Every serve path asks the one decision submit asks, so an item served as a cold
 check is accepted as one, and an item submit would prime is never served as a
-cold check: it is served as ordinary practice and its cold task re-timed, never
-left due to expire. Fakes only; no network, no paid call.
+cold check: it is served as ordinary practice and its cold check, which it can
+no longer take cold, is withdrawn with its typed disposition (Codex review F2,
+F3), never left due to walk into a refusal or re-timed into a check that cannot
+be cold. The successor is ``mvp-0.27`` behind ``eligibility.enabled`` (F4):
+these tests run their vaults there; ``tests/test_serve_eligibility_review.py``
+covers the predecessor and the switch. Fakes only; no network, no paid call.
 """
 
 from __future__ import annotations
@@ -26,13 +30,51 @@ from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop import serve_eligibility as se
 
 START = datetime(2026, 10, 12, 10, 0, tzinfo=UTC)
+SUCCESSOR = "mvp-0.27"
 
 
 def _iso(moment: datetime) -> str:
     return utc_now_iso(FrozenClock(moment))
 
 
-def _one_cold_item_plan(tmp_path, *, reveal_kind: str = "tutor_answer", reveal_ago=timedelta(hours=26), start=START):
+def _at_version(root, version: str = SUCCESSOR, *, enabled: bool = True) -> None:
+    """Pin a test vault's ``algorithm_version`` (the basic vault is mvp-0.6,
+    the daily-plan vault mvp-0.14) and, optionally, turn the switch off."""
+
+    import re
+
+    toml = root / "learnloop.toml"
+    text, count = re.subn(r'algorithm_version = "[^"]+"', f'algorithm_version = "{version}"', toml.read_text(), count=1)
+    assert count == 1
+    if not enabled:
+        text += "\n[eligibility]\nenabled = false\n"
+    toml.write_text(text)
+
+
+def _repair(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
+    """``test_remediation_cold_retry._setup`` at ``version``."""
+
+    from learnloop.vault.loader import load_vault
+    from tests.test_remediation_cold_retry import _setup
+
+    vault, repository, misconception_id = _setup(tmp_path)
+    _at_version(vault.root, version, enabled=enabled)
+    return load_vault(vault.root), repository, misconception_id
+
+
+def _basic(tmp_path, version: str = SUCCESSOR, *, enabled: bool = True):
+    from tests.helpers import create_basic_vault, seed_due_item
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    _at_version(paths.root, version, enabled=enabled)
+    return paths
+
+
+def _one_cold_item_plan(
+    tmp_path, *, reveal_kind: str = "tutor_answer", reveal_ago=timedelta(hours=26), start=START,
+    version: str = SUCCESSOR, enabled: bool = True,
+):
     """§12.9's reproduction (``test_f1k_a_non_routine_reveal_never_starves_the_plan``'s
     setup): one eligible item, a cold retry created a day ago and due for an
     hour, and a non-routine reveal of the item made before the task."""
@@ -41,6 +83,7 @@ def _one_cold_item_plan(tmp_path, *, reveal_kind: str = "tutor_answer", reveal_a
     from tests.helpers import create_daily_plan_vault
 
     paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_c": [("pi_cold", 1.0)]})
+    _at_version(paths.root, version, enabled=enabled)
     clock = MovableClock(start)
     env = make_env(paths.root, [scheduled("pi_cold", "lo_c", priority=0.9, followup_kind="cold_retry")],
                    clock=clock, session_id="s_one")
@@ -70,11 +113,13 @@ def _answer(env, item_id: str, moment: datetime, *, hints: int = 0):
 # -- §12.9 (1): the cold lane and submit agree on a non-routine reveal ---------------------------
 
 
-def test_the_12_9_reproduction_is_served_as_practice_and_accepted(tmp_path):
-    """The plan serves the item, as ordinary practice with an honest label: its
-    cold task is re-timed one cold delay on, so the answer is accepted (primed,
-    as submit has always recorded it), never refused after it was written.
-    The cold check then comes back cold, and is accepted as the cold check."""
+def test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn(tmp_path):
+    """The plan serves the item, as ordinary practice with an honest label: the
+    item can never give its cold check a cold reading (submit primes it until
+    an attempt, and that attempt is a hard exposure of the cold item), so the
+    check is withdrawn with its typed disposition and the answer accepted
+    (primed, as submit has always recorded it), never refused after it was
+    written. No cold check on the item comes back (Codex review F2)."""
 
     from learnloop.daily_plan.engine import advance, get_or_create_today
 
@@ -83,34 +128,41 @@ def test_the_12_9_reproduction_is_served_as_practice_and_accepted(tmp_path):
     _record, step = advance(env, serve=True)
 
     assert step.get("practice_item_id") == "pi_cold"
+    # Withdrawn at this serve (the plan's reconcile asks first, so the step is
+    # then plain practice; a step whose own serve withdrew it says so).
+    eligibility = step.get("eligibility")
+    if eligibility is not None:
+        assert eligibility["verdict"] == se.SERVE_AS_ORDINARY and eligibility["check_due_at"] is None
+        assert "no longer counts as a check" in eligibility["message"]
+    assert env.repository.followup_task(task["id"])["status"] == "expired"
+    outcomes = [row for row in env.repository.causal_cold_outcomes() if row["followup_task_id"] == task["id"]]
+    assert [row["outcome"] for row in outcomes] == ["unmeasurable_no_held_out_surface"]
     # On main: "a cold retry must be unassisted and unprimed", after the answer was written.
     result = _answer(env, "pi_cold", clock.instant)
-    attempt = env.repository.fetch_practice_attempt(result.attempt_id)
-    assert attempt["primed"]
-    assert step["eligibility"]["verdict"] == se.SERVE_AS_ORDINARY
-    assert step["eligibility"]["reason"] == se.COLD_CHECK_ANSWER_SHOWN
+    assert env.repository.fetch_practice_attempt(result.attempt_id)["primed"]
 
     later = clock.instant + se.COLD_RETRIEVAL_DELAY + timedelta(minutes=1)
-    retimed = env.repository.followup_task(task["id"])
-    assert retimed["status"] in {"pending", "served"} and retimed["not_before"] <= _iso(later)
     cold = se.decide(se.gather(env.repository, practice_item_id="pi_cold", learning_object_id="lo_c",
                                at=_iso(later)), se.COLD_CHECK)
-    assert cold.verdict == se.SERVE, cold.record()
-    answered = _answer(env, "pi_cold", later)
-    assert not env.repository.fetch_practice_attempt(answered.attempt_id)["primed"]
+    assert cold.reason == se.NO_COLD_CHECK, cold.record()
 
 
-def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice(tmp_path):
-    """The queue's cold lane: a tutor answer on the cold item before its task
-    was created (the scheduler's deferral never saw it) primes the item at
-    submit, so the lane does not serve it as the cold retry. The item is in
-    the queue as practice, with the reason, and its answer is accepted."""
+def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice_and_ends_it_honestly(tmp_path):
+    """The queue's cold lane (Codex review F2's scenario): a tutor answer on
+    the cold item before its task was created (the scheduler's deferral never
+    saw it) primes the item at submit, so the lane does not serve it as the
+    cold retry. The item is in the queue as practice, with the reason; the
+    retry is withdrawn now with its typed disposition and its final coldness
+    receipt (the expiry sweep adds nothing), the practice answer is accepted,
+    and no cold retry on the item is ever served after it."""
 
+    from learnloop.diagnosis.causal_orchestrator import sweep_expired_cold_retries
     from learnloop.scheduling.scheduler import build_due_queue
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled, _setup
+    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
 
-    vault, repository, misconception_id = _setup(tmp_path)
+    vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
+    (task,) = repository.open_followup_tasks_for_item(cold_item)
     repository.insert_reveal_event(
         {"practice_item_id": cold_item, "learning_object_id": vault.practice_items[cold_item].learning_object_id,
          "source_kind": "tutor_answer", "amount": 1.0, "basis": "tutor_answer"},
@@ -123,33 +175,40 @@ def test_the_queue_serves_a_cold_retry_submit_would_prime_as_practice(tmp_path):
     by_id = {item.practice_item_id: item for item in queue}
     assert cold_item in by_id
     assert by_id[cold_item].followup_kind != "cold_retry"
-    assert any("seen this answer" in reason for reason in by_id[cold_item].plain_english)
-    # Re-timed, it stays offered as practice on the next build.
-    again = {item.practice_item_id: item for item in build_due_queue(
-        vault, repository, clock=FrozenClock(moment + timedelta(minutes=5)))}
-    assert cold_item in again and any("seen this answer" in reason for reason in again[cold_item].plain_english)
-    complete_self_graded_attempt(
+    assert any("no longer counts as a check" in reason for reason in by_id[cold_item].plain_english)
+    withdrawn = repository.followup_task(task["id"])
+    assert withdrawn["status"] == "expired" and withdrawn["consumed_attempt_id"] is None
+    (outcome,) = [row for row in repository.causal_cold_outcomes() if row["followup_task_id"] == task["id"]]
+    assert outcome["outcome"] == "unmeasurable_no_held_out_surface"
+    assert outcome["detail"]["stage"] == "serve" and outcome["detail"]["reason"] == se.COLD_CHECK_ANSWER_SHOWN
+    assert outcome["detail"]["reveal_event_ids"]
+    final = repository.coldness_receipt_for_task_stage(task["id"], "final")
+    assert final is not None and final["derived"]["outcome"] == "unmeasurable_no_held_out_surface"
+    assert sweep_expired_cold_retries(vault, repository, clock=FrozenClock(moment)) == []
+    practice = complete_self_graded_attempt(
         vault, repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="an answer"),
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=3), clock=FrozenClock(moment + timedelta(minutes=6)),
     )
-    # The practice attempt absorbed the exposure: no longer pushed as practice,
-    # and the cold check is back a cold delay after the re-time.
-    after = build_due_queue(vault, repository, clock=FrozenClock(moment + timedelta(minutes=7)))
-    assert not any(
-        reason.startswith("Practice: you've seen") for item in after for reason in item.plain_english
-    )
-    cold_again = [item.practice_item_id for item in build_due_queue(
-        vault, repository, clock=FrozenClock(moment + timedelta(days=1, minutes=1))) if item.followup_kind == "cold_retry"]
-    assert cold_item in cold_again
+    assert repository.fetch_practice_attempt(practice.attempt_id)["primed"]
+    assert repository.consumed_followup_task_for_attempt(practice.attempt_id, kind="cold_retry") is None
+    # Nothing comes back as a cold check on this item: the measurement ended,
+    # honestly, instead of being spent on an answer that could not be cold.
+    for days in (0, 1, 2, 7):
+        later = build_due_queue(vault, repository, clock=FrozenClock(moment + timedelta(days=days, minutes=7)))
+        assert cold_item not in [item.practice_item_id for item in later if item.followup_kind == "cold_retry"]
+        assert not any("no longer counts" in reason for item in later for reason in item.plain_english)
+    assert [row["outcome"] for row in repository.causal_cold_outcomes() if row["followup_task_id"] == task["id"]] == [
+        "unmeasurable_no_held_out_surface"
+    ]
 
 
 def test_submit_refusal_names_the_change_since_the_serve(tmp_path):
     """Served as the cold check; then the tutor shows the answer before the
     learner submits. Submit refuses, and says why: the reveal, by kind and time."""
 
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled, _setup
+    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
 
-    vault, repository, misconception_id = _setup(tmp_path)
+    vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
     moment = NOW + timedelta(days=1, hours=1)
     served = se.decide(se.gather(repository, practice_item_id=cold_item, learning_object_id=None, at=_iso(moment)),
@@ -196,10 +255,8 @@ def test_the_cli_attempt_refuses_an_inadmissible_type_without_prompting(tmp_path
 
 def test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting(tmp_path):
     from learnloop.db.repositories import Repository
-    from tests.helpers import create_basic_vault, seed_due_item
 
-    paths = create_basic_vault(tmp_path / "vault")
-    seed_due_item(paths)
+    paths = _basic(tmp_path)
     now = datetime.now(UTC).replace(microsecond=0)
     Repository(paths.sqlite_path).create_followup_task(
         kind="cold_retry", case_kind="misconception", case_ref="ep_cli",
@@ -216,13 +273,11 @@ def test_the_cli_attempt_refuses_an_assisted_cold_check_without_prompting(tmp_pa
 
 def test_the_cli_attempt_records_a_primed_cold_check_as_practice(tmp_path):
     """The CLI's attempt is a serve too: a due cold retry whose answer a tutor
-    showed is re-timed and the answer recorded as practice, with a note."""
+    showed is withdrawn and the answer recorded as practice, with a note."""
 
     from learnloop.db.repositories import Repository
-    from tests.helpers import create_basic_vault, seed_due_item
 
-    paths = create_basic_vault(tmp_path / "vault")
-    seed_due_item(paths)
+    paths = _basic(tmp_path)
     repository = Repository(paths.sqlite_path)
     now = datetime.now(UTC).replace(microsecond=0)
     task = repository.create_followup_task(
@@ -241,18 +296,17 @@ def test_the_cli_attempt_records_a_primed_cold_check_as_practice(tmp_path):
 
     assert result.exit_code == 0, result.output
     assert "seen this answer" in result.output
-    assert repository.followup_task(task["id"])["not_before"] > _iso(now)
+    assert repository.followup_task(task["id"])["status"] == "expired"
+    assert [row["outcome"] for row in repository.causal_cold_outcomes()] == ["unmeasurable_no_held_out_surface"]
 
 
 def test_a_refused_cli_attempt_writes_nothing(tmp_path):
     """A refusal before the prompt leaves the cold task as it was: the serve's
-    re-time is persisted only once the draft passes."""
+    withdrawal is persisted only once the draft passes."""
 
     from learnloop.db.repositories import Repository
-    from tests.helpers import create_basic_vault, seed_due_item
 
-    paths = create_basic_vault(tmp_path / "vault")
-    seed_due_item(paths)
+    paths = _basic(tmp_path)
     repository = Repository(paths.sqlite_path)
     now = datetime.now(UTC).replace(microsecond=0)
     task = repository.create_followup_task(
@@ -269,7 +323,9 @@ def test_a_refused_cli_attempt_writes_nothing(tmp_path):
     result = _cli("attempt", "pi_svd_define_001", "--attempt-type", "diagnostic_probe", "--vault", str(paths.root))
 
     assert result.exit_code == 1 and "Answer" not in result.output
-    assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
+    after = repository.followup_task(task["id"])
+    assert after["not_before"] == task["not_before"] and after["status"] == task["status"]
+    assert repository.causal_cold_outcomes() == []
 
 
 # -- Q33: a historical writer counts only reveals at or before its instant --------------------------
@@ -281,9 +337,12 @@ def test_q33_an_exam_seeded_before_a_later_reveal_is_not_primed(tmp_path):
     primed. Live submit keeps its window (the clock-went-back rule)."""
 
     from learnloop.goals.exam_seeding import seed_exam_attempts
+    from learnloop.vault.loader import load_vault
     from tests.test_exam_seeding import LIVE_NOW, _exam_vault, _outcomes
 
-    _root, loaded, repository = _exam_vault(tmp_path)
+    root, loaded, repository = _exam_vault(tmp_path)
+    _at_version(root)
+    loaded = load_vault(root)
     repository.insert_reveal_event(
         {"practice_item_id": "pi_exam_q1", "learning_object_id": "lo_svd_definition",
          "source_kind": "tutor_answer", "amount": 1.0, "basis": "tutor_answer"},
@@ -307,9 +366,7 @@ def test_q33_the_bounded_window_also_bounds_the_last_attempt(tmp_path):
     reveal between that attempt and T counts, one after T does not, and an
     attempt after T does not absorb the earlier reveal."""
 
-    from tests.test_remediation_cold_retry import _setup
-
-    vault, repository, _misconception = _setup(tmp_path)
+    vault, repository, _misconception = _repair(tmp_path)
     item = "pi_svd_define_001"
     t = datetime(2026, 3, 1, 12, 0, tzinfo=UTC)
     _answer_at = lambda moment: complete_self_graded_attempt(  # noqa: E731
@@ -368,35 +425,38 @@ def _random_inputs(rng: random.Random) -> se.EligibilityInputs:
 
 
 def _after_retimes(inputs: se.EligibilityInputs, decision: se.EligibilityDecision) -> se.EligibilityInputs:
-    from dataclasses import replace
+    """``inputs`` once the decision's writes are made (re-times, withdrawals)."""
 
-    pushes = dict(decision.retimes)
-    tasks = tuple(
-        replace(task, not_before=max(task.not_before or "", pushes[task.id])) if task.id in pushes else task
-        for task in inputs.tasks
-    )
-    return replace(inputs, tasks=tuple(sorted(tasks, key=lambda task: (task.not_before, task.created_at, task.id))))
+    return se.with_pending_writes(inputs, se.pending_writes(decision))
 
 
 @pytest.mark.parametrize("seed", range(400))
 def test_every_serve_agrees_with_submit_at_the_same_instant(seed):
     """For random reveal, task and attempt histories: whatever a serve path
     decides for an item's cold check, an unassisted answer at that instant,
-    after the decision's re-times, is admissible; and a serve as the cold
-    check is never one submit would prime. A probe or quick-check offer is
-    never made on an item submit would prime."""
+    after the decision's writes, is admissible; a serve as the cold check is
+    never one submit would prime; and no open cold check is left on an item
+    that can no longer take it cold (its answer shown with no lapse, or the
+    item attempted since the check was set: Codex review F2, F3). A probe or
+    quick-check offer is never made on an item submit would prime."""
 
     rng = random.Random(seed)
     inputs = _random_inputs(rng)
     cold = se.decide(inputs, se.COLD_CHECK)
-    submit_after = se.decide(_after_retimes(inputs, cold), se.SUBMIT)
+    after = _after_retimes(inputs, cold)
+    submit_after = se.decide(after, se.SUBMIT)
     exposure = se.submit_exposure(inputs)
+    standing = exposure.primed_by_ledger and exposure.lapses_at is None
 
     assert submit_after.verdict == se.SERVE, (cold.record(), submit_after.record())
-    if cold.verdict == se.SERVE and se.active_task(inputs) is not None and se.active_task(inputs).cold:
+    if cold.verdict == se.SERVE and se.active_task(after) is not None and se.active_task(after).cold:
         assert not exposure.primed_by_ledger
+    remaining = [task for task in after.tasks if task.cold and task.unexpired(inputs.at)]
+    for task in remaining:
+        assert not standing, cold.record()
+        assert inputs.last_attempt is None or not task.created_at or inputs.last_attempt[1] <= task.created_at
     if cold.verdict == se.SERVE_AS_ORDINARY:
-        assert exposure.primed_by_ledger and exposure.lapses_at is None
+        assert cold.withdrawals and not remaining and cold.until is None and not cold.retimes
     if cold.verdict == se.DEFER_UNTIL:
         assert cold.until is not None and cold.until > inputs.at
     for request in (se.PROBE, se.QUICK_CHECK):
@@ -459,10 +519,10 @@ def test_the_real_serve_paths_agree_with_submit(tmp_path, seed):
     unassisted answer after any serve path's decision is never refused."""
 
     from learnloop.scheduling.scheduler import build_due_queue, cold_check_serve_hold
-    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled, _setup
+    from tests.test_remediation_cold_retry import NOW, _drive_to_cold_scheduled
 
     rng = random.Random(seed)
-    vault, repository, misconception_id = _setup(tmp_path)
+    vault, repository, misconception_id = _repair(tmp_path)
     _episode, _primed, cold_item = _drive_to_cold_scheduled(vault, repository, misconception_id)
     lo = vault.practice_items[cold_item].learning_object_id
     events = [("reveal", NOW + timedelta(minutes=rng.randint(-1500, 3000))) for _ in range(rng.randint(1, 4))]
@@ -489,6 +549,10 @@ def test_the_real_serve_paths_agree_with_submit(tmp_path, seed):
                 repository, AttemptDraft(practice_item_id=cold_item, learner_answer_md="x"), clock=clock,
             )
             assert not draft.primed, f"the queue served the cold retry primed at {moment}"
+            # Never one the item can no longer take cold (F3): no attempt on it since the task.
+            (task,) = [row for row in repository.open_followup_tasks_for_item(cold_item) if row["kind"] == "cold_retry"]
+            last = repository.list_recent_attempts_by_practice_item(cold_item, limit=1)
+            assert not last or last[0]["created_at"] <= task["created_at"]
         cold_check_serve_hold(vault, repository, cold_item, clock=clock)
         if rng.random() < 0.3:
             complete_self_graded_attempt(
@@ -513,7 +577,7 @@ def test_the_cold_delay_is_the_remediation_delay_and_the_constants_are_one():
 
 def test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice(tmp_path):
     """The TUI's open is its serve: a tutor answer shown (after the list was
-    built) since the item's last attempt re-times the due cold retry, so the
+    built) since the item's last attempt withdraws the due cold retry, so the
     answer is an ordinary one, accepted."""
 
     import asyncio
@@ -526,6 +590,7 @@ def test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice(tmp_pat
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     seed_due_item(paths)
+    _at_version(vault_root)
     repository = Repository(paths.sqlite_path)
     now = datetime.now(UTC).replace(microsecond=0)
     task = repository.create_followup_task(
@@ -548,7 +613,7 @@ def test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice(tmp_pat
             assert isinstance(app.screen, PracticeScreen)
             assert app.screen.item.practice_item_id == "pi_svd_define_001"
             assert repository.active_followup_task_for_item("pi_svd_define_001", kind="cold_retry") is None
-            assert repository.followup_task(task["id"])["not_before"] > _iso(datetime.now(UTC) + timedelta(hours=23))
+            assert repository.followup_task(task["id"])["status"] == "expired"
 
     asyncio.run(scenario())
 
@@ -560,9 +625,12 @@ def test_no_probe_is_committed_for_an_item_submit_would_prime(tmp_path, revealed
     a probe of it cannot test the learner, so none is committed."""
 
     from learnloop.diagnosis.probe_episodes import commit_item_presentation, enter_episode, episode_hypothesis_set
+    from learnloop.vault.loader import load_vault
     from tests.test_probe_orchestration_remainder import CLOCK, ITEM_ID, LO_ID, _setup
 
-    _root, loaded, repository = _setup(tmp_path)
+    root, loaded, repository = _setup(tmp_path)
+    _at_version(root)
+    loaded = load_vault(root)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     if revealed:
         repository.insert_reveal_event(
@@ -588,4 +656,4 @@ def test_a_learners_pick_of_a_cold_check_submit_would_prime_is_served_as_practic
     decision = revalidate_cold_check(env.vault, env.repository, "pi_cold")
 
     assert decision is not None and decision.verdict == se.SERVE_AS_ORDINARY
-    assert env.repository.followup_task(task["id"])["not_before"] > _iso(datetime.now(UTC))
+    assert env.repository.followup_task(task["id"])["status"] == "expired"

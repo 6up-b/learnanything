@@ -316,16 +316,21 @@ def revalidate_cold_check(vault, repository, practice_item_id: str):
     """A serve revalidates a cold check (UX Phase 4 rounds 5 and 6; the one
     eligibility decision, ``scheduler.cold_check_serve_decision``). A due cold
     task whose hold time clears (a routine display, a reveal since it was
-    scheduled) is deferred until it lifts; one submit would prime with no
-    lapse (a non-routine reveal since the item's last attempt) is re-timed
-    one cold delay on. Both persisted, so the serve opens no cold
-    administration and the answer is an ordinary one, accepted. Nothing is
-    refused. Returns the decision when it is not a plain serve, else None."""
+    scheduled) is deferred until it lifts; one the item can no longer take
+    cold (submit primes it with no lapse, or it was practised since the check
+    was set) is withdrawn with its typed disposition. Both persisted, so the
+    serve opens no cold administration and the answer is an ordinary one,
+    accepted. Nothing is refused. Returns the decision when it is not a plain
+    serve, else None; below ``mvp-0.27`` (or with ``eligibility.enabled``
+    off) the revalidation is mvp-0.26's routine-display hold and returns None,
+    so the detail carries no ``eligibility`` key, as before."""
 
     from learnloop import serve_eligibility
     from learnloop.scheduling.scheduler import cold_check_serve_decision
 
     decision = cold_check_serve_decision(vault, repository, practice_item_id)
+    if not serve_eligibility.decision_active(vault):
+        return None
     return None if decision.verdict == serve_eligibility.SERVE else decision
 
 

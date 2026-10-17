@@ -3,8 +3,8 @@ title: "causal_cold_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc073330b00047576686a6150238801d1119d365"
-source_commit_timestamp: "2026-10-16T22:36:24-04:00"
+source_commit: "f6623c52f059b7c3a48952c1a22307877bba4e6e"
+source_commit_timestamp: "2026-10-17T00:48:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_outcomes"
@@ -28,7 +28,7 @@ source_paths:
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
-  - "src/learnloop_sidecar/handlers/serializers.py"
+  - "src/learnloop/diagnosis/remediation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_selection_audit.py`
+- `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
 > [!note] Static-reference boundary
@@ -133,6 +134,8 @@ None found by exact static reference scan.
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_guided_redo.py`
+- `tests/test_serve_eligibility.py`
+- `tests/test_serve_eligibility_review.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_pfc_unassessed_readers.py`

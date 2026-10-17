@@ -23,14 +23,23 @@ Now one pure function, :func:`decide`, answers for every path:
 
 Submit's rule is persisted meaning (it decides whether an attempt counts as
 cold), so it is kept exactly (:func:`submit_exposure` reproduces
-``Repository.total_reveal_amount`` row for row) and serving agrees with it:
-an item submit would prime is never served as a measurement. When the
-exposure lapses by time alone (only routine displays, ``reveal_coverage``) the
-cold check is deferred until it does; when it does not (a non-routine reveal
-since the last attempt, which only an attempt absorbs) the item is served as
-ordinary practice with an honest reason and the due cold task is re-timed one
-cold delay later, so the practice attempt is accepted and absorbs the
-exposure, and the cold check comes back cold. Never left due to expire.
+``Repository.total_reveal_amount`` row for row; any primed draft is refused a
+cold check, an auto-primed one included) and serving agrees with it: an item
+submit would prime is never served as a measurement. When the exposure lapses
+by time alone (only routine displays, ``reveal_coverage``) the cold check is
+deferred until it does. When it does not (a non-routine reveal since the last
+attempt, which only an attempt absorbs), the item can never give its open cold
+checks a cold reading: unpractised, submit primes it; practised, the coldness
+receipt reads that attempt as a hard exposure of the cold item and its surface
+as administered. So the item is served as ordinary practice, honestly
+labelled, and those checks are withdrawn now with their typed disposition
+(Codex review F2, F3), never re-timed into a check that cannot be cold. The
+same holds for a cold check whose item was attempted after the check was
+scheduled. Never left due to walk into a refusal or to expire.
+
+Live behind its successor (``mvp-0.27``) and kill switch
+(``eligibility.enabled``, :func:`decision_active`): below the tag, or off,
+every path serves and admits exactly as ``mvp-0.26`` (Codex review F4).
 
 Functional core, imperative shell: :func:`decide` and the helpers above it
 are pure (inputs in, a :class:`EligibilityDecision` record out, with a reason
@@ -46,7 +55,7 @@ from __future__ import annotations
 import logging
 import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -113,13 +122,23 @@ COLD_CHECK_ROUTINE_DISPLAY = "cold_check_routine_display"
 #: created, within one cold delay (the scheduler's own deferral).
 COLD_CHECK_REVEALED_SINCE_SCHEDULED = "cold_check_revealed_since_scheduled"
 #: Submit would prime the item and no lapse of time clears it (a non-routine
-#: reveal since the item's last attempt): served as ordinary practice, the due
-#: cold task re-timed one cold delay later.
+#: reveal since the item's last attempt): its open cold checks can never be
+#: taken cold on it, so the item is served as ordinary practice and they are
+#: withdrawn (Codex review F2).
 COLD_CHECK_ANSWER_SHOWN = "cold_check_answer_shown"
+#: The item was attempted after its cold check was scheduled, and that attempt
+#: did not answer it: the coldness receipt reads the attempt as a hard
+#: exposure of the cold item, so the check is withdrawn and the item served as
+#: ordinary practice (Codex review F3).
+COLD_CHECK_PRACTISED_SINCE_SCHEDULED = "cold_check_practised_since_scheduled"
 #: Submit: a cold check answered with hints, as a hinted attempt, or declared primed.
 COLD_CHECK_ASSISTED = "cold_check_assisted"
 #: Submit: a cold check whose answer the ledger says was shown (primed).
 COLD_CHECK_PRIMED = "cold_check_primed"
+#: Submit: a cold check answered with a draft submit auto-primed earlier (the
+#: answer was still shown when its grading began), though the ledger no longer
+#: primes it now: refused like any primed draft (Codex review F1).
+COLD_CHECK_AUTO_PRIMED = "cold_check_auto_primed"
 #: A probe or placement presentation of an item whose answer was shown
 #: (``probe_episodes.PROBE_ITEM_ANSWER_SHOWN``, unchanged code).
 PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
@@ -225,8 +244,11 @@ class EligibilityInputs:
     window_until: str | None = None
     #: The submitting draft's own self-grade disclosure rows (exempt, round 5).
     exempt_reveal_ids: frozenset[str] = frozenset()
-    #: The draft's own declarations (submit only).
+    #: The draft's own declarations (submit only). ``declared_primed`` is the
+    #: draft's ``primed`` flag, whoever set it; ``auto_primed`` says submit's
+    #: own auto-prime set it, earlier (it explains a refusal, never exempts).
     declared_primed: bool = False
+    auto_primed: bool = False
     hints_used: int = 0
     attempt_type: str | None = None
 
@@ -253,8 +275,12 @@ class EligibilityDecision:
     reveal_event_ids: tuple[str, ...] = ()
     #: The cold task(s) concerned: the one submit answers, or the ones a serve holds.
     task_ids: tuple[str, ...] = ()
-    #: ``serve_as_ordinary`` / ``defer_until``: task id -> its new ``not_before``.
+    #: ``defer_until``: task id -> its new ``not_before`` (a time-bounded hold).
     retimes: tuple[tuple[str, str], ...] = ()
+    #: Open cold tasks on the item that can no longer be taken cold on it,
+    #: each ``(task id, reason code)``: withdrawn with their typed disposition
+    #: by the shell that acts on the decision (``scheduler``).
+    withdrawals: tuple[tuple[str, str], ...] = ()
     window_until: str | None = None
     #: A plain sentence for a refusal or a label (never jargon).
     message: str | None = None
@@ -264,6 +290,12 @@ class EligibilityDecision:
         """Can the path serve the item as it asked?"""
 
         return self.verdict == SERVE
+
+    @property
+    def writes(self) -> bool:
+        """Does acting on the decision write anything (a re-time, a withdrawal)?"""
+
+        return bool(self.retimes or self.withdrawals)
 
     def record(self) -> dict[str, Any]:
         return {
@@ -278,6 +310,7 @@ class EligibilityDecision:
             "reveal_event_ids": list(self.reveal_event_ids),
             "task_ids": list(self.task_ids),
             "retimes": {task_id: not_before for task_id, not_before in self.retimes},
+            "withdrawals": {task_id: reason for task_id, reason in self.withdrawals},
             "window_until": self.window_until,
         }
 
@@ -491,12 +524,8 @@ def _decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: di
     task = active_task(inputs)
     if task is None or not task.cold:
         return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE, task_ids=(task.id,) if task else ())
-    if inputs.declared_primed or inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt":
-        why = (
-            "hints were used" if inputs.hints_used > 0
-            else "it is a hinted attempt" if inputs.attempt_type == "hinted_attempt"
-            else "it was declared primed"
-        )
+    if inputs.hints_used > 0 or inputs.attempt_type == "hinted_attempt":
+        why = "hints were used" if inputs.hints_used > 0 else "it is a hinted attempt"
         return EligibilityDecision(
             **base, verdict=REFUSE, reason=COLD_CHECK_ASSISTED, task_ids=(task.id,),
             message=f"{COLD_CHECK_REFUSAL}: {why}",
@@ -510,6 +539,21 @@ def _decide_submit(inputs: EligibilityInputs, exposure: SubmitExposure, base: di
             reveal_event_ids=_ids(exposure.counted), until=exposure.lapses_at,
             message=f"{COLD_CHECK_REFUSAL}: {_shown(exposure.counted)}",
         )
+    if inputs.declared_primed:
+        # Any primed draft is refused a cold check, whoever primed it (submit's
+        # guard, kept exactly; Codex review F1). An auto-primed one reaches
+        # here when its answer was still shown as grading began and the ledger
+        # no longer primes it now (a routine display lapsed, or the task fell
+        # due, during grading): the provenance explains the refusal.
+        auto = inputs.auto_primed
+        return EligibilityDecision(
+            **base, verdict=REFUSE, reason=COLD_CHECK_AUTO_PRIMED if auto else COLD_CHECK_ASSISTED,
+            task_ids=(task.id,),
+            message=(
+                f"{COLD_CHECK_REFUSAL}: its answer was still shown when this answer was started"
+                if auto else f"{COLD_CHECK_REFUSAL}: it was declared primed"
+            ),
+        )
     return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE, task_ids=(task.id,))
 
 
@@ -517,20 +561,36 @@ def _decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base
     tasks = [task for task in inputs.tasks if task.cold and task.unexpired(inputs.at)]
     if not tasks:
         return EligibilityDecision(**base, verdict=SERVE, reason=NO_COLD_CHECK)
-    due = [task for task in tasks if task.due(inputs.at)]
-    if exposure.primed_by_ledger and exposure.lapses_at is None:
-        # Submit would prime the answer and only an attempt absorbs it. Holding
-        # the cold check would starve it until it expires; serving it as one
-        # walks into submit's refusal. So the item is ordinary practice now
-        # (that attempt absorbs the exposure) and each due cold task is
-        # re-timed one cold delay on, when it is cold again.
-        retime_to = _plus(inputs.at, COLD_RETRIEVAL_DELAY) or UNKNOWN_RELEASE
+    # Which open cold checks this item can no longer take cold, due or not
+    # (Codex review F2, F3). Re-timing them would only promise a check that
+    # cannot be cold: unpractised, submit primes the item (only an attempt
+    # absorbs a non-routine reveal); practised, the coldness receipt reads
+    # that attempt as a hard exposure of the cold item
+    # (``cold_item_answer_reveal``) and its surface as administered. So they
+    # are withdrawn now, with their typed disposition, and the item served as
+    # ordinary practice.
+    standing = exposure.primed_by_ledger and exposure.lapses_at is None
+    withdrawals: list[tuple[str, str]] = []
+    for task in tasks:
+        if standing:
+            withdrawals.append((task.id, COLD_CHECK_ANSWER_SHOWN))
+        elif inputs.last_attempt is not None and task.created_at and inputs.last_attempt[1] > task.created_at:
+            withdrawals.append((task.id, COLD_CHECK_PRACTISED_SINCE_SCHEDULED))
+    withdrawn = {task_id for task_id, _reason in withdrawals}
+    tasks = [task for task in tasks if task.id not in withdrawn]
+    if withdrawals and not tasks:
+        reason = COLD_CHECK_ANSWER_SHOWN if standing else COLD_CHECK_PRACTISED_SINCE_SCHEDULED
         return EligibilityDecision(
-            **base, verdict=SERVE_AS_ORDINARY, reason=COLD_CHECK_ANSWER_SHOWN,
-            reveal_event_ids=_ids(exposure.counted), task_ids=tuple(task.id for task in due),
-            retimes=tuple((task.id, retime_to) for task in due), until=retime_to,
-            message="Practice: you've seen this answer, so its check comes a day after you practise it.",
+            **base, verdict=SERVE_AS_ORDINARY, reason=reason,
+            reveal_event_ids=_ids(exposure.counted) if standing else (),
+            task_ids=tuple(task_id for task_id, _reason in withdrawals), withdrawals=tuple(withdrawals),
+            message=(
+                "Practice: you've seen this answer, so this question no longer counts as a check."
+                if standing else
+                "Practice: you've answered this question since its check was set, so it no longer counts as a check."
+            ),
         )
+    due = [task for task in tasks if task.due(inputs.at)]
     held: list[tuple[FollowupTask, str]] = []
     rows: list[RevealRow] = []
     reasons: set[str] = set()
@@ -553,7 +613,10 @@ def _decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base
         rows.extend(task_rows)
         reasons |= task_reasons
     if not held:
-        return EligibilityDecision(**base, verdict=SERVE, reason=ELIGIBLE, task_ids=tuple(task.id for task in due))
+        return EligibilityDecision(
+            **base, verdict=SERVE, reason=ELIGIBLE, task_ids=tuple(task.id for task in due),
+            withdrawals=tuple(withdrawals),
+        )
     until = max(release for _task, release in held)
     return EligibilityDecision(
         **base, verdict=DEFER_UNTIL,
@@ -562,6 +625,7 @@ def _decide_cold_check(inputs: EligibilityInputs, exposure: SubmitExposure, base
         task_ids=tuple(task.id for task, _release in held),
         # An unreadable stamp holds without a persisted push (fail closed).
         retimes=tuple((task.id, release) for task, release in held if release != UNKNOWN_RELEASE),
+        withdrawals=tuple(withdrawals),
         message="Its answer was shown recently, so its check waits until it is cold again.",
     )
 
@@ -578,6 +642,7 @@ def gather(
     window_until: str | None = None,
     own_disclosure: Callable[[Mapping[str, Any]], bool] | None = None,
     declared_primed: bool = False,
+    auto_primed: bool = False,
     hints_used: int = 0,
     attempt_type: str | None = None,
     reveal_rows: Sequence[Mapping[str, Any]] | None = None,
@@ -617,9 +682,55 @@ def gather(
         window_until=window_until,
         exempt_reveal_ids=exempt,
         declared_primed=declared_primed,
+        auto_primed=auto_primed,
         hints_used=int(hints_used or 0),
         attempt_type=attempt_type,
     )
+
+
+def decision_active(vault: Any) -> bool:
+    """Is the one eligibility decision live for ``vault`` (a ``LoadedVault``,
+    duck-typed)? At the successor (``mvp-0.27``) or later with
+    ``eligibility.enabled`` (the kill switch, Codex review F4). Below the tag,
+    or switched off, every serve path and submit decide exactly as ``mvp-0.26``
+    did (their callers keep that code). No vault (a path that cannot see the
+    vault's config) reads as off."""
+
+    from learnloop.algorithm_versions import ELIGIBILITY_DECISION_VERSIONS
+
+    config = getattr(vault, "config", None)
+    if config is None:
+        return False
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    switch = getattr(config, "eligibility", None)
+    return version in ELIGIBILITY_DECISION_VERSIONS and bool(getattr(switch, "enabled", False))
+
+
+def pending_writes(decision: EligibilityDecision) -> dict[str, str | None]:
+    """The decision's writes as one map, for a reader that must judge as if
+    they were made without making them (the CLI's validation before it
+    prompts, a dry run): task id -> its new ``not_before``, or None for a
+    withdrawn task."""
+
+    writes: dict[str, str | None] = dict(decision.retimes)
+    writes.update({task_id: None for task_id, _reason in decision.withdrawals})
+    return writes
+
+
+def with_pending_writes(inputs: EligibilityInputs, writes: Mapping[str, str | None] | None) -> EligibilityInputs:
+    """``inputs`` as they would read once ``writes`` (:func:`pending_writes`)
+    were made: re-timed tasks pushed (monotone), withdrawn ones gone."""
+
+    if not writes:
+        return inputs
+    tasks = []
+    for task in inputs.tasks:
+        if task.id not in writes:
+            tasks.append(task)
+        elif writes[task.id] is not None:
+            tasks.append(replace(task, not_before=max(task.not_before or "", str(writes[task.id]))))
+    tasks.sort(key=lambda task: (task.not_before or "", task.created_at, task.id))
+    return replace(inputs, tasks=tuple(tasks))
 
 
 def retime(repository: Any, decision: EligibilityDecision, *, clock: Any = None) -> None:
@@ -642,6 +753,9 @@ def log_decision(decision: EligibilityDecision, *, path: str) -> None:
 __all__ = [
     "AUTO_PRIME_REVEAL_THRESHOLD",
     "COLD_CHECK",
+    "COLD_CHECK_ANSWER_SHOWN",
+    "COLD_CHECK_AUTO_PRIMED",
+    "COLD_CHECK_PRACTISED_SINCE_SCHEDULED",
     "COLD_FOLLOWUP_TASK_KINDS",
     "COLD_RETRIEVAL_DELAY",
     "DEFER_UNTIL",
@@ -659,8 +773,11 @@ __all__ = [
     "active_task",
     "cold_task_holds",
     "decide",
+    "decision_active",
     "gather",
     "log_decision",
+    "pending_writes",
     "retime",
     "submit_exposure",
+    "with_pending_writes",
 ]

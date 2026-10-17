@@ -196,14 +196,17 @@ def _candidate_items(
         vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
         reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
     ).out_of_timing_item_ids
-    # The one eligibility decision (``serve_eligibility``, QUICK_CHECK): never
-    # an item submit would prime (a reveal of its answer, at any age, since it
-    # has never been attempted). The ledger is read once; an item with no row
-    # cannot be primed, so only items with rows are asked.
+    # The one eligibility decision (``serve_eligibility``, QUICK_CHECK; the
+    # mvp-0.27 successor, behind ``eligibility.enabled``): never an item
+    # submit would prime (a reveal of its answer, at any age, since it has
+    # never been attempted). The ledger is read once; an item with no row
+    # cannot be primed, so only items with rows are asked. Below the tag, or
+    # off, the offers are mvp-0.26's (the serving exclusions alone).
     now_iso = utc_now_iso(clock)
     reveal_rows: dict[str, list[dict[str, Any]]] = {}
-    for row in repository.reveal_events():
-        reveal_rows.setdefault(str(row.get("practice_item_id") or ""), []).append(row)
+    if serve_eligibility.decision_active(vault):
+        for row in repository.reveal_events():
+            reveal_rows.setdefault(str(row.get("practice_item_id") or ""), []).append(row)
     result = []
     for item in vault.practice_items.values():
         if item.learning_object_id not in undecided or item.status != "active" or item.id in attempted:

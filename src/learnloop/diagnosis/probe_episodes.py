@@ -1178,7 +1178,12 @@ class RoutineDisplayCovered(Exception):
     attempt; only an attempt absorbs it). The name is kept from round 6."""
 
     def __init__(self, practice_item_id: str, *, decision: object | None = None) -> None:
-        super().__init__(f"{practice_item_id}: its answer was shown, so it cannot test the learner yet")
+        super().__init__(
+            f"{practice_item_id}: its answer was shown, so it cannot test the learner yet"
+            if decision is not None
+            # mvp-0.26's message (the predecessor, or the switch off).
+            else f"{practice_item_id}: its answer was shown within the routine-display coverage"
+        )
         self.practice_item_id = practice_item_id
         self.decision = decision
 
@@ -1190,7 +1195,8 @@ PROBE_ITEM_ANSWER_SHOWN = "probe_item_answer_shown"
 
 def probe_eligibility(repository: Repository, practice_item_id: str, *, clock: Clock | None = None):
     """The one eligibility decision for a probe or placement presentation of
-    the item now (``serve_eligibility``, request ``PROBE``)."""
+    the item now (``serve_eligibility``, request ``PROBE``). The successor's
+    reading (``mvp-0.27``); the guards below ask it only there."""
 
     from learnloop import serve_eligibility
 
@@ -1201,24 +1207,45 @@ def probe_eligibility(repository: Repository, practice_item_id: str, *, clock: C
 
 
 def routine_display_covers_item(
-    repository: Repository, practice_item_id: str, *, clock: Clock | None = None
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    vault: LoadedVault | None = None,
 ) -> bool:
-    """Was the item's answer shown, so that no probe may test it now (a routine
-    display covering it, or a reveal submit would count)? The name is kept
-    from round 6; the question is the one eligibility decision's."""
+    """Was the item's answer shown, so that no probe may test it now? The name
+    is kept from round 6. At ``mvp-0.27`` with ``eligibility.enabled`` (read
+    from ``vault``) the question is the one eligibility decision's: a routine
+    display covering it, or a reveal submit would count. Otherwise (or with no
+    vault) it is mvp-0.26's: a routine display covering it."""
 
+    from learnloop import serve_eligibility
+
+    if not serve_eligibility.decision_active(vault):
+        from learnloop.reveal_coverage import routine_displays_covering
+
+        return bool(routine_displays_covering(repository, practice_item_id=practice_item_id, at=utc_now_iso(clock)))
     return not probe_eligibility(repository, practice_item_id, clock=clock).serves
 
 
 def refuse_routine_display_covered(
-    repository: Repository, practice_item_id: str, *, clock: Clock | None = None
+    repository: Repository,
+    practice_item_id: str,
+    *,
+    clock: Clock | None = None,
+    vault: LoadedVault | None = None,
 ) -> None:
-    """Raise :class:`RoutineDisplayCovered` when the one eligibility decision
-    refuses a probe of the item now: the one guard every presentation commit
-    (and serve) passes through."""
+    """Raise :class:`RoutineDisplayCovered` when a probe of the item cannot
+    test the learner now: the one guard every presentation commit (and serve)
+    passes through. At the successor, when the one eligibility decision
+    refuses it; otherwise mvp-0.26's guard (a routine display covering it)."""
 
     from learnloop import serve_eligibility
 
+    if not serve_eligibility.decision_active(vault):
+        if routine_display_covers_item(repository, practice_item_id, clock=clock):
+            raise RoutineDisplayCovered(practice_item_id)
+        return
     decision = probe_eligibility(repository, practice_item_id, clock=clock)
     if not decision.serves:
         serve_eligibility.log_decision(decision, path="probe_commit")
@@ -1356,7 +1383,7 @@ def presentation_commit_payload(
     raises :class:`RoutineDisplayCovered` before any row exists.
     """
 
-    refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
+    refuse_routine_display_covered(repository, eligible.item.id, clock=clock, vault=vault)
     if episode.status != "in_progress":
         raise ValueError(f"episode {episode.id} is {episode.status}; cannot commit a presentation")
     if episode.active_state_segment_id is None:
@@ -1452,7 +1479,13 @@ def _robust_channel_pin(
     }
 
 
-def serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None = None) -> None:
+def serve_presentation(
+    repository: Repository,
+    presentation_id: str,
+    *,
+    clock: Clock | None = None,
+    vault: LoadedVault | None = None,
+) -> None:
     """Mark a committed presentation served: the administration itself, and
     the only path to ``served``. A presentation committed before its item's
     answer was shown on a routine display that still covers now is ended
@@ -1462,7 +1495,7 @@ def serve_presentation(repository: Repository, presentation_id: str, *, clock: C
     presentation = repository.probe_presentation(presentation_id)
     if presentation is not None:
         try:
-            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock)
+            refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock, vault=vault)
         except RoutineDisplayCovered:
             repository.end_probe_presentation(presentation_id, end_reason="invalidated", clock=clock)
             raise
@@ -1586,7 +1619,7 @@ def commit_item_presentation(
             extra_selection_components=extra_selection_components,
             clock=clock,
         )
-        serve_presentation(repository, presentation.id, clock=clock)
+        serve_presentation(repository, presentation.id, clock=clock, vault=vault)
     except RoutineDisplayCovered:
         # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7).
         return None
@@ -1624,7 +1657,8 @@ def plan_precommitted_block(
     # committed. An item whose answer a routine display covers is not one, so
     # the block's size and indices are its real members'.
     candidates = [
-        entry for entry in candidates if not routine_display_covers_item(repository, entry.item.id, clock=clock)
+        entry for entry in candidates
+        if not routine_display_covers_item(repository, entry.item.id, clock=clock, vault=vault)
     ]
     if not candidates:
         return []

@@ -3,8 +3,8 @@ title: "coldness_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc073330b00047576686a6150238801d1119d365"
-source_commit_timestamp: "2026-10-16T22:36:24-04:00"
+source_commit: "f6623c52f059b7c3a48952c1a22307877bba4e6e"
+source_commit_timestamp: "2026-10-17T00:48:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite coldness_receipts"
@@ -136,6 +136,7 @@ None found by exact static reference scan.
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`
+- `tests/test_serve_eligibility.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

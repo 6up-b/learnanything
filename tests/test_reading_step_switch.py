@@ -59,8 +59,8 @@ def test_the_reading_step_is_not_a_successor_tag():
     assert not [name for name in dir(algorithm_versions) if "READING_FROM_FURTHEST" in name]
     # Router R2a's staged frame (mvp-0.23) followed, and router R2b + R2c's
     # model mixture (mvp-0.24) is now the latest.
-    assert SUCCESSOR_CHAIN[-7] == ROUTE_RULES_ALGORITHM_VERSION
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.26"
+    assert SUCCESSOR_CHAIN[-8] == ROUTE_RULES_ALGORITHM_VERSION
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.27"
     assert len(SUCCESSOR_CHAIN) == len(set(SUCCESSOR_CHAIN))
 
 

@@ -325,7 +325,7 @@ def next_dialogue_turn(
             },
             clock=clock,
         )
-        serve_presentation(repository, presentation.id, clock=clock)
+        serve_presentation(repository, presentation.id, clock=clock, vault=vault)
     except RoutineDisplayCovered:
         # UX Phase 4 rounds 6 and 7 (a turn's instance is new, so in practice never).
         return state, None

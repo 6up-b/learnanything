@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bc073330b00047576686a6150238801d1119d365"
-source_commit_timestamp: "2026-10-16T22:36:24-04:00"
+source_commit: "f6623c52f059b7c3a48952c1a22307877bba4e6e"
+source_commit_timestamp: "2026-10-17T00:48:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
 tags:
@@ -114,12 +115,13 @@ Database triggers:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/attempts/reveal_ledger.py`
+- `src/learnloop/diagnosis/quick_check.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/reveal_coverage.py`
 - `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/serve_eligibility.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
