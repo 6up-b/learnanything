@@ -3,8 +3,8 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7c92629fb3ae3c90eb28cb0b2243edf11c864ec7"
-source_commit_timestamp: "2026-10-17T07:02:26-04:00"
+source_commit: "1c3f440b329d81ca71c91f611ac942accd3383e5"
+source_commit_timestamp: "2026-10-17T09:13:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
@@ -129,6 +129,7 @@ Database triggers:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_probe_episodes.py`
+- `tests/test_reader_workbench_rw2a.py`
 - `tests/test_receipt_exactness.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
