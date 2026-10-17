@@ -3,8 +3,8 @@ title: "Config - reader_formative"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
+source_commit_timestamp: "2026-10-17T16:32:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_formative"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_formative.enabled` | `true` | boolean | modeled default or validator seed | Turns reader formative behavior on or off within reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2041`; `src/learnloop/diagnosis/text_gaps/jobs.py:146` |
+| `reader_formative.enabled` | `true` | boolean | modeled default or validator seed | Turns reader formative behavior on or off within reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2041`; `src/learnloop/diagnosis/text_gaps/jobs.py:147` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

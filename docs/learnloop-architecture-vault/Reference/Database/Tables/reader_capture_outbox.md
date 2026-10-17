@@ -3,8 +3,8 @@ title: "reader_capture_outbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
+source_commit_timestamp: "2026-10-17T16:32:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_capture_outbox"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/091_interaction_events_reader_envelope.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_capture.py"
+  - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_intent.py`
 
 ### Direct SQL writers
 

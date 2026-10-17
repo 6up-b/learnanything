@@ -62,6 +62,7 @@ from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.curriculum import commitments as C
 from learnloop.db.stores.judgment_claims import claim_work, complete_claim, release_claim
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
@@ -631,7 +632,6 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
     request is cancelled. Each step is idempotent, so a retry after a crash
     finishes the rest and a second revert changes nothing."""
 
-    from learnloop.curriculum import commitments as C
     from learnloop.reader.annotations import delete_intent_annotation
 
     if repository.annotation_head(annotation_id) is None:

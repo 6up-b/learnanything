@@ -3,8 +3,8 @@ title: "Config - reader_active_reading"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
+source_commit_timestamp: "2026-10-17T16:32:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_active_reading"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2026`; `src/learnloop_sidecar/handlers/reader_intent.py:79` |
+| `reader_active_reading.enabled` | `true` | boolean | modeled default or validator seed | Turns reader active reading behavior on or off within reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2026`; `src/learnloop_sidecar/handlers/reader_intent.py:81` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

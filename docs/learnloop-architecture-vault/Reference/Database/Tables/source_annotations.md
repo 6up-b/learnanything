@@ -3,8 +3,8 @@ title: "source_annotations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
+source_commit_timestamp: "2026-10-17T16:32:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotations"
@@ -95,6 +95,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
+- `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/reader_restoration.py`
 - `src/learnloop_sidecar/handlers/reader.py`
@@ -107,6 +108,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_pdf_selection.py`
+- `tests/test_reader_rw1b_review.py`
 - `tests/test_sidecar_reader_p3.py`
 - `tests/test_sidecar_reader_pdf_view.py`
 - `tests/test_annotations.py`

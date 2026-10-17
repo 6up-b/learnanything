@@ -3,8 +3,8 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c89c84851bd6efb2023a8365288d63d797f70a63"
-source_commit_timestamp: "2026-10-17T15:04:44-04:00"
+source_commit: "18472d5aca8fd0639c52af23f42a094883ffa91f"
+source_commit_timestamp: "2026-10-17T16:32:21-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
@@ -117,6 +117,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/reader/reader_observations.py`
 - `src/learnloop/reader/reader_report.py`
 
@@ -146,6 +147,7 @@ Indexes and uniqueness:
 - `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
 - `tests/test_reader_quick_check.py`
+- `tests/test_reader_rw1b_review.py`
 - `tests/test_reading_hardening_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
