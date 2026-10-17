@@ -210,3 +210,143 @@ The same lanes passed on `ba8709f00` before the one-line upgrade fix in `7940dbd
 - **Q6. Adjudication correctness** at mvp-0.26 is `round(fraction × total) / maximum`, what replay computes, not the raw fraction. *Default: as built (one formula).*
 - **Q7. The upgrade replays only the learning objects holding a reinterpreted attempt.** The others keep their mvp-0.25 version stamp until their next rebuild, as at every earlier successor. *Default: as built.*
 - **Q8. The owner's held answer `01KYCM9NYBGYDKGR2GGYQYSV23`** (linear_algebra) stays held until the owner regrades it (one grading call) or adjudicates it. *Default: leave it held.*
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/regrade-contract-onto-main`. The stage's base is `311de408e` and its tip `eb1d146e4`, unchanged. Main's tip was `21187d84d` (mvp-0.25, schema head 206; since the base it changed only `docs/specs/spec_storage_sync_v1.md`, the owner's storage decisions). Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `bc073330b`: a real `--no-ff` merge of `fix/regrade-contract-replay` (9 commits) onto `21187d84d`.
+- `5616c1bbb`: the references regenerated on the merged tree, and the Pipeline Map entry.
+- This record.
+
+### Merge
+
+- **No conflicts.** No file changed on both sides. Main's only change since the base is a spec, which the branch does not touch. Nothing under `apps/` differs from main.
+- **No migration** (207 stays free), no config key, no RPC.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**. Schema head 206, 325 table notes, 860 effective configuration leaves in 52 sections, the same as the prose counts in `Database.md` and `Configuration.md`. Besides the 379 source-commit labels, two table notes move. Both changes come from the stage's own `7940dbd36`, which postdates the branch's regeneration at `8e5292189`:
+  - `derived_state_rebuilds` now names `src/learnloop/regrade_contract_upgrade.py`;
+  - `parameter_registry` now names `tests/test_regrade_contract_upgrade.py`.
+- **Defaults snapshots.** The template `.pyc` was deleted and `template.py` touched. All 18 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries (`mvp-0.9`..`mvp-0.26`) equal `defaults_fingerprint_for_version`: **0 mismatches**. Main adds no key, so none moved.
+- **CLI help snapshot.** Unchanged from the branch's (`upgrade` only). `test_cli_help_snapshot.py` passes on the merged tree.
+- **The Pipeline Map.** Its source paths gain `attempts/regrade.py`, `grading_epochs.py` and `regrade_contract_upgrade.py`. The mvp-0.26 entry now names the upgrade's activation: one transaction under the vault mutation lock, replaying only the learning objects that hold a reinterpreted attempt, with the config published by an fsync'd atomic rename before the commit. `validate_vault.py` passes (1,111 notes, 1,109/1,109 reachable).
+- **Validators that already fail on main**, run on both trees:
+  - **`module_validate.py`:** main reports 765 issues and the merge 769. The full lists, with the 100-line truncation lifted, differ by exactly 4 entries: `grading_epochs.py` and `regrade_contract_upgrade.py`, each with a missing expected note and a "source has no module note". This is the stale catalog's known kind of issue.
+  - **`desktop_validate.py`:** identical on both trees, apart from the path. It stops at main's `pdfSelection/testing/syntheticBook.ts`.
+  - **No new kind of failure.**
+
+### Gate
+
+Run on `5616c1bbb`, the final code tree; the only later commit adds this section.
+- **Environment:** Python 3.12.14, with `TMPDIR` set to merge2's `fixtures-local/tmp`.
+- **Commands:** `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`.
+- **Cost:** no paid call. Every test uses fakes.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (178 packages; pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | 22 contracts kept, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **12,333 passed, 2 xfailed**, 0 failed (12 min 58 s; `fixtures-local/regrade-landing-fullsuite.log`) |
+| `pytest -m durability` | **106 passed**, 12,229 deselected (2 min 37 s; `fixtures-local/regrade-landing-durability.log`) |
+| frontend / `src-tauri` | not run: nothing under `apps/` differs from main |
+| tracked fixtures | `git status` clean after both lanes |
+
+The 2 xfails are main's strict marks. Nothing failed, so nothing needed a rerun alone. The count equals the branch's final gate (12,333 passed): main's change since the base added no test.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` into `fixtures-local/landing-regrade/orig/`. Each original was read once. Every per-side copy (`main/`, `merge/`, `shadow/`, `upgrade/`, `upgrade25/` and the rebuild copies) was made from `orig/`, or from another copy, with the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive 21187d84d`: the whole tree except the top-level `fixtures/` (`tests/fixtures/` and the app's `src/fixtures/` kept), first on `PYTHONPATH`. Every run printed the `learnloop` package it imported, and main's `upgrade --help` does not list mvp-0.26.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory, and it stayed empty. `LEARNLOOP_AI_PROVIDER` was unset. `model_call_receipts` is 0 in every copy afterwards, and `agent_runs` stays at 105 (linear_algebra) and 24 (probability).
+- **Starting state.** Both vaults were at schema 165, label `mvp-0.8`.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| open (migrate), main's code and the merge's | 165 → 206 (41 migrations) on both; `sqlite_master` hash identical | 165 → 206 (41) on both; identical |
+| the two migrated databases, `.dump` compared | identical except the 41 `schema_migrations.applied_at` stamps | the same |
+| `rebuild --shadow --json` at the vaults' own label (mvp-0.8), main vs merge | **0 differences** besides the live file's sha256 (`applied_at`). Summary: facet 0, mastery 2, schedule 8; live unchanged | **0 differences** (facet 0, mastery 1, schedule 1; live unchanged) |
+| `doctor --json`, main vs merge | **0 differences** once the copy's path is normalized (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| upgrade shadow: main's code migrates a copy, then the merge's code opens it | **0 migrations**; shadow and doctor equal main's | **0 migrations**; equal |
+
+The shadow and doctor runs left every live database byte-identical: the sha256 matched before and after.
+
+**Candidate shadows (merge code, label mvp-0.8):** `--set algorithms.algorithm_version=mvp-0.26` against `=mvp-0.25`.
+- **linear_algebra: 6 rows differ**, exactly the stage's §4 rows, all on `pi_exercise_01ky5raxvexp8axggqn8e73vkh` and `lo_compute_with_complex_numbers`:
+  - 2 item-scoped facet cells and 1 aggregate cell lose their only support;
+  - the other aggregate cell's independent mass goes from 0.435 to 0.348;
+  - the learning object's mastery goes from 5 to 4 evidence (logit mean 1.048 → 0.985);
+  - the item's due date goes from 2026-08-23 to 2026-08-05 (stability 26.7 → 12.1).
+- **probability: 0 rows differ.**
+
+### The upgrade on a copy (`upgrade/`; the owner's vaults untouched)
+
+`learnloop upgrade --to mvp-0.26` refuses both vaults as they stand: "only 'mvp-0.25' (or 'mvp-0.9' to 'mvp-0.24', through it) may activate mvp-0.26". They are at mvp-0.8. The refusal changed nothing: the `.dump` and `learnloop.toml` were identical afterwards. The path is therefore two commands per vault:
+1. `--to mvp-0.9` (about 30 s);
+2. `--to mvp-0.26` (it chains mvp-0.10..0.25, then activates; about 9 min each on these copies).
+
+Both succeeded. The stage reported the same chain (§7: mvp-0.8 → mvp-0.9 → mvp-0.26).
+
+- **Notes.** Both vaults print the recurrence guard's advisory notes from mvp-0.12. Only linear_algebra prints the hold: `1 attempt(s) whose current grade cites no assessment contract are held for review (grade_contract_unrecorded) …: 01KYCM9NYBGYDKGR2GGYQYSV23`. This is the stage's attempt and count.
+- **After it:**
+  - doctor shows the same 57 and 101 issues by code and severity as before the upgrade (no `sql:derived_state_rebuild_stale`);
+  - `foreign_key_check` is empty;
+  - `learnloop.toml` changes only `algorithm_version = "mvp-0.8"` → `"mvp-0.26"`.
+
+**What mvp-0.26 changes on linear_algebra.** A second copy was upgraded to mvp-0.25 by the same path (`upgrade25/`), and both were then fully rebuilt once (`rebuild-derived-state`). This takes out the rows any rebuild rewrites. Compared without ids, timestamps and version stamps, the difference is:
+- **The held attempt** `01KYCM9NYBGYDKGR2GGYQYSV23`: `manual_review` goes 0 → 1 with reason `grade_contract_unrecorded`. Its 4 points and 1.0 correctness are kept.
+- **The 6 learner-state rows above.** The settled values equal the shadow's, within float noise from the prior: 0.98469 against 0.98471.
+- **Downstream rows on the same learning object only:**
+  - `practice_item_quality_state` of that item: evidence 4 → 3;
+  - 5 `attempt_surprise` rows on the learning object's attempts; the held one has bayesian surprise 0 and FSRS factor 1;
+  - the severities of 2 `error_events` on `01KY64FZE7ZVJ79YJFWAYZH53Q` (0.6487 → 0.6493);
+  - the 4 `learning_outcome_labels` whose outcome is the held attempt (metadata only);
+  - the held attempt's `ability_transition_events` row, whose target facets become empty.
+- **Ledger appends, no rewrite.** The activation's replay of that learning object appends the grade dual-write for its 4 other attempts (4 `raw_grade_events`, 4 `grade_interpretations`, 4 `activity_observations`). After the full rebuild the held attempt has no new grade-channel row, which is right: a hold is no evidence. It also appends one `causal_hypotheses` version for `01KY64FZ…`, with its incomplete `text_write_provenance` record (graded before write-time provenance).
+- **Other rows the activation writes**, before any rebuild: 82 `facet_outcome_observations` and the FTS segments. They appear because the partial rebuild runs every vault-wide replayer. A full rebuild at mvp-0.25 writes the same 82 rows, so they are not mvp-0.26's.
+- **Everything else is identical.**
+
+**Probability:** the same comparison shows **0 differences**. The activation replays no learning object and holds nothing.
+
+**Settling.**
+- A further full rebuild of the mvp-0.26 copy leaves every learner-state table unchanged.
+- **Pre-existing, not this stage's:** each full rebuild appends about 38 dual-write rows per table (`raw_grade_events`, `grade_interpretations`, `activity_observations`), and moves `hypothesis_recurrence_state.input_fingerprint`. Both happen identically at mvp-0.25, and with main's own code on the same mvp-0.25 copy. Main's and the merge's full rebuilds at mvp-0.25 give identical learner state.
+
+**Releasing the hold**, tried on copies with `learnloop grading adjudicate <interpretation> --resolved-class …` (`human_owner`, no model call):
+- `--resolved-class success` upholds the current class. It returns `evidence_revision: skipped_direction_unchanged`, and **the attempt stays held**.
+- `--resolved-class partial_success` flips the direction. It writes the revision (`revised`), the attempt becomes 2 points and 0.5, and the hold clears.
+
+So a CLI adjudication releases the hold only when it changes the grade's direction (Ruling A). `test_an_adjudication_releases_an_unrecorded_hold_under_the_contract_it_cites` calls `append_adjudication_evidence_revision` directly, below that gate. The held attempt is also absent from `learnloop grading reviews`, which reads the P0.2 review flags, not `manual_review_reason`.
+
+### The owner's upgrade steps (run by the owner; never run here)
+
+For each vault, with the desktop app, the MCP runtime and the mobile host closed:
+
+1. **Back up** with the backup API, from the repository root:
+   `uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; c(Path('fixtures/linear_algebra'), Path('fixtures-local/backup-linear_algebra-pre-mvp026'))"`.
+   Do the same for `probability`; its copy includes `.learnloop/state.sqlite`.
+2. **Upgrade.** The first open migrates 165 → 206. mvp-0.26 accepts only mvp-0.9 or later, so each vault needs two commands:
+   - `uv run learnloop upgrade --to mvp-0.9 --vault fixtures/linear_algebra`
+   - `uv run learnloop upgrade --to mvp-0.26 --vault fixtures/linear_algebra`
+
+   Then the same two for `fixtures/probability`.
+3. **Optional:** `uv run learnloop rebuild-derived-state --vault <vault>`, then `uv run learnloop doctor --vault <vault>`. The upgrade leaves a vault one ordinary rebuild from its fixed point (Q5, Q7).
+
+Both vaults are tracked fixtures, so their `state.sqlite` and `learnloop.toml` will show as modified afterwards. That is expected for the owner's working vaults.
+
+**The held answer** `01KYCM9NYBGYDKGR2GGYQYSV23` (linear_algebra, item `pi_exercise_01ky5raxvexp8axggqn8e73vkh`, self-graded, then regraded on 2026-07-25 by a joint grader that kept no maximum) stays held, at 4 points and 1.0 and with no evidence, until one of these:
+- **A regrade**: the feedback screen's regrade or contest, one grading model call. It cites the item's contract and replaces the reason. This is the only way to keep a full-credit grade.
+- **A direction-changing adjudication**: `uv run learnloop grading adjudicate <its active interpretation id> --resolved-class <class> --vault fixtures/linear_algebra`. The interpretation id is on its newest `activity_observations` row. An adjudication that upholds `success` leaves it held, as shown above.
+
+### Open items
+
+1. **Q1, no kill switch (owner confirmation needed).** Rolling mvp-0.26 back is restore-only: restore the step-1 backup. Setting `algorithm_version` back by hand would leave rows written at the tag (cited regrades, revisions, every tier superseded) under a predecessor's replay. The stage's default is no switch, because the old writer is the defect.
+2. **Releasing a correct held grade without a model call** (new). An upholding adjudication through the CLI does not release `grade_contract_unrecorded`: Ruling A writes an evidence revision only when the direction flips. To keep 4/4, the owner must regrade (one call). Alternatives for a follow-up:
+   - let an upholding owner adjudication of a held unrecorded grade write the revision;
+   - list such holds in `grading reviews`, which today does not show them.
+3. **Two commands per vault.** The owner's vaults are at mvp-0.8, and mvp-0.26 refuses below mvp-0.9. The brief expected one command per vault. Making `--to mvp-0.26` chain from mvp-0.8 is a possible follow-up; it is not needed.
+4. **Q2–Q8** stand as the stage recorded them (§9). Q8 (leave the held answer held) is now concrete, as item 2 describes.
+5. **Pre-existing:** every full rebuild appends about 38 dual-write rows and moves the recurrence input fingerprint, on main as here (above). It is out of this stage.
