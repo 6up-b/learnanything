@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e6fd14844aad42f2dab12ad7edd02e250c033734"
-source_commit_timestamp: "2026-10-17T05:11:36-04:00"
+source_commit: "2750fbd9c003840ca1410e37838a93d55ec31afa"
+source_commit_timestamp: "2026-10-17T06:35:59-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
+- `src/learnloop_sidecar/handlers/workbench.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -132,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_narrow.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
+- `tests/test_reader_workbench_rw2a.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_rereview.py`
 - `tests/test_required_method_round3_final_verify.py`
