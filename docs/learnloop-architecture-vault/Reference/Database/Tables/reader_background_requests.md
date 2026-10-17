@@ -3,8 +3,8 @@ title: "reader_background_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "527e3fb1ddff173159bc5c08fb96faa55cee253f"
-source_commit_timestamp: "2026-10-17T17:58:56-04:00"
+source_commit: "c1ec76c7d4c02699f34e4baad881bef10250a9d7"
+source_commit_timestamp: "2026-10-17T18:29:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_background_requests"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.append_reader_request_proposal()`
 - `Repository.cancel_reader_request()`
 - `Repository.claim_next_reader_request()`
 - `Repository.delete_source_artifact()`
@@ -122,6 +123,7 @@ Indexes and uniqueness:
 - `Repository.reader_request_still_held()`
 - `Repository.reader_requests_for_source()`
 - `Repository.rebind_reader_request()`
+- `Repository.rekey_reader_request()`
 - `Repository.resolve_reader_request()`
 - `Repository.retry_reader_request()`
 
@@ -155,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_reader_capture.py`
 - `tests/test_reader_requests.py`
 - `tests/test_reader_rw1b_final_verify.py`
+- `tests/test_reader_rw1b_fix_round4.py`
 - `tests/test_reader_rw1b_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
