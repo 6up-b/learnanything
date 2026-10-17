@@ -520,11 +520,17 @@ def test_a_retried_submit_answers_the_same_attempt(tmp_path, grader):
     _step(ctx, session["sessionId"], "a", bodyMd="A = U Sigma V^T")
     first = _submit(ctx, session["sessionId"])
     attempts = _count(repository, "practice_attempts")
-    # The response was lost: the client resends, and the receipt answers.
-    with pytest.raises(SidecarError) as again:
-        _submit(ctx, session["sessionId"])
-    assert again.value.code == "already_submitted"
-    assert again.value.details["attemptId"] == first["attempt"]["attemptId"]
+    # The response was lost after the session was marked submitted: the
+    # client resends, and the submission's receipt answers (review F10).
+    again = _submit(ctx, session["sessionId"])
+    assert again["attempt"]["attemptId"] == first["attempt"]["attemptId"]
+    assert again["attempt"] == first["attempt"]
+    assert again["session"]["status"] == "submitted"
+    assert again["practiceSession"]["sessionId"] == first["practiceSession"]["sessionId"]
+    assert _count(repository, "practice_attempts") == attempts
+    # After a restart too.
+    restarted = _context(paths.root)
+    assert _submit(restarted, session["sessionId"])["attempt"]["attemptId"] == first["attempt"]["attemptId"]
     assert _count(repository, "practice_attempts") == attempts
 
 
@@ -756,7 +762,12 @@ def test_the_lifecycle_writes_only_workbench_rows_and_salience_only_events(tmp_p
     _call(ctx, "workbench.reopen", {"sessionId": session["sessionId"]})
     after = table_counts(repository)
     changed = {name for name in after if after[name] != before.get(name)}
-    assert changed <= set(WORKBENCH_TABLES) | {"interaction_events"}
+    # Besides its own rows and salience-only events, a session writes only
+    # what a serve writes: the contract it shows (review F1) and the book's
+    # exposure of its spans (review F11). Neither is evidence.
+    assert changed <= set(WORKBENCH_TABLES) | {
+        "interaction_events", "assessment_contract_versions", "source_exposure_events",
+    }
 
 
 @pytest.mark.parametrize("event", WB.SERVER_WORKBENCH_EVENTS)
@@ -846,3 +857,184 @@ def test_switched_off_the_config_and_the_practice_rpcs_are_what_they_were(tmp_pa
     assert shapes["on"]["served_keys"] == shapes["off"]["served_keys"]
     assert shapes["on"]["row"] == shapes["off"]["row"]
     assert shapes["on"]["row"]["entry_surface"] == "desktop_practice"
+
+
+# -- review fixes (docs/reviews/reader-rw2a-codex-review.md) ---------------------------------------------
+
+
+def _with_method(ctx, item_id: str = ITEM, *, prompt: str | None = None, method: str = "the spectral theorem"):
+    from learnloop.vault.models import RequiredMethod
+
+    item = ctx.vault.practice_items[item_id]
+    update = {"required_method": RequiredMethod(name=method, criterion_ids=["result"])}
+    if prompt is not None:
+        update["prompt"] = prompt
+    ctx.vault.practice_items[item_id] = item.model_copy(update=update)
+
+
+def _graded_contracts(repository: Repository, attempt_id: str) -> set[str]:
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        rows = connection.execute(
+            "SELECT DISTINCT assessment_contract_version_id FROM grading_evidence WHERE attempt_id = ?", (attempt_id,)
+        ).fetchall()
+    return {row[0] for row in rows}
+
+
+def test_f1_a_resumed_problem_is_graded_against_the_contract_it_showed(tmp_path, grader):
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    session = _open(ctx, entry="check_me")
+    shown = session["assessmentContractVersionId"]
+    assert shown
+    _step(ctx, session["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    # The item gains a required method before the learner comes back.
+    _with_method(ctx, prompt="Factor A.")
+    current = snapshot_for_presentation(repository, ctx.vault, ctx.vault.practice_items[ITEM])
+    assert current != shown
+    resumed = _call(ctx, "workbench.open", {"origin": "reader", "entry": "resume", "sessionId": session["sessionId"]})
+    assert resumed["session"]["assessmentContractVersionId"] == shown
+    payload = _submit(ctx, session["sessionId"])
+    assert _graded_contracts(repository, payload["attempt"]["attemptId"]) == {shown}
+
+
+def test_f1_a_bound_import_snapshots_the_contract_of_the_item_it_bound(tmp_path, imports):
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    session = _selection_open(ctx)
+    assert session["assessmentContractVersionId"] is None
+    imports["jobs"]["batch_1"] = _imported(ITEM)
+    bound = _call(ctx, "workbench.refresh_import", {"sessionId": session["sessionId"]})["session"]
+    expected = snapshot_for_presentation(repository, ctx.vault, ctx.vault.practice_items[ITEM])
+    assert bound["assessmentContractVersionId"] == expected
+
+
+def test_f9_the_bound_problem_carries_the_items_whole_presentation(tmp_path, imports):
+    paths, _repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    _with_method(ctx)
+    session = _open(ctx)
+    blocks = session["presentation"]["blocks"]
+    assert [block["kind"] for block in blocks] == ["prompt", "required_method_instruction"]
+    assert blocks[0]["markdown"] == "Write the SVD of A."
+    assert "the spectral theorem" in blocks[1]["markdown"]
+    # Resumed after the method is dropped, it still shows what it showed.
+    ctx.vault.practice_items[ITEM] = ctx.vault.practice_items[ITEM].model_copy(update={"required_method": None})
+    again = _call(ctx, "workbench.get", {"sessionId": session["sessionId"]})["session"]
+    assert [block["kind"] for block in again["presentation"]["blocks"]] == ["prompt", "required_method_instruction"]
+    # Before binding the verbatim selection is the display: no presentation yet.
+    selected = _selection_open(ctx)
+    assert selected["presentation"] is None and selected["stemMd"] == STEM
+
+
+def test_f2_hints_shown_on_the_answer_box_are_carried_into_steps_and_counted(tmp_path, grader):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    opened = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
+                                           "stemMd": "Write the SVD of A.", "carriedHints": 1})["session"]
+    assert opened["carriedHints"] == 1
+    record = opened["record"]
+    assert record["hints"] == 1 and record["ownAttempt"] is False and record["bookCounted"] is False
+    assert "1 shown on the answer box" in record["line"] and "help used: 1 hint" in record["footer"]
+    _step(ctx, opened["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    # Back to the answer box and into steps again: the count is never taken back.
+    again = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
+                                          "stemMd": "Write the SVD of A.", "carriedHints": 0})
+    assert again["resumed"] is True and again["session"]["carriedHints"] == 1
+    more = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                         "sessionId": opened["sessionId"], "carriedHints": 2})["session"]
+    assert more["carriedHints"] == 2 and more["record"]["hints"] == 2
+    payload = _submit(ctx, opened["sessionId"], practiceSessionId=practice_session)
+    row = _attempt(repository, payload["attempt"]["attemptId"])
+    assert row["hints_used"] == 2 and row["attempt_type"] == "hinted_attempt"
+    policy = _policy(row)
+    assert policy.counts_as_assisted and not policy.eligible_for_certification
+
+
+def test_f4_a_practice_problem_resumed_in_the_reader_moves_there_book_hidden_and_counts_the_book_if_shown(
+    tmp_path, grader
+):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    practice = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
+                                             "stemMd": "Write the SVD of A."})["session"]
+    _step(ctx, practice["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    moved = _call(ctx, "workbench.open", {"origin": "reader", "entry": "work_through", "practiceItemId": ITEM,
+                                          "stemMd": STEM, "extractionId": EXTRACTION, "spanIds": ["s5"]})
+    session = moved["session"]
+    assert moved["resumed"] is True and session["sessionId"] == practice["sessionId"]
+    # In the Reader now, anchored to the passage, the book hidden: the step
+    # was written without it, so it stays the learner's own until shown.
+    assert session["origin"] == "reader" and session["extractionId"] == EXTRACTION and session["spanIds"] == ["s5"]
+    assert session["sourceVisible"] is False and session["record"]["ownAttempt"] is True
+    shown = _call(ctx, "workbench.set_book", {"sessionId": session["sessionId"], "visible": True})["session"]
+    assert shown["record"]["bookCounted"] is True
+    row = _attempt(repository, _submit(ctx, session["sessionId"])["attempt"]["attemptId"])
+    assert row["entry_surface"] == "desktop_reader_workbench" and row["hints_used"] == 1
+    events = [e["payload"] for e in repository.reader_interaction_events(kind="reader_action_invoked")
+              if e["payload"].get("workbench_session_id") == session["sessionId"]
+              and e["payload"].get("event") == "workbench_resumed"]
+    assert events and events[0]["moved_from"] == "practice"
+
+
+def test_f4_a_reader_problem_resumed_on_the_practice_screen_keeps_the_book_it_counted(tmp_path, grader):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    counted = _open(ctx)
+    _step(ctx, counted["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    practice_session = _call(ctx, "start_session", {})["sessionId"]
+    moved = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                          "sessionId": counted["sessionId"]})["session"]
+    assert moved["origin"] == "practice" and moved["sourceVisible"] is False
+    assert moved["record"]["bookCounted"] is True and moved["record"]["hints"] == 1
+    row = _attempt(repository, _submit(ctx, counted["sessionId"], practiceSessionId=practice_session)["attempt"]["attemptId"])
+    assert row["entry_surface"] == "desktop_practice_workbench" and row["hints_used"] == 1
+    # A Reader problem with the book open and no step yet: moving it is free.
+    free = _open(ctx, practiceItemId=OTHER_ITEM)
+    assert free["sourceVisible"] is True
+    off = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": OTHER_ITEM,
+                                        "stemMd": "Transpose the matrix M."})["session"]
+    assert off["sessionId"] == free["sessionId"] and off["record"]["ownAttempt"] is True
+
+
+def test_f4_resuming_an_abandoned_problem_by_its_id_reopens_it_on_the_asking_surface(tmp_path):
+    paths, _repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    session = _open(ctx, entry="check_me")
+    _step(ctx, session["sessionId"], "a", bodyMd="one")
+    _call(ctx, "workbench.abandon", {"sessionId": session["sessionId"]})
+    back = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                         "sessionId": session["sessionId"]})
+    assert back["resumed"] is True and back["session"]["status"] == "open"
+    assert back["session"]["origin"] == "practice" and _bodies(back["session"]) == ["one"]
+
+
+def _exposures(repository: Repository) -> list[dict]:
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        rows = connection.execute("SELECT * FROM source_exposure_events ORDER BY created_at, id").fetchall()
+    return [dict(row) for row in rows]
+
+
+def test_f11_showing_the_book_records_an_exposure_of_the_anchored_spans(tmp_path):
+    paths, repository = _vault(tmp_path)
+    ctx = _context(paths.root)
+    before = len(_exposures(repository))
+    hidden = _open(ctx, entry="check_me", spanIds=["s5", "s6"])
+    assert len(_exposures(repository)) == before
+    _step(ctx, hidden["sessionId"], "a", bodyMd="A = U Sigma V^T")
+    _call(ctx, "workbench.set_book", {"sessionId": hidden["sessionId"], "visible": True})
+    rows = _exposures(repository)[before:]
+    assert [(row["context"], row["extraction_id"], row["span_id"]) for row in rows] == [
+        ("reader", EXTRACTION, "s5"), ("reader", EXTRACTION, "s6"),
+    ]
+    assert {(row["entity_type"], row["entity_id"]) for row in rows} == {("practice_item", ITEM)}
+    # Opening with the book shown is a showing too.
+    _open(ctx, practiceItemId=OTHER_ITEM, spanIds=["s9"])
+    assert [row["span_id"] for row in _exposures(repository)[before + 2:]] == ["s9"]
+    # Hiding records nothing; off the Reader there is no book to show.
+    _call(ctx, "workbench.set_book", {"sessionId": hidden["sessionId"], "visible": False})
+    assert len(_exposures(repository)) == before + 3

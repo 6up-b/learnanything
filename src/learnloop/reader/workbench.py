@@ -20,10 +20,16 @@ Functional core, imperative shell:
 ``resolve_attempt_activity_policy``). The only evidence a session produces is
 its submitted attempt. In the Reader the book counts as one hint-equivalent
 from the first step written with it shown, or from its first showing after a
-step (``source_shown_at``); flipping it before the first step is free. The
-submit therefore sends ``hints_used = 1`` or ``0`` and nothing else new: a
-visible book makes the attempt assisted (FSRS-fed, certifying nothing), a
-hidden one leaves it the learner's own. Stuck steps stay learner work and are
+step (``source_shown_at``); flipping it before the first step is free. Every
+showing records an exposure of the problem's anchored spans
+(``source_exposure_events``, context ``reader``), as opening the source does.
+Hints the learner revealed on the practice screen's answer box before working
+in steps (``carried_hints``) count too, and both survive a move to another
+surface. The submit therefore sends ``hints_used`` = the book's one plus the
+carried hints and nothing else new: any of them makes the attempt assisted
+(FSRS-fed, certifying nothing); none leaves it the learner's own. It is graded
+against the assessment contract the session showed
+(``assessment_contract_version_id``). Stuck steps stay learner work and are
 left out of the answer; with no ordinary step the stuck text (or an empty box)
 is the existing "I'm stuck" answer. Abandoned sessions write no attempt.
 Replay and rebuild never read the workbench tables (an import-linter contract
@@ -196,42 +202,66 @@ def compose_answer(steps: Iterable[Mapping[str, Any]]) -> ComposedAnswer:
 
 
 def book_counted(session: Mapping[str, Any]) -> bool:
-    """Whether the book counts as one hint-equivalent on the submitted attempt."""
+    """Whether the book counts as one hint-equivalent on the submitted attempt.
 
-    if session.get("origin") != "reader":
-        return False
-    return bool(session.get("source_shown_at")) or bool(session.get("source_visible"))
+    Once counted (``source_shown_at``) it stays counted, on any surface the
+    session moves to; a book shown now counts only in the Reader, where there
+    is one."""
+
+    if session.get("source_shown_at"):
+        return True
+    return session.get("origin") == "reader" and bool(session.get("source_visible"))
 
 
 def book_hints(session: Mapping[str, Any]) -> int:
     return 1 if book_counted(session) else 0
 
 
-def record_line(*, counted: bool, visible: bool, question_hints: int, composed: ComposedAnswer) -> dict[str, Any]:
+def carried_hints(session: Mapping[str, Any]) -> int:
+    """The answer box's hints the learner saw before working in steps."""
+
+    return max(0, int(session.get("carried_hints") or 0))
+
+
+def session_hints(session: Mapping[str, Any]) -> int:
+    """Every hint-equivalent the session itself holds (the submit's ``hints_used``)."""
+
+    return book_hints(session) + carried_hints(session)
+
+
+def record_line(
+    *, counted: bool, visible: bool, question_hints: int, composed: ComposedAnswer, carried: int = 0
+) -> dict[str, Any]:
     """What the attempt will record, stated before Submit (spec §5.1, G62).
 
-    Every assist the submit counts is named here: in RW2a the book and the
-    tutor questions the existing fold adds. It never promises a later check.
+    Every assist the submit counts is named here: in RW2a the book, the
+    answer box's hints shown before steps, and the tutor questions the
+    existing fold adds. It never promises a later check.
     """
 
     question_hints = max(0, int(question_hints or 0))
-    hints = (1 if counted else 0) + question_hints
-    parts = (["the book"] if counted else []) + (
-        [f"{question_hints} tutor question{'s' if question_hints != 1 else ''}"] if question_hints else []
+    carried = max(0, int(carried or 0))
+    hints = (1 if counted else 0) + carried + question_hints
+    parts = (
+        (["the book"] if counted else [])
+        + ([f"{carried} shown on the answer box"] if carried else [])
+        + ([f"{question_hints} tutor question{'s' if question_hints != 1 else ''}"] if question_hints else [])
     )
     if hints == 0:
         line = OWN_ATTEMPT_LINE
     else:
         noun = f"{hints} hint{'s' if hints != 1 else ''}"
-        what = f" ({', '.join(parts)})" if len(parts) > 1 or question_hints else ""
+        what = f" ({', '.join(parts)})" if len(parts) > 1 or not counted else ""
         lead = "book open · " if counted else ""
         line = f"{lead}{noun}{what} → practice with help ◌ (not yet checked on your own)"
-    footer = ("book open = 1 hint" if counted else "book hidden" if not visible else "book open") + " · help used: none"
+    help_used = f"{carried} hint{'s' if carried != 1 else ''}" if carried else "none"
+    footer = ("book open = 1 hint" if counted else "book hidden" if not visible else "book open") + f" · help used: {help_used}"
     return {
         "book_counted": counted,
         "book_visible": visible,
         "hints": hints,
         "question_hints": question_hints,
+        "carried_hints": carried,
         "own_attempt": hints == 0,
         "line": line,
         "footer": footer,
@@ -317,6 +347,101 @@ def resumable_session(
     return None
 
 
+def _record_book_exposure(repository: Any, session: Mapping[str, Any], clock: Clock | None = None) -> list[str]:
+    """The book shown beside the problem exposes its anchored spans (spec §5.4,
+    G10): one ``source_exposure_events`` row per span, context ``reader``, as
+    opening the source records today. Nothing without a Reader anchor."""
+
+    extraction_id = session.get("extraction_id")
+    spans = _spans(session)
+    if session.get("origin") != "reader" or not extraction_id or not spans:
+        return []
+    from learnloop.ingest.locators import format_block_span
+
+    revision_id = source_id = None
+    ir = None
+    try:
+        run = repository.get_extraction_run(extraction_id)
+        revision_id = run.get("revision_id") if run else None
+        revision = repository.get_source_revision(revision_id) if revision_id else None
+        source_id = revision.get("source_id") if revision else None
+        ir = repository.load_document_ir(extraction_id) if run else None
+    except Exception:  # noqa: BLE001 - an unreadable extraction still records the span it showed
+        ir = None
+    item = session.get("practice_item_id")
+    ids = []
+    for span in spans:
+        block = ir.block_by_span(span) if ir is not None else None
+        ids.append(repository.insert_source_exposure_event({
+            "context": "reader",
+            "extraction_id": extraction_id,
+            "span_id": span,
+            "revision_id": revision_id,
+            "source_id": source_id,
+            "entity_type": "practice_item" if item else SUBJECT_TYPE,
+            "entity_id": item or session["id"],
+            "page": getattr(block, "page", None),
+            "locator": format_block_span(extraction_id, span),
+            "section_path": list(getattr(block, "section_path", None) or []),
+        }, clock=clock))
+    return ids
+
+
+def _resume_existing(
+    repository: Any,
+    connection: Any,
+    existing: Mapping[str, Any],
+    *,
+    origin: str,
+    entry: str,
+    extraction_id: str | None,
+    span_ids: Sequence[str],
+    source_visible: bool | None,
+    carried: int,
+    now: str,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    """Resume an existing session on the surface asking for it.
+
+    A move between the Reader and the practice screen (or plan) is explicit:
+    the session takes the new ``origin`` (so the submit records the surface it
+    is sent from); into the Reader it gains the Reader's anchors when it had
+    none and opens with the book only if no step was written yet (the
+    entry's default, UX S7), so work written without the book stays the
+    learner's own until they choose to show it; out of the Reader there is no
+    book. The book once counted, and the carried hints, stay counted.
+    """
+
+    changes: dict[str, Any] = {"updated_at": now}
+    if carried > carried_hints(existing):
+        changes["carried_hints"] = carried
+    moved_from = None
+    becomes_visible = False
+    if (existing["origin"] == "reader") != (origin == "reader"):
+        moved_from = existing["origin"]
+        changes["origin"] = origin
+        if origin == "reader":
+            if not existing.get("extraction_id") and extraction_id:
+                changes["extraction_id"] = extraction_id
+                changes["span_ids_json"] = json.dumps([str(span) for span in span_ids])
+            has_work = bool(store.steps_for_session(connection, existing["id"]))
+            wanted = default_book_visible(entry, origin) if source_visible is None else bool(source_visible)
+            becomes_visible = wanted and not has_work
+            changes["source_visible"] = 1 if becomes_visible else 0
+        else:
+            changes["source_visible"] = 0
+    elif origin != existing["origin"]:
+        # Practice screen and plan: the same surface, no book.
+        changes["origin"] = origin
+    store.update_session(connection, existing["id"], changes)
+    row = _require(connection, existing["id"])
+    _log(repository, row, "workbench_resumed", clock, via=entry,
+         **({"moved_from": moved_from, "book_visible": bool(row["source_visible"])} if moved_from else {}))
+    if becomes_visible:
+        _record_book_exposure(repository, row, clock)
+    return row
+
+
 def open_session(
     repository: Any,
     *,
@@ -333,12 +458,15 @@ def open_session(
     import_batch_id: str | None = None,
     import_request: Mapping[str, Any] | None = None,
     import_error: str | None = None,
+    carried: int = 0,
     clock: Clock | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Open a session (or resume the open one for the same item or selection).
 
     Returns ``(session row, resumed)``. A retried request with the same key
-    answers the session it made.
+    answers the session it made. A resumed session on another surface moves
+    to it (:func:`_resume_existing`); ``carried`` is the answer box's hints
+    shown before steps, kept at the highest count seen.
     """
 
     if origin not in ORIGINS:
@@ -371,10 +499,11 @@ def open_session(
         else:
             existing = None
         if existing is not None:
-            store.update_session(connection, existing["id"], {"updated_at": now})
-            existing = {**existing, "updated_at": now}
-            _log(repository, existing, "workbench_resumed", clock, via=entry)
-            return existing, True
+            row = _resume_existing(
+                repository, connection, existing, origin=origin, entry=entry, extraction_id=extraction_id,
+                span_ids=spans, source_visible=source_visible, carried=carried, now=now, clock=clock,
+            )
+            return row, True
         if parent_session_id is not None:
             _require(connection, parent_session_id)
         visible = default_book_visible(entry, origin) if source_visible is None else bool(source_visible)
@@ -392,6 +521,7 @@ def open_session(
             "extraction_id": extraction_id,
             "span_ids_json": json.dumps(spans),
             "source_visible": 1 if visible and origin == "reader" else 0,
+            "carried_hints": max(0, int(carried or 0)),
             "status": "open",
             "client_idempotency_key": client_idempotency_key,
             "created_at": now,
@@ -401,7 +531,46 @@ def open_session(
         row = _require(connection, session["id"])
         _log(repository, row, "workbench_opened", clock, book_visible=bool(row["source_visible"]),
              import_status=import_status)
+        if row["source_visible"]:
+            _record_book_exposure(repository, row, clock)
     return row, False
+
+
+def resume_session(
+    repository: Any,
+    session_id: str,
+    *,
+    origin: str,
+    entry: str = "resume",
+    extraction_id: str | None = None,
+    span_ids: Sequence[str] = (),
+    carried: int = 0,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Resume a named session on the surface asking ("resume your steps", the
+    ``✎`` mark, the rail): an abandoned one is reopened, and a move to another
+    surface is the same explicit transition :func:`open_session` makes."""
+
+    if origin not in ORIGINS:
+        raise WorkbenchError("validation_error", f"unknown workbench origin {origin!r}")
+    if entry not in ENTRIES:
+        raise WorkbenchError("validation_error", f"unknown workbench entry {entry!r}")
+    now = utc_now_iso(clock)
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        if session["status"] == "submitted":
+            raise WorkbenchError(
+                "already_submitted", "This problem was submitted.", {"attempt_id": session.get("attempt_id")}
+            )
+        if session["status"] == "abandoned":
+            store.update_session(connection, session_id, {"status": "open", "closed_at": None, "updated_at": now})
+            session = _require(connection, session_id)
+            _log(repository, session, "workbench_reopened", clock)
+        return _resume_existing(
+            repository, connection, session, origin=origin, entry=entry, extraction_id=extraction_id,
+            span_ids=[str(span) for span in span_ids], source_visible=None, carried=carried, now=now, clock=clock,
+        )
 
 
 def _ordinal_after(live: Sequence[Mapping[str, Any]], after: Mapping[str, Any] | None) -> float:
@@ -515,6 +684,8 @@ def set_book(repository: Any, session_id: str, visible: bool, *, clock: Clock | 
         session = _require(connection, session_id)
         _log(repository, session, "book_visibility_changed", clock, visible=bool(visible),
              counts=book_counted(session), after_first_step=has_work)
+        if visible:
+            _record_book_exposure(repository, session, clock)
     return session
 
 
@@ -602,6 +773,19 @@ def mark_import(
         return _require(connection, session_id)
 
 
+def ensure_contract(repository: Any, session_id: str, version_id: str | None) -> dict[str, Any]:
+    """Record the assessment contract the session shows, once: a resumed
+    problem keeps the contract it was opened (or bound) with."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        session = _require(connection, session_id)
+        if version_id and not session.get("assessment_contract_version_id") and session.get("practice_item_id"):
+            store.update_session(connection, session_id, {"assessment_contract_version_id": version_id})
+            session = _require(connection, session_id)
+        return session
+
+
 def bind(repository: Any, session_id: str, practice_item_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
     """Bind the session to the item its import made (UX S2)."""
 
@@ -617,6 +801,8 @@ def bind(repository: Any, session_id: str, practice_item_id: str, *, clock: Cloc
             raise WorkbenchError("validation_error", "This problem is already an item.")
         store.update_session(connection, session_id, {
             "practice_item_id": practice_item_id, "import_status": "bound", "import_error": None, "updated_at": now,
+            # A contract snapshotted for another item never governs this one.
+            "assessment_contract_version_id": None,
         })
         session = _require(connection, session_id)
         _log(repository, session, "workbench_bound", clock)
@@ -633,12 +819,25 @@ class SubmissionPlan:
     entry_surface: str
     composed: ComposedAnswer
     book_hints: int
+    carried_hints: int = 0
+    assessment_contract_version_id: str | None = None
+
+    @property
+    def hints_used(self) -> int:
+        """The session's hint-equivalents: the book's and the carried hints."""
+
+        return self.book_hints + self.carried_hints
 
     @property
     def submission_id(self) -> str:
-        # One submit per session, so the session names its retry key: a
-        # response lost after the commit is answered from the receipt.
-        return f"workbench:{self.session_id}"
+        return submission_id_for(self.session_id)
+
+
+def submission_id_for(session_id: str) -> str:
+    """One submit per session, so the session names its retry key: a
+    response lost after the commit is answered from the receipt."""
+
+    return f"workbench:{session_id}"
 
 
 def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
@@ -657,6 +856,8 @@ def submission_plan(repository: Any, session_id: str) -> SubmissionPlan:
         entry_surface=ENTRY_SURFACE_READER if session["origin"] == "reader" else ENTRY_SURFACE_PRACTICE,
         composed=compose_answer(live_steps(rows)),
         book_hints=book_hints(session),
+        carried_hints=carried_hints(session),
+        assessment_contract_version_id=session.get("assessment_contract_version_id"),
     )
 
 
@@ -718,6 +919,8 @@ def session_view(
         "source_hidden_at": session["source_hidden_at"],
         "source_shown_at": session["source_shown_at"],
         "practice_session_id": session["practice_session_id"],
+        "assessment_contract_version_id": session["assessment_contract_version_id"],
+        "carried_hints": carried_hints(session),
         "help_style": session["help_style"],
         "status": session["status"],
         "attempt_id": session["attempt_id"],
@@ -728,7 +931,7 @@ def session_view(
         "last_edited_step_id": last["step_id"] if last else None,
         "record": record_line(
             counted=book_counted(session), visible=bool(session["source_visible"]),
-            question_hints=question_hints, composed=composed,
+            question_hints=question_hints, composed=composed, carried=carried_hints(session),
         ),
         "parts": None,
         **dict(extra or {}),
@@ -807,8 +1010,10 @@ __all__ = [
     "bind",
     "book_counted",
     "book_hints",
+    "carried_hints",
     "compose_answer",
     "default_book_visible",
+    "ensure_contract",
     "import_request",
     "leave",
     "live_steps",
@@ -819,13 +1024,16 @@ __all__ = [
     "record_line",
     "reopen",
     "resumable_session",
+    "resume_session",
     "save_step",
     "session_for_attempt",
+    "session_hints",
     "session_row",
     "session_view",
     "sessions_for_item",
     "sessions_for_source",
     "set_book",
+    "submission_id_for",
     "submission_plan",
     "workbench_enabled",
 ]

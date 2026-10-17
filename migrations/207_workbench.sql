@@ -28,6 +28,9 @@ CREATE TABLE workbench_sessions (
   import_batch_id TEXT,
   import_request_json TEXT,
   import_error TEXT,
+  -- Where the session is worked now. A resume on another surface moves it
+  -- (the practice card resuming a Reader problem, the Reader resuming a
+  -- practice-screen one), so the submit records the surface it was sent from.
   origin TEXT NOT NULL CHECK (origin IN ('reader', 'practice', 'plan')),
   -- How it was opened; it sets the default book visibility (UX S7, D9).
   entry TEXT NOT NULL CHECK (entry IN (
@@ -48,6 +51,13 @@ CREATE TABLE workbench_sessions (
   source_shown_at TEXT,
   -- The practice session the submit ran in (filled at submit).
   practice_session_id TEXT,
+  -- The assessment contract the learner was shown (snapshotted when the
+  -- session opens on its item or binds to it), so a problem resumed after its
+  -- rubric or required method changed is graded against what it showed.
+  assessment_contract_version_id TEXT,
+  -- Hints the learner revealed on the practice screen's answer box before
+  -- working in steps. Never taken back; the submit counts them with the book.
+  carried_hints INTEGER NOT NULL DEFAULT 0 CHECK (carried_hints >= 0),
   -- The help style's per-session override (RW2b, D31); NULL until then.
   help_style TEXT CHECK (help_style IS NULL OR help_style IN ('let_me_struggle', 'balanced', 'guide_me')),
   -- open -> submitted, or open -> abandoned -> open on reopen (UX S13).

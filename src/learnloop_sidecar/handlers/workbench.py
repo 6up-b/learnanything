@@ -75,12 +75,74 @@ def _source_id(repository, extraction_id: str | None) -> str | None:
         return None
 
 
+def _ensure_contract(vault, repository, session_id: str) -> None:
+    """Snapshot the assessment contract a bound session shows, once (the
+    practice screen's serve does the same), so the submit grades the problem
+    against what the learner saw even if the item changes before it."""
+
+    row = _run(WB.session_row, repository, session_id)
+    item_id = row.get("practice_item_id")
+    if not item_id or row.get("assessment_contract_version_id") or row["status"] == "submitted":
+        return
+    item = vault.practice_items.get(item_id)
+    if item is None:
+        return
+    from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS, snapshot_for_presentation
+
+    if vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS:
+        return
+    try:
+        version_id = snapshot_for_presentation(repository, vault, item)
+    except Exception:  # noqa: BLE001 - without a snapshot the submit takes the current one, as before
+        return
+    _run(WB.ensure_contract, repository, session_id, version_id)
+
+
+def _presentation(vault, repository, row: dict[str, Any]) -> dict[str, Any] | None:
+    """The bound problem as the learner must see it to answer it: the item's
+    presentation blocks (a required method's instruction, a shared stimulus,
+    an error hunt's worked solution), with the statement and required method
+    the session's contract froze. None before binding: the verbatim stem is
+    the provisional display."""
+
+    item_id = row.get("practice_item_id")
+    item = vault.practice_items.get(item_id) if item_id else None
+    if item is None:
+        return None
+    from learnloop.vault.required_method import method_instruction
+    from learnloop_sidecar.handlers.serializers import item_presentation
+
+    try:
+        presentation = item_presentation(item)
+    except SidecarError:
+        return None
+    contract = None
+    if row.get("assessment_contract_version_id"):
+        stored = repository.fetch_assessment_contract_version(row["assessment_contract_version_id"])
+        contract = (stored or {}).get("contract") or None
+    if not contract:
+        return presentation
+    instruction = method_instruction(contract.get("required_method"))
+    blocks: list[dict[str, Any]] = []
+    for block in presentation["blocks"]:
+        if block["kind"] == "required_method_instruction":
+            continue
+        if block["kind"] == "prompt":
+            blocks.append({**block, "markdown": str(contract.get("prompt") or block["markdown"])})
+            if instruction is not None:
+                blocks.append({"kind": "required_method_instruction", "markdown": instruction, "label": None})
+            continue
+        blocks.append(block)
+    return {**presentation, "blocks": blocks}
+
+
 def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     row = _run(WB.session_row, repository, session_id)
     view = _run(
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
-        extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts},
+        extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts,
+               "presentation": _presentation(vault, repository, row)},
     )
     return to_camel(view)
 
@@ -149,6 +211,11 @@ def _start_import(ctx: SidecarContext, vault, repository, request: dict[str, Any
 class WorkbenchOpenInput(ParamsModel):
     origin: str
     entry: str
+    #: Resume this session on the asking surface ("resume your steps", the
+    #: ``✎`` mark): reopened when abandoned, moved when on another surface.
+    session_id: str | None = None
+    #: The answer box's hints the learner saw before working in steps.
+    carried_hints: int = 0
     stem_md: str | None = None
     practice_item_id: str | None = None
     extraction_id: str | None = None
@@ -217,6 +284,14 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
     verbatim selection and the import runs in the background."""
 
     vault, repository = _require(ctx)
+    carried = max(0, int(params.carried_hints or 0))
+    if params.session_id:
+        row = _run(
+            WB.resume_session, repository, params.session_id, origin=params.origin, entry=params.entry,
+            extraction_id=params.extraction_id, span_ids=params.span_ids, carried=carried,
+        )
+        _ensure_contract(vault, repository, row["id"])
+        return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
     import_status, batch_id, error = "none", None, None
     if params.practice_item_id:
@@ -244,8 +319,9 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         span_ids=params.span_ids, parent_session_id=params.parent_session_id,
         source_visible=params.source_visible, client_idempotency_key=params.client_idempotency_key,
         import_status=import_status, import_batch_id=batch_id,
-        import_request=params.import_request, import_error=error,
+        import_request=params.import_request, import_error=error, carried=carried,
     )
+    _ensure_contract(vault, repository, row["id"])
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
 
 
@@ -329,6 +405,7 @@ def workbench_refresh_import(ctx: SidecarContext, params: WorkbenchSessionInput)
     parts = [part for part in _job_parts(job) if part["practiceItemId"] in vault.practice_items]
     if len(parts) == 1:
         _run(WB.bind, repository, params.session_id, parts[0]["practiceItemId"])
+        _ensure_contract(vault, repository, params.session_id)
         return _answer({"session": _view(vault, repository, params.session_id)})
     if not parts:
         _run(WB.mark_import, repository, params.session_id, status="failed",
@@ -349,6 +426,7 @@ def workbench_bind(ctx: SidecarContext, params: WorkbenchBindInput) -> dict[str,
     if params.practice_item_id not in parts or params.practice_item_id not in vault.practice_items:
         raise SidecarError("validation_error", "That part is not one this problem's setup made.")
     _run(WB.bind, repository, params.session_id, params.practice_item_id)
+    _ensure_contract(vault, repository, params.session_id)
     return _answer({"session": _view(vault, repository, params.session_id)})
 
 
@@ -391,15 +469,29 @@ def _practice_session(ctx: SidecarContext, repository, requested: str | None) ->
 def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[str, Any]:
     """Submit the work through the ordinary attempt path (spec §5.4).
 
-    The answer is the live steps in order; ``hints_used`` is the book's one
-    hint-equivalent when it counted; the attempt type is the one the answer
-    box would pick. A refusal (a cold check answered with the book, grading
-    unavailable) keeps the session open with its steps.
+    The answer is the live steps in order; ``hints_used`` is the session's
+    hint-equivalents (the book when it counted, the answer box's hints shown
+    before steps); the attempt type is the one the answer box would pick; the
+    contract is the one the session showed. A refusal (a cold check answered
+    with the book, grading unavailable) keeps the session open with its steps.
+    A retry after a lost response is answered from the submission's receipt.
     """
 
-    from learnloop_sidecar.handlers.practice import SubmitAttemptInput, submit_attempt_on
+    from learnloop_sidecar.handlers.practice import SubmitAttemptInput, _cached_submission, submit_attempt_on
 
     vault, repository = _require(ctx)
+    row = _run(WB.session_row, repository, params.session_id)
+    if row["status"] == "submitted" and row.get("attempt_id") and row.get("practice_item_id"):
+        cached = _cached_submission(
+            ctx, vault, repository, WB.submission_id_for(row["id"]), row["practice_item_id"]
+        )
+        if cached is not None:
+            practice_session_id = row.get("practice_session_id")
+            return _answer({
+                "attempt": cached,
+                "session": _view(vault, repository, params.session_id),
+                "practiceSession": session_snapshot(repository, practice_session_id) if practice_session_id else None,
+            })
     plan = _run(WB.submission_plan, repository, params.session_id)
     item = vault.practice_items.get(plan.practice_item_id)
     if item is None:
@@ -409,8 +501,9 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         session_id=practice_session_id,
         practice_item_id=plan.practice_item_id,
         answer_md=plan.composed.answer_md,
-        attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=plan.book_hints),
-        hints_used=plan.book_hints,
+        attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=plan.hints_used),
+        hints_used=plan.hints_used,
+        assessment_contract_version_id=plan.assessment_contract_version_id,
         latency_seconds=params.latency_seconds,
         answer_confidence=params.answer_confidence,
         submission_id=plan.submission_id,

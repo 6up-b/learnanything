@@ -158,9 +158,13 @@ Migration 207 comes from reader workbench RW2a (`reader/rw2a`, the resumable
 scratchpad, docs/reviews/reader-workbench-RW2a.md): it adds
 `workbench_sessions` (WORKFLOW: a problem worked in steps, opened at once
 before its exercise import binds it, with every CHECK'd column created with
-all its values) and `workbench_steps` (RAW_LEDGER, append-only by trigger:
+all its values, the assessment contract it shows and the answer box's hints
+carried into steps) and `workbench_steps` (RAW_LEDGER, append-only by trigger:
 versions, tombstones and undos under the client's idempotency key). Both
-tables are empty here.
+tables are empty here. Rebuilt after the stage's Codex review added
+`assessment_contract_version_id` and `carried_hints` to 207 (the same chain:
+a backup-API copy of the base's `migration_head_206` with only the revised 207
+applied).
 Built as a backup-API copy of `migration_head_206` (itself a backup-API copy
 of `migration_head_205` with only 206 applied, that of
 `migration_head_204` with only 205 applied, that of `migration_head_203`

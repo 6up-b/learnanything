@@ -19,11 +19,13 @@ STEPS = "workbench_steps"
 SESSION_COLUMNS = (
     "id", "practice_item_id", "stem_md", "import_status", "import_batch_id", "import_request_json",
     "import_error", "origin", "entry", "parent_session_id", "extraction_id", "span_ids_json",
-    "source_visible", "source_hidden_at", "source_shown_at", "practice_session_id", "help_style", "status",
+    "source_visible", "source_hidden_at", "source_shown_at", "practice_session_id",
+    "assessment_contract_version_id", "carried_hints", "help_style", "status",
     "attempt_id", "client_idempotency_key", "created_at", "updated_at", "closed_at",
 )
 #: The session columns a lifecycle change may set (never id or created_at).
-MUTABLE_SESSION_COLUMNS = frozenset(SESSION_COLUMNS) - {"id", "created_at", "origin", "entry", "client_idempotency_key"}
+#: ``origin`` changes only when a resume moves the session to another surface.
+MUTABLE_SESSION_COLUMNS = frozenset(SESSION_COLUMNS) - {"id", "created_at", "entry", "client_idempotency_key"}
 
 STEP_COLUMNS = (
     "id", "session_id", "ordinal", "kind", "body_md", "supersedes_id", "deleted",
