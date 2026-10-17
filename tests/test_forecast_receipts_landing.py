@@ -60,7 +60,8 @@ def test_the_renumbered_migration_and_its_table_role():
     migrations = {migration.version: migration.name for migration in discover_migrations()}
     assert migrations[205] == "write_provenance"
     assert migrations[206] == "forecast_receipts"
-    assert max(migrations) == 206
+    # Reader workbench RW2a's 207 landed after it.
+    assert max(migrations) >= 206
     assert role_for_table("forecast_receipts") is TableRole.RECEIPT
     assert role_for_table("text_write_provenance") is TableRole.RAW_LEDGER
     assert role_for_table("error_event_lineage") is TableRole.RAW_LEDGER

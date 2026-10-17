@@ -950,6 +950,13 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "passage quick checks per UTC day / per-check dollar cap on a metered route / owner price for "
         "metered routes; spend bounds, no measurement authority."),
+    # Reader workbench RW2a: how long an untouched open problem waits before
+    # the recap calls it "unfinished" (a display limit; nothing is closed).
+    _ConfigRule(_exact(
+        "workbench.open_session_days",
+    ), "structural", "operational",
+        "days before an untouched open workbench problem shows as unfinished; a display limit, no "
+        "measurement, scheduling or serving authority (nothing is closed automatically)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(
