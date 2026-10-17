@@ -79,3 +79,44 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp` and `uv run --no-sync` afte
 | `db_generate_reference.py`, `db_validate_reference.py` | regenerated (schema head 208, 327 table notes, 873 configuration leaves); errors [] |
 | Snapshots, CLI help, RPC pins, `test_coordinated_migrations.py`, `test_table_roles.py` | pass (in the full suite); no config, CLI or migration change |
 | `git diff --check` | clean |
+
+## Re-review (codex-job `20261017-171207-Xoiq5R`, range `9fba44812..reader/rw1b`)
+
+The re-review confirmed F1 (High) as fixed and reopened the stage on two new
+Medium findings, F14 and F15. Both were reproduced on `80c565ef4` (the review
+record's tip) with `tests/test_reader_rw1b_rereview.py`, a new file with 7 cases.
+6 of them failed before the fix. The seventh,
+`test_f15_reverting_the_sharing_capture_keeps_the_original_and_cancels_last`,
+guards the new hold rule from the other side: on the old code, reverting the
+second capture found no request, so nothing was cancelled. The fixes are in
+`6c63eceb3`, and the references were regenerated in `fbd198c5a`. No migration
+was needed: a capture's hold on a request is its outbox row's `target_ref`, which
+the drain has always written. No paid or live model call was made.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Formative answers become numeric serving signals | confirmed fixed (re-review) | `18472d5ac` | Codex checked all eight switch combinations in memory. Nothing changed |
+| F14 | Medium | Reverted captures can enqueue synthesis later | fixed | `6c63eceb3` | `test_f14_a_capture_reverted_before_its_drain_enqueues_nothing`, `test_f14_a_failed_conversion_retried_after_the_revert_enqueues_nothing`, `test_f14_a_revert_racing_a_drain_waits_for_it_and_cancels_what_it_enqueued` (a revert thread starts while the conversion is inside its transaction). The revert's tombstone (`delete_intent`, reason `intent_changed`) is the persisted cancellation. `reader_capture._default_convert` runs in one `Repository.atomic()` (`BEGIN IMMEDIATE`) write transaction. In it, the conversion reads whether that tombstone stands (`Repository.capture_reverted`, which honours an undo), enqueues, and records the request as the outbox row's `target_ref`. A reverted capture converts to no work, so the row goes to `done` with no request. `revert_capture` (tombstone, retire, cancel) is also one write transaction. A revert racing a drain therefore either lands first, and nothing is enqueued, or waits and then cancels what the drain enqueued |
+| F15 | Medium | Capture undo cancels shared synthesis and blocks later captures | fixed | `6c63eceb3` | `test_f15_reverting_the_original_capture_keeps_work_another_capture_holds`, `test_f15_reverting_the_sharing_capture_keeps_the_original_and_cancels_last`, `test_f15_a_later_capture_revives_cancelled_work`, `test_f15_a_later_capture_keeps_running_work_its_revert_flagged`. A revert now finds every request its capture holds: the one it made, plus any its outbox row converted onto. It cancels a request only when `Repository.reader_request_still_held` says no other capture holding it stands, meaning one whose `target_ref` names it, or the request's first capture, with no standing delete. A request no capture made (an explicit `reader.enqueue_request`) always counts as held. A capture's conversion enqueues with `revive_cancelled=True`. A `cancelled` row goes back to `queued` with its lease and completion cleared, and a running row flagged for cancellation has the flag cleared. The `reader.enqueue_request` RPC and `retry` keep their old behaviour |
+
+**No rejections.** Out of scope: a capture deleted normally (not by "change")
+before its drain still converts to synthesis. That is the base's behaviour, and
+the conversion skips only reverted captures. Such a capture does not count as
+holding shared work.
+
+### Re-review gate
+
+Run in the worktree with `TMPDIR=fixtures-local/tmp` and `uv run --no-sync` after
+the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`
+on `fbd198c5a`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **24 kept**, 0 broken (`reader_intent` now imports `reader_capture` at module level, adding no function-local import) |
+| `pytest -n auto` (full suite) | **13,045 passed, 2 xfailed**, 0 failed (19 min 51 s). Previous gate: 13,038, so +7 (the new re-review file) |
+| `pytest -m durability` | **107 passed**, 12,940 deselected (1 min 56 s) |
+| `tests/test_reader_rw1b_rereview.py --durable-sqlite` | 7 passed (WAL and production pragmas, including the race case) |
+| Frontend (npm typecheck/test/build), `cargo check` | not needed: nothing under `apps/` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels and the config leaves' line citations; schema head 208); errors [] |
+| `git diff --check` | clean |
