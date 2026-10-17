@@ -439,3 +439,148 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `24010c8ea`
 | `npm run frontend:build` | built (the usual chunk-size warning) |
 | `cargo check` | not needed: nothing under `src-tauri` changed |
 | `db_generate_reference.py`, `db_validate_reference.py` | not needed: no schema change (migration 207 and `fixtures/migration_head_207` unchanged) |
+
+## Round 4 (Codex verification of round 3, job `20261017-082910-ClxJIX`)
+
+Codex verified `f8bdc4b8c..9fe36b0c9`. It confirmed F15 fixed and reopened
+two narrow cases of F2 and F8, each with a reproduction. The orchestrator's
+binding rulings bound the round: for F2, first establish with a test what
+main does for an authored hint on an independent-only item, then (a) keep
+main's recording if its policy already discounts `hints_used` > 0 whatever
+the type, or (b) record it as main does; no new attempt type, discount or
+eligibility rule. For F8, freeze the departure. Nothing else changed: no
+conformance-table row, no other finding, no schema change (migration 207,
+`fixtures/migration_head_207` and the DB references are as round 2 left
+them).
+
+**Paid calls:** none ($0.00). Fakes only; no provider, no key, no vault opened.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F2 | High | On an independent-only item, held assistance is recorded as `independent_attempt` with `hints_used` = 1 | kept as main records it (ruling branch **a**), invariant pinned | `ac038896b` | `test_round4_f2_main_records_an_authored_hint_on_an_independent_only_item_as_assisted_and_never_certifying`, `test_round4_f2_held_assistance_on_an_independent_only_item_is_assisted_on_every_submit_path_and_after_replay` |
+| F8 | High | Text typed while Leave's RPC is pending can be refused and unmounted on the first press, unseen | fixed | `0947b8fce` | vitest *round 4 F8: Leave freezes the steps while it is under way, so text typed then is never refused and unmounted unseen*, *round 4 F8: answer box instead freezes the steps the same way*, *round 4 F8: a departure held by a refusal gives editing back with the first-press message, and a fixed step then leaves*, *round 4 F8: in the Reader, Leave freezes the steps while it is under way, so nothing typed then is lost unseen*; *a read-only editor still opens its text but accepts no change* (`LiveMarkdownEditor`) |
+| F15 | Medium | (confirmed fixed by Codex) | — | — | no change |
+
+### F2: what main does
+
+On main (`9cdaefb9e`) the answer box shows an item's authored hints whatever
+its `attempt_types_allowed`. Its `chooseAttemptType(allowed, hintsUsed)` picks
+`hinted_attempt` only where the item allows it, and otherwise the item's
+default type. So on an item allowing only `independent_attempt`, a revealed
+hint is submitted as `independent_attempt` with `hints_used` = 1. The
+server's `stuck_attempt_type` makes the same choice for "I'm stuck" and the
+stuck-mode "don't know". Validation accepts it.
+
+Main's single activity authority, `resolve_attempt_activity_policy`
+(`diagnosis/causal_activity_policy.py`), unions `hints_used` > 0 into the
+legacy assistance channel: `counts_as_assisted = True` and
+`eligible_for_certification = False`, whatever the attempt type. Every reader
+of assistance on main goes through that policy or checks `hints_used`
+itself:
+- the canonical projection and the facet evidence timeline (certification
+  credit is 0 when not eligible);
+- `certification_cold_probe._attempt_is_assisted`;
+- the field outcomes' retrieval coldness;
+- the router outcomes' `retention_exclusions` (`outcome_hints_used`);
+- the forecast ledger and forecast receipts ("no hint");
+- placement's `CLEAN_ATTEMPT_TYPES` plus `hints_used == 0`;
+- `intervention_outcomes`;
+- the split diagnoser's history;
+- the session summary;
+- the cold-retry guard and `serve_eligibility`, which refuse
+  `hints_used` > 0.
+
+Mastery and FSRS dampen by `hints_used` (`_hint_dampening`,
+`fsrs_rating_cap_by_hint`), not by type, and `hinted_attempt` has the same
+evidence mass as `independent_attempt` (1.0). The one reader keyed on
+`hinted_attempt` alone is `ability_transition`, an audit row that is
+explicitly not belief evidence.
+
+So **branch (a)** applies. An assisted attempt with `hints_used` > 0 is never
+certifying or unassisted evidence on main, whatever its type. The round-3
+recording (`independent_attempt`, `hints_used` = the held count) is exactly
+what main records for an authored hint on such an item, and it stays. No code
+change was needed. `_held_assistance`'s docstring now records the finding.
+
+The tests make this concrete:
+- **Baseline on main.** `test_round4_f2_main_records_…` was also run against
+  main's code: a detached `9cdaefb9e` worktree in the session scratchpad, with
+  only the workbench-free harness, and `PYTHONPATH` set to that tree's `src`.
+  It **passed**. Main records the answer-box hint, the empty "I'm stuck" and
+  the "don't know" as `independent_attempt` with `hints_used` = 1. Each is
+  assisted and not eligible for certification under the recorded
+  classification, and each banks no Demonstrated credit (every timeline point
+  assisted, delta 0). The same answer with no hint certifies and banks credit
+  (control).
+- **The invariant end to end.**
+  `test_round4_f2_held_assistance_on_an_independent_only_item_…` uses Codex's
+  setup: the book counted in a Reader workbench, left, an independent-only
+  item, the client sending no hint. It covers the four submit paths (answer
+  box, empty stuck, don't know, and the workbench submit after a resume). Each
+  records `independent_attempt` with `hints_used` = 1, assisted and never
+  certifying, banking no credit. Two `trigger_regrade`s write new grading
+  evidence, then a full `rebuild_all_derived_state`, and the classification is
+  unchanged.
+- **The test bites.** With round 2's `handlers/practice.py` (`f8bdc4b8c`,
+  before the server-held fold) swapped in, the end-to-end test fails with
+  `('independent_attempt', 0) == ('independent_attempt', 1)`.
+
+### F8: what changed
+
+- **The departure freezes the steps.** `useWorkbenchSession.leave` freezes
+  the steps from the press until the workbench goes. The hook's own
+  `leavingRef` refuses every edit, step add, delete, undo and book change. The
+  workbench renders each step's editor read-only (`LiveMarkdownEditor` gains
+  an optional `readOnly`: the textarea is `readOnly` and `aria-readonly`, and
+  a change is ignored). It shows "leaving… · editing is paused until your
+  steps are checked" beside the save line, the Leave button reads "leaving…",
+  and I'm stuck, Submit, ⋯/Abandon, + a step and the book line are inert.
+  Keystrokes are refused visibly, never taken and dropped.
+- **A held departure gives editing back.** If the first check finds a write
+  not saved, the freeze lifts and the existing first-press message shows. A
+  second Leave still goes and says what it discarded.
+- **A last check before unmounting.** After `workbenchLeave` answers, every
+  step is checked again (flush, then `drained()`), immediately before the
+  workbench is unmounted. A write not saved then holds the departure like a
+  first press.
+- **One departure at a time.** A press while a departure is under way joins it
+  (the hook returns the same promise, and `Workbench.depart` ignores it with a
+  ref), so it neither leaves twice nor counts as the second press.
+- **All three paths.** "Answer box instead" (practice) and the Reader's Leave
+  go through the same `depart`, so all three are covered. The vault-switch
+  freeze and the close handler are unchanged.
+
+### Fail-first evidence
+
+- **F8.** The reviewed versions (`9fe36b0c9`) of `useWorkbenchSession.ts`,
+  `Workbench.tsx`, `stepModel.ts` and `LiveMarkdownEditor.tsx` were swapped
+  in. The five new vitest tests were run against them: **5 of 5 failed**. The
+  four workbench and Reader tests failed on the read-only assertion. The editor
+  test reported the change.
+- **Codex's outcome, without the freeze assertions.** A copy of the tests with
+  the read-only and "leaving…" assertions removed was also run on the
+  reviewed modules. On the workbench Leave and on "answer box instead", the
+  20,001-character write was sent while Leave was pending (`expected 1 to be
+  +0` new writes). In the Reader the same happened (`expected 2 to be 1`). On
+  the held case, no "leaving…" state existed. The fix was restored
+  (`git checkout`, after the fix was committed) and all pass.
+- **F2.** Branch (a) changes no behaviour, so there is nothing to fail first
+  on `9fe36b0c9`. The baseline test passes on main, and the end-to-end
+  invariant test fails on round 2's fold (above).
+
+### Gate (round 4)
+
+Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `0947b8fce`
+(code) plus this record.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (`pypdfium2` 5.14.0) |
+| `uv run lint-imports --no-cache` | **23 kept**, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **12,879 passed**, 2 xfailed, 0 failed (1,155 s); 2 new |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 12,775 deselected (116 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **108 files, 901 tests passed** (5 new) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not needed: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | not needed: no schema change |
