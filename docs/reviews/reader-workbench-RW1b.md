@@ -259,3 +259,101 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, `uv run --no-sync
 | `test_config_refactor.py` (19 snapshots recomputed, the template `.pyc` cleared), `test_coordinated_migrations.py`, `test_migrations.py`, `test_table_roles.py`, `test_architecture.py`, CLI help and RPC pins | pass (in the full suite); CLI help unchanged |
 
 **Pre-existing, not RW1b:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"), as recorded at RW6a. **Not done:** no adversarial (Codex) review in this stage; no real-UI look (the screens are exercised through the real `ReaderScreen` in jsdom, where ranges have no geometry, so the box's placement under the selection is exercised only by its fallbacks). No vault was opened: no manual run, no copy under `fixtures-local/`; the tracked fixture vaults are untouched.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw1b-onto-main`. Main's tip was `19a7f0318`: the RW6a landing `09acb51fd`, which is the stage's base, plus one spec-only commit recording D22 in `docs/specs/spec_adaptive_difficulty_v1.md`. The stage tip is `9f4e300dd`, unchanged. Codex's final verify (round 5, job `20261017-183454-JciBVL`) is clean. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `08424033a`: a real `--no-ff` merge of `reader/rw1b` onto `19a7f0318`. The merged tree differs from the stage tip only by main's D22 spec commit: `git diff 9f4e300dd 08424033a` touches `docs/specs/spec_adaptive_difficulty_v1.md` alone.
+- `b3915cb07`: the references regenerated on the merged tree.
+- This record.
+
+### Merge
+
+- **No conflicts.** Migration 208 was still free (main's head was 207). `fixtures/migration_head_208` is in rollback mode: header bytes 18-19 are 1/1, with no `-wal` or `-shm`. `fixtures/migration_head_207` is gone. No tracked code or test names the old path. Only earlier review records mention it, as history.
+- **No algorithm successor.** The vaults' labels and the Pipeline Map's `implementation_version` are unchanged. The `reader_formative` and `workbench_text` gaps are display-only: `NON_SERVING_SOURCE_KINDS` keeps them out of the sooner-check advance and the field's prerequisite signals.
+
+### Regenerated
+
+- **References.** Ran `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 208, 327 table notes. 387 notes changed, all of them `source_commit` / `source_commit_timestamp` labels; there were no content changes, because the stage's fix round 4 had already regenerated them. Committed as `b3915cb07`.
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change.
+- **Pipeline Map.** The stage's RW1b bullet (the intent box, the router, active reading) is already there, so nothing was added. `validate_vault.py` passes (1,119 notes, 1,117/1,117 reachable), and so does `module_validate.py`.
+
+### Gate
+
+Run on `b3915cb07`, the final code tree; the only later commit adds this section. Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. No paid call was made: every test uses fakes. This is the first full run over the code after fix rounds 3 and 4, which had run targeted tests only.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **24 kept**, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **13,063 passed, 2 xfailed**, 0 failed (17 min 48 s; `fixtures-local/rw1b-landing-fullsuite.log`). The stage's last full run was 13,045 on `fb80d9c7c`; the +18 are the fix rounds' review tests |
+| `pytest -m durability` | **107 passed**, 12,958 deselected (2 min 38 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **120 files, 971 tests passed** |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished, exit 0 (`src-tauri` differs from main by the eight passthroughs) |
+| tracked fixtures | `git status` clean after both lanes |
+
+Nothing failed, so nothing was rerun. None of the known flakes fired (`"8841"` in `test_mcp_c1a_review.py`, `test_reading_usable_with_synthesis_worker_down`, the vitest timing cases).
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-rw1b/orig/`. Each original was read once. Every other copy came from `orig/` or from another copy through the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive 19a7f0318` and the merge's is `git archive b3915cb07`, each containing only `src`, `migrations` and `pyproject.toml`. Each was put first on `sys.path`, and every run printed the `learnloop` package it imported.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory and `LEARNLOOP_AI_PROVIDER` was unset. Every process started in a directory holding no `.env`. For the sidecar runs, `HOME` and `CODEX_HOME` were also empty directories, so no Codex login or OpenRouter key was reachable.
+- **Starting state.** Both vaults at schema 165, label `mvp-0.8`.
+- **Cleanup.** Once these copies existed, `fixtures-local/landing-rw6a/` (787 MB), `landing-chatgpt/` (1.2 GB), `landing-codex-iso/` (865 MB) and `landing-reader-pdf/` (331 MB) were deleted. Each deletion was behind fail-closed guards: the name had to be on an exact allowlist; the resolved path had to sit directly inside merge2's `fixtures-local`; the path had to be a real directory, ignored by git and holding no tracked file; nothing in it could have been modified in the last 30 minutes (`-mmin`); and no process could have a file open in it (`lsof +D`).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 207 (42) / 165 → 208 (43) | 165 → 207 (42) / 165 → 208 (43) |
+| schema objects, main vs merge | only the expected ones differ: the merge adds `idx_reader_authored_questions_selection`, and the `CREATE TABLE` text of `learner_text_gaps`, `learner_text_gap_jobs` (widened CHECK) and `reader_authored_questions` (`answer_basis`) differs; every other table, index and trigger is identical, including the two tables' rebuilt indexes and append-only triggers | same |
+| rows of every table (332), on main's columns | **identical** (16,533 rows). `learner_text_gaps` 0 = 0, `learner_text_gap_jobs` 0 = 0, `reader_authored_questions` 16 = 16; `answer_basis` is NULL on every row; `schema_migrations` differs only by the 208 row and the applied-at stamps | **identical** (7,631 rows; `reader_authored_questions` 13 = 13) |
+| `.dump` text | 22,746 / 22,756 lines. Outside the lines above, the only differences are the 208 stamp and the moved DDL; each `reader_authored_questions` INSERT is main's plus `,NULL` | 14,315 / 14,325 lines; same |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live database unchanged on both) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** upgrade shadow: main's code migrates to 207, then the merge's code applies **208 only** | applied 1, head 208; `foreign_key_check` empty, `integrity_check` ok; all 332 tables' rows identical to the 207 copy | same |
+| the same on a seeded 207 copy (3 `learner_text_gaps` of the three old kinds, 2 jobs, a reversal and a check advance that reference a gap) | every row and id kept (3 = 3, 2 = 2), `foreign_key_check` empty, the indexes and both append-only triggers present | — |
+| `rebuild --shadow` and `doctor`: main's code on the 207 copy vs the merge's code on the upgraded copy | **0 differences** each | **0 differences** each |
+| **(c)** at `mvp-0.8`: every facet's `facet_evidence_timelines` (`as_dict` plus the eleven `TimelinePoint` fields), 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification` | **byte-identical JSON** (39 facets, 84 points, 2 corrections; 21 LOs, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the Today queue: `build_due_queue` at a frozen clock (2026-10-18 09:00 UTC), `persist_explanations=False`, with no session, a session and a greedy session; every `ScheduledItem` and the head | **byte-identical** (41 items each; head `pi_what_makes_function_axiom_strategy`) | **byte-identical** (67 items; head `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5`) |
+| the same, on a copy upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code | **byte-identical** certification and curves (82 points, 7 corrections, 1 attempt held `grade_contract_unrecorded`; 1 LO certified) and Today queue (43 items) | **byte-identical** (29 facets, 2 points; 0 certified; Today queue 67 items) |
+
+Every shadow, doctor and certification run left its database byte-identical (sha256 before and after). The Today queue build is not read-only even with `persist_explanations=False`: on its first build at the frozen clock, it moves one overdue `certification_cold_probe` follow-up task in linear_algebra from `pending` to `expired`. Main's code does the same (both sides ran on the same state), so this is the scheduler's existing reconciliation, not RW1b's.
+
+**(d) The switches, through the merge's real sidecar** (stdio: `initialize`, then the RPCs). The copy was probability at 208, with one selection-scoped `why_step` question authored in-process by the suite's `ActiveClient` fake. Each case appended one section to the copy's `learnloop.toml`.
+
+| Case | Result |
+|---|---|
+| `[reader_intent] enabled = false` | `reader.route_intent`, `reader.intent_routing` and `reader.intent_outcome` refuse `intent_disabled`; `reader.prompt_contract` has no `intent` key (active reading, still on, works) |
+| `[reader_active_reading] enabled = false` | `reader.active_question`, `_status`, `_action`, `reader.reconstruct` and `reader.reconstruct_undo` refuse `active_reading_disabled`; the contract has no `activeReading` |
+| `[reader_inquiry] enabled = false` | all eight refuse `inquiry_disabled`; the contract has neither key |
+| `[reader_formative] enabled = false` (the rest on) | answering, then a *partly* self-check, return `formativeJobId: null`; `learner_text_gap_jobs` and `learner_text_gaps` stay empty; the only writes are the question row, its `learner_card` ledger verdict and the `active_question_answered` event |
+| everything on, no Decider key | an empty Enter returns Ask (`status: empty`) with no thread and no write; a typed routing falls back to Ask (`status: fallback`, `reason: unavailable`, 3 ms) and writes one `judgment_ledger` row and the two salience-only events; `model_call_receipts` unchanged |
+| what the refusals write | nothing: in each refusing case the `.dump` before and after differs only by `initialize` re-stamping three derived rows (`facet_recall_state` ×2, `facet_capability_evidence`). Main's code does exactly the same on a 207 copy (pre-existing, as recorded at RW6a) |
+
+In the `reader_intent` case, `reader.active_question` (active reading on) answered `provider_unavailable`. The vault routes `canonical_ingest` to Codex, and with `HOME` empty no Codex checkout or login was reachable, so no call was made.
+
+### For the owner
+
+- **No upgrade command.** RW1b has no successor; the vaults keep their label.
+- **Migration 208 applies on the next open** (the desktop app, the CLI, the MCP runtime or the mobile host, whichever opens the vault first). It rebuilds `learner_text_gaps` and `learner_text_gap_jobs` (every row and id is kept). **Close the app, the MCP runtime and the mobile host, and back up first**, as for any migration.
+- **Turning it off.** All in the vault's `learnloop.toml`:
+  - `[reader_intent]` / `enabled = false`: no box; selection behaves as before, flipping the rail to Notes.
+  - `speculative_enabled = false`: route only on Enter; nothing is sent while typing.
+  - `[reader_active_reading]` / `enabled = false`: no next-step, why-step, assumption, reconstruct or another-way actions.
+  - `[reader_formative]` / `enabled = false`: missed answers become no learner text.
+
+  The box also needs `reader_inquiry.enabled` (RW1a's switch, on by default).
+- **The Decider route.** `ai.routing.reader_intent` is decider-only. Unset, it is the code-default `openrouter_decider` profile (the OpenRouter key, about $0.0004 a call). It never falls back to a chat provider and is never moved by `LEARNLOOP_AI_PROVIDER`. Its daily cap is `[reader_intent] max_calls_per_day = 200`: the cap is reserved atomically per request, and speculation stops at 80% of it. Unavailable, timed out (`timeout_seconds = 4`), tied, refused or capped routings all ask. The disclosure row names what is sent: the box's words, a short excerpt of the selection and the action names.
+- **To look at it:** see the stage record's §10.
+- **Open questions (defaults taken):**
+  - stage record §8: 2, no "quick check on this passage" on a plain selection; 3, reconstruct items are not delayed to `due_hint`; 4, no dedicated unfold key; 6, no second reconstruct after undo (enforced); 7, Wrap up counts a "show me" next step;
+  - the fix-round open questions in `reader-rw1b-codex-review.md`: a no-note capture still shares a live legacy request; an explicit `reader.cancel_request` does not discard a running result; the reconcile moves only the commitment mapping.
+- **Pre-existing, not RW1b's (small item):** synthesis artifact creation is not fenced on `lease_epoch`, so two workers holding the same request across a lease expiry can each create the artifact's objects (duplicates). Codex noted it during the review and reproduced it on base `09acb51fd`, so it is queued as a separate small item.
+- **Also pre-existing:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` ("unclassified desktop source"). The sidecar's `initialize` re-stamps three derived rows on open. The Today queue build expires overdue follow-up tasks even with `persist_explanations=False`.
+- **Not done:** no real-UI look (as in the stage). The Decider was absent, so a real routing was never exercised against the live model.
