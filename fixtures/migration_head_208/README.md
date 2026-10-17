@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-207. Migration 167 adds the learner-field F1 read model
+208. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -167,7 +167,18 @@ its re-review added `scheduler_candidate_id` and `plan_presentation_id` (the
 serve a problem answers, kept across a resume); each time the same chain: a
 backup-API copy of the base's `migration_head_206` with only the revised 207
 applied.
-Built as a backup-API copy of `migration_head_206` (itself a backup-API copy
+Migration 208 comes from reader workbench RW1b (`reader/rw1b`, the intent
+box and active reading, docs/reviews/reader-workbench-RW1b.md): it rebuilds
+`learner_text_gaps` and `learner_text_gap_jobs` temp-then-rename so their
+`source_kind` CHECK admits `workbench_text` and `reader_formative` (one
+widening for both kinds; every row, index and append-only trigger kept), adds
+`reader_authored_questions.answer_basis` (`source` | `model`, NULL on section
+and inquiry rows) and the UNIQUE selection reuse key on
+`reader_authored_questions`. Both rebuilt tables are empty here.
+
+Built as a backup-API copy of the base's `migration_head_207` (git
+`09acb51fd`) with only 208 applied, by the same chain as before:
+`migration_head_207` was a backup-API copy of `migration_head_206` (itself a backup-API copy
 of `migration_head_205` with only 206 applied, that of
 `migration_head_204` with only 205 applied, that of `migration_head_203`
 with only 204 applied, that of `migration_head_202` with only 203 applied,
@@ -175,11 +186,11 @@ that of `migration_head_201` with only 202 applied, that of
 `migration_head_199` with only 200-201 applied, that of `migration_head_197`
 with only 198-199 applied, that of `migration_head_195` with only 196-197
 applied, and that of `migration_head_186` with 187-195 applied) with only 207
-applied through `learnloop.db.migrate.apply_migrations` under the test suite's
+applied (and 208 on top of it) through `learnloop.db.migrate.apply_migrations` under the test suite's
 upgrade allowance (`UPGRADE_TEST_HELPER`; checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
 `foreign_key_check` clean), then copied into place with the backup API, with
-no companion files; `migration_head_206` was renamed to this directory. It
+no companion files; `migration_head_207` was renamed to this directory. It
 pins current-head schema coverage while the original populated fixture and
 the other vaults remain at historical versions for upgrade-path tests.
 
