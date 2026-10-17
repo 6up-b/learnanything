@@ -3,8 +3,8 @@ title: "trace_exercised_facets"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3182337e2f850d4122a71f8434a2ae66373e054b"
-source_commit_timestamp: "2026-10-17T10:27:03-04:00"
+source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
+source_commit_timestamp: "2026-10-17T13:10:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite trace_exercised_facets"
@@ -119,6 +119,8 @@ None found by exact static reference scan.
 
 - `tests/test_conjunctive_instruments.py`
 - `tests/test_projection_evidence_polarity.py`
+- `tests/test_reader_recap_review_r2.py`
+- `tests/test_reader_recap_review_r3.py`
 - `tests/test_sidecar_trace_and_clarification.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

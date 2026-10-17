@@ -3,8 +3,8 @@ title: "Config - reader_inquiry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3182337e2f850d4122a71f8434a2ae66373e054b"
-source_commit_timestamp: "2026-10-17T10:27:03-04:00"
+source_commit: "a44fe3b88a2af0576c951d99adce2be8d8c44353"
+source_commit_timestamp: "2026-10-17T13:10:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_inquiry"
@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/reader/reader_dialogue.py"
+  - "src/learnloop_sidecar/context.py"
   - "tests/codex_cli_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -50,7 +51,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_inquiry.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW1a (content and display, no successor): branching Ask (a follow-up names its parent and sees only its ancestors), inquiry status on the root question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and its passage-scoped quick check, and the Reader activity the reader report reads. Off: today's flat Ask rail, and every RPC RW1a extends answers byte-identically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1901`; `src/learnloop/reader/reader_dialogue.py:148` |
+| `reader_inquiry.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW1a (content and display, no successor): branching Ask (a follow-up names its parent and sees only its ancestors), inquiry status on the root question with reopen, the detour strip and Alt+arrow return stack, the reconnect line and its passage-scoped quick check, and the Reader activity the reader report reads. Off: today's flat Ask rail, and every RPC RW1a extends answers byte-identically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1901`; `src/learnloop/reader/reader_dialogue.py:148`; `src/learnloop_sidecar/context.py:503` |
 | `reader_inquiry.max_checks_per_day` | `100` | integer | modeled default or validator seed | Caps checks per day allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1902` |
 | `reader_inquiry.max_usd_per_check` | `0.5` | number | modeled default or validator seed | Caps usd per check allowed by reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1903` |
 | `reader_inquiry.metered_price_per_million` | `null` | nullable | modeled default or validator seed | Controls metered price per million in reader workbench RW1a: branching Ask, inquiry status with reopen, the return stack and detour strip, the reconnect line with its passage-scoped quick check, and the Reader's funnel activity (content and display only), using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1904` |
