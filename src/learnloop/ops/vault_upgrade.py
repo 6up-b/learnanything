@@ -11,6 +11,7 @@ predecessor.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -468,17 +469,24 @@ def compatibility_projection_delta(
     return CompatibilityDelta(matches=not changed, changed_cells=changed)
 
 
-def rewrite_algorithm_version(config_path: Path, from_version: str, to_version: str) -> None:
+def rewrite_algorithm_version(
+    config_path: Path, from_version: str, to_version: str, *, durable: bool = False
+) -> None:
     """Atomically flip the single algorithm_version field (write-temp + rename).
 
     Public so a domain that owns a successor (Slice 2 T1's ``mvp-0.12``) can
-    finish its own upgrade function the same way.
+    finish its own upgrade function the same way. ``durable`` fsyncs the
+    temporary file before the rename (a failure there removes it and leaves
+    the config untouched), so the rename is the last step and anything that
+    can fail after it is the caller's (the directory's fsync).
     """
 
-    _rewrite_algorithm_version(config_path, from_version, to_version)
+    _rewrite_algorithm_version(config_path, from_version, to_version, durable=durable)
 
 
-def _rewrite_algorithm_version(config_path: Path, from_version: str, to_version: str) -> None:
+def _rewrite_algorithm_version(
+    config_path: Path, from_version: str, to_version: str, *, durable: bool = False
+) -> None:
     """Atomically flip the single algorithm_version field (write-temp + rename)."""
 
     text = config_path.read_text(encoding="utf-8")
@@ -487,5 +495,16 @@ def _rewrite_algorithm_version(config_path: Path, from_version: str, to_version:
         raise ValueError(f"algorithm_version = \"{from_version}\" not found in {config_path}")
     updated = text.replace(needle, f'algorithm_version = "{to_version}"', 1)
     tmp = config_path.with_suffix(config_path.suffix + ".tmp")
-    tmp.write_text(updated, encoding="utf-8")
+    if not durable:
+        tmp.write_text(updated, encoding="utf-8")
+        tmp.replace(config_path)
+        return
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            handle.write(updated)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     tmp.replace(config_path)

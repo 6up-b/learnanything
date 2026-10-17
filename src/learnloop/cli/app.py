@@ -79,7 +79,7 @@ def upgrade(
             help=(
                 "Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, "
                 "mvp-0.12, mvp-0.13, mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, "
-                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24 or mvp-0.25); default: the latest."
+                "mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, mvp-0.24, mvp-0.25 or mvp-0.26); default: the latest."
             ),
         ),
     ] = LATEST_ALGORITHM_VERSION,
@@ -150,11 +150,15 @@ def upgrade(
     Decider and the router LLM, with exact chances) and lets a mid-block
     follow-up wait for the next block, over an mvp-0.23 vault (or an mvp-0.9
     to mvp-0.22 vault through the chain; kill switches: ``router.mode =
-    "staged"``, ``router.restraint = false``). ``--to mvp-0.25`` (default, the
-    latest successor) grades a criterion tied to an item's required method on
-    use of that method (another route fails it with no quoted step), over an
-    mvp-0.24 vault (or an mvp-0.9 to mvp-0.23 vault through the chain; kill
-    switch: ``required_method.enabled = false``)."""
+    "staged"``, ``router.restraint = false``). ``--to mvp-0.25`` grades a
+    criterion tied to an item's required method on use of that method
+    (another route fails it with no quoted step), over an mvp-0.24 vault (or an
+    mvp-0.9 to mvp-0.23 vault through the chain; kill switch:
+    ``required_method.enabled = false``). ``--to mvp-0.26`` (default, the
+    latest successor) makes every regrade cite the contract it graded against
+    and replay read the current grade's own contract, holding for review a
+    grade whose contract was never recorded, over an mvp-0.25 vault (or an
+    mvp-0.9 to mvp-0.24 vault through the chain; no kill switch)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -230,12 +234,16 @@ def upgrade(
         from learnloop.method_explicit_upgrade import upgrade_to_mvp025
 
         result = upgrade_to_mvp025(_root(vault))
+    elif to == "mvp-0.26":
+        from learnloop.regrade_contract_upgrade import upgrade_to_mvp026
+
+        result = upgrade_to_mvp026(_root(vault))
     else:
         typer.echo(
             "Unknown target version "
             f"{to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, mvp-0.12, mvp-0.13, "
             "mvp-0.14, mvp-0.15, mvp-0.16, mvp-0.17, mvp-0.18, mvp-0.19, mvp-0.20, mvp-0.21, mvp-0.22, mvp-0.23, "
-            "mvp-0.24 or mvp-0.25."
+            "mvp-0.24, mvp-0.25 or mvp-0.26."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

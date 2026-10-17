@@ -3,8 +3,8 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "68f97956a80ba103503852c3b1a84f2d1064947b"
-source_commit_timestamp: "2026-10-16T08:22:19-04:00"
+source_commit: "8e529218954fcf26cc284a07612cf76f2f430d67"
+source_commit_timestamp: "2026-10-16T10:17:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
@@ -143,6 +143,7 @@ Indexes and uniqueness:
 - `tests/test_grading_cli.py`
 - `tests/test_grading_support.py`
 - `tests/test_mvp017_route_check_replay.py`
+- `tests/test_regrade_contract_successor.py`
 - `tests/test_teach_back.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`

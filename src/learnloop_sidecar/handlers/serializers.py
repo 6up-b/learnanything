@@ -1139,32 +1139,38 @@ def _answered_presentation_or_none(item: PracticeItem, contract: Mapping[str, An
 #: epoch read:
 #:
 #: * ``contract``: the epoch cites the assessment contract it read (a first
-#:   grade, a method-explicit regrade): exact;
+#:   grade; from regrade contracts, mvp-0.26, every regrade and adjudication;
+#:   below it a method-explicit regrade): exact;
 #: * ``live``: only in the response of a regrade that has just run, the content
-#:   that regrade read (the vault it graded with). Never persisted as proof;
-#: * ``unrecorded``: every other epoch (an ordinary regrade reopened later, an
-#:   answer graded before contracts). Nothing recorded says what it read, so no
-#:   key or criteria are presented as graded, and only a maximum recorded with
-#:   the grade (a blind record's) is given. When regrades cite the contract
-#:   they read (the successor stage, §8.4), this becomes rare.
+#:   that regrade read (the vault it graded with), when its rows cite nothing
+#:   (below mvp-0.26). Never persisted as proof;
+#: * ``unrecorded``: every other epoch (an ordinary regrade made below
+#:   mvp-0.26, an answer graded before contracts). Nothing recorded says what
+#:   it read, so no key or criteria are presented as graded, and only a
+#:   maximum recorded with the grade (a blind record's) is given. From
+#:   mvp-0.26 no new epoch is unrecorded, and such an epoch that is an
+#:   attempt's current grade is held for review.
 GRADING_RECORD_SOURCES = ("contract", "live", "unrecorded")
 
 
 def _grading_epochs(repository: Repository, attempt_id: str) -> list[list[GradingEvidenceRecord]]:
     """The attempt's grading epochs in written order, the grade's current one last.
 
-    An epoch is a distinct ``grading_revision``, or a legacy row's
-    ``created_at``, as the regrade history groups them. Written order is the
-    epoch's latest ``(created_at, id)``: the ids are ULIDs, so a regrade stamped
-    in its original's second still sorts after it (a regrade row has no
-    ``grading_revision``, so the epoch key cannot order them; Codex re-review F9).
+    One rule with replay (``learnloop.grading_epochs``): an epoch is a
+    distinct ``grading_revision``, or a legacy row's ``created_at``; the
+    current one is chosen among the live rows (from regrade contracts,
+    mvp-0.26, every new epoch carries the attempt's next revision and
+    supersedes every live row), never by a first-seen stamp; earlier epochs
+    follow their last row's ``(created_at, revision, id)``, so a regrade
+    stamped in its original's second still sorts after it (Codex re-review F9).
     """
 
-    epochs: dict[str, list[GradingEvidenceRecord]] = {}
-    for row in repository.fetch_grading_evidence(attempt_id, include_superseded=True):
-        key = f"revision:{row.grading_revision}" if row.grading_revision is not None else f"legacy:{row.created_at}"
-        epochs.setdefault(key, []).append(row)
-    return sorted(epochs.values(), key=lambda epoch: max((row.created_at, row.id) for row in epoch))
+    from learnloop.grading_epochs import ordered_epochs
+
+    return [
+        list(epoch.rows)
+        for epoch in ordered_epochs(repository.fetch_grading_evidence(attempt_id, include_superseded=True))
+    ]
 
 
 def _epoch_recorded_max_points(repository: Repository, attempt_id: str, epoch: list[GradingEvidenceRecord]) -> int | None:
@@ -1329,21 +1335,12 @@ def _regrade_replaced_held(repository: Repository, attempt_id: str) -> bool:
                 held_records += 1
         if not held_records:
             return False
-        rows = connection.execute(
-            "SELECT grading_revision, created_at, attribution_json FROM grading_evidence "
-            "WHERE attempt_id = ? ORDER BY created_at, COALESCE(grading_revision, -1), id",
-            (attempt_id,),
-        ).fetchall()
-    epochs: dict[str, dict[str, Any]] = {}
-    for revision, created_at, attribution in rows:
-        key = f"revision:{revision}" if revision is not None else f"legacy:{created_at}"
-        epoch = epochs.setdefault(key, {"at": str(created_at), "assessed": False})
-        if not unassessed_evidence_row(attribution):
-            epoch["assessed"] = True
-    ordered = sorted(epochs.items(), key=lambda pair: (pair[1]["at"], pair[0]))
-    if len(ordered) < 2:
+    # The epoch the current grade replaced, in the one epoch order replay
+    # reads (``_grading_epochs``), never by its first row's stamp.
+    epochs = _grading_epochs(repository, attempt_id)
+    if len(epochs) < 2:
         return False
-    return not ordered[-2][1]["assessed"]
+    return not any(not unassessed_evidence_row(row.attribution_json) for row in epochs[-2])
 
 
 def _latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]:

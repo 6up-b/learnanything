@@ -17,6 +17,14 @@ A regrade that validates the route writes a record without the hold; an owner
 adjudication writes assessed evidence over it (Ruling A's evidence revision):
 either releases it, here and on the next replay.
 
+Regrade contracts (``mvp-0.26``) add one recorded hold of the same kind: an
+attempt whose current grading epoch cites no assessment contract (and is not
+its only, pre-contract, grade) has no maximum on record, so replay holds it
+and records ``outcome_contract.GRADE_CONTRACT_UNRECORDED`` as the attempt's
+review reason; the predicate reads that reason. Only replay at ``mvp-0.26`` or
+later writes it, and a regrade or an adjudication that records a contract
+clears it, so no earlier vault holds anything by it.
+
 This module is the ledger's evaluation of that predicate, for every reader of
 a persisted attempt; the attempt step evaluates the same predicate in flight
 (``attempts._compute_resolved_grade_application``), because the live door
@@ -35,6 +43,7 @@ from dataclasses import replace
 from typing import Any, Iterable, Mapping
 
 from learnloop.outcome_contract import (
+    GRADE_CONTRACT_UNRECORDED,
     HELD_ROW_KEY,
     grade_held_for_review,
     grade_is_held,
@@ -48,21 +57,25 @@ _HELD_RECORD_MARK = '"held_for_review":true'
 
 
 def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None = None) -> frozenset[str]:
-    """The attempts (of ``attempt_ids``; ``None`` reads every blind-graded
-    one) whose grade is held for review NOW, on ``connection``.
+    """The attempts (of ``attempt_ids``; ``None`` reads every one) whose grade
+    is held for review NOW, on ``connection``: a route-rule hold (the latest
+    blind record AND the current evidence), or a current grading epoch whose
+    contract is unrecorded (the reason replay records at ``mvp-0.26``).
 
-    A database without blind records (a pre-170 copy) holds nothing.
+    A database without blind records (a pre-170 copy) holds nothing by the
+    route rule.
     """
 
-    if connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
-    ).fetchone() is None:
-        return frozenset()
     if attempt_ids is None:
         chunks: list[list[str] | None] = [None]
     else:
         ids = sorted({str(value) for value in attempt_ids if value})
         chunks = [ids[start : start + 500] for start in range(0, len(ids), 500)]
+    unrecorded = _contract_unrecorded_in(connection, chunks)
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'blind_grade_records'"
+    ).fetchone() is None:
+        return frozenset(unrecorded)
     record_held: set[str] = set()
     for chunk in chunks:
         if chunk is not None and not chunk:
@@ -84,7 +97,7 @@ def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None 
             if isinstance(record, dict) and grade_held_for_review(record.get("grading_support")):
                 record_held.add(str(attempt_id))
     if not record_held:
-        return frozenset()
+        return frozenset(unrecorded)
     criteria: dict[str, set[str]] = {}
     unassessed: dict[str, set[str]] = {}
     ids = sorted(record_held)
@@ -110,7 +123,35 @@ def held_for_review_attempts(connection: Any, attempt_ids: Iterable[str] | None 
             record_held=True,
             anything_assessed=bool(criteria.get(attempt_id, set()) - unassessed.get(attempt_id, set())),
         )
-    )
+    ) | unrecorded
+
+
+def contract_unrecorded_attempts(connection: Any, attempt_ids: Iterable[str] | None = None) -> frozenset[str]:
+    """The attempts (of ``attempt_ids``; ``None`` reads every one) whose
+    current grading epoch replay held because its contract is unrecorded
+    (``GRADE_CONTRACT_UNRECORDED``, written only by replay at ``mvp-0.26``):
+    the canonical projection leaves them out as replay does."""
+
+    if attempt_ids is None:
+        return _contract_unrecorded_in(connection, [None])
+    ids = sorted({str(value) for value in attempt_ids if value})
+    return _contract_unrecorded_in(connection, [ids[start : start + 500] for start in range(0, len(ids), 500)])
+
+
+def _contract_unrecorded_in(connection: Any, chunks: list[list[str] | None]) -> frozenset[str]:
+    held: set[str] = set()
+    for chunk in chunks:
+        if chunk is not None and not chunk:
+            continue
+        where = "" if chunk is None else f" AND id IN ({','.join('?' for _ in chunk)})"
+        held.update(
+            str(row[0])
+            for row in connection.execute(
+                f"SELECT id FROM practice_attempts WHERE manual_review_reason = ?{where}",
+                (GRADE_CONTRACT_UNRECORDED, *(chunk or ())),
+            )
+        )
+    return frozenset(held)
 
 
 def record_held_for_review(blind_record: Mapping[str, Any] | None) -> bool:
@@ -196,6 +237,7 @@ def effective_probe_observation_rows(
 __all__ = [
     "HELD_ROW_KEY",
     "attempt_grade_held",
+    "contract_unrecorded_attempts",
     "effective_probe_observation_rows",
     "held_attempt_ids",
     "held_for_review_attempts",

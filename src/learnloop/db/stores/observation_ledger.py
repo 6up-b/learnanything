@@ -68,6 +68,11 @@ def load_canonical_observation_ledger(
     for row in evidence_rows:
         evidence_by_attempt[str(row["attempt_id"])].append(
             {
+                # The row's identity and write stamp: the grading epoch rule
+                # (``learnloop.grading_epochs``) orders revision-less epochs
+                # by them (regrade contracts, mvp-0.26).
+                "id": row["id"],
+                "created_at": row["created_at"],
                 "criterion_id": row["criterion_id"],
                 "points_awarded": row["points_awarded"],
                 "attribution_json": _loads(row["attribution_json"], None),

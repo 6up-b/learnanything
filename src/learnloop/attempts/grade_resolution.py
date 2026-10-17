@@ -814,7 +814,39 @@ def append_adjudication_evidence_revision(
     Response-level semantics, matching ``_adjudicated_score_fraction``'s
     existing contract: the adjudication is observation-scoped, so one resolved
     fraction applies to every criterion of the attempt. Returns a typed status
-    dict; every skip arm is named rather than silent."""
+    dict; every skip arm is named rather than silent.
+
+    Every read it decides on (the current epoch, its contract, the next
+    grading revision) and the publication run in ONE ``BEGIN IMMEDIATE``
+    transaction (review F2): another regrade or adjudication of the attempt
+    commits wholly before it or after it, so two epochs never share a
+    revision and the revision cites the contract of the grade it revises."""
+
+    with repository.atomic():
+        return _append_adjudication_evidence_revision(
+            repository,
+            attempt_id=attempt_id,
+            resolved_fraction=resolved_fraction,
+            adjudication_id=adjudication_id,
+            adjudicator_source=adjudicator_source,
+            rationale=rationale,
+            vault=vault,
+            clock=clock,
+        )
+
+
+def _append_adjudication_evidence_revision(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    resolved_fraction: float,
+    adjudication_id: str,
+    adjudicator_source: str,
+    rationale: str | None,
+    vault: "LoadedVault | None",
+    clock: Clock | None,
+) -> dict[str, Any]:
+    """:func:`append_adjudication_evidence_revision` inside its transaction."""
 
     from learnloop.ids import new_ulid
     from learnloop.clock import utc_now_iso
@@ -822,6 +854,22 @@ def append_adjudication_evidence_revision(
     live_rows = repository.fetch_grading_evidence(attempt_id)
     if not live_rows:
         return {"status": "skipped_no_evidence_rows", "evidence_ids": []}
+
+    # Regrade contracts (mvp-0.26): the adjudication revises the attempt's
+    # CURRENT grading epoch, under the contract that epoch cites (else a
+    # snapshot of the item whose rubric scales it, cited on its rows), as the
+    # attempt's next grading revision; its correctness is the score over that
+    # contract's maximum, exactly what replay computes. Below the tag (or
+    # without the vault, which names the tag) it writes as before.
+    from learnloop.algorithm_versions import REGRADE_CONTRACT_VERSIONS
+
+    regrade_contracts = vault is not None and vault.config.algorithms.algorithm_version in REGRADE_CONTRACT_VERSIONS
+    snapshot_of: tuple[Any, Any] | None = None
+    if regrade_contracts:
+        from learnloop.grading_epochs import current_epoch
+
+        epoch = current_epoch(live_rows)
+        live_rows = list(epoch.rows) if epoch is not None else []
 
     # Criterion max points: the immutable assessment contract first (repository
     # -only, present on every mvp-0.8 grading), the live vault rubric as the
@@ -833,6 +881,11 @@ def append_adjudication_evidence_revision(
         for row in live_rows
         if row.assessment_contract_version_id
     }
+    if regrade_contracts:
+        from learnloop.grading_epochs import epoch_contract_version_id
+
+        cited = epoch_contract_version_id(live_rows)
+        version_ids = {cited} if cited is not None else set()
     if len(version_ids) == 1:
         from learnloop.learner.assessment_contracts import P0_ALGORITHM_VERSION
 
@@ -856,6 +909,11 @@ def append_adjudication_evidence_revision(
         rubric = vault.rubric_for_item(item) if item is not None else None
         if rubric is not None:
             points_by_criterion = {c.id: float(c.points) for c in rubric.criteria}
+            if regrade_contracts:
+                # The rubric that scales this revision is the item's now: its
+                # snapshot (taken in the revision's transaction, below) is the
+                # contract the revision cites.
+                snapshot_of = (item, rubric)
     missing = [r.criterion_id for r in live_rows if r.criterion_id not in points_by_criterion]
     if not points_by_criterion or missing:
         return {
@@ -868,6 +926,12 @@ def append_adjudication_evidence_revision(
     fraction = max(0.0, min(1.0, float(resolved_fraction)))
     seen: set[str] = set()
     new_rows: list[dict[str, Any]] = []
+    if regrade_contracts:
+        from learnloop.grading_epochs import next_grading_revision
+
+        next_revision = next_grading_revision(repository.fetch_grading_evidence(attempt_id, include_superseded=True))
+    else:
+        next_revision = (max((r.grading_revision or 0) for r in live_rows)) + 1
     for row in live_rows:
         if row.criterion_id in seen:
             continue
@@ -888,15 +952,25 @@ def append_adjudication_evidence_revision(
                 # response-level verdict asserts no per-facet structure) and
                 # observation_id is None (UNIQUE index; lineage lives on the
                 # adjudication row).
-                "assessment_contract_version_id": row.assessment_contract_version_id,
+                "assessment_contract_version_id": (
+                    (next(iter(version_ids)) if version_ids else None)
+                    if regrade_contracts
+                    else row.assessment_contract_version_id
+                ),
                 "recipe_id": row.recipe_id,
                 "correlation_group": row.correlation_group,
-                "grading_revision": (max((r.grading_revision or 0) for r in live_rows)) + 1,
+                "grading_revision": next_revision,
             }
         )
-    # One transaction: the revision, the attempt's grade and, for a verdict
-    # against the key, its C3 binding commit together.
+    # The revision, the attempt's grade and, for a verdict against the key,
+    # its C3 binding commit together, in the transaction the reads above ran
+    # in (this scope is a savepoint of it).
     with repository.atomic():
+        if snapshot_of is not None:
+            from learnloop.learner.assessment_contracts import snapshot_for_presentation
+
+            cited = snapshot_for_presentation(repository, vault, snapshot_of[0], rubric=snapshot_of[1], clock=clock)
+            new_rows = [{**row, "assessment_contract_version_id": cited} for row in new_rows]
         repository.insert_regrade_evidence(
             attempt_id=attempt_id,
             new_evidence_rows=new_rows,
@@ -912,13 +986,27 @@ def append_adjudication_evidence_revision(
         attempt = repository.fetch_practice_attempt(attempt_id)
         if attempt is not None:
             rubric_total = sum(points_by_criterion.values()) or 1.0
+            rubric_score = max(0, round(fraction * rubric_total))
+            manual_review_reason = attempt.get("manual_review_reason")
+            manual_review = bool(attempt.get("manual_review"))
+            if regrade_contracts:
+                from learnloop.outcome_contract import GRADE_CONTRACT_UNRECORDED
+
+                # Replay's own formula (the cited contract's criteria sum to
+                # its maximum), so the attempt row and any rebuild agree.
+                correctness = rubric_score / max(int(round(rubric_total)), 1)
+                if manual_review_reason == GRADE_CONTRACT_UNRECORDED:
+                    # The revision records a contract: the hold it settles ends.
+                    manual_review_reason, manual_review = None, False
+            else:
+                correctness = fraction
             repository.update_attempt_grade(
                 attempt_id,
-                rubric_score=max(0, round(fraction * rubric_total)),
-                correctness=fraction,
+                rubric_score=rubric_score,
+                correctness=correctness,
                 grader_confidence=float(attempt.get("grader_confidence") or 0.0),
-                manual_review=bool(attempt.get("manual_review")),
-                manual_review_reason=attempt.get("manual_review_reason"),
+                manual_review=manual_review,
+                manual_review_reason=manual_review_reason,
                 error_type=attempt.get("error_type"),
                 clock=clock,
             )
