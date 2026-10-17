@@ -321,7 +321,7 @@ The counts equal the stage's last gates (backend on `ebcfe6ff4`, frontend on `12
 
 Every shadow, doctor and certification run left its database byte-identical (sha256 before and after).
 
-**(c) The recap, through the real sidecar** (merge code over stdio: `initialize`, `get_config`, then the RPCs). On a 207 copy of probability, two synthetic sessions were written through the Reader's own code (`reader_inquiry.record_activity` with a frozen clock, and one question through `reader_dialogue.ask` with the stub client): a previous session 4 h to 3 h ago on `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` with one question, and the current visit opened a minute ago (a second copy leaves the current visit out, as at the destination). Each read was sent three times; the times are the third call's, from the client, while nothing else ran.
+**(c) The recap, through the real sidecar** (merge code over stdio: `initialize`, `get_config`, then the RPCs). On a 207 copy of probability, two synthetic sessions were written through the Reader's own code (`reader_inquiry.record_activity` with a frozen clock, and one question through `reader_dialogue.ask` with the stub client): a previous session 4 h to 3 h ago on `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` with one question, and the current visit opened a minute ago (a second copy leaves the current visit out, as at the destination). Each read was sent three times; the times are the third call's, measured at the client while the full suite held the machine.
 
 | Case | Result |
 |---|---|
