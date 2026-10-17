@@ -299,6 +299,21 @@ export function useIntentBox(args: UseIntentBoxArgs) {
     const onKey = (event: KeyboardEvent) => {
       const input = inputRef.current;
       const inBox = input !== null && event.target === input;
+      // The palette's own buttons: arrows move between them, Enter and Space
+      // press them (native), Esc closes the box.
+      const onPaletteButton = event.target instanceof HTMLButtonElement && (boxRef.current?.contains(event.target) ?? false);
+      if (paletteOpen && (inBox || onPaletteButton) && ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+        const buttons = Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>("[data-intent-action]") ?? []);
+        if (buttons.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          const at = onPaletteButton ? buttons.indexOf(event.target as HTMLButtonElement) : -1;
+          const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : -1;
+          buttons[(at + step + buttons.length) % buttons.length].focus({ preventScroll: true });
+        }
+        return;
+      }
+      if (onPaletteButton && event.key !== "Escape") return;
       if (!inBox && isEditable(event.target)) return;
       // Only keys meant for the reading surface: a key on a rail button or
       // anywhere else keeps its own meaning.

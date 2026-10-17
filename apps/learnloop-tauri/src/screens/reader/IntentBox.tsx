@@ -95,7 +95,7 @@ function IntentPalette({ box }: { box: IntentBoxController }) {
           </h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 10px" }}>
             {group.actions.map((action: ReaderIntentActionDto) => (
-              <button key={action.id} type="button" onClick={() => box.pick(action)} style={linkStyle}>
+              <button key={action.id} type="button" data-intent-action={action.id} onClick={() => box.pick(action)} style={linkStyle}>
                 {action.label}
               </button>
             ))}

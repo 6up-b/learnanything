@@ -275,3 +275,20 @@ it("in skim mode the box opens only on ? or Tab after a selection", async () => 
   fireEvent.keyDown(window, { key: "?" });
   expect(await screen.findByRole("textbox", { name: BOX })).toBeTruthy();
 });
+
+it("the palette moves with the arrow keys and Enter presses the focused action", async () => {
+  const { box } = await openBox();
+  fireEvent.keyDown(window, { key: "?" });
+  fireEvent.keyDown(box, { key: "Tab" });
+  const palette = await screen.findByRole("group", { name: "what do you want to do?" });
+  fireEvent.keyDown(box, { key: "ArrowDown" });
+  const first = within(palette).getAllByRole("button")[0];
+  expect(document.activeElement).toBe(first);
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  const second = within(palette).getAllByRole("button")[1];
+  expect(document.activeElement).toBe(second);
+  const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+  second.dispatchEvent(enter);
+  expect(enter.defaultPrevented).toBe(false); // the button's own press
+  expect(api.readerRouteIntent).not.toHaveBeenCalled();
+});
