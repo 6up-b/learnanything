@@ -520,3 +520,55 @@ def test_a_cold_check_on_a_direct_open_is_withdrawn_when_its_item_can_no_longer_
     assert repository.followup_task(task["id"])["status"] == "expired"
     assert repository.active_followup_task_for_item(ITEM, kind="cold_retry") is None
     assert _administration_receipts(repository) == 0
+
+
+# -- re-review F5: a withdrawal decides on the task as it stands under the lock ----------------------
+
+
+def test_f5_a_withdrawal_racing_a_consume_leaves_the_consume_time_disposition_free(tmp_path, monkeypatch):
+    """Codex re-review F5: a submit that consumes the cold retry between the
+    withdrawal's look at the task and its transaction (its post-attempt
+    verification still to run) must win. The withdrawal reads the task inside
+    its BEGIN IMMEDIATE, sees it consumed and writes nothing, so the consume's
+    own disposition (here ``contaminated_or_assisted``) is the task's one row."""
+
+    from contextlib import contextmanager
+
+    from learnloop.diagnosis.causal_probe_coherence import record_causal_cold_outcome
+    from learnloop.diagnosis.remediation import withdraw_cold_measurement
+
+    vault, repository, _misconception = _repair(tmp_path)
+    earlier = _self_grade(vault, repository, AttemptDraft(practice_item_id=ITEM, learner_answer_md="x"),
+                          T0 - timedelta(days=2))
+    task = _cold_task(repository, not_before=T0 - timedelta(hours=1), created=T0 - timedelta(days=1))
+    assert repository.followup_task(task["id"])["status"] in {"pending", "served"}
+
+    real_atomic = repository.atomic
+    raced: list[str] = []
+
+    @contextmanager
+    def atomic_after_a_concurrent_consume():
+        if not raced:  # the concurrent submit commits its consume first
+            raced.append(task["id"])
+            repository.consume_followup_task(task["id"], earlier.attempt_id, clock=FrozenClock(T0))
+        with real_atomic():
+            yield
+
+    monkeypatch.setattr(repository, "atomic", atomic_after_a_concurrent_consume)
+
+    withdrawn = withdraw_cold_measurement(
+        vault, repository, task["id"], reason=se.COLD_CHECK_ANSWER_SHOWN, clock=FrozenClock(T0),
+    )
+
+    assert raced == [task["id"]]
+    assert withdrawn is None
+    assert repository.followup_task(task["id"])["status"] == "consumed"
+    assert repository.causal_cold_outcome_for_task(task["id"]) is None
+    monkeypatch.setattr(repository, "atomic", real_atomic)
+    recorded = record_causal_cold_outcome(
+        repository, outcome="contaminated_or_assisted", followup_task_id=task["id"],
+        cold_attempt_id=earlier.attempt_id, servable_opportunity=True, detail={"stage": "consume"},
+        clock=FrozenClock(T0),
+    )
+    assert recorded is not None
+    assert repository.causal_cold_outcome_for_task(task["id"])["outcome"] == "contaminated_or_assisted"

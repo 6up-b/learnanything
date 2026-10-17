@@ -1077,12 +1077,20 @@ def withdraw_cold_measurement(
 
     One transaction; idempotent (the outcome's content id, the expiry's
     status guard). Returns the task as it now stands, or None when it was not
-    open."""
+    open.
 
-    task = repository.followup_task(task_id)
-    if task is None or str(task.get("status") or "") not in ("pending", "served"):
-        return None
+    The task is read and checked inside that transaction (Codex re-review
+    F5): a submit may consume it between a caller's look and the lock, with
+    its consume-time disposition still to be written, and the one-row-per-task
+    outcome index would then keep this withdrawal's label on a consumed task
+    for good. Under ``BEGIN IMMEDIATE`` a consume either committed first (so
+    the task is not open and nothing is written) or waits for this one (and
+    its status guard leaves the expired task alone)."""
+
     with repository.atomic():
+        task = repository.followup_task(task_id)
+        if task is None or str(task.get("status") or "") not in ("pending", "served"):
+            return None
         if str(task.get("kind") or "") == "cold_retry":
             from learnloop.attempts.coldness_receipt import evaluate_final_coldness, record_final_receipt
             from learnloop.diagnosis.causal_probe_coherence import record_causal_cold_outcome
