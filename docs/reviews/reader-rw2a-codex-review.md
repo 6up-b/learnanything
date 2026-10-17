@@ -322,3 +322,120 @@ Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `f34c7186b`
 | `cargo check` | not needed: nothing under `src-tauri` changed |
 | `db_generate_reference.py`, `db_validate_reference.py` | regenerated (327 table notes; `workbench_sessions` gains the two serve columns); errors [] |
 | `test_desktop_rpc_contract.py`, `test_sidecar_serializer_snapshot.py`, `test_cli_help_snapshot.py`, `test_config_refactor.py`, `test_coordinated_migrations.py`, `test_architecture.py`, `test_tracked_fixture_databases.py`, `test_sqlite_file_copies.py`, `test_migrations.py`, `test_table_roles.py`, `test_mobile_allowlist.py`, `test_reader_workbench_rw2a.py` | **350 passed**; no snapshot, CLI help or RPC pin changed (the template `.pyc` was cleared first) |
+
+## Round 3 (Codex final verification, job `20261017-074609-UuHUGN`)
+
+Codex verified `7c92629fb..reader/rw2a` at `f8bdc4b8c`. It confirmed F1, F3-F7,
+F9, F13 and F14 fixed, which this round leaves alone. It reopened F2 and F8,
+each with a reproduction, and found one new Medium defect, F15. The
+orchestrator's scope rulings bound the fixes: the server is authoritative for
+assistance (F2); Leave follows Abandon's and close's rule (F8); a serve is one
+pair (F15). Nothing else changed: no conformance-table row, no redesign, no
+other finding. No schema change was needed, so migration 207, the head fixture
+and the DB references are as round 2 left them.
+
+Each finding was reproduced first with a failing test, then fixed. Backend:
+the four new tests were run on `f8bdc4b8c` before any source change, and
+**4 of 4 failed**. Frontend: the reviewed versions of the five changed
+modules (`PracticeScreen.tsx`, `ReaderScreen.tsx`, `Workbench.tsx`,
+`useWorkbenchSession.ts`, `dto.ts`) were swapped in from `f8bdc4b8c`, and the
+seven new vitest tests were run: **7 of 7 failed**. All pass on the fix.
+
+**Paid calls:** none ($0.00). Fakes only; no provider, no key, no vault opened.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F2 | High | Assistance restoration can be bypassed (a submit before the lookup answers; carried hints clamped to the current hint list) | fixed | `b986d6ce9`, `24010c8ea` | `test_final_f2_an_answer_box_submit_counts_the_book_its_open_problem_counted_whatever_the_client_sent`, `test_final_f2_carried_hints_still_count_after_the_items_authored_hints_were_removed`; vitest *final F2: Submit waits for the item's problems to be looked up, then counts the book one counted*, *final F2: a failed lookup is never read as no assistance: it says so, and a later failure keeps what was found*, *final F2: hints a problem carried still count after the item's authored hints were removed* |
+| F8 | High | Leave for now unmounts unsaved steps, stripping the vault-switch and close protection (the Reader too) | fixed | `24010c8ea` | vitest *final F8: Leave with a refused step stays, says why, and keeps the vault switch and close held; a second Leave leaves and says the text was discarded*, *final F8: answer box instead waits for the steps the same way*, *final F8: in the Reader, Leave with a refused step keeps the workbench and the window's close held* |
+| F15 | Medium | Replacing a serve keeps the previous plan presentation | fixed | `b986d6ce9`, `24010c8ea` | `test_final_f15_a_replacement_serve_replaces_both_identifiers_and_a_resume_naming_none_keeps_both`, `test_final_f15_a_submit_naming_a_serve_never_mixes_it_with_the_kept_one`; vitest *final F15: a submit with no serve of its own names none, so the server answers the pair the problem kept* |
+| F1, F3-F7, F9, F13, F14 | High / Medium | (confirmed fixed by the final verification) | — | — | no change |
+
+### Fail-first evidence
+
+- Backend, on `f8bdc4b8c`: the F2 tests recorded `hints_used` 0 where 1 and
+  2 were due (`assert (0 == 1)`, `assert (0 == 2)`). The F15 tests got
+  candidate B with `pres_P` where the pair was (B, None), both in the stored
+  session and in the `SubmitAttemptInput` the workbench submit built.
+- Frontend, with the reviewed modules swapped in: the answer box sent its
+  submit while `workbench.for_item` was still pending. A failed lookup showed
+  nothing. Carried hints came back as 0 against an empty hint list. The first
+  Leave (and "answer box instead") with a 20,001-character refused step
+  left at once; in the Reader that collapsed the workbench and removed its
+  close handler. The workbench submit sent `schedulerCandidateId: null` and
+  `planPresentationId: null` when its surface had no serve.
+
+### What changed
+
+**F2: the server holds the assistance.** `held_hints(repository, item)`
+(`reader/workbench.py`) is the largest `session_hints` (a book counted, plus
+the answer-box hints the session carried) over the item's **open** workbench
+problems. `submit_attempt_on` and `submit_dont_know_on` (`handlers/practice.py`)
+fold it in through `_held_assistance`. They record the larger of it and the
+client's `hints_used`, never the sum, because a client that restored the
+assistance already sends it. The existing tutor-question fold and the
+`max_useful_hints` cap then apply as before. When the item's problems hold
+any assistance, an `independent_attempt` becomes the assisted type the answer
+box picks (`stuck_attempt_type`: `hinted_attempt` where allowed). A
+diagnostic probe keeps its type. The empty-stuck path folds too. Nothing
+clamps the count to the hints the item shows today. A workbench submit folds
+its own session, so the count is the same, not doubled.
+
+The client no longer carries correctness, but it still shows the assistance
+before Submit. The answer box's Submit (button, Ctrl+Enter, and the
+empty-stuck submit) waits until `workbench.for_item` has answered for this
+item. A failed first lookup is never read as "no assistance". It says
+"Couldn't check this problem's earlier steps. Any help they counted still
+counts when you submit." and offers "check again". A failed refresh keeps
+what an earlier lookup found. The lookup is keyed by item, so one item's
+problems never show on the next. Carried hints come back unclamped. When
+they exceed the hints the item shows, a line says "N hints you saw earlier
+on this problem count".
+
+**F8: Leave waits like Abandon and close.** `useWorkbenchSession.leave` flushes
+resting edits and waits for every write. If one is not saved, the first press
+stays: `left: false`, with a note in plain words, for example "A step isn't
+saved (This step is too long to save.), so you're still here. Shorten it or
+delete it, or leave again to leave without it." The workbench stays mounted,
+so its vault-switch registration and close handler stay in force. A second
+press leaves anyway and tells the screen, through `onError`, "Left without
+saving a step (…): its unsaved text was discarded." When the write is still
+retrying instead of refused, the line says it may be lost. "Answer box
+instead" uses the same departure. The Reader collapses only through the
+workbench's Leave, so closing from the Reader gets the same protection. A
+vault switch and the window's close, while the workbench is mounted with a
+refused step, stay as built in round 2.
+
+**F15: a serve is one pair.** `workbench.open` passes `_named_serve(params)`.
+That is `None` when the request names neither `schedulerCandidateId` nor
+`planPresentationId` (keep both), and otherwise both values, explicit nulls
+included (replace both). `_serve_changes` writes both columns, or none.
+`workbench.submit` follows the same rule. A request naming either identifier
+answers that pair. Otherwise the submit answers the kept pair: the kept offer
+while it is still open (round 2's `_kept_offer`) and the kept plan
+presentation. The frontend names a serve only where a surface has one. The
+practice screen always sends its serve as a pair. The Reader passes a check's
+serve and nothing for a resumed problem, so that submit names none.
+
+### Open question (with the default taken)
+
+5. A failed `workbench.for_item` lookup lets the answer box submit, with the
+   notice and "check again", instead of holding Submit indefinitely. The
+   server records the assistance either way, and an unreachable lookup must
+   not trap the learner. **Default: as built.**
+
+### Gate (round 3)
+
+Run in the worktree with `TMPDIR` set to `fixtures-local/tmp`, at `24010c8ea`
+(code) plus this record.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`; `uv pip install pypdfium2` | ok (`pypdfium2` 5.14.0) |
+| `uv run lint-imports --no-cache` | **23 kept**, 0 broken (the practice handler reads the workbench lazily; `learnloop_sidecar` is outside the evidence-never-reads-the-workbench contract) |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | **12,877 passed**, 2 xfailed, 0 failed (1,093 s); 4 new |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | **106 passed**, 12,773 deselected (114 s) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **108 files, 896 tests passed** (7 new) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not needed: nothing under `src-tauri` changed |
+| `db_generate_reference.py`, `db_validate_reference.py` | not needed: no schema change (migration 207 and `fixtures/migration_head_207` unchanged) |
