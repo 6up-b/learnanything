@@ -352,8 +352,9 @@ def invoke_preset(
 
 #: The tombstone reason of a capture the intent box's "change" reverted
 #: (:func:`learnloop.reader.reader_intent.revert_capture`): its outbox row
-#: converts to no work.
-REVERTED_CAPTURE_REASON = "intent_changed"
+#: converts to no work, and a request the revert flagged while it ran
+#: discards its result on landing (defined beside the landing).
+REVERTED_CAPTURE_REASON = rr.REVERTED_CAPTURE_REASON
 
 
 def _default_convert(repository: Repository, row: Mapping[str, Any]) -> str | None:
@@ -386,8 +387,7 @@ def _enqueue_for(repository: Repository, row: Mapping[str, Any], payload: Mappin
     # The capture's instructions (its learner text, what the model is asked
     # to do) are part of its request's identity: captures asking different
     # things never share or revive one request (Codex final verify, F16).
-    head = repository.annotation_head(str(row["annotation_id"])) if row.get("annotation_id") else None
-    instructions = str(((head or {}).get("version") or {}).get("learner_text") or "")
+    instructions = rr.annotation_instructions(repository, row.get("annotation_id"))
     result = rr.enqueue_request(
         repository,
         source_id=row["source_id"],

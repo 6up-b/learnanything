@@ -13216,6 +13216,48 @@ class Repository(
             )
             connection.commit()
 
+    def rekey_reader_request(
+        self, request_id: str, *, request_key: str, clock: Clock | None = None
+    ) -> str:
+        """Move a request to the key its own instructions give it, freeing the
+        key it held for a capture asking something else (Codex verify of RW1b
+        fix round 3, F16 legacy rows). The caller runs this inside the write
+        transaction that enqueues. When another row already holds that key the
+        request takes ``<key>#legacy:<request id>``, a key no enqueue computes,
+        so it is never reused or revived again. Returns the key it now holds."""
+
+        with self.connection() as connection:
+            taken = connection.execute(
+                "SELECT 1 FROM reader_background_requests WHERE request_key = ? AND id != ?",
+                (request_key, request_id),
+            ).fetchone()
+            key = f"{request_key}#legacy:{request_id}" if taken is not None else request_key
+            connection.execute(
+                "UPDATE reader_background_requests SET request_key = ?, updated_at = ? WHERE id = ?",
+                (key, utc_now_iso(clock), request_id),
+            )
+            connection.commit()
+        return key
+
+    def append_reader_request_proposal(self, request_id: str, proposal: Mapping[str, Any]) -> None:
+        """Record one more proposal in a completed request's result: the
+        commitment mapping a rebind adds when the result had none to move
+        (Codex verify of RW1b fix round 3, F16)."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT result_json FROM reader_background_requests WHERE id = ?", (request_id,)
+            ).fetchone()
+            if row is None:
+                return
+            result = _loads(row["result_json"], {}) or {}
+            result["proposals"] = [*(result.get("proposals") or []), dict(proposal)]
+            connection.execute(
+                "UPDATE reader_background_requests SET result_json = ? WHERE id = ?",
+                (_json(result), request_id),
+            )
+            connection.commit()
+
     def capture_reverted(self, annotation_id: str, *, reason: str) -> bool:
         """Whether a delete of the annotation with this ``reason`` stands (one
         no undo names): the capture was reverted, so its outbox row converts
@@ -13876,6 +13918,20 @@ class Repository(
                 "SELECT * FROM canonical_mapping_proposals WHERE id = ?", (proposal_id,)
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def repoint_mapping_proposal(self, proposal_id: str, *, target_ref: str) -> bool:
+        """Point an undecided mapping proposal at another target: a completed
+        synthesis request rebound to the capture that still holds it moves its
+        commitment mapping to that capture's commitment (Codex verify of RW1b
+        fix round 3, F16). A decided proposal is the learner's and never moves."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE canonical_mapping_proposals SET target_ref = ? WHERE id = ? AND status = 'proposed'",
+                (target_ref, proposal_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def set_source_object_status(
         self, *, source_object_id: str, status: str, clock: Clock | None = None

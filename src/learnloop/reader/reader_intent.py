@@ -67,6 +67,7 @@ from learnloop.db.stores.judgment_claims import claim_work, complete_claim, rele
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.ids import new_ulid
 from learnloop.reader import reader_capture as RC
+from learnloop.reader import reader_requests as RR
 
 #: The route, the ledger task and the receipts' owner kind.
 ROUTE = "reader_intent"
@@ -672,6 +673,21 @@ def revert_capture(repository: Any, *, annotation_id: str, clock: Clock | None =
         if commitment_id is not None and C.resolve_disposition(repository, commitment_id) != "stopped":
             C.retire(repository, commitment_id=commitment_id, clock=clock)
         for request in requests:
+            if request["status"] == "complete" and request["annotation_id"] == annotation_id:
+                # A completed request another capture still holds now serves
+                # that one: rebind it and move its commitment mapping to the
+                # holder's live commitment. This transaction serializes with
+                # the landing, so a revert just after a landing reconciles
+                # instead of dropping the mapping (Codex verify of RW1b fix
+                # round 3, F16).
+                holder = repository.reader_request_standing_holder(
+                    str(request["id"]), releasing_annotation_id=annotation_id)
+                if holder is not None:
+                    RR.rebind_completed(
+                        repository, request_id=str(request["id"]),
+                        annotation_id=str(holder["annotation_id"]),
+                        commitment_id=holder["commitment_id"], clock=clock)
+                continue
             if request["status"] in _TERMINAL_REQUESTS:
                 continue
             if not repository.reader_request_still_held(str(request["id"]), releasing_annotation_id=annotation_id):

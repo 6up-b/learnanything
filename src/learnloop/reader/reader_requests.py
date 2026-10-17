@@ -71,6 +71,35 @@ def normalized_instructions(text: Any) -> str:
     return " ".join(str(text or "").split())
 
 
+#: The tombstone reason of a capture the intent box's "change" reverted
+#: (``reader_intent.revert_capture``). Its outbox row converts to no work, and
+#: a request the revert flagged while it ran discards its result on landing.
+REVERTED_CAPTURE_REASON = "intent_changed"
+
+
+class LandingDiscarded(Exception):
+    """A request a revert cancelled while it ran reached its landing: the
+    result is discarded and the request resolves ``cancelled``, as a cancelled
+    queued request never runs (Codex verify of RW1b fix round 3, F16)."""
+
+
+def annotation_instructions(repository: Repository, annotation_id: Any) -> str:
+    """A capture's instructions, as the model is given them: its annotation
+    head's ``learner_text`` ("" without an annotation)."""
+
+    if not annotation_id:
+        return ""
+    head = repository.annotation_head(str(annotation_id))
+    return str(((head or {}).get("version") or {}).get("learner_text") or "")
+
+
+def _revivable(row: Mapping[str, Any]) -> bool:
+    """The rows a capture's conversion revives (Codex re-review of RW1b, F15)."""
+
+    return row["status"] == "cancelled" or bool(
+        row["cancel_requested"] and row["status"] in ("queued", "running"))
+
+
 class ReaderRequestError(ValueError):
     """Domain error for the demand-paged synthesis service."""
 
@@ -256,6 +285,28 @@ def enqueue_request(
     capped = (est_input + est_output) > TOKEN_CAP
 
     existing = repository.reader_request_by_key(key)
+    if revive_cancelled and existing is not None and _revivable(existing):
+        # Key equality does not establish instruction equality for a row
+        # keyed before instructions were part of the key (a legacy row), so
+        # a revival also compares what the row's synthesis was or will be
+        # given (Codex verify of RW1b fix round 3, F16). A row asking
+        # something else is not revived: it moves to the key its own
+        # instructions give it, keeping its status and cancel flag (a running
+        # one discards its result on landing), and this capture gets a fresh
+        # request under its own key. The conversion's write transaction holds
+        # all of it.
+        own = annotation_instructions(repository, existing.get("annotation_id"))
+        if normalized_instructions(own) != normalized_instructions(instructions):
+            repository.rekey_reader_request(
+                str(existing["id"]),
+                request_key=request_key(
+                    revision_id=revision_id, window=window, preset=preset,
+                    provider=provider, model=model, config_hash=config_hash,
+                    inventory_profile=inventory_profile, instructions=own,
+                ),
+                clock=clock,
+            )
+            existing = None
     result = repository.enqueue_reader_request(
         request_key=key,
         fields={
@@ -343,59 +394,112 @@ def _land_proposals(
     content: Mapping[str, Any],
     span_ids: list[str],
     model_provenance: Mapping[str, Any],
+    usage: Mapping[str, int] | None = None,
 ) -> list[dict[str, Any]]:
     """Land one synthesis result as the reviewable §6.4 artifact pair: a PROPOSED
     source object + canonical mapping proposal (+ commitment mapping for
-    commit-class presets). Never auto-admitted."""
+    commit-class presets). Never auto-admitted.
+
+    The model call is over before this runs. Everything that depends on whom
+    the request serves runs in ONE write transaction (``BEGIN IMMEDIATE``):
+    it re-reads the request's binding and its commitment's status, writes the
+    mappings for that binding only (never onto a stopped commitment), and, for
+    a request the drain claimed (``lease_epoch`` and ``usage``), marks it
+    complete. A revert, rebind or revival is a write transaction too, so it
+    lands wholly before the landing or wholly after it, when it finds the
+    request complete and reconciles its mapping (:func:`rebind_completed`;
+    Codex verify of RW1b fix round 3, F16). A request a revert cancelled while
+    it ran resolves ``cancelled`` with nothing landed and raises
+    :class:`LandingDiscarded`."""
 
     # Each citation records its block's content hash, so it resolves against
     # the reading it was made on after the book is read again (re-read
     # safety: never "the latest reading + this span id").
     ir = repository.load_document_ir(str(request.get("extraction_id") or "")) if request.get("extraction_id") else None
     hashes = {block.span_id: block.content_hash for block in (ir.blocks if ir is not None else [])}
-    # The capture the request serves now: a revival rebinds a running request
-    # to the reviving capture after it was claimed (Codex final verify of RW1b,
-    # F16). Without a rebind the row's binding is the one it was claimed with.
-    current = repository.get_reader_request(str(request["id"])) if request.get("id") else None
-    annotation_id = (current or request).get("annotation_id")
-    commitment_id = (current or request).get("commitment_id")
-    authored = SO.author_source_object(
-        repository,
-        source_id=request["source_id"],
-        revision_id=request["revision_id"],
-        object_type=object_type,
-        exact_text=exact_text,
-        content=dict(content),
-        citations=[{"revision_id": request["revision_id"], "span_id": sid, "block_content_hash": hashes.get(sid)}
-                   for sid in span_ids],
-        authorship="ai",
-        status="proposed",
-        model_provenance=dict(model_provenance),
-        clock=clock,
-    )
-    mapping = SO.propose_mapping(
-        repository,
-        target_kind="new_object",
-        source_object_id=authored["source_object_id"],
-        annotation_id=annotation_id,
-        confidence=0.5,
-        rationale=f"demand-paged synthesis for reader preset {request.get('preset')!r}",
-        provenance={"request_key": request.get("request_key"), "revision_id": request.get("revision_id")},
-        clock=clock,
-    )
-    proposals = [
-        {"kind": "source_object", "source_object_id": authored["source_object_id"], "object_type": object_type},
-        {"kind": "canonical_mapping", "proposal_id": mapping["proposal_id"]},
-    ]
-    if commitment_id and not _stopped(repository, str(commitment_id)):
-        commit_map = SO.propose_mapping(
-            repository, target_kind="commitment",
-            source_object_id=authored["source_object_id"],
-            target_ref=commitment_id, confidence=0.5,
-            rationale="reader commit preset relationship", clock=clock,
-        )
-        proposals.append({"kind": "canonical_mapping", "proposal_id": commit_map["proposal_id"]})
+    request_id = str(request["id"]) if request.get("id") else None
+    epoch = request.get("lease_epoch")
+    discarded = False
+    with repository.atomic():
+        # The capture the request serves now, read inside the transaction
+        # that writes its mappings: a revival or a revert's rebind after the
+        # claim is honoured, and none can slip between this read and the
+        # writes (F16). Without a row it is the request as given.
+        current = repository.get_reader_request(request_id) if request_id else None
+        binding = current or request
+        annotation_id = binding.get("annotation_id")
+        commitment_id = binding.get("commitment_id")
+        if current is not None and _revert_cancelled(repository, current):
+            discarded = True
+            if epoch is not None:
+                repository.resolve_reader_request(
+                    request_id=request_id, status="cancelled", expected_lease_epoch=epoch, clock=clock)
+            proposals: list[dict[str, Any]] = []
+        else:
+            authored = SO.author_source_object(
+                repository,
+                source_id=request["source_id"],
+                revision_id=request["revision_id"],
+                object_type=object_type,
+                exact_text=exact_text,
+                content=dict(content),
+                citations=[{"revision_id": request["revision_id"], "span_id": sid,
+                            "block_content_hash": hashes.get(sid)}
+                           for sid in span_ids],
+                authorship="ai",
+                status="proposed",
+                model_provenance=dict(model_provenance),
+                clock=clock,
+            )
+            mapping = SO.propose_mapping(
+                repository,
+                target_kind="new_object",
+                source_object_id=authored["source_object_id"],
+                annotation_id=annotation_id,
+                confidence=0.5,
+                rationale=f"demand-paged synthesis for reader preset {request.get('preset')!r}",
+                provenance={"request_key": request.get("request_key"), "revision_id": request.get("revision_id")},
+                clock=clock,
+            )
+            proposals = [
+                {"kind": "source_object", "source_object_id": authored["source_object_id"],
+                 "object_type": object_type},
+                {"kind": "canonical_mapping", "proposal_id": mapping["proposal_id"]},
+            ]
+            if commitment_id and not _stopped(repository, str(commitment_id)):
+                commit_map = SO.propose_mapping(
+                    repository, target_kind="commitment",
+                    source_object_id=authored["source_object_id"],
+                    target_ref=commitment_id, confidence=0.5,
+                    rationale="reader commit preset relationship", clock=clock,
+                )
+                proposals.append({"kind": "canonical_mapping", "proposal_id": commit_map["proposal_id"]})
+            if request_id and epoch is not None and usage is not None:
+                # The same row the drain writes after the seam returns (that
+                # write then matches nothing): complete, in this transaction.
+                repository.resolve_reader_request(
+                    request_id=request_id, status="complete",
+                    result={"proposals": proposals, **usage},
+                    actual_input_tokens=int(usage.get("tokens_in", 0)),
+                    actual_output_tokens=int(usage.get("tokens_out", 0)),
+                    expected_lease_epoch=epoch, clock=clock,
+                )
+    if discarded:
+        raise LandingDiscarded(request_id)
     return proposals
+
+
+def _revert_cancelled(repository: Repository, row: Mapping[str, Any]) -> bool:
+    """A running request a revert flagged for cancellation: its bound capture
+    was reverted and no other capture holds it (a holder would have been
+    rebound to, and a revival clears the flag). Its result is discarded
+    (Codex verify of RW1b fix round 3, F16). An explicit cancel of a running
+    request, with no revert, lands as before."""
+
+    return bool(
+        row.get("status") == "running" and row.get("cancel_requested") and row.get("annotation_id")
+        and repository.capture_reverted(str(row["annotation_id"]), reason=REVERTED_CAPTURE_REASON)
+    )
 
 
 def _stopped(repository: Repository, commitment_id: str) -> bool:
@@ -406,6 +510,50 @@ def _stopped(repository: Repository, commitment_id: str) -> bool:
         return C.resolve_disposition(repository, commitment_id) == "stopped"
     except C.UnknownCommitment:
         return False
+
+
+def rebind_completed(
+    repository: Repository, *, request_id: str, annotation_id: str, commitment_id: str | None,
+    clock: Clock | None = None,
+) -> None:
+    """Rebind a COMPLETED request to the capture that still holds it after
+    the capture it served was reverted, and move its commitment mapping with
+    it (Codex verify of RW1b fix round 3, F16). The caller (the revert) runs
+    this inside its write transaction, which serializes with landing.
+
+    The undecided mapping onto the reverted capture's commitment is repointed
+    to the holder's live commitment; when the result has none to move, one is
+    added and recorded in the result; when the holder's commitment already has
+    one, nothing is added. A decided mapping is the learner's and stays."""
+
+    row = repository.get_reader_request(request_id)
+    if row is None:
+        return
+    previous = row.get("commitment_id")
+    repository.rebind_reader_request(request_id, annotation_id=annotation_id, commitment_id=commitment_id,
+                                     clock=clock)
+    if not commitment_id or _stopped(repository, str(commitment_id)):
+        return
+    result = json.loads(row.get("result_json") or "{}") or {}
+    source_object_ids = [str(p["source_object_id"]) for p in result.get("proposals") or []
+                         if p.get("kind") == "source_object" and p.get("source_object_id")]
+    mappings = [m for source_object_id in source_object_ids
+                for m in repository.mapping_proposals(source_object_id=source_object_id)
+                if m["target_kind"] == "commitment"]
+    if any(m["target_ref"] == commitment_id for m in mappings):
+        return
+    for m in mappings:
+        if previous and m["target_ref"] == previous and m["status"] == "proposed":
+            repository.repoint_mapping_proposal(str(m["id"]), target_ref=str(commitment_id))
+            return
+    if source_object_ids:
+        added = SO.propose_mapping(
+            repository, target_kind="commitment", source_object_id=source_object_ids[0],
+            target_ref=commitment_id, confidence=0.5,
+            rationale="reader commit preset relationship", clock=clock,
+        )
+        repository.append_reader_request_proposal(
+            request_id, {"kind": "canonical_mapping", "proposal_id": added["proposal_id"]})
 
 
 def model_synthesis(
@@ -450,12 +598,7 @@ def model_synthesis(
         if not blocks:
             raise ReaderRequestError("request window resolves to no readable blocks")
 
-        learner_text = ""
-        annotation_id = request.get("annotation_id")
-        if annotation_id:
-            head = repository.annotation_head(annotation_id)
-            version = (head or {}).get("version") or {}
-            learner_text = str(version.get("learner_text") or "")
+        learner_text = annotation_instructions(repository, request.get("annotation_id"))
 
         # The drain runs on a long-lived worker thread (or inside whichever RPC
         # nudged it), so no caller context owns this call. The request does:
@@ -489,8 +632,14 @@ def model_synthesis(
             )
 
         preset = str(request.get("preset") or "")
+        usage = {
+            "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
+            // _chars_per_token,
+            "tokens_out": max(128, len(content_md) // _chars_per_token),
+        }
         proposals = _land_proposals(
             repository, request, clock,
+            usage=usage,
             object_type=_PRESET_OBJECT_TYPE.get(preset, "claim"),
             exact_text=(
                 (
@@ -522,12 +671,7 @@ def model_synthesis(
                 "prompt_version": PROMPT_VERSION,
             },
         )
-        return {
-            "proposals": proposals,
-            "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
-            // _chars_per_token,
-            "tokens_out": max(128, len(content_md) // _chars_per_token),
-        }
+        return {"proposals": proposals, **usage}
 
     return synthesize
 
@@ -543,8 +687,14 @@ def _deterministic_synthesis(
     preset = request.get("preset", "")
     span_ids = window.get("span_ids") or ([request["span_id"]] if request.get("span_id") else [])
     text = (window.get("text") or "").strip()
+    usage = {
+        "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
+        // _chars_per_token,
+        "tokens_out": 128,
+    }
     proposals = _land_proposals(
         repository, request, clock,
+        usage=usage,
         object_type=_PRESET_OBJECT_TYPE.get(preset, "claim"),
         exact_text=(
             str(window.get("selected_text") or "")
@@ -563,12 +713,7 @@ def _deterministic_synthesis(
         model_provenance={"provider": request.get("provider"), "model": request.get("model"),
                           "prompt_version": request.get("prompt_version")},
     )
-    return {
-        "proposals": proposals,
-        "tokens_in": window.get("prompt_char_count", window.get("char_count", 0))
-        // _chars_per_token,
-        "tokens_out": 128,
-    }
+    return {"proposals": proposals, **usage}
 
 
 def drain_requests(
@@ -611,6 +756,9 @@ def drain_requests(
             partial.append(request["id"])
             continue
         try:
+            # The landing completes the request in the transaction that
+            # writes its mappings (F16); this write then matches nothing.
+            # A seam that lands some other way is completed here, as before.
             result = synth(repository, request, clock)
             repository.resolve_reader_request(
                 request_id=request["id"], status="complete", result=result,
@@ -619,6 +767,10 @@ def drain_requests(
                 expected_lease_epoch=epoch, clock=clock,
             )
             completed.append(request["id"])
+        except LandingDiscarded:
+            # A revert cancelled it while it ran: resolved ``cancelled`` with
+            # nothing landed, like a request cancelled before its claim.
+            continue
         except Exception as exc:  # noqa: BLE001 - capture retained; request stays retryable
             repository.resolve_reader_request(
                 request_id=request["id"], status="failed", error={"message": str(exc)},
