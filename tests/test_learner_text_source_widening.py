@@ -112,7 +112,8 @@ def _upgrade(tmp_path: Path) -> tuple[Path, dict[str, list[tuple]], dict[str, li
     objects = {table: _objects(database, table) for table in ("learner_text_gaps", "learner_text_gap_jobs")}
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [208]
+    # 208 first (later migrations, such as RW4a's 209, may follow it on the way to head).
+    assert [migration.version for migration in applied][0] == 208
     after = {table: _rows(database, table) for table in tables}
     assert after == before  # every row, id and column value survives
     for table, shape in columns.items():
