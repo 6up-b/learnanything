@@ -111,3 +111,48 @@ Run in the worktree on `5df25755f` (the final code), with `TMPDIR=<worktree>/fix
 | CLI help snapshot, RPC pins, frontend, `cargo check` | unchanged; not run: nothing under `apps/`, no RPC or CLI surface changed |
 
 No test failed, so no timing test needed a rerun alone. This gate was run again after a Claude Code restart (2026-10-16, about 21:35). The run from before the restart was not recorded. The logs are `fixtures-local/regrade-contract/gate-{full,durability}-resume.log` (gitignored).
+
+## Re-review
+
+**Reviewed:** `8945d7eec..cc2294e4b` (Codex job `20261016-220045-GWrMvP`). Verdict REOPENED: F1, F2 and F3 were confirmed fixed, and one new finding was raised.
+**Fix commit:** `608f12456` (code and tests), then this record (it also amends the stage record's §3 item 3).
+**Paid calls:** none. The new tests use fakes and inject the fsync failures.
+
+### Findings
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Failed upgrades leave successor holds active under mvp-0.25 | confirmed fixed | `a636f4f6d` | (first review) |
+| F2 | Medium | Adjudications allocate revisions before acquiring the write lock | confirmed fixed | `a636f4f6d` | (first review) |
+| F3 | Medium | Same-second legacy regrades bypass the unknown-contract hold | confirmed fixed | `a636f4f6d` | (first review) |
+| F4 | Medium | Publication fsync failures bypass config restoration | fixed | `608f12456` | `tests/test_regrade_contract_upgrade.py`: `test_a_failed_publication_fsync_leaves_the_predecessors_label[file, directory]` |
+
+No finding was rejected.
+
+### F4: the label is restored after any failure that follows the rename
+
+**Cause.** `_publish_algorithm_version` renamed the config to mvp-0.26 and then fsynced the file and its directory. `published = True` was set only after the helper returned. If either fsync raised, the transaction rolled back, but the handler saw `published` as false and did not restore the config. The vault was left with the mvp-0.26 label over the rolled-back mvp-0.25 database, after an upgrade that had reported failure. The first review's publication test failed before the rename, so it did not cover this.
+
+**Fix.**
+- `ops.vault_upgrade.rewrite_algorithm_version` takes `durable=True`. The temporary file is written, flushed and fsynced before the rename. If that fails, the temporary file is removed and the config never changes. The default (`durable=False`) is unchanged for every other caller.
+- `_publish_algorithm_version` calls a `renamed` callback as soon as the rename lands, before the directory's fsync, and the activation sets `published` from it. So a failing directory fsync now restores mvp-0.25, the same as a failing commit. Because the file is fsynced before the rename, no file fsync is left to run after it.
+
+**Fail-first.** The fsync fake fails once, and only on the config file (or its temporary file) for `[file]` and only on the vault directory for `[directory]`, so the vault lock's own fsync still passes. On `cc2294e4b` both cases failed: after the reported error, the config named **mvp-0.26** over the predecessor's database. After `608f12456`, both cases pass:
+- the config names mvp-0.25 and the whole database (every row of every table) equals the predecessor's;
+- no `learnloop.toml.tmp` is left behind;
+- the rename helper's record of what the config named shows no publication for `[file]` and publish-then-restore for `[directory]`;
+- the upgrade, run again, succeeds.
+
+### Gate (re-review)
+
+Run in the worktree on `608f12456`, with `TMPDIR=<worktree>/fixtures-local/tmp`, after `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`:
+
+| Check | Result |
+|---|---|
+| `uv run --no-sync pytest -n 4` on `tests/test_regrade_contract_*.py` plus every test file that names `vault_upgrade`, `rewrite_algorithm_version` or `upgrade_to_` | 385 passed |
+| `uv run --no-sync lint-imports --no-cache` | 22 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -n auto` | 12333 passed, 2 xfailed, 0 failed (14 min 40 s). The 2 xfails are main's strict ones; the 2 tests beyond the first review's 12331 are F4's new cases. |
+| `flock /tmp/learnloop-fullsuite.lock uv run --no-sync pytest -m durability` | 106 passed, 12229 deselected |
+| DB and config references, CLI help, RPC pins, frontend, `cargo check` | unchanged; not run: no schema, CLI, RPC or `apps/` change |
+
+No test failed, so no timing test needed a rerun alone. The logs are `fixtures-local/tmp/f4-{full,durability}.log` (gitignored).
