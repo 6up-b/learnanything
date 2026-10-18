@@ -73,13 +73,15 @@ def test_items_1_2_two_definitions_differing_only_in_their_restriction_never_res
 
 
 @needs_bwrap
-def test_items_1_2_an_unrestricted_name_still_checks():
+def test_items_1_2_names_are_never_resolved_and_a_name_free_step_still_checks():
+    # Fix round 6 supersedes round 5's unrestricted-name control: no name resolves.
     assert _outcomes(
         SymbolicClaim(1, "substitution", "x^2+1", "5", "x", value="2", text="f(2) = 5", earlier=("f(x) = x^2 + 1",)),
-        SymbolicClaim(2, "substitution", "x^2/2", "8", "x", value="4", text="f(4) = 8",
-                      earlier=(r"f(x) = \frac{x^2}{2}",)),
-        SymbolicClaim(3, "solving", "x/2 = 3", "6", "x", text="x = 6", earlier=(r"\frac{x}{2} = 3",)),
-    ) == [(CHECKED, True)] * 3
+        SymbolicClaim(2, "solving", "x/2 = 3", "6", "x", text="x = 6", earlier=(r"\frac{x}{2} = 3",)),
+    ) == [(MODEL, None)] * 2
+    assert _outcomes(SymbolicClaim(1, "solving", "2*x = 12", "6", "x", text="x = 6", earlier=("2x = 12",)),
+                     SymbolicClaim(2, "equivalence", "x^2 + 1", "x^2 + 1", text="x^2 + 1 = 1 + x^2")) == [
+        (CHECKED, True)] * 2
 
 
 @needs_bwrap

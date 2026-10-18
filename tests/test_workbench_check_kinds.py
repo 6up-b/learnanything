@@ -38,8 +38,6 @@ CASES = [
      r"\sum_{k=1}^{n} k = \frac{n \cdot (n+1)}{2}", r"\sum_{k=1}^{n} k = \frac{n \cdot (n+1)}{2} + 1", {}),
     ("solving", dict(expression="2*x + 4 = 0", result="-2", variable="x"),
      "x = -2", "x = 2", {"earlier": ("2x + 4 = 0",)}),
-    ("substitution", dict(expression="x^2 + 1", result="5", variable="x", value="2"),
-     "f(2) = 5", "f(2) = 6", {"problem": "Let $f(x) = x^2 + 1$."}),
 ]
 
 
@@ -67,6 +65,17 @@ def test_a_definite_integral_with_other_declared_bounds_is_never_checked():
         SymbolicClaim(2, "normalization", "2*x", "", "x", lower="0", upper="1", text=r"\int_0^1 2x \, dx = 2"),
     ])
     assert [(o.method, o.holds, o.bound) for o in outcomes] == [(MODEL, None, False), (MODEL, None, False)]
+
+
+@needs_bwrap
+def test_substitution_and_a_primed_derivative_are_never_checked():
+    # Fix round 6: names are never resolved (they stay the model's reading kinds).
+    outcomes, _problem = run_checks([
+        SymbolicClaim(1, "substitution", "x^2 + 1", "5", "x", value="2", text="f(2) = 5",
+                      problem="Let $f(x) = x^2 + 1$."),
+        SymbolicClaim(2, "differentiation", "x**3", "3*x**2", "x", text="f'(x) = 3x^2", earlier=("f(x) = x^3",)),
+    ])
+    assert [(o.method, o.holds, o.bound) for o in outcomes] == [(MODEL, None, False)] * 2
 
 
 @needs_bwrap

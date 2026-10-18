@@ -122,9 +122,8 @@ POSITIVE = [
      dict(kind="limit", expression="x/2 + 1", result="3/2", variable="x", value="1")),
     ("sum", [r"\sum_{k=1}^{3} \frac{1}{k} = \frac{11}{6}"],
      dict(kind="sum", expression="1/k", result="11/6", variable="k", lower="1", upper="3")),
-    ("solve", [r"\frac{x}{2} = 3", "x = 6"], dict(kind="solving", expression="x/2 = 3", result="6", variable="x")),
-    ("substitution", [r"f(x) = \frac{x^2}{2}", r"f\left(4\right) = 8"],
-     dict(kind="substitution", expression="x**2/2", result="8", variable="x", value="4")),
+    # Fix round 6: a solve with no restriction token; substitution is never checked (names).
+    ("solve", ["3x - 6 = 12", "x = 6"], dict(kind="solving", expression="3*x - 6 = 12", result="6", variable="x")),
 ]
 
 
@@ -137,10 +136,14 @@ def test_a_correct_step_of_each_supported_kind_parsed_from_latex_is_checked(tmp_
 # -- Names: a definition written earlier resolves; anything else does not -----------------------
 
 
-def test_a_name_defined_in_an_earlier_step_resolves(tmp_path):
+def test_a_name_defined_in_an_earlier_step_is_not_resolved_either(tmp_path):
+    # Fix round 6 (the orchestrator's ruling): names are never resolved.
     declared = _transformation(kind="differentiation", expression="x**3/3", result="x**2", variable="x")
-    assert _check_last(tmp_path, [r"f(x) = \frac{x^3}{3}", "f'(x) = x^2"], declared)[0] == (
-        "valid", "checked", "✓")
+    assert _check_last(tmp_path / "a", [r"f(x) = \frac{x^3}{3}", "f'(x) = x^2"], declared)[0] == (
+        "questionable", "model", "?")
+    substitution = _transformation(kind="substitution", expression="x**2/2", result="8", variable="x", value="4")
+    assert _check_last(tmp_path / "b", [r"f(x) = \frac{x^2}{2}", r"f\left(4\right) = 8"], substitution)[0] == (
+        "questionable", "model", "?")
 
 
 def test_an_undefined_name_never_resolves(tmp_path):
@@ -196,10 +199,11 @@ def test_a_hints_claim_whose_own_statement_is_the_wrong_integral_does_not_hold(t
     assert [entry["status"] for entry in hint["claims"]] == ["checked"]
 
 
-def test_a_hints_claim_names_resolve_only_to_the_learners_definitions(tmp_path):
+def test_a_hints_claim_never_resolves_a_name(tmp_path):
+    # Fix round 6: not even one the learner defined.
     defined = _claim(2, "f'(x) = 3x^2", kind="differentiation", expression="x**3", result="3*x**2", variable="x")
     hint, *_rest = _hint_with(tmp_path / "a", ["f(x) = x^3", "f'(x) = 3x^2"], [defined])
-    assert [entry["status"] for entry in hint["claims"]] == ["checked"]
+    assert [entry["status"] for entry in hint["claims"]] == ["model"]
     undefined = _claim(2, "g'(x) = 3x^2", kind="differentiation", expression="x**3", result="3*x**2", variable="x")
     hint, *_rest = _hint_with(tmp_path / "b", ["f(x) = x^3", "f'(x) = 3x^2"], [undefined])
     assert [entry["status"] for entry in hint["claims"]] == ["model"]

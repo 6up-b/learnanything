@@ -605,7 +605,8 @@ def test_f3r_an_operator_is_checked_on_its_written_operand_and_names_on_their_de
     assert _checks([r"\frac{d}{dx}\left(x^3\right) = 3x^2"], derivative) == ("checked", True)
     assert _checks(["d/dx (x^3) = 3x^2"], derivative) == ("model", None)
     assert _checks([r"\frac{d}{dx}\left(x^3 + x\right) = 3x^2"], derivative) == ("model", None)
-    assert _checks(["f(x) = x^3", "f'(x) = 3x^2"], derivative) == ("checked", True)
+    # Fix round 6: a name is never resolved, even one the learner defined.
+    assert _checks(["f(x) = x^3", "f'(x) = 3x^2"], derivative) == ("model", None)
     assert _checks(["f(x) = x^3 + x", "f'(x) = 3x^2"], derivative) == ("model", None)
     integral = {"kind": "integration", "expression": "2*x", "result": "x**2", "variable": "x"}
     # The problem's prose is not a definition: F is not defined by it.

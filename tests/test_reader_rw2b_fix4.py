@@ -89,9 +89,9 @@ def test_item2_solving_against_a_written_restriction_is_never_checked():
         # A restriction through a defined name counts too.
         SymbolicClaim(5, "solving", "1/x = 1", "1", "x", text="x = 1", earlier=(r"g(x) = \frac{1}{x}", "g(x) = 1")),
     ) == [(MODEL, None)] * 5
-    # Without a restriction on the variable, a root is still checked.
-    assert _outcomes(SymbolicClaim(1, "solving", "x/2 = 3", "6", "x", text="x = 6",
-                                   earlier=(r"\frac{x}{2} = 3",))) == [(CHECKED, True)]
+    # Without any restriction token (fix round 6), a root is still checked.
+    assert _outcomes(SymbolicClaim(1, "solving", "2*x = 12", "6", "x", text="x = 6",
+                                   earlier=("2x = 12",))) == [(CHECKED, True)]
 
 
 # -- Item 6: no real-root semantics -------------------------------------------------------------

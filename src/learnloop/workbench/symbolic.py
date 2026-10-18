@@ -13,10 +13,12 @@ inputs: they are compared with the parse, and any disagreement (another
 variable, other bounds, another point, another operand or result, another
 kind) leaves the step the model's reading.
 
-A name (``f``, ``g'``, ``F(x)``) resolves only to a definition
-``name(var) = expr`` that an earlier learner step, or a math segment of the
-problem statement, writes and that code parses (a name defined twice
-differently does not resolve). An unresolved name, an ambiguous parse (the
+**Names are never resolved** (fix round 6, the orchestrator's ruling): a text
+that applies a name as a function (``f(...)``, ``\\phi(...)``, ``g'(x)``, any
+identifier or command written before an argument) or writes a name that the
+problem or an earlier step defines (``name(var) = ...``) is the model's
+reading, read from the syntax with ``\\alpha`` and ``alpha`` one identifier.
+Checks are on explicit expressions only. A name, an ambiguous parse (the
 parser's ``_ambig``: ``\\lim_{x \\to 2} x^2`` may be the limit of ``x^2`` or
 the square of a limit), prose (a run of letters that is neither a LaTeX
 command nor a differential), more than one relation, an operator nested inside
@@ -32,22 +34,23 @@ verdict stays the model's reading.
 
 Supported kinds (each can be *checked*), as the learner writes them:
 
-* ``equivalence``: ``lhs = rhs`` with no operator on either side, after
-  resolving defined names (``simplify(lhs - rhs) == 0``);
-* ``substitution``: ``f(a) = rhs`` for a defined ``f``;
-* ``differentiation``: ``\\frac{d}{dx}(...) = rhs``, or ``f'(x) = rhs`` for a
-  defined ``f``;
+* ``equivalence``: ``lhs = rhs`` with no operator on either side
+  (``simplify(lhs - rhs) == 0``);
+* ``differentiation``: ``\\frac{d}{dx}(...) = rhs`` of an explicit expression;
 * ``integration``: ``\\int_a^b ... \\, dx = rhs`` (definite) or
   ``\\int ... \\, dx = rhs`` (an antiderivative, up to a constant);
 * ``normalization``: a definite integral equal to ``1``;
 * ``limit``: ``\\lim_{x \\to a} (...) = rhs``;
 * ``sum``: ``\\sum_{k=a}^{b} ... = rhs``;
 * ``solving``: ``x = value`` against the one equation the step before writes
-  (for a first step, the problem's only equation in ``x``).
+  (for a first step, the problem's only equation in ``x``), when neither has
+  any restriction token (a denominator, log, root, or power that is not a
+  whole number).
 
-``inequality`` and ``boundary`` stay declared kinds in the prompt but are
-never checked (sampling can certify a false inequality; the parser reads no
-evaluation bar).
+``inequality``, ``boundary`` and ``substitution`` (and ``f'(x)``) stay
+declared kinds in the prompt but are never checked (sampling can certify a
+false inequality; the parser reads no evaluation bar; names are not
+resolved).
 
 Each check is trusted only when its **controls behave**: a negative control
 (the right side perturbed) must be rejected and, where sympy computes the
@@ -75,7 +78,7 @@ KINDS: tuple[str, ...] = (
 )
 #: The kinds a parsed written step can be checked as (module docstring).
 CHECKABLE_KINDS: tuple[str, ...] = (
-    "equivalence", "substitution", "differentiation", "integration", "normalization", "limit", "sum", "solving",
+    "equivalence", "differentiation", "integration", "normalization", "limit", "sum", "solving",
 )
 #: How a verdict was reached (the label beside the marker, W2).
 CHECKED, CHECKED_NUMERICALLY, MODEL = "checked", "checked_numerically", "model"
@@ -255,17 +258,6 @@ class Rel:
         return isinstance(other, Rel) and (self.op, self.lhs, self.rhs) == (other.op, other.lhs, other.rhs)
 
 
-def base_of(name):
-    base = str(name).rstrip("'")
-    return base, len(str(name)) - len(base)
-
-
-def is_definition_head(value):
-    """``name(var)``: an undefined function of one plain symbol, no primes."""
-    return (isinstance(value, AppliedUndef) and len(value.args) == 1 and isinstance(value.args[0], sympy.Symbol)
-            and base_of(value.func.__name__)[1] == 0)
-
-
 def _sympy(value):
     return isinstance(value, sympy.Expr)
 
@@ -273,12 +265,11 @@ def _sympy(value):
 class Transform(TransformToSymPyExpr):
     """sympy's LaTeX transformer, except that a relation stays a relation
     (``Eq`` would evaluate ``\\int_0^2 2x\\,dx = 1`` to ``False``) and an
-    ambiguous parse is resolved only by the names in force, else refused."""
+    ambiguous parse is refused (fix round 6: no reading is chosen by names;
+    a reading that applies a name as a function refuses)."""
 
-    def __init__(self, known, definition=False):
+    def __init__(self):
         super().__init__()
-        self.known = known
-        self.definition = definition
         #: What the written text restricts (fix round 4, item 2): every
         #: denominator, log argument, even-root radicand and base of a
         #: negative power, AS WRITTEN (sympy's evaluation may cancel them:
@@ -335,28 +326,14 @@ class Transform(TransformToSymPyExpr):
         return Rel(">=", tokens[0], tokens[2])
 
     def _ambig(self, options):
-        if self.definition:
-            # Reading a definition: only the reading whose left side is
-            # name(var) (f(x) = x^3, not f*x = x^3), and only if it is unique.
-            heads = [option for option in options
-                     if is_definition_head(option.lhs if isinstance(option, Rel) else option)]
-            if len(heads) != 1:
-                raise NotChecked("ambiguous")
-            return heads[0]
         kept = []
         for option in options:
             parts = [option.lhs, option.rhs] if isinstance(option, Rel) else [option]
             if not all(_sympy(part) for part in parts):
                 raise NotChecked("ambiguous")
-            names = set()
-            for part in parts:
-                for applied in part.atoms(AppliedUndef):
-                    if base_of(applied.func.__name__)[0] not in self.known:
-                        raise NotChecked("unresolved_name")
-                names |= {base_of(symbol.name)[0] for symbol in part.atoms(sympy.Symbol)}
-            if names & set(self.known):
-                # A defined name read as a variable (f*x for f(x)): not this reading.
-                continue
+            if any(part.atoms(AppliedUndef) for part in parts):
+                # Fix round 6: a reading that applies a name (f(x)) is never checked.
+                raise NotChecked("applies_a_name")
             if not any((option.same(other) if isinstance(option, Rel) else option == other) for other in kept):
                 kept.append(option)
         if len(kept) != 1:
@@ -412,7 +389,13 @@ def names_in(node):
         tokens = [node]
     else:
         tokens = []
-    return {str(token).rstrip("'") for token in tokens if _is_letter(token)}
+    return {canonical(str(token)) for token in tokens if _is_letter(token)}
+
+
+def canonical(name):
+    """An identifier as one name whatever its spelling: primes and
+    backslashes dropped, so ``\\alpha`` and ``alpha`` are the same (fix round 6)."""
+    return str(name).replace("\\", "").rstrip("'").strip()
 
 
 def _plain_count(node):
@@ -450,7 +433,7 @@ def spots(tree):
     return out
 
 
-def read(text, known, definition=False):
+def read(text):
     """The text's one relation (a :class:`Rel` of sympy sides), with the
     letters it writes (``names``) and its domain restrictions (``spots``),
     both read from the syntax."""
@@ -459,7 +442,7 @@ def read(text, known, definition=False):
     source = math_of(text)
     try:
         tree = LATEX.doparse(source)
-        transformer = Transform(known, definition=definition)
+        transformer = Transform()
         value = transformer.transform(tree)
     except VisitError as exc:
         inner = getattr(exc, "orig_exc", None)
@@ -477,85 +460,63 @@ def read(text, known, definition=False):
     value.restricted = list(transformer.restricted)
     value.names = names_in(tree)
     value.spots = spots(tree)
+    value.applies = applies_a_name(tree, source)
     return value
 
 
-DEFINITIONS = {}
+#: LaTeX commands that are functions of the parser, not names a learner defines.
+_MATH_COMMANDS = frozenset((
+    "sin", "cos", "tan", "csc", "sec", "cot", "arcsin", "arccos", "arctan", "arccsc", "arcsec", "arccot",
+    "sinh", "cosh", "tanh", "arsinh", "arcosh", "artanh", "exp", "log", "ln", "lg", "sqrt", "frac", "dfrac",
+    "tfrac", "int", "sum", "prod", "lim", "left", "right", "min", "max", "cdot", "times", "div", "to",
+))
+#: An identifier (a letter, or a command) applied to an argument: f(x), f\left(x, \phi(x).
+_APPLIED = re.compile(r"(?:(?<![\\A-Za-z])[A-Za-z]|\\([A-Za-z]+))'*\s*(?:\\left\s*)?\(")
+#: A definition name(var) = ... (or :=) anywhere in a text: the name it defines.
+_DEFINES = re.compile(r"(?:(?<![\\A-Za-z])([A-Za-z])|\\([A-Za-z]+))\s*(?:\\left\s*)?\(\s*\\?[A-Za-z]+\s*"
+                      r"(?:\\right\s*)?\)\s*:?=")
 
 
-def definition(text):
-    """``(name, var, body)`` when ``text`` is a definition ``name(var) = expr``
-    (read once per run: every claim reads the same steps)."""
-    key = str(text or "")
-    if key not in DEFINITIONS:
-        DEFINITIONS[key] = _definition(key)
-    return DEFINITIONS[key]
+def applies_a_name(tree, source):
+    """Fix round 6: whether the written text applies a name as a function
+    (``f(...)``, ``\\phi(...)``, ``g'(x)``), read from the syntax: the parse
+    tree's function applications and primes, and any identifier or command
+    (other than the parser's own functions) written before an argument."""
+    for node in tree.iter_subtrees():
+        if str(node.data) in ("function_applied", "symbol_prime", "matrix_prime"):
+            return True
+    for token in tree.scan_values(lambda value: isinstance(value, Token)):
+        if str(token.type) in ("PRIMES", "PRIMES_VIA_CMD", "CMD_PRIME") or "'" in str(token):
+            return True
+    for match in _APPLIED.finditer(source):
+        command = match.group(1)
+        if command is None or command not in _MATH_COMMANDS:
+            return True
+    return False
 
 
-def _definition(text):
-    try:
-        relation = read(text, {}, definition=True)
-    except NotChecked:
-        return None
-    if relation.op != "=" or not is_definition_head(relation.lhs):
-        return None
-    name = relation.lhs.func.__name__
-    body = relation.rhs
-    if body.atoms(AppliedUndef) or name in {s.name for s in body.atoms(sympy.Symbol)}:
-        return None
-    var = relation.lhs.args[0]
-    # Fix round 5, items 1-2: restricted when its WRITTEN body restricts its
-    # variable (a denominator, log, root, or a power not a whole number).
-    flagged = any(var.name in spot for spot in relation.spots)
-    uses = frozenset(relation.names - {name, var.name})
-    return name, var, body, tuple(relation.restricted), flagged, uses
-
-
-def definitions(problem, earlier):
-    """The names in force, and the restricted ones among them (fix round 5,
-    items 1-2). A name defined twice with another body, or another
-    restriction status, is dropped, so it never resolves. A name is
-    restricted when its written body restricts its variable, or writes a
-    restricted name."""
-    found, conflicted = {}, set()
-    for text in list(segments(problem)) + [problem] + list(earlier):
-        entry = definition(text)
-        if entry is None:
-            continue
-        name, var, body, restricted, flagged, uses = entry
-        if name in found and (found[name][0] != var or found[name][3] != flagged
-                              or sympy.simplify(found[name][1] - body) != 0):
-            conflicted.add(name)
-        found.setdefault(name, (var, body, restricted, flagged, uses))
-    known = {name: value for name, value in found.items() if name not in conflicted}
-    flagged_names = {name for name, value in known.items() if value[3]}
-    grew = True
-    while grew:
-        grew = False
-        for name, value in known.items():
-            if name not in flagged_names and value[4] & (flagged_names | conflicted):
-                flagged_names.add(name)
-                grew = True
-    return known, flagged_names
-
-
-def resolve(expression, known):
-    """``expression`` with every defined name applied (``f(2)``, ``g'(x)``);
-    an undefined name, or a defined one read as a variable, refuses."""
-    mapping = {}
-    for applied in expression.atoms(AppliedUndef):
-        base, primes = base_of(applied.func.__name__)
-        if base not in known or len(applied.args) != 1:
-            raise NotChecked("unresolved_name")
-        var, body = known[base][:2]
-        value = sympy.diff(body, var, primes) if primes else body
-        mapping[applied] = value.subs(var, applied.args[0])
-    out = expression.xreplace(mapping)
-    for symbol in out.atoms(sympy.Symbol):
-        base, primes = base_of(symbol.name)
-        if primes or base in known:
-            raise NotChecked("unresolved_name")
+def defined_names(problem, earlier):
+    """Fix round 6: the names the problem or an earlier step defines
+    (``name(var) = ...``), canonical; a step that writes one is never
+    checked (definitions are not resolved)."""
+    out = set()
+    for text in [str(problem or "")] + [str(text or "") for text in earlier]:
+        for match in _DEFINES.finditer(text):
+            name = match.group(1) or match.group(2)
+            if name and name not in _MATH_COMMANDS:
+                out.add(canonical(name))
     return out
+
+
+def explicit(expression):
+    """``expression`` when it names no function (fix round 6: definitions
+    are never resolved), else refused."""
+    if expression.atoms(AppliedUndef):
+        raise NotChecked("applies_a_name")
+    for symbol in expression.atoms(sympy.Symbol):
+        if "'" in symbol.name:
+            raise NotChecked("applies_a_name")
+    return expression
 
 
 OPERATORS = (sympy.Derivative, sympy.Integral, sympy.Limit, sympy.Sum)
@@ -565,35 +526,35 @@ def has_operator(expression):
     return any(expression.has(kind) for kind in OPERATORS)
 
 
-def _operand(expression, known):
-    operand = resolve(expression, known)
+def _operand(expression):
+    operand = explicit(expression)
     if has_operator(operand):
         raise NotChecked("nested_operator")
     return operand
 
 
-def classify(relation, known, declared_kind):
+def classify(relation, declared_kind):
     """The parsed relation as a check: its kind, the operand, the variable,
-    the bounds or point, and both sides with defined names applied."""
+    and the bounds or point, on explicit expressions only (fix round 6)."""
     if relation.op != "=":
         raise NotChecked("unsupported_relation")
     lhs = relation.lhs
-    rhs = resolve(relation.rhs, known)
+    rhs = explicit(relation.rhs)
     if has_operator(rhs):
         raise NotChecked("operator_on_the_right")
     out = {"rhs": rhs}
     if isinstance(lhs, sympy.Derivative):
         if len(lhs.variable_count) != 1 or lhs.variable_count[0][1] != 1:
             raise NotChecked("unsupported_derivative")
-        out.update(kind="differentiation", operand=_operand(lhs.expr, known), variable=lhs.variable_count[0][0])
+        out.update(kind="differentiation", operand=_operand(lhs.expr), variable=lhs.variable_count[0][0])
         return out
     if isinstance(lhs, sympy.Integral):
         if len(lhs.limits) != 1:
             raise NotChecked("unsupported_integral")
         limit = lhs.limits[0]
-        out.update(operand=_operand(lhs.function, known), variable=limit[0])
+        out.update(operand=_operand(lhs.function), variable=limit[0])
         if len(limit) == 3:
-            out.update(lower=_operand(limit[1], known), upper=_operand(limit[2], known), definite=True)
+            out.update(lower=_operand(limit[1]), upper=_operand(limit[2]), definite=True)
             out["kind"] = "normalization" if declared_kind == "normalization" and rhs == 1 else "integration"
         elif len(limit) == 1:
             out.update(definite=False, kind="integration")
@@ -601,36 +562,17 @@ def classify(relation, known, declared_kind):
             raise NotChecked("unsupported_integral")
         return out
     if isinstance(lhs, sympy.Limit):
-        out.update(kind="limit", operand=_operand(lhs.args[0], known), variable=lhs.args[1],
-                   point=_operand(lhs.args[2], known), direction=str(lhs.args[3]))
+        out.update(kind="limit", operand=_operand(lhs.args[0]), variable=lhs.args[1],
+                   point=_operand(lhs.args[2]), direction=str(lhs.args[3]))
         return out
     if isinstance(lhs, sympy.Sum):
         if len(lhs.limits) != 1 or len(lhs.limits[0]) != 3:
             raise NotChecked("unsupported_sum")
         index, lower, upper = lhs.limits[0]
-        out.update(kind="sum", operand=_operand(lhs.function, known), variable=index,
-                   lower=_operand(lower, known), upper=_operand(upper, known))
+        out.update(kind="sum", operand=_operand(lhs.function), variable=index,
+                   lower=_operand(lower), upper=_operand(upper))
         return out
-    if isinstance(lhs, AppliedUndef):
-        base, primes = base_of(lhs.func.__name__)
-        if base not in known or len(lhs.args) != 1:
-            raise NotChecked("unresolved_name")
-        var, body = known[base][:2]
-        argument = _operand(lhs.args[0], known)
-        if has_operator(body):
-            raise NotChecked("nested_operator")
-        if primes == 1 and argument == var:
-            out.update(kind="differentiation", operand=body, variable=var)
-            return out
-        if primes == 0 and argument != var:
-            out.update(kind="substitution", operand=body, variable=var, point=argument,
-                       lhs=body.subs(var, argument))
-            return out
-        if primes == 0:
-            out.update(kind="equivalence", lhs=body)
-            return out
-        raise NotChecked("unsupported_derivative")
-    resolved = _operand(lhs, known)
+    resolved = _operand(lhs)
     if declared_kind == "solving":
         if not isinstance(resolved, sympy.Symbol) or rhs.has(resolved):
             raise NotChecked("not_a_solution")
@@ -640,34 +582,23 @@ def classify(relation, known, declared_kind):
     return out
 
 
-def solved_equation(claim, variable, known, restricted_names=frozenset()):
+def solved_equation(claim, variable, defined):
     """For ``x = value``: the one equation in ``x`` it solves, as a residual:
     the last earlier text's (that is not this same relation), else the
-    problem's only one. A definition or an identity is not an equation."""
+    problem's only one. A definition or an identity is not an equation, and
+    (fix round 6) neither is one that applies or writes a name, or has ANY
+    restriction token (a denominator, log, root, or power not a whole
+    number), whatever letters it involves."""
 
     def equation_of(text):
-        relation = read(text, known)
-        if relation.op != "=" or isinstance(relation.lhs, AppliedUndef):
+        relation = read(text)
+        if relation.op != "=":
             raise NotChecked("no_equation")
-        # Fix round 5, items 1-2: the solved equation as WRITTEN (the parse
-        # tree): no restricted name, and no domain restriction at all.
-        if relation.names & restricted_names:
-            raise NotChecked("restricted_name")
-        if any(relation.spots):
+        if relation.applies or relation.names & defined:
+            raise NotChecked("applies_a_name")
+        if relation.spots or relation.restricted:
             raise NotChecked("restricted_domain")
-        # Fix round 4, item 2: an equation whose written form restricts the
-        # variable (a denominator, a log, an even root, a negative power) may
-        # exclude the candidate, and sympy's evaluation can cancel that
-        # (x^2/x = 2x is undefined at 0, but evaluates to x = 2x): never checked.
-        restricted = list(relation.restricted)
-        for applied in list(relation.lhs.atoms(AppliedUndef)) + list(relation.rhs.atoms(AppliedUndef)):
-            base, _primes = base_of(applied.func.__name__)
-            if base in known:
-                var = known[base][0]
-                restricted.extend(entry.subs(var, applied.args[0]) for entry in known[base][2])
-        if any(sympy.sympify(entry).has(variable) for entry in restricted):
-            raise NotChecked("restricted_domain")
-        lhs, rhs = resolve(relation.lhs, known), resolve(relation.rhs, known)
+        lhs, rhs = explicit(relation.lhs), explicit(relation.rhs)
         if has_operator(lhs) or has_operator(rhs):
             raise NotChecked("no_equation")
         residual = lhs - rhs
@@ -677,11 +608,11 @@ def solved_equation(claim, variable, known, restricted_names=frozenset()):
             raise NotChecked("no_equation")
         return residual
 
-    own = read(claim.get("text"), known)
+    own = read(claim.get("text"))
     earlier = []
     for text in claim.get("earlier") or []:
         try:
-            if read(text, known).same(own):
+            if read(text).same(own):
                 continue
         except NotChecked:
             pass
@@ -725,7 +656,7 @@ def compare(claim, parsed):
     if variable and "variable" in parsed and variable != parsed["variable"].name:
         return "variable"
     value = str(claim.get("value") or "").strip()
-    if kind in ("limit", "substitution"):
+    if kind == "limit":
         if value and not agree(value, parsed["point"]):
             return "value"
     elif value:
@@ -833,7 +764,7 @@ def residual(parsed, result):
     """What must vanish for the parsed relation to hold with ``result`` as
     its right side."""
     kind = parsed["kind"]
-    if kind in ("equivalence", "substitution"):
+    if kind == "equivalence":
         return parsed["lhs"] - result
     variable = parsed.get("variable")
     if kind == "differentiation":
@@ -855,7 +786,7 @@ def residual(parsed, result):
 def truth(parsed):
     """The true right side where sympy computes one (the positive control)."""
     kind = parsed["kind"]
-    if kind in ("equivalence", "substitution"):
+    if kind == "equivalence":
         return parsed["lhs"]
     variable = parsed.get("variable")
     if kind == "differentiation":
@@ -900,18 +831,19 @@ def run(claim, checkable):
     if claim.get("kind") not in checkable:
         return model("kind_not_checked")
     try:
-        known, restricted_names = definitions(claim.get("problem"), claim.get("earlier") or [])
-        relation = read(claim.get("text"), known)
-        if relation.names & restricted_names:
-            # Fix round 5, items 1-2: a name whose written body restricts its
-            # domain is never used in a check, whatever the kind.
-            raise NotChecked("restricted_name")
-        parsed = classify(relation, known, claim.get("kind"))
-        if parsed["kind"] in ("solving", "substitution") and any(relation.spots):
-            # The step's own written text restricts a domain: not for these.
+        defined = defined_names(claim.get("problem"), claim.get("earlier") or [])
+        relation = read(claim.get("text"))
+        if relation.applies or relation.names & defined:
+            # Fix round 6 (the orchestrator's ruling): defined names are never
+            # resolved, so a text that applies a name, or writes one the
+            # problem or an earlier step defines, is never checked.
+            raise NotChecked("applies_a_name" if relation.applies else "defined_name")
+        parsed = classify(relation, claim.get("kind"))
+        if parsed["kind"] == "solving" and (relation.spots or relation.restricted):
+            # Any restriction token in the step's own text (fix round 6).
             raise NotChecked("restricted_domain")
         if parsed["kind"] == "solving":
-            parsed["equation"] = solved_equation(claim, parsed["variable"], known, restricted_names)
+            parsed["equation"] = solved_equation(claim, parsed["variable"], defined)
         disagreement = compare(claim, parsed)
     except NotChecked as exc:
         return model(str(exc)[:120])
