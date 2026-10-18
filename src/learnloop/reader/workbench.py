@@ -974,8 +974,9 @@ def session_view(
 ) -> dict[str, Any]:
     """Everything the workbench shows for one session (snake_case; the
     adapter camel-cases it). ``server_hints``: the answer box's hints the
-    hint service showed and the problem carries (H2b review F1), named in
-    the record line with the client's; ``carried_hints`` stays the client's
+    hint service showed that the problem's submit will fold (H2b fix round
+    3, ruling R1: its practice session and item, since the item's last
+    attempt there), named in the record line with the client's; ``carried_hints`` stays the client's
     own count, which the answer box restores on the way back (the answer
     box folds the service's rows itself, so neither is counted twice)."""
 

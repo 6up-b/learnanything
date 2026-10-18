@@ -247,115 +247,30 @@ def attach_keyless_fold(
     return int(cursor.rowcount or 0)
 
 
-#: The server hint rows a practice-screen submission carried into a workbench
-#: problem (H2b review F1): linked by ``workbench_session_id`` (set once),
-#: still unattached, shown, server-counted hints. Their submission key stays
-#: the answer box's, so the answer box still folds them if the learner goes
-#: back and submits there; whichever attempt commits first takes them.
-_CARRIED_ROWS = ("practice_item_id = ? AND attempt_id IS NULL AND shown = 1 "
-                 "AND counted_by = 'server' AND assist_kind = 'hint' AND surface = 'practice'")
+def fold_row_count(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str,
+                   submission_id: str | None, since: str | None = None) -> int:
+    """How many rows a fold counts (:func:`_fold_rows`), every level: what a
+    workbench problem's record line names as "shown on the answer box"
+    before Submit (H2b fix round 3, ruling R1; read-only)."""
 
-#: Rows a closed problem carried (re-review F1): the link is set once, so a
-#: problem the learner closed ("abandoned") keeps rows no attempt took. They
-#: are released to the item's next workbench submit in the same practice
-#: session (the problem opened in its place, or the closed one reopened), as
-#: the answer box's own key would still count them there; never across
-#: practice sessions. ``?``: the item again.
-_RELEASED = ("workbench_session_id IN (SELECT id FROM workbench_sessions "
-             "WHERE status = 'abandoned' AND practice_item_id = ?)")
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id,
+                               submission_id=submission_id, since=since)
+    row = connection.execute(f"SELECT COUNT(*) FROM help_assists WHERE {where}", values).fetchone()
+    return int(row[0] or 0)
 
 
-def _carried_rows(practice_item_id: str, workbench_session_id: str, *, practice_session_id: str | None,
-                  exclude_submission_id: str | None) -> tuple[str, list[Any]]:
-    """The rows a workbench problem carries: its own links, and the rows a
-    closed problem of the item released (:data:`_RELEASED`) in the submit's
-    practice session (``practice_session_id``; None, before Submit: any
-    practice session still open). One definition for the fold, its attach
-    and its stamp, so the rows attached are exactly the rows counted."""
+def stamp_window_submitted(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str,
+                           since: str | None, submitted_at: str) -> int:
+    """When a workbench submission reached the sidecar, before grading, on the
+    window's rows it folds (H2b re-review F9, under fix round 3's ruling R1:
+    :func:`_fold_rows` with no key) that are still unstamped: the first stamp
+    stays, as :func:`stamp_submitted`'s. No latency: the problem's
+    open-to-submit latency starts when the problem opened, after these hints
+    were shown on the answer box, so it is not on their basis (the report
+    counts them ``no_submit_latency``, never a wrong figure)."""
 
-    if practice_session_id is None:
-        session_clause = "practice_session_id IN (SELECT id FROM sessions WHERE ended_at IS NULL)"
-        session_values: list[Any] = []
-    else:
-        session_clause = "practice_session_id = ?"
-        session_values = [practice_session_id]
-    where = f"{_CARRIED_ROWS} AND (workbench_session_id = ? OR ({_RELEASED} AND {session_clause}))"
-    values: list[Any] = [practice_item_id, workbench_session_id, practice_item_id, *session_values]
-    if exclude_submission_id is not None:
-        where += " AND submission_id IS NOT ?"
-        values.append(exclude_submission_id)
-    return where, values
-
-
-def link_to_workbench(
-    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, submission_id: str,
-    workbench_session_id: str,
-) -> int:
-    """Link the answer box's shown server hints of one submission (its key,
-    its practice session, its item) to the workbench problem the work moves
-    into, so the problem's submit folds them (H2b review F1). Only rows the
-    server showed and no attempt took; a row already linked keeps its
-    problem (the identity trigger sets the link once; a closed problem's
-    rows are released to the next one, :data:`_RELEASED`), and a row whose
-    count an attempt already closed (:data:`_CLOSED`) is never linked.
-    Returns how many it linked. The client names the submission; what is
-    linked is what the server recorded as shown for it, never a count the
-    client sent."""
-
-    cursor = connection.execute(
-        "UPDATE help_assists SET workbench_session_id = ? WHERE practice_item_id = ? AND practice_session_id = ? "
-        "AND submission_id = ? AND workbench_session_id IS NULL AND attempt_id IS NULL AND shown = 1 "
-        f"AND counted_by = 'server' AND assist_kind = 'hint' AND surface = 'practice' AND NOT ({_CLOSED})",
-        (workbench_session_id, practice_item_id, session_id, submission_id),
-    )
-    return int(cursor.rowcount or 0)
-
-
-def carried_fold(connection: sqlite3.Connection, *, practice_item_id: str, workbench_session_id: str,
-                 exclude_submission_id: str | None = None,
-                 practice_session_id: str | None = None) -> tuple[int, bool, int]:
-    """The carried rows' fold (:func:`server_fold`'s rule: levels 1-3 count
-    one each, a level 4-5 row primes) and how many there are in all. Rows
-    under ``exclude_submission_id`` are the submit's own key's, folded there;
-    ``practice_session_id`` is the submit's (:func:`_carried_rows`)."""
-
-    where, values = _carried_rows(practice_item_id, workbench_session_id, practice_session_id=practice_session_id,
-                                  exclude_submission_id=exclude_submission_id)
-    row = connection.execute(
-        "SELECT COALESCE(SUM(CASE WHEN level BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0), "
-        "COALESCE(MAX(CASE WHEN level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0), COUNT(*) "
-        f"FROM help_assists WHERE {where}",
-        values,
-    ).fetchone()
-    return int(row[0] or 0), bool(row[1]), int(row[2] or 0)
-
-
-def attach_carried_fold(connection: sqlite3.Connection, *, practice_item_id: str, workbench_session_id: str,
-                        attempt_id: str, exclude_submission_id: str | None = None,
-                        practice_session_id: str | None = None) -> int:
-    """The workbench attempt takes the carried rows its fold counted, in its
-    own write transaction (as :func:`attach_keyless_fold`), so the answer
-    box's key never counts them again."""
-
-    where, values = _carried_rows(practice_item_id, workbench_session_id, practice_session_id=practice_session_id,
-                                  exclude_submission_id=exclude_submission_id)
-    cursor = connection.execute(f"UPDATE help_assists SET attempt_id = ? WHERE {where}", (attempt_id, *values))
-    return int(cursor.rowcount or 0)
-
-
-def stamp_carried_submitted(connection: sqlite3.Connection, *, practice_item_id: str, workbench_session_id: str,
-                            practice_session_id: str, submitted_at: str,
-                            exclude_submission_id: str | None = None) -> int:
-    """When the workbench submission that carries the rows reached the
-    sidecar, before grading (re-review F9), on its still-unstamped carried
-    rows: the first stamp stays, as :func:`stamp_submitted`'s. No latency:
-    the problem's open-to-submit latency starts when the problem opened,
-    after these hints were shown on the answer box, so it is not on their
-    basis (the report counts them ``no_submit_latency``, never a wrong
-    figure). Rows under ``exclude_submission_id`` are stamped by their key."""
-
-    where, values = _carried_rows(practice_item_id, workbench_session_id, practice_session_id=practice_session_id,
-                                  exclude_submission_id=exclude_submission_id)
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id, submission_id=None,
+                               since=since)
     cursor = connection.execute(
         f"UPDATE help_assists SET submitted_at = ? WHERE {where} AND submitted_at IS NULL",
         (submitted_at, *values),
@@ -373,7 +288,7 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
-    "COLUMNS", "TABLE", "assist", "attach_carried_fold", "attach_keyless_fold", "attach_submission", "carried_fold",
-    "count_closed", "insert_assist", "keyless_window_start", "link_to_workbench", "mark_shown", "server_fold",
-    "stamp_carried_submitted", "stamp_submitted", "submission_assists", "submission_committed",
+    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
+    "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
+    "stamp_window_submitted", "submission_assists", "submission_committed",
 ]

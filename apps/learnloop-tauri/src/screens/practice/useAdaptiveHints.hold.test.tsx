@@ -1,9 +1,11 @@
-// Adaptive hints H2b, Codex re-review F2: `hold()` before the panel's
-// surface is hidden. A poll already reading the job is waited for (its
-// delivered hint is kept, never discarded), and a hold whose cancel cannot
-// be established resolves false with the request still pending and polled,
-// so the screen keeps the answer box (the delivery surface) open. The actual
-// hook with deferred fake RPCs; no sidecar.
+// Adaptive hints H2b, Codex re-review F2 and fix round 3's ruling R2:
+// `hold()` before the panel's surface is hidden. A poll already reading the
+// job is waited for (its delivered hint is kept, never discarded). A job
+// whose outcome is unknown (its cancel or a read failed) is never forgotten:
+// the hold retries its cancel once, stops every poll and resolves true (the
+// learner enters steps), and `resume()` reads it once, so a hint delivered
+// meanwhile shows on the answer box and a closed one shows nothing. The
+// actual hook with deferred fake RPCs; no sidecar.
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useAdaptiveHints, type AdaptiveHintsOptions } from "./useAdaptiveHints";
@@ -70,25 +72,79 @@ it("F2: hold waits for a poll in flight and keeps the hint it delivered", async 
   expect(hook.result.current.pending).toBe(false);
 });
 
-it("F2: a hold whose cancel fails resolves false, keeps the request pending and polls it to delivery", async () => {
-  const read = deferred<typeof pending>();
+const failedCancel = () => api.cancelHint.mockRejectedValue(new Error("sidecar busy"));
+const closed = {
+  version: 1, jobId: "hjob_1", state: "done",
+  result: { status: "unavailable", assistId: "ha_1", reason: "submission_complete",
+    message: "This answer was already submitted, so the hint was not shown." }
+};
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+it("R2: a hold whose cancel fails keeps the job, stops polling, resolves true, and resume reads it", async () => {
   const onError = vi.fn();
-  api.hintJob.mockReturnValueOnce(read.promise);
+  api.hintJob.mockResolvedValue(pending);
   const hook = renderHook(() => useAdaptiveHints(options(onError)));
   await act(async () => { await hook.result.current.press(); });
   await waitFor(() => expect(api.hintJob).toHaveBeenCalledTimes(1));
-  api.cancelHint.mockRejectedValue(new Error("sidecar busy"));
-  let holding!: Promise<boolean>;
-  act(() => { holding = hook.result.current.hold(); });
+  failedCancel();
   let held: boolean | undefined;
-  await act(async () => { read.resolve(pending); held = await holding; });
-  expect(held).toBe(false);
-  expect(onError).toHaveBeenCalled();
-  expect(hook.result.current.pending).toBe(true);
-  // The job is delivered server-side by the next read: it is shown, not lost.
-  api.hintJob.mockResolvedValue(delivered);
-  await waitFor(() => expect(hook.result.current.entries).toHaveLength(1), { timeout: 3000 });
+  await act(async () => { held = await hook.result.current.hold(); });
+  expect(held).toBe(true);
+  expect(onError).toHaveBeenCalledTimes(1);
   expect(hook.result.current.pending).toBe(false);
+  // In steps: no poll reads the job, so nothing is delivered there.
+  const reads = api.hintJob.mock.calls.length;
+  await act(async () => { await wait(1300); });
+  expect(api.hintJob.mock.calls.length).toBe(reads);
+  // Back on the answer box: the retained job is read once and shown.
+  api.hintJob.mockResolvedValue(delivered);
+  act(() => { hook.result.current.resume(); });
+  await waitFor(() => expect(hook.result.current.entries).toHaveLength(1));
+  expect(api.hintJob.mock.calls.length).toBe(reads + 1);
+});
+
+it("R2: the verify's sequence (cancel fails, a read rejects after delivery, steps again) never loses the job", async () => {
+  const onError = vi.fn();
+  api.hintJob.mockResolvedValue(pending);
+  const hook = renderHook(() => useAdaptiveHints(options(onError)));
+  await act(async () => { await hook.result.current.press(); });
+  await waitFor(() => expect(api.hintJob).toHaveBeenCalledTimes(1));
+  failedCancel();
+  let held: boolean | undefined;
+  await act(async () => { held = await hook.result.current.hold(); });
+  expect(held).toBe(true);
+  // Back on the answer box: the read delivers server-side, but its response rejects.
+  api.hintJob.mockRejectedValue(new Error("connection reset"));
+  await act(async () => { hook.result.current.resume(); await wait(10); });
+  expect(hook.result.current.entries).toHaveLength(0);
+  // "Work in steps" again: the job is still retained, so its cancel is retried.
+  const cancels = api.cancelHint.mock.calls.length;
+  await act(async () => { held = await hook.result.current.hold(); });
+  expect(held).toBe(true);
+  expect(api.cancelHint.mock.calls.length).toBe(cancels + 1);
+  expect(api.cancelHint).toHaveBeenLastCalledWith("hjob_1");
+  // Back again: it is read and the delivered hint shows on the answer box.
+  api.hintJob.mockResolvedValue(delivered);
+  act(() => { hook.result.current.resume(); });
+  await waitFor(() => expect(hook.result.current.entries.map((entry) => entry.result.hintMd)).toEqual(["Evaluate your CDF."]));
+});
+
+it("R2: a retained job whose read answers closed shows nothing", async () => {
+  api.hintJob.mockResolvedValue(pending);
+  const hook = renderHook(() => useAdaptiveHints(options()));
+  await act(async () => { await hook.result.current.press(); });
+  await waitFor(() => expect(api.hintJob).toHaveBeenCalledTimes(1));
+  failedCancel();
+  await act(async () => { await hook.result.current.hold(); });
+  // An attempt of the session and item committed meanwhile (in steps).
+  api.hintJob.mockResolvedValue(closed);
+  await act(async () => { hook.result.current.resume(); await wait(10); });
+  expect(hook.result.current.entries).toHaveLength(0);
+  expect(hook.result.current.notice).toBeNull();
+  // Settled: a later hold has nothing left to cancel.
+  const cancels = api.cancelHint.mock.calls.length;
+  await act(async () => { await hook.result.current.hold(); });
+  expect(api.cancelHint.mock.calls.length).toBe(cancels);
 });
 
 it("F2: a delivered read whose response lands after the request was settled is still kept", async () => {

@@ -149,47 +149,36 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
 
 
 def _carried_server_hints(repository, session: dict[str, Any]) -> int:
-    """The answer box's shown server hints carried into the problem (H2b
-    review F1), every level: what the record line names before Submit."""
+    """The answer box's shown server hints the problem's submit will fold
+    (H2b fix round 3, ruling R1), every level: what the record line names
+    before Submit. The same window the submit folds: the open problem's
+    practice session and item, the rows requested since the item's last
+    attempt there, whatever their key. A read; never writes."""
 
     item_id = session.get("practice_item_id")
     if not item_id or session.get("status") != "open":
         return 0
+    practice_session = session.get("practice_session_id")
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    if not practice_session:
+        return 0
     from contextlib import closing
 
     from learnloop.db.connection import connect
-    from learnloop.db.stores.help_assists import carried_fold
+    from learnloop.db.stores.help_assists import fold_row_count, keyless_window_start
 
     try:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
                                   ).fetchone() is None:
                 return 0
-            return carried_fold(connection, practice_item_id=str(item_id), workbench_session_id=str(session["id"]))[2]
+            since = keyless_window_start(connection, practice_item_id=str(item_id), session_id=str(practice_session))
+            return fold_row_count(connection, practice_item_id=str(item_id), session_id=str(practice_session),
+                                  submission_id=None, since=since)
     except Exception:  # noqa: BLE001 - a display line never fails a read
         return 0
-
-
-def _link_carried_hints(repository, session_id: str, params: "WorkbenchOpenInput") -> None:
-    """Link the answer box's shown server hints of the named submission to
-    the problem (H2b review F1). Only on the item the problem is bound to;
-    the rows are the server's own record of what it showed."""
-
-    if not params.carried_submission_id or not params.carried_session_id:
-        return
-    row = _run(WB.session_row, repository, session_id)
-    item_id = row.get("practice_item_id")
-    if not item_id or row.get("status") != "open":
-        return
-    from learnloop.db.stores.help_assists import link_to_workbench
-
-    with repository.atomic():
-        connection = repository.connection()
-        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
-                              ).fetchone() is None:
-            return
-        link_to_workbench(connection, practice_item_id=str(item_id), session_id=params.carried_session_id,
-                          submission_id=params.carried_submission_id.strip(), workbench_session_id=session_id)
 
 
 def _answer(payload: dict[str, Any]) -> dict[str, Any]:
@@ -263,12 +252,6 @@ class WorkbenchOpenInput(ParamsModel):
     carried_hints: int = 0
     #: A book a problem the learner left for the answer box counted (review F2).
     carried_book: bool = False
-    #: Adaptive hints H2b (review F1): the answer box's submission the work
-    #: moves from (its key and practice session). The hints the hint service
-    #: showed for it go with the work: the server links its own shown rows
-    #: (never a count the client sends) and the problem's submit folds them.
-    carried_submission_id: str | None = None
-    carried_session_id: str | None = None
     #: The serve the problem answers ("check me", the practice screen's
     #: serve), kept on the session so a resume still submits as it (F13).
     #: One pair: naming either replaces both, nulls included; naming neither
@@ -352,7 +335,6 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             carried_book=params.carried_book, serve=serve,
         )
         _ensure_contract(vault, repository, row["id"])
-        _link_carried_hints(repository, row["id"], params)
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
     import_status, batch_id, error = "none", None, None
@@ -385,7 +367,6 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])
-    _link_carried_hints(repository, row["id"], params)
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
 
 
@@ -610,10 +591,11 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         plan_presentation_id=plan_presentation_id,
         declared_stuck=plan.composed.declared_stuck,
     )
-    # H2b review F1: the answer box's shown server hints carried into the
-    # problem fold into this attempt and attach to it.
-    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface,
-                                workbench_session_id=plan.session_id)
+    # H2b fix round 3, ruling R1: the attempt folds the answer box's shown
+    # server hints by the keyless window (its practice session and item,
+    # since the item's last attempt there, whatever their key) and takes
+    # exactly those rows in its own transaction.
+    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface, hint_window_fold=True)
     vault, repository = ctx.require_vault()
     _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
          practice_session_id=practice_session_id)

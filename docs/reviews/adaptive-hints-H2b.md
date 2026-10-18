@@ -305,7 +305,19 @@ notes' leaf count is 897.
    screen; the server rows still count at submit, and a restored draft shows
    the client's own authored prefix as before.
 8. **Steps mode (Work in steps) shows no adaptive panel**: the workbench's
-   help is RW2b/H3's.
+   help is RW2b/H3's. The answer box's server hints still count there
+   (fix round 3, the orchestrator's rulings, in
+   `docs/reviews/hints-h2b-codex-review.md`). Ruling R1: a workbench submit
+   folds them by H2a's keyless window, whatever key they were requested
+   under. That window is the practice session's shown, unattached,
+   server-counted hint rows of the item requested after the item's last
+   attempt in that session. The submit takes the fold again inside the
+   attempt's `BEGIN IMMEDIATE` and attaches exactly those rows. The record
+   line reads the same window. Nothing is linked to a problem and the screen
+   sends no submission key. Ruling R2: before steps open, `hold()` cancels
+   what is still being written, keeps every job whose outcome is unknown,
+   stops polling and lets the learner in. `resume()` reads those jobs once
+   back on the answer box.
 9. **The report's P(success) split is at the median** of the logged values (a
    data-relative cut reported with its value); intent is the placement
    intent as logged. Rows before H2b say `not_logged`.

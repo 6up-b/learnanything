@@ -1,11 +1,11 @@
 """Adaptive hints H2b, the Codex re-review's backend findings (docs/reviews/hints-h2b-codex-review.md).
 
-F1 (reopened): a service hint carried into a problem the learner closed goes
-with the work into the next problem opened in its place: closing a problem
-releases the hints it carried to the item's next workbench submit in the
-same practice session, never to an attempt the answer box's key would not
-also have counted. F9: carried rows are stamped when the workbench
-submission reaches the sidecar (first submit kept), with no latency: the
+F1 (reopened): a service hint shown before a problem the learner closed goes
+with the work into the next problem opened in its place (fix round 3,
+ruling R1: every workbench submit folds the keyless window of its practice
+session and item, so closing or reopening a problem changes nothing), never
+into another practice session. F9: the window's rows are stamped when the
+workbench submission reaches the sidecar (first submit kept), with no latency: the
 problem's open-to-submit latency starts when the problem opened, after the
 hint was shown, so it is not on the row's basis. F8: the vault-open
 placement pass pages past candidates it cannot place, so older unplaceable
@@ -51,8 +51,8 @@ def test_f1_a_hint_carried_into_a_closed_problem_counts_on_the_next_problem(tmp_
     attempt = _attempt(paths, _wb_submit(ctx, second["sessionId"], session)["attemptId"])
     assert (attempt["hints_used"], attempt["primed"]) == (1, 0)
     [row] = assists(paths.sqlite_path)
-    # The link stays the first problem's (set once); the attempt takes it.
-    assert (row["workbench_session_id"], row["attempt_id"]) == (first["sessionId"], attempt["id"])
+    # No problem link (ruling R1); the attempt takes it.
+    assert (row["workbench_session_id"], row["attempt_id"]) == (None, attempt["id"])
 
 
 def test_f1_a_level_five_carried_into_a_closed_problem_still_primes(tmp_path, grader):
@@ -96,8 +96,7 @@ def test_f1_a_reopened_problem_keeps_its_own_carried_hints(tmp_path, grader):
     first = _into_steps(ctx, session, "k1")
     _call(ctx, "workbench.abandon", {"sessionId": first["sessionId"]})
     reopened = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
-                                             "sessionId": first["sessionId"], "carriedSubmissionId": "k1",
-                                             "carriedSessionId": session})["session"]
+                                             "sessionId": first["sessionId"]})["session"]
     assert reopened["record"]["hints"] == 1
     attempt = _attempt(paths, _wb_submit(ctx, first["sessionId"], session)["attemptId"])
     assert attempt["hints_used"] == 1
@@ -118,10 +117,10 @@ def test_f1_released_hints_stay_in_their_practice_session(tmp_path, grader):
     assert row["attempt_id"] is None
 
 
-# -- F9: carried rows' submit time --------------------------------------------------------------
+# -- F9: the window's rows' submit time --------------------------------------------------------------
 
 
-def test_f9_carried_rows_are_stamped_at_the_workbench_submit(tmp_path, grader):
+def test_f9_window_rows_are_stamped_at_the_workbench_submit(tmp_path, grader):
     paths, ctx, session = _sidecar(tmp_path)
     _hint(ctx, session, "k1")
     view = _into_steps(ctx, session, "k1")
@@ -143,16 +142,16 @@ def test_f9_carried_rows_are_stamped_at_the_workbench_submit(tmp_path, grader):
 
 def test_f9_the_first_submit_time_stays(tmp_path, grader):
     from learnloop.db.connection import connect
-    from learnloop.db.stores.help_assists import stamp_carried_submitted
+    from learnloop.db.stores.help_assists import stamp_window_submitted
 
     paths, ctx, session = _sidecar(tmp_path)
     _hint(ctx, session, "k1")
     view = _into_steps(ctx, session, "k1")
     with connect(paths.sqlite_path) as connection:
-        assert stamp_carried_submitted(connection, practice_item_id=ITEM, workbench_session_id=view["sessionId"],
-                                       practice_session_id=session, submitted_at="2026-10-18T00:00:00.000Z") == 1
-        assert stamp_carried_submitted(connection, practice_item_id=ITEM, workbench_session_id=view["sessionId"],
-                                       practice_session_id=session, submitted_at="2026-10-18T00:05:00.000Z") == 0
+        assert stamp_window_submitted(connection, practice_item_id=ITEM, session_id=session, since=None,
+                                      submitted_at="2026-10-18T00:00:00.000Z") == 1
+        assert stamp_window_submitted(connection, practice_item_id=ITEM, session_id=session, since=None,
+                                      submitted_at="2026-10-18T00:05:00.000Z") == 0
     _wb_submit(ctx, view["sessionId"], session)
     [row] = assists(paths.sqlite_path)
     assert row["submitted_at"] == "2026-10-18T00:00:00.000Z" and row["attempt_id"] is not None

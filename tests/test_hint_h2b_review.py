@@ -1,11 +1,11 @@
 """Adaptive hints H2b, the Codex review's backend findings (docs/reviews/hints-h2b-codex-review.md).
 
 F1: a hint the service showed on the answer box goes with the work into
-"Work in steps": the answer box names its submission when the problem opens,
-the server links its own shown rows to the problem (never a count the client
-sent), and the problem's submit folds them (levels 1-3 count, 4-5 prime) and
-attaches them, so going back and submitting on the answer box never counts
-them twice. F4: a reply to a hint whose learner-text job never committed is
+"Work in steps": the problem's submit folds the answer box's shown server
+hints by the keyless window (fix round 3, ruling R1: its practice session
+and item, since the item's last attempt there, whatever their key; levels
+1-3 count, 4-5 prime) and attaches them, so going back and submitting on the
+answer box never counts them twice. F4: a reply to a hint whose learner-text job never committed is
 queued by the backlog sweep and when the sidecar opens the vault. F5: a
 hinted attempt whose outcome placement never ran is placed when the vault
 opens, through the same claim, checkpoint and fence (a checkpointed answer is
@@ -90,11 +90,10 @@ def _hint(ctx, session, key, option="next_step@L3", **params):
                                                 "answerMd": WORK, **params})["result"]
 
 
-def _into_steps(ctx, session, key, *, carried: int = 0, hand_off: bool = True):
+def _into_steps(ctx, session, key, *, carried: int = 0):
+    # The screen names no submission (ruling R1): the server's window needs none.
     payload = {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM, "stemMd": "Find P.",
                "carriedHints": carried}
-    if hand_off:
-        payload.update({"carriedSubmissionId": key, "carriedSessionId": session})
     view = _call(ctx, "workbench.open", payload)["session"]
     _call(ctx, "workbench.save_step", {"sessionId": view["sessionId"], "clientIdempotencyKey": "s1", "op": "add",
                                        "bodyMd": WORK})
@@ -120,18 +119,16 @@ def test_f1_a_service_hint_shown_on_the_answer_box_counts_on_the_workbench_submi
     assert (attempt["hints_used"], attempt["primed"]) == (1, 0)
     assert attempt["entry_surface"] == "desktop_practice_workbench"
     [row] = assists(paths.sqlite_path)
-    assert (row["attempt_id"], row["workbench_session_id"], row["submission_id"]) == (
-        attempt["id"], view["sessionId"], "k1")
+    # The row keeps the answer box's key and no problem link (ruling R1).
+    assert (row["attempt_id"], row["workbench_session_id"], row["submission_id"]) == (attempt["id"], None, "k1")
 
 
-def test_f1_before_the_fix_the_same_flow_recorded_an_unassisted_attempt(tmp_path, grader):
-    # The reproduction: without the hand-off the answer box's key is unknown
-    # to the problem, and the fold under its own key finds nothing.
-    paths, ctx, session = _sidecar(tmp_path)
-    _hint(ctx, session, "k1")
-    view = _into_steps(ctx, session, "k1", hand_off=False)
-    attempt = _attempt(paths, _wb_submit(ctx, view["sessionId"], session)["attemptId"])
-    assert attempt["hints_used"] == 0  # what the review found; the screen now always hands off
+def test_f1_the_open_request_names_no_submission(tmp_path, grader):
+    # Ruling R1 removed the hand-off: the server's window needs no client key.
+    from learnloop_sidecar.handlers.workbench import WorkbenchOpenInput
+
+    assert "carried_submission_id" not in WorkbenchOpenInput.model_fields
+    assert "carried_session_id" not in WorkbenchOpenInput.model_fields
 
 
 def test_f1_a_service_served_authored_hint_and_worked_help_carry_too(tmp_path, grader):
@@ -177,27 +174,24 @@ def test_f1_back_on_the_answer_box_the_hint_counts_once_there(tmp_path, grader):
     assert row["attempt_id"] == attempt["id"]
 
 
-def test_f1_only_the_servers_own_unclosed_rows_are_linked(tmp_path, grader):
+def test_f1_only_the_windows_rows_fold(tmp_path, grader):
     paths, ctx, session = _sidecar(tmp_path)
     _hint(ctx, session, "k1")
-    # Another key, another session, an unknown key: nothing is linked.
-    for key, practice_session in (("k_other", session), ("k1", "no_such_session")):
-        view = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen", "practiceItemId": ITEM,
-                                             "stemMd": "Find P.", "carriedSubmissionId": key,
-                                             "carriedSessionId": practice_session})["session"]
-        assert view["record"]["hints"] == 0
-    assert [row["workbench_session_id"] for row in assists(paths.sqlite_path)] == [None]
-    # A row whose count an attempt closed (another submission of the item in
-    # the session, after it was requested) is never linked.
+    # Another key in the same session and item is in the window (ruling R1).
+    view = _into_steps(ctx, session, "k_other")
+    assert view["record"]["hints"] == 1
+    _call(ctx, "workbench.leave", {"sessionId": view["sessionId"]})
+    # An attempt of the item in the session, after the hint was requested,
+    # starts the next window: the row is never folded by a later submit.
     _call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": WORK,
                                   "attemptType": "independent_attempt", "hintsUsed": 0, "submissionId": "k9"})
     [row] = assists(paths.sqlite_path)
     assert row["attempt_id"] is None
-    from learnloop.db.stores.help_assists import link_to_workbench
-
-    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
-        assert link_to_workbench(connection, practice_item_id=ITEM, session_id=session, submission_id="k1",
-                                 workbench_session_id=view["sessionId"]) == 0
+    resumed = _call(ctx, "workbench.open", {"origin": "practice", "entry": "practice_screen",
+                                            "sessionId": view["sessionId"]})["session"]
+    assert resumed["record"]["hints"] == 0
+    attempt = _attempt(paths, _wb_submit(ctx, view["sessionId"], session)["attemptId"])
+    assert attempt["hints_used"] == 0
 
 
 # -- F4: replies whose learner-text job never committed ----------------------------------------------

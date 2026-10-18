@@ -141,17 +141,17 @@ afterEach(() => {
   setAlgoConfig(undefined);
 });
 
-it("F1: names the answer box's submission when the work moves into steps, so the server carries its shown hints", async () => {
+it("F1 (ruling R1): names no submission when the work moves into steps; the server folds the hints it showed", async () => {
   config(true);
   api.requestHint.mockResolvedValue(done(ready()));
   await open();
   fireEvent.keyDown(window, { key: "h", ctrlKey: true });
   await screen.findByText("Evaluate your CDF at the point.");
-  const key = api.requestHint.mock.calls[0][0].submissionId as string;
   await intoSteps();
-  expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({
-    carriedSubmissionId: key, carriedSessionId: "s1", carriedHints: 0
-  }));
+  expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ carriedHints: 0 }));
+  const sent = api.workbenchOpen.mock.calls[0][0];
+  expect(sent).not.toHaveProperty("carriedSubmissionId");
+  expect(sent).not.toHaveProperty("carriedSessionId");
 });
 
 it("F1: the item's hint taken instead goes with the work as the client's own count", async () => {
@@ -164,7 +164,7 @@ it("F1: the item's hint taken instead goes with the work as the client's own cou
   fireEvent.click(await screen.findByRole("button", { name: "use the item's hint instead" }));
   await screen.findByText("Start with the CDF.");
   await intoSteps();
-  expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ carriedHints: 1, carriedSessionId: "s1" }));
+  expect(api.workbenchOpen).toHaveBeenCalledWith(expect.objectContaining({ carriedHints: 1 }));
 });
 
 it("F1: with adaptive hints off nothing more is sent (the base's hand-off)", async () => {
@@ -290,7 +290,7 @@ it("F3: an offer whose request a poll already settled reveals nothing", async ()
   expect(screen.queryByText("Start with the CDF.")).toBeNull();
 });
 
-it("F2 (re-review): when the cancel cannot be established the answer box stays open and the hint is shown there", async () => {
+it("R2: when the cancel cannot be established the learner still enters steps, and the hint shows back on the answer box", async () => {
   config(true);
   api.requestHint.mockResolvedValue(pending());
   let deliver = false;
@@ -300,10 +300,14 @@ it("F2 (re-review): when the cancel cannot be established the answer box stays o
   fireEvent.keyDown(window, { key: "h", ctrlKey: true });
   await screen.findByText("Writing a hint for your work…");
   fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
-  await waitFor(() => expect(api.cancelHint).toHaveBeenCalledWith("hjob_1"));
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  expect(api.workbenchOpen).not.toHaveBeenCalled();
-  expect(screen.queryByRole("region", { name: "workbench" })).toBeNull();
+  await screen.findByRole("region", { name: "workbench" });
+  expect(api.cancelHint).toHaveBeenCalledWith("hjob_1");
+  expect(api.cancelHint.mock.invocationCallOrder[0]).toBeLessThan(api.workbenchOpen.mock.invocationCallOrder[0]);
+  // In steps no poll reads the job.
+  const reads = api.hintJob.mock.calls.length;
   deliver = true;
-  expect(await screen.findByText("Delivered on the answer box.", undefined, { timeout: 3000 })).toBeTruthy();
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  expect(api.hintJob.mock.calls.length).toBe(reads);
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  expect(await screen.findByText("Delivered on the answer box.")).toBeTruthy();
 });

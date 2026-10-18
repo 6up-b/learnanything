@@ -19,8 +19,13 @@
 // requests, waits for the ones in flight (polls' reads too) and cancels a
 // hint still being written (a job is only ever delivered by a read, so an
 // unread job is never shown); a hint delivered before the cancel stays shown
-// and counted, and when the cancel cannot be established the hold fails and
-// the surface stays (re-review F2). The
+// and counted. Fix round 3, ruling R2: the hook never forgets a job whose
+// outcome is unknown (a read or a cancel failed); it keeps the job's identity,
+// `hold()` retries the cancel once for each such job, stops every poll and
+// lets the learner into steps, and `resume()` reads each one once, so a hint
+// delivered meanwhile shows on the answer box. Whatever the server marked
+// shown is counted by whichever attempt of the session and item commits first
+// (ruling R1), so the evidence never depends on the client knowing. The
 // authored offer is claimed synchronously, so a double click reveals one
 // hint (F3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,7 +38,7 @@ import type {
   HintResultDto,
   HintShortcut
 } from "../../api/dto";
-import { errorMessage } from "../../errors";
+import { errorMessage, getCommandError } from "../../errors";
 import { HINT_COPY } from "./hintCopy";
 
 /** One hint the panel shows, in the order shown. */
@@ -61,6 +66,12 @@ interface Pending {
 /** Poll pacing (latency bounds, never a judgment): quick at first, then
  *  steadier while the writer works. */
 const POLL_DELAYS_MS = [350, 600, 900, 1200, 1500];
+
+/** The sidecar keeps no such job (a restart, say): nothing can be read or
+ *  cancelled, so it is no longer retained (its count is the server's). */
+function gone(error: unknown): boolean {
+  return getCommandError(error)?.code === "not_found";
+}
 
 export interface AdaptiveHintsOptions {
   enabled: boolean;
@@ -99,9 +110,13 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
   const suspended = useRef(false);
   // Requests and authored offers still answering (what `hold()` waits for).
   const inflight = useRef(new Set<Promise<unknown>>());
-  // The live chain of polls: a hold that fails starts a new one, and the
-  // chain it replaces stops at its next timer.
+  // The live chain of polls: a hold stops it at its next timer.
   const pollChain = useRef(0);
+  // Ruling R2: jobs whose outcome is unknown (a read or a cancel failed),
+  // kept until a cancel or a read settles them. Reset with the item: an
+  // earlier item's hint is never shown on this one (its count is the
+  // server's, ruling R1).
+  const retained = useRef(new Set<string>());
   // H2b review F3: the authored offer, claimed before its cancel is awaited.
   const offerClaim = useRef<string | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
@@ -122,6 +137,7 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     clearTimers();
     pendingRef.current = null;
     offerClaim.current = null;
+    retained.current = new Set();
     setOfferBusy(false);
     setPending(null);
     setEntries([]);
@@ -183,6 +199,9 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
         if (generation.current !== mine) return;
         // Held meanwhile: whether it was delivered is `hold()`'s to establish.
         if (suspended.current) return;
+        // Ruling R2: the read may have delivered it server-side; the job is
+        // kept, never forgotten (the next hold or resume settles it).
+        if (!gone(error)) retained.current.add(jobId);
         settle();
         opts.current.onError(errorMessage(error));
         return;
@@ -324,60 +343,84 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     }
   };
 
-  /** H2b review F2: before the panel's surface is hidden. Refuses new
-   *  requests, waits for the ones answering (polls' reads included), and
-   *  cancels a hint still being written (never read, so never shown); one
-   *  delivered first is read once and kept. Resolves true when nothing is
-   *  pending; false (re-review F2) when the cancel could not be established:
-   *  the request stays pending and is polled again, so the screen keeps the
-   *  answer box, where it is delivered, open. */
+  /** H2b review F2, fix round 3 ruling R2: before the panel's surface is
+   *  hidden. Refuses new requests and waits for the ones answering (polls'
+   *  reads included). A hint still being written joins the jobs whose
+   *  outcome is unknown; the cancel is tried once for each of them: a
+   *  cancelled job is never read, so never shown; one delivered first
+   *  (`already_shown`) is read once and kept for the answer box; one whose
+   *  cancel or read fails stays retained for `resume()`. Every poll stops,
+   *  so nothing is delivered while steps are open, and the hold resolves
+   *  true: whatever the server showed is counted by the first attempt of
+   *  the session and item to commit (ruling R1). */
   const hold = useCallback(async (): Promise<boolean> => {
     suspended.current = true;
     while (inflight.current.size) {
       await Promise.allSettled([...inflight.current]);
     }
-    const live = pendingRef.current;
-    if (!live) return true;
     const mine = generation.current;
-    if (!live.jobId) {
-      settle();
-      return true;
-    }
-    const jobId = live.jobId;
-    const release = (error?: unknown) => {
-      // Not held: requests and polls go on where the hint can be seen.
-      suspended.current = false;
-      if (error !== undefined) opts.current.onError(errorMessage(error));
-      if (pendingRef.current === live) {
-        pollChain.current += 1; // one chain of polls, never two
-        poll(jobId, 0, mine);
+    const live = pendingRef.current;
+    if (live?.jobId) retained.current.add(live.jobId);
+    clearTimers();
+    pollChain.current += 1; // the chain stops at its next timer
+    if (live) settle();
+    let reported = false;
+    for (const jobId of [...retained.current]) {
+      try {
+        const answer = await track(api.cancelHint(jobId));
+        if (generation.current !== mine) return true;
+        if (answer.cancelled) {
+          retained.current.delete(jobId);
+          continue;
+        }
+        // already_shown: delivered before the cancel; its result is read again.
+        const job = await track(api.hintJob(jobId));
+        if (generation.current !== mine) return true;
+        if (job.state === "done") {
+          retained.current.delete(jobId);
+          handleDone(job.result);
+        }
+      } catch (error) {
+        if (generation.current !== mine) return true;
+        if (gone(error)) {
+          retained.current.delete(jobId);
+        } else if (!reported) {
+          reported = true;
+          opts.current.onError(errorMessage(error));
+        }
       }
-      return false;
-    };
-    try {
-      const answer = await track(api.cancelHint(jobId));
-      if (generation.current !== mine) return true;
-      if (answer.cancelled) {
-        if (pendingRef.current === live) settle();
-        return true;
-      }
-      // already_shown: delivered before the cancel; its result is read again.
-      const job = await track(api.hintJob(jobId));
-      if (generation.current !== mine) return true;
-      if (job.state !== "done") return release();
-      if (pendingRef.current === live) settle();
-      handleDone(job.result);
-      return true;
-    } catch (error) {
-      if (generation.current !== mine) return true;
-      return release(error);
     }
-  }, [handleDone, poll, settle]);
+    return true;
+  }, [handleDone, settle]);
 
-  /** The panel's surface is shown again: requests are accepted. */
+  /** The panel's surface is shown again: requests are accepted, and every
+   *  retained job is read once (ruling R2). A delivered hint shows here; a
+   *  read answering that an attempt closed its count shows nothing; a job
+   *  still being written is polled again; a read that fails keeps it. */
   const resume = useCallback(() => {
     suspended.current = false;
-  }, []);
+    const mine = generation.current;
+    for (const jobId of [...retained.current]) {
+      void track(api.hintJob(jobId)).then((job) => {
+        if (generation.current !== mine || !retained.current.has(jobId)) return;
+        if (job.state === "pending") {
+          if (pendingRef.current || suspended.current) return;
+          retained.current.delete(jobId);
+          const adopted: Pending = { jobId, startedAt: Date.now() };
+          pendingRef.current = adopted;
+          setPending(adopted);
+          poll(jobId, 0, mine);
+          return;
+        }
+        retained.current.delete(jobId);
+        // Only a hint this surface can show; a closed count says nothing.
+        if (job.state === "done" && job.result?.status === "ready") handleDone(job.result);
+      }, (error) => {
+        if (generation.current !== mine) return;
+        if (gone(error)) retained.current.delete(jobId);
+      });
+    }
+  }, [handleDone, poll]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- the learner's replies and picks ---------------------------------------
 

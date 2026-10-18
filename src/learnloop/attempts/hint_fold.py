@@ -27,13 +27,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
-from learnloop.db.stores.help_assists import (
-    attach_carried_fold,
-    attach_keyless_fold,
-    carried_fold,
-    keyless_window_start,
-    server_fold,
-)
+from learnloop.db.stores.help_assists import attach_keyless_fold, keyless_window_start, server_fold
 
 
 @dataclass(frozen=True)
@@ -63,10 +57,15 @@ class ServerHintFold:
     #: (``stuck_attempt_type``): the item's allowed types and the probe flag.
     stuck_types: tuple[str, ...] | None = None
     stuck_probe: bool = False
-    #: A workbench submit's problem (H2b review F1): the answer box's shown
-    #: server hints carried into it (``help_assists.workbench_session_id``)
-    #: fold in too, by the same rule, and attach to its attempt.
-    workbench_session_id: str | None = None
+    #: A workbench submit (H2b fix round 3, ruling R1). Its attempt keeps its
+    #: own submission key (idempotency, receipts), but its fold is built with
+    #: ``submission_id=None``: the window above, the rule H2a already uses
+    #: and verified for a keyless submit. So the answer box's hints carry
+    #: into steps whatever key they were requested under, the attempt takes
+    #: them in its own transaction (:func:`attach_keyless`), and an
+    #: answer-box attempt that committed first starts the next window, so
+    #: nothing is counted twice (F10). Only the submit-time stamp reads it.
+    window_fold: bool = False
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
@@ -85,14 +84,12 @@ class ServerHintFold:
 
 
 def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
-              submission_id: str | None, workbench_session_id: str | None = None) -> tuple[int, bool, str | None]:
+              submission_id: str | None) -> tuple[int, bool, str | None]:
     """The fold over the rows shown now, and a keyless submit's window start
     (a vault without ``help_assists`` folds nothing). A keyless submit's
     window is the session's rows requested after the item's last attempt in
     this session: exactly the rows ``mark_shown`` stops showing once this
-    attempt commits (round 3, W1). A workbench submit adds the answer box's
-    rows carried into its problem (H2b review F1), and those a closed
-    problem of the item released in this practice session (re-review F1)."""
+    attempt commits (round 3, W1)."""
 
     exists = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
@@ -104,11 +101,6 @@ def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
         since = keyless_window_start(connection, practice_item_id=practice_item_id, session_id=session_id)
     count, primed = server_fold(connection, practice_item_id=practice_item_id, session_id=session_id,
                                 submission_id=submission_id, since=since)
-    if workbench_session_id is not None:
-        carried, carried_primed, _rows = carried_fold(
-            connection, practice_item_id=practice_item_id, workbench_session_id=workbench_session_id,
-            exclude_submission_id=submission_id, practice_session_id=session_id)
-        count, primed = count + carried, primed or carried_primed
     return count, primed, since
 
 
@@ -123,8 +115,7 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     if fold is None:
         return draft, None
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
-                                     session_id=fold.session_id, submission_id=fold.submission_id,
-                                     workbench_session_id=fold.workbench_session_id)
+                                     session_id=fold.session_id, submission_id=fold.submission_id)
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one
         # read here, under the write lock.
@@ -160,23 +151,4 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
                                since=fold.since, attempt_id=attempt_id)
 
 
-def attach_carried(connection: Any, draft: Any, attempt_id: str) -> int:
-    """A workbench attempt takes the answer box's rows carried into its
-    problem that its fold counted (H2b review F1), in its own write
-    transaction after the attempt row exists, so no later fold (the answer
-    box's key included) counts them again. Returns how many it attached."""
-
-    fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
-    if fold is None or fold.workbench_session_id is None:
-        return 0
-    exists = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
-    ).fetchone()
-    if exists is None:
-        return 0
-    return attach_carried_fold(connection, practice_item_id=fold.practice_item_id,
-                               workbench_session_id=fold.workbench_session_id, attempt_id=attempt_id,
-                               exclude_submission_id=fold.submission_id, practice_session_id=fold.session_id)
-
-
-__all__ = ["ServerHintFold", "attach_carried", "attach_keyless", "read_fold", "refolded_draft"]
+__all__ = ["ServerHintFold", "attach_keyless", "read_fold", "refolded_draft"]

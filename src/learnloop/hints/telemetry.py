@@ -140,24 +140,23 @@ def stamp_submission(
     return submitted_at
 
 
-def stamp_carried_submission(
+def stamp_window_submission(
     repository: Any,
     *,
     practice_item_id: str,
-    workbench_session_id: str,
-    practice_session_id: str,
+    session_id: str,
+    since: str | None,
     submitted_at: str,
-    exclude_submission_id: str | None = None,
 ) -> int:
     """The same submit time on the answer box's rows a workbench submission
-    carries (H2b re-review F9; :func:`store.stamp_carried_submitted`: first
-    stamp kept, no latency, as the problem's latency is not on their basis)."""
+    folds by the window (H2b re-review F9, fix round 3 ruling R1;
+    :func:`store.stamp_window_submitted`: first stamp kept, no latency, as
+    the problem's latency is not on their basis)."""
 
     with repository.connection() as connection:
-        return store.stamp_carried_submitted(
-            connection, practice_item_id=practice_item_id, workbench_session_id=workbench_session_id,
-            practice_session_id=practice_session_id, submitted_at=submitted_at,
-            exclude_submission_id=exclude_submission_id,
+        return store.stamp_window_submitted(
+            connection, practice_item_id=practice_item_id, session_id=session_id, since=since,
+            submitted_at=submitted_at,
         )
 
 
@@ -189,9 +188,9 @@ __all__ = [
     "RevealRecord",
     "attach_reveals_to_attempt",
     "record_authored_reveal",
-    "stamp_carried_submission",
     "reveal_instant",
     "stamp_submission",
+    "stamp_window_submission",
     "telemetry_enabled",
     "work_digest",
 ]

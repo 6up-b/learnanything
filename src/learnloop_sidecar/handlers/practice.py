@@ -33,8 +33,8 @@ from learnloop.hints.map_builder import schedule_build_on_serve
 from learnloop.hints.telemetry import (
     attach_reveals_to_attempt,
     record_authored_reveal,
-    stamp_carried_submission,
     stamp_submission,
+    stamp_window_submission,
     telemetry_enabled,
 )
 from learnloop.diagnosis.probe_episodes import (
@@ -657,7 +657,7 @@ def _in_diagnostic_block(repository, item) -> bool:
 def _server_hint_fold(
     repository, practice_item_id: str, session_id: str, submission_id: str | None, *,
     base_hints: int, base_primed: bool = False, max_useful_hints: int = 0, clamp_without_fold: bool = True,
-    stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False, workbench_session_id: str | None = None,
+    stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False, window_fold: bool = False,
 ) -> ServerHintFold:
     """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
     showed in this submission (its ``help_assists`` rows, shown, counted by
@@ -667,24 +667,26 @@ def _server_hint_fold(
     nothing, so every submit is exactly as before H2a. The draft carries the
     fold, and the attempt's write transaction takes it again before the
     attempt commits (review round 2, V1: a second sidecar may deliver a hint
-    of this submission in between). A workbench submit names its problem
-    (``workbench_session_id``): the answer box's shown hints carried into it
-    fold in by the same rule (H2b review F1)."""
+    of this submission in between). A workbench submit (``window_fold``)
+    folds by the keyless window whatever its own key (H2b fix round 3,
+    ruling R1): the answer box's shown hints of the item since its last
+    attempt in this practice session, whatever their key."""
 
     from contextlib import closing
 
     from learnloop.db.connection import connect
 
+    # Ruling R1: the workbench's fold has no key (its attempt keeps its own).
+    fold_key = None if window_fold else submission_id
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         count, primed, since = read_fold(
-            connection, practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id,
-            workbench_session_id=workbench_session_id,
+            connection, practice_item_id=practice_item_id, session_id=session_id, submission_id=fold_key,
         )
     return ServerHintFold(
-        practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id, since=since,
+        practice_item_id=practice_item_id, session_id=session_id, submission_id=fold_key, since=since,
         folded_hints=count, folded_primed=primed, base_hints=int(base_hints), base_primed=bool(base_primed),
         max_useful_hints=int(max_useful_hints or 0), clamp_without_fold=clamp_without_fold,
-        stuck_types=stuck_types, stuck_probe=stuck_probe, workbench_session_id=workbench_session_id,
+        stuck_types=stuck_types, stuck_probe=stuck_probe, window_fold=window_fold,
     )
 
 
@@ -707,21 +709,22 @@ def _stamp_hint_submission(
         return None
 
 
-def _stamp_carried_hints(repository, fold: ServerHintFold, submitted_at: str | None) -> None:
-    """H2b re-review F9: a workbench submission's submit time on the answer
-    box's rows it carries (their key is the answer box's, so the stamp above
-    never reaches them). Only when that stamp was made (telemetry on, a
-    key); telemetry only: a failure is logged, never raised."""
+def _stamp_window_hints(repository, fold: ServerHintFold, submitted_at: str | None) -> None:
+    """H2b re-review F9 under fix round 3's ruling R1: a workbench
+    submission's submit time on the window's rows it folds (requested under
+    the answer box's key, so the keyed stamp above never reaches them). Only
+    when that stamp was made (telemetry on, a key); the first stamp stays and
+    no latency is written. Telemetry only: a failure is logged, never raised."""
 
-    if submitted_at is None or fold.workbench_session_id is None:
+    if submitted_at is None or not fold.window_fold:
         return
     try:
-        stamp_carried_submission(
-            repository, practice_item_id=fold.practice_item_id, workbench_session_id=fold.workbench_session_id,
-            practice_session_id=fold.session_id, submitted_at=submitted_at, exclude_submission_id=fold.submission_id,
+        stamp_window_submission(
+            repository, practice_item_id=fold.practice_item_id, session_id=fold.session_id, since=fold.since,
+            submitted_at=submitted_at,
         )
     except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
-        log_event("hint_carried_stamp_failed", practice_item_id=fold.practice_item_id, error=type(exc).__name__)
+        log_event("hint_window_stamp_failed", practice_item_id=fold.practice_item_id, error=type(exc).__name__)
 
 
 def _attach_hint_reveals(
@@ -1012,7 +1015,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 
 def submit_attempt_on(
     ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice",
-    workbench_session_id: str | None = None,
+    hint_window_fold: bool = False,
 ) -> dict[str, Any]:
     """``submit_attempt``, recorded on ``entry_surface``. The one submit
     implementation: the Reader workbench (RW2a) composes its answer and calls
@@ -1048,7 +1051,7 @@ def submit_attempt_on(
                 plan_presentation_id=params.plan_presentation_id,
             ),
             entry_surface=entry_surface,
-            workbench_session_id=workbench_session_id,
+            hint_window_fold=hint_window_fold,
         )
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
@@ -1079,7 +1082,7 @@ def submit_attempt_on(
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
         base_hints=client_hints + question_hints, base_primed=bool(params.primed) or disclosure_primed,
-        max_useful_hints=item.hint_policy.max_useful_hints, workbench_session_id=workbench_session_id,
+        max_useful_hints=item.hint_policy.max_useful_hints, window_fold=hint_window_fold,
     )
     hints_used = hint_fold.hints_used()
     primed = hint_fold.primed()
@@ -1110,7 +1113,7 @@ def submit_attempt_on(
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
-    _stamp_carried_hints(repository, hint_fold, hint_submitted_at)
+    _stamp_window_hints(repository, hint_fold, hint_submitted_at)
     if declared_stuck and not learner_answer_md.strip():
         # An empty stuck answer: nothing to grade, so no provider and no
         # self-grade; recorded at once as an ordinary attempt scored 0.
@@ -1229,7 +1232,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
 
 def submit_dont_know_on(
     ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice",
-    workbench_session_id: str | None = None,
+    hint_window_fold: bool = False,
 ) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
@@ -1252,14 +1255,14 @@ def submit_dont_know_on(
         repository, params.practice_item_id, params.session_id, submission_id,
         base_hints=hints_used, max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
-        stuck_probe=params.probe_presentation_id is not None, workbench_session_id=workbench_session_id,
+        stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
     )
     hints_used = hint_fold.hints_used()
     server_primed = hint_fold.primed()
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
-    _stamp_carried_hints(repository, hint_fold, hint_submitted_at)
+    _stamp_window_hints(repository, hint_fold, hint_submitted_at)
     if stuck:
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:

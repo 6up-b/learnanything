@@ -650,23 +650,18 @@ export function PracticeScreen({
   // still submits as it (review F13).
   const serveRef = useRef({ schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null });
   serveRef.current = { schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null };
-  // Adaptive hints H2b (review F1, F2): before the answer box is hidden, a
-  // hint still being written is settled (cancelled, or read once when it was
-  // shown first), so none is delivered where the learner cannot see it; then
-  // the answer box's submission goes with the work, and the server carries
-  // the hints it showed for it into the problem (its own rows, never a count
-  // sent from here). Off, the hold is a no-op and nothing more is sent.
+  // Adaptive hints H2b (review F2; fix round 3, ruling R2): before the
+  // answer box is hidden, the hints still being written are held (cancelled,
+  // or read once when shown first; a job whose outcome is unknown is kept and
+  // read when the answer box is back) and every poll stops, so none is
+  // delivered where the learner cannot see it. Nothing about the hints goes
+  // with the work: the problem's submit folds the hints the server showed on
+  // the answer box itself (ruling R1). Off, the hold is a no-op.
   const enteringSteps = useRef(false);
-  // When the cancel cannot be established (re-review F2) the hand-off
-  // answers null: the answer box stays, so a hint delivered meanwhile is
-  // shown where the learner can see it (the hold reported the error).
   const handOff = useCallback(async () => {
     enteringSteps.current = true;
-    if (!(await adaptiveHints.hold())) return null;
-    return adaptive && session.sessionId
-      ? { carriedSubmissionId: submissionId.current, carriedSessionId: session.sessionId }
-      : {};
-  }, [adaptive, adaptiveHints.hold, session.sessionId]);
+    await adaptiveHints.hold();
+  }, [adaptiveHints.hold]);
   const handOffFailed = useCallback(() => {
     enteringSteps.current = false;
     adaptiveHints.resume();
@@ -674,15 +669,10 @@ export function PracticeScreen({
   const openWorkbench = useCallback(async () => {
     if (!item) return;
     try {
-      const carried = await handOff();
-      if (carried === null) {
-        handOffFailed();
-        return;
-      }
+      await handOff();
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
-        ...carried,
       });
       setWbSession(result.session);
     } catch (error) {
@@ -692,17 +682,12 @@ export function PracticeScreen({
   }, [handOff, handOffFailed, item, onError, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     try {
-      const carried = await handOff();
-      if (carried === null) {
-        handOffFailed();
-        return;
-      }
+      await handOff();
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
-        ...carried,
       });
       setWbSession(result.session);
     } catch (error) {
