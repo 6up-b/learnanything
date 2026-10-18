@@ -395,3 +395,76 @@ a candidate for a successor.
 
 - `bea7af2a0`: the fixes (`learnloop/hints/report.py`, tests).
 - this record.
+
+## Fix round 4 (after Codex job 20261018-003635-bF1uGX)
+
+The Codex verify of `33f978f3b` confirmed W1-W3 and found no regressions. It
+found one Medium remaining, older than round 3: the held-workbench check in
+`learnloop/hints/report.py` read a problem's current state. It used
+`source_visible`, and only tested whether `source_shown_at` existed. So
+hiding the book later flipped a past attempt to "reached", and help first
+acquired after the submit wrongly denied it. Fixed in `cce1f22c5`. This is report inference only: no schema, grading,
+`hints_used` or submit change, and no references to regenerate.
+
+**Fail first.** The round's tests were run against `33f978f3b`'s code in a
+detached worktree (removed after). **6 failed:**
+
+- Codex's scenario. Before hiding the book the report gave
+  `help_not_ordered`; after hiding it, `reached`: the flip.
+- The boundary-tie and unreadable-time cases gave `reached` where
+  `workbench_state_unknown` was expected.
+- The updated held-workbench test failed with `KeyError:
+  'workbench_state_unknown'`.
+- The two round-2 tests failed only because their expected reason list
+  gained the new key.
+
+The opened-after-the-submit case (`reached`) already held on the old code;
+it is pinned now.
+
+### What changed
+
+`_other_assistance` no longer reads `source_visible`, `source_shown_at` or
+`carried_hints`. H0 cannot reconstruct a workbench problem's help as of an
+attempt; RW2b/H3 will write it to `help_assists`.
+
+- **The overlap rule.** The new `_could_overlap(problem, since, until)`
+  judges from `created_at` and `closed_at` alone. A problem on the item
+  overlaps the window when it was opened at or before the evaluated attempt
+  and not closed before the window opened (the item's previous attempt). A
+  tie with either boundary, a missing time or an unreadable time counts as
+  "could have been open". With no previous attempt, the window has no start,
+  so a problem opened before the attempt always overlaps.
+- **The new reason.** A problem that overlaps gives `workbench_state_unknown`.
+  It is checked after `help_not_ordered` and `help_order_ambiguous`, so a
+  definite or ambiguous tutor or reveal event still names its own reason.
+  `UNAIDED_UNKNOWN_REASONS` is now `more_help_followed, primed,
+  help_not_ordered, help_order_ambiguous, workbench_state_unknown,
+  help_count_capped, help_cap_unknown, ungraded, not_fully_correct`.
+- **No overlap.** When no problem on the item overlaps the window, the
+  workbench plays no part.
+
+| Test | What it pins |
+|---|---|
+| `tests/test_hint_telemetry.py::test_hiding_the_book_after_the_submit_never_flips_the_attempt` | Codex's scenario: a Reader problem with the book shown and no steps, a correct submit (`hints_used` 1, unchanged), then the book hidden. `workbench_state_unknown` both before and after. |
+| `::test_a_workbench_problem_opened_only_after_the_submit_plays_no_part` | A problem opened after the submit, and one closed before the window opened, leave the attempt `reached`. A problem closed in the previous attempt's own second is a tie: unknown. |
+| `::test_a_workbench_problem_with_an_unreadable_time_could_have_been_open` | An unreadable `created_at` counts as could have been open. |
+| `::test_a_workbench_problem_holding_a_hint_is_workbench_state_unknown` | Renamed from round 2's held-workbench test; now expects the new reason. |
+
+The two round-2 progress tests' expected reason dicts gain
+`workbench_state_unknown: 0`.
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run pytest -n auto tests/test_hint_telemetry.py
+  tests/test_help_assists_schema.py tests/test_cli_help_snapshot.py`:
+  **71 passed**.
+- `uv run pytest -n auto --durable-sqlite tests/test_hint_telemetry.py
+  tests/test_help_assists_schema.py`: **70 passed**.
+- `uv run lint-imports --no-cache`: **25 kept, 0 broken**.
+
+**Model calls made in this round: 0.**
+
+### Commits
+
+- `cce1f22c5`: the fix (`learnloop/hints/report.py`, tests).
+- this record.
