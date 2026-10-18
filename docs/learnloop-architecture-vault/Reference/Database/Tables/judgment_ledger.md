@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bae5dcaf9edeebcf124299f37b36c7670b07ba14"
-source_commit_timestamp: "2026-10-18T16:44:03-04:00"
+source_commit: "b1e520ce793ef7386c2ac25593991a50aec14eb0"
+source_commit_timestamp: "2026-10-18T17:04:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -173,6 +173,7 @@ None found by exact static reference scan.
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad1_send_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
@@ -184,7 +185,6 @@ None found by exact static reference scan.
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_diagnosis_reports.py`
-- `tests/test_embedding_compare.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

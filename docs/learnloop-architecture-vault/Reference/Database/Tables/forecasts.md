@@ -3,8 +3,8 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bae5dcaf9edeebcf124299f37b36c7670b07ba14"
-source_commit_timestamp: "2026-10-18T16:44:03-04:00"
+source_commit: "b1e520ce793ef7386c2ac25593991a50aec14eb0"
+source_commit_timestamp: "2026-10-18T17:04:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/background.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "src/learnloop/adaptive_difficulty/switches.py"
-  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/ad_fakes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
+- `tests/test_ad1_send_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
