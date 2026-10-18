@@ -490,3 +490,150 @@ No model calls were made, live or paid.
 - Not run: references (no schema change), and the frontend and cargo (no
   `apps/` change). The full suite, the whole durability lane and vitest are
   left for the landing gate.
+
+## Fix round 4 (after Codex job 20261018-035041-4Y7U0m)
+
+The Codex verify of `8d10955d8` confirmed:
+
+- R1's design;
+- R3's queued-writer fix, with no lock inversion;
+- R4;
+- the store helpers;
+- every earlier boundary.
+
+It reopened the stage on two Mediums and two Lows. All four are fixed in
+`da60b180d`, following the orchestrator's rulings U1-U4. There is no schema
+change.
+
+### How the tests were checked against the old code
+
+The 18 new tests are in `tests/test_approach_maps.py`, in the section "Fix
+round 4". They were run against `8d10955d8`'s `src/` and `migrations/` (`git
+archive`, `-o pythonpath=`). Results:
+
+- **Every new test function fails on the old code**: 15 failed.
+- **Three U1 cases already pass on the old code** and stay as controls:
+  - `4m` against `4m`;
+  - `4` against `4` with unit `m`;
+  - `4 m` against `5` with unit `m`.
+- **The failures match Codex's descriptions.** On the old code:
+  - **U1:** `4 m` against `4`/`m` is `goal_mismatch`, and a value of `4`/`m`
+    marks no leak.
+  - **U2:** `close(0.02)` stays blocked behind a commit held by a reader.
+  - **U3:** an expired lease is changed to `released`.
+  - **U4:** `- 4` states `4`, and "Use the ratio 3 / 4" fails `label_leak`.
+
+The U2 test doesn't need the new `committing` counter to exist. On the old
+code it waits a fixed half-second instead, so it fails on the bound, not on an
+`AttributeError`.
+
+| Codex item | ruling | severity | verdict | tests |
+|---|---|---|---|---|
+| 1 | U1 | Medium | fixed | `test_u1_a_reference_with_a_unit_is_read_by_the_same_quantity_helper[*]` (12), `test_u1_a_structured_value_with_its_unit_marks_its_node` |
+| 2 | U2 | Medium | fixed | `test_u2_close_never_waits_past_its_bound_on_a_commit_held_by_a_reader` |
+| 3 | U3 | Low | fixed | `test_u3_an_expired_lease_is_never_released` |
+| 4 | U4 | Low | fixed | `test_u4_a_spaced_fraction_is_one_token[3, 4]`, `test_u4_a_spaced_sign_stays_attached` |
+
+### What changed
+
+- **U1** (`hints/maps.py`).
+  - One helper, `read_quantity(text, unit)`, reads the reference, the goal's
+    `conclusion` and a node's `value`. It produces a `Quantity` with these
+    parts:
+    - `number`;
+    - normalised `unit`;
+    - `whole`, the algebraic reading;
+    - `ambiguous`.
+  - It recognises three shapes:
+    - "4 m", a number, a space and a unit token (letters, µ, Ω, °, % and then
+      `^ / * · .`), which is split into a number and a unit;
+    - "4m", a number with letters attached, which is **ambiguous** (4 metres
+      or 4·m);
+    - anything else, which is an expression with the declared unit, if any.
+  - `\text{…}`, `\mathrm{…}`, `\,` and `~` are read as plain text, and a
+    declared unit written after the expression is dropped.
+  - Units are compared as normalised strings (`normalize_unit`): markup and
+    whitespace removed, `²`/`^{2}` written `^2`, case kept.
+  - `compare_quantities(reference, given)` decides as follows:
+    - Equal units, no unit on either side, or a unit on one side only against
+      an unambiguous reference: the numbers decide with
+      `answers_equal`/`answers_differ`. Equal means verified (or a leak);
+      a clear difference means mismatch.
+    - Units that differ: unverified, with the basis `unit_differs`.
+    - An ambiguous "4m" on either side decides only when its algebraic and
+      quantity readings agree. A unit on one side only against an ambiguous
+      reference decides nothing. Otherwise it is unverified, with the basis
+      `unit_ambiguous`. Never a mismatch.
+  - `exact_key` keeps a quantity-shaped reference whole ("4 m", "$4\,\text{m}$")
+    instead of squashing it to `4m`.
+  - `value_states_answer` uses the same rule for the node value leak check.
+  - The R1 test case "conclusion `4 m`, no unit field, reference `4`" is now
+    verified, a unit on one side against an unambiguous reference. Round 3
+    had it as `conclusion_unparsed`.
+- **U2** (`hints/map_builder.py`). The linearisation changes, and there is no
+  commit gate any more.
+  - **The writer's side.** The generation lives under a small
+    `_generation_lock`. Inside its transaction, after BEGIN IMMEDIATE, a
+    writer:
+    1. checks its lease, which cannot change under the write lock;
+    2. takes the small lock to check the generation and register as
+       committing (`_committing += 1`);
+    3. releases the small lock;
+    4. commits, and deregisters in a `finally`.
+  - **The close side.** `close()` takes the small lock only to bump the
+    generation, so no writer can pass its check after that. It then waits on
+    the condition `_committing == 0`, up to the remaining deadline. If a
+    commit is still finishing at the deadline, it logs a WARNING and returns
+    `False`. It never blocks past its bound.
+  - **Semantics, recorded as the ruling asks.** A commit that registered
+    before the bump is linearised before close. It may finish after close
+    returns, into the vault file its connection already holds. That is a
+    pre-close write to its own vault, and it is acceptable. No writer that
+    checks after the bump commits.
+- **U3** (`hints/map_builder.py`). `_release` goes through the normal
+  lease-checked `_fenced_txn`. A lost or expired lease is never changed to
+  `released`; it lapses or is taken over.
+- **U4** (`hints/maps.py`).
+  - `number_tokens` is one tokenizer for answer candidates and the lone-digit
+    shortcut (`_states_short_key`).
+  - A signed number keeps a sign separated by whitespace ("- 4", "−  4"), and
+    a fraction is one token across whitespace ("3 / 4", "( 3 ) / ( 4 )"). A
+    number is never the numerator or denominator of a fraction it is not part
+    of ("x / 4", "4 / x").
+  - `_clean` joins a spaced leading sign to its number before the checker
+    sees it. The checker would otherwise read "- 4" as a markdown list bullet
+    holding `4`.
+  - "Use the ratio 3 / 4" is no longer a `label_leak` for 3 or 4, whether or
+    not the question states the ratio. "- 4" does not state `4`.
+
+### Limits and notes
+
+- **Monomials verify less often.** An attached-letter answer like `2x` is
+  ambiguous by shape. It verifies when written the same way on both sides
+  (`2x` against `2x`), but `x*2` against `2x` is now unverified, not
+  verified. This is a loss of verification, never a rejection.
+- **`x - 4` is `-4`.** A binary minus written with spaces ("x - 4") now reads
+  as the signed token `-4`, so it does not state `4`. This leans away from
+  marking. Prose detection remains best-effort defence in depth, and H2's
+  §4.6 text gate is binding (friction note 7).
+- **U2 test in WAL mode.** Under `--durable-sqlite` (WAL), a reader does not
+  hold a commit. There the U2 test checks only the bound and the
+  after-the-bump fence; the `False` return is asserted in rollback-journal
+  mode.
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run lint-imports --no-cache`: 26 kept, 0 broken.
+- `uv run pytest -n 8` over the same 26 files as round 3: **507 passed**.
+- `uv run pytest -m durability` over the four approach-map files: **2
+  passed**.
+- `uv run pytest -n 8 --durable-sqlite tests/test_approach_maps.py`: **134
+  passed**.
+- The thread and timing tests were rerun 3 times with `-n 4`:
+  - `u2_`, `u3_`, `r3_`, `r4_`, `m3_`, `m4_`, `m5_`, `l1_` and `f3_`: 26
+    passed each time;
+  - the same set without `f3_`, under `--durable-sqlite`: 21 passed each
+    time.
+- Not run: references (no schema change), and the frontend and cargo. The
+  full suite, the whole durability lane and vitest are left for the landing
+  gate.
