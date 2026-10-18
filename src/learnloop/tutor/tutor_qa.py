@@ -699,6 +699,9 @@ def ask_question(
         source_context=source_context,
         leak_overlap=leak_overlap if item is not None else None,
         remediation_episode_id=episode,
+        # When the answer completed, on the turn's own clock (AD1's reading
+        # sweep stamps the exchange by it; Codex review F4).
+        answered_at=utc_now_iso(clock),
     )
     if item is not None:
         record_reveal(

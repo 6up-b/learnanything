@@ -11,13 +11,17 @@
   revision's first bound presentation; it becomes the signal ``z_v1`` of a
   serve only when it was received before that serve (§7.3, G-AD1-9).
 * ``llm_v3:llm`` and ``llm_v3:decider``: competing experts (§8.4), never an
-  offset prior. After a plan serve, in the background: the V1 item view plus
-  a card of the learner's history restricted to the item's LO and its
-  prerequisites, as of the serve (``inputs_as_of`` = the serve): the
-  incumbent's numbers frozen at the serve, and the graded attempts completed
-  before it (result category, hints, primed, the question asked; never an
-  answer text). The LLM is asked field's V3 question as structured output;
-  the Decider a ``noul`` question.
+  offset prior. The serve transaction freezes their exact request inputs
+  (:func:`freeze_presentation_inputs`, Codex review F2): the served
+  revision's V1 item view plus a card of the learner's history restricted to
+  the item's LO and its prerequisites as it stood at the serve (the
+  incumbent's numbers from its receipt, and the attempts completed before
+  it with their grades as they then stood: result category, hints, primed,
+  the question asked; never an answer text). After the serve, in the
+  background, they are sent exactly as frozen (``inputs_as_of`` = the
+  serve, true whatever was regraded or edited since); a presentation
+  without frozen inputs is never forecast. The LLM is asked field's V3
+  question as structured output; the Decider a ``noul`` question.
 
 Every receipt is kind ``item_unassisted_success`` in the ``forecast_receipts``
 family, written once when the answer arrives (``created_at`` = when the
@@ -26,7 +30,12 @@ failed / refused_spend). A forecast is valid for its presentation iff its
 inputs predate the serve, whenever it arrives
 (:func:`learnloop.scheduling.forecast_receipts.valid_for_serve`). Raw
 requests and responses go to ``item_forecast_payloads`` (WORKFLOW, pruned
-after ``router.payload_retention_days``); the receipt keeps the hash.
+after ``router.payload_retention_days``); the receipt keeps the hash. An
+accepted forecast also appends its verdict to ``judgment_ledger`` (task
+``ad_item_forecast``: model, prompt version, request hash, the receipt key;
+Codex review F8), in the receipt's transaction. Each unit of paid work runs
+under a durable, fenced claim (:mod:`learnloop.adaptive_difficulty.claims`;
+Codex review F5, F6).
 
 Routes: ``ai.routing.ad_forecast_llm`` (Codex on the subscription is
 ``estimated_only``) and ``ai.routing.ad_forecast_decider`` (decider-only),
@@ -65,7 +74,7 @@ from learnloop.scheduling.forecast_receipts import (
 from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.feature_audit import item_revision
 from learnloop.adaptive_difficulty.forecasters import EVENT, INCUMBENT, receipt_key
-from learnloop.adaptive_difficulty.protection import protected_items
+from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
 
 LOG = logging.getLogger(__name__)
@@ -287,24 +296,66 @@ def _existing(connection: Any, key: str) -> bool:
     ).fetchone() is not None
 
 
-def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str) -> str | None:
+def _verdict_text(p: float) -> str:
+    return f"{float(p):.6f}"
+
+
+def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str,
+           request: Any, response: Any, received: str, judgment: Mapping[str, Any] | None) -> str | None:
+    """The forecast's payloads, its receipt and (accepted) its judgment, in one transaction.
+
+    ``repository`` is the claim's fenced repository: nothing lands once the
+    job's claim or vault is lost. The judgment (Codex review F8, handoffs §0:
+    every paid verdict appends to ``judgment_ledger``) is written only with
+    the receipt it belongs to, so a receipt key written once has one
+    judgment; a failed or refused forecast has a receipt and no verdict."""
+
     from dataclasses import replace
+
+    from learnloop.db.stores.judgments import append_judgment
 
     receipt = replace(receipt, columns={**dict(receipt.columns),
                                         "algorithm_version": vault.config.algorithms.algorithm_version})
-    written = record_receipts(repository, [receipt], created_at=created_at)
-    return written[0] if written else None
+    with repository.atomic():
+        _store_payloads(repository, payload_key, receipt.forecaster, request, response, received,
+                        vault.config.router.payload_retention_days)
+        written = record_receipts(repository, [receipt], created_at=created_at)
+        receipt_id = written[0] if written else None
+        if receipt_id is not None and judgment is not None and receipt.p is not None:
+            append_judgment(
+                repository.connection(), task=PURPOSE, left_kind=str(judgment["left_kind"]),
+                left_id=str(judgment["left_id"]), right_kind="forecaster", right_id=receipt.forecaster,
+                judge=str(judgment["judge"]), judge_model=str(judgment.get("model") or "unknown"),
+                prompt_version=str(judgment["prompt_version"]), input_hash=str(judgment["input_hash"]),
+                verdict=_verdict_text(receipt.p), score=float(receipt.p), created_at=received,
+                rationale=json.dumps({"receipt_key": receipt.receipt_key, "receipt_id": receipt_id,
+                                      "event": EVENT, "inputs_as_of": receipt.inputs_as_of,
+                                      "practice_item_id": receipt.columns.get("practice_item_id"),
+                                      "kind": ITEM_UNASSISTED_SUCCESS}, sort_keys=True, default=str),
+            )
+    return receipt_id
+
+
+def item_prompt(vault: Any, item: Any) -> str:
+    """``llm_v1:item``'s prompt for one revision (the backfill's dry run plans it too)."""
+
+    return render_structured_prompt("Predict how hard an item is for a typical learner", V1_PROMPT_VERSION, {
+        "instructions": f"{V1_QUESTION} Return p_correct, your probability strictly between 0 and 1.",
+        "state": {"item": item_view(vault, item)},
+    })
 
 
 def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None = None,
-                  clock: Clock | None = None, protected: frozenset[str] | None = None) -> ForecastOutcome:
-    """``llm_v1:item`` for one item's current revision (once per revision)."""
+                  clock: Clock | None = None, protected: Any = None, fence: Any = None) -> ForecastOutcome:
+    """``llm_v1:item`` for one item revision (once per revision, under its durable claim)."""
+
+    from learnloop.adaptive_difficulty.claims import LeaseLost, claimed, item_forecast_key
 
     clients = clients or Clients()
     outcome = ForecastOutcome(LLM_V1, "disabled")
     if LLM_V1 not in outside_forecasters(vault.config):
         return outcome
-    if str(item.id) in (protected if protected is not None else protected_items(vault, repository)):
+    if guard(vault, repository, protected).covers(item):
         outcome.status = "protected"
         return outcome
     content_hash, _json = item_revision(item)
@@ -317,21 +368,40 @@ def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | 
     if client is None:
         outcome.status, outcome.reason = "unavailable", why
         return outcome
+    try:
+        with claimed(repository, item_forecast_key(content_hash), fence=fence) as worker:
+            if worker is None:
+                outcome.status = "busy"
+                return outcome
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                if _existing(connection, key):
+                    outcome.status = "current"
+                    return outcome
+            _forecast_item(vault, worker, item, client, content_hash=content_hash, key=key, outcome=outcome,
+                           clock=clock)
+    except LeaseLost:
+        outcome.status, outcome.p, outcome.receipt_id = "stale", None, None
+    return outcome
+
+
+def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_hash: str, key: str,
+                   outcome: ForecastOutcome, clock: Clock | None) -> None:
+    from learnloop.adaptive_difficulty.claims import LeaseLost
+
+    repository = worker.repository
     issued = utc_now_iso(clock)
     state = {"item": item_view(vault, item)}
-    prompt = render_structured_prompt("Predict how hard an item is for a typical learner", V1_PROMPT_VERSION, {
-        "instructions": f"{V1_QUESTION} Return p_correct, your probability strictly between 0 and 1.",
-        "state": state,
-    })
+    prompt = item_prompt(vault, item)
     request_hash = content_key({"prompt": prompt})
     inputs = {"practice_item_id": str(item.id), "content_hash": content_hash, "state_version": STATE_VERSION,
               "state_hash": content_key(state)}
-    envelope = ad_spend.ad_envelope(vault, repository, clock=clock)
+    envelope = ad_spend.ad_envelope(vault, worker.base, clock=clock)
     status, p, response, model = "ok", None, None, None
     try:
+        worker.require_live()
         p, response, model = _ask_llm(vault, repository, client, prompt=prompt, owner_id=content_hash,
                                       envelope=envelope)
-    except AIInterrupted:
+    except (AIInterrupted, LeaseLost):
         raise
     except SpendLimitExceeded as exc:
         status, outcome.reason = "refused_spend", str(exc)[:200]
@@ -339,17 +409,16 @@ def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | 
         status, outcome.reason = "failed", f"{type(exc).__name__}"
     received = utc_now_iso(clock)
     final_key = key if status == "ok" else f"{key}:{status}:{received}"
-    _store_payloads(repository, final_key, LLM_V1, {"prompt": prompt}, response, received,
-                    vault.config.router.payload_retention_days)
     outcome.receipt_id = _write(repository, vault, _receipt(
         key=final_key, forecaster=LLM_V1, version=V1_PROMPT_VERSION, scope="item", decision_kind="item_prepare",
         binding_kind=FIRST_PRESENTATION, inputs=inputs, inputs_as_of=issued, p=p, status=status,
         received_at=received, model=model, request_hash=request_hash,
         columns={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
                  "item_content_hash": content_hash, "decision_ref": content_hash},
-    ), created_at=issued)
+    ), created_at=issued, payload_key=final_key, request={"prompt": prompt}, response=response, received=received,
+        judgment={"left_kind": "practice_item_revision", "left_id": content_hash, "judge": "llm", "model": model,
+                  "prompt_version": V1_PROMPT_VERSION, "input_hash": request_hash})
     outcome.status, outcome.p = status, p
-    return outcome
 
 
 def _presentation(connection: Any, presentation_id: str) -> dict[str, Any] | None:
@@ -371,10 +440,66 @@ def _incumbent_inputs(connection: Any, presentation_id: str) -> dict[str, Any] |
     return {"p_success": row[0], "mastery_state": inputs.get("mastery_state")}
 
 
+#: The ``item_forecast_payloads`` owner key of a presentation's frozen
+#: ``llm_v3`` request inputs (Codex review F2).
+FROZEN_STATE_PREFIX = "ad_llm_v3_state:plan_presentation:"
+FROZEN_STATE_FORECASTER = "llm_v3"
+
+
+def frozen_state_key(presentation_id: str) -> str:
+    return f"{FROZEN_STATE_PREFIX}{presentation_id}"
+
+
+def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presentation_id: str, served_at: str,
+                               protected: Any) -> str | None:
+    """In the serve transaction: the exact ``llm_v3`` request inputs of one presentation.
+
+    Codex review F2: the background forecasters run after the serve, when an
+    earlier attempt may have been regraded or the item edited; reading the
+    history or the item then would claim pre-serve inputs it did not have.
+    So the serve freezes them: the served revision's item view and the
+    learner's history card as the serve saw them (the incumbent's numbers
+    from its receipt, just written in this transaction; each earlier
+    attempt's grade as it stood). The background job sends exactly this and
+    nothing else; a presentation without it (served while the forecasters
+    were off, or before AD1) is never forecast. Returns the owner key, or
+    None when no ``llm_v3`` forecaster is on."""
+
+    if not ({LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))):
+        return None
+    content_hash, _json = item_revision(item)
+    state = {"item": item_view(vault, item),
+             "learner": history_card(vault, connection, item, served_at=served_at, protected=protected,
+                                     incumbent=_incumbent_inputs(connection, presentation_id))}
+    key = frozen_state_key(presentation_id)
+    store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
+        "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
+        "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
+        "content_hash": content_hash, "inputs_as_of": served_at,
+    }, created_at=served_at)
+    return key
+
+
+def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | None:
+    rows = store.payloads(connection, [frozen_state_key(presentation_id)])
+    for row in rows:
+        content = row.get("content")
+        if row.get("kind") == "request" and isinstance(content, dict) and isinstance(content.get("state"), dict):
+            if content.get("state_hash") == content_key(content["state"]):
+                return content
+    return None
+
+
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
-                          clock: Clock | None = None,
-                          live: Callable[[], bool] | None = None) -> list[ForecastOutcome]:
-    """``llm_v3:llm`` and ``llm_v3:decider`` for one plan presentation, as of its serve."""
+                          clock: Clock | None = None, fence: Any = None) -> list[ForecastOutcome]:
+    """``llm_v3:llm`` and ``llm_v3:decider`` for one plan presentation, from its frozen serve inputs.
+
+    The request is exactly what :func:`freeze_presentation_inputs` stored in
+    the serve transaction (Codex review F2), so ``inputs_as_of`` = the serve
+    is true. Without them (``no_frozen_inputs``) nothing is sent. Under the
+    presentation's durable claim (Codex review F5, F6)."""
+
+    from learnloop.adaptive_difficulty.claims import LeaseLost, claimed, presentation_key
 
     clients = clients or Clients()
     chosen = [name for name in (LLM_V3_LLM, LLM_V3_DECIDER) if name in outside_forecasters(vault.config)]
@@ -384,80 +509,103 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
         presentation = _presentation(connection, presentation_id)
         if presentation is None:
             return [ForecastOutcome(name, "not_found") for name in chosen]
-        item = vault.practice_items.get(str(presentation["practice_item_id"]))
-        protected = protected_items(vault, repository)
-        if item is None or str(item.id) in protected:
-            return [ForecastOutcome(name, "protected" if item is not None else "not_found") for name in chosen]
-        served_at = str(presentation["served_at"])
-        state = {"item": item_view(vault, item),
-                 "learner": history_card(vault, connection, item, served_at=served_at, protected=protected,
-                                         incumbent=_incumbent_inputs(connection, presentation_id))}
+        frozen = _frozen_inputs(connection, presentation_id)
         pending = [name for name in chosen
                    if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
-    content_hash, _json = item_revision(item)
-    inputs = {"practice_item_id": str(item.id), "plan_presentation_id": presentation_id, "content_hash": content_hash,
-              "state_version": STATE_VERSION, "state_hash": content_key(state)}
-    envelope = ad_spend.ad_envelope(vault, repository, clock=clock)
+    if not pending:
+        return []
+    if frozen is None:
+        return [ForecastOutcome(name, "no_frozen_inputs") for name in pending]
+    item_id = str(presentation["practice_item_id"])
+    item = vault.practice_items.get(item_id)
+    protection = guard(vault, repository)
+    if item_id in protection or (item is not None and protection.covers(item)):
+        return [ForecastOutcome(name, "protected") for name in pending]
     outcomes: list[ForecastOutcome] = []
-    for name in pending:
-        if live is not None and not live():
-            outcomes.append(ForecastOutcome(name, "stale"))
-            continue
-        outcome = ForecastOutcome(name, "ok")
-        key = receipt_key("plan_presentation", presentation_id, name)
-        issued = utc_now_iso(clock)
-        p, response, model = None, None, None
-        status = "ok"
-        if name == LLM_V3_LLM:
-            client, why = _llm_client(vault, clients.llm)
-            prompt = render_structured_prompt("Predict the learner's next answer", V3_PROMPT_VERSION, {
-                "instructions": (f"{V3_QUESTION} Judge only from the state: the item and the learner's earlier "
-                                 "work, which all happened before this item was shown. Return p_correct, your "
-                                 "probability strictly between 0 and 1 that the answer will be fully or almost fully "
-                                 "correct without help."),
-                "state": state,
-            })
-            request: Any = {"prompt": prompt}
-            if client is None:
-                outcomes.append(ForecastOutcome(name, "unavailable", reason=why))
-                continue
-        else:
-            client = _decider_client(vault, clients.decider)
-            request = {"state": state, "questions": {key_: q.wire() for key_, q in DECIDER_QUESTIONS.items()}}
-            if client is None:
-                outcomes.append(ForecastOutcome(name, "unavailable", reason="no Decider"))
-                continue
-        try:
-            if name == LLM_V3_LLM:
-                p, response, model = _ask_llm(vault, repository, client, prompt=request["prompt"],
-                                              owner_id=presentation_id, envelope=envelope)
-            else:
-                p, response, model = _ask_decider(vault, repository, client, state=state, owner_id=presentation_id,
-                                                  envelope=envelope)
-        except AIInterrupted:
-            raise
-        except SpendLimitExceeded as exc:
-            status, outcome.reason = "refused_spend", str(exc)[:200]
-        except Exception as exc:  # noqa: BLE001 - a failed forecaster is a failed receipt, never a crash
-            status, outcome.reason = "failed", type(exc).__name__
-        received = utc_now_iso(clock)
-        if live is not None and not live():
-            outcomes.append(ForecastOutcome(name, "stale"))
-            continue
-        final_key = key if status == "ok" else f"{key}:{status}:{received}"
-        _store_payloads(repository, final_key, name, request, response, received,
-                        vault.config.router.payload_retention_days)
-        outcome.receipt_id = _write(repository, vault, _receipt(
-            key=final_key, forecaster=name, version=V3_PROMPT_VERSION if name == LLM_V3_LLM else DECIDER_QUESTION_SET,
-            scope="presentation", decision_kind="serve", binding_kind="plan_presentation", inputs=inputs,
-            inputs_as_of=served_at, p=p, status=status, received_at=received, model=model,
-            request_hash=content_key(request),
-            columns={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
-                     "plan_presentation_id": presentation_id, "decision_ref": presentation_id},
-        ), created_at=max(issued, served_at))
-        outcome.status, outcome.p = status, p
-        outcomes.append(outcome)
+    try:
+        with claimed(repository, presentation_key(presentation_id), fence=fence) as worker:
+            if worker is None:
+                return [ForecastOutcome(name, "busy") for name in pending]
+            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                pending = [name for name in pending
+                           if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
+            for name in pending:
+                outcomes.append(_forecast_one(vault, worker, name, presentation, frozen, clients=clients,
+                                              clock=clock))
+    except LeaseLost:
+        done = {outcome.forecaster for outcome in outcomes if outcome.status != "stale"}
+        outcomes = [outcome for outcome in outcomes if outcome.forecaster in done]
+        outcomes += [ForecastOutcome(name, "stale") for name in pending if name not in done]
     return outcomes
+
+
+def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str, Any], frozen: Mapping[str, Any], *,
+                  clients: Clients, clock: Clock | None) -> ForecastOutcome:
+    from learnloop.adaptive_difficulty.claims import LeaseLost
+
+    repository = worker.repository
+    presentation_id = str(presentation["id"])
+    served_at = str(presentation["served_at"])
+    state = frozen["state"]
+    inputs = {"practice_item_id": str(frozen["practice_item_id"]), "plan_presentation_id": presentation_id,
+              "content_hash": frozen["content_hash"], "state_version": frozen.get("state_version", STATE_VERSION),
+              "state_hash": frozen["state_hash"], "frozen_inputs": frozen_state_key(presentation_id)}
+    envelope = ad_spend.ad_envelope(vault, worker.base, clock=clock)
+    outcome = ForecastOutcome(name, "ok")
+    key = receipt_key("plan_presentation", presentation_id, name)
+    issued = utc_now_iso(clock)
+    p, response, model = None, None, None
+    status = "ok"
+    if name == LLM_V3_LLM:
+        client, why = _llm_client(vault, clients.llm)
+        prompt = render_structured_prompt("Predict the learner's next answer", V3_PROMPT_VERSION, {
+            "instructions": (f"{V3_QUESTION} Judge only from the state: the item and the learner's earlier "
+                             "work, which all happened before this item was shown. Return p_correct, your "
+                             "probability strictly between 0 and 1 that the answer will be fully or almost fully "
+                             "correct without help."),
+            "state": state,
+        })
+        request: Any = {"prompt": prompt}
+        if client is None:
+            return ForecastOutcome(name, "unavailable", reason=why)
+    else:
+        client = _decider_client(vault, clients.decider)
+        request = {"state": state, "questions": {key_: q.wire() for key_, q in DECIDER_QUESTIONS.items()}}
+        if client is None:
+            return ForecastOutcome(name, "unavailable", reason="no Decider")
+    try:
+        worker.require_live()
+        if name == LLM_V3_LLM:
+            p, response, model = _ask_llm(vault, repository, client, prompt=request["prompt"],
+                                          owner_id=presentation_id, envelope=envelope)
+        else:
+            p, response, model = _ask_decider(vault, repository, client, state=state, owner_id=presentation_id,
+                                              envelope=envelope)
+    except (AIInterrupted, LeaseLost):
+        raise
+    except SpendLimitExceeded as exc:
+        status, outcome.reason = "refused_spend", str(exc)[:200]
+    except Exception as exc:  # noqa: BLE001 - a failed forecaster is a failed receipt, never a crash
+        status, outcome.reason = "failed", type(exc).__name__
+    received = utc_now_iso(clock)
+    final_key = key if status == "ok" else f"{key}:{status}:{received}"
+    version = V3_PROMPT_VERSION if name == LLM_V3_LLM else DECIDER_QUESTION_SET
+    request_hash = content_key(request)
+    outcome.receipt_id = _write(repository, vault, _receipt(
+        key=final_key, forecaster=name, version=version,
+        scope="presentation", decision_kind="serve", binding_kind="plan_presentation", inputs=inputs,
+        inputs_as_of=served_at, p=p, status=status, received_at=received, model=model,
+        request_hash=request_hash,
+        columns={"practice_item_id": str(frozen["practice_item_id"]),
+                 "learning_object_id": frozen.get("learning_object_id"),
+                 "plan_presentation_id": presentation_id, "decision_ref": presentation_id},
+    ), created_at=max(issued, served_at), payload_key=final_key, request=request, response=response,
+        received=received,
+        judgment={"left_kind": "plan_presentation", "left_id": presentation_id,
+                  "judge": "llm" if name == LLM_V3_LLM else "decider", "model": model,
+                  "prompt_version": version, "input_hash": request_hash})
+    outcome.status, outcome.p = status, p
+    return outcome
 
 
 __all__ = [
@@ -467,6 +615,9 @@ __all__ = [
     "ItemForecastV1",
     "forecast_item",
     "forecast_presentation",
+    "freeze_presentation_inputs",
+    "frozen_state_key",
     "history_card",
+    "item_prompt",
     "item_view",
 ]

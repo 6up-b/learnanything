@@ -19,7 +19,9 @@ AD2+AD3 stage moves into ``attempts/salience_firewall.py``):
   a section once per section and LO, passage views one per LO per day;
 * ``reader_tutor_exchange``: an answered tutor question asked while reading
   (``question_events`` with context ``reader`` or ``library``; its subkind);
-  its LO, or its facets where ``facets_json`` names them; three per LO per day;
+  its LO, or its facets where ``facets_json`` names them; three per LO per day.
+  Its source time is when the answer completed (``answered_at``, else the
+  row's ``created_at`` when it was written answered; Codex review F4);
 * ``worked_example``: a worked-example block (found by its role) the learner
   was shown (``shown``: a span view of it) or that sits in a section they
   completed (``in_completed_section``); once per example;
@@ -331,6 +333,10 @@ def _exposure_events(connection: Any, reading_map: ReadingMap, lower: str | None
     return events
 
 
+def _has_column(connection: Any, table: str, column: str) -> bool:
+    return any(str(row[1]) == column for row in connection.execute(f"PRAGMA table_info({table})"))
+
+
 def _named_facets(raw: Any) -> tuple[str, ...]:
     try:
         value = json.loads(raw) if raw else []
@@ -345,13 +351,22 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
     from learnloop.ingest.locators import parse_block_span
 
     events: list[_Event] = []
-    for row_id, context, note_id, item_id, facets_json, created_at in connection.execute(
-        "SELECT id, context, note_id, practice_item_id, facets_json, created_at FROM question_events "
-        "WHERE context IN ('reader', 'library') AND answer_status = 'answered'"
+    # The exchange exists once its answer completed (Codex review F4): a
+    # pending question answered later is stamped by ``answered_at`` (set once
+    # on completion, migration 213), never by when it was asked; a row
+    # written already answered has its completion time in ``created_at``.
+    # Every answered row not yet recorded is read, whatever the window's
+    # lower bound, so a slow completion is never missed.
+    answered = ("COALESCE(answered_at, created_at)" if _has_column(connection, "question_events", "answered_at")
+                else "created_at")
+    for row_id, context, note_id, item_id, facets_json, available_at in connection.execute(
+        f"SELECT q.id, q.context, q.note_id, q.practice_item_id, q.facets_json, {answered} FROM question_events q "
+        "WHERE q.context IN ('reader', 'library') AND q.answer_status = 'answered' AND NOT EXISTS ("
+        f"SELECT 1 FROM {store.READING} r WHERE r.kind = 'reader_tutor_exchange' AND r.source_table = "
+        "'question_events' AND r.source_id = q.id)"
     ):
-        stamp = _stamp(created_at)
-        if not _in_window(stamp, lower, upper) or _recorded(connection, "reader_tutor_exchange", str(context),
-                                                            "question_events", str(row_id)):
+        stamp = _stamp(available_at)
+        if not _in_window(stamp, None, upper):
             continue
         los: list[str] = []
         parsed = parse_block_span(str(note_id)) if note_id else None

@@ -48,7 +48,7 @@ from learnloop.db.stores import ad_receipts as store
 from learnloop.db.stores.judgments import append_judgment
 
 from learnloop.adaptive_difficulty import spend as ad_spend
-from learnloop.adaptive_difficulty.protection import is_protected
+from learnloop.adaptive_difficulty.protection import guard
 from learnloop.adaptive_difficulty.switches import feature_audit_enabled
 
 LOG = logging.getLogger(__name__)
@@ -249,37 +249,76 @@ def _llm_client(vault: Any, client: Any | None) -> tuple[Any | None, str | None]
     return resolve_client(vault, plan_route(vault, LLM_ROUTE))  # type: ignore[arg-type]
 
 
+def _remaining(repository: Any, content_hash: str) -> list[str]:
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        done = canonical_audits(connection, content_hash)
+    return [dimension for dimension in DIMENSIONS if dimension not in done]
+
+
 def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None = None,
                    llm_client: Any | None = None, clock: Clock | None = None,
-                   protected: frozenset[str] | None = None) -> AuditOutcome:
-    """Audit one item's current revision: the dimensions it has no canonical audit for.
+                   protected: Any = None, fence: Any = None) -> AuditOutcome:
+    """Audit one item revision: the dimensions it has no canonical audit for.
+
+    ``item`` is the revision itself (a current item, or a snapshot the
+    backfill reads); a protected revision is never audited (A8; Codex review
+    F1: the revision's own source references are checked, not only the
+    current item's id). The work runs under the revision's durable claim
+    (:mod:`learnloop.adaptive_difficulty.claims`; Codex review F5, F6): a
+    revision another worker is auditing is ``busy``; the claim's holder
+    re-reads the canonical audits before asking, so a revision is paid for
+    once; and with a background job's ``fence`` nothing more is asked or
+    written once its vault is switched or closed (``stale``).
 
     Never raises for a model failure: what the Decider leaves unanswered goes
     to the LLM judge, and what neither answers stays unanswered (retried by a
     later preparation or the backfill). A cancellation propagates."""
 
+    from learnloop.adaptive_difficulty.claims import LeaseLost, audit_key, claimed
+
     item_id = str(getattr(item, "id", ""))
     outcome = AuditOutcome(status="disabled", practice_item_id=item_id)
     if not feature_audit_enabled(vault.config):
         return outcome
-    if (item_id in protected) if protected is not None else is_protected(vault, repository, item_id):
+    if guard(vault, repository, protected).covers(item):
         outcome.status = "protected"
         return outcome
     content_hash, item_json = item_revision(item)
     outcome.content_hash = content_hash
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        done = canonical_audits(connection, content_hash)
-    remaining = [dimension for dimension in DIMENSIONS if dimension not in done]
-    if not remaining:
+    if not _remaining(repository, content_hash):
         outcome.status = "current"
         return outcome
+    try:
+        with claimed(repository, audit_key(content_hash), fence=fence) as worker:
+            if worker is None:
+                outcome.status = "busy"
+                return outcome
+            # Re-read under the claim: another worker may have finished it.
+            remaining = _remaining(repository, content_hash)
+            if not remaining:
+                outcome.status = "current"
+                return outcome
+            _audit(vault, worker, item, item_json, content_hash, remaining, outcome,
+                   decider_factory=decider_factory, llm_client=llm_client, clock=clock)
+    except LeaseLost:
+        outcome.status = "stale"
+    return outcome
+
+
+def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str, remaining: list[str],
+           outcome: AuditOutcome, *, decider_factory: Callable[[], Any] | None, llm_client: Any | None,
+           clock: Clock | None) -> None:
+    from learnloop.adaptive_difficulty.claims import LeaseLost
+
+    item_id = outcome.practice_item_id
+    repository = worker.repository
     # The audited revision is kept, so a later reader (level credit, AD4)
     # finds the content its audit read.
     with repository.atomic():
         store.insert_item_snapshot(repository.connection(), content_hash_value=content_hash,
                                    practice_item_id=item_id, item_json=item_json, created_at=utc_now_iso(clock))
     state = audit_state(item)
-    envelope = ad_spend.ad_envelope(vault, repository, clock=clock)
+    envelope = ad_spend.ad_envelope(vault, worker.base, clock=clock)
     pending = list(remaining)
     decider_rows: dict[str, tuple[str, str]] = {}
     from learnloop import decider_judgments
@@ -290,6 +329,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
         status = "ok"
         distributions: dict[str, dict[str, float]] = {}
         try:
+            worker.require_live()
             client = _decider_client(vault, decider_factory)
             if client is None:
                 raise AIProviderUnavailable("Decider unavailable")
@@ -302,7 +342,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
             model = str(result.model or model)
             distributions = {name: choice_probabilities(result.answers[name], question)
                              for name, question in questions.items()}
-        except AIInterrupted:
+        except (AIInterrupted, LeaseLost):
             raise
         except SpendLimitExceeded:
             status = "refused"
@@ -334,11 +374,11 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
             else:
                 decider_rows[dimension] = (judgment_id, verdict)
     if pending:
+        worker.require_live()
         _llm_fallback(vault, repository, item, pending, decider_rows, outcome, envelope=envelope,
                       client=llm_client, content_hash=content_hash, clock=clock)
     outcome.unanswered = [dimension for dimension in remaining if dimension not in outcome.answered]
     outcome.status = "audited" if outcome.answered else "failed"
-    return outcome
 
 
 def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],

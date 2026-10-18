@@ -22,6 +22,15 @@ ALTER TABLE practice_attempts ADD COLUMN difficulty_rating TEXT
 ALTER TABLE practice_attempts ADD COLUMN first_hint_progress TEXT
   CHECK (first_hint_progress IS NULL OR first_hint_progress IN ('no_draft', 'draft_started'));
 
+-- §5.11 (Codex review F4): when a pending tutor question was answered. A
+-- reader tutor exchange becomes a learning opportunity when its answer
+-- completes, not when the question was asked: the sweep stamps it (and orders
+-- replay) by this time, so a question pending at a serve is never placed
+-- before that serve. Set once, by the pending-to-answered update; a row
+-- written already answered keeps it null (its created_at is when it was
+-- answered), and so does every earlier row.
+ALTER TABLE question_events ADD COLUMN answered_at TEXT;
+
 -- §7.5: the features and signals an AD decision or update reads, frozen when
 -- the item is served. One row per presentation of a never-attempted item,
 -- written in the serve transaction beside the in-process forecast receipts. A

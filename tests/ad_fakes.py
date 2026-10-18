@@ -170,8 +170,8 @@ def everything_text(sqlite_path: Path) -> str:
     parts = []
     for table in ("forecast_receipts", "item_forecast_payloads", "item_serve_inputs", "ad_reading_opportunities"):
         parts.append(json.dumps(rows(sqlite_path, f"SELECT * FROM {table}"), default=str))
-    parts.append(json.dumps(rows(sqlite_path, "SELECT * FROM judgment_ledger WHERE task = 'ad_feature_audit'"),
-                            default=str))
+    parts.append(json.dumps(rows(sqlite_path, "SELECT * FROM judgment_ledger WHERE task IN "
+                                              "('ad_feature_audit', 'ad_item_forecast')"), default=str))
     return "\n".join(parts)
 
 

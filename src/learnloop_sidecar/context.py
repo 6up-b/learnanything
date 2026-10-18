@@ -65,6 +65,9 @@ class SidecarContext:
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+        # Adaptive difficulty AD1 (Codex review F10): a reload of the same
+        # vault compares its items with these, to prepare new revisions.
+        previous = self.vault if self.vault_root is not None and target == self.vault_root else None
         self.vault_root = target
         self.vault = load_vault(self.vault_root)
         self.repository = open_vault_repository(
@@ -110,6 +113,7 @@ class SidecarContext:
         )
 
         schedule_certification_cold_probes(self.vault, self.repository)
+        self.prepare_new_revisions(previous)
         # Startup maintenance probes the Codex runtime, which (for the HTTP provider)
         # can launch the server and block up to startup_timeout_seconds. Skip it on
         # refreshes that only need fresh vault/DB state, not a runtime health pass.
@@ -165,6 +169,23 @@ class SidecarContext:
                                          client=getattr(self, "hint_outcome_client", None), builds=self.map_builds)
         except Exception:  # noqa: BLE001 - never block opening the vault
             _LOGGER.warning("could not resume outcome placements", exc_info=True)
+
+    def prepare_new_revisions(self, previous: LoadedVault | None, item_ids: list[str] | None = None) -> None:
+        """Adaptive difficulty AD1 (spec §7.2, §8.2; Codex review F10): the
+        feature audit and ``llm_v1:item`` of item revisions published,
+        imported or edited since the last load (or the watcher's changed
+        items), in the background on the vault's build registry. Never
+        blocks or fails the reload."""
+
+        if self.vault is None or self.repository is None:
+            return
+        try:
+            from learnloop.adaptive_difficulty.background import schedule_new_revisions
+
+            schedule_new_revisions(previous, self.vault, self.repository.sqlite_path, item_ids=item_ids,
+                                   clients=getattr(self, "ad_clients", None), builds=self.map_builds)
+        except Exception:  # noqa: BLE001 - never block a reload
+            _LOGGER.warning("could not schedule AD preparation of new item revisions", exc_info=True)
 
     def close_background_builds(self) -> bool:
         """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""
@@ -406,6 +427,8 @@ class SidecarContext:
                 "snapshot": self.app_snapshot(),
             }
 
+        if changed:
+            self.prepare_new_revisions(None, item_ids=changed)
         revision = (
             repository.bump_queue_revision()
             if changed

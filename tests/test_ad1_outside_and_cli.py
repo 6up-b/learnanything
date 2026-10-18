@@ -152,8 +152,11 @@ def test_ad_backfill_dry_run_plans_and_writes_nothing(tmp_path):
     assert plan["dry_run"] is True
     assert plan["audit"]["status"] == "planned" and plan["audit"]["revisions"] == active
     assert plan["audit"]["dimensions"] == 5 * active
-    assert plan["llm_v1"] == {"status": "planned", "items": active, "calls": active,
-                              "estimated_input_tokens": plan["llm_v1"]["estimated_input_tokens"]}
+    # Each resolved route planned through the spend framework (Codex review F9).
+    assert plan["llm_v1"]["status"] == "planned" and plan["llm_v1"]["items"] == active
+    assert plan["llm_v1"]["llm"]["calls"] == active and plan["llm_v1"]["llm"]["role"] == "primary"
+    assert plan["audit"]["decider"]["requests"] == active and plan["audit"]["llm"]["role"] == "fallback_worst_case"
+    assert plan["spend"]["daily_spend_cap_usd"] == 0.5 and plan["spend"]["fits_today"] is True
     assert plan["reading"] == {"status": "planned", "model_calls": 0}
     assert paths.sqlite_path.read_bytes() == before
     refused = CliRunner().invoke(app, ["ad", "backfill", "--vault", str(paths.root), "--dry-run"])

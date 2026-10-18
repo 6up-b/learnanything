@@ -2973,6 +2973,13 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
                 },
                 now,
             )
+        from learnloop.db.stores import plan_presentations as presentations
+
+        # Adaptive difficulty AD1 records only the serve that inserts the
+        # presentation (Codex review F3): a reopen keeps the first serve's
+        # served_at, and AD's inputs are what that serve saw, never today's.
+        fresh = presentations.plan_presentations_present(connection) and presentations.presentation_for(
+            connection, block.id, item.practice_item_id) is None
         presentation_id = _present(
             env,
             connection,
@@ -2986,7 +2993,7 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             candidate_id=candidate_id,
             served_at=item.served_at or now,
         )
-        if presentation_id is not None:
+        if presentation_id is not None and fresh:
             # Adaptive difficulty AD1 (spec §7.5, §8.1, §5.11): the reading
             # sweep, the frozen serve inputs and the in-process forecasts, in
             # this transaction and after the presentation. Logging only: it

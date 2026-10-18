@@ -4325,6 +4325,7 @@ class Repository(
         source_context: Mapping[str, Any] | None = None,
         leak_overlap: float | None = None,
         remediation_episode_id: str | None = None,
+        answered_at: str | None = None,
     ) -> bool:
         """Complete (or fail) a pending question event after the provider call.
 
@@ -4332,8 +4333,11 @@ class Repository(
         with answer_status='pending'; this fills in the answer and the tutor's
         classification (including the §13.4 epistemic vs interaction-preference
         channel), or marks the turn 'failed' while keeping the question text as
-        evidence."""
+        evidence. An answer stamps ``answered_at`` (default: now) once: the
+        first completion's time is kept (adaptive difficulty AD1, migration
+        213; Codex review F4)."""
 
+        completed = answered_at or utc_now_iso()
         with self.connection() as connection:
             cursor = connection.execute(
                 """
@@ -4343,7 +4347,8 @@ class Repository(
                     signal_channel = COALESCE(?, signal_channel),
                     source_context_json = COALESCE(?, source_context_json),
                     leak_overlap = COALESCE(?, leak_overlap),
-                    remediation_episode_id = COALESCE(?, remediation_episode_id)
+                    remediation_episode_id = COALESCE(?, remediation_episode_id),
+                    answered_at = CASE WHEN ? = 'answered' THEN COALESCE(answered_at, ?) ELSE answered_at END
                 WHERE id = ?
                 """,
                 (
@@ -4357,6 +4362,8 @@ class Repository(
                     _json(dict(source_context)) if source_context is not None else None,
                     leak_overlap,
                     remediation_episode_id,
+                    answer_status,
+                    completed,
                     event_id,
                 ),
             )

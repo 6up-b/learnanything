@@ -1,7 +1,8 @@
 """Adaptive difficulty AD1's migration 213 (spec_adaptive_difficulty_v1 §11.2; docs/reviews/adaptive-difficulty-ad1.md).
 
 The 212 -> 213 upgrade adds the two nullable ``practice_attempts`` columns
-(``difficulty_rating``, ``first_hint_progress``, CHECKed vocabularies),
+(``difficulty_rating``, ``first_hint_progress``, CHECKed vocabularies), the
+nullable ``question_events.answered_at`` (Codex review F4),
 ``item_serve_inputs`` and ``ad_reading_opportunities`` (RECEIPT, append-only
 by trigger) and ``item_forecast_payloads`` (WORKFLOW), and nothing else; no
 ``item_forecasts`` table (item forecasts are ``forecast_receipts`` rows of
@@ -33,7 +34,8 @@ AD1_ADDED_OBJECTS = frozenset({
     "item_serve_inputs_no_delete", "idx_ad_reading_opportunities_lo", "idx_ad_reading_opportunities_written",
     "ad_reading_opportunities_no_update", "ad_reading_opportunities_no_delete", "idx_item_forecast_payloads_created",
 })
-AD1_ALTERED_TABLES = frozenset({"practice_attempts"})
+#: ``question_events`` gains ``answered_at`` (Codex review F4).
+AD1_ALTERED_TABLES = frozenset({"practice_attempts", "question_events"})
 NEW_TABLES = {"item_serve_inputs", "ad_reading_opportunities", "item_forecast_payloads"}
 NEW_OBJECTS = NEW_TABLES | {
     "idx_item_serve_inputs_item", "idx_item_serve_inputs_plan", "item_serve_inputs_no_update",
@@ -78,7 +80,8 @@ def _upgrade(tmp_path: Path) -> Path:
         name for name in after if name.startswith("sqlite_autoindex") and name.split("_autoindex_")[1].rsplit("_", 1)[0]
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)}
-    assert changed == {"practice_attempts"}, "213 alters practice_attempts (two columns) and nothing else"
+    assert changed == AD1_ALTERED_TABLES, (
+        "213 alters practice_attempts (two columns) and question_events (answered_at) and nothing else")
     assert "item_forecasts" not in after
     return database
 
@@ -87,6 +90,8 @@ def _check(database: Path) -> None:
     with closing(connect(database)) as connection:
         columns = {row[1]: row for row in connection.execute("PRAGMA table_info(practice_attempts)")}
         assert columns["difficulty_rating"][3] == 0 and columns["first_hint_progress"][3] == 0  # nullable
+        questions = {row[1]: row for row in connection.execute("PRAGMA table_info(question_events)")}
+        assert questions["answered_at"][3] == 0 and questions["answered_at"][4] is None  # nullable, no default
         old = connection.execute("SELECT difficulty_rating, first_hint_progress FROM practice_attempts "
                                  "WHERE id = 'att_old'").fetchone()
         assert old is None or tuple(old) == (None, None)

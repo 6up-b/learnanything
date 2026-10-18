@@ -2,16 +2,22 @@
 
 * :func:`schedule_presentation_forecasts`: after a plan serve's response is
   built, ``llm_v3:llm`` and ``llm_v3:decider`` for the presentation.
-* :func:`schedule_item_preparation`: after a plan is built or read, the
-  planned items' current revisions are prepared for the pool: the feature
-  audit first (§7.2), then ``llm_v1:item`` (§8.2), each once per revision.
+* :func:`schedule_item_preparation`: after an item revision is published,
+  imported or edited (the sidecar's reload and file-watcher refresh, Codex
+  review F10) and, as the recovery path, after a plan is built or read (the
+  planned items), the revisions are prepared for the pool: the feature audit
+  first (§7.2), then ``llm_v1:item`` (§8.2), each once per revision.
 
 Both return at once and never raise. The work runs in the sidecar's
 :class:`~learnloop.hints.map_builder.BackgroundBuilds` registry (bound to the
-loaded vault: a vault switch, ``shutdown`` or EOF stops admitting jobs, and a
-job checks its fence before each write step), on its own connection, one job
-per key in flight per process. Without an injected client,
-``LEARNLOOP_AD_MODELS=off`` (the test suite; a vault-copy run) starts nothing.
+loaded vault: a vault switch, ``shutdown`` or EOF stops admitting jobs), on
+its own connection, one job per key in flight per process. Inside a job each
+unit of paid work holds a durable claim (``judgment_work_claims``, across
+processes) and writes fenced by the job's own registry fence: nothing more is
+asked, and no judgment, payload or receipt lands, once its vault is switched
+or closed (:mod:`learnloop.adaptive_difficulty.claims`; Codex review F5, F6).
+Without an injected client, ``LEARNLOOP_AD_MODELS=off`` (the test suite; a
+vault-copy run) starts nothing.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from learnloop.adaptive_difficulty.switches import (
     LLM_V1,
     LLM_V3_DECIDER,
     LLM_V3_LLM,
+    any_background_work,
     feature_audit_enabled,
     outside_forecasters,
 )
@@ -57,7 +64,7 @@ def _injected(clients: Clients | None) -> bool:
     return clients is not None and (clients.llm is not None or clients.decider is not None)
 
 
-def _launch(sqlite_path: Any, key: str, job: Callable[[Callable[[], bool]], None], *, builds: Any,
+def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: Any,
             name: str) -> threading.Thread | None:
     candidate = (str(Path(sqlite_path)), key)
     with _GUARD:
@@ -70,7 +77,10 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Callable[[], bool]], None
             def run() -> None:
                 try:
                     if fence.live():
-                        job(fence.live)
+                        # The fence itself, not only its liveness (Codex
+                        # review F5): each claimed write registers against a
+                        # close, as the map builds' writes do.
+                        job(fence)
                 except Exception:  # noqa: BLE001 - a background job never reaches the serve
                     LOG.warning("adaptive difficulty background job %s failed", key, exc_info=True)
                 finally:
@@ -100,11 +110,11 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
         if ad_spend.models_off() and not _injected(clients):
             return None
 
-        def job(live: Callable[[], bool]) -> None:
+        def job(fence: Any) -> None:
             from learnloop.db.repositories import Repository
 
             repository = Repository.attach(Path(sqlite_path))
-            forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, live=live)
+            forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, fence=fence)
 
         return _launch(sqlite_path, f"presentation:{presentation_id}", job, builds=builds,
                        name=f"learnloop-ad-forecast-{presentation_id}")
@@ -115,16 +125,24 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
 
 def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None = None,
                   decider_factory: Callable[[], Any] | None = None, clock: Any = None,
-                  live: Callable[[], bool] | None = None, limit: int = PREPARE_LIMIT) -> list[dict[str, Any]]:
-    """Audit, then forecast (``llm_v1:item``), each item's current revision; once each."""
+                  fence: Any = None, limit: int = PREPARE_LIMIT) -> list[dict[str, Any]]:
+    """Audit, then forecast (``llm_v1:item``), each item's current revision; once each.
+
+    Each unit runs under its own durable claim and, with a background job's
+    ``fence``, stops asking and writing once the vault is switched or closed
+    (Codex review F5, F6): a revision another job or process is preparing is
+    ``busy`` here and left to it."""
 
     from learnloop.adaptive_difficulty.feature_audit import audit_revision, item_revision
-    from learnloop.adaptive_difficulty.protection import protected_items
+    from learnloop.adaptive_difficulty.protection import protection
+
+    def live() -> bool:
+        return fence is None or fence.live()
 
     results: list[dict[str, Any]] = []
-    protected = protected_items(vault, repository)
+    protected = protection(vault, repository)
     for item_id in list(dict.fromkeys(str(value) for value in item_ids))[:limit]:
-        if live is not None and not live():
+        if not live():
             break
         item = vault.practice_items.get(item_id)
         if item is None or getattr(item, "status", "active") != "active":
@@ -132,15 +150,15 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
         entry: dict[str, Any] = {"practice_item_id": item_id}
         if feature_audit_enabled(vault.config):
             entry["audit"] = audit_revision(
-                vault, repository, item, clock=clock, protected=protected,
+                vault, repository, item, clock=clock, protected=protected, fence=fence,
                 decider_factory=decider_factory or ((lambda: clients.decider) if clients and clients.decider else None),
                 llm_client=clients.llm if clients else None,
             ).as_dict()
-        if live is not None and not live():
+        if not live():
             break
         if LLM_V1 in outside_forecasters(vault.config):
             entry["llm_v1"] = forecast_item(vault, repository, item, clients=clients, clock=clock,
-                                            protected=protected).as_dict()
+                                            protected=protected, fence=fence).as_dict()
         results.append(entry)
         if _settled(entry):
             with _GUARD:
@@ -163,7 +181,7 @@ def _settled(entry: dict[str, Any]) -> bool:
 
 def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[str], *,
                               clients: Clients | None = None, builds: Any = None,
-                              clock: Any = None) -> threading.Thread | None:
+                              clock: Any = None, limit: int = PREPARE_LIMIT) -> threading.Thread | None:
     try:
         from learnloop.adaptive_difficulty.feature_audit import item_revision
 
@@ -183,17 +201,58 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
         if ad_spend.models_off() and not _injected(clients):
             return None
 
-        def job(live: Callable[[], bool]) -> None:
+        def job(fence: Any) -> None:
             from learnloop.db.repositories import Repository
 
             repository = Repository.attach(Path(sqlite_path))
-            prepare_items(vault, repository, ids, clients=clients, clock=clock, live=live)
+            prepare_items(vault, repository, ids, clients=clients, clock=clock, fence=fence, limit=limit)
 
-        return _launch(sqlite_path, "prepare:" + ",".join(sorted(ids)[:PREPARE_LIMIT]), job, builds=builds,
+        from learnloop.ai.execution import content_key
+
+        return _launch(sqlite_path, "prepare:" + content_key(sorted(ids)[:limit]), job, builds=builds,
                        name="learnloop-ad-prepare")
     except Exception:  # noqa: BLE001
         LOG.warning("AD item preparation not scheduled", exc_info=True)
         return None
 
 
-__all__ = ["PREPARE_LIMIT", "prepare_items", "schedule_item_preparation", "schedule_presentation_forecasts"]
+def changed_revisions(previous: Any, vault: Any) -> list[str]:
+    """The active items whose current revision is new since ``previous`` (the
+    vault as this process last loaded it): published, imported or edited."""
+
+    if previous is None:
+        return []
+    before = getattr(previous, "practice_items", {}) or {}
+    return sorted(item_id for item_id, item in (getattr(vault, "practice_items", {}) or {}).items()
+                  if getattr(item, "status", "active") == "active" and before.get(item_id) != item)
+
+
+def schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_ids: Iterable[str] | None = None,
+                           clients: Clients | None = None, builds: Any = None) -> threading.Thread | None:
+    """Prepare the revisions published, imported or edited since the last load (Codex review F10).
+
+    Spec §7.2/§8.2: the feature audit and ``llm_v1:item`` run "after any item
+    is generated or imported", not only once it reaches a plan. Every path
+    that publishes or imports an item, or edits one, ends in the sidecar's
+    vault reload (or the file watcher's incremental refresh, ``item_ids``),
+    so the new revisions are scheduled there, every one of them, in the
+    background; the plan hook stays the recovery path (a CLI import, a job
+    a closed process never finished). A first open schedules nothing: the
+    existing pool is the owner-run backfill's (dry-run first). Never raises."""
+
+    try:
+        if not any_background_work(vault.config):
+            return None
+        ids = sorted(set(str(value) for value in item_ids)) if item_ids is not None else changed_revisions(
+            previous, vault)
+        ids = [item_id for item_id in ids if item_id in (vault.practice_items or {})]
+        if not ids:
+            return None
+        return schedule_item_preparation(vault, sqlite_path, ids, clients=clients, builds=builds, limit=len(ids))
+    except Exception:  # noqa: BLE001 - preparation never blocks a reload
+        LOG.warning("AD preparation of new revisions not scheduled", exc_info=True)
+        return None
+
+
+__all__ = ["PREPARE_LIMIT", "changed_revisions", "prepare_items", "schedule_item_preparation", "schedule_new_revisions",
+           "schedule_presentation_forecasts"]
