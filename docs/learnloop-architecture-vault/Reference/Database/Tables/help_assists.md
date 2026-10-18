@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "308b13bd852b3dfd032e26497d02c6476fec8579"
-source_commit_timestamp: "2026-10-17T23:21:20-04:00"
+source_commit: "50aa2ec9a49698dc2c08be71acbd0e109778f1a0"
+source_commit_timestamp: "2026-10-17T23:52:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -66,6 +66,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `practice_session_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `workbench_session_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/workbench_sessions\|workbench_sessions.id]] | Stored value |
 | `attempt_id` | `TEXT` | no | — | FK → [[Reference/Database/Tables/practice_attempts\|practice_attempts.id]] | Stored value |
+| `submission_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `hint_kind` | `TEXT` | no | — | — | Stored value |
 | `level` | `INTEGER` | no | — | — | Stored value |
 | `offered_level` | `INTEGER` | no | — | — | Stored value |
@@ -103,6 +104,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `latency_ms` | `INTEGER` | no | — | — | Stored value |
 | `requested_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `shown_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `submitted_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `step_snapshot_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `step_verdicts_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `first_questionable_step_id` | `TEXT` | no | — | — | Application-validated soft reference |
@@ -128,6 +130,7 @@ Indexes and uniqueness:
 
 - `idx_help_assists_requested` on `surface`, `requested_at`.
 - `idx_help_assists_workbench` on `workbench_session_id`, `requested_at`.
+- `idx_help_assists_submission` on `submission_id`, `practice_item_id`.
 - `idx_help_assists_attempt` on `attempt_id`.
 - `idx_help_assists_session_item` on `practice_session_id`, `practice_item_id`, `requested_at`.
 - `sqlite_autoindex_help_assists_1` on `id` (unique).
@@ -194,11 +197,18 @@ CREATE TABLE help_assists (
   -- workbench_sessions.practice_item_id, UX S2).
   practice_item_id TEXT,
   practice_item_hash TEXT,
+  -- The workbench's practice session is filled at Submit (NULL until then,
+  -- set once); every other surface writes it with the row.
   practice_session_id TEXT,
   workbench_session_id TEXT REFERENCES workbench_sessions(id),
   -- The attempt the assist was part of, filled at submit (submit_attempt,
   -- submit_dont_know); NULL while the attempt is open or if it never was.
   attempt_id TEXT REFERENCES practice_attempts(id),
+  -- The client's stable submission key for the attempt the assist belongs to
+  -- (practice_attempts.submission_id once it commits). The attach at submit,
+  -- and its repair on a retried submit or a recovery, match on this key
+  -- alone, so a row is never swept into another submission's attempt.
+  submission_id TEXT,
   -- The form the help took (hints spec §4.2's table: its eleven plus
   -- continuation). NULL on rows that are not hints (a check, a bridge).
   hint_kind TEXT CHECK (hint_kind IS NULL OR hint_kind IN (
@@ -261,6 +271,10 @@ CREATE TABLE help_assists (
   latency_ms INTEGER CHECK (latency_ms IS NULL OR latency_ms >= 0),
   requested_at TEXT NOT NULL,
   shown_at TEXT,
+  -- When the submission reached the sidecar, before any grading: the end of
+  -- "hint shown -> submit" (practice_attempts.created_at is stamped when the
+  -- grade is applied, after the grader's latency). NULL when unknown.
+  submitted_at TEXT,
   -- The Reader workbench's columns (its §5.7).
   step_snapshot_json TEXT,
   step_verdicts_json TEXT,
