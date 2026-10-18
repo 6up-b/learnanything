@@ -338,7 +338,8 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
   * a wrong step that still has unknowns gives no `≠`.
 
   The default is the honest label. A learner who writes `(\sin x)^2`, `x \cdot (x+1)` or brackets a limit's body
-  gets a check.
+  gets a check. *Updated in fix round 6:* the list of notations that stay the model's reading is now longer, and
+  the full list is in "Fix round 6 (orchestrator)" below.
 
 ## Fix round 4 (orchestrator)
 
@@ -505,3 +506,100 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
 There is no migration and no config key. The one RPC change is the optional `authoredHints` on the two submits.
 The check view adds `checkedFingerprint`.
+
+## Fix round 6 (orchestrator)
+
+The verify (Codex job `20261018-191835-vPxfGb`, at `a1ad3737c`) confirmed:
+
+* the round-5 counting, every component of it;
+* the fingerprint, across Python and JavaScript;
+* no other High or Medium.
+
+**Two Highs remained, both in defined-name resolution:**
+
+1. Greek identifiers bypassed restriction detection:
+   * `f(\alpha)=\frac{(\alpha-1)^2}{\alpha-1}` then `f(1)=0`;
+   * `\phi(x)=\frac{(x-1)^2}{x-1}` then `\phi(1)=0`.
+2. An unsupported redefinition was skipped, which left the earlier definition in force:
+   * `f(x)=x`, `f(x)=x^{\frac{1}{2}}`, then `f(4)=4`;
+   * `g(x)=1/x`, `f(x)=x`, `f(x)=g(x)`, then `f(4)=4`.
+
+**Ruling: remove defined-name resolution from every "checked" path.** Three rounds had shown it could not be made
+sound cheaply. Fixed in `459b48202`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test |
+|---|---|---|---|---|
+| 1 | High | Greek identifiers bypass restriction detection | fixed by removal | `test_reader_rw2b_fix6.py::test_a_greek_parameter_*`, `..._a_greek_function_name_is_a_name_too`, `..._a_hints_claim_through_a_greek_function_name_*` (all fail on `a1ad3737c`) |
+| 2 | High | An unsupported redefinition leaves the earlier one in force | fixed by removal | `..._a_fractional_power_redefinition_*`, `..._a_nested_redefinition_*`, `..._a_hints_claim_through_a_redefined_name_*` (all fail on `a1ad3737c`) |
+
+**What changed** (`learnloop.workbench.symbolic`, the sandboxed harness):
+
+* **Deleted:**
+  * the definition table (`definitions`, `definition`, its cache);
+  * conflict detection;
+  * the restriction propagation through names;
+  * the name-dependent `_ambig` filtering;
+  * the defined-name branch of `classify` (substitution, `f'(x)`, `f(x) = ...`).
+
+  `resolve` became `explicit`, which only refuses an expression that names a function.
+* **Names are refused, read from the syntax.** `applies_a_name` returns the model's reading (`applies_a_name`)
+  for a step or hint claim that:
+  * contains a `function_applied`, `symbol_prime` or `matrix_prime` node in the lark tree;
+  * contains a prime token;
+  * writes an identifier, or any command other than the parser's own functions (`\sin`, `\exp`, `\log`,
+    `\sqrt`, `\frac`, `\int`, `\lim`, ...), immediately before an argument.
+
+  `defined_names` collects the names that the problem or an earlier step defines (`name(var) = ...`), including
+  Greek ones. A text that writes one of them, with or without an argument, is the model's reading
+  (`defined_name`). Identifiers are canonicalised, so `\alpha` and `alpha` are the same name and `\phi` is `phi`.
+* **Solving.** Any restriction token in the step's own text, or in the equation it solves, gives the model's
+  reading, whatever letters it involves. A restriction token is a denominator, a log, a root, or a power that is
+  not a plain whole number. The solved equation may not apply or write a name either.
+* **Kinds that can still be "checked"**, all on explicit expressions only (`CHECKABLE_KINDS`):
+  * equivalence;
+  * differentiation written as `\frac{d}{dx}(...)` of an explicit expression;
+  * definite and indefinite integration;
+  * normalization;
+  * limit;
+  * sum;
+  * solve without restrictions.
+
+  `substitution` and `f'(x)` are never checked. They stay declared kinds in the prompt's list, as the model's
+  reading, like inequality and boundary. Restriction detection for a step's own text stays (round 4, items 2
+  and 6).
+* **Tests.**
+  * The round-3 to round-5 tests that expected a defined name to resolve now expect the model's reading:
+    * `test_reader_rw2b_fix3.py`: the earlier-step name, the hint path, the substitution control;
+    * `test_reader_rw2b_fix5.py`: the unrestricted name;
+    * `test_reader_rw2b_review.py::test_f3r_*`: `f'(x)`;
+    * `test_workbench_check_kinds.py`: substitution.
+  * The solve controls were rewritten without a fraction (`3x - 6 = 12`, `2x = 12`).
+  * `test_a_name_free_correct_step_of_each_remaining_kind_still_checks` and the name-free hint claim are guards.
+    They pass before and after.
+
+**Notations that stay the model's reading** (updating round 3's open question; the default is the honest label):
+
+* ambiguous parses: `\sin^2 x`, `\exp(-t) + t`, `x(x+1)`, `\lim_{x \to 2} x^2`;
+* notation outside the grammar: `d/dx`, `\pi`, an evaluation bar;
+* words and chains;
+* every function name, defined or not, including Greek ones: `f(2)`, `f'(x)`, `\phi(x)`, `F(x) = ...`;
+* any step that writes a name the problem or an earlier step defines;
+* `\sqrt[n]{...}` with n ≠ 2, and fractional powers of a base that may be negative;
+* a solve with any fraction, log, root or non-whole power in its text or its equation;
+* inequalities;
+* a wrong step that still has unknowns (no `≠`).
+
+### Gate (fix round 6)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 5's files plus `test_reader_rw2b_fix6.py` | **1113 passed** (50.6 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix6.py`, `test_reader_rw2b_fix5.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **59 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+| vitest | not run: no rendering changed (only the harness and Python tests) |
+
+There is no migration, no config key and no RPC or serializer change.
