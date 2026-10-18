@@ -588,8 +588,8 @@
     "sha256": "1ebb2acf1249f0575b759ebee807fb8e9933b197965430fce9ee55d06927dab2"
   },
   "hints": {
-    "bytes": 1842,
-    "sha256": "42e422d0a64fb66ef7d7a9339fa788c83d0064f6f0aaf8c38736747264683daa"
+    "bytes": 2182,
+    "sha256": "b8499f1f57a9e9336e97887474bea448068db0194c3c07918e029bcbb8affd16"
   },
   "hints maps": {
     "bytes": 1672,
@@ -600,8 +600,8 @@
     "sha256": "c20567376659b6d4ff71d0a2316636d57be43c4240058432e8692a7f600f2602"
   },
   "hints report": {
-    "bytes": 1627,
-    "sha256": "35aef480b3c0a1ee6842e6a6682f94d739f8221dc34960dcf7a7f829398a6b26"
+    "bytes": 1789,
+    "sha256": "75619db99a7408be41b9752c5b63addf6fe46476391908f0dee5b5688640f394"
   },
   "import": {
     "bytes": 2169,

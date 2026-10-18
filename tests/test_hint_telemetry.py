@@ -505,7 +505,7 @@ def test_the_report_describes_authored_reveals_and_what_followed(tmp_path):
     other = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
     _reveal(ctx, other, 0, key="k3")  # never submitted: unattached
     report = build_hints_report(paths.sqlite_path)
-    assert report["report_version"] == "hints-report-v1"
+    assert report["report_version"] == "hints-report-v2"
     assert {key: value for key, value in report["totals"].items() if key != "per_attempt"} == {
         "shown": 3, "items": 1, "sessions": 2, "attempts": 1, "unattached": 1, "resolved_by_submission": 0,
     }
