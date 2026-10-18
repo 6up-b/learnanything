@@ -538,3 +538,120 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`; `/tmp/learnloop-fullsuite.
 - `3c2b23fe6` the stage (migration 211, head fixture, store, `learnloop.hints` maps, seeds, builder and report, route and config, the serve hook, CLI, import contracts, snapshots, tests, spec §15, this record).
 - `ee2f49530` the references regenerated on `3c2b23fe6` (commit labels only; `db_validate_reference` 0 errors; `validate_vault` passed).
 - This record's commit list (docs only).
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/h1-onto-main`. Main's tip was `cdcd70601` (the H0 landing), which is the stage's base. The stage tip is `a4ffbc2b1`, unchanged. Codex's last verify round (job `20261018-042510-u6Qvyi`) is clean, with one Low recorded (below). Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `d9f2d70b9`: a real `--no-ff` merge of `hints/h1` onto `cdcd70601`. Main had not moved, so the merged tree is exactly the stage tip (`git diff a4ffbc2b1 d9f2d70b9` is empty).
+- `0c9aad82f`: the references regenerated on the merged tree.
+- `d49d18ffc`: **the gate fix** (below): the parameter registry classifies `hints.maps.max_daily_cost_usd`.
+- `ac37ec432`: the references regenerated after the fix (commit labels and `parameter_registry.py` line citations).
+- This record.
+
+### Merge
+
+- **No conflicts.** Migration 211 was still free (main's head was 210). `fixtures/migration_head_211` is in rollback mode: header bytes 18-19 are 1/1, `journal_mode` is `delete`, its last `schema_migrations` row is 211 and there is no `-wal` or `-shm`. `fixtures/migration_head_210` is gone; only the 211 fixture's README names it, as history.
+- **No algorithm successor.** The vaults' labels and the Pipeline Map's `implementation_version` are unchanged.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 211, 330 table notes, on the merge (`0c9aad82f`: 393 notes, commit labels plus line citations that the six fix rounds had moved, and the new test helper and test file in the source lists) and again after the gate fix (`ac37ec432`: 393 notes, labels and the registry's line citations). No content change.
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`: all 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`, **0 mismatches** (checked on the merge and again after the fix).
+- **CLI help snapshot.** `python tests/test_cli_help_snapshot.py --write`: no change (it already holds `hints maps build`).
+- **`validate_vault.py`**: passes (1,125 notes, 1,123/1,123 reachable).
+
+### Gate
+
+Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. No paid call was made: every test uses fakes. **This is the first full run over the stage's code**; every stage step and every review round had run targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **26 kept**, 0 broken (H0's 25 plus `graders-never-read-approach-maps`), on the merge and on the final tree |
+| full suite, first run on `0c9aad82f` | **8 failed**, 13,376 passed, 2 xfailed (17 min 48 s; `fixtures-local/h1-landing-fullsuite.log`). One cause, real and in stage code: `hints.maps.max_daily_cost_usd` was not classified in the parameter registry (`AuditReport.unclassified_config = ['hints.maps.max_daily_cost_usd']`): `test_registry_audit.py` ×5, `test_grading_cli.py` ×2 (the registry audit and release-check CLIs), `test_p0_cutover_mvp08.py::test_mvp06_derived_output_is_byte_identical_across_p0_machinery` (it asserts the audit is clean). No stage test or targeted file had covered the registry audit |
+| the fix (`d49d18ffc`) | one `_ConfigRule` in `params/parameter_registry.py`: `hints.maps.max_daily_cost_usd` is `structural` / `operational` (a money bound, no measurement authority), exactly as RW4a's `library_ask.max_daily_cost_usd`. The 8 tests failed on `0c9aad82f` when run alone (8 failed, 29 passed over the three files) and pass with the fix (37 passed). `hints.price_per_million` needed no rule (the audit did not list it). No schema, snapshot or serving change |
+| full suite on `ac37ec432` (the final code tree) | **13,384 passed, 2 xfailed**, 0 failed (20 min 57 s; `fixtures-local/h1-landing-fullsuite2.log`). H0's landing ran 13,213; the +171 are H1's tests |
+| `pytest -m durability` | **111 passed**, 13,275 deselected (2 min 2 s); H0's was 109, plus H1's two (`test_211_on_the_durability_lane`, the two-OS-process F3 claim test) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | first run: 1 failed, 1,000 passed (`FeedbackScreen.test.tsx` > "keeps the old Next where no live queue applies": a spy called 0 times). `apps/` is identical to main's, so this cannot be H1's: the file alone passed 3 times out of 3 (11/11), and the whole run again passed: **124 files, 1,001 tests** (`fixtures-local/h1-landing-vitest2.log`). A load-timing flake, recorded as such |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not run: `git diff main -- apps` is empty (H1 does not touch `src-tauri`) |
+| the H1 thread, lease and lifecycle tests | all passed in both full runs and the durability lane; nothing timing-looking failed, so no reruns were needed. The known `"8841"` flake in `test_mcp_c1a_review.py` did not fire |
+| tracked fixtures | `git status` clean after both lanes and the frontend run |
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-h1/orig/`. Each original was read once. Every other copy came from `orig/` through the same helper. `arxiv_v2` was not opened. No copy holds a `.env`.
+- **Code.** Main's code is `git archive cdcd70601` and the merge's is `git archive ac37ec432` (the final tree; a first pass on `0c9aad82f` gave the same results and is kept under `landing-h1/`, the tables below are the final pass under `landing-h1/r2/`), each containing only `src`, `migrations` and `pyproject.toml`, each put first on `sys.path`; every run printed the `learnloop` package it imported.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`: `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories, so no `*_API_KEY`, `OPENROUTER*`, `OPENAI*`, `ANTHROPIC*` or `LEARNLOOP_AI_PROVIDER` variable, Codex login, ChatGPT-plan token or `settings.env` was reachable; every process started in a directory with no `.env`.
+- **Model routes, before anything ran.** Every copy's `learnloop.toml` was rewritten first: `ai.active_provider` and every chat route went to a `blackhole` `openai_chat` profile at `http://127.0.0.1:9/v1` with an unset key variable (on the merge's copies `ai.routing.approach_map = "blackhole"` explicitly; on main's code the route does not exist), the fallback provider cleared, `[source_retrieval]` `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank` and `dense` false, `[embedding]` `enabled`, `backfill_enabled` and `backfill_sources_on_extract` false. A resolver check over every `AITask` (51 on the merge, 50 on main) printed `blackhole` for every chat route including `approach_map`; the only others were the decider-only routes (code-default `openrouter_decider`) and `embedding` (disabled), all needing `OPENROUTER_API_KEY`, which no run had. `[hints.maps] build_on_serve = false` on every merge copy for (a)-(c).
+- **Starting state.** Both vaults at schema 165, label `mvp-0.8`, **0** `model_call_receipts`.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 210 (45) / 165 → 211 (46) | 165 → 210 (45) / 165 → 211 (46) |
+| schema objects, main vs merge | the only difference is the merge's `approach_maps` table, its two indexes (`idx_approach_maps_item`, `idx_approach_maps_family`) and two triggers (`approach_maps_no_update`, `approach_maps_no_delete`); every other table, index and trigger has identical SQL | same |
+| rows of every table (334), on main's columns | **identical** (16,536 rows); `schema_migrations` differs only by the 211 row; `approach_maps` and `help_assists` empty | **identical** (7,634 rows); same |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live database unchanged on both) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** upgrade shadow: main's code migrates to 210, then the merge's code applies **211 only** | applied 1, head 211; `foreign_key_check` empty, `integrity_check` ok; all 334 tables' rows identical to the 210 copy; schema differs only by `approach_maps` and its indexes and triggers | same |
+| `rebuild --shadow` and `doctor`: main's code on the 210 copy vs the merge's code on the upgraded copy | **0 differences** each | **0 differences** each |
+| **(c)** at `mvp-0.8` (H0's method: every facet's `facet_evidence_timelines` with the eleven `TimelinePoint` fields, 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification`) | **byte-identical JSON** (39 facets, 84 points, 2 corrections; 21 LOs, 23 recipes, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the Today queue: `build_due_queue` at a frozen clock (2026-10-18 09:00 UTC), `persist_explanations=False`, no session / a session / a greedy session | **byte-identical** (41 items each; head `pi_what_makes_function_axiom_strategy`) | **byte-identical** (67 items; head `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5`) |
+| the same on copies upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code (the merge's applies 211) | **byte-identical** certification and curves (82 points, 7 corrections, 1 LO certified) and Today queue (43 items), the same bytes as at H0 | **byte-identical** (29 facets, 2 points; 0 certified; Today queue 67 items) |
+
+**(d) Practice through the real sidecar** (stdio: `initialize`, then the RPCs, then `shutdown`). Copies of probability at each code's head, on `pi_prob_derive_complement`, H0's sequence: `set_grading_provider manual`, `start_session`, `get_practice_item` (with the session: the serve that schedules a build), `get_probe_contract`, `practice.record_hint_reveal` (hint 0, submission key `landing-h1-k1`), `save_practice_draft`, `submit_attempt` (self-grade), `acknowledge_practice_submission`, `get_session`, `shutdown` (timed, then the process exit). Runs: (i) main's code; (ii) the merge with `[hints.maps] enabled = false` (`build_on_serve = true`); (iii) the merge with `enabled = true`, `build_on_serve = true`, the route at `127.0.0.1:9` with its key variable unset and no Codex login. Two extra runs of (iii) took the build further than the brief asks, still with no model anywhere: (iii-b) a dummy value in the key variable and `hints.price_per_million = 1.0`, so the build reached the transport and met a refused connection on port 9 (no listener: checked with `ss`); (iii-c) the same against a local socket this landing started on `127.0.0.1:18769` that accepts and never answers (it logged byte counts only, and was stopped after the run), so a build was still in its provider call at `shutdown`.
+
+| Check | Result |
+|---|---|
+| every practice response, (i) vs (ii) and (i) vs (iii) | **identical** for all eleven calls: `set_grading_provider`, `get_probe_contract`, `save_practice_draft`, `acknowledge_practice_submission` and `shutdown` byte for byte; `initialize`, `start_session`, `get_practice_item` (11,559 bytes), `practice.record_hint_reveal`, `submit_attempt` (7,825 bytes) and `get_session` after normalizing only (1) ULIDs, including the `ha_` assist id (session, attempt, receipt and assist ids), (2) ISO timestamps, (3) the copy's own path in `initialize`'s `vault.root`, (4) `initialize`'s two schema-head fields, `health.database.latestMigration` and `migrationsApplied` (210/197 on main, 211/198 on the merge). In the database comparison, also `attempt_debug_payloads`' `dr_<hex>` id. Nothing else was normalized. (iii-b) and (iii-c) are identical too except `initialize`'s `health.ai` (`ready: true`, because their key variable holds a dummy value; not H1) |
+| the database, (ii) vs (i) | the rows the run added or replaced (24 tables: the attempt, evidence, FSRS state, measurement events, the submission receipt, the `help_assists` row, ...) are **identical** after the normalization above. (ii) started no build (the switch returns before any thread) and wrote **nothing** H1-related: no `approach_maps`, `judgment_work_claims`, `judgment_ledger`, `model_call_receipts` or spend row |
+| (iii): a build attempted in the background, failing closed | the sidecar log: `approach map on serve: {"status": "unavailable", "reason": "Environment variable LL_LANDING_NO_KEY is required.", "billing": "metered", "rounds": 0, "trigger": "serve"}`. The database differs from (i) by **one row only**: the durable claim `judgment_work_claims('approach_map_build:pi_prob_derive_complement')`, state `released`. No `approach_maps` row, no receipt, no ledger verdict, no spend row. `get_practice_item` took 0.21 s (0.17 s on main's code); `shutdown` answered at once (0.000 s) and the process exited at 0.32 s |
+| (iii-b): refused connection | one admitted request (`APIConnectionError`), then `shutdown` fenced the build: status `stale`, "nothing more was paid for or stored". Rows: `model_call_receipts` 1 `failed` (its `chat_request` child) and 1 `started` whose finish was fenced and logged ("receipt (finish) not written"), **none succeeded**; the claim left `leased` (a fenced release by design, fix round 4 U3; it lapses on its own); one `source_service_spend` reservation settled at its estimate, $0.025; no `approach_maps` row, no ledger verdict. `shutdown` 0.15 s, exit 0.61 s |
+| (iii-c): a provider that hangs | `get_practice_item` 0.25 s while the build's request sat on the socket (9,156 bytes sent, never answered): **the serve did not wait**. `shutdown` answered at **3.0 s**, the drain bound (`DRAIN_SECONDS`), and the process exited at 3.47 s (the daemon thread ended with it). The build was cancelled, not drained to completion: rows are 2 `started` receipts, a `leased` claim, one `in_flight` reservation ($0.025), and nothing else; no map, no verdict |
+| `learnloop hints maps build --dry-run --json --limit 5` | exit 0, "Dry run: nothing was retrieved, called or written."; the copy's tree hash and `state.sqlite` sha256 identical before and after. It planned **77** items (see the new finding on `--limit`), 154 calls at worst, 2,298,405 estimated tokens (28,818-36,163 per build), `estimated_usd` null (the copy's route is metered and unpriced: "a metered route needs hints.price_per_million; this item would be skipped") |
+| `learnloop hints report --json` | exit 0 on (iii), (iii-b) and (iii-c); each copy's tree hash unchanged. The `maps` section: `enabled`, `build_on_serve`, 0 versions stored, 0 current maps, served items 2 (both without a map), no validation verdicts; (iii-b) shows `model_calls.calls` 1 and `spend_today.metered_usd` 0.025377 of the $0.50 cap |
+
+**`model_call_receipts` across the parity copies:** 0 on every copy of (a), (b), (c), (i), (ii), (iii), the dry-run copy and the `mvp-0.27` copies; only (iii-b) and (iii-c), the two runs built to reach a transport, hold receipts (none finished successfully; their endpoint was `127.0.0.1`). **`approach_maps` is empty on every copy.** The first pass's copies (`landing-h1/d/iiib`, `d/iiic`) are the same in kind: three admitted requests before the fence in `d/iiib`.
+
+### For the owner
+
+- **No upgrade command.** H1 has no successor; the vaults keep their label.
+- **Migration 211 applies on the next open** (the desktop app, the CLI, the MCP runtime or the mobile host, whichever opens the vault first). It adds the empty `approach_maps` table, two indexes and two triggers (no update, no delete). **Close the app, the MCP runtime and the mobile host, and back up first**, as for any migration.
+- **THE OWNER DECISION: build on serve is ON by default.** Once this lands, every newly served item revision (the practice screen's serve, with a session) starts **one background map call** on `ai.routing.approach_map`, which, unset, follows `ai.active_provider`: on your vaults that is **Codex**, billed `estimated_only`, so the `$0.50` `hints.maps.max_daily_cost_usd` cap (metered routes only) **does not bound it**. The implement-time dry run counted 77 items in the probability vault, up to about **2.25 M tokens** for one map each (this landing's dry run on a copy: 2.30 M, 28.8-36.2 k per build, an upper bound). The serve never waits on the build (checked above). A revision whose build was not stored is not retried by the serve. To change it, in the vault's `learnloop.toml`:
+
+  ```toml
+  [hints.maps]
+  build_on_serve = false   # no background builds; the CLI still builds
+  # enabled = false        # the kill switch: nothing built, nothing read
+
+  [ai.routing]
+  approach_map = "codex_low"   # or any profile; a metered one also needs [hints] price_per_million
+  ```
+
+  Backfill when you choose, dry run first:
+
+  ```bash
+  uv run learnloop hints maps build --vault <path> --dry-run --json     # plans only: retrieves, calls and writes nothing
+  uv run learnloop hints maps build --vault <path> [--item ID | --family ID | --lo ID] [--limit N] --json
+  ```
+
+- **Reading the report.** `uv run learnloop hints report --vault <path> --json` (read-only) has a `maps` section: whether `enabled` and `build_on_serve` are on, the cap and price; `versions_stored` and `versions_by_trigger` (serve, inline, cli, merge: what build-on-serve has cost you in builds); `current_maps` and `items_with_a_map`; `served_items` (active items with at least one attempt, with and without a current map); `validation` (verdicts, failures by reason, builds not stored); `routes_by_origin` and `routes_per_current_map` (reference, trace-contract recipe, source, learner routes); `verified_goal` (maps whose goal matched the exact answer key; unverified is common and fine for quantity answers); `model_calls` (calls and tokens on the map receipts); `spend_today` (metered dollars against the cap, and the `estimated_only` Codex/ChatGPT-plan requests and tokens, never counted against it).
+- **The recorded Lows** (none blocks):
+  - the last Codex verify (job `20261018-042510-u6Qvyi`, clean): **the case-folded public-given exemption**: the C2 exemption (a label may name what the question states) compares through the case-folding answer check, so a question stating `X` can exempt a label stating `x`;
+  - round 6, Codex item 3: prose leak detection still marks a false leak for a denominator in nested or square brackets ("x / ((4))", "x / [4]") or a spaced exponent ("m ^ 4");
+  - round 3: prose that needs algebraic rewriting ("x times x" for `x^2`) is not detected; prose detection is best effort, and H2's text gate (spec §4.6) is the binding one;
+  - round 5: monomials and quantities verify less often (`x*2` against `2x`, unit spellings): unverified, never rejected;
+  - round 2: a fenced call's finish receipt and checkpoint are dropped (logged), while its spend reservation still settles.
+- **Doc only:** the comment in `migrations/211_approach_maps.sql` describing what `structure_hash` covers omits the resolved rubric (added in review F5). The code and the stage record are right; the comment was left so the head fixture need not be rebuilt.
+- **New at landing:**
+  - **The gate fix** above (the registry classification). Small, no behaviour change; the stage's targeted files had not included the registry audit.
+  - **`--dry-run` ignores `--limit`** (Low, not fixed here): `hints maps build --dry-run --limit 5` plans and estimates all 77 items, while the real run with `--limit 5` builds at most 5 (`backfill` applies the limit only on the real branch). Read a dry run's totals as "every item without a map". A one-line fix plus a test for the orchestrator to schedule.
+  - **A failed metered request is charged its estimate in the maps envelope** (observation; shared spend-ledger behaviour, `_reported_usd` keeps the reservation when the provider reports nothing): in (iii-b) a refused connection still counted $0.025 against the $0.50 cap. Conservative and irrelevant on Codex; on a metered route, repeated transport failures eat the day's cap.
+  - **A closed vault leaves the build's claim `leased`** until it lapses (2 minutes) when shutdown fences its release (by design, U3), and a build still in its provider call at shutdown is cut off at the 3 s bound, not finished (iii-c), leaving `started` receipts and an `in_flight` reservation, which the ledger's recovery resolves. Nothing is logged when the drain bound expires with a build still running; worth a log line later.
+  - **The fenced-build reason string repeats itself** ("nothing more is paid for; nothing more was paid for or stored"; cosmetic).
+  - **Not exercised here:** a real model build (no live call by rule), and a vault switch over the sidecar (covered by `test_m4_*`).
+- **Open questions (defaults taken):** stage record §7: 1, build on serve (above, the owner's decision); 2, no rebuild on new seeds (a map is current for its item revision and item-side seeds); 3, `hints.price_per_million` unset (a metered map route is refused until priced); 4, one envelope for maps and merges; 5, a failed revision on serve is not retried; 6, no Settings exposure of `[hints.maps]`.
