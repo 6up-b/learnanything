@@ -419,3 +419,89 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 
 There is no migration, no config key and no RPC or serializer shape change.
+
+## Fix round 5 (orchestrator)
+
+The verify (Codex job `20261018-185606-c4kwx7`, at `3f86c1308`) confirmed these work:
+
+* the bounds and the normalised claim storage;
+* the over-240 downgrade;
+* the root fallbacks;
+* all eight RPC guards;
+* the counting on a single problem.
+
+It found five Highs. The ruling was to narrow the scope rather than chase domain edge cases. Everything is fixed in
+`c1910d81d`. Each item has a test that fails on `3f86c1308`: `tests/test_reader_rw2b_fix5.py`, `fingerprint.test.ts`
+and `test_mobile_allowlist.py::test_rw2b_fix5_*`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test |
+|---|---|---|---|---|
+| 1 | High | Solving loses restrictions through defined names (`f(x)=\frac{x^2}{x}`, `f(x)-f(x)=x`, then `x=0` came back `✓`) | fixed | `test_items_1_2_a_solve_through_a_restricted_name_is_never_checked`, `..._two_definitions_differing_only_in_their_restriction_never_resolve` |
+| 2 | High | Substitution ignores restrictions (`f(x)=\frac{(x-1)^2}{x-1}`, then `f(1)=0` came back `✓`) | fixed | `..._a_substitution_into_a_restricted_name_...`, `..._not_used_by_any_kind_and_taints_...` (a restricted-name equivalence too), `..._a_hint_claim_through_a_restricted_name_...`; the guard `..._an_unrestricted_name_still_checks` passes before and after |
+| 3 | High | The stale-check comparison truncated at 2,000 characters | fixed | `fingerprint.test.ts` (the verify's long-step edit is stale at once), `test_item3_the_snapshot_and_the_check_view_carry_a_full_text_fingerprint` |
+| 4 | High | Distinct assists on two open problems were lost | fixed | `test_items_4_5_one_check_on_each_of_two_open_problems_records_two` |
+| 5 | High | The carried count could not tell a book from an authored hint | fixed | `test_items_4_5_a_book_on_another_surface_and_an_authored_hint_record_two`, `..._a_book_alone_records_one`, `..._a_book_counted_on_two_problems_records_one`, `..._a_hint_free_submit_is_unchanged`; the guard `..._an_older_client_without_authored_hints_keeps_round_4s_rule` passes before and after |
+
+* **Items 1-2 (domain restrictions through names).** The harness now reads restrictions from the **lark parse
+  tree**, before anything is evaluated (`spots`, `names_in`). A restriction is any of:
+  * the denominator of a `\frac`, `/` or `\div`;
+  * a `\log`, `\ln` or `\lg`;
+  * a `\sqrt`;
+  * a power whose exponent is not a plain whole number.
+
+  Each restriction records the letters it involves. The rules:
+  * A definition `name(var) = body` is **restricted** when one of its body's restrictions involves `var`. A
+    definition whose written body names a restricted (or conflicting) name is restricted too, taken to a fixpoint.
+  * A step, or a hint claim's statement, that writes a restricted name is the model's reading for **every kind**
+    (`restricted_name`). This is detected from the tokens, so an evaluation that cancels `f(x) - f(x)` cannot
+    hide it.
+  * A solve or substitution step is the model's reading (`restricted_domain`) if its own written text has a
+    restriction involving any letter, or if the equation it solves does. Equivalence and the operator kinds keep
+    round 4's rule.
+  * Two definitions of one name whose bodies differ, or whose restriction status differs, never resolve.
+
+  Hint claims go through the same harness, so all of this applies to them.
+* **Item 3 (the stale-check comparison).**
+  * Each snapshot entry (`step_snapshot_json`) now carries `fingerprint`, a fingerprint of the **full** step text:
+    FNV-1a 64 over its UTF-8 bytes, written `fnv1a64:<hex>` (`learnloop.hints.workbench.text_fingerprint`).
+  * `check_view` returns it as `checked_fingerprint`.
+  * The workbench computes the same synchronously (`helpModel.ts` `textFingerprint`, pinned to the same reference
+    values on both sides), so any edit to the content dims the verdict at once.
+  * A row written before this round has no fingerprint. Its text is compared only within the 2,000-character
+    bound, and any text past the bound counts as edited.
+* **Items 4-5 (counting assists).** The count is now a sum of explicit components:
+  * Each open problem of the item holds its help as `(book, carried, assist_ids)` (`held_parts_on`). The ids come
+    from `help_assists.workbench_assist_ids`: shown, server-counted, unattached checks and level 1-3 hints.
+  * When the client sends the new optional **`authoredHints`** (`submit_attempt`, `submit_dont_know`;
+    desktop-only, pinned in `test_mobile_allowlist.py`; sent by the practice screen), `combine_held` adds:
+    * the **authored** reveals: the larger of `authoredHints` and the problems' carried count, because the
+      carried hints are the same answer-box reveals;
+    * the **book**: 1 if any open problem counted it, never more than once;
+    * every **distinct server assist id** over the open problems (a row belongs to one problem);
+    * a floor of the client's own `hintsUsed`, which matters only when the client knows of a book the server's
+      open problems no longer hold;
+    * H2b's **window fold** and the tutor questions, unchanged.
+  * `primed` is the OR of all of them.
+  * The transactional refold recomputes the same parts under the lock, only ever raising the count.
+  * Without `authoredHints` (an older client), round 4's rule applies unchanged.
+  * The workbench submit sends its carried hints as `authored_hints`. Its book, checks and hints come from the
+    held fold.
+  * **"In this practice session":** a workbench problem records its practice session only when it is submitted,
+    so the relevant problems are the item's **open** problems (the held rule since RW2a F2).
+
+### Gate (fix round 5)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 4's 53 files plus `test_reader_rw2b_fix5.py` and `test_sidecar_serializer_snapshot.py` | **1105 passed** (51.9 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix5.py`, `test_reader_rw2b_fix4.py`, `test_workbench_assistance.py`, `test_reader_rw2b_review.py` | **81 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen src/screens/ReaderScreen.workbench.test.tsx` | **14 files, 177 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration and no config key. The one RPC change is the optional `authoredHints` on the two submits.
+The check view adds `checkedFingerprint`.
