@@ -322,3 +322,136 @@ landing gate. `TMPDIR` was the worktree's `fixtures-local/tmp`.
 - References: `db_generate_reference.py` then `db_validate_reference.py`:
   **0 errors** (head 211). Committed in `b083da1ed` (commit labels and line
   citations only).
+
+## Fix round 3 (after Codex job 20261018-073851-h8jddN)
+
+The verify read `1f23ee970`. It confirmed three things:
+
+- V1 for a matching submission key, in both orders;
+- that every value derived from the count is recomputed from the final
+  count;
+- no regression for hint-free stored evidence against `59d300e63`.
+
+It reopened five items (one High). The orchestrator's binding rulings are
+applied in `3d189580e`, and the references are regenerated in `ff1ec0df6`.
+The tests are in `tests/test_hint_h2a_review_round3.py`. Its 10 tests were run
+against `1f23ee970`'s source (`git archive 1f23ee970`, with
+`pytest -o pythonpath=<tmp>/src`): 7 failed, each for the reason the item
+gives. The 3 that pass there are guards. All 10 pass on the fix. Fakes only.
+
+| id | severity | title | fix | tests (fail on `1f23ee970`) |
+|---|---|---|---|---|
+| W1 | High | A keyless submit lets a waiting delivery succeed | the fence closes the session's window | `test_w1_a_delivery_waiting_on_a_keyless_commit_is_refused`, `test_w1_the_fence_and_the_keyless_fold_share_one_window`; guards: `test_w1_a_delivery_before_a_keyless_commit_is_counted`, `test_w1_a_hint_free_keyless_submit_records_what_it_did` |
+| W2 | Medium | Option fallback raises a fixed-level pick | options at the answered level only | `test_w2_the_books_way_after_a_level_2_hint_with_the_draft_cleared_is_not_level_3` |
+| W3 | Medium | The AT_GIVENS shortcut bypasses from_givens | the shortcut passes the whole from-givens contract | `test_w3_a_walkthrough_at_the_givens_that_claims_work_stands_is_re_asked` |
+| W4 | Medium | A kind change drops placement constraints | `dataclasses.replace` on every Target change | `test_w4_a_second_zero_eig_answer_from_the_givens_keeps_the_from_givens_contract` |
+| W5 | Medium | Delivery when the item is gone or changed | fail closed before marking shown | `test_w5_a_hint_for_a_removed_or_changed_item_is_never_shown[removed, edited]`; guard: `test_w5_an_unchanged_item_still_delivers` |
+
+### What changed, per item
+
+- **W1.** `help_assists.mark_shown` still runs under `BEGIN IMMEDIATE`.
+  - **Two things now close a row's count** (`_CLOSED`):
+    - its submission committed an attempt (F1);
+    - any attempt of the row's `practice_session_id` and `practice_item_id`
+      committed at or after the row's `requested_at`, whatever that
+      attempt's submission key, NULL included.
+
+    `deliver_hint` reports either case as `submission_complete`
+    (`help_assists.count_closed`).
+  - **The keyless window is now session-scoped.** The fold uses the same
+    window. A keyless submit's `since` is now the item's last attempt *in
+    this session* (`help_assists.keyless_window_start`). Before, it was the
+    item's last attempt in any session.
+  - **`since` is read again at commit.** `hint_fold.read_fold` reads it
+    again inside the attempt's write transaction with the count. So the
+    refold counts exactly the rows requested after the last attempt in the
+    session and shown when the attempt commits. Once the attempt commits,
+    the fence stops every row requested at or before it.
+  - **The upper bound needs no clause.** A row is requested before it is
+    inserted, and it is inserted under the write lock. So every row visible
+    to the refold was requested before the attempt's `created_at`, which is
+    stamped inside the same transaction.
+  - **Ties.** Timestamps have one-second precision. A row requested in the
+    same second as an attempt is closed (`>=`), and the next window does not
+    count it (`>`). It is never shown and never counted.
+  - **Hint-free keyless submits.** These fold nothing, before and after the
+    fix. Their records are unchanged.
+- **W2.** `build_options` for `book_way` answering a level-1 or level-2 hint
+  keeps that level.
+  - If neither the answered kind nor the level's plain form applies (e.g.
+    `localize` with the draft cleared), no option is offered. The request
+    answers V2's unavailable message ("I couldn't write a hint that fits
+    here; press Hint again or use the item's hint"), and no writer call is
+    made.
+  - `feedback` already offered the answered level only. `smaller_step`
+    answers a level-3 waypoint.
+  - `downgrade_allowed` now compares the answered hint's level, never the
+    chosen target's.
+- **W3.** An answer `unplaced_work` finds already at the givens is checked
+  again under the from-givens target (`replace(current, from_givens=True,
+  reference_route=True, downgrade=False)`).
+  - It is accepted only when that check passes. Otherwise it is re-asked
+    from the givens, as FROM_GIVENS is.
+  - The round records `from_givens_failures`.
+- **W4.** Every Target change in `_check_round` and `_write` now goes
+  through `dataclasses.replace`, so `from_givens` and every route constraint
+  are kept. The audit table is below.
+- **W5.** The sidecar's `_deliver` passes the item as loaded now to
+  `deliver_hint(..., item=...)`.
+  - **When it refuses:** before `mark_shown`, a missing item, or one whose
+    `practice_item_hash` differs from the row's, is refused.
+  - **What the read returns:** status `unavailable`, reason `item_changed`,
+    no text, `shown: false`.
+  - **The job:** it is marked refused (not retryable), so nothing is counted
+    and no reveal is written.
+  - **Other callers:** `deliver()` keeps its old contract (the item is not
+    checked unless passed).
+
+### Target audit (W4)
+
+| site | before | now |
+|---|---|---|
+| `_check_round`: no-positive-EIG fallback | `Target(served_kind, level, target_node_id, reference_route, request, shortcut, answered)`, which dropped `horizon_index`, `downgrade` and `from_givens` | `replace(target, kind=served_kind)`: everything kept |
+| `_write`: round-3 §4.6 downgrade | `Target("next_step", 3, ...)`, which dropped `horizon_index` (deliberate: a next step has none) and `from_givens` (False there, since the downgrade runs only before any unplaced switch) | `replace(target, kind="next_step", level=3, horizon_index=None, target_node_id=<kept at L3>, downgrade=True)`: keeps `from_givens`, `reference_route`, `request`, `shortcut` and `answered` |
+| `_write`: approach-question switch | `Target("approach_question", 1, request, shortcut, answered)`, which dropped `target_node_id` and `horizon_index` (deliberate), `reference_route` (True only for `book_way`, which never takes this switch), `downgrade`, and `from_givens` (False there) | `replace(target, kind="approach_question", level=1, horizon_index=None, target_node_id=None, downgrade=False)`: keeps `reference_route` and `from_givens` |
+| `_write`: FROM_GIVENS re-ask and the AT_GIVENS check | `replace(current, from_givens=True, reference_route=True, downgrade=False)` | unchanged: everything else kept; `downgrade` is cleared on purpose, since starting from the givens is not a checkpoint downgrade |
+| `request_hint`: the chosen option | `Target(kind, level, horizon_index, target_node_id=<at L3>, reference_route, request, shortcut, answered)` | unchanged. `OptionSet.max_horizon` was never a Target field: `too_big` applies it in the options, as before |
+| `_writer_down`, `_authored` | no Target | unchanged |
+
+`grep "Target(" src/learnloop/hints` finds no other construction. The
+writer prompt only reads the Target.
+
+### Open question
+
+**A keyless attempt does not attach rows.** H0 attaches by submission key,
+and that logic is unchanged here. A hint shown under key `k1` before a
+keyless attempt commits is counted by that attempt. If the same client later
+submits `k1` itself in the same session, the hint can be counted again. Two
+fixes would close this:
+
+- bind or attach the window's rows on a keyless submit (an H0 attach
+  change);
+- refuse a keyless submit while keyed rows are shown in its window.
+
+Either is a successor decision.
+
+### Gate (fix round 3)
+
+The full suite, the whole durability lane and vitest run once, in the
+landing gate.
+
+- `uv run lint-imports --no-cache`: **26 kept, 0 broken**.
+- `uv run pytest -n 8` on 48 files: **1276 passed**. These are round 2's 47
+  files plus the round-3 file.
+- `tests/test_hint_h2a_review_round3.py` run three more times: **10 passed**
+  each time.
+- Durability:
+  - `-m durability` on the touched files (round 2's set plus round 3's
+    file): **2 passed**;
+  - `--durable-sqlite` (WAL) on the round-3, round-2 and review files and
+    `test_hint_evidence`: **68 passed**.
+- References: `db_generate_reference.py` then `db_validate_reference.py`:
+  **0 errors** (head 211). Committed in `ff1ec0df6`: commit labels, line
+  citations, and the `help_assists` note's test list (it now lists the
+  round-3 file).
+- Model calls: **0**. No migration and no `apps/` change.
