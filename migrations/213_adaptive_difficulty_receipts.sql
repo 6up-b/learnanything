@@ -31,6 +31,14 @@ ALTER TABLE practice_attempts ADD COLUMN first_hint_progress TEXT
 -- answered), and so does every earlier row.
 ALTER TABLE question_events ADD COLUMN answered_at TEXT;
 
+-- §5.11 (fix round 4, V5): the answer mode the learner chose for a reader
+-- tutor question (answer_directly, help_me_reason or ask_me_first), the
+-- subkind of its reading opportunity. Set once, when the question is asked;
+-- null on a question with no answer mode (outside the Reader) and on every
+-- earlier row, whose opportunity's subkind is then `unknown`.
+ALTER TABLE question_events ADD COLUMN answer_mode TEXT
+  CHECK (answer_mode IS NULL OR answer_mode IN ('answer_directly', 'help_me_reason', 'ask_me_first'));
+
 -- §7.5: the features and signals an AD decision or update reads, frozen when
 -- the item is served. One row per presentation of a never-attempted item,
 -- written in the serve transaction beside the in-process forecast receipts. A

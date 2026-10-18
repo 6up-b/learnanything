@@ -493,6 +493,10 @@ def ask_question(
         "hints_used_before": qc.get("hints_used_before"),
         "direct_explanation_request": bool(qc.get("direct_explanation_request")),
         "attempt_progress": qc.get("attempt_progress"),
+        # Adaptive difficulty AD1 (§5.11, fix round 4, V5): the answer mode
+        # the learner chose, stored when the question is asked (the reading
+        # opportunity's subkind); only a reader question has one.
+        "answer_mode": answer_mode if context == "reader" else None,
     }
     source_context: dict[str, Any] | None = None
     provided_spans: list[dict[str, Any]] | None = None

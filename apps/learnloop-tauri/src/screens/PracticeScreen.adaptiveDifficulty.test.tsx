@@ -195,3 +195,19 @@ it("with the switches off renders no tap and sends neither field", async () => {
   expect(payload).not.toHaveProperty("firstHintProgress");
   for (const [draft] of api.savePracticeDraft.mock.calls) expect(draft).not.toHaveProperty("firstHintProgress");
 });
+
+// AD1 fix round 4 (V4): a draft restored with a hint already used and no
+// saved marker (a pre-AD1 draft) cannot tell when that first hint came, so a
+// later reveal is never recorded as the first: the marker stays unknown.
+it("a restored draft with an earlier hint and no marker records no marker at a later hint", async () => {
+  setAlgoConfig({ ui: { practiceFeedback: "classic" }, adaptiveDifficulty: AD_ON });
+  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
+  const { answer } = await open(props({ restoredAnswer: "", restoredHints: 1, restoredSubmissionId: "k1" }));
+  fireEvent.change(answer, { target: { value: "expand along row 1" } });
+  pressHint();
+  await screen.findByText("Watch the signs.");
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenCalled());
+  const payload = await submitted();
+  expect(payload).not.toHaveProperty("firstHintProgress");
+  for (const [draft] of api.savePracticeDraft.mock.calls) expect(draft.firstHintProgress ?? null).toBeNull();
+});

@@ -4186,9 +4186,9 @@ class Repository(
                   preceding_tutor_move, scaffold_level, warning_state, learner_mode,
                   question_opportunity, hints_used_before, direct_explanation_request,
                   attempt_progress, signal_channel, source_context_json, created_at,
-                  assessment_contract_version_id
+                  assessment_contract_version_id, answer_mode
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -4223,6 +4223,9 @@ class Repository(
                     ),
                     now,
                     None if contract is None else str(contract),
+                    # Adaptive difficulty AD1 (§5.11, fix round 4, V5): the
+                    # reader tutor's answer mode, set once at the ask.
+                    event.get("answer_mode"),
                 ),
             )
             connection.commit()

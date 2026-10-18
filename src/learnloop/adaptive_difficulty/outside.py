@@ -390,8 +390,12 @@ def item_prompt(vault: Any, item: Any) -> str:
 
 
 def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | None = None,
-                  clock: Clock | None = None, protected: Any = None, fence: Any = None) -> ForecastOutcome:
-    """``llm_v1:item`` for one item revision (once per revision, under its durable claim)."""
+                  clock: Clock | None = None, protected: Any = None, fence: Any = None,
+                  live_vault: Callable[[], Any] | None = None) -> ForecastOutcome:
+    """``llm_v1:item`` for one item revision (once per revision, under its durable claim).
+
+    ``live_vault``: the provider of the vault loaded now, whose held-out
+    predicate every request and record is checked against (fix round 4, V1)."""
 
     from learnloop.adaptive_difficulty.claims import LeaseLost, claimed, item_forecast_key
 
@@ -424,7 +428,7 @@ def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | 
             # Today's predicate before each request and each record, never the
             # caller's earlier one (Codex re-review F11: the backfill and a
             # preparation compute theirs once for many items).
-            send = SendGuard(vault, repository, items=[item], protected=protected)
+            send = SendGuard(vault, repository, items=[item], protected=protected, live_vault=live_vault)
             _forecast_item(vault, worker, item, client, content_hash=content_hash, key=key, outcome=outcome,
                            clock=clock, send=send)
     except LeaseLost:
@@ -556,13 +560,16 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
 
 
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
-                          clock: Clock | None = None, fence: Any = None) -> list[ForecastOutcome]:
+                          clock: Clock | None = None, fence: Any = None,
+                          live_vault: Callable[[], Any] | None = None) -> list[ForecastOutcome]:
     """``llm_v3:llm`` and ``llm_v3:decider`` for one plan presentation, from its frozen serve inputs.
 
     The request is exactly what :func:`freeze_presentation_inputs` stored in
     the serve transaction (Codex review F2), so ``inputs_as_of`` = the serve
     is true. Without them (``no_frozen_inputs``) nothing is sent. Under the
-    presentation's durable claim (Codex review F5, F6)."""
+    presentation's durable claim (Codex review F5, F6). ``live_vault``: the
+    provider of the vault loaded now, whose held-out predicate each request
+    and record is checked against (fix round 4, V1); the inputs stay frozen."""
 
     from learnloop.adaptive_difficulty.claims import LeaseLost, claimed, presentation_key
 
@@ -598,7 +605,7 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             # F11): a refusal refuses the rest of the job.
             identities = frozen["protection_identities"]
             send = SendGuard(vault, repository, items=[item], item_ids=[item_id],
-                             identities=[identities["target"], *identities["history"]])
+                             identities=[identities["target"], *identities["history"]], live_vault=live_vault)
             try:
                 send.check("the presentation forecasts")
             except ProtectedContent:

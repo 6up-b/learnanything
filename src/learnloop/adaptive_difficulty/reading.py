@@ -18,7 +18,8 @@ AD2+AD3 stage moves into ``attempts/salience_firewall.py``):
   (``passage_viewed``); every LO whose provenance cites the section or span;
   a section once per section and LO, passage views one per LO per day;
 * ``reader_tutor_exchange``: an answered tutor question asked while reading
-  (``question_events`` with context ``reader`` or ``library``; its subkind);
+  (``question_events`` with context ``reader`` or ``library``; its subkind is
+  the answer mode stored at the ask, ``unknown`` when none was);
   its LO, or its facets where ``facets_json`` names them; three per LO per day.
   Its source time is when the answer completed (``answered_at``, else the
   row's ``created_at`` when it was written answered; Codex review F4);
@@ -76,6 +77,10 @@ SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:mis
 EXPOSURE_CONTEXTS = ("reader", "reader_restoration", "library", "tutor_citation", "provenance", "provenance_panel",
                      "remediation", "remediation_delivery", "other")
 TUTOR_CONTEXTS = ("reader", "library")
+#: A reader tutor question's answer modes (``tutor.tutor_qa.READER_ANSWER_MODES``),
+#: each a tutor exchange's subkind; a question with none stored is ``unknown``.
+TUTOR_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
+UNKNOWN_ANSWER_MODE = "unknown"
 PASSAGES_PER_LO_PER_DAY = 1
 TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: A serve's sweep re-reads this far behind the newest recorded source time,
@@ -87,8 +92,10 @@ SWEEP_OVERLAP = timedelta(hours=1)
 SOURCES: tuple[tuple[str, str, str], ...] = (
     ("reading", "section_read", "reader_section_progress"),
     ("reading", "passage_viewed", "source_exposure_events"),
-    ("reader_tutor_exchange", "reader", "question_events"),
-    ("reader_tutor_exchange", "library", "question_events"),
+    # §5.11: a tutor exchange's subkind is its answer mode (fix round 4, V5);
+    # ``unknown`` where none was stored (outside the Reader, or before 213).
+    *(("reader_tutor_exchange", mode, "question_events") for mode in TUTOR_ANSWER_MODES),
+    ("reader_tutor_exchange", UNKNOWN_ANSWER_MODE, "question_events"),
     ("worked_example", "shown", "source_exposure_events"),
     ("worked_example", "in_completed_section", "reader_section_progress"),
     *(("in_passage_question", style, "reader_authored_questions") for style in IN_PASSAGE_STYLES),
@@ -359,8 +366,11 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
     # lower bound, so a slow completion is never missed.
     answered = ("COALESCE(answered_at, created_at)" if _has_column(connection, "question_events", "answered_at")
                 else "created_at")
-    for row_id, context, note_id, item_id, facets_json, available_at in connection.execute(
-        f"SELECT q.id, q.context, q.note_id, q.practice_item_id, q.facets_json, {answered} FROM question_events q "
+    # The subkind is the answer mode stored at the ask (§5.11; fix round 4,
+    # V5), never the context.
+    mode = "q.answer_mode" if _has_column(connection, "question_events", "answer_mode") else "NULL"
+    for row_id, answer_mode, note_id, item_id, facets_json, available_at in connection.execute(
+        f"SELECT q.id, {mode}, q.note_id, q.practice_item_id, q.facets_json, {answered} FROM question_events q "
         "WHERE q.context IN ('reader', 'library') AND q.answer_status = 'answered' AND NOT EXISTS ("
         f"SELECT 1 FROM {store.READING} r WHERE r.kind = 'reader_tutor_exchange' AND r.source_table = "
         "'question_events' AND r.source_id = q.id)"
@@ -381,7 +391,8 @@ def _tutor_events(connection: Any, reading_map: ReadingMap, lower: str | None, u
             los = [lo] if lo else []
         if not los:
             continue
-        events.append(_Event("reader_tutor_exchange", str(context), "question_events", str(row_id), stamp,
+        subkind = str(answer_mode) if answer_mode in TUTOR_ANSWER_MODES else UNKNOWN_ANSWER_MODE
+        events.append(_Event("reader_tutor_exchange", subkind, "question_events", str(row_id), stamp,
                              tuple(dict.fromkeys(los)), named_facets=_named_facets(facets_json)))
     return events
 

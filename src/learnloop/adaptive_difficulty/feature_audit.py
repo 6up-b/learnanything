@@ -261,7 +261,8 @@ def _remaining(repository: Any, content_hash: str) -> list[str]:
 
 def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None = None,
                    llm_client: Any | None = None, clock: Clock | None = None,
-                   protected: Any = None, fence: Any = None) -> AuditOutcome:
+                   protected: Any = None, fence: Any = None,
+                   live_vault: Callable[[], Any] | None = None) -> AuditOutcome:
     """Audit one item revision: the dimensions it has no canonical audit for.
 
     ``item`` is the revision itself (a current item, or a snapshot the
@@ -276,7 +277,9 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
 
     Never raises for a model failure: what the Decider leaves unanswered goes
     to the LLM judge, and what neither answers stays unanswered (retried by a
-    later preparation or the backfill). A cancellation propagates."""
+    later preparation or the backfill). A cancellation propagates.
+    ``live_vault``: the provider of the vault loaded now, whose held-out
+    predicate each request and record is checked against (fix round 4, V1)."""
 
     from learnloop.adaptive_difficulty.claims import LeaseLost, audit_key, claimed
 
@@ -305,7 +308,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
             # Today's predicate before each request and each record, never the
             # caller's earlier one (Codex re-review F11: the backfill and a
             # preparation compute theirs once for many revisions).
-            send = SendGuard(vault, repository, items=[item], protected=protected)
+            send = SendGuard(vault, repository, items=[item], protected=protected, live_vault=live_vault)
             _audit(vault, worker, item, item_json, content_hash, remaining, outcome,
                    decider_factory=decider_factory, llm_client=llm_client, clock=clock, send=send)
     except ProtectedContent:

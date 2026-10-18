@@ -117,10 +117,11 @@ def _view(repo, span, minutes, *, context="reader"):
          "entity_type": "reader", "entity_id": "visit1"}, clock=at(minutes))
 
 
-def _tutor(repo, minutes, *, facets=None, answered=True):
+def _tutor(repo, minutes, *, facets=None, answered=True, answer_mode="help_me_reason"):
     return repo.insert_question_event(
         {"context": "reader", "note_id": "span:ext1/s1", "question_md": "why?", "answer_md": "because",
-         "answer_status": "answered" if answered else "pending", "facets": list(facets or [])},
+         "answer_status": "answered" if answered else "pending", "facets": list(facets or []),
+         "answer_mode": answer_mode},
         clock=at(minutes))
 
 
@@ -203,7 +204,8 @@ def test_reading_opportunities_frozen_and_ordered_by_source_time(tmp_path):
     assert [row["learning_object_id"] for row in passages] == [LO_A, LO_B]
     examples = _by(opportunities, "worked_example")
     assert [(row["subkind"], row["learning_object_id"]) for row in examples] == [("in_completed_section", LO_A)]
-    tutor = _by(opportunities, "reader_tutor_exchange", "reader")
+    # The subkind is the exchange's answer mode (§5.11; fix round 4, V5), not its context.
+    tutor = _by(opportunities, "reader_tutor_exchange", "help_me_reason")
     assert len(tutor) == 3, "three exchanges per LO per day"
     assert json.loads(tutor[0]["facet_doses_json"]) == {"fa2": 1.0}, "a named facet takes dose 1"
     in_passage = _by(opportunities, "in_passage_question")

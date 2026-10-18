@@ -257,7 +257,10 @@ export function PracticeScreen({
   const ratingTap = algoConfig().ratingTap;
   const [difficultyRating, setDifficultyRating] = useState<DifficultyRating | null>(null);
   // AD1 (§11.2): the first-hint progress marker, kept with the draft.
-  const firstHint = useFirstHintProgress({ enabled: algoConfig().firstHintProgress, restored: restoredFirstHintProgress });
+  // A restored draft's hints with no saved marker: their timing is unknown,
+  // so this attempt records none (fix round 4, V4; §5.3).
+  const firstHint = useFirstHintProgress({ enabled: algoConfig().firstHintProgress, restored: restoredFirstHintProgress,
+                                           hintsBefore: (restoredHints ?? 0) > 0 });
   const firstHintRef = useRef(firstHint.value);
   firstHintRef.current = firstHint.value;
   const [fallbackRequired, setFallbackRequired] = useState(!gradingReady);
@@ -769,6 +772,8 @@ export function PracticeScreen({
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
   const answerHints = hintsUsed + (bookCarried ? 1 : 0);
   carriedRef.current = { hints: hintsUsed, book: bookCarried };
+  // A carried book is a hint the marker never timed (fix round 4, V4).
+  if (bookCarried) firstHint.noteUntimedHint();
 
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);

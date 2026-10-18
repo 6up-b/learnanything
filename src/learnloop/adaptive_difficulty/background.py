@@ -11,9 +11,12 @@
 Both return at once and never raise. The work runs in the sidecar's
 :class:`~learnloop.hints.map_builder.BackgroundBuilds` registry (bound to the
 loaded vault: a vault switch, ``shutdown`` or EOF stops admitting jobs), on
-its own connection, one job per key in flight per process (a preparation's
-key names its item revisions, so an edit mid-job is a new job; Codex
-re-review F12). Inside a job each
+its own connection: one presentation's job in flight per process, and one
+preparation queue per vault with one worker at a time, each run preparing at
+most :data:`PREPARE_LIMIT` revisions (fix round 4, V2; a queued entry names
+its revision, so an edit mid-run queues the new one: Codex re-review F12).
+Every request and record is checked against the held-out predicate of the
+vault loaded *now* (``live_vault``, fix round 4, V1). Inside a job each
 unit of paid work holds a durable claim (``judgment_work_claims``, across
 processes) and writes fenced by the job's own registry fence: nothing more is
 asked, and no judgment, payload or receipt lands, once its vault is switched
@@ -27,6 +30,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -43,7 +47,8 @@ from learnloop.adaptive_difficulty.switches import (
 
 LOG = logging.getLogger(__name__)
 
-#: At most this many item revisions are prepared by one plan read's job.
+#: At most this many item revisions are prepared by one run of a vault's
+#: preparation queue, whoever scheduled them (fix round 4, V2).
 PREPARE_LIMIT = 20
 
 _GUARD = threading.Lock()
@@ -104,7 +109,12 @@ def _launch(sqlite_path: Any, key: str, job: Callable[[Any], None], *, builds: A
 
 def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_id: str, *,
                                     clients: Clients | None = None, builds: Any = None,
-                                    clock: Any = None) -> threading.Thread | None:
+                                    clock: Any = None,
+                                    live_vault: Callable[[], Any] | None = None) -> threading.Thread | None:
+    """``live_vault``: the provider of the vault loaded now (the sidecar's
+    context's vault at check time), whose held-out predicate each request
+    and record is checked against (fix round 4, V1)."""
+
     try:
         chosen = {LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))
         if not chosen or not presentation_id:
@@ -116,7 +126,8 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
             from learnloop.db.repositories import Repository
 
             repository = Repository.attach(Path(sqlite_path))
-            forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, fence=fence)
+            forecast_presentation(vault, repository, presentation_id, clients=clients, clock=clock, fence=fence,
+                                  live_vault=live_vault)
 
         return _launch(sqlite_path, f"presentation:{presentation_id}", job, builds=builds,
                        name=f"learnloop-ad-forecast-{presentation_id}")
@@ -127,13 +138,25 @@ def schedule_presentation_forecasts(vault: Any, sqlite_path: Any, presentation_i
 
 def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clients: Clients | None = None,
                   decider_factory: Callable[[], Any] | None = None, clock: Any = None,
-                  fence: Any = None, limit: int = PREPARE_LIMIT) -> list[dict[str, Any]]:
+                  fence: Any = None, limit: int = PREPARE_LIMIT,
+                  live_vault: Callable[[], Any] | None = None) -> list[dict[str, Any]]:
     """Audit, then forecast (``llm_v1:item``), each item's current revision; once each.
 
     Each unit runs under its own durable claim and, with a background job's
     ``fence``, stops asking and writing once the vault is switched or closed
     (Codex review F5, F6): a revision another job or process is preparing is
     ``busy`` here and left to it."""
+
+    ids = list(dict.fromkeys(str(value) for value in item_ids))[:limit]
+    items = [vault.practice_items.get(item_id) for item_id in ids]
+    return _prepare(vault, repository, [item for item in items if item is not None], clients=clients,
+                    decider_factory=decider_factory, clock=clock, fence=fence, live_vault=live_vault)
+
+
+def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None,
+             decider_factory: Callable[[], Any] | None, clock: Any, fence: Any,
+             live_vault: Callable[[], Any] | None) -> list[dict[str, Any]]:
+    """Prepare exactly these revisions (each an item as it was found), in order."""
 
     from learnloop.adaptive_difficulty.feature_audit import audit_revision, item_revision
     from learnloop.adaptive_difficulty.protection import protection
@@ -142,17 +165,18 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
         return fence is None or fence.live()
 
     results: list[dict[str, Any]] = []
-    protected = protection(vault, repository)
-    for item_id in list(dict.fromkeys(str(value) for value in item_ids))[:limit]:
+    current = live_vault() if live_vault is not None else vault
+    protected = protection(current if current is not None else vault, repository)
+    for item in items:
         if not live():
             break
-        item = vault.practice_items.get(item_id)
-        if item is None or getattr(item, "status", "active") != "active":
+        item_id = str(item.id)
+        if getattr(item, "status", "active") != "active":
             continue
-        entry: dict[str, Any] = {"practice_item_id": item_id}
+        entry: dict[str, Any] = {"practice_item_id": item_id, "content_hash": item_revision(item)[0]}
         if feature_audit_enabled(vault.config):
             entry["audit"] = audit_revision(
-                vault, repository, item, clock=clock, protected=protected, fence=fence,
+                vault, repository, item, clock=clock, protected=protected, fence=fence, live_vault=live_vault,
                 decider_factory=decider_factory or ((lambda: clients.decider) if clients and clients.decider else None),
                 llm_client=clients.llm if clients else None,
             ).as_dict()
@@ -160,11 +184,11 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
             break
         if LLM_V1 in outside_forecasters(vault.config):
             entry["llm_v1"] = forecast_item(vault, repository, item, clients=clients, clock=clock,
-                                            protected=protected, fence=fence).as_dict()
+                                            protected=protected, fence=fence, live_vault=live_vault).as_dict()
         results.append(entry)
         if _settled(entry):
             with _GUARD:
-                _PREPARED.add((str(Path(repository.sqlite_path)), item_id, item_revision(item)[0]))
+                _PREPARED.add((str(Path(repository.sqlite_path)), item_id, entry["content_hash"]))
     return results
 
 
@@ -181,51 +205,122 @@ def _settled(entry: dict[str, Any]) -> bool:
     return audited and forecast.get("status") in _SETTLED
 
 
+@dataclass
+class _Queue:
+    """One vault's preparation queue (fix round 4, V2): the revisions waiting,
+    in arrival order, each the item as it was found (Codex re-review F12: an
+    edit mid-run queues the new revision beside the old one), and whether its
+    one worker is running."""
+
+    pending: dict[tuple[str, str], Any] = field(default_factory=dict)
+    taken: set[tuple[str, str]] = field(default_factory=set)
+    running: bool = False
+    #: The latest scheduler's vault, clients and live-vault provider: a run
+    #: prepares with what the vault looks like when it starts.
+    vault: Any = None
+    clients: Clients | None = None
+    clock: Any = None
+    live_vault: Callable[[], Any] | None = None
+
+
+#: Per database: its preparation queue (this process; a revision another
+#: process prepares is skipped under its durable claim).
+_QUEUES: dict[str, _Queue] = {}
+
+
 def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[str], *,
                               clients: Clients | None = None, builds: Any = None,
-                              clock: Any = None, limit: int = PREPARE_LIMIT) -> threading.Thread | None:
+                              clock: Any = None, limit: int = PREPARE_LIMIT,
+                              live_vault: Callable[[], Any] | None = None) -> threading.Thread | None:
+    """Queue these items' current revisions for preparation, and start a run if none is running.
+
+    Why one queue and one worker per vault (fix round 4, V2): a reload's
+    import of 1,000 items, or several watcher batches, used to start a job
+    each for all of them at once; nothing bounded the subscription calls
+    (the daily cap counts metered dollars only). Now every caller (a reload,
+    the file watcher, a plan read) feeds one deduplicated queue, and one run
+    prepares at most :data:`PREPARE_LIMIT` revisions (``limit`` can only
+    lower it). What is left waits for a later run: the next reload or plan
+    read starts one, never a second worker beside a running one. Returns the
+    run's thread, or None when no run was started."""
+
     try:
         from learnloop.adaptive_difficulty.feature_audit import item_revision
 
-        path = str(Path(sqlite_path))
-        ids = []
-        revisions: dict[str, str] = {}
-        for value in item_ids:
-            item = vault.practice_items.get(str(value))
-            if item is None:
-                continue
-            content_hash = item_revision(item)[0]
-            with _GUARD:
-                prepared = (path, str(value), content_hash) in _PREPARED
-            if not prepared:
-                ids.append(str(value))
-                revisions[str(value)] = content_hash
         wants = feature_audit_enabled(vault.config) or LLM_V1 in outside_forecasters(vault.config)
-        if not ids or not wants:
+        if not wants:
             return None
         if ad_spend.models_off() and not _injected(clients):
             return None
-
-        def job(fence: Any) -> None:
-            from learnloop.db.repositories import Repository
-
-            repository = Repository.attach(Path(sqlite_path))
-            prepare_items(vault, repository, ids, clients=clients, clock=clock, fence=fence, limit=limit)
-
-        from learnloop.ai.execution import content_key
-
-        # The job's identity names each revision, not only the item (Codex
-        # re-review F12): a reload that finds revision A2 while A1's job is
-        # still running starts A2's job instead of dropping it as in flight
-        # (the next unchanged reload would see nothing new). The same
-        # revisions twice are still one job; a revision two jobs share is
-        # paid for once under its durable claim.
-        identity = sorted((item_id, revisions[item_id]) for item_id in ids[:limit])
-        return _launch(sqlite_path, "prepare:" + content_key(identity), job, builds=builds,
-                       name="learnloop-ad-prepare")
+        path = str(Path(sqlite_path))
+        with _GUARD:
+            queue = _QUEUES.setdefault(path, _Queue())
+            for value in item_ids:
+                item = vault.practice_items.get(str(value))
+                if item is None:
+                    continue
+                key = (str(value), item_revision(item)[0])
+                if (path, *key) in _PREPARED or key in queue.pending or key in queue.taken:
+                    continue
+                queue.pending[key] = item
+            queue.vault, queue.clients, queue.clock = vault, clients, clock
+            queue.live_vault = live_vault
+        return _start_run(sqlite_path, queue, builds=builds, limit=max(0, min(int(limit), PREPARE_LIMIT)))
     except Exception:  # noqa: BLE001
         LOG.warning("AD item preparation not scheduled", exc_info=True)
         return None
+
+
+def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> threading.Thread | None:
+    """One run of at most ``limit`` revisions, unless the queue's worker is running."""
+
+    with _GUARD:
+        if queue.running or not queue.pending or limit <= 0:
+            return None
+        batch = list(queue.pending.items())[:limit]
+        for key, _item in batch:
+            del queue.pending[key]
+        queue.taken = {key for key, _item in batch}
+        queue.running = True
+        vault, clients, clock, live_vault = queue.vault, queue.clients, queue.clock, queue.live_vault
+
+    def finish(done: set[tuple[str, str]]) -> None:
+        with _GUARD:
+            # A revision the run never reached (its vault was switched or
+            # closed) waits for a later run, ahead of what arrived since.
+            left = {key: item for key, item in batch if key not in done}
+            queue.pending = {**left, **{key: item for key, item in queue.pending.items() if key not in left}}
+            queue.taken = set()
+            queue.running = False
+
+    def work(fence: Any) -> Callable[[], None]:
+        def run() -> None:
+            done: set[tuple[str, str]] = set()
+            try:
+                if fence.live():
+                    from learnloop.db.repositories import Repository
+
+                    repository = Repository.attach(Path(sqlite_path))
+                    results = _prepare(vault, repository, [item for _key, item in batch], clients=clients,
+                                       decider_factory=None, clock=clock, fence=fence, live_vault=live_vault)
+                    done = {(entry["practice_item_id"], entry["content_hash"]) for entry in results}
+                    # An inactive revision is skipped, not left waiting.
+                    done |= {key for key, item in batch if getattr(item, "status", "active") != "active"}
+            except Exception:  # noqa: BLE001 - a background job never reaches the serve
+                LOG.warning("adaptive difficulty preparation run failed", exc_info=True)
+                done = {key for key, _item in batch}
+            finally:
+                finish(done)
+        return run
+
+    try:
+        thread = _registry(builds).launch(sqlite_path, work, name="learnloop-ad-prepare")
+    except Exception:  # noqa: BLE001 - scheduling never fails a serve
+        LOG.warning("adaptive difficulty preparation run not started", exc_info=True)
+        thread = None
+    if thread is None:
+        finish(set())
+    return thread
 
 
 def changed_revisions(previous: Any, vault: Any) -> list[str]:
@@ -240,7 +335,8 @@ def changed_revisions(previous: Any, vault: Any) -> list[str]:
 
 
 def schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_ids: Iterable[str] | None = None,
-                           clients: Clients | None = None, builds: Any = None) -> threading.Thread | None:
+                           clients: Clients | None = None, builds: Any = None,
+                           live_vault: Callable[[], Any] | None = None) -> threading.Thread | None:
     """Prepare the revisions published, imported or edited since the last load (Codex review F10).
 
     Spec §7.2/§8.2: the feature audit and ``llm_v1:item`` run "after any item
@@ -258,9 +354,11 @@ def schedule_new_revisions(previous: Any, vault: Any, sqlite_path: Any, *, item_
         ids = sorted(set(str(value) for value in item_ids)) if item_ids is not None else changed_revisions(
             previous, vault)
         ids = [item_id for item_id in ids if item_id in (vault.practice_items or {})]
-        if not ids:
-            return None
-        return schedule_item_preparation(vault, sqlite_path, ids, clients=clients, builds=builds, limit=len(ids))
+        # Every new revision is queued, and a run prepares at most
+        # PREPARE_LIMIT of them (fix round 4, V2); a reload with nothing new
+        # still starts a run for what an earlier one left waiting.
+        return schedule_item_preparation(vault, sqlite_path, ids, clients=clients, builds=builds,
+                                         live_vault=live_vault)
     except Exception:  # noqa: BLE001 - preparation never blocks a reload
         LOG.warning("AD preparation of new revisions not scheduled", exc_info=True)
         return None

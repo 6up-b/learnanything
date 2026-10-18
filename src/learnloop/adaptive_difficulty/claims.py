@@ -19,6 +19,8 @@ While the claim is held, the work writes through :class:`FencedRepository`:
 * a model call's *start* receipt is fenced the same way, and it is written
   before the request is sent: once the vault is switched or closed, no new
   request goes out;
+* a model checkpoint (the answer kept for a rerun) is fenced the same way
+  (fix round 4, V3);
 * the *finish* receipt of a request already sent, and the spend ledger, are
   not fenced: the money a sent request cost is always accounted to its own
   vault.
@@ -28,12 +30,15 @@ A claim that cannot be taken (another worker's live lease) yields None.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
 from learnloop.hints import map_builder as _builds
+
+LOG = logging.getLogger(__name__)
 
 #: ``judgment_work_claims.task`` of AD's background and backfill work.
 CLAIM_TASK = "ad_background_work"
@@ -85,6 +90,33 @@ class FencedRepository:
             return
         # A request already sent keeps its accounting, whatever happened since.
         self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+
+    # A model checkpoint is domain output, not accounting (fix round 4, V3):
+    # the base repository writes it on a separate connection that allows late
+    # writes, so an answer arriving after a vault switch would still land in
+    # ``model_work_checkpoints``. It is fenced like every other domain write,
+    # as the approach-map builds' repository does; a checkpoint fenced out is
+    # dropped (the answer is never reused) and the job's next write reports
+    # it stale. The finish receipt above and the spend settlement (the
+    # envelope writes on the base repository) stay unfenced.
+    def save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any],
+                              usage: dict[str, Any] | None = None) -> None:
+        from learnloop.db.stores.model_calls import insert_checkpoint
+
+        try:
+            with _builds._fenced_txn(self._repository, self._claim) as connection:
+                insert_checkpoint(connection, cache_key, purpose=purpose, result=result, usage=usage)
+        except LeaseLost:
+            LOG.info("AD job fenced out: model checkpoint %s dropped", cache_key)
+
+    def discard_model_checkpoint(self, cache_key: str) -> None:
+        from learnloop.db.stores.model_calls import delete_checkpoint
+
+        try:
+            with _builds._fenced_txn(self._repository, self._claim) as connection:
+                delete_checkpoint(connection, cache_key)
+        except LeaseLost:
+            LOG.info("AD job fenced out: model checkpoint %s kept", cache_key)
 
 
 class Worker:

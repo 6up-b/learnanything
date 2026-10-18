@@ -214,8 +214,10 @@ append-only trigger kept). Both tables are empty here.
 Migration 213 comes from adaptive difficulty AD1 (`adaptive-difficulty/ad1`,
 measure and log, docs/reviews/adaptive-difficulty-ad1.md): it adds the
 nullable `practice_attempts.difficulty_rating` and
-`practice_attempts.first_hint_progress` (CHECKed vocabularies),
-`item_serve_inputs` and `ad_reading_opportunities` (RECEIPT, each with its
+`practice_attempts.first_hint_progress` (CHECKed vocabularies), the
+nullable `question_events.answered_at` (Codex review F4) and
+`question_events.answer_mode` (CHECKed: `answer_directly`, `help_me_reason`,
+`ask_me_first`; fix round 4, V5), `item_serve_inputs` and `ad_reading_opportunities` (RECEIPT, each with its
 indexes and no-update and no-delete triggers) and `item_forecast_payloads`
 (WORKFLOW). Item forecasts are kind `item_unassisted_success` rows in
 migration 206's `forecast_receipts`, no table of their own. The new tables
@@ -227,7 +229,11 @@ Built as a backup-API copy of the base's `migration_head_212` (git
 allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
 `journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
 `foreign_key_check` empty), copied into place with the backup API, with no
-companion files; `migration_head_212` was renamed to this directory.
+companion files; `migration_head_212` was renamed to this directory. Rebuilt
+the same way at AD1 fix round 4 (V5, `answer_mode` added inside 213): the
+same `migration_head_212` of git `16a0071f2`, only 213 applied,
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header bytes
+1/1, `integrity_check` ok, `foreign_key_check` empty, no companion files.
 `migration_head_212` was a backup-API copy of the base's `migration_head_211` (git
 `5b2efaf24`) with only 212 applied, by the same chain as before:
 `migration_head_211` was a backup-API copy of `migration_head_210` (git

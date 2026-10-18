@@ -2,7 +2,8 @@
 
 The 212 -> 213 upgrade adds the two nullable ``practice_attempts`` columns
 (``difficulty_rating``, ``first_hint_progress``, CHECKed vocabularies), the
-nullable ``question_events.answered_at`` (Codex review F4),
+nullable ``question_events.answered_at`` (Codex review F4) and
+``question_events.answer_mode`` (CHECKed; fix round 4, V5),
 ``item_serve_inputs`` and ``ad_reading_opportunities`` (RECEIPT, append-only
 by trigger) and ``item_forecast_payloads`` (WORKFLOW), and nothing else; no
 ``item_forecasts`` table (item forecasts are ``forecast_receipts`` rows of
@@ -34,7 +35,7 @@ AD1_ADDED_OBJECTS = frozenset({
     "item_serve_inputs_no_delete", "idx_ad_reading_opportunities_lo", "idx_ad_reading_opportunities_written",
     "ad_reading_opportunities_no_update", "ad_reading_opportunities_no_delete", "idx_item_forecast_payloads_created",
 })
-#: ``question_events`` gains ``answered_at`` (Codex review F4).
+#: ``question_events`` gains ``answered_at`` (Codex review F4) and ``answer_mode`` (fix round 4, V5).
 AD1_ALTERED_TABLES = frozenset({"practice_attempts", "question_events"})
 NEW_TABLES = {"item_serve_inputs", "ad_reading_opportunities", "item_forecast_payloads"}
 NEW_OBJECTS = NEW_TABLES | {
@@ -81,7 +82,7 @@ def _upgrade(tmp_path: Path) -> Path:
         in NEW_TABLES}
     changed = {name for name in before if before[name] != after.get(name)}
     assert changed == AD1_ALTERED_TABLES, (
-        "213 alters practice_attempts (two columns) and question_events (answered_at) and nothing else")
+        "213 alters practice_attempts (two columns) and question_events (answered_at, answer_mode) and nothing else")
     assert "item_forecasts" not in after
     return database
 
@@ -92,6 +93,13 @@ def _check(database: Path) -> None:
         assert columns["difficulty_rating"][3] == 0 and columns["first_hint_progress"][3] == 0  # nullable
         questions = {row[1]: row for row in connection.execute("PRAGMA table_info(question_events)")}
         assert questions["answered_at"][3] == 0 and questions["answered_at"][4] is None  # nullable, no default
+        assert questions["answer_mode"][3] == 0 and questions["answer_mode"][4] is None  # nullable, no default
+        ask = ("INSERT INTO question_events(id, context, question_md, answer_status, created_at, answer_mode) "
+               "VALUES (?, 'reader', 'why?', 'answered', '2026-10-18T00:00:00Z', ?)")
+        for index, mode in enumerate(("answer_directly", "help_me_reason", "ask_me_first", None)):
+            connection.execute(ask, (f"q_ok_{index}", mode))
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(ask, ("q_bad", "reader"))
         old = connection.execute("SELECT difficulty_rating, first_hint_progress FROM practice_attempts "
                                  "WHERE id = 'att_old'").fetchone()
         assert old is None or tuple(old) == (None, None)

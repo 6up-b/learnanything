@@ -183,9 +183,18 @@ class SidecarContext:
             from learnloop.adaptive_difficulty.background import schedule_new_revisions
 
             schedule_new_revisions(previous, self.vault, self.repository.sqlite_path, item_ids=item_ids,
-                                   clients=getattr(self, "ad_clients", None), builds=self.map_builds)
+                                   clients=getattr(self, "ad_clients", None), builds=self.map_builds,
+                                   live_vault=self.loaded_vault)
         except Exception:  # noqa: BLE001 - never block a reload
             _LOGGER.warning("could not schedule AD preparation of new item revisions", exc_info=True)
+
+    def loaded_vault(self) -> LoadedVault | None:
+        """The vault loaded now (adaptive difficulty AD1, fix round 4, V1): a
+        background job checks its requests against this vault's held-out
+        predicate at each check, not the one it was started with, so a
+        same-vault reload's source-set or exam-scope edit is seen."""
+
+        return self.vault
 
     def close_background_builds(self) -> bool:
         """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""

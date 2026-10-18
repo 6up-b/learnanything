@@ -14,8 +14,10 @@ the background preparation run those). Each takes the job's
 
 The guard reads the held-out predicate afresh each time
 (:func:`~learnloop.adaptive_difficulty.protection.protection`, never a
-predicate a caller computed earlier) and asks it of everything the job's
-requests quote: the item ids, the current revisions, and the frozen
+predicate a caller computed earlier), from the vault that is loaded *now*
+(the job's ``live_vault`` provider: a same-vault reload's source sets and
+exam scopes, not the ones the job started with; fix round 4, V1), and asks
+it of everything the job's requests quote: the item ids, the current revisions, and the frozen
 identities of the revisions a frozen state quotes
 (:meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity`).
 Its first refusal refuses every later request of the job, which reports
@@ -27,8 +29,9 @@ once the guard has refused (:meth:`SendGuard.check` before each record).
 from __future__ import annotations
 
 import threading
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 from learnloop.ai.errors import AIInterrupted
@@ -53,11 +56,16 @@ class SendGuard:
     :func:`~learnloop.adaptive_difficulty.outside.source_identity` records
     (a frozen state's target and history). ``protected``: the caller's
     earlier predicate or id set, whose ids stay protected (an earlier
-    predicate can only add to today's; it never replaces it)."""
+    predicate can only add to today's; it never replaces it). ``live_vault``:
+    the provider of the vault loaded now (the sidecar's context's vault at
+    check time); None for a caller with no reload (the CLI backfill, which
+    holds the vault it loaded), whose own ``vault`` is then the current one."""
 
     def __init__(self, vault: Any, repository: Any, *, items: Iterable[Any] = (), item_ids: Iterable[str] = (),
-                 identities: Iterable[Mapping[str, Any]] = (), protected: Any = None) -> None:
+                 identities: Iterable[Mapping[str, Any]] = (), protected: Any = None,
+                 live_vault: Callable[[], Any] | None = None) -> None:
         self._vault = vault
+        self._live_vault = live_vault
         self._repository = repository
         self._items = [item for item in items if item is not None]
         self._item_ids = frozenset(str(value) for value in item_ids) | frozenset(
@@ -89,10 +97,34 @@ class SendGuard:
             if self.refused is not None:
                 raise ProtectedContent(self.refused)
 
+    def _loaded_vault(self) -> tuple[Any | None, str | None]:
+        """The vault loaded now, or None with why (fix round 4, V1).
+
+        Why not the job's own vault: a same-vault reload replaces the
+        context's vault without stopping its jobs, and a source-set or exam
+        scope edit it brings holds out material the job's vault does not.
+        The frozen inputs stay frozen; only protection is re-resolved. Another
+        vault, or none, refuses (the job's fence also stops a switch)."""
+
+        if self._live_vault is None:
+            return self._vault, None
+        try:
+            current = self._live_vault()
+        except Exception:  # noqa: BLE001 - an unreadable provider protects everything
+            return None, "the loaded vault could not be read"
+        if current is None:
+            return None, "no vault is loaded"
+        if _root(current) != _root(self._vault):
+            return None, "another vault is loaded"
+        return current, None
+
     def _protected_now(self) -> str | None:
         from learnloop.adaptive_difficulty.protection import Protection, protection
 
-        current = protection(self._vault, self._repository)
+        vault, gone = self._loaded_vault()
+        if vault is None:
+            return gone
+        current = protection(vault, self._repository)
         if self._earlier:
             current = Protection(current.ids | self._earlier, current.material)
         for item_id in sorted(self._item_ids):
@@ -106,6 +138,14 @@ class SendGuard:
                 practice_item_id = identity.get("practice_item_id") if isinstance(identity, Mapping) else None
                 return f"a frozen revision of item {practice_item_id} is protected"
         return None
+
+
+def _root(vault: Any) -> str | None:
+    root = getattr(vault, "root", None)
+    try:
+        return str(Path(root).resolve()) if root is not None else None
+    except (OSError, TypeError, ValueError):
+        return str(root)
 
 
 class _GuardGate:

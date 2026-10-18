@@ -221,16 +221,20 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
             return
         clients = getattr(ctx, "ad_clients", None)
         builds = getattr(ctx, "map_builds", None)
+        # The vault loaded at each check, not this request's (fix round 4, V1).
+        live_vault = getattr(ctx, "loaded_vault", None)
         sqlite_path = env.repository.sqlite_path
         presentation_id = (step or {}).get("presentation_id")
         if presentation_id:
-            schedule_presentation_forecasts(vault, sqlite_path, str(presentation_id), clients=clients, builds=builds)
+            schedule_presentation_forecasts(vault, sqlite_path, str(presentation_id), clients=clients, builds=builds,
+                                            live_vault=live_vault)
         from learnloop.daily_plan.engine import latest_today
 
         record = latest_today(env)
         if record is not None:
             planned = [item.practice_item_id for item in record.items() if not item.resolved]
-            schedule_item_preparation(vault, sqlite_path, planned, clients=clients, builds=builds)
+            schedule_item_preparation(vault, sqlite_path, planned, clients=clients, builds=builds,
+                                      live_vault=live_vault)
     except Exception:  # noqa: BLE001 - background scheduling never reaches the plan
         import logging
 
