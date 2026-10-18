@@ -798,6 +798,9 @@ class WorkbenchHintWriterOutputV1(HintWriterOutputV1):
 #: does not hold: re-asked once, then downgraded), ``model`` (the model's
 #: reading, not checked), ``withheld`` (it would give the answer away: its
 #: round is re-asked, then withheld; re-review F16).
+#: The longest claim statement stored and shown; a longer one is never
+#: checked (fix round 4, item 3).
+CLAIM_STATEMENT_CHARS = 240
 CLAIM_LABELS: Mapping[str, str] = {"checked": "checked", "checked_numerically": "checked numerically",
                                    "model": "model's reading, not checked", "withheld": "withheld"}
 #: ``verifier(claims, context) -> [{"index", "method", "holds", "reason"}]``,
@@ -836,10 +839,16 @@ def verify_claims(check: Check, output: Any, *, target: Target, context: Workben
                     if code not in check.leaks:
                         check.leaks.append(code)
     numbers = {step.number for step in context.steps}
+    # Fix round 4, item 3: the statement is verified exactly as it will be
+    # stored and shown (spacing normalised first); one longer than the
+    # display bound is never checked, so a checked statement is never clipped.
+    statements = [" ".join(str(claim.statement or "").split()) for claim in claims]
+    oversized = {index for index, statement in enumerate(statements) if len(statement) > CLAIM_STATEMENT_CHARS}
+    as_shown = [claim.model_copy(update={"statement": statement}) for claim, statement in zip(claims, statements)]
     outcomes: list[Mapping[str, Any]] = []
     if verifier is not None:
         try:
-            outcomes = list(verifier(claims, context))
+            outcomes = list(verifier(as_shown, context))
         except Exception:  # noqa: BLE001 - a verifier failure leaves every claim the model's reading
             outcomes = []
     recorded = []
@@ -853,11 +862,14 @@ def verify_claims(check: Check, output: Any, *, target: Target, context: Workben
         elif method in ("checked", "checked_numerically") and holds is False:
             status = "failed"
             check.fail(f"wb_claim_failed:{claim.step}")
-        elif method in ("checked", "checked_numerically") and holds is True:
+        elif method in ("checked", "checked_numerically") and holds is True and index not in oversized:
             status = method
         else:
             status = "model"
-        statement = " ".join(str(claim.statement).split())[:240]
+        statement = statements[index]
+        if index in oversized:
+            # Unverifiable as shown: the model's reading, visibly clipped.
+            statement = statement[:CLAIM_STATEMENT_CHARS - 1] + "…"
         if index in leaking:
             # F16: never stored or shown; the flags say why.
             status, statement = "withheld", ""

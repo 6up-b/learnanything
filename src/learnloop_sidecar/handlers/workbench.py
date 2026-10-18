@@ -624,7 +624,9 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         practice_item_id=plan.practice_item_id,
         answer_md=plan.composed.answer_md,
         attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=plan.hints_used),
-        hints_used=plan.hints_used,
+        # Fix round 4, item 4: the client's part only; the problem's shown
+        # checks and hints join through the held fold, once.
+        hints_used=plan.client_hints,
         primed=plan.primed,
         assessment_contract_version_id=plan.assessment_contract_version_id,
         latency_seconds=params.latency_seconds,

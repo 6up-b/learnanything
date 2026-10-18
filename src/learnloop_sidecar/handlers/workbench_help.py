@@ -86,10 +86,19 @@ def _meta(ctx: SidecarContext) -> dict[str, _JobMeta]:
     return meta
 
 
-def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_: bool = True):
+def _guard(ctx: SidecarContext):
+    """The common switch guard of all eight RPCs: with ``workbench.help_enabled``
+    (or ``workbench.enabled``) off, refuse ``help_disabled`` before anything is
+    read or changed (fix round 4, item 7: ``workbench.cancel_help`` too)."""
+
     vault, repository = ctx.require_vault()
     if not help_module.help_enabled(vault):
         raise SidecarError("help_disabled", "Checks and help are switched off (workbench.help_enabled = false).")
+    return vault, repository
+
+
+def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_: bool = True):
+    vault, repository = _guard(ctx)
     try:
         session = WB.session_row(repository, session_id)
     except WB.WorkbenchError as exc:
@@ -435,22 +444,30 @@ def help_job(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]:
     read refuses ``help_disabled``; a bridge waiting while
     ``workbench.bridge_enabled`` went off is cancelled, never shown."""
 
-    vault, _repository = ctx.require_vault()
-    if not help_module.help_enabled(vault):
+    try:
+        _guard(ctx)
+    except SidecarError as refused:
+        if refused.code != "help_disabled":
+            raise
+        # F13: a pending job is cancelled, so it is never delivered later.
         job = _jobs(ctx).get(params.job_id)
         if job is not None:
             with job.lock:
                 if not job.delivered:
                     job.cancelled = True
-        raise SidecarError("help_disabled", "Checks and help are switched off (workbench.help_enabled = false).")
+        raise
     return _payload(ctx, params.job_id)
 
 
 @method("workbench.cancel_help", HelpJobInput)
 def cancel_help(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]:
     """Cancel a check or hint before it is shown: never delivered, its row
-    stays unshown and counts nothing. A delivered one stays."""
+    stays unshown and counts nothing. A delivered one stays. With help
+    switched off it refuses ``help_disabled`` before looking the job up (fix
+    round 4, item 7); a pending job is then cancelled by its next read
+    (``workbench.help_job``, F13), so nothing is delivered."""
 
+    _guard(ctx)
     job = _jobs(ctx).get(params.job_id)
     if job is None:
         raise SidecarError("not_found", "That request is no longer kept.")

@@ -31,6 +31,25 @@ from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.db.stores.help_assists import attach_keyless_fold, keyless_window_start, server_fold
 
 
+#: One open workbench problem's help: ``(carried, server)``. ``carried`` is
+#: what the problem holds that the client may also send (RW2a: the book once
+#: counted and the answer-box hints carried into steps); ``server`` is the
+#: problem's own shown checks and level 1-3 hints, which no client count holds.
+HeldPart = tuple[int, int]
+
+
+def combine_held(client_hints: int, parts: tuple[HeldPart, ...] | list[HeldPart]) -> int:
+    """The client's count joined with the open problems' help, each distinct
+    assist once (RW2b fix round 4, item 4). Only the overlap is deduplicated:
+    a carried count the client may hold too (the RW2a book, the carried
+    hints) is taken as the larger of the two; the problem's server assists
+    (checks, level 1-3 hints) add to it. Over several open problems, the
+    larger total (one problem is what the learner worked)."""
+
+    client = int(client_hints)
+    return max([client] + [max(client, int(carried)) + int(server) for carried, server in parts])
+
+
 @dataclass(frozen=True)
 class ServerHintFold:
     """One submit's fold of its shown server hints, and the rule it applied."""
@@ -79,13 +98,20 @@ class ServerHintFold:
     #: attempt's transaction by ``held_reader`` (the sidecar's callable: the
     #: attempt path never reads the workbench) so a check or hint shown during
     #: grading is counted. With it, ``base_hints`` is
-    #: ``max(held_client_hints, held_hints) + held_extra_hints``, as
-    #: ``_held_assistance`` computes it before grading. None: as before RW2b.
-    held_reader: Callable[[Any], tuple[int, bool]] | None = field(default=None, compare=False, repr=False)
+    #: ``combine_held(held_client_hints, held_parts) + held_extra_hints``, as
+    #: ``_held_assistance`` computes it before grading (fix round 4, item 4:
+    #: the client's count and the problems' server assists add; only the
+    #: carried overlap counts once). None: as before RW2b.
+    held_reader: Callable[[Any], tuple[tuple[HeldPart, ...], bool]] | None = field(
+        default=None, compare=False, repr=False)
     held_client_hints: int = 0
     held_extra_hints: int = 0
+    #: The largest help one open problem holds (carried + server): whether
+    #: held help makes an independent attempt the assisted type.
     held_hints: int = 0
     held_primed: bool = False
+    #: Each open problem's ``(carried, server)`` help (:func:`combine_held`).
+    held_parts: tuple[HeldPart, ...] = ()
     #: The item's allowed attempt types: held help makes an independent
     #: attempt the assisted type the answer box picks (``_held_assistance``);
     #: None leaves the type alone (``submit_dont_know``).
@@ -94,7 +120,8 @@ class ServerHintFold:
     def base(self) -> int:
         if self.held_reader is None:
             return int(self.base_hints)
-        return max(int(self.held_client_hints), int(self.held_hints)) + int(self.held_extra_hints)
+        parts = self.held_parts or (((int(self.held_hints), 0),) if self.held_hints else ())
+        return combine_held(self.held_client_hints, parts) + int(self.held_extra_hints)
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
@@ -148,22 +175,28 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         return draft, None
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
                                      session_id=fold.session_id, submission_id=fold.submission_id)
-    held = (fold.held_hints, fold.held_primed)
+    held = (fold.held_hints, fold.held_primed, tuple(fold.held_parts))
     if fold.held_reader is not None:
         # RW2b (fix round 1, F1): the open problems' help, under the same
         # lock; only ever raised (a problem another process submitted in
-        # between keeps the count read before grading).
-        now_hints, now_primed = fold.held_reader(connection)
-        held = (max(int(now_hints), int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed))
+        # between keeps the count read before grading). Fix round 4, item 4:
+        # the same rule as before grading (:func:`combine_held`).
+        now_parts, now_primed = fold.held_reader(connection)
+        now_parts = tuple((int(carried), int(server)) for carried, server in now_parts)
+        before = combine_held(fold.held_client_hints, fold.held_parts)
+        parts = now_parts if combine_held(fold.held_client_hints, now_parts) >= before else tuple(fold.held_parts)
+        largest = max((carried + server for carried, server in parts), default=0)
+        held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), parts)
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one
         # read here, under the write lock.
         draft = replace(draft, server_hint_fold=replace(fold, since=since))
         fold = draft.server_hint_fold
-    if (count, primed) == (fold.folded_hints, fold.folded_primed) and held == (fold.held_hints, fold.held_primed):
+    if (count, primed) == (fold.folded_hints, fold.folded_primed) and held == (
+            fold.held_hints, fold.held_primed, tuple(fold.held_parts)):
         return draft, None
     now = replace(fold, folded_hints=count, folded_primed=primed, since=since, held_hints=held[0],
-                  held_primed=held[1])
+                  held_primed=held[1], held_parts=held[2])
     return replace(
         draft,
         hints_used=now.hints_used(),
@@ -191,4 +224,4 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
                                since=fold.since, attempt_id=attempt_id, submitted_at=fold.submitted_at)
 
 
-__all__ = ["ServerHintFold", "attach_keyless", "read_fold", "refolded_draft"]
+__all__ = ["HeldPart", "ServerHintFold", "attach_keyless", "combine_held", "read_fold", "refolded_draft"]

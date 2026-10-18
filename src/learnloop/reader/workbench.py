@@ -457,12 +457,16 @@ def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
     return {column: (str(serve[column]) if serve.get(column) else None) for column in SERVE_COLUMNS}
 
 
-def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
-    """The help the item's open problems hold, read on ``connection`` (a
-    submit's own write transaction may pass its connection: RW2b fix round 1,
-    F1): the hint-equivalents (the book one counted, the answer-box hints it
-    carried, the shown checks and level 1-3 hints; the larger over the open
-    problems) and whether any showed worked help (a level 4-5 hint)."""
+def held_parts_on(connection: Any, practice_item_id: str) -> tuple[tuple[tuple[int, int], ...], bool]:
+    """The help each of the item's open problems holds, read on
+    ``connection`` (a submit's own write transaction may pass its connection:
+    RW2b fix round 1, F1), kept in its two parts (fix round 4, item 4):
+    ``(carried, server)``, where ``carried`` is the book once counted and the
+    answer-box hints carried into steps (a client may send these too) and
+    ``server`` the problem's shown checks and level 1-3 hints (no client
+    holds them); and whether any problem showed worked help (a level 4-5
+    hint). The submit joins them with the client's count by
+    ``learnloop.attempts.hint_fold.combine_held``."""
 
     sessions = store.sessions_where(
         connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
@@ -472,8 +476,17 @@ def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
     folds = {session["id"]: assists_store.workbench_fold(connection, workbench_session_id=session["id"],
                                                          practice_item_id=practice_item_id)
              for session in sessions}
-    hints = max((session_hints(session) + folds[session["id"]].hints for session in sessions), default=0)
-    return hints, any(fold.primed for fold in folds.values())
+    parts = tuple((session_hints(session), int(folds[session["id"]].hints)) for session in sessions)
+    return parts, any(fold.primed for fold in folds.values())
+
+
+def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
+    """The help the item's open problems hold (:func:`held_parts_on`): the
+    largest hint-equivalents one problem holds (its book, carried hints,
+    shown checks and level 1-3 hints) and whether any showed worked help."""
+
+    parts, primed = held_parts_on(connection, practice_item_id)
+    return max((carried + server for carried, server in parts), default=0), primed
 
 
 def held_hints(repository: Any, practice_item_id: str) -> int:
@@ -974,6 +987,15 @@ class SubmissionPlan:
         return self.book_hints + self.carried_hints + self.help.hints
 
     @property
+    def client_hints(self) -> int:
+        """What the submit sends as the client's count: the session's RW2a
+        counts only (the book's, the carried hints). Its shown checks and
+        hints are the server's, added by the held fold exactly once (RW2b fix
+        round 4, item 4: ``learnloop.attempts.hint_fold.combine_held``)."""
+
+        return self.book_hints + self.carried_hints
+
+    @property
     def primed(self) -> bool:
         """Worked help (a shown level 4-5 hint) primes the attempt (§5.4)."""
 
@@ -1229,6 +1251,7 @@ __all__ = [
     "ensure_contract",
     "held_hints",
     "held_on",
+    "held_parts_on",
     "held_primed",
     "help_fold",
     "import_request",

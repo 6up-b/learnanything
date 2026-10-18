@@ -79,12 +79,14 @@ CHECKABLE_KINDS: tuple[str, ...] = (
 )
 #: How a verdict was reached (the label beside the marker, W2).
 CHECKED, CHECKED_NUMERICALLY, MODEL = "checked", "checked_numerically", "model"
-#: Bounds (prompt-size and runtime only, never judgments).
+#: Bounds (prompt-size and runtime only, never judgments). Fix round 4,
+#: item 1: a claim whose text, earlier steps, problem or declaration exceeds
+#: its bound is never sent (never a truncated prefix): the model's reading.
 MAX_CHECKS = 12
 MAX_EXPRESSION_CHARS = 400
-MAX_TEXT_CHARS = 2_000
-MAX_EARLIER = 40
-MAX_PROBLEM_CHARS = 4_000
+MAX_TEXT_CHARS = 4_000
+MAX_EARLIER = 200
+MAX_PROBLEM_CHARS = 8_000
 
 
 @dataclass(frozen=True)
@@ -112,14 +114,30 @@ class SymbolicClaim:
     earlier: tuple[str, ...] = ()
     problem: str = ""
 
+    def oversized(self) -> str | None:
+        """Which bound the claim exceeds (it is then never checked), or None."""
+
+        for name in ("expression", "result", "value", "lower", "upper"):
+            if len(str(getattr(self, name) or "")) > MAX_EXPRESSION_CHARS:
+                return name
+        if len(str(self.variable or "")) > 40 or len(str(self.relation or "")) > 4:
+            return "declaration"
+        if len(str(self.text or "")) > MAX_TEXT_CHARS:
+            return "text"
+        if len(self.earlier) > MAX_EARLIER or any(len(str(text or "")) > MAX_TEXT_CHARS for text in self.earlier):
+            return "earlier"
+        if len(str(self.problem or "")) > MAX_PROBLEM_CHARS:
+            return "problem"
+        return None
+
     def payload(self) -> dict[str, Any]:
-        return {"index": self.index, "kind": self.kind, "expression": self.expression[:MAX_EXPRESSION_CHARS],
-                "result": self.result[:MAX_EXPRESSION_CHARS], "variable": self.variable[:40],
-                "value": self.value[:MAX_EXPRESSION_CHARS], "lower": self.lower[:MAX_EXPRESSION_CHARS],
-                "upper": self.upper[:MAX_EXPRESSION_CHARS], "relation": self.relation[:4],
-                "text": self.text[:MAX_TEXT_CHARS],
-                "earlier": [str(text)[:MAX_TEXT_CHARS] for text in self.earlier][-MAX_EARLIER:],
-                "problem": self.problem[:MAX_PROBLEM_CHARS]}
+        """The claim as data, whole (:meth:`oversized` keeps a claim that
+        would need clipping out of the sandbox altogether)."""
+
+        return {"index": self.index, "kind": self.kind, "expression": self.expression, "result": self.result,
+                "variable": self.variable, "value": self.value, "lower": self.lower, "upper": self.upper,
+                "relation": self.relation, "text": self.text, "earlier": [str(text) for text in self.earlier],
+                "problem": self.problem}
 
 
 @dataclass(frozen=True)
@@ -259,9 +277,42 @@ class Transform(TransformToSymPyExpr):
         super().__init__()
         self.known = known
         self.definition = definition
+        #: What the written text restricts (fix round 4, item 2): every
+        #: denominator, log argument, even-root radicand and base of a
+        #: negative power, AS WRITTEN (sympy's evaluation may cancel them:
+        #: x^2/x is x).
+        self.restricted = []
 
     def SYMBOL(self, token):
         return sympy.Symbol(str(token))
+
+    def _handle_division(self, numerator, denominator):
+        self.restricted.append(denominator)
+        return super()._handle_division(numerator, denominator)
+
+    def log(self, tokens):
+        self.restricted.extend(token for token in tokens if isinstance(token, sympy.Basic))
+        return super().log(tokens)
+
+    def square_root(self, tokens):
+        if len(tokens) == 3 and tokens[1] != 2:
+            # Fix round 4, item 6: an n-th root other than the square root
+            # (sympy's principal complex root, not the real one) is not checked.
+            raise NotChecked("nth_root")
+        self.restricted.append(tokens[-1])
+        return super().square_root(tokens)
+
+    def superscript(self, tokens):
+        base = tokens[0]
+        power = tokens[3] if len(tokens) == 5 else tokens[2] if len(tokens) == 3 else None
+        if isinstance(base, sympy.Basic) and isinstance(power, sympy.Basic) and power.is_number:
+            if power.is_integer is not True and base.is_nonnegative is not True:
+                # Fix round 4, item 6: a fractional power of a base that can be
+                # negative (no real-root semantics here).
+                raise NotChecked("fractional_power")
+            if power.is_integer is not True or power.is_negative:
+                self.restricted.append(base)
+        return super().superscript(tokens)
 
     def eq(self, tokens):
         return Rel("=", tokens[0], tokens[2])
@@ -349,7 +400,8 @@ def read(text, known, definition=False):
     source = math_of(text)
     try:
         tree = LATEX.doparse(source)
-        value = Transform(known, definition=definition).transform(tree)
+        transformer = Transform(known, definition=definition)
+        value = transformer.transform(tree)
     except VisitError as exc:
         inner = getattr(exc, "orig_exc", None)
         if isinstance(inner, (NotChecked, _Timeout)):
@@ -363,6 +415,7 @@ def read(text, known, definition=False):
         raise NotChecked("no_relation")
     if not (_sympy(value.lhs) and _sympy(value.rhs)):
         raise NotChecked("not_one_relation")
+    value.restricted = list(transformer.restricted)
     return value
 
 
@@ -389,7 +442,7 @@ def _definition(text):
     body = relation.rhs
     if body.atoms(AppliedUndef) or name in {s.name for s in body.atoms(sympy.Symbol)}:
         return None
-    return name, relation.lhs.args[0], body
+    return name, relation.lhs.args[0], body, tuple(relation.restricted)
 
 
 def definitions(problem, earlier):
@@ -400,10 +453,10 @@ def definitions(problem, earlier):
         entry = definition(text)
         if entry is None:
             continue
-        name, var, body = entry
+        name, var, body, restricted = entry
         if name in found and (found[name][0] != var or sympy.simplify(found[name][1] - body) != 0):
             conflicted.add(name)
-        found.setdefault(name, (var, body))
+        found.setdefault(name, (var, body, restricted))
     return {name: value for name, value in found.items() if name not in conflicted}
 
 
@@ -415,7 +468,7 @@ def resolve(expression, known):
         base, primes = base_of(applied.func.__name__)
         if base not in known or len(applied.args) != 1:
             raise NotChecked("unresolved_name")
-        var, body = known[base]
+        var, body = known[base][:2]
         value = sympy.diff(body, var, primes) if primes else body
         mapping[applied] = value.subs(var, applied.args[0])
     out = expression.xreplace(mapping)
@@ -483,7 +536,7 @@ def classify(relation, known, declared_kind):
         base, primes = base_of(lhs.func.__name__)
         if base not in known or len(lhs.args) != 1:
             raise NotChecked("unresolved_name")
-        var, body = known[base]
+        var, body = known[base][:2]
         argument = _operand(lhs.args[0], known)
         if has_operator(body):
             raise NotChecked("nested_operator")
@@ -517,10 +570,24 @@ def solved_equation(claim, variable, known):
         relation = read(text, known)
         if relation.op != "=" or isinstance(relation.lhs, AppliedUndef):
             raise NotChecked("no_equation")
+        # Fix round 4, item 2: an equation whose written form restricts the
+        # variable (a denominator, a log, an even root, a negative power) may
+        # exclude the candidate, and sympy's evaluation can cancel that
+        # (x^2/x = 2x is undefined at 0, but evaluates to x = 2x): never checked.
+        restricted = list(relation.restricted)
+        for applied in list(relation.lhs.atoms(AppliedUndef)) + list(relation.rhs.atoms(AppliedUndef)):
+            base, _primes = base_of(applied.func.__name__)
+            if base in known:
+                var = known[base][0]
+                restricted.extend(entry.subs(var, applied.args[0]) for entry in known[base][2])
+        if any(sympy.sympify(entry).has(variable) for entry in restricted):
+            raise NotChecked("restricted_domain")
         lhs, rhs = resolve(relation.lhs, known), resolve(relation.rhs, known)
         if has_operator(lhs) or has_operator(rhs):
             raise NotChecked("no_equation")
         residual = lhs - rhs
+        if sympy.denom(sympy.together(residual)).has(variable):
+            raise NotChecked("restricted_domain")
         if not residual.has(variable) or sympy.simplify(residual) == 0:
             raise NotChecked("no_equation")
         return residual
@@ -820,11 +887,17 @@ def run_checks(claims: Sequence[SymbolicClaim], *, limits: Any = None,
     if not declared:
         return [], None
     fallback = [SymbolicOutcome(claim.index, MODEL, None, "not checked") for claim in declared]
+    # Fix round 4, item 1: a claim that would need clipping is not checked.
+    too_long = {claim.index: SymbolicOutcome(claim.index, MODEL, None, f"too_long:{reason}")
+                for claim in declared if (reason := claim.oversized()) is not None}
+    sent = [claim for claim in declared if claim.index not in too_long]
+    if not sent:
+        return [too_long[claim.index] for claim in declared], None
     kwargs: dict[str, Any] = {"limits": limits or SandboxLimits(cpu_seconds=20, wall_seconds=30)}
     if run is not None:
         kwargs["run"] = run
     try:
-        result = run_sandboxed_python(HARNESS, {"claims": [claim.payload() for claim in declared],
+        result = run_sandboxed_python(HARNESS, {"claims": [claim.payload() for claim in sent],
                                                 "checkable": list(CHECKABLE_KINDS),
                                                 "per_check_seconds": 5}, **kwargs)
     except SandboxUnavailable:
@@ -844,6 +917,7 @@ def run_checks(claims: Sequence[SymbolicClaim], *, limits: Any = None,
         value = entry.get("holds")
         found[index] = SymbolicOutcome(index, method, bool(value) if method != MODEL and isinstance(value, bool)
                                        else None, str(entry.get("reason") or "")[:200], bound=bound)
+    found.update(too_long)
     return [found.get(claim.index, SymbolicOutcome(claim.index, MODEL, None, "no result")) for claim in declared], None
 
 

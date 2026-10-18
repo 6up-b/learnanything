@@ -896,13 +896,16 @@ def _plan_presentation(repository, params: Any) -> str | None:
 
 
 def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
-                     held: int | None = None) -> tuple[int, str]:
+                     held: tuple[tuple[int, int], ...] | None = None) -> tuple[int, str]:
     """Fold in the assistance the item's open workbench problems hold (Reader
     workbench RW2a, review F2): the book one counted and the answer-box hints
     it carried. The server holds them, so the record never depends on a
     client having restored them before Submit, and it is never clamped to the
-    hints the item shows today. The larger of the two counts, never their sum
-    (a client that restored them already sends them), and an independent
+    hints the item shows today. The carried part (book, carried hints) and
+    the client's count overlap (a client that restored them already sends
+    them): the larger of the two. The problem's own shown checks and level
+    1-3 hints add to it (RW2b fix round 4, item 4:
+    :func:`learnloop.attempts.hint_fold.combine_held`). An independent
     attempt type becomes the assisted one the answer box picks.
 
     On an item that allows only ``independent_attempt`` that type stays, with
@@ -911,39 +914,41 @@ def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
     ``stuck_attempt_type`` fall back to the item's default type). The one
     activity policy (``resolve_attempt_activity_policy``) reads ``hints_used``
     > 0 as assisted and never certifying whatever the type, so the attempt is
-    never unassisted evidence (RW2a round 4, F2). ``held``: the count
+    never unassisted evidence (RW2a round 4, F2). ``held``: the parts
     :func:`_held_read` already took (RW2b fix round 1, F1)."""
 
-    if held is None:
-        from learnloop.reader.workbench import held_hints
+    from learnloop.attempts.hint_fold import combine_held
 
-        held = held_hints(repository, item.id)
-    if held <= 0:
+    if held is None:
+        held = _held_read(repository, item)[0]
+    largest = max((carried + server for carried, server in held), default=0)
+    if largest <= 0:
         return hints_used, attempt_type
     if attempt_type == "independent_attempt":
-        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=held)
-    return max(int(hints_used), held), attempt_type
+        attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=largest)
+    return combine_held(int(hints_used), held), attempt_type
 
 
-def _held_read(repository, item) -> tuple[int, bool]:
+def _held_read(repository, item) -> tuple[tuple[tuple[int, int], ...], bool]:
     """Reader workbench RW2b (§5.4): the help the item's open problems hold,
-    ``(hint-equivalents, primed)``: their book and carried hints, shown checks
-    and hints, and whether any showed worked help (a level 4-5 hint, which
-    primes every submit of the item). ``(0, False)`` with no workbench help,
-    so every submit is exactly as before RW2b."""
+    ``(parts, primed)``: per problem ``(carried, server)`` (its book and
+    carried hints; its shown checks and level 1-3 hints: fix round 4, item
+    4), and whether any showed worked help (a level 4-5 hint, which primes
+    every submit of the item). ``((), False)`` with no workbench help, so
+    every submit is exactly as before RW2b."""
 
     from contextlib import closing
 
     from learnloop.db.connection import connect
-    from learnloop.reader.workbench import held_on
+    from learnloop.reader.workbench import held_parts_on
 
     try:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            hints, primed = held_on(connection, item.id)
+            parts, primed = held_parts_on(connection, item.id)
     except Exception as exc:  # noqa: BLE001 -- a vault without the tables holds nothing
         log_event("workbench_held_read_failed", practice_item_id=item.id, error=type(exc).__name__)
-        return 0, False
-    return int(hints), bool(primed)
+        return (), False
+    return tuple(parts), bool(primed)
 
 
 def _held_reader(practice_item_id: str):
@@ -953,22 +958,25 @@ def _held_reader(practice_item_id: str):
     while the submit was grading is then counted; none is shown after the
     attempt commits under its key (``help_assists.mark_shown``)."""
 
-    def read(connection) -> tuple[int, bool]:
-        from learnloop.reader.workbench import held_on
+    def read(connection) -> tuple[tuple[tuple[int, int], ...], bool]:
+        from learnloop.reader.workbench import held_parts_on
 
         try:
-            return held_on(connection, practice_item_id)
+            return held_parts_on(connection, practice_item_id)
         except sqlite3.OperationalError:
             # A vault without the workbench tables holds nothing.
-            return 0, False
+            return (), False
 
     return read
 
 
-def _held_fields(item, held: tuple[int, bool], *, client_hints: int, extra_hints: int,
+def _held_fields(item, held: tuple[tuple[tuple[int, int], ...], bool], *, client_hints: int, extra_hints: int,
                  attempt_types: bool) -> dict[str, Any]:
+    parts = tuple(held[0])
     return {"held_reader": _held_reader(item.id), "held_client_hints": int(client_hints),
-            "held_extra_hints": int(extra_hints), "held_hints": int(held[0]), "held_primed": bool(held[1]),
+            "held_extra_hints": int(extra_hints),
+            "held_hints": max((carried + server for carried, server in parts), default=0),
+            "held_parts": parts, "held_primed": bool(held[1]),
             "held_types": tuple(item.attempt_types_allowed or ()) if attempt_types else None}
 
 
