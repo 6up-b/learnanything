@@ -286,8 +286,9 @@ the server rows to the attempt with the authored ones.
    failing): the next authored hint serves for "More" and replies; worked
    help, `book_way` and `smaller_step` get `unavailable` with the reason (an
    authored hint is not what they asked for).
-10. **No inline map build and no learner-route merge on a hint** (§4.3.1 rows
-    2-3). The approach-map route resolves to Codex on the owner's vaults
+10. **No inline map build on a hint** (§4.3.1 row 2; the learner-route merge
+    of row 3 is wired by the Codex review's F9: a shown hint schedules
+    `merge_learner_routes` in the background, see `hints-h2a-codex-review.md`). The approach-map route resolves to Codex on the owner's vaults
     (29-37 s), so an inline build cannot fit a hint; H2a serves without the
     map kinds when there is no map (§4.4 "No map"), and build on serve already
     covers new items. Both are H2b/H4 friction notes below.
@@ -543,13 +544,15 @@ The sign-in, status, models and latency commands are the merged provider's
 8. *Per-kind report rows* read `help_assists` (`hint_kind`, `level`,
    `chooser`, `propensity`, `drawn_option_json`, `contract_failures_json`'s
    `outcome`, `shown`) and `judgment_ledger` (`hint_choice`, `hint_fit`).
-9. *The inline map build and the lazy learner-route merge* on a hint (§4.3.1
-   rows 2-3) are not wired: `map_builder.build_map_inline` needs a route that
-   fits a hint's time (not Codex), and `merge_learner_routes` should run in
-   the background after delivery as `schedule_build_on_serve` does.
-10. *Unplaceable work.* "Work unlike any route gets an approach question"
-    (§4.4) is the writer's instruction only; the placement's
-    `work_matches_a_route = false` could drive the options in H2b.
+9. *The inline map build* on a hint (§4.3.1 row 2) is not wired:
+   `map_builder.build_map_inline` needs a route that fits a hint's time (not
+   Codex). The lazy learner-route merge (row 3) runs in the background after
+   delivery (`schedule_merge_after_hint`, review F9).
+10. *Unplaceable work.* A route-directed hint on work the writer placed on no
+    route and found not clearly valid becomes a checked approach question on
+    "More" (review F7); a reply keeps its level, so H2b may want the chooser's
+    state to carry the previous placement and offer the approach question
+    there too.
 
 **RW2b / H3.** Call `learnloop.hints.service.request_hint` with the workbench
 surface once the service accepts it (H2a validates `surface = 'practice'`);
