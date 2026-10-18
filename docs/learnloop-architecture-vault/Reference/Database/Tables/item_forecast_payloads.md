@@ -3,8 +3,8 @@ title: "item_forecast_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
-source_commit_timestamp: "2026-10-18T16:28:00-04:00"
+source_commit: "bae5dcaf9edeebcf124299f37b36c7670b07ba14"
+source_commit_timestamp: "2026-10-18T16:44:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_forecast_payloads"
@@ -98,6 +98,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/ad_fakes.py`
+- `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_adaptive_difficulty_ad1.py`

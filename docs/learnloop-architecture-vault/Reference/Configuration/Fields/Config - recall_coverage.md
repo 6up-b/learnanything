@@ -3,8 +3,8 @@ title: "Config - recall_coverage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
-source_commit_timestamp: "2026-10-18T16:28:00-04:00"
+source_commit: "bae5dcaf9edeebcf124299f37b36c7670b07ba14"
+source_commit_timestamp: "2026-10-18T16:44:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recall_coverage"
@@ -40,8 +40,8 @@ source_paths:
   - "tests/test_activity_backfill.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_ad1_attempt_columns.py"
+  - "tests/test_ad1_codex_rereview_fixes.py"
   - "tests/test_ad1_codex_review_fixes.py"
-  - "tests/test_ad1_migration.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/recall-coverage"
@@ -171,8 +171,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_ad1_attempt_columns.py`
+- `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
-- `tests/test_ad1_migration.py`
 
 ## Extension and modification guidance
 

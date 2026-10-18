@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
-source_commit_timestamp: "2026-10-18T16:28:00-04:00"
+source_commit: "bae5dcaf9edeebcf124299f37b36c7670b07ba14"
+source_commit_timestamp: "2026-10-18T16:44:03-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -289,6 +289,7 @@ Indexes and uniqueness:
 - `tests/source_service_fakes.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_ad1_attempt_columns.py`
+- `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_adaptive_difficulty_ad1.py`
@@ -302,7 +303,6 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_contamination_report.py`
-- `tests/test_daily_plan_composition.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
