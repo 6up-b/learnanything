@@ -253,18 +253,58 @@ _SIGNS = str.maketrans({"\u2212": "-", "\u2010": "-", "\u2011": "-", "\u2012": "
                         "\u2014": "-", "\ufe63": "-", "\uff0d": "-", "\ufe62": "+", "\uff0b": "+"})
 #: ``=`` as an assignment or equation, never inside ``<=``, ``>=``, ``!=`` or ``==``.
 _EQUALS = re.compile(r"(?<![<>!=])=(?!=)")
-#: A plain number of its own, its sign attached (``-4`` is never ``4``): an
-#: integer, decimal or whole fraction, never part of ``x_4``, ``2^4``, ``14``,
-#: ``4.5``, ``x-4`` or a fraction's numerator or denominator (``3/4``,
-#: ``\frac{3}{4}``, ``(3)/(4)``).
-_NUMBER_TOKEN = re.compile(
-    # A sign (spaced or not) belongs to the number unless it follows an operand.
-    r"(?:(?<![\w.^_/\\{})])[-+]\s*(?=\d)"
-    # An unsigned number never follows a sign, a slash (spaced or not) or "/(".
-    r"|(?<![\w.^_/\\{\-+])(?<!/\s)(?<!/\s\s)(?<![-+]\s)(?<![-+]\s\s)(?<!/\()(?<!/ \())"
-    r"\d+(?:\.\d+)?(?:\s*/\s*[-+]?\s*\d+(?:\.\d+)?)?"
-    # ... and is never a numerator of a fraction it is not part of ("4 / x", "(4)/(5)").
-    r"(?![\w^/}]|\.\d|,\d|\)\s*/|\s*/)")
+#: A number with an optional sign (spaced or not) and an optional whole
+#: fraction part; its context is checked by :func:`_standalone` (fix round 5).
+_NUMBER_CANDIDATE = re.compile(r"(?P<sign>[-+]\s*)?\d+(?:\.\d+)?(?:\s*/\s*[-+]?\s*\d+(?:\.\d+)?)?")
+#: Characters that make an adjacent number part of something else (an
+#: identifier, a decimal, a power, a subscript, a command or a brace group).
+_ATTACHED_LEFT = re.compile(r"[\w.^_/\\{}]")
+_ATTACHED_RIGHT = re.compile(r"[\w^/}]")
+
+
+def _skip_left(text: str, index: int) -> int:
+    """The index of the first non-space character left of ``index`` (-1 if none)."""
+
+    index -= 1
+    while index >= 0 and text[index].isspace():
+        index -= 1
+    return index
+
+
+def _skip_right(text: str, index: int) -> int:
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
+
+
+def _standalone(text: str, match: re.Match[str]) -> bool:
+    """Whether a number candidate is a number of its own (fix round 5, U4):
+    a scan across ANY whitespace on both sides, never fixed-width lookbehinds.
+    It is not a denominator ("x /   4", "x /  (4)"), not a numerator of a
+    fraction it is not part of ("4 / x", "(4)/(5)"), not attached to an
+    identifier, a decimal, a power or a subscript ("x_4", "2^4", "4.5"),
+    and a sign directly after an operand is that operand's ("x-4")."""
+
+    start, end = match.start(), match.end()
+    sign = match.group("sign")
+    before = text[start - 1] if start > 0 else ""
+    if sign:
+        if before and (_ATTACHED_LEFT.match(before) or before in ")"):
+            return False  # "x-4": a binary minus, and the digit after it is no number of its own
+    elif before and (_ATTACHED_LEFT.match(before) or before in "-+"):
+        return False
+    left = _skip_left(text, start)
+    if left >= 0 and text[left] == "(":
+        left = _skip_left(text, left)
+    if left >= 0 and text[left] == "/":
+        return False  # a denominator
+    after = text[end] if end < len(text) else ""
+    if after and (_ATTACHED_RIGHT.match(after) or (after in ".," and text[end + 1:end + 2].isdigit())):
+        return False
+    right = _skip_right(text, end)
+    if right < len(text) and text[right] == ")":
+        right = _skip_right(text, right + 1)
+    return not (right < len(text) and text[right] == "/")  # a numerator
 
 
 def number_tokens(text: str | None) -> list[str]:
@@ -272,12 +312,11 @@ def number_tokens(text: str | None) -> list[str]:
     whole fraction, whitespace removed and a leading ``+`` dropped."""
 
     plain = _LEFT_RIGHT.sub("", _DELIMITERS.sub(" ", _signs(text)))
-    # "( 3 ) / ( 4 )" is "(3)/(4)": one fraction, whatever its spacing (U4).
-    plain = re.sub(r"\(\s*([-+]?\s*\d+(?:\.\d+)?)\s*\)", lambda match: "(" + re.sub(r"\s+", "", match.group(1)) + ")",
-                   plain)
-    plain = re.sub(r"\)\s*/\s*\(", ")/(", plain)
-    tokens = [re.sub(r"\s+", "", match.group(0)) for match in _NUMBER_TOKEN.finditer(plain)]
+    tokens = [re.sub(r"\s+", "", match.group(0)) for match in _NUMBER_CANDIDATE.finditer(plain)
+              if _standalone(plain, match)]
     return [token[1:] if token.startswith("+") else token for token in tokens]
+
+
 #: A word that ends an expression in prose ("x^2 on [0, 1]", "4 socks").
 _PROSE_WORD = re.compile(r"\s+([A-Za-z]{2,})\b")
 _MATH_NAMES = frozenset({"sqrt", "sin", "cos", "tan", "exp", "log", "ln", "pi"})
@@ -349,16 +388,12 @@ def answer_candidates(text: str) -> list[str]:
     return [value for value in dict.fromkeys(found) if value]
 
 
-def structured_expression(text: str | None, unit: str | None = "") -> str | None:
+def structured_expression(text: str | None) -> str | None:
     """A structured field (a node's ``value``, the goal's ``conclusion``) as an
     expression the guarded checker reads, or None: empty, prose, a quantity
-    with its unit still attached ("4 m"), an equation, or not parseable.
-    A declared ``unit`` written after the expression is dropped first."""
+    with a unit ("4 m"), an equation, or not parseable."""
 
     raw = _signs(text).strip()
-    suffix = (unit or "").strip()
-    if suffix and raw.endswith(suffix) and raw[: -len(suffix)].strip():
-        raw = raw[: -len(suffix)].strip()
     plain = normalize_math(raw)
     if not plain.strip() or _QUANTITY.search(plain) or _EQUALS.search(plain) or re.search(r"[<>]|!=", plain):
         return None
@@ -389,126 +424,80 @@ def states_answer(text: str, key: str | None) -> bool:
     return any(_equal(candidate, target) is True for candidate in answer_candidates(text))
 
 
-#: A unit as written after a number: letters (or µ, Ω, °, %), then letters,
-#: digits and ^ / * · . (``m``, ``cm^2``, ``m/s``, ``kg m/s^2``).
-_UNIT = r"[A-Za-z\u00b5\u03bc\u03a9\u00b0%][A-Za-z0-9\u00b5\u03bc\u03a9\u00b0%^/*\u00b7.]*"
-_QUANTITY_NUMBER = r"[-+]?\s*\d+(?:\.\d+)?(?:\s*/\s*\d+(?:\.\d+)?)?"
-#: "4 m": a number, a space, a unit (unambiguous).
-_SPACED_QUANTITY = re.compile(rf"({_QUANTITY_NUMBER})\s+({_UNIT}(?:\s+{_UNIT})*)")
-#: "4m": a number with letters attached; a unit or a product (ambiguous).
-_ATTACHED_QUANTITY = re.compile(rf"({_QUANTITY_NUMBER})({_UNIT})")
-_UNIT_MARKUP = re.compile(r"\\(?:text|mathrm|mbox|operatorname)\s*\{([^{}]*)\}")
-_LATEX_SPACE = re.compile(r"\\[,;:! ]|~")
+# -- quantities: string identity only, never unit reasoning (fix round 5) ------------------
+
+_TEXT_MARKUP = re.compile(r"\\(?:text|mathrm)\s*\{([^{}]*)\}")
+_SUPERSCRIPTS = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b\u207a",
+                              "0123456789-+")
+_SUPERSCRIPT_RUN = re.compile("[\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b\u207a]+")
+#: A number (integer, decimal or a/b), whitespace, then a token starting with
+#: a non-digit: "4 m", "4 m^2", "2 x", "3 cm", "4 °C".
+_QUANTITY_SHAPED = re.compile(r"[-+]?\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)?\s+\D.*", re.S)
 
 
-def _unit_text(text: str | None) -> str:
-    """``\\text{m}``-style markup and LaTeX spaces as plain text."""
+def norm(text: str | None) -> str:
+    """The answer as a comparable string (fix round 5): math delimiters,
+    ``\\text{}``, ``\\mathrm{}``, ``\\,`` and ``~`` stripped, Unicode
+    superscripts written ``^n`` and Unicode signs ASCII, whitespace collapsed
+    to single spaces and trimmed. No unit is ever interpreted."""
 
-    return _LATEX_SPACE.sub(" ", _UNIT_MARKUP.sub(r" \1", _signs(text)))
-
-
-def normalize_unit(unit: str | None) -> str:
-    """A unit compared as a string (fix round 4, U1): markup, delimiters and
-    whitespace removed, ``²``/``³`` and ``^{2}`` written ``^2``; case kept (mm is not Mm)."""
-
-    value = normalize_math(_unit_text(unit)).replace("\u00b2", "^2").replace("\u00b3", "^3")
-    value = re.sub(r"\^\{([^{}]*)\}", r"^\1", value)
-    return re.sub(r"\s+", "", value)
+    value = _DELIMITERS.sub(" ", _signs(text))
+    value = _TEXT_MARKUP.sub(r"\1", value)
+    value = value.replace("\\,", " ").replace("~", " ")
+    value = _SUPERSCRIPT_RUN.sub(lambda match: "^" + match.group(0).translate(_SUPERSCRIPTS), value)
+    return re.sub(r"\s+", " ", value).strip()
 
 
-@dataclass(frozen=True)
-class Quantity:
-    """An answer read as a number and its unit (fix round 4, U1): one
-    reading for the reference and for the structured fields. ``number`` is
-    the expression without its unit; ``whole`` the expression read
-    algebraically (None when a unit was split off); ``ambiguous`` when a
-    number has letters attached ("4m": four metres, or 4 times m)."""
+def quantity_shaped(reference: str | None) -> bool:
+    """Whether ``norm(reference)`` is a number, whitespace, then a token
+    starting with a non-digit (fix round 5)."""
 
-    number: str | None
-    unit: str | None
-    whole: str | None
-    ambiguous: bool = False
+    return _QUANTITY_SHAPED.fullmatch(norm(reference)) is not None
 
 
-def _units_are_math(unit: str) -> bool:
-    return any(word.lower() in _MATH_NAMES for word in re.findall(r"[A-Za-z]{2,}", unit))
+def _with_unit(expression: str | None, unit: str | None) -> str:
+    unit = (unit or "").strip()
+    return norm(f"{expression or ''} {unit}" if unit else expression)
 
 
-def read_quantity(text: str | None, unit: str | None = "") -> Quantity:
-    """``text`` (and a declared ``unit``) as a :class:`Quantity`, by the one
-    helper both sides use: a declared unit written after the expression is
-    dropped; "4 m" splits into 4 and m; "4m" is ambiguous; anything else is
-    an expression with the declared unit, if any."""
+def structured_verdict(expression: str | None, unit: str | None, key: str) -> tuple[str, str]:
+    """``(verified | mismatch | unverified, basis)`` for a structured
+    ``conclusion`` (or ``value``) with its ``unit`` against the exact key
+    (fix round 5). Three rules, no unit reasoning:
 
-    declared = normalize_unit(unit) or None
-    raw = _unit_text(text).strip()
-    suffix = (unit or "").strip()
-    if suffix and raw.endswith(suffix) and raw[: -len(suffix)].strip():
-        raw = raw[: -len(suffix)].strip()
-    plain = _clean(normalize_math(raw))
-    spaced = _SPACED_QUANTITY.fullmatch(plain)
-    if spaced and not _units_are_math(spaced.group(2)):
-        written = normalize_unit(spaced.group(2))
-        number = structured_expression(spaced.group(1))
-        if declared is not None and written != declared:
-            return Quantity(number, None, None, ambiguous=True)  # two units: not interpretable
-        return Quantity(number, written, None)
-    attached = _ATTACHED_QUANTITY.fullmatch(plain)
-    if attached and declared is None and not _units_are_math(attached.group(2)):
-        return Quantity(structured_expression(attached.group(1)), normalize_unit(attached.group(2)),
-                        structured_expression(plain), ambiguous=True)
-    expression = structured_expression(raw)
-    return Quantity(expression, declared, expression if declared is None else None)
+    1. A quantity-shaped key: verified iff ``norm(expression + " " + unit)``
+       (``norm(expression)`` when the unit is empty) equals ``norm(key)``;
+       else unverified, ``quantity_reference``. Never a mismatch.
+    2. Any other key with a unit: verified iff the same string equality
+       holds; else unverified, ``unit_on_conclusion``. Never a mismatch.
+    3. Any other key, no unit: ``answers_equal`` verifies, ``answers_differ``
+       is a mismatch, anything else is unverified."""
 
-
-def _decide(left: str | None, right: str | None) -> bool | None:
-    if not left or not right:
-        return None
-    if _equal(left, right) is True:
-        return True
-    if _differ(left, right) is True:
-        return False
-    return None
-
-
-def _as_quantity(reference: Quantity, given: Quantity) -> bool | None:
-    if reference.unit is not None and given.unit is not None and reference.unit != given.unit:
-        return None
-    return _decide(reference.number, given.number)
-
-
-def compare_quantities(reference: Quantity, given: Quantity) -> tuple[bool | None, str]:
-    """``(True | False | None, basis)``: the given quantity against the
-    reference (fix round 4, U1). Equal units, no unit on either side, or a
-    unit on one side only against an unambiguous reference: the numbers
-    decide (``answers_equal`` / ``answers_differ``). Units that differ, or a
-    unit that cannot be interpreted, decide nothing (None, never a
-    mismatch). An ambiguous "4m" decides only when its readings agree: as a
-    product and as a quantity (a unit on one side only against an ambiguous
-    reference decides nothing)."""
-
-    if reference.ambiguous or given.ambiguous:
-        algebraic = _decide(reference.whole, given.whole) if (reference.whole and given.whole) else None
-        one_sided = (reference.unit is None) != (given.unit is None)
-        as_quantity = None if (reference.ambiguous and one_sided) else _as_quantity(reference, given)
-        if algebraic is not None and algebraic == as_quantity:
-            return algebraic, "exact_key"
-        if algebraic is None and not reference.ambiguous and as_quantity is not None:
-            return as_quantity, "exact_key"
-        return None, "unit_ambiguous"
-    if reference.unit is not None and given.unit is not None and reference.unit != given.unit:
-        return None, "unit_differs"
-    verdict = _decide(reference.number, given.number)
-    return verdict, "exact_key" if verdict is not None else "undecidable"
+    if quantity_shaped(key):
+        return ("verified", "exact_key") if _with_unit(expression, unit) == norm(key) else (
+            "unverified", "quantity_reference")
+    if (unit or "").strip():
+        return ("verified", "exact_key") if _with_unit(expression, unit) == norm(key) else (
+            "unverified", "unit_on_conclusion")
+    parsed = structured_expression(expression)
+    if parsed is None:
+        return "unverified", "conclusion_unparsed"
+    target = normalize_key(key) or key
+    if _equal(parsed, target) is True:
+        return "verified", "exact_key"
+    if _differ(parsed, target) is True:
+        return "mismatch", "conclusion"
+    return "unverified", "undecidable"
 
 
 def value_states_answer(value: str | None, unit: str | None, key: str | None) -> bool:
-    """A structured ``value`` equivalent to the key under the guarded checker
-    (R2), its unit read the way the goal's is (U1)."""
+    """A structured ``value`` is a leak when the goal rules would verify it
+    as the goal, or when ``norm(value)`` equals ``norm(key)`` (fix round 5;
+    conservative)."""
 
     if not (value or "").strip() or not key:
         return False
-    return compare_quantities(read_quantity(key), read_quantity(value, unit))[0] is True
+    return structured_verdict(value, unit, key)[0] == "verified" or norm(value) == norm(key)
 
 
 def gives_away(text: str, expected_answer: str | dict[str, Any], key: str | None = None) -> bool:
@@ -556,9 +545,8 @@ def exact_key(expected_answer: str | dict[str, Any]) -> str | None:
     if not reference.strip():
         return None
     try:
-        quantity = read_quantity(reference)
-        if quantity.unit is not None and quantity.number is not None and not quantity.ambiguous:
-            return reference.strip()  # "4 m", "4\\,\\text{m}": read by read_quantity on both sides (U1)
+        if quantity_shaped(reference):
+            return reference.strip()  # "4 m", "4\\,\\text{m}": compared whole, by norm (fix round 5)
         if parse_answer(reference) is not None:
             return reference.strip()
         normalized = normalize_key(reference)
@@ -589,29 +577,20 @@ def goal_agreement(conclusion: str, expected_answer: str | dict[str, Any], unit:
     fix round 3, R1). Nothing else decides it: no prose state, no token
     presence, no declaration.
 
-    * ``verified`` only when the conclusion parses and the guarded checker
-      (``answer_check.answers_equal``) holds against the key;
-    * ``mismatch`` only when it parses and decidably differs;
-    * otherwise ``unverified``, with the reason: ``no_exact_key``,
-      ``no_conclusion``, ``conclusion_unparsed`` or ``undecidable``. An
-      unverified goal never rejects a map (the spec's "stored as unverified")."""
+    The rules are :func:`structured_verdict`'s (fix round 5): a quantity-
+    shaped key or a conclusion with a unit verifies only by ``norm`` string
+    identity and is never a mismatch; otherwise the guarded checker decides.
+    ``unverified`` bases: ``no_exact_key``, ``no_conclusion``,
+    ``quantity_reference``, ``unit_on_conclusion``, ``conclusion_unparsed``,
+    ``undecidable``. An unverified goal never rejects a map (the spec's
+    "stored as unverified")."""
 
     key = exact_key(expected_answer)
     if key is None:
         return "unverified", "no_exact_key"
     if not (conclusion or "").strip():
         return "unverified", "no_conclusion"
-    given = read_quantity(conclusion, unit)
-    if given.number is None and given.whole is None:
-        return "unverified", "conclusion_unparsed"
-    # The reference and the conclusion are read by the same helper (fix
-    # round 4, U1): "4 m" against 4 with unit m is verified, never 4m != 4.
-    verdict, basis = compare_quantities(read_quantity(key), given)
-    if verdict is True:
-        return "verified", "exact_key"
-    if verdict is False:
-        return "mismatch", "conclusion"
-    return "unverified", basis
+    return structured_verdict(conclusion, unit, key)
 
 
 # ---------------------------------------------------------------------------
@@ -866,13 +845,12 @@ __all__ = [
     "normalize_key",
     "normalize_math",
     "route_counts",
-    "Quantity",
-    "compare_quantities",
-    "normalize_unit",
+    "norm",
     "number_tokens",
-    "read_quantity",
+    "quantity_shaped",
     "states_answer",
     "structured_expression",
+    "structured_verdict",
     "value_states_answer",
     "validate_map",
 ]

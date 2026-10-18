@@ -1506,15 +1506,19 @@ def test_r1_only_the_structured_conclusion_verifies_or_contradicts():
 
 
 def test_r1_a_quantity_carries_its_unit_in_its_own_field():
-    """Codex item 3: "Distance = 4 m" was rejected as 4m != 4."""
+    """Codex item 3 of round 3: "Distance = 4 m" was rejected as 4m != 4.
+    Under fix round 5's rules a unit on the conclusion verifies only by
+    string identity with the reference, and never rejects."""
 
-    with_unit = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4", unit="m"), "4")
+    with_unit = _plain(_goal_map("4 m", goal_state="Distance = 4 m", conclusion="4", unit="m"), "4 m")
     assert with_unit.valid and with_unit.verified_goal
-    declared = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m", unit="m"), "4")
-    assert declared.valid and declared.verified_goal
-    # A unit written into the conclusion is read by the same quantity helper (fix round 4, U1).
+    written = _plain(_goal_map("4 m", goal_state="Distance = 4 m", conclusion="4 m"), "4 m")
+    assert written.valid and written.verified_goal
+    # A bare reference with a unit on the conclusion: never rejected, stored unverified.
+    bare = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4", unit="m"), "4")
+    assert bare.valid and not bare.verified_goal and bare.goal_basis == "unit_on_conclusion"
     attached = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m"), "4")
-    assert attached.valid and attached.verified_goal
+    assert attached.valid and not attached.verified_goal and attached.goal_basis == "conclusion_unparsed"
 
 
 def test_r1_an_unparsed_conclusion_or_no_key_is_stored_unverified(paths, tmp_path):
@@ -1734,19 +1738,22 @@ def test_r4_a_dropped_receipt_logs_its_call_id(paths, caplog):
 # -- Fix round 4 (after Codex job 20261018-035041-4Y7U0m) -----------------------------------
 
 
+# Round 4's quantity table, re-pinned to fix round 5's string rules (the
+# round-4 reader is gone): a quantity-shaped reference or a unit on the
+# conclusion verifies only by norm() identity and is never a mismatch.
 @pytest.mark.parametrize(("expected", "conclusion", "unit", "verdict", "basis"), [
-    ("4 m", "4", "m", "verified", "exact_key"),            # Codex: was goal_mismatch (4m != 4)
+    ("4 m", "4", "m", "verified", "exact_key"),            # round 3's Codex case (was goal_mismatch)
     ("4 m", "4 m", "", "verified", "exact_key"),
     ("$4\\,\\text{m}$", "4", "m", "verified", "exact_key"),
     ("4 m^2", "4", "m^2", "verified", "exact_key"),
-    ("4 m", "5", "m", "mismatch", "conclusion"),           # equal units: the numbers decide
-    ("4 m", "4", "", "verified", "exact_key"),             # one side only, unambiguous reference
-    ("4", "4", "m", "verified", "exact_key"),
-    ("4 m", "4", "cm", "unverified", "unit_differs"),      # units differ: never a mismatch
-    ("4 m", "5", "cm", "unverified", "unit_differs"),
-    ("4m", "4", "m", "unverified", "unit_ambiguous"),      # ambiguous reference, unit on one side
+    ("4 m", "5", "m", "unverified", "quantity_reference"),  # round 4: mismatch
+    ("4 m", "4", "", "unverified", "quantity_reference"),   # round 4: verified
+    ("4", "4", "m", "unverified", "unit_on_conclusion"),    # round 4: verified
+    ("4 m", "4", "cm", "unverified", "quantity_reference"),
+    ("4 m", "5", "cm", "unverified", "quantity_reference"),
+    ("4m", "4", "m", "unverified", "unit_on_conclusion"),
     ("4m", "4m", "", "verified", "exact_key"),
-    ("4", "4m", "", "unverified", "unit_ambiguous"),
+    ("4", "4m", "", "mismatch", "conclusion"),               # rule 3: 4m is algebra (round 4: unverified)
 ])
 def test_u1_a_reference_with_a_unit_is_read_by_the_same_quantity_helper(expected, conclusion, unit, verdict,
                                                                         basis):
@@ -1867,3 +1874,53 @@ def test_u4_a_spaced_sign_stays_attached():
     for text in ("4", "+4", "Step 4", "$4$", "There are 4 socks."):
         assert M.states_answer(text, "4"), text
     assert M.number_tokens("Use the ratio 3 / 4 and - 2") == ["3/4", "-2"]
+
+
+# -- Fix round 5 (after Codex job 20261018-040555-09Q38u) -----------------------------------
+
+
+@pytest.mark.parametrize(("expected", "conclusion", "unit", "verdict", "basis"), [
+    # Codex item 1: a spaced product is quantity-shaped; only string identity verifies.
+    ("2 x", "2*x", "", "unverified", "quantity_reference"),   # was goal_mismatch
+    ("2 x", "2", "", "unverified", "quantity_reference"),     # was verified
+    ("2 x", "2 x", "", "verified", "exact_key"),
+    # Codex item 2: "m" is never stripped from "cm".
+    ("4 m", "4 cm", "m", "unverified", "quantity_reference"),  # was verified
+    ("3 cm", "3", "m", "unverified", "quantity_reference"),
+    # Codex item 3: superscript units.
+    ("4 m²", "4", "m²", "verified", "exact_key"),     # was goal_mismatch
+    ("4 m³", "4", "m^3", "verified", "exact_key"),
+    ("4 m²", "4", "m^2", "verified", "exact_key"),
+    ("4 °C", "4", "°C", "verified", "exact_key"),
+    ("(4) m", "4", "m", "unverified", "unit_on_conclusion"),   # was goal_mismatch
+    # Rule 3 keeps algebraic mismatches.
+    ("x^2", "x^3", "", "mismatch", "conclusion"),
+    ("1/4", "3/4", "", "mismatch", "conclusion"),
+    ("1/4", "0.25", "", "verified", "exact_key"),
+])
+def test_r5_quantities_compare_as_strings_and_never_mismatch(expected, conclusion, unit, verdict, basis):
+    result = _plain(_goal_map(expected, goal_state="The answer is found", conclusion=conclusion, unit=unit),
+                    expected)
+    status = "mismatch" if "goal_mismatch" in result.reasons else ("verified" if result.verified_goal
+                                                                     else "unverified")
+    assert (status, result.goal_basis if status != "mismatch" else "conclusion") == (verdict, basis), result.details
+    assert status == "mismatch" or result.valid
+
+
+def test_r5_a_value_is_a_leak_when_the_goal_rules_verify_it_or_it_equals_the_reference():
+    def marked(expected: str, value: str, unit: str = "") -> bool:
+        result = _plain(_goal_map(expected, goal_state="The answer is found", conclusion="", step_state="a step",
+                                  value=value, value_unit=unit), expected)
+        return "count" in result.leak_marked_by_code
+
+    assert marked("4 m²", "4", "m²") and marked("2 x", "2 x") and marked("2 x", "2", "x")
+    assert marked("4", "4") and marked("1/4", "0.25") and marked("4 m", "4 m")
+    assert not marked("4 m", "4", "cm") and not marked("2 x", "2") and not marked("4 m", "5", "m")
+
+
+@pytest.mark.parametrize("label", ["Use the ratio x /   4", "Use the ratio x /  (4)", "Use the ratio x / ( 4 )",
+                                   "Use the ratio x/\t4"])
+def test_r5_a_denominator_after_any_whitespace_is_not_the_answer(label):
+    result = _plain(_count_map(step_state="two pairs", step_label=label, **_neutral_goal("4")), "4")
+    assert result.valid and "label_leak" not in result.reasons, (label, result.details)
+    assert not M.states_answer(label, "4") and "4" not in M.number_tokens(label)

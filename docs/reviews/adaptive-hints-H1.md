@@ -453,10 +453,16 @@ Changed: `tests/conftest.py` (the build guard), `tests/test_hint_telemetry.py`
    `value` and the goal's `conclusion` (with `unit`) are what code checks
    with `answer_check.answers_equal`. Prose that needs algebraic rewriting
    ("x times x" for `x^2`) is a known gap (Low).
-8. (Fix round 3, R1.) `verified_goal` comes only from the goal node's
-   `conclusion`. `goal_answer` is informational. An unverified map (no exact
-   key, no conclusion, or a conclusion that does not parse) is stored and
-   usable; H2 must not treat unverified as invalid.
+8. (Fix rounds 3 and 5.) `verified_goal` comes only from the goal node's
+   `conclusion` (with `unit`). `goal_answer` is informational. Quantities are
+   never unit-reasoned (fix round 5): a quantity-shaped reference ("4 m",
+   "2 x", "4 °C") or a conclusion with a unit verifies only when
+   `norm(conclusion + " " + unit)` equals `norm(reference)` as a string, and
+   is never a mismatch. **Unverified is common for quantity answers** (a
+   different but equivalent unit spelling, `2*x` for "2 x", a unit on one
+   side only). An unverified map (no exact key, no conclusion, a conclusion
+   that does not parse, or a quantity that is not string-identical) is
+   stored and usable; H2 must not treat unverified as invalid.
 
 **RW2b / H3.**
 1. "Check my work" can name `map_node_id` / `route_id` from
