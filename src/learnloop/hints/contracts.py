@@ -78,6 +78,11 @@ class Target:
     answered: Any = None
     #: Downgrade: a level-3 next step that claims nothing about what stands.
     downgrade: bool = False
+    #: Work placed on no route and not clearly valid (§4.4, review round 2,
+    #: V3): the hint starts from the givens on the reference route (``book_way``
+    #: and the learner's worked-help picks), quoting nothing of the work as
+    #: standing.
+    from_givens: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +263,8 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
     placement = output.placement
     quotes = [quote for quote in placement.quotes if str(quote).strip()]
     kind, level = target.kind, target.level
-    # Rule 1: it cites the learner.
-    if has_work and level >= 2 and not target.downgrade:
+    # Rule 1: it cites the learner (not from the givens: the work is placed nowhere).
+    if has_work and level >= 2 and not target.downgrade and not target.from_givens:
         if not quotes:
             check.fail("rule1_no_citation")
     if any(not in_work(quote, work) for quote in quotes):
@@ -284,10 +289,19 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
                           placement.reached_node_id) is None:
             check.fail("rule2_placement_off_route")
     # Rule 3: it says what stands (none when the work is questionable from its start).
-    if has_work and not target.downgrade and not stands and not questionable and level >= 2:
+    if has_work and not target.downgrade and not target.from_givens and not stands and not questionable \
+            and level >= 2:
         check.fail("rule3_nothing_stands")
     if target.downgrade and stands and not in_work(stands, work):
         check.fail("rule3_unverified_claim")
+    if target.from_givens:
+        # §4.4 (review round 2, V3): the learner's work follows no route, so
+        # the hint starts at the reference route's givens and says nothing of
+        # the work stands.
+        if stands:
+            check.fail("from_givens_claims_work_stands")
+        if not at_givens(current, placement.reached_node_id):
+            check.fail("from_givens_not_at_givens")
     # Rule 4: it keeps the learner's route, whichever route that is (review
     # F4: an alternative is never swapped for another, nor the reference for
     # an alternative). Only ``book_way`` changes a valid route (to the
@@ -355,6 +369,16 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
     texts = [output.hint_md, *[label.label for label in output.plan_labels]]
     check.leaks = leak_flags(texts, item=item, current=current, level=level)
     return check
+
+
+def at_givens(current: Mapping[str, Any] | None, reached: str | None) -> bool:
+    """Whether a placement is at the givens: no node reached, or the reference
+    route's first node."""
+
+    if not reached:
+        return True
+    reference = reference_route_id(current)
+    return reference is not None and reached == _first_node(current or {}, reference)
 
 
 def toward_waypoint(current: Mapping[str, Any] | None, route_id: str, start: str | None, aimed: str,
@@ -496,6 +520,7 @@ def _techniques_between(current: Mapping[str, Any], route_id: str, start: str, e
 __all__ = [
     "Check",
     "Target",
+    "at_givens",
     "check_output",
     "goal_node_id",
     "horizon_distance",

@@ -14,10 +14,11 @@ item's authored hints serve, saying why, for "More" and for a level-3 reply
 an authored hint can honour: a reply never raises the level); the chooser
 picks (:mod:`learnloop.hints.chooser`); the writer writes and its contracts
 and leak control are checked in code (re-asked once naming the failure, then
-a level-3 ``next_step`` downgrade; a leak re-asked once, then withheld; a
-route-directed hint on work placed on no route and not clearly valid becomes
-an approach question, §4.4); the ``help_assists`` row is written **prepared**
-(``shown = 0``).
+a level-3 ``next_step`` downgrade, never for a reply or pick fixed at level 1
+or 2; a leak re-asked once, then withheld; a route-directed hint on work
+placed on no route and not clearly valid becomes an approach question, or,
+for the book's way and worked help, starts from the givens, §4.4); the
+``help_assists`` row is written **prepared** (``shown = 0``).
 
 **Shown when delivered.** :func:`deliver_hint` marks the prepared row shown
 (once, while its submission has committed no attempt): the moment the
@@ -38,7 +39,7 @@ certification.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import json
 import logging
 import time
@@ -53,7 +54,15 @@ from learnloop.db.stores import help_assists as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.hints import chooser as chooser_module
 from learnloop.hints.chooser import Choice
-from learnloop.hints.contracts import Check, Target, check_output, leak_flags, route_distance
+from learnloop.hints.contracts import (
+    Check,
+    Target,
+    at_givens,
+    check_output,
+    leak_flags,
+    reference_route_id,
+    route_distance,
+)
 from learnloop.hints.discriminating import (
     WEIGHTS_BASIS,
     best_candidate,
@@ -339,10 +348,13 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
            writer: WriterRoute, *, request: HintRequestV1, assist_id: str,
            cancelled: Callable[[], bool]) -> _Served:
     """Ask, check, re-ask once naming the failure; then the level-3
-    ``next_step`` downgrade (§4.6); a leak re-asked once, then withheld.
-    A checked route-directed answer on unplaceable work switches to an
-    approach question (§4.4, :func:`unplaced_work`), asked and re-asked once
-    (at most four writer calls)."""
+    ``next_step`` downgrade (§4.6), except where it would raise a fixed level
+    (:func:`downgrade_allowed`: then nothing is served); a leak re-asked
+    once, then withheld. A checked route-directed answer on unplaceable work
+    switches to an approach question, or for ``book_way`` and worked help to
+    the same option from the givens on the reference route (§4.4,
+    :func:`unplaced_work`), asked and re-asked once (at most four writer
+    calls)."""
 
     started = time.monotonic()
     served = _Served(outcome="failed")
@@ -351,14 +363,15 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
     current = target
     downgraded = False
     unplaced = False
-    last_round = 3
+    may_downgrade = downgrade_allowed(target, request)
+    last_round = 3 if may_downgrade else 2
     round_ = 0
     while round_ < last_round:
         round_ += 1
         if cancelled():
             served.outcome, served.reason = CANCELLED, "cancelled"
             break
-        if round_ == 3 and not unplaced:
+        if round_ == 3 and not unplaced and may_downgrade:
             # The re-ask failed a rule (not a leak): a level-3 next step from
             # the last valid checkpoint, without its unverified claims.
             current = Target("next_step", 3, target_node_id=target.target_node_id if target.level == 3 else None,
@@ -376,11 +389,15 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
                               "failures": list(check.failures), "leaks": list(check.leaks)})
         if record is not None:
             served.discriminating = record
-        if check.ok and not unplaced and unplaced_work(as_served, served_kind, current, state, request):
+        placement_rule = unplaced_work(as_served, served_kind, current, state, request) \
+            if check.ok and not unplaced else None
+        if placement_rule == APPROACH_INSTEAD:
             # §4.4: work unlike any route and not clearly valid gets an
             # approach question about what the learner is trying, never a
-            # confident hint toward a route they are not on (review F7). The
-            # row keeps the drawn option and records the served kind.
+            # confident hint toward a route they are not on (review F7; for
+            # every request, round 2 V3: levels 1-3 count alike, so a reply
+            # or a pick is lowered, never raised). The row keeps the drawn
+            # option and records the served kind.
             unplaced, downgraded = True, True
             served.rounds[-1]["switched_to"] = "approach_question"
             served.reason = UNPLACED_WORK
@@ -390,6 +407,20 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             feedback = None
             last_round = min(4, round_ + 2)
             continue
+        if placement_rule == FROM_GIVENS:
+            # §4.4 (round 2, V3): the book's way, or worked help the learner
+            # took, on unplaceable work starts from the givens on the
+            # reference route: the option is kept, its placement is not.
+            unplaced = True
+            served.rounds[-1]["switched_to"] = "from_givens"
+            served.reason = UNPLACED_WORK
+            served.message = FROM_GIVENS_MESSAGE
+            current = replace(current, from_givens=True, reference_route=True, downgrade=False)
+            feedback = None
+            last_round = min(4, round_ + 2)
+            continue
+        if placement_rule == AT_GIVENS:
+            served.reason, served.message = UNPLACED_WORK, FROM_GIVENS_MESSAGE
         if check.ok:
             served.outcome = "downgraded" if downgraded else "served"
             served.kind, served.level, served.output = served_kind, current.level, as_served
@@ -412,6 +443,8 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             break
         if round_ == last_round:
             served.outcome, served.reason = "failed", "contract_failed"
+            if not may_downgrade and not unplaced:
+                served.message = NO_FITTING_HINT_MESSAGE
             break
         feedback = {"failures": list(check.failures), "leaks": list(check.leaks),
                     "previous_answer": output.model_dump(mode="json")}
@@ -423,23 +456,56 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
 #: §4.4's unplaceable work (review F7): the reason and the line it carries.
 UNPLACED_WORK = "unplaced_work"
 UNPLACED_MESSAGE = "Your work doesn't follow a route I can place yet, so here is a question about your approach."
-#: The kinds that point along a route (a goal, a plan, a step, the same move
-#: elsewhere): what unplaceable work must not get (§4.4).
-ROUTE_DIRECTED_KINDS = frozenset({"waypoint", "subgoal_plan", "next_step", "worked_parallel"})
+FROM_GIVENS_MESSAGE = "Your work doesn't follow a route I can place yet, so this starts from the givens."
+#: §4.6's downgrade refused for a fixed level 1 or 2 (review round 2, V2).
+NO_FITTING_HINT_MESSAGE = "I couldn't write a hint that fits here; press Hint again or use the item's hint."
+#: The kinds that point along a route (a goal, a plan, a step, a correction
+#: there, the next part, the same move elsewhere): what unplaceable work must
+#: not get (§4.4; review F7 and round 2, V3).
+ROUTE_DIRECTED_KINDS = frozenset({"waypoint", "subgoal_plan", "next_step", "error_specific", "continuation",
+                                  "worked_parallel"})
+#: :func:`unplaced_work`'s answers.
+APPROACH_INSTEAD, FROM_GIVENS, AT_GIVENS = "approach_question", "from_givens", "at_givens"
+
+
+def downgrade_allowed(target: Target, request: HintRequestV1) -> bool:
+    """Whether §4.6's level-3 ``next_step`` downgrade may answer this request
+    (review round 2, V2). A reply or a pick (``feedback``, ``smaller_step``,
+    ``book_way``) is answered at the level of the hint it answers (§4.2,
+    G-H15), so at a fixed level 1 or 2 the downgrade would raise it: nothing
+    is served instead. A fixed level 3 keeps it, a fixed 4-5 is lowered by
+    it, and "More" keeps §4.6 as it is."""
+
+    return request.request == "more" or target.level >= 3
 
 
 def unplaced_work(output: HintWriterOutputV1, served_kind: str, target: Target, state: HintState,
-                  request: HintRequestV1) -> bool:
-    """Whether a checked answer is a route-directed hint on work the writer
-    placed on no route and found not clearly valid (both flags false), with
-    a map to place it on. Only a Hint press ("More") switches to the approach
-    question: a reply keeps the answered hint's level (§4.2, D15), the
-    learner's picks fix their option (§4.5), and worked help is taken."""
+                  request: HintRequestV1) -> str | None:
+    """What a checked answer on work the writer placed on no route and found
+    not clearly valid (both flags false), with a map to place it on, becomes
+    (§4.4; review F7, round 2 V3), or None when it is served as written.
+
+    No route-directed help (:data:`ROUTE_DIRECTED_KINDS`) is aimed from such
+    work for any request. ``book_way`` (the learner asked for the book's way)
+    and worked help (levels 4-5, which the learner took) keep their option and
+    start from the givens on the reference route: :data:`FROM_GIVENS`, or
+    :data:`AT_GIVENS` when the answer already does. Every other request gets
+    the approach question at level 1 (:data:`APPROACH_INSTEAD`): levels 1-3
+    count alike, so it lowers a reply's level and never raises it."""
 
     placement = output.placement
-    return (request.request == "more" and target.level <= 3 and state.has_work and state.map is not None
-            and served_kind in ROUTE_DIRECTED_KINDS
-            and not placement.work_matches_a_route and not placement.work_valid_so_far)
+    if target.from_givens or not state.has_work or state.map is None:
+        return None
+    if placement.work_matches_a_route or placement.work_valid_so_far:
+        return None
+    worked = target.level in WORKED_LEVELS
+    if served_kind not in ROUTE_DIRECTED_KINDS and not worked:
+        return None
+    if request.request == "book_way" or worked:
+        reference = reference_route_id(state.map)
+        on_reference = not output.route_id or output.route_id == reference
+        return AT_GIVENS if on_reference and at_givens(state.map, placement.reached_node_id) else FROM_GIVENS
+    return APPROACH_INSTEAD
 
 
 def _authored(item: PracticeItem, state: HintState, *, index: int | None = None) -> _Served:
@@ -777,7 +843,11 @@ def _unavailable_message(reason: str | None) -> str:
 #: Delivery outcomes (:func:`deliver_hint`). ``submission_complete``: the
 #: attempt the hint was written for is already committed (H2a review F1),
 #: so its count can no longer be taken and the hint is never shown.
+#: ``reveal_not_recorded`` (the sidecar's delivery, review round 2, V4): the
+#: hint's reveal could not be written, so the shown mark rolled back with it
+#: and a later read may deliver it.
 SHOWN, SUBMISSION_COMPLETE, NOT_DELIVERABLE = "shown", "submission_complete", "not_deliverable"
+REVEAL_NOT_RECORDED = "reveal_not_recorded"
 
 
 def deliver_hint(repository: Repository, assist_id: str, *, clock: Clock | None = None
@@ -812,8 +882,10 @@ def undelivered_result(assist_id: str, outcome: str) -> HintResultV1:
     """What the surface receives for a ready hint that was not delivered: no
     hint text and nothing shown (H2a review F1)."""
 
-    message = ("This answer was already submitted, so the hint was not shown." if outcome == SUBMISSION_COMPLETE
-               else "That hint can no longer be shown; ask again.")
+    message = {
+        SUBMISSION_COMPLETE: "This answer was already submitted, so the hint was not shown.",
+        REVEAL_NOT_RECORDED: "The hint couldn't be recorded just now, so it isn't shown yet; try again.",
+    }.get(outcome, "That hint can no longer be shown; ask again.")
     return HintResultV1(status=UNAVAILABLE, assist_id=assist_id, reason=outcome, message=message)
 
 
@@ -916,6 +988,7 @@ __all__ = [
     "REFUSED",
     "REQUEST_VERSION",
     "RESULT_VERSION",
+    "REVEAL_NOT_RECORDED",
     "SHOWN",
     "SUBMISSION_COMPLETE",
     "UNAVAILABLE",

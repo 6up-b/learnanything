@@ -21,6 +21,7 @@ from learnloop.attempts.attempts import (
     complete_empty_stuck_attempt,
     complete_self_graded_attempt,
 )
+from learnloop.attempts.hint_fold import ServerHintFold, read_fold
 from learnloop.attempts.stuck import stuck_attempt_type, stuck_prompt_active
 from learnloop.attempts.post_attempt import (
     CompletionRouteUnknown,
@@ -653,33 +654,39 @@ def _in_diagnostic_block(repository, item) -> bool:
 
 
 def _server_hint_fold(
-    repository, practice_item_id: str, session_id: str, submission_id: str | None
-) -> tuple[int, bool]:
+    repository, practice_item_id: str, session_id: str, submission_id: str | None, *,
+    base_hints: int, base_primed: bool = False, max_useful_hints: int = 0, clamp_without_fold: bool = True,
+    stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False,
+) -> ServerHintFold:
     """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
     showed in this submission (its ``help_assists`` rows, shown, counted by
     the server, still unattached): how many at levels 1-3, and whether any
-    was worked help (levels 4-5, ``primed``). A read; a vault without such
-    rows folds nothing, so every submit is exactly as before H2a."""
+    was worked help (levels 4-5, ``primed``), with the rule this submit adds
+    them to its own counts by. A read; a vault without such rows folds
+    nothing, so every submit is exactly as before H2a. The draft carries the
+    fold, and the attempt's write transaction takes it again before the
+    attempt commits (review round 2, V1: a second sidecar may deliver a hint
+    of this submission in between)."""
 
     from contextlib import closing
 
     from learnloop.db.connection import connect
-    from learnloop.db.stores.help_assists import server_fold
 
     since = None
     if submission_id is None:
         attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
         since = attempts[0]["created_at"] if attempts else None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        exists = connection.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
-        ).fetchone()
-        if exists is None:
-            return 0, False
-        return server_fold(
+        count, primed = read_fold(
             connection, practice_item_id=practice_item_id, session_id=session_id,
             submission_id=submission_id, since=since,
         )
+    return ServerHintFold(
+        practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id, since=since,
+        folded_hints=count, folded_primed=primed, base_hints=int(base_hints), base_primed=bool(base_primed),
+        max_useful_hints=int(max_useful_hints or 0), clamp_without_fold=clamp_without_fold,
+        stuck_types=stuck_types, stuck_probe=stuck_probe,
+    )
 
 
 def _stamp_hint_submission(
@@ -1034,29 +1041,31 @@ def submit_attempt_on(
     question_hints = hint_equivalents_for_submission(
         repository, params.practice_item_id, params.session_id
     )
-    # Adaptive hints H2a (spec §5): the service's shown hints of this
-    # submission, counted by the server beside the tutor questions (levels
-    # 1-3 add one each; levels 4-5 set primed). The client keeps counting
-    # only the authored hints it revealed itself, so nothing counts twice.
-    server_hints, server_primed = _server_hint_fold(
-        repository, params.practice_item_id, params.session_id, submission_id
-    )
-    hints_used = client_hints + question_hints + server_hints
-    if item.hint_policy.max_useful_hints > 0:
-        hints_used = min(hints_used, item.hint_policy.max_useful_hints)
     # A6: compose the one trace the grader reads, here and nowhere else. The
     # volunteered line arrives as its own field and is joined to the answer by
     # the module that owns the format, so the delimiter never appears in a
     # client, a handler, or a detection site.
     explanation_md = (params.explanation_md or "").strip() or None
     learner_answer_md = compose_learner_trace(params.answer_md, explanation_md)
-    primed = params.primed or server_primed
-    if not primed and _changed_after_disclosure(
+    # Codex review F1: the plain self-grade showed a full answer after
+    # freezing this draft's trace, and the trace changed since.
+    disclosure_primed = not params.primed and _changed_after_disclosure(
         repository, params.session_id, params.practice_item_id, submission_id, learner_answer_md
-    ):
-        # Codex review F1: the plain self-grade showed a full answer after
-        # freezing this draft's trace, and the trace changed since.
-        primed = True
+    )
+    # Adaptive hints H2a (spec §5): the service's shown hints of this
+    # submission, counted by the server beside the tutor questions (levels
+    # 1-3 add one each; levels 4-5 set primed). The client keeps counting
+    # only the authored hints it revealed itself, so nothing counts twice.
+    # The draft carries the fold; the attempt's transaction takes it again
+    # (review round 2, V1).
+    hint_fold = _server_hint_fold(
+        repository, params.practice_item_id, params.session_id, submission_id,
+        base_hints=client_hints + question_hints, base_primed=bool(params.primed) or disclosure_primed,
+        max_useful_hints=item.hint_policy.max_useful_hints,
+    )
+    hints_used = hint_fold.hints_used()
+    primed = hint_fold.primed()
+    if disclosure_primed and not hint_fold.folded_primed:
         log_event("self_grade_trace_changed_after_disclosure", session_id=params.session_id,
                   practice_item_id=params.practice_item_id)
     scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
@@ -1078,6 +1087,7 @@ def submit_attempt_on(
         entry_surface=entry_surface,
         evidence_origin="human",
         declared_stuck=declared_stuck,
+        server_hint_fold=hint_fold,
     )
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
@@ -1199,28 +1209,28 @@ def submit_dont_know_on(
     # Adaptive hints H2a (spec §5): a shown hint is never lost, here too. The
     # tutor-question fold's absence here predates H2a and is left as it was
     # (spec §14 Q5); the clamp applies to the total the server's rows join.
-    server_hints, server_primed = _server_hint_fold(
-        repository, params.practice_item_id, params.session_id, submission_id
+    # An empty stuck answer's attempt type follows the count (the attempt's
+    # transaction takes the fold again with the same rule, review round 2, V1).
+    stuck = stuck_prompt_active(vault)
+    hint_fold = _server_hint_fold(
+        repository, params.practice_item_id, params.session_id, submission_id,
+        base_hints=hints_used, max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
+        stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
+        stuck_probe=params.probe_presentation_id is not None,
     )
-    if server_hints:
-        hints_used += server_hints
-        if item.hint_policy.max_useful_hints > 0:
-            hints_used = min(hints_used, item.hint_policy.max_useful_hints)
+    hints_used = hint_fold.hints_used()
+    server_primed = hint_fold.primed()
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
-    if stuck_prompt_active(vault):
+    if stuck:
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:
         # an ordinary attempt scored 0 at the standard mass.
         draft = AttemptDraft(
             practice_item_id=params.practice_item_id,
             learner_answer_md="",
-            attempt_type=stuck_attempt_type(
-                item.attempt_types_allowed,
-                hints_used=hints_used,
-                probe=params.probe_presentation_id is not None,
-            ),
+            attempt_type=hint_fold.attempt_type("independent_attempt"),
             hints_used=hints_used,
             latency_seconds=params.latency_seconds,
             session_id=params.session_id,
@@ -1234,6 +1244,7 @@ def submit_dont_know_on(
             entry_surface=entry_surface,
             evidence_origin="human",
             declared_stuck=True,
+            server_hint_fold=hint_fold,
         )
         return _record_empty_stuck(
             ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
@@ -1257,6 +1268,7 @@ def submit_dont_know_on(
         entry_surface=entry_surface,
         evidence_origin="human",
         declared_dont_know=True,
+        server_hint_fold=hint_fold,
     )
     try:
         result = complete_self_graded_attempt(vault, repository, draft, grade)

@@ -215,6 +215,10 @@ def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_t
                                  "targets the adjacent node on the way to it")
     if target.reference_route:
         chosen["route"] = f"the reference route ({reference_route_id(current) or 'the reference solution'})"
+    if target.from_givens:
+        chosen["from_givens"] = ("The learner's work follows no route on the map and is not clearly valid so "
+                                 "far: start this hint from the givens on the reference route (reached_node_id "
+                                 "empty or the route's first node) and claim nothing of the work stands.")
     if target.downgrade:
         chosen["downgrade"] = ("A level-3 next step from the learner's last valid checkpoint. Claim nothing "
                                "about what stands that the placement does not quote.")

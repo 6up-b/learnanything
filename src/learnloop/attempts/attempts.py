@@ -40,6 +40,7 @@ from learnloop.scheduling.fsrs import (
     rating_from_score,
 )
 from learnloop.attempts.ability_transition import estimate_ability_transition
+from learnloop.attempts.hint_fold import ServerHintFold, refolded_draft
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
     GradingValidationError,
@@ -228,6 +229,12 @@ class AttemptDraft:
     # derives it at attempt time from the item's effective key status; replay
     # passes the stored value and never re-derives it.
     reference_status: str | None = None
+    # Adaptive hints H2a (review round 2, V1): how the submit folded the hint
+    # service's shown rows into ``hints_used`` / ``primed``. ``apply_attempt``
+    # takes the fold again inside the attempt's write transaction, so a hint
+    # another process delivered after the submit's read is counted, and the
+    # values derived from the count are computed from the final one.
+    server_hint_fold: ServerHintFold | None = None
 
 
 @dataclass(frozen=True)
@@ -3025,10 +3032,45 @@ def apply_attempt(
     reject_salience(attempt, context="apply_attempt")
 
     with repository.atomic():
+        attempt = _refold_server_hints(vault, repository, attempt)
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
             _save_completion_work(vault, repository, attempt.draft, result, clock=clock)
         return result
+
+
+def _refold_server_hints(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput) -> ApplyAttemptInput:
+    """Adaptive hints H2a (review round 2, V1): the submit's fold of shown
+    server hints, taken again inside this ``BEGIN IMMEDIATE`` transaction.
+
+    The submit read it before grading, and another sidecar may have delivered
+    a hint of the same submission since. Holding the write lock, no row can
+    become shown before this attempt commits (and none after: ``mark_shown``
+    refuses a committed submission), so this count is the one the attempt
+    records. When it differs, the draft is rebuilt with the submit's own rule
+    (:class:`ServerHintFold`), and everything computed from it below (the
+    auto-prime, the eligibility decision, the activity classification,
+    dampening, the FSRS cap) reads the final count. The grade is reused: no
+    grader reads hints. A self-graded "I don't know" carries the one grade
+    field derived from ``hints_used``, its deterministic error type, which is
+    recomputed here. Replay re-applies the recorded attempt and never refolds."""
+
+    if attempt.replace_existing or attempt.draft.server_hint_fold is None:
+        return attempt
+    draft, changed = refolded_draft(repository.connection(), attempt.draft)
+    if changed is None:
+        return attempt
+    grade = attempt.grade
+    if (draft.attempt_type == "dont_know" or draft.declared_dont_know) and grade.error_attributions == (
+            _self_grade_attributions(vault, [], _dont_know_error_type(vault, attempt.draft.hints_used), [])):
+        grade = replace(grade, error_attributions=_self_grade_attributions(
+            vault, [], _dont_know_error_type(vault, draft.hints_used), []))
+    logging.getLogger(__name__).info(
+        "server hint fold changed before commit: item=%s submission=%s hints_used %s -> %s, primed %s -> %s",
+        draft.practice_item_id, draft.submission_id, attempt.draft.hints_used, draft.hints_used,
+        attempt.draft.primed, draft.primed,
+    )
+    return replace(attempt, draft=draft, grade=grade)
 
 
 def _apply_attempt_in_transaction(

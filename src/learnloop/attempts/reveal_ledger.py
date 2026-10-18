@@ -208,8 +208,9 @@ def _lapsed_routine_display(row: Mapping[str, Any], cutoff: str | None) -> bool:
     return str(row.get("created_at") or "") < cutoff
 
 
-def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> str | None:
-    """The live repair episode an exposure on this item belongs to, if any."""
+def reveal_episode_id(repository: Repository, practice_item_id: str | None, *, strict: bool = False) -> str | None:
+    """The live repair episode an exposure on this item belongs to, if any.
+    ``strict``: a failed lookup raises instead of answering None."""
 
     if not practice_item_id:
         return None
@@ -218,6 +219,8 @@ def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> s
 
         episode = open_episode_for_practice_item(repository, practice_item_id)
     except Exception:  # pragma: no cover - defensive
+        if strict:
+            raise
         logger.warning(
             "reveal episode lookup failed for %s", practice_item_id, exc_info=True
         )
@@ -243,21 +246,11 @@ def record_reveal(
     A non-positive ``amount`` writes nothing: the ledger records exposures, not
     the absence of them, and a zero row would only dilute later aggregates."""
 
-    if amount <= 0:
-        return None
     try:
-        return repository.insert_reveal_event(
-            {
-                "practice_item_id": practice_item_id,
-                "learning_object_id": learning_object_id,
-                "remediation_episode_id": remediation_episode_id,
-                "source_kind": source_kind,
-                "amount": amount,
-                "basis": basis,
-                "question_event_id": question_event_id,
-                "attempt_id": attempt_id,
-            },
-            clock=clock,
+        return record_reveal_strict(
+            repository, practice_item_id=practice_item_id, source_kind=source_kind, amount=amount,
+            learning_object_id=learning_object_id, remediation_episode_id=remediation_episode_id, basis=basis,
+            question_event_id=question_event_id, attempt_id=attempt_id, clock=clock,
         )
     except Exception:  # pragma: no cover - bookkeeping never fails the action
         logger.warning(
@@ -267,6 +260,41 @@ def record_reveal(
             exc_info=True,
         )
         return None
+
+
+def record_reveal_strict(
+    repository: Repository,
+    *,
+    practice_item_id: str,
+    source_kind: str,
+    amount: float,
+    learning_object_id: str | None = None,
+    remediation_episode_id: str | None = None,
+    basis: str | None = None,
+    question_event_id: str | None = None,
+    attempt_id: str | None = None,
+    clock: Clock | None = None,
+) -> str | None:
+    """:func:`record_reveal` for a caller whose action must not stand without
+    its reveal: a failed write raises (inside the caller's transaction, so the
+    action rolls back with it). Adaptive hints H2a (review round 2, V4): a
+    hint is shown in the same transaction as its ``tutor_answer`` reveal."""
+
+    if amount <= 0:
+        return None
+    return repository.insert_reveal_event(
+        {
+            "practice_item_id": practice_item_id,
+            "learning_object_id": learning_object_id,
+            "remediation_episode_id": remediation_episode_id,
+            "source_kind": source_kind,
+            "amount": amount,
+            "basis": basis,
+            "question_event_id": question_event_id,
+            "attempt_id": attempt_id,
+        },
+        clock=clock,
+    )
 
 
 @dataclass(frozen=True)

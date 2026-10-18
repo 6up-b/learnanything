@@ -1,0 +1,112 @@
+"""Adaptive hints H2a: the submit's fold of shown server hints, taken again at commit (spec §5, G-H2, G-H3).
+
+The submit paths (``submit_attempt``, ``submit_dont_know``) fold the hint
+service's shown ``help_assists`` rows into the attempt before grading: levels
+1-3 add one each to ``hints_used``, a level 4-5 row sets ``primed``. A second
+sidecar on the same vault can deliver a hint of the same submission after that
+read and before the attempt commits (review round 2, V1). The invariant: what
+an attempt commits equals the fold over this submission's rows shown at the
+moment it commits, and no row becomes shown for a submission after its attempt
+committed.
+
+:class:`ServerHintFold` records how the submit derived ``hints_used``,
+``primed`` and (for an empty stuck answer) the attempt type from the fold, so
+:func:`refolded_draft` can take the count again inside the attempt's own
+``BEGIN IMMEDIATE`` transaction (``apply_attempt``) and apply the same rule.
+Holding the write lock, nothing can be marked shown before the commit, and
+``help_assists.mark_shown`` refuses every row once the attempt exists, so the
+count read there is final. The values derived from ``hints_used`` and
+``primed`` later in the transaction (auto-prime, the eligibility decision, the
+activity classification, dampening, the FSRS cap) are computed from the
+refolded draft; the grade is reused (no grader sees hints).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+from typing import Any
+
+from learnloop.attempts.stuck import stuck_attempt_type
+from learnloop.db.stores.help_assists import server_fold
+
+
+@dataclass(frozen=True)
+class ServerHintFold:
+    """One submit's fold of its shown server hints, and the rule it applied."""
+
+    practice_item_id: str
+    session_id: str
+    submission_id: str | None
+    #: A client with no submission key folds the session's rows requested after this.
+    since: str | None
+    #: The fold the submit read before grading.
+    folded_hints: int
+    folded_primed: bool
+    #: What the fold is added to: the client's and the tutor questions' hints.
+    base_hints: int
+    #: The client's priming (and a trace changed after a self-grade disclosure).
+    base_primed: bool
+    #: The item's ``hint_policy.max_useful_hints`` (0: no clamp).
+    max_useful_hints: int = 0
+    #: ``submit_attempt`` clamps the total always; ``submit_dont_know`` only
+    #: when the fold adds a hint (its behaviour before H2a is unchanged).
+    clamp_without_fold: bool = True
+    #: An empty stuck answer's attempt type follows ``hints_used``
+    #: (``stuck_attempt_type``): the item's allowed types and the probe flag.
+    stuck_types: tuple[str, ...] | None = None
+    stuck_probe: bool = False
+
+    def hints_used(self, folded: int | None = None) -> int:
+        count = self.folded_hints if folded is None else int(folded)
+        total = int(self.base_hints) + count
+        if self.max_useful_hints > 0 and (self.clamp_without_fold or count):
+            total = min(total, self.max_useful_hints)
+        return total
+
+    def primed(self, folded_primed: bool | None = None) -> bool:
+        return bool(self.base_primed) or bool(self.folded_primed if folded_primed is None else folded_primed)
+
+    def attempt_type(self, current: str, folded: int | None = None) -> str:
+        if self.stuck_types is None:
+            return current
+        return stuck_attempt_type(list(self.stuck_types), hints_used=self.hints_used(folded), probe=self.stuck_probe)
+
+
+def read_fold(connection: Any, *, practice_item_id: str, session_id: str, submission_id: str | None,
+              since: str | None) -> tuple[int, bool]:
+    """The fold over the rows shown now (a vault without ``help_assists`` folds nothing)."""
+
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+    ).fetchone()
+    if exists is None:
+        return 0, False
+    return server_fold(connection, practice_item_id=practice_item_id, session_id=session_id,
+                       submission_id=submission_id, since=since)
+
+
+def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | None]:
+    """``draft`` as its submit would have built it from the fold read on
+    ``connection`` (the attempt's write transaction), and the new fold when it
+    differs from the one read before grading; ``(draft, None)`` when nothing
+    changed or the draft carries no fold. Priming is only ever raised: a draft
+    the reveal ledger primed stays primed."""
+
+    fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
+    if fold is None:
+        return draft, None
+    count, primed = read_fold(connection, practice_item_id=fold.practice_item_id, session_id=fold.session_id,
+                              submission_id=fold.submission_id, since=fold.since)
+    if (count, primed) == (fold.folded_hints, fold.folded_primed):
+        return draft, None
+    now = replace(fold, folded_hints=count, folded_primed=primed)
+    return replace(
+        draft,
+        hints_used=now.hints_used(),
+        primed=now.primed() or bool(draft.primed and not fold.primed()),
+        attempt_type=now.attempt_type(draft.attempt_type),
+        server_hint_fold=now,
+    ), now
+
+
+__all__ = ["ServerHintFold", "read_fold", "refolded_draft"]

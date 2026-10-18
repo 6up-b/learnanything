@@ -14,8 +14,9 @@ with no job thread and no model call.
 wait). The read that returns a ready hint DELIVERS it: its prepared
 ``help_assists`` row becomes ``shown = 1`` (``learnloop.hints.service.deliver``),
 and a key overlap writes the ``reveal_events`` ``tutor_answer`` row with basis
-``hint:<kind>:L<level>`` (the reveal ledger's writer is the attempt package's,
-so it is written here). ``practice.cancel_hint`` before delivery (the screen
+``hint:<kind>:L<level>`` in the same transaction (the reveal ledger's writer
+is the attempt package's, so it is written here; a failed reveal write shows
+nothing and leaves the job deliverable, review round 2, V4). ``practice.cancel_hint`` before delivery (the screen
 took the item's own hint instead) leaves the row ``shown = 0``: it counts
 nothing (G-H3). A crash before delivery leaves it unshown too. A read after
 the submission committed its attempt (the hint finished before or after the
@@ -230,6 +231,10 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
             outcome = _deliver(ctx, job.practice_item_id, str(result["assist_id"]))
             if outcome == hint_service.SHOWN:
                 job.delivered = True
+            elif outcome == hint_service.REVEAL_NOT_RECORDED:
+                # Nothing was shown (review round 2, V4); the job stays
+                # deliverable, so a later read tries again.
+                result = hint_service.undelivered_result(str(result["assist_id"]), outcome).as_dict()
             else:
                 job.refused = outcome
         if job.refused is not None:
@@ -240,30 +245,43 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
     return versioned({**base, "state": "done", "result": result})
 
 
+class _RevealNotRecorded(Exception):
+    """The shown hint's reveal could not be written (rolls the delivery back)."""
+
+
 def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     """Show the prepared row and write its key overlap to the reveal ledger
-    (§5: ``tutor_answer`` with basis ``hint:<kind>:L<level>``; best effort,
-    as every reveal writer is); then schedule the lazy learner-route merge
-    (§4.3.1 row 3, in the background). Returns the delivery outcome: only
-    ``SHOWN`` lets the hint's text reach the surface."""
+    (§5: ``tutor_answer`` with basis ``hint:<kind>:L<level>``) in ONE
+    transaction (review round 2, V4): a hint is never shown without its
+    reveal. A failed reveal write rolls the shown mark back and answers
+    ``REVEAL_NOT_RECORDED`` (nothing shown; a later read retries). Then, once
+    shown, schedule the lazy learner-route merge (§4.3.1 row 3, in the
+    background). Returns the delivery outcome: only ``SHOWN`` lets the hint's
+    text reach the surface."""
 
-    from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
+    from learnloop.attempts.reveal_ledger import record_reveal_strict, reveal_episode_id
 
     vault, repository = ctx.require_vault()
-    outcome, row = hint_service.deliver_hint(repository, assist_id)
-    if outcome != hint_service.SHOWN or row is None:
-        return outcome
-    _schedule_merge(ctx, vault, repository, practice_item_id)
     item = vault.practice_items.get(practice_item_id)
-    if item is None or not row.get("hint_kind") or not row.get("level"):
-        return outcome
     try:
-        amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
-        record_reveal(repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
-                      remediation_episode_id=reveal_episode_id(repository, item.id), source_kind="tutor_answer",
-                      amount=amount, basis=hint_service.reveal_basis(str(row["hint_kind"]), int(row["level"])))
-    except Exception as exc:  # noqa: BLE001 - ledger bookkeeping never fails the delivery
-        log_event("hint_reveal_ledger_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
+        with repository.atomic():
+            outcome, row = hint_service.deliver_hint(repository, assist_id)
+            if outcome == hint_service.SHOWN and row is not None and item is not None \
+                    and row.get("hint_kind") and row.get("level"):
+                try:
+                    amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
+                    record_reveal_strict(
+                        repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
+                        remediation_episode_id=reveal_episode_id(repository, item.id, strict=True),
+                        source_kind="tutor_answer", amount=amount,
+                        basis=hint_service.reveal_basis(str(row["hint_kind"]), int(row["level"])))
+                except Exception as exc:  # noqa: BLE001 - any failure: the hint is not shown
+                    raise _RevealNotRecorded(type(exc).__name__) from exc
+    except _RevealNotRecorded as exc:
+        log_event("hint_reveal_ledger_failed", practice_item_id=practice_item_id, error=str(exc))
+        return hint_service.REVEAL_NOT_RECORDED
+    if outcome == hint_service.SHOWN and row is not None:
+        _schedule_merge(ctx, vault, repository, practice_item_id)
     return outcome
 
 
