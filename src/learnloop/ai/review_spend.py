@@ -164,8 +164,13 @@ class UsageCollector:
         if self.sink is not None:
             try:
                 self.sink(action, event)
-            except Exception:  # noqa: BLE001 - receipts are telemetry, never fatal
-                pass
+            except Exception as exc:  # noqa: BLE001 - receipts are telemetry, never fatal
+                # ...except an admission refusal raised at the receipt (AD1
+                # fix round 7): the sink's last confirmation before dispatch
+                # refused the request, so it must not be sent. Only an
+                # exception that declares itself one propagates.
+                if getattr(exc, "admission_refused", False):
+                    raise
         if unit is None:
             return
         if action == "start" and event.get("parent_call_id") is None:

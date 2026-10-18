@@ -63,7 +63,12 @@ class ProtectedContent(AIInterrupted):
 
     An ``AIInterrupted``, so that no retry loop, transport or spend layer
     between the guard and AD retries it or relabels it as a provider
-    failure; AD catches it and reports ``protected``."""
+    failure; AD catches it and reports ``protected``. ``admission_refused``
+    makes a receipt sink that swallows its own failures (``review_spend``'s
+    ``UsageCollector``) re-raise it, so a refusal at the start receipt stops
+    the request (fix round 7)."""
+
+    admission_refused = True
 
 
 class StaleSnapshot(ProtectedContent):

@@ -385,7 +385,11 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
             raise
 
         def admit_decider() -> None:
-            send.confirm(generation, "recording the Decider's audit")
+            try:
+                send.confirm(generation, "recording the Decider's audit")
+            except ProtectedContent as exc:
+                outcome.decider_status = refusal_status(exc)
+                raise
 
         for dimension in remaining:
             question = questions[dimension]
