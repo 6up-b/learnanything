@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7ede426ee3b25c992005b46a6cffa9171057de09"
-source_commit_timestamp: "2026-10-18T10:09:35-04:00"
+source_commit: "f71773967d117cf4cba89cf789ded7ce66d69545"
+source_commit_timestamp: "2026-10-18T10:47:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -175,6 +175,7 @@ None found by exact static reference scan.
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2a_review_round3.py`
+- `tests/test_hint_h2b_review.py`
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_asks_migration.py`

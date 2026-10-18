@@ -3,8 +3,8 @@ title: "learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7ede426ee3b25c992005b46a6cffa9171057de09"
-source_commit_timestamp: "2026-10-18T10:09:35-04:00"
+source_commit: "f71773967d117cf4cba89cf789ded7ce66d69545"
+source_commit_timestamp: "2026-10-18T10:47:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gaps"
@@ -139,6 +139,7 @@ None found by exact static reference scan.
 - `tests/test_decider_landing.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_feedback_widening.py`
+- `tests/test_hint_h2b_review.py`
 - `tests/test_hypothesis_reference_contract.py`
 - `tests/test_learner_text_gaps.py`
 - `tests/test_learner_text_gaps_composition.py`
