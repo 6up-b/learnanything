@@ -2,6 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
+  CompareTableDto,
+  LibraryAskDto,
+  LibraryAskEntry,
+  LibraryExpansion,
+  LibraryJobDto,
+  LibraryNotesDto,
+  LibraryTutorDto,
   WorkbenchOpenInput,
   WorkbenchSaveStepDto,
   WorkbenchSaveStepInput,
@@ -1467,6 +1474,25 @@ export const api = {
     mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string; commitmentId: string; dueHint: string; question: ReaderActiveQuestionDto }>("reader_reconstruct", { input }))),
   readerReconstructUndo: (input: { questionId: string }) =>
     mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string | null; commitmentId: string | null; question: ReaderActiveQuestionDto | null }>("reader_reconstruct_undo", { input }))),
+  // Reader workbench RW4a: ask your library (sources first), the organizer's
+  // notes, compare pinned passages (display only) and the tutor about them.
+  readerLibraryAsk: (input: {
+    query: string; entry: LibraryAskEntry; extractionId?: string | null; spanIds?: string[];
+    learningObjectIds?: string[]; personalized?: boolean | null; expand?: LibraryExpansion[] | null;
+  }) => call<LibraryJobDto<LibraryAskDto>>("reader_library_ask", { input }),
+  // Each answers at once with a job (the sidecar never waits on a model on
+  // the request path): read it with readerLibraryJob, cancel it with
+  // readerLibraryJobCancel (a cancelled job never answers).
+  readerLibraryAskNotes: (input: { askId: string }) =>
+    call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null }) =>
+    call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
+  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
+    call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
+  readerLibraryJob: <T>(input: { jobId: string }) =>
+    call<LibraryJobDto<T>>("reader_library_job", { input }),
+  readerLibraryJobCancel: (input: { jobId: string }) =>
+    call<LibraryJobDto<null>>("reader_library_job_cancel", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>

@@ -1338,6 +1338,13 @@ sidecar_passthrough!(reader_active_question_status, "reader.active_question_stat
 sidecar_passthrough!(reader_active_question_action, "reader.active_question_action");
 sidecar_passthrough!(reader_reconstruct, "reader.reconstruct");
 sidecar_passthrough!(reader_reconstruct_undo, "reader.reconstruct_undo");
+// Reader workbench RW4a (ask your library, its notes, compare and the tutor): desktop only.
+sidecar_passthrough!(reader_library_ask, "reader.library_ask");
+sidecar_passthrough!(reader_library_ask_notes, "reader.library_ask_notes");
+sidecar_passthrough!(reader_library_compare, "reader.library_compare");
+sidecar_passthrough!(reader_library_ask_tutor, "reader.library_ask_tutor");
+sidecar_passthrough!(reader_library_job, "reader.library_job");
+sidecar_passthrough!(reader_library_job_cancel, "reader.library_job_cancel");
 sidecar_passthrough!(reader_block_health, "reader.block_health");
 sidecar_passthrough!(reader_block_original_region, "reader.block_original_region");
 sidecar_passthrough!(reader_translate_selection, "reader.translate_selection");

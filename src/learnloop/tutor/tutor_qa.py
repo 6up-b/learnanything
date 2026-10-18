@@ -525,6 +525,19 @@ def ask_question(
         )
 
     if context == "reader":
+        reader_retrieval: dict[str, Any] | None = None
+        if source_span_provider is not None:
+            # Reader workbench RW4a (§3.4 item 11): "ask the tutor about
+            # these" grounds a reader question in the passages the learner
+            # pinned, across sources; the injected provider's spans replace
+            # the selection's delivery, so the citation allowlist is exactly
+            # them. None (every other reader ask) keeps today's delivery.
+            provided_spans, reader_retrieval = _provided_source_spans(
+                vault, repository, source_span_provider, context=context,
+                question_md=question_md, learning_object_ids=[], item=None,
+            )
+            if provided_spans is None:
+                provided_spans = []
         ai_context = build_context()
         if extraction_id and span_id:
             from learnloop.reader.reader_progression import learning_objects_for_span
@@ -540,6 +553,8 @@ def ask_question(
                 ),
                 "source_spans": list(ai_context.source_spans),
             }
+            if reader_retrieval is not None:
+                source_context["source_retrieval"] = reader_retrieval
             if not source_context["candidate_learning_object_ids"] and learning_object_suggester is not None:
                 suggestions = _suggested_learning_objects(
                     vault, repository, learning_object_suggester,
@@ -1285,6 +1300,24 @@ def _build_context(
     ``tutor_qa.context_token_budget``, or a reference followed or not."""
 
     settings = vault.config.tutor_qa
+    if context == "reader" and provided_source_spans is not None:
+        # RW4a: a reader question grounded in the learner's pinned passages
+        # (the injected provider already applied the policy's filters), held
+        # to ``tutor_qa.context_token_budget`` like every delivery (Codex
+        # review F7): in order, the first that does not fit trimmed, the rest
+        # dropped, the receipt on the question's ``source_context.delivery``.
+        pinned_spans, receipt = apply_budget([dict(span) for span in provided_source_spans],
+                                             settings.context_token_budget)
+        if delivery_receipt is not None and notable(receipt):
+            delivery_receipt.update(receipt)
+        return TutorQAContext(
+            context="reader",
+            question_md=question_md,
+            candidate_facets=[],
+            thread=thread,
+            source_spans=pinned_spans,
+            answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
+        )
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
         # (the learner's selection + neighbours) + the question + the chosen

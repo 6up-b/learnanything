@@ -153,6 +153,20 @@ def build_reader_report(
                 "SELECT created_at FROM learner_text_gap_jobs WHERE source_kind = 'reader_formative'"
             ) if in_window(row["created_at"])
         ] if has_gap_jobs else []
+        # RW4a: library asks (migration 209), counted from their rows; the
+        # organizer's lines are counted, never quoted.
+        has_asks = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'library_asks'"
+        ).fetchone() is not None
+        library_asks = [
+            {"entry": row["entry"], "personalized": bool(row["personalized"]),
+             "organizer": json.loads(row["organizer_json"] or "{}"), "compared": row["comparison_id"] is not None,
+             "tutor": row["question_event_id"] is not None}
+            for row in connection.execute(
+                "SELECT entry, personalized, organizer_json, comparison_id, question_event_id, created_at "
+                "FROM library_asks ORDER BY created_at, id"
+            ) if in_window(row["created_at"])
+        ] if has_asks else []
 
     def actions(event: str) -> list[dict[str, Any]]:
         return [
@@ -381,6 +395,18 @@ def build_reader_report(
                 for style in styles[:3]
             },
             "formative_texts_queued": len(formative_texts),
+        },
+        # RW4a (spec §15's Library row): asks by entry, the organizer's notes and
+        # the lines it dropped for citing another passage, and what the
+        # learner went on to (compare, the tutor). Counts only.
+        "library": {
+            "asks": len(library_asks),
+            "by_entry": dict(Counter(a["entry"] for a in library_asks)),
+            "personalized": _share(sum(1 for a in library_asks if a["personalized"]), len(library_asks)),
+            "notes": dict(Counter(str(a["organizer"].get("status") or "not_run") for a in library_asks)),
+            "lines_dropped": sum(len(a["organizer"].get("dropped_lines") or []) for a in library_asks),
+            "compared": _share(sum(1 for a in library_asks if a["compared"]), len(library_asks)),
+            "tutor_asked": _share(sum(1 for a in library_asks if a["tutor"]), len(library_asks)),
         },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),

@@ -6523,6 +6523,8 @@ export interface ReaderPromptContractDto {
   intent?: ReaderIntentContractDto;
   /** RW1b: active reading (present only while reader_active_reading and reader_inquiry are on). */
   activeReading?: { foldBlocks: number };
+  /** RW4a: ask your library (present only while library_ask, the sources service and reader_inquiry are on). */
+  libraryAsk?: { expandGraph: boolean; personalizedDefault: boolean; compare: boolean };
 }
 export type ReaderAnswerMode = "answer_directly" | "help_me_reason" | "ask_me_first";
 
@@ -6536,7 +6538,8 @@ export type ReaderIntentEffect =
   | { kind: "import_exercise" }
   | { kind: "work_through" }
   | { kind: "active_reading"; style: ReaderActiveStyle }
-  | { kind: "another_way" };
+  | { kind: "another_way" }
+  | { kind: "library_ask"; entry: LibraryAskEntry };
 export type ReaderIntention = "orient" | "understand" | "apply" | "consolidate" | "transfer";
 export interface ReaderIntentActionDto {
   id: string;
@@ -8257,4 +8260,145 @@ export interface ReaderWrapUpDto {
 export interface ReaderWrapUpOfferDto {
   version: number;
   offer: { extractionId: string; sourceId: string | null; session: ReaderRecapSessionDto } | null;
+}
+
+// ── Reader workbench RW4a: ask your library, compare, the tutor ────────────
+// spec_reader_workbench_v1 §7.3; UX §4.5, W9, W10.
+
+export type LibraryAskEntry =
+  | "library_search"
+  | "reader"
+  | "where_else_explained"
+  | "where_is_this_used"
+  | "what_do_i_need_first";
+export type LibraryExpansion = "prerequisites" | "applications" | "confusables";
+
+export interface LibraryHitDto {
+  key: string;
+  extractionId: string;
+  spanId: string;
+  sourceId: string | null;
+  sourceTitle: string | null;
+  section: string | null;
+  page: number | null;
+  text: string;
+  role: string | null;
+  group: string;
+  expansion: LibraryExpansion | null;
+  learningObjectIds: string[];
+  authorship: "source";
+  label: string;
+}
+
+export interface LibraryExpansionDto {
+  expansion: LibraryExpansion;
+  label: string;
+  learningObjects: Array<{ learningObjectId: string; title: string; demonstrated: boolean | null; keys: string[] }>;
+}
+
+export interface LibraryAskDto {
+  version?: number;
+  askId: string;
+  query: string;
+  entry: LibraryAskEntry;
+  status: string;
+  policy: string;
+  personalized: boolean;
+  basis: string;
+  hits: LibraryHitDto[];
+  learningObjectIds: string[];
+  extractionId: string | null;
+  anchorSpanIds: string[];
+  groups: {
+    sources: Array<{ sourceId: string | null; sourceTitle: string | null; groups: Array<{ group: string; keys: string[] }> }>;
+    expansions: Array<{ expansion: LibraryExpansion; label: string; keys: string[] }>;
+  };
+  expansions: LibraryExpansionDto[];
+  expandGraph: boolean;
+  sourceCount: number;
+  passageCount: number;
+}
+
+export interface LibraryNoteDto {
+  key: string;
+  verdict: "contributes" | "related" | "unrelated" | null;
+  ledgerId: string | null;
+  line: string | null;
+  roles: string[];
+  speaksTo: { id: string; statement: string } | null;
+  label: string;
+}
+
+export interface LibraryNotesDto {
+  version?: number;
+  askId: string;
+  status: string;
+  reason?: string | null;
+  notes: LibraryNoteDto[];
+  order: string[];
+  droppedLines?: Array<{ key: string; reason: string }>;
+  personalized?: boolean;
+  reused?: boolean;
+}
+
+export interface CompareCellDto {
+  line: string | null;
+  quote: string | null;
+  perspective?: string | null;
+  relation?: string | null;
+  otherSourceTitle?: string | null;
+  authorship: "ai";
+}
+
+export interface CompareTableDto {
+  version?: number;
+  askId: string;
+  status: string;
+  comparisonId: string | null;
+  header: string;
+  rows: Array<{
+    sourceId: string | null;
+    sourceTitle: string | null;
+    key: string;
+    page: number | null;
+    isOpenSource: boolean;
+    contributes: CompareCellDto[];
+    assumes: CompareCellDto[];
+    differs: CompareCellDto[];
+  }>;
+  alsoDiscussedIn: Array<Record<string, unknown>>;
+  /** Sources whose passages could not be checked: possible matches, not compared. */
+  unverifiedSources: Array<{ sourceId?: string | null; sourceTitle?: string | null; extractionId?: string; spanId?: string; label?: string }>;
+  droppedPins: Array<Record<string, unknown>>;
+  droppedLineCount: number;
+  /** How the counterparts' verification went (capped, unreachable, timed out, …). */
+  verification?: { status: string | null; stopped: string | null; verifiedSources?: number | null };
+  exposureEventIds?: string[];
+}
+
+/** A library request running off the request path (reader.library_job). */
+export interface LibraryJobDto<T> {
+  version?: number;
+  jobId: string;
+  kind: "ask" | "notes" | "compare" | "tutor";
+  askId: string | null;
+  state: "pending" | "done" | "cancelled";
+  result: T | null;
+}
+
+export interface LibraryTutorDto {
+  version?: number;
+  askId: string;
+  eventId: string;
+  answerMd: string | null;
+  citations: Array<{ extractionId: string; spanId: string; label: string }>;
+  groundedKeys: string[];
+  /** Pinned passages the tutor's context budget trimmed (still given, in part). */
+  trimmedKeys?: string[];
+  droppedPins: Array<Record<string, unknown>>;
+  label: string;
+  remaining?: number | null;
+  readerAnswerEventId?: string | null;
+  burnedSurfaceIds?: string[];
+  learnerGap?: { status: string; kind?: string | null } | null;
 }

@@ -33,6 +33,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     ladder,
     learner_gaps,
     library,
+    library_ask,
     measurement,
     placement,
     practice,

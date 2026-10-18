@@ -267,6 +267,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("learner_theta", TableRole.COMPAT),
     ("learning_object_mastery", TableRole.DERIVED),
     ("learning_outcome_labels", TableRole.DERIVED),
+    # Reader workbench RW4a (migration 209): library questions, their
+    # find_sources manifests and organizer lines (paid outputs, never re-run
+    # on rebuild; replay never reads them).
+    ("library_asks", TableRole.WORKFLOW),
     ("lo_probe_state", TableRole.COMPAT),
     ("maintenance_notices", TableRole.WORKFLOW),
     ("measurement_contract_corrections", TableRole.RAW_LEDGER),

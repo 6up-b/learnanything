@@ -3,13 +3,13 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 208
+schema_head: 209
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/194_source_service_spend.sql"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/source_retrieval/library_ask.py"
   - "src/learnloop/source_retrieval/service_spend.py"
 tags:
   - "learnloop/database/table"

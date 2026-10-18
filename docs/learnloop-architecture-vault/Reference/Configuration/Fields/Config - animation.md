@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/animation.py"
   - "src/learnloop_sidecar/handlers/settings.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/library_ask_fixtures.py"
   - "tests/marker_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/test_ai_compare.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
-  - "tests/test_chatgpt_plan_cli.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -78,6 +78,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/codex_cli_fakes.py`
+- `tests/library_ask_fixtures.py`
 - `tests/marker_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -88,7 +89,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_compare.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
-- `tests/test_chatgpt_plan_cli.py`
 
 ## Extension and modification guidance
 

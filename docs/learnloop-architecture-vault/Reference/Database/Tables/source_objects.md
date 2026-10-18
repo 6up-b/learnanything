@@ -3,13 +3,13 @@ title: "source_objects"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_objects"
   - "table source_objects"
-schema_head: 208
+schema_head: 209
 table_name: "source_objects"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/reader/reader_requests.py"
   - "src/learnloop/source_retrieval/find_sources.py"
+  - "src/learnloop/source_retrieval/library_ask.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/source_objects.py"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_find_sources_intents.py`
+- `tests/test_reader_compare_table.py`
 - `tests/test_reread_safety.py`
 - `tests/test_sidecar_reader_p3_slice2.py`
 - `tests/test_source_objects.py`

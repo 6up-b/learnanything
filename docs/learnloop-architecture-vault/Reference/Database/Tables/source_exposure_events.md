@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 208
+schema_head: 209
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -126,6 +126,8 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_library_ask.py`
+- `tests/test_library_ask_review.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
@@ -133,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
+- `tests/test_rw4_kill_switches.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
@@ -140,7 +143,6 @@ Indexes and uniqueness:
 - `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_source_exercise_rpcs.py`
 - `tests/test_source_first_needs.py`
-- `tests/test_valuation_calibration_fields.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

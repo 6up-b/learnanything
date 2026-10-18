@@ -509,9 +509,18 @@ def ask(
     cold_attempt_id: str | None = None,
     learning_object_suggester: Any | None = None,
     tool_request_handler: Any | None = None,
+    source_span_provider: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``source_span_provider`` (reader workbench RW4a, "ask the tutor about
+    these"): the passages the learner pinned replace the selection's
+    delivery as the tutor's context and citation allowlist (``span_id`` is
+    the first pin, the exchange's anchor); the answer is finalized exactly as
+    any Reader answer (reveal detection, warming and burning, the
+    ``reader_answer_submitted`` exchange), and the manifest records the spans
+    the tutor was actually given. None (every other Ask) changes nothing.
 
     RW1a branches (``reader_inquiry.enabled``): ``parent_exchange_id`` names a
     completed reader-answer event in this vault on this extraction and span.
@@ -646,8 +655,18 @@ def ask(
         reader_thread=thread,
         learning_object_suggester=learning_object_suggester,
         tool_request_handler=tool_request_handler,
+        source_span_provider=source_span_provider,
         clock=clock,
     )
+    if source_span_provider is not None:
+        # The manifest's spans are exactly the ones the tutor was given: the
+        # pins as delivered (after the context budget), not the anchor's
+        # neighbours.
+        delivered = (repository.question_event(result["event_id"]) or {}).get("source_context") or {}
+        manifest["source_spans"] = list(delivered.get("source_spans") or [])
+        manifest["source_retrieval"] = delivered.get("source_retrieval")
+        if delivered.get("delivery"):
+            manifest["delivery"] = delivered["delivery"]
 
     # L3 server-side reveal detection: an answer can leak a reserved surface even when
     # the caller forgets to declare it. Derive candidate revealed reserves from the

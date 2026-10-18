@@ -1317,6 +1317,12 @@ class AIRoutingConfig(BaseModel):
     # empty = the code-default openrouter_decider profile, never a chat
     # fallback and never LEARNLOOP_AI_PROVIDER.
     reader_intent: str | None = None
+    # Reader workbench RW4a (spec_reader_workbench_v1 §7.3, §7.6): the library
+    # answer's organizer, one listwise call (a note per passage on what it
+    # contributes). Empty = ai.active_provider; a metered route needs
+    # source_retrieval.llm_price_per_million or the notes are skipped and
+    # labelled. Serves live requests, so the fast route is recommended.
+    library_organizer: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1345,6 +1351,8 @@ REASONING_EFFORTS = frozenset({"", "profile", "none", "minimal", "low", "medium"
 DEFAULT_ROUTE_REASONING_EFFORT: dict[str, str] = {
     "source_query_rewrite": "low",
     "source_rerank": "low",
+    # Reader workbench RW4a: the library answer's organizer serves live requests.
+    "library_organizer": "low",
 }
 
 
@@ -2036,6 +2044,52 @@ class ReaderFormativeConfig(BaseModel):
     new. Tier 2: never an attempt, evidence, mastery, certification or FSRS.
     ``enabled`` is the kill switch: off, no ``reader_formative`` text is
     queued and the answers stay on their rows and in the report.
+    """
+
+    enabled: bool = True
+
+
+class LibraryAskConfig(BaseModel):
+    """Reader workbench RW4a: ask your library (spec_reader_workbench_v1 §7.3, §7.7).
+
+    "Ask" (Shift+Enter) in the library search box, Ctrl+Shift+F in the Reader,
+    or "where else is this explained?" / "where is this used?" / "what do I
+    need first?" on a selection answer sources first, beside the open source:
+    up to eight verbatim passages from the sources service's ``find_sources``
+    (intent ``explain``, the library scope, the Reader caller's derived
+    policy), grouped by source and role, each with a one-line note on what it
+    contributes from one listwise call (``ai.routing.library_organizer``,
+    ledger task ``library_contribution``) whose lines must each cite exactly
+    their own passage. ``expand_graph``: one more ``find_sources`` per
+    concept-graph expansion (prerequisites, applications), keeping only
+    passages linked to those learning objects, labelled. The tutor answers
+    only when asked, only from the passages pinned. Retrieval is context and
+    the notes are display (T6's ruling): nothing in scoring, scheduling,
+    projection or serving reads them, so no algorithm successor.
+    ``personalized_default``: whether the "personalized" chip starts on (the
+    note may then name one open question the learner has on a passage's
+    learning objects; off, plain retrieval order). ``max_daily_cost_usd``:
+    the organizer's metered spend a UTC day (Codex is ``estimated_only``).
+    ``enabled`` is the kill switch: off (or with ``source_service.enabled`` or
+    ``reader_inquiry.enabled`` off), the library search and the Reader are
+    exactly as before RW4a and the RPCs refuse.
+    """
+
+    enabled: bool = True
+    expand_graph: bool = True
+    personalized_default: bool = True
+    max_daily_cost_usd: float = Field(default=1.0, ge=0.0)
+
+
+class ReaderCompareConfig(BaseModel):
+    """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
+
+    The Reader's compare UI over the sources service's ``compare_sources``
+    (whose own switch is ``source_service.compare`` and whose bounds are
+    ``source_service.compare_max_prompt_tokens`` / ``compare_max_cost_usd``):
+    a table with one row per source, each cell a quote-verified line, no
+    consensus. Display only until RW4d's keep. ``enabled`` is the kill switch:
+    off, no compare action and the RPC refuses.
     """
 
     enabled: bool = True
@@ -2935,6 +2989,8 @@ class LearnLoopConfig(BaseModel):
     reader_intent: ReaderIntentConfig = Field(default_factory=ReaderIntentConfig)
     reader_active_reading: ReaderActiveReadingConfig = Field(default_factory=ReaderActiveReadingConfig)
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
+    library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
+    reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
