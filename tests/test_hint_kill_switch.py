@@ -170,3 +170,24 @@ def test_h2b_set_help_style_writes_the_one_stored_preference_and_reloads(tmp_pat
 
     with pytest.raises((ValidationError, SidecarError)):
         _call(ctx, "practice.set_help_style", {"helpStyle": "lazy"})
+
+
+def test_h2b_outcome_placement_follows_the_adaptive_kill_switch(tmp_path, monkeypatch):
+    """With adaptive hints off no outcome placement starts, even with a
+    client injected (there are no shown service hints, and the switch is read
+    first)."""
+
+    from learnloop.hints import map_builder
+
+    started: list = []
+    monkeypatch.setattr(map_builder.BackgroundBuilds, "launch", lambda self, *a, **k: started.append(a) or None)
+    paths = _vault(tmp_path, config=ADAPTIVE_OFF)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    ctx.hint_outcome_client = object()
+    session_id = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    _call(ctx, "submit_attempt", {"sessionId": session_id, "practiceItemId": ITEM, "answerMd": "U, Sigma",
+                                  "attemptType": "independent_attempt", "hintsUsed": 0, "submissionId": "k1",
+                                  "selfGrade": {"criterionPoints": {}, "confidence": 3}})
+    assert started == []
