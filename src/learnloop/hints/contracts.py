@@ -12,7 +12,9 @@ quotes against it):
    point is where the work starts).
 4. It keeps the learner's route (the placed route, reference or not),
    unless that route is invalid or the learner asked for another; only
-   ``book_way`` changes a valid route (to the reference route).
+   ``book_way`` changes a valid route (to the reference route). A hint on
+   the reference route (``book_way``, from the givens) names it and a target
+   on it explicitly, whatever its kind.
 5. It changes strategy when it isn't working: after a "doesn't connect" reply
    other than "the notation", or a second hint on the same work, its kind or
    strategy slug differs from the earlier hints there. After "the notation" it
@@ -307,12 +309,22 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
     # an alternative). Only ``book_way`` changes a valid route (to the
     # reference); "I'm using a different approach" keeps the placed route.
     reference = reference_route_id(current)
+    if current is not None and target.reference_route:
+        # The book's way and a hint from the givens name the reference route
+        # explicitly, and a target on it, whatever the kind (round 4: an
+        # empty route or target is no exemption; a walkthrough's target is
+        # the goal). Without a map nothing changes.
+        if not reference or output.route_id != reference:
+            check.fail("rule4_not_reference_route")
+        else:
+            path = [str(node) for node in (routes_by_id(current).get(reference) or {}).get("path") or ()]
+            if not output.target_node_id or output.target_node_id not in path:
+                check.fail("rule4_target_not_on_reference_route")
+            elif kind == "walkthrough" and output.target_node_id != goal_node_id(current):
+                check.fail("walkthrough_target_not_the_goal")
     if current is not None and output.route_id:
         learner_route = str(placement.route_id or "") if has_work else ""
-        if target.reference_route:
-            if reference is not None and output.route_id != reference:
-                check.fail("rule4_not_reference_route")
-        elif learner_route and output.route_id != learner_route and (
+        if not target.reference_route and learner_route and output.route_id != learner_route and (
                 placement.work_valid_so_far or target.shortcut == "learner_route"):
             check.fail("rule4_left_learner_route")
         if target.shortcut == "learner_route" and has_work and not quotes:
