@@ -924,3 +924,54 @@ trigger. On `c6dd14a29` they were A on every trigger.
   The commit labels and line citations were regenerated in `73e82119e`.
 - Nothing under `apps/` changed this round, so the frontend was not rerun.
   Model calls: 0.
+
+## Fix round 7
+
+The round-6 verify (codex-job `20261018-185215-YLlz6Q`) confirmed atomic
+publication, the queue, migration 213 and no other regression. It left two
+items. Both tests failed on `0977c3fb5`.
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| R7-1 | Medium | A dispatch refusal at the Decider's start receipt is swallowed | fixed | `a806508a8` | `test_a_refusal_at_the_deciders_start_receipt_stops_the_request` |
+| R7-2 | Low | A refused Decider record leaves `decider_status` at `ok` | fixed | `a806508a8` | `test_a_refused_decider_record_labels_the_decider_status` |
+
+**R7-1.** The Decider's receipts go through `review_spend.UsageCollector`,
+which treats its sink as telemetry and swallows the sink's exceptions. So
+when `before_dispatch()` refused at the start receipt, the request was sent
+anyway. Its receipt stayed `interrupted` with null cost, and the outer gate
+settled real usage.
+
+This was the smallest change to the shared class: `UsageCollector` now
+re-raises only an exception that declares `admission_refused`. Only
+`ProtectedContent` and its subclasses do (the same pattern as
+`SpendBudget`'s `spend_refused`), so every other sink failure is still
+swallowed for other callers.
+
+The test runs a harmless reload after the Decider's gate check and before
+its start receipt. The result:
+
+- no transport call;
+- the receipt is `interrupted` / `StaleSnapshot`, with no cost;
+- the outer gate's admission for the Decider is settled with no usage;
+- the Decider's outcome is `stale`.
+
+**R7-2.** `admit_decider()` now catches `ProtectedContent`, sets
+`decider_status = refusal_status(exc)` and re-raises, as the LLM's handler
+does. A reload after the Decider's record check now gives `stale` for both
+the audit and its `decider_status`.
+
+### Gate (fix round 7, targeted)
+
+- `lint-imports --no-cache`: 27 kept, 0 broken.
+- `pytest -n auto`: **381 passed**. The files:
+  - the AD files: every `tests/test_ad1_*.py`, and
+    `test_adaptive_difficulty_ad1`;
+  - every test that touches `review_spend` or `UsageCollector`:
+    `test_decider_landing`, `test_output_budget`, `test_tier1_decider`,
+    `test_t6_followup_review`;
+  - the receipt and gate files: `test_model_call_receipt_owners`,
+    `test_glm_ocr`, `test_ux_phase1_review_fixes`;
+  - `test_architecture`.
+- `--durable-sqlite tests/test_ad1_fix_round7.py`: 2 passed.
+- References: regenerated in `2a978bb4c`, 0 errors. Model calls: 0.
