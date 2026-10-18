@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b1e520ce793ef7386c2ac25593991a50aec14eb0"
-source_commit_timestamp: "2026-10-18T17:04:13-04:00"
+source_commit: "d03b6bba09389c9eb2b610b4500f5d31341ffa9e"
+source_commit_timestamp: "2026-10-18T17:30:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -96,6 +96,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `remediation_episode_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `assessment_contract_version_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `answered_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `answer_mode` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -170,6 +171,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
@@ -188,7 +190,6 @@ Indexes and uniqueness:
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_reader_inquiry_status.py`
-- `tests/test_reader_recap.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -239,7 +240,8 @@ CREATE TABLE "question_events" (
     signal_channel IS NULL OR signal_channel IN ('epistemic', 'interaction_preference')
   )
 , resolution TEXT NOT NULL DEFAULT 'open'
-  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT, answered_at TEXT);
+  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT, answered_at TEXT, answer_mode TEXT
+  CHECK (answer_mode IS NULL OR answer_mode IN ('answer_directly', 'help_me_reason', 'ask_me_first')));
 ```
 
 ## Related notes

@@ -3,8 +3,8 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b1e520ce793ef7386c2ac25593991a50aec14eb0"
-source_commit_timestamp: "2026-10-18T17:04:13-04:00"
+source_commit: "d03b6bba09389c9eb2b610b4500f5d31341ffa9e"
+source_commit_timestamp: "2026-10-18T17:30:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
+  - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/ingest/extractors/base.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_fix_round4.py`
 - `tests/test_approach_maps.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_feedback_texts.py`

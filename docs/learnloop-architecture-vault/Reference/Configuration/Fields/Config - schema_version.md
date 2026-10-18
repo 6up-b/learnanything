@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b1e520ce793ef7386c2ac25593991a50aec14eb0"
-source_commit_timestamp: "2026-10-18T17:04:13-04:00"
+source_commit: "d03b6bba09389c9eb2b610b4500f5d31341ffa9e"
+source_commit_timestamp: "2026-10-18T17:30:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -27,11 +27,11 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
+  - "tests/test_ad1_fix_round4.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_runtime.py"
   - "tests/test_capability_residual.py"
   - "tests/test_card_lineage.py"
-  - "tests/test_causal_attribution_exhibit.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -78,11 +78,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
+- `tests/test_ad1_fix_round4.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_runtime.py`
 - `tests/test_capability_residual.py`
 - `tests/test_card_lineage.py`
-- `tests/test_causal_attribution_exhibit.py`
 
 ## Extension and modification guidance
 
