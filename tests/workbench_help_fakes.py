@@ -117,25 +117,32 @@ def wb_answer(context: Mapping[str, Any]) -> dict[str, Any]:
     block = context.get("workbench") or {}
     steps = block.get("steps") or []
     texts = {entry["step"]: entry["text"] for entry in steps}
-    standing = [entry["text"] for entry in steps if entry.get("stands")]
-    about = texts.get(block.get("about_step")) or (steps[-1]["text"] if steps else "")
-    first = texts.get(block.get("first_questionable_step")) or ""
+    order = [entry["step"] for entry in steps]
+    standing = [entry["step"] for entry in steps if entry.get("stands")]
+    kind = context.get("chosen", {}).get("kind")
+    about_n = block.get("about_step") or (order[-1] if order else None)
+    about = texts.get(about_n, "")
+    questionable_n = block.get("first_questionable_step")
+    if not questionable_n and kind in ("localize", "error_specific") and about_n:
+        questionable_n = about_n
+    questionable = texts.get(questionable_n, "") if questionable_n else ""
+    stands_n = block.get("continue_from_step")
+    if questionable_n and stands_n is not None and stands_n >= questionable_n:
+        earlier = [number for number in standing if number < questionable_n]
+        stands_n = earlier[-1] if earlier else None
+    stands = texts.get(stands_n, "") if stands_n else ""
     placement = dict(payload["placement"])
-    stands = standing[-1] if standing else ""
     if context.get("chosen", {}).get("downgrade"):
         stands = ""
-    quotes = [about] if about else []
-    placement.update({"stands_quote": stands if stands != about else "",
-                      "first_questionable_quote": first if first and first != stands else "",
-                      "quotes": quotes})
+    placement.update({"stands_quote": stands, "first_questionable_quote": questionable,
+                      "quotes": [about] if about else []})
     if not steps:
         placement.update({"stands_quote": "", "first_questionable_quote": "", "quotes": []})
     payload["placement"] = placement
-    kind = context.get("chosen", {}).get("kind")
-    if kind == "localize" and about:
-        payload["hint_md"] = f"Look again at: {about}"
-    if kind == "error_specific" and about:
-        payload["hint_md"] = f"In '{about}' a CDF value is a probability on its own."
+    if kind == "localize" and questionable:
+        payload["hint_md"] = f"Look again at: {questionable}"
+    if kind == "error_specific" and questionable:
+        payload["hint_md"] = f"In '{questionable}' a CDF value is a probability on its own."
     return payload
 
 
@@ -147,11 +154,14 @@ def call(ctx: SidecarContext, name: str, params: dict[str, Any]) -> Any:
 
 
 def sidecar(tmp_path: Any, config: str = "", *, map_: bool = True, writer: Any = None, check: Any = None,
-            chooser: Any = None):
+            chooser: Any = None, maps_enabled: bool = True):
     """The CDF item's vault with a map, a sidecar running jobs inline, the
     hint writer, check and chooser fakes, and an open practice session."""
 
     paths = hint_vault(tmp_path, config='[hints]\nchoice_policy = "sample"\n' + config)
+    if not maps_enabled:
+        toml = paths.root / "learnloop.toml"
+        toml.write_text(toml.read_text().replace("build_on_serve = false\n", "build_on_serve = false\nenabled = false\n", 1))
     if map_:
         store_map(paths)
     ctx = SidecarContext()

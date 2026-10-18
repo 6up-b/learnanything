@@ -180,6 +180,8 @@ def truth(claim):
     if kind == "solving":
         roots = sympy.solve(expression, variable)
         return roots[0] if roots else None
+    if kind == "normalization":
+        return sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
     return None
 
 
@@ -187,10 +189,11 @@ def holds(claim, result_text):
     """Whether the step's claim holds with ``result_text`` as its result."""
     kind = claim["kind"]
     if kind == "normalization":
+        # The density's integral over the support equals the result (one).
         expression = parse(claim["expression"])
         variable = symbol(claim, expression)
         total = sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-        return zero(total - parse(result_text or "1"))
+        return zero(total - parse(result_text))
     if kind == "solving":
         expression = equation(claim["expression"])
         variable = symbol(claim, expression)
@@ -270,11 +273,7 @@ def run(claim):
             return {"method": "model", "holds": None, "reason": "the samples could not tell"}
         return {"method": "checked_numerically", "holds": bool(claimed), "reason": "sampled %d points" % points}
     if kind == "normalization":
-        claimed = holds(claim, "1")
-        control = holds(claim, "2")
-        if control:
-            return {"method": "model", "holds": None, "reason": "the negative control was accepted"}
-        return {"method": "checked", "holds": bool(claimed), "reason": "the density's integral over the support"}
+        claim = dict(claim, result="1")
     true = truth(claim)
     if true is not None:
         # The controls are taken around the TRUE result (sympy's): it must be
