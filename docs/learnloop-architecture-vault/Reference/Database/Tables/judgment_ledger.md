@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "cdcd70601cc10b4302dc6bdcb05f02993d186e51"
+source_commit_timestamp: "2026-10-18T01:33:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 210
+schema_head: 211
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -130,6 +130,8 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/text_gaps/report.py`
 - `src/learnloop/diagnosis/text_gaps/tier1.py`
 - `src/learnloop/field/probability_prep.py`
+- `src/learnloop/hints/map_builder.py`
+- `src/learnloop/hints/map_report.py`
 - `src/learnloop/matching/judge.py`
 - `src/learnloop/ops/contamination/judge.py`
 - `src/learnloop/ops/contamination/report.py`
@@ -158,6 +160,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/approach_map_fakes.py`
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_ai_compare.py`
@@ -177,7 +180,6 @@ None found by exact static reference scan.
 - `tests/test_facet_authority_review.py`
 - `tests/test_facet_identity.py`
 - `tests/test_facet_identity_composition.py`
-- `tests/test_facet_identity_ingest.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -587,12 +587,16 @@ def find_sources(
     misconceptions: Sequence[Any] = (),
     caller: CallerContext | None = None,
     compare_client: Any | None = None,
+    rewrite: bool | None = None,
 ) -> SourceHits:
     """Verbatim passages for ``intent`` under ``policy`` (the caller's, derived on the server).
 
     ``misconceptions`` are the remediation targets the caller resolved (the
     diagnoser's overlay, a hypothesis ref or a named gap); ``learner_work_md``
-    enters only the worked-example verification context.
+    enters only the worked-example verification context. ``rewrite`` is the
+    search's query-rewrite switch (None: the config and the conceptual-question
+    gate, as every existing caller; False: never, for a background caller that
+    pays for no rewrite, adaptive hints H1's map seeds).
     """
 
     if policy not in POLICIES:
@@ -649,7 +653,7 @@ def find_sources(
     # is the whole fused order: a dense_plus_bm25 pool would stay cut to its
     # dense top and extras whatever the depth.
     search = search_spans(
-        vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=None,
+        vault, repository, query_text, span_scope, limit=max(int(limit) * 4, 40), deep=True, rewrite=rewrite,
         extra_lists=extra, embedder=embedder, rewrite_client=rewrite_client, owner_id=owner_id or query_hash,
         deadline=deadline, roles=effective_roles, pool=POOL_HYBRID_RRF,
         **({} if depth is None else {"list_depth": depth}),

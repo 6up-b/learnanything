@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "cdcd70601cc10b4302dc6bdcb05f02993d186e51"
+source_commit_timestamp: "2026-10-18T01:33:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/providers/codex_http.py"
   - "src/learnloop/ingest/extractors/glm_ocr.py"
+  - "tests/approach_map_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
   - "tests/mcp_world.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_capability_residual.py"
   - "tests/test_card_lineage.py"
   - "tests/test_causal_attribution_exhibit.py"
-  - "tests/test_causal_factor_deferral.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2957`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop/ingest/extractors/glm_ocr.py:292` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3001`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop/ingest/extractors/glm_ocr.py:292` |
 
 ## Compatibility-only inputs
 
@@ -71,6 +71,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/approach_map_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
 - `tests/mcp_world.py`
@@ -82,7 +83,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_capability_residual.py`
 - `tests/test_card_lineage.py`
 - `tests/test_causal_attribution_exhibit.py`
-- `tests/test_causal_factor_deferral.py`
 
 ## Extension and modification guidance
 

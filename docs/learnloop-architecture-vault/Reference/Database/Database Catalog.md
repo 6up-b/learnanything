@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "cdcd70601cc10b4302dc6bdcb05f02993d186e51"
+source_commit_timestamp: "2026-10-18T01:33:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 210
-table_count: 329
+schema_head: 211
+table_count: 330
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_210/state.sqlite"
+  - "fixtures/migration_head_211/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-210"
+  - "learnloop/database/schema-head-211"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 329 user tables at migration head 210. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 330 user tables at migration head 211. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 329 user tables at migration head 210. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 148 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 68 |
-| [[Table Roles#Workflow|`workflow`]] | 84 |
+| [[Table Roles#Workflow|`workflow`]] | 85 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 316 |
+| `active` | 317 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -409,6 +409,7 @@ Curricular commitments, depth progression, blueprints, and golden-path runs. Thi
 Maintenance, generic observations, and optional generated media. This is a navigational grouping, not permission for cross-domain imports. ^family-operations
 
 - [[Reference/Database/Tables/ability_transition_events|ability_transition_events]] — `derived` · `active` · Materializes the replayed ability-state transition attributed to each attempt. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `attempt_id`, `learning_object_id`, `practice_item_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/approach_maps|approach_maps]] — `workflow` · `active` · Gives approach map a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `practice_item_id`, `family_id`, `supersedes_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/assumption_decisions|assumption_decisions]] — `receipt` · `active` · Gives assumption decision a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `learning_object_id`, `quick_check_session_id`, `trigger_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/assumption_returns|assumption_returns]] — `receipt` · `active` · Gives assumption return a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `assumption_id`, `learning_object_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/blind_grade_records|blind_grade_records]] — `raw_ledger` · `active` · Gives blind grade record a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `agent_run_id`, `supersedes_id`, making the operational relationship explicit.

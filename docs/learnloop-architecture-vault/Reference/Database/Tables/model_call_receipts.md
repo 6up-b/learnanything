@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "cdcd70601cc10b4302dc6bdcb05f02993d186e51"
+source_commit_timestamp: "2026-10-18T01:33:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 210
+schema_head: 211
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -123,6 +123,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/hints/map_report.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
@@ -141,7 +142,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/approach_map_fakes.py`
 - `tests/test_ai_compare.py`
+- `tests/test_approach_maps.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_contamination_report.py`
 - `tests/test_decider_landing.py`
@@ -159,8 +162,6 @@ None found by exact static reference scan.
 - `tests/test_interaction_signals.py`
 - `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_judge_routes.py`
-- `tests/test_learner_text_gaps_rereview.py`
-- `tests/test_library_ask.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_210/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_211/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_210" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_211" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 210
+SCHEMA_HEAD = 211
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -870,7 +870,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
     "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
     "stuck_prompt": "the \"I'm stuck\" answer control that replaces \"I don't know\" (mvp-0.13)",
-    "hints": "adaptive hints H0: hint telemetry (each authored hint the practice screen reveals recorded as a help_assists row, with its time and a hash and length of the draft, and attached to the attempt at submit): the kill switch; telemetry only, hints_used stays the client's count (no successor)",
+    "hints": "adaptive hints H0: hint telemetry (each authored hint the practice screen reveals recorded as a help_assists row, with its time and a hash and length of the draft, and attached to the attempt at submit): the kill switch; telemetry only, hints_used stays the client's count (no successor); H1: approach maps (hints.maps: a small subgoal map per item built by one background call on route approach_map when the item is served, validated in code and stored in approach_maps; the kill switch, build on serve and the metered daily cap) and the owner's price for metered hint routes; help, never evidence, read by no scoring, scheduling, serving, grading or replay path (no successor)",
     "source_service": "canonical sources as a shared instructional service (mvp-0.18/0.19): the master switch, one kill switch per phase (tutor offers, the exercise arm and its key checks, discriminating search, source-first needs, intent-aware grounding, comparisons, tutor tools, intervention records), the interactive verifier's time box, a comparison's prompt-size bound and the money caps",
     "plan": "daily-loop DL1 (mvp-0.14): the finite daily plan's kill switches, remembered minutes, split caps, new-material admission, duration estimates, reading pace and re-entry caps",
     "learner_text_gaps": "learner-text gaps: tutor questions, stuck answers and diagnoses read for named prerequisites and misconceptions (kill switches, the authoritative chooser, the shortlist, edges, created prerequisites and their daily cap, holding-pen sightings, per-text spend caps) and mvp-0.16's sooner check",
@@ -2033,7 +2033,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_210/state.sqlite",
+                "fixtures/migration_head_211/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

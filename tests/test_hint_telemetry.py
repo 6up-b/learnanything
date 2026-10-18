@@ -543,7 +543,11 @@ def test_the_report_cli_reads_the_vault_read_only(tmp_path):
     result = runner.invoke(app, ["hints", "report", "--vault", str(paths.root), "--json", "--since", "7d"])
     assert result.exit_code == 0, result.output
     report = json.loads(result.output)
-    assert report["totals"]["shown"] == 1 and report["hints"] == {"telemetry_enabled": True}
+    assert report["totals"]["shown"] == 1 and report["hints"] == {
+        "telemetry_enabled": True, "price_per_million": None,
+        "maps": {"enabled": True, "build_on_serve": True, "max_daily_cost_usd": 0.5}}
+    # Adaptive hints H1's section, read from the same read-only connection's database.
+    assert report["maps"]["versions_stored"] == 0 and report["maps"]["validation"]["failures_by_reason"] == {}
     assert hashlib.sha256(paths.sqlite_path.read_bytes()).hexdigest() == before
     bad = runner.invoke(app, ["hints", "report", "--vault", str(paths.root), "--surface", "reader"])
     assert bad.exit_code == 1 and json.loads(bad.output)["status"] == "invalid"
@@ -903,7 +907,7 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     from learnloop.db.copies import backup_database
     from learnloop.hints.report import build_hints_report
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_210" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_211" / "state.sqlite"
     database = tmp_path / "state.sqlite"
     backup_database(head, database)
     with closing(connect(database)) as connection:

@@ -1312,7 +1312,19 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # every version. Every snapshot moves only because the effective config
     # gains the section; all of them were recomputed from the composed
     # defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "fec8819199de9df955827b28185605f692147f524abc980df35fc2781a381118",
+    # Adaptive hints H1 (approach maps; docs/reviews/adaptive-hints-H1.md)
+    # adds [hints] price_per_million (unset) and [hints.maps] (enabled,
+    # build_on_serve, max_daily_cost_usd = 0.50; modelled defaults, left out
+    # of the decision-only template) and the chat route
+    # ai.routing.approach_map (unset: the active provider): a small subgoal
+    # map per item, built in the background when the item is served, stored
+    # in approach_maps and read by no scoring, scheduling, projection,
+    # serving, grading or replay path (the hint writer reads it from H2), so
+    # no scoring, scheduling, projection or serving change and no successor;
+    # it acts at every version. Every snapshot moves only because the
+    # effective config gains the keys; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "6ced6e30abdbee0089bf48527978ef2b8aacccd05c58084ac14f157673cb490f",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1355,7 +1367,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "4e2f37b2d07423138f473f47ad857b8d54f8b9a0f8a977c5f2fd00e9227657d4",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "a1da7cb91f62e2482ea24a8950c30a7b5cb32ff4916453e2dfee441d70061277",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1406,7 +1419,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "a6762315217b5d552c85fb21da161e59ebabe441aeb2782b15d5b10bdd338700",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "34e4e33b98f0b00dbcceeb30bf3fac4ea0397963c5d9b48c87c97175016d0492",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1451,7 +1465,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "9ea7962340ba493f5a087df845ee8428745aa9b43a9217491139ab5585602808",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "4f561f304fa4b0eedbbff61b5f62fe7daa68a6b118dfe84d338ba2290a19b574",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1491,7 +1506,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "5f06ef7960f9f54adfb3e22cf6548356451b6390d9dbe25ababe3d57f420a046",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.13": "8732d8c5ab83b922b42c282e1ee9c34990b426abefd7e2a1bd3e0552acd50b65",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1530,7 +1546,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "7a849ee7262e25d0b10eb381a10cb715387af493c2d72e752bdf3e6b2acb5cf6",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.14": "516f357be6d2ab2091f93ceb260af2e1ae44630e0aad6b94c8afc7e9fc67fd1c",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1567,7 +1584,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "83455892f1ec58534d97e59eb3a1a8b67ffb40d9fdfe7ad98f3313d7df98e7a1",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.15": "5c6b1d83d1dbb49a83350374be03e50b3b1a3a314952d1480373780c7355c429",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1611,7 +1629,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "4f36e81d98f301ec73a036ae0317cab4b6d0f49c6ce912f541ac7dfc0f93da07",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.16": "641f9b1256d46cc28e5f6b76ad011601575bec49f96d24f40225592a579c004a",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1651,7 +1670,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.17": "f0b02c2ea579c20107a188dfc0a74dc6f65e31a1b3bedb9ab6247f7ad678dbe7",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.17": "11a82e17edbe8f242aa0c34b599ff24884137dc37ac9ec9fe2120701fc51f617",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1684,7 +1704,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.18": "248c20ec69ffa311741b66ff4328e4558019a943663ce6b208ccaf810068067f",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.18": "86194051110409221dee92881529f8b833bf99a288ff7e6c0d5b38cfa6f90dc5",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1717,7 +1738,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.19": "5e1d639ee7880de74902f1906207b5ab50b4cfc748881d623e0e98c35beb8ec1",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.19": "1ed143974914b3584e8dd30d16928f15a33cdff0118dfeb36a733a5089d1f087",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1746,7 +1768,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.20": "d8a83414b2d8eebbc612bef47d16f6e4117fa9042cc4d4d9c3b99ec8560c5b15",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.20": "bef213ac1296cebd1ff5c65c4e5afb65541c6bb1933c984db042ae1de7bda99d",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1784,7 +1807,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.21": "25cac6ca33e52bbd2973b7f3a011166d2be339fc28d6ebab8148640361a522b7",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.21": "ae706734acd4ad8ddf1e38e549af1733b9ec4406452d433d9c875fee0cb6f8bc",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1814,7 +1838,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.22": "0aeba34812feb50349146bac5be1d89ba3cd1c047760cd1a7f5f4daf0bb0886a",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.22": "1dfd453d17ac545218e29ce2c85d537a7759dea3d5179d2059b609de7f58ff13",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1839,7 +1864,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.23": "bd490d51c1d3a12a7cde213874cec4c742af87efff362391e3976163d12afcad",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.23": "dad5e86235bbb9d51fb26b963ebd788e7b57c54c73d0ccf395888fd55abb7647",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1861,7 +1887,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.24": "050bc03d7536c020fbb85a90715295bc9ec83b18cf5ed7e350aa7bf2e47d30ea",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.24": "0eef33be545e4d14d6bbd45ce43e08d6d119a8418f1090dd856e1e70e43411d6",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -1881,7 +1908,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.25": "d89cc9de6efab8aa526588950f75d4f2f77ee2ed69a25182083b0879aa564264",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.25": "af12b031d7e710e4da5a9a55112e36c2757f2fe8a877693c25023a1e71a18487",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -1900,7 +1928,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.26": "13fd40cbbbf88cba1f96ebf38cd50a9cc38ef6cae198c0239629a6c0af19586a",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.26": "07d120b238d1a6e86e6ef92a0b85a96f8de5926b21ec804e60389d27a0850400",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -1919,7 +1948,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Reader workbench RW1b's [reader_intent] and its two sections move it too (see mvp-0.9).
     # Reader workbench RW4a's [library_ask], [reader_compare] and route move it too (see mvp-0.9).
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
-    "mvp-0.27": "4ebd14c3d54075e2eb6bf0779a9f0b584c615a78933591572163d8054d806d4a",
+    # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.27": "6d6fb89ba88f42ffc520f33dc429532f07ee5799df527940ad8500073646d2e4",
 }
 
 

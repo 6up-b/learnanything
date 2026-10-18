@@ -24,6 +24,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("learner_gap_decider", "decider", "learner_text_gaps"),
     ("reader_intent", "decider", "reader_intent"),
     ("library_organizer", "llm", "library_ask"),
+    ("approach_map", "llm", "approach_maps"),
 )
 
 _WHEN = {
@@ -76,6 +77,14 @@ _WHEN = {
         "own words on those passages' topics go too; with it off, none do. Comparing pinned passages "
         "and asking the tutor about them send those passages to their own routes (source_compare, "
         "tutor_qa), only when you press them."
+    ),
+    "approach_maps": (
+        "While hints.maps.enabled is on: when the practice screen first shows a question with no approach "
+        "map yet (hints.maps.build_on_serve, in the background), when you run learnloop hints maps build, "
+        "and when your new correct answers are merged into a map: the question, its reference solution, "
+        "rubric and authored hints, its solution recipes, passages from your own books, and your own "
+        "correct answers to it and its sibling questions, so LearnLoop's model can sketch the routes to "
+        "the answer. Nothing in it is shown to you or to the grader."
     ),
 }
 

@@ -28,6 +28,7 @@ from learnloop.attempts.post_attempt import (
     run_post_attempt_pipeline,
 )
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop.hints.map_builder import schedule_build_on_serve
 from learnloop.hints.telemetry import (
     attach_reveals_to_attempt,
     record_authored_reveal,
@@ -329,7 +330,21 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
             ).as_dict()
         )
     )
+    if params.session_id is not None:
+        # Adaptive hints H1 (hints.maps.build_on_serve): a session serve starts
+        # the item's approach-map build in the background when its revision
+        # has none, after the response is built. The serve never waits on it,
+        # fails because of it or changes because of it.
+        _schedule_approach_map(ctx, vault, repository, item.id)
     return detail
+
+
+def _schedule_approach_map(ctx: SidecarContext, vault, repository, practice_item_id: str) -> None:
+    try:
+        schedule_build_on_serve(vault, repository.sqlite_path, practice_item_id,
+                                client=getattr(ctx, "approach_map_client", None))
+    except Exception as exc:  # noqa: BLE001 -- never reaches the serve
+        log_event("approach_map_schedule_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
 
 
 class ProbeContractInput(ParamsModel):

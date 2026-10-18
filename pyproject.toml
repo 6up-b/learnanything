@@ -175,6 +175,25 @@ forbidden_modules = [
     "learnloop.cli",
     "learnloop_sidecar",
 ]
+# Adaptive hints H1's pure reads (each writes nothing and records nothing):
+# the deterministic answer comparison the map validator checks a goal with
+# (the exact key, spec §4.3), and the PF-c valid-alternative read the map
+# seeds take the learner's own correct solutions from (§4.3 item 3).
+ignore_imports = [
+    "learnloop.hints.maps -> learnloop.attempts.answer_check",
+    "learnloop.hints.map_seeds -> learnloop.placement.state",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "graders-never-read-approach-maps"
+name = "The grader and the diagnoser never see an approach map (hints spec H2, G-H4; H1's boundary)"
+type = "forbidden"
+# Every grading and diagnosis prompt builder lives in these packages. An
+# approach map contains the solution and its routes: it reaches the learner
+# only through hints (H2) and never a grading or diagnosis prompt.
+source_modules = ["learnloop.attempts", "learnloop.diagnosis"]
+forbidden_modules = ["learnloop.hints", "learnloop.db.stores.approach_maps"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

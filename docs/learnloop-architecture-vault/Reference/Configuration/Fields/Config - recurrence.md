@@ -3,8 +3,8 @@ title: "Config - recurrence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "cdcd70601cc10b4302dc6bdcb05f02993d186e51"
+source_commit_timestamp: "2026-10-18T01:33:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recurrence"
@@ -31,6 +31,7 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
+  - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
@@ -56,14 +57,14 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `recurrence.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for recurrence groups at mvp-0.12: off, grouping sites use exact statements again from the next normalization, vault open or rebuild; recorded verdicts are kept. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1847`; `src/learnloop/diagnosis/recurrence/report.py:223`; `src/learnloop/substrate/recurrence_groups.py:86` |
-| `recurrence.require_guard` | `false` | boolean | modeled default or validator seed | Turns require guard behavior on or off within Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1852`; `src/learnloop/diagnosis/recurrence/upgrade.py:98` |
-| `recurrence.judge_enabled` | `true` | boolean | modeled default or validator seed | Runs the live same-cause judge inside each diagnose job (the backlog command and the guard are explicit owner commands and run regardless). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1855`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1382` |
-| `recurrence.top_k` | `3` | integer | modeled default or validator seed | Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1856`; `src/learnloop/diagnosis/recurrence/judging.py:134` |
-| `recurrence.judge_max_pairs_per_attempt` | `4` | integer | modeled default or validator seed | Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1859`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1382` |
-| `recurrence.judge_timeout_seconds` | `180` | integer | modeled default or validator seed | Per-turn deadline for one Codex same-cause judge turn. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1861`; `src/learnloop/diagnosis/recurrence/judging.py:166` |
-| `recurrence.escalation_card_enabled` | `true` | boolean | modeled default or validator seed | Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1863`; `src/learnloop/diagnosis/recurrence/live.py:269`; `src/learnloop/diagnosis/split/card.py:162` |
-| `recurrence.escalation_repair_enabled` | `true` | boolean | modeled default or validator seed | At a recurrence group's K-th answer, when none of the diagnosis's repairs differs from those shown before, asks the diagnosis route once for a repair with a different operator and representation; off, the card says the repair is the same kind as before. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1868`; `src/learnloop/diagnosis/recurrence/live.py:492`; `src/learnloop/diagnosis/split/jobs.py:1387` |
+| `recurrence.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for recurrence groups at mvp-0.12: off, grouping sites use exact statements again from the next normalization, vault open or rebuild; recorded verdicts are kept. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1854`; `src/learnloop/diagnosis/recurrence/report.py:223`; `src/learnloop/substrate/recurrence_groups.py:86` |
+| `recurrence.require_guard` | `false` | boolean | modeled default or validator seed | Turns require guard behavior on or off within Slice 2 T1 recurrence groups with authority (mvp-0.12): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1859`; `src/learnloop/diagnosis/recurrence/upgrade.py:98` |
+| `recurrence.judge_enabled` | `true` | boolean | modeled default or validator seed | Runs the live same-cause judge inside each diagnose job (the backlog command and the guard are explicit owner commands and run regardless). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1862`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1382` |
+| `recurrence.top_k` | `3` | integer | modeled default or validator seed | Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1863`; `src/learnloop/diagnosis/recurrence/judging.py:134` |
+| `recurrence.judge_max_pairs_per_attempt` | `4` | integer | modeled default or validator seed | Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1866`; `src/learnloop/diagnosis/recurrence/live.py:141`; `src/learnloop/diagnosis/split/jobs.py:1382` |
+| `recurrence.judge_timeout_seconds` | `180` | integer | modeled default or validator seed | Per-turn deadline for one Codex same-cause judge turn. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1868`; `src/learnloop/diagnosis/recurrence/judging.py:166` |
+| `recurrence.escalation_card_enabled` | `true` | boolean | modeled default or validator seed | Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1870`; `src/learnloop/diagnosis/recurrence/live.py:269`; `src/learnloop/diagnosis/split/card.py:162` |
+| `recurrence.escalation_repair_enabled` | `true` | boolean | modeled default or validator seed | At a recurrence group's K-th answer, when none of the diagnosis's repairs differs from those shown before, asks the diagnosis route once for a repair with a different operator and representation; off, the card says the repair is the same kind as before. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1875`; `src/learnloop/diagnosis/recurrence/live.py:492`; `src/learnloop/diagnosis/split/jobs.py:1387` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -78,12 +79,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
+- `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_codex_isolation_mcp_check.py`
 - `tests/test_concept_animation_service.py`
-- `tests/test_config_refactor.py`
 
 ## Extension and modification guidance
 
