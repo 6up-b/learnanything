@@ -185,17 +185,29 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
                             "settled": True})
             continue
         entry: dict[str, Any] = {"practice_item_id": item_id, "content_hash": content_hash}
-        if feature_audit_enabled(vault.config):
-            entry["audit"] = audit_revision(
-                vault, repository, item, clock=clock, protected=protected, fence=fence, live_vault=live_vault,
-                decider_factory=decider_factory or ((lambda: clients.decider) if clients and clients.decider else None),
-                llm_client=clients.llm if clients else None,
-            ).as_dict()
-        if not live():
-            break
-        if LLM_V1 in outside_forecasters(vault.config):
-            entry["llm_v1"] = forecast_item(vault, repository, item, clients=clients, clock=clock,
-                                            protected=protected, fence=fence, live_vault=live_vault).as_dict()
+        try:
+            if feature_audit_enabled(vault.config):
+                entry["audit"] = audit_revision(
+                    vault, repository, item, clock=clock, protected=protected, fence=fence, live_vault=live_vault,
+                    decider_factory=decider_factory or (
+                        (lambda: clients.decider) if clients and clients.decider else None),
+                    llm_client=clients.llm if clients else None,
+                ).as_dict()
+            if not live():
+                break
+            if LLM_V1 in outside_forecasters(vault.config):
+                entry["llm_v1"] = forecast_item(vault, repository, item, clients=clients, clock=clock,
+                                                protected=protected, fence=fence, live_vault=live_vault).as_dict()
+        except Exception as exc:  # noqa: BLE001 - one revision's failure never stops the run
+            # Fix round 6, V4: a revision that keeps raising used to abort the
+            # run before anything was recorded, so every trigger retried it
+            # first and the revisions behind it never ran. It is visited and
+            # unsettled (retried later, at the back), and the run goes on.
+            LOG.warning("AD preparation of %s failed", item_id, exc_info=True)
+            entry.update(status="failed", error=type(exc).__name__)
+            entry["settled"] = False
+            results.append(entry)
+            continue
         entry["settled"] = _settled(entry)
         results.append(entry)
         if entry["settled"]:
@@ -208,9 +220,11 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
 #: forecast or current, or protected): a plan read never schedules them again.
 _PREPARED: set[tuple[str, str, str]] = set()
 #: Settled: done (ok, audited in full), already done (current), or terminal
-#: (protected; the switch off). Everything else (refused_spend, busy,
-#: unavailable, failed, stale, an audit with dimensions unanswered) is
-#: retried by a later run (fix round 5, V2).
+#: (protected: the content is held out in the snapshot judged; the switch
+#: off). Everything else (refused_spend, busy, unavailable, failed, an audit
+#: with dimensions unanswered, and ``stale``: a reload under the check or its
+#: retries exhausted, fix round 6, V3) is retried by a later run (fix round
+#: 5, V2) and never cached in ``_PREPARED``.
 _SETTLED = {"current", "protected", "disabled", "ok"}
 
 
@@ -306,11 +320,12 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
         Why: a run used to drop every revision it returned (a refused_spend,
         a busy claim, an unavailable route, an incomplete audit) and, after
         an exception, the whole batch, so an unchanged reload never retried
-        them. Now a revision the run never reached (unvisited: an exception,
-        the vault switched or closed; the revision that raised is among them)
-        waits at the front, ahead of what arrived since; a revision visited
-        and not settled goes to the back, so a revision that keeps failing
-        never starves new ones. Either is retried only by a later trigger (a
+        them. Now a revision the run never reached (unvisited: an exception
+        outside any one revision, the vault switched or closed) waits at the
+        front, ahead of what arrived since; a revision visited and not
+        settled, including one whose preparation raised (fix round 6, V4: the
+        run catches it and goes on), goes to the back, so a revision that
+        keeps failing never starves new ones. Either is retried only by a later trigger (a
         reload or a plan read), at most PREPARE_LIMIT a run; runs never chain."""
 
         visited = {(entry["practice_item_id"], entry["content_hash"]): bool(entry.get("settled"))

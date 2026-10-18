@@ -84,7 +84,7 @@ from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.feature_audit import item_revision
 from learnloop.adaptive_difficulty.forecasters import EVENT, INCUMBENT, receipt_key
 from learnloop.adaptive_difficulty.protection import guard
-from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard
+from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, refusal_status
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
 
 LOG = logging.getLogger(__name__)
@@ -349,7 +349,7 @@ def _record_admission(send: SendGuard, outcome: ForecastOutcome) -> Callable[[],
 
 
 def _protected(outcome: ForecastOutcome, exc: Exception) -> None:
-    outcome.status, outcome.p, outcome.receipt_id, outcome.reason = "protected", None, None, str(exc)[:200]
+    outcome.status, outcome.p, outcome.receipt_id, outcome.reason = refusal_status(exc), None, None, str(exc)[:200]
 
 
 def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str,
@@ -466,7 +466,7 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
         p, response, model = _ask_llm(vault, repository, client, prompt=prompt, owner_id=content_hash,
                                       envelope=envelope, send=send)
     except ProtectedContent as exc:
-        outcome.status, outcome.reason = "protected", str(exc)[:200]
+        outcome.status, outcome.reason = refusal_status(exc), str(exc)[:200]
         return
     except (AIInterrupted, LeaseLost):
         raise
@@ -625,11 +625,12 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
                              identities=[identities["target"], *identities["history"]], live_vault=live_vault)
             try:
                 send.check("the presentation forecasts")
-            except ProtectedContent:
-                return [ForecastOutcome(name, "protected") for name in pending]
+            except ProtectedContent as exc:
+                return [ForecastOutcome(name, refusal_status(exc)) for name in pending]
             for name in pending:
                 if send.refused is not None:
-                    outcomes.append(ForecastOutcome(name, "protected", reason=send.refused[:200]))
+                    outcomes.append(ForecastOutcome(name, "stale" if send.stale else "protected",
+                                                    reason=send.refused[:200]))
                     continue
                 outcomes.append(_forecast_one(vault, worker, name, presentation, frozen, clients=clients,
                                               clock=clock, send=send))
@@ -683,7 +684,7 @@ def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str,
             p, response, model = _ask_decider(vault, repository, client, state=state, owner_id=presentation_id,
                                               envelope=envelope, send=send)
     except ProtectedContent as exc:
-        return ForecastOutcome(name, "protected", reason=str(exc)[:200])
+        return ForecastOutcome(name, refusal_status(exc), reason=str(exc)[:200])
     except (AIInterrupted, LeaseLost):
         raise
     except SpendLimitExceeded as exc:

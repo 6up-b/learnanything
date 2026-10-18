@@ -87,6 +87,21 @@ class FencedRepository:
             # Before the request is sent: fenced out, it raises and nothing is sent.
             with _builds._fenced_txn(self._repository, self._claim):
                 self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+            # The last confirmation before dispatch (fix round 6, V1-b): after
+            # the outer gate and this receipt, the last work before the
+            # transport sends. A refusal closes the receipt as interrupted
+            # (never sent, no usage) and raises.
+            from learnloop.adaptive_difficulty.sending import ProtectedContent, before_dispatch
+
+            try:
+                before_dispatch()
+            except ProtectedContent as exc:
+                from learnloop.clock import utc_now_iso
+
+                self._repository.record_model_event("finish", {
+                    "id": event.get("id"), "finished_at": utc_now_iso(), "status": "interrupted",
+                    "error_type": type(exc).__name__}, owner_kind=owner_kind, owner_id=owner_id)
+                raise
             return
         # A request already sent keeps its accounting, whatever happened since.
         self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)

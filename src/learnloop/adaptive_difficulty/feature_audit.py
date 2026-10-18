@@ -52,7 +52,7 @@ from learnloop.db.stores.judgments import append_judgment
 from learnloop.adaptive_difficulty import sending
 from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.protection import guard
-from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard
+from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, StaleSnapshot, refusal_status
 from learnloop.adaptive_difficulty.switches import feature_audit_enabled
 
 LOG = logging.getLogger(__name__)
@@ -315,10 +315,12 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
             send = SendGuard(vault, repository, items=[item], protected=protected, live_vault=live_vault)
             _audit(vault, worker, item, item_json, content_hash, remaining, outcome,
                    decider_factory=decider_factory, llm_client=llm_client, clock=clock, send=send)
-    except ProtectedContent:
+    except ProtectedContent as exc:
         # Refused before a request or a record: what was already recorded
         # stays (it was recorded while the revision was not protected).
-        outcome.status = "protected"
+        # ``stale`` (a reload under the check) is retryable, never settled
+        # work; ``protected`` is held-out content (fix round 6, V3).
+        outcome.status = refusal_status(exc)
         outcome.unanswered = [dimension for dimension in DIMENSIONS if dimension not in outcome.answered]
     except LeaseLost:
         outcome.status = "stale"
@@ -362,8 +364,8 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
             model = str(result.model or model)
             distributions = {name: choice_probabilities(result.answers[name], question)
                              for name, question in questions.items()}
-        except ProtectedContent:
-            outcome.decider_status = "protected"
+        except ProtectedContent as exc:
+            outcome.decider_status = refusal_status(exc)
             raise
         except (AIInterrupted, LeaseLost):
             raise
@@ -378,8 +380,8 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
         try:
             # Nothing is recorded once the revision is protected (F11).
             generation = send.check("recording the Decider's audit")
-        except ProtectedContent:
-            outcome.decider_status = "protected"
+        except ProtectedContent as exc:
+            outcome.decider_status = refusal_status(exc)
             raise
 
         def admit_decider() -> None:
@@ -439,8 +441,8 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
             result_model=FeatureAuditV1, envelope=envelope,
             metadata={"practice_item_id": outcome.practice_item_id, "content_hash": content_hash,
                       "prompt_version": VERSION})
-    except ProtectedContent:
-        outcome.llm_status = "protected"
+    except ProtectedContent as exc:
+        outcome.llm_status = refusal_status(exc)
         raise
     except AIInterrupted:
         raise
@@ -450,23 +452,23 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
     except (AIProviderUnavailable, AIInvalidOutput, TimeoutError):
         if send.refused is not None:
             # A transport that reported the guard's refusal as its own failure.
-            outcome.llm_status = "protected"
-            raise ProtectedContent(send.refused) from None
+            outcome.llm_status = "stale" if send.stale else "protected"
+            raise (StaleSnapshot if send.stale else ProtectedContent)(send.refused) from None
         outcome.llm_status = "failed"
         return
     model = str(calls.last_resolved_model or getattr(resolved, "model", None) or route.model or "unknown")
     try:
         # Nothing is recorded once the revision is protected (F11).
         generation = send.check("recording the LLM's audit")
-    except ProtectedContent:
-        outcome.llm_status = "protected"
+    except ProtectedContent as exc:
+        outcome.llm_status = refusal_status(exc)
         raise
 
     def admit_llm() -> None:
         try:
             send.confirm(generation, "recording the LLM's audit")
-        except ProtectedContent:
-            outcome.llm_status = "protected"
+        except ProtectedContent as exc:
+            outcome.llm_status = refusal_status(exc)
             raise
 
     outcome.llm_status = "ok"

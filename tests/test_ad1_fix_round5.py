@@ -202,11 +202,11 @@ def test_busy_unavailable_and_incomplete_revisions_stay_queued(tmp_path, monkeyp
         builds.close()
 
 
-def test_an_exception_keeps_the_current_and_every_unvisited_revision(tmp_path, monkeypatch):
+def test_an_exception_keeps_the_revision_that_raised_queued(tmp_path, monkeypatch):
     """V2 (the verify's second case): an exception marked the whole batch
-    done, even one raised before the first revision was prepared. The
-    revision that raised and every unvisited one stay queued; the settled
-    ones before it leave."""
+    done. The revision that raised stays queued for a later run; the settled
+    ones leave. (Fix round 6, V4: the run now catches it per revision and
+    goes on, so the revisions after it are prepared in the same run.)"""
 
     from learnloop.adaptive_difficulty.background import schedule_new_revisions
     from learnloop.adaptive_difficulty.outside import Clients
@@ -220,9 +220,9 @@ def test_an_exception_keeps_the_current_and_every_unvisited_revision(tmp_path, m
     try:
         _run(lambda: schedule_new_revisions(SimpleNamespace(practice_items={}), vault, paths.sqlite_path,
                                             clients=clients, builds=builds))
-        assert scripted.visits == ids[:2]
+        assert scripted.visits == ids
         _run(lambda: schedule_new_revisions(vault, vault, paths.sqlite_path, clients=clients, builds=builds))
-        assert scripted.visits == [*ids[:2], *ids[1:]]
+        assert scripted.visits == [*ids, ids[1]]
     finally:
         builds.close()
 

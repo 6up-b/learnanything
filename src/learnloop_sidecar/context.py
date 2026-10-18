@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,10 +44,26 @@ class LoadedVaultProvider:
         self._context = context
 
     def __call__(self) -> LoadedVault | None:
-        return self._context.vault
+        return self.snapshot()[0]
 
     def generation(self) -> int:
-        return int(self._context.vault_generation)
+        return self.snapshot()[1]
+
+    def snapshot(self) -> tuple[LoadedVault | None, int]:
+        """``(vault, generation)``, read together under the publication lock (fix round 6, V1-a)."""
+
+        with self._context._vault_lock:
+            return self._context.vault, int(self._context.vault_generation)
+
+    def admit(self, generation: Any) -> bool:
+        """Whether the snapshot ``generation`` is still the published one.
+
+        The comparison runs under the publication lock, so no reload is
+        published between reading it and the admission it decides; the lock
+        is held for this comparison only (fix round 6, V1-a)."""
+
+        with self._context._vault_lock:
+            return int(self._context.vault_generation) == generation
 
 
 @dataclass
@@ -79,14 +96,25 @@ class SidecarContext:
     # request and record admissions compare it, so a reload in between is
     # never judged by the vault it replaced.
     vault_generation: int = field(default=0, repr=False)
+    # Fix round 6 (V1-a): the vault and its generation are published together
+    # under this lock, and read together (``loaded_vault.snapshot()``), so no
+    # reader sees the new vault with the old generation. Held for those few
+    # instructions only, never across loading, protection, a model call or
+    # an SQLite commit.
+    _vault_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        object.__setattr__(self, name, value)
-        if name == "vault":
-            # After the vault is in place: a reader that saw the old
-            # generation and then the new vault rebuilds once, harmlessly; one
-            # that saw the old vault always sees the generation move.
-            object.__setattr__(self, "vault_generation", getattr(self, "vault_generation", 0) + 1)
+        if name != "vault":
+            object.__setattr__(self, name, value)
+            return
+        lock = self.__dict__.get("_vault_lock")
+        if lock is None:  # the dataclass's own __init__, before the lock exists
+            object.__setattr__(self, name, value)
+            object.__setattr__(self, "vault_generation", self.__dict__.get("vault_generation", 0) + 1)
+            return
+        with lock:
+            object.__setattr__(self, name, value)
+            object.__setattr__(self, "vault_generation", self.__dict__.get("vault_generation", 0) + 1)
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
