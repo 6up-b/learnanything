@@ -123,22 +123,45 @@ def submission_assists(
     return [dict(zip(COLUMNS, tuple(row))) for row in rows]
 
 
+#: The attempts that close a row's count (H2a review F1; round 3, W1): its
+#: own submission's, and any attempt of the same session and item committed
+#: at or after the row was requested, whatever its submission key (NULL
+#: included). The latter is the window a keyless submit folds ("since the
+#: item's last attempt in this session", :func:`server_fold`), so a hint a
+#: keyless attempt could have counted is never shown after it commits.
+_CLOSED = (
+    "EXISTS (SELECT 1 FROM practice_attempts "
+    "WHERE practice_attempts.submission_id = help_assists.submission_id) "
+    "OR EXISTS (SELECT 1 FROM practice_attempts "
+    "WHERE practice_attempts.session_id = help_assists.practice_session_id "
+    "AND practice_attempts.practice_item_id = help_assists.practice_item_id "
+    "AND practice_attempts.created_at >= help_assists.requested_at)"
+)
+
+
 def mark_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
     """A prepared server hint (``shown = 0``) delivered to the learner: shown
     once, with its time. Never a row already attached to an attempt (its
-    count was taken), never a row of a submission that already committed an
-    attempt (H2a review F1: a hint written after the submit's attach has no
-    ``attempt_id`` yet, but its count can no longer be taken) and never
-    twice; True when this call showed it."""
+    count was taken), never a row whose count is closed (:data:`_CLOSED`: its
+    submission committed an attempt, H2a review F1, or an attempt of its
+    session and item committed at or after it was requested, round 3 W1)
+    and never twice; True when this call showed it. The caller holds the
+    write lock (``BEGIN IMMEDIATE``), so no attempt commits in between."""
 
     cursor = connection.execute(
         "UPDATE help_assists SET shown = 1, shown_at = ? "
         "WHERE id = ? AND shown = 0 AND counted_by = 'server' AND attempt_id IS NULL "
-        "AND NOT EXISTS (SELECT 1 FROM practice_attempts "
-        "WHERE practice_attempts.submission_id = help_assists.submission_id)",
+        f"AND NOT ({_CLOSED})",
         (shown_at, assist_id),
     )
     return bool(cursor.rowcount)
+
+
+def count_closed(connection: sqlite3.Connection, assist_id: str) -> bool:
+    """Whether a row's count is closed by a committed attempt (:data:`_CLOSED`)."""
+
+    row = connection.execute(f"SELECT 1 FROM help_assists WHERE id = ? AND ({_CLOSED})", (assist_id,)).fetchone()
+    return row is not None
 
 
 def submission_committed(connection: sqlite3.Connection, submission_id: str | None) -> bool:
@@ -150,6 +173,17 @@ def submission_committed(connection: sqlite3.Connection, submission_id: str | No
         "SELECT 1 FROM practice_attempts WHERE submission_id = ? LIMIT 1", (submission_id,)
     ).fetchone()
     return row is not None
+
+
+def keyless_window_start(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str) -> str | None:
+    """Where a keyless submit's window starts: the item's last attempt in
+    this session (round 3, W1), or None."""
+
+    row = connection.execute(
+        "SELECT MAX(created_at) FROM practice_attempts WHERE practice_item_id = ? AND session_id = ?",
+        (practice_item_id, session_id),
+    ).fetchone()
+    return str(row[0]) if row is not None and row[0] is not None else None
 
 
 def server_fold(
@@ -166,7 +200,7 @@ def server_fold(
     own), of this session and item, under the submission's key when it has
     one (H0 review F1: never another submission's rows); a client with no key
     folds the session's unattached rows requested after ``since`` (the item's
-    last attempt)."""
+    last attempt in this session: the window ``mark_shown`` closes)."""
 
     clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
                "counted_by = 'server'", "assist_kind = 'hint'"]
@@ -196,6 +230,6 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
-    "COLUMNS", "TABLE", "assist", "attach_submission", "insert_assist", "mark_shown", "server_fold",
-    "stamp_submitted", "submission_assists", "submission_committed",
+    "COLUMNS", "TABLE", "assist", "attach_submission", "count_closed", "insert_assist", "keyless_window_start",
+    "mark_shown", "server_fold", "stamp_submitted", "submission_assists", "submission_committed",
 ]

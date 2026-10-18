@@ -21,7 +21,9 @@ rule about what helps:
   the placement or keep the learner's route).
 * **book_way**: the next hint on the reference route at the same level and
   kind; **smaller_step** (under a waypoint): ``next_step`` toward the same
-  target at the same level. Both are the learner's pick.
+  target at the same level. Both are the learner's pick. A reply or pick
+  answering a level-1 or level-2 hint is offered that level only; with
+  nothing left there, nothing is offered (the request is unavailable).
 """
 
 from __future__ import annotations
@@ -133,6 +135,13 @@ def build_options(state: HintState, *, request: str, answered: EarlierHint | Non
             kind = {1: "approach_question", 2: "localize", 3: "next_step", 4: "continuation",
                     5: "walkthrough"}[level]
             if precondition(kind, state) is not None:
+                if level < 3:
+                    # A pick answering a level-1 or level-2 hint keeps that
+                    # level (§4.2, G-H15; round 3, W2): with no option left
+                    # there, nothing is offered, never a level-3 one.
+                    excluded[option_id(kind, level)] = str(precondition(kind, state))
+                    return OptionSet([], level_source="offered", learner_pick="book_way", reference_route=True,
+                                     answered=answered, excluded=excluded)
                 kind, level = "next_step", 3
         return OptionSet([Option(kind, level)], level_source="offered", learner_pick="book_way",
                          reference_route=True, answered=answered,

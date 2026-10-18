@@ -27,7 +27,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
-from learnloop.db.stores.help_assists import server_fold
+from learnloop.db.stores.help_assists import keyless_window_start, server_fold
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,9 @@ class ServerHintFold:
     practice_item_id: str
     session_id: str
     submission_id: str | None
-    #: A client with no submission key folds the session's rows requested after this.
+    #: A client with no submission key folds the session's rows requested
+    #: after this: the item's last attempt in this session (read again at
+    #: commit; ``help_assists.mark_shown`` closes the same window, round 3 W1).
     since: str | None
     #: The fold the submit read before grading.
     folded_hints: int
@@ -72,17 +74,25 @@ class ServerHintFold:
         return stuck_attempt_type(list(self.stuck_types), hints_used=self.hints_used(folded), probe=self.stuck_probe)
 
 
-def read_fold(connection: Any, *, practice_item_id: str, session_id: str, submission_id: str | None,
-              since: str | None) -> tuple[int, bool]:
-    """The fold over the rows shown now (a vault without ``help_assists`` folds nothing)."""
+def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
+              submission_id: str | None) -> tuple[int, bool, str | None]:
+    """The fold over the rows shown now, and a keyless submit's window start
+    (a vault without ``help_assists`` folds nothing). A keyless submit's
+    window is the session's rows requested after the item's last attempt in
+    this session: exactly the rows ``mark_shown`` stops showing once this
+    attempt commits (round 3, W1)."""
 
     exists = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
     ).fetchone()
     if exists is None:
-        return 0, False
-    return server_fold(connection, practice_item_id=practice_item_id, session_id=session_id,
-                       submission_id=submission_id, since=since)
+        return 0, False, None
+    since = None
+    if submission_id is None:
+        since = keyless_window_start(connection, practice_item_id=practice_item_id, session_id=session_id)
+    count, primed = server_fold(connection, practice_item_id=practice_item_id, session_id=session_id,
+                                submission_id=submission_id, since=since)
+    return count, primed, since
 
 
 def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | None]:
@@ -95,11 +105,11 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
     if fold is None:
         return draft, None
-    count, primed = read_fold(connection, practice_item_id=fold.practice_item_id, session_id=fold.session_id,
-                              submission_id=fold.submission_id, since=fold.since)
+    count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
+                                     session_id=fold.session_id, submission_id=fold.submission_id)
     if (count, primed) == (fold.folded_hints, fold.folded_primed):
         return draft, None
-    now = replace(fold, folded_hints=count, folded_primed=primed)
+    now = replace(fold, folded_hints=count, folded_primed=primed, since=since)
     return replace(
         draft,
         hints_used=now.hints_used(),

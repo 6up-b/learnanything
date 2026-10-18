@@ -335,9 +335,10 @@ def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, i
     why = NO_SEPARATING_QUESTION[1 if target.level == 1 else 3]
     text = f"{why}\n\n{output.fallback_hint_md}".strip()
     served = output.model_copy(update={"hint_md": text if output.fallback_hint_md.strip() else ""})
-    downgraded = Target(served_kind, target.level, target_node_id=target.target_node_id,
-                        reference_route=target.reference_route, request=target.request, shortcut=target.shortcut,
-                        answered=target.answered)
+    # Only the kind changes: every placement constraint of the target (the
+    # waypoint's node, the reference route, from the givens) holds for the
+    # fallback hint too (round 3, W4).
+    downgraded = replace(target, kind=served_kind)
     check = check_output(served.model_copy(update={"hint_md": output.fallback_hint_md}), target=downgraded,
                          state=state, item=item)
     record.update(chosen_index=None, eig_nats=0.0, no_positive_eig=True, served_kind=served_kind)
@@ -374,9 +375,9 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
         if round_ == 3 and not unplaced and may_downgrade:
             # The re-ask failed a rule (not a leak): a level-3 next step from
             # the last valid checkpoint, without its unverified claims.
-            current = Target("next_step", 3, target_node_id=target.target_node_id if target.level == 3 else None,
-                             reference_route=target.reference_route, request=target.request,
-                             shortcut=target.shortcut, answered=target.answered, downgrade=True)
+            # Every other constraint of the target is kept (round 3, W4).
+            current = replace(target, kind="next_step", level=3, horizon_index=None,
+                              target_node_id=target.target_node_id if target.level == 3 else None, downgrade=True)
             downgraded = True
             feedback = None
         prompt = build_prompt(vault, item, state, current, request_text=request.feedback_text,
@@ -402,11 +403,27 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             served.rounds[-1]["switched_to"] = "approach_question"
             served.reason = UNPLACED_WORK
             served.message = UNPLACED_MESSAGE
-            current = Target("approach_question", 1, request=target.request, shortcut=target.shortcut,
-                             answered=target.answered)
+            # An approach question aims at no node and claims no horizon;
+            # the request, its reply and route constraints are kept (round 3, W4).
+            current = replace(target, kind="approach_question", level=1, horizon_index=None,
+                              target_node_id=None, downgrade=False)
             feedback = None
             last_round = min(4, round_ + 2)
             continue
+        if placement_rule == AT_GIVENS:
+            # Already at the givens: accepted only under the whole from-givens
+            # contract (round 3, W3), else re-asked from the givens.
+            strict = replace(current, from_givens=True, reference_route=True, downgrade=False)
+            strict_round = _check_round(output, strict, state, item)
+            served.rounds[-1]["from_givens_failures"] = list(strict_round[0].failures)
+            if strict_round[0].ok:
+                check, as_served, served_kind, record = strict_round
+                if record is not None:
+                    served.discriminating = record
+                current = strict
+                served.reason, served.message = UNPLACED_WORK, FROM_GIVENS_MESSAGE
+            else:
+                placement_rule = FROM_GIVENS
         if placement_rule == FROM_GIVENS:
             # §4.4 (round 2, V3): the book's way, or worked help the learner
             # took, on unplaceable work starts from the givens on the
@@ -419,8 +436,6 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             feedback = None
             last_round = min(4, round_ + 2)
             continue
-        if placement_rule == AT_GIVENS:
-            served.reason, served.message = UNPLACED_WORK, FROM_GIVENS_MESSAGE
         if check.ok:
             served.outcome = "downgraded" if downgraded else "served"
             served.kind, served.level, served.output = served_kind, current.level, as_served
@@ -474,9 +489,15 @@ def downgrade_allowed(target: Target, request: HintRequestV1) -> bool:
     ``book_way``) is answered at the level of the hint it answers (§4.2,
     G-H15), so at a fixed level 1 or 2 the downgrade would raise it: nothing
     is served instead. A fixed level 3 keeps it, a fixed 4-5 is lowered by
-    it, and "More" keeps §4.6 as it is."""
+    it, and "More" keeps §4.6 as it is. The fixed level is the answered
+    hint's, never the chosen target's (round 3, W2: an option fallback may
+    already have raised the target)."""
 
-    return request.request == "more" or target.level >= 3
+    if request.request == "more":
+        return True
+    answered = target.answered
+    level = int(getattr(answered, "level", None) or 3) if answered is not None else target.level
+    return level >= 3
 
 
 def unplaced_work(output: HintWriterOutputV1, served_kind: str, target: Target, state: HintState,
@@ -588,6 +609,10 @@ def request_hint(
     served: _Served
     if not option_set.options:
         choice, served = None, _Served(outcome="failed", reason="no_option")
+        if answered is not None and int(answered.level or 3) < 3:
+            # A reply or pick fixed at level 1 or 2 with nothing left at that
+            # level: V2's honest answer, never a higher level (round 3, W2).
+            served.message = NO_FITTING_HINT_MESSAGE
     elif problem is not None:
         choice = None
         served = _writer_down(item, state, option_set, request, problem.reason, problem.message)
@@ -848,25 +873,40 @@ def _unavailable_message(reason: str | None) -> str:
 #: and a later read may deliver it.
 SHOWN, SUBMISSION_COMPLETE, NOT_DELIVERABLE = "shown", "submission_complete", "not_deliverable"
 REVEAL_NOT_RECORDED = "reveal_not_recorded"
+#: The item the hint was written for is gone from the loaded vault or has
+#: changed since (round 3, W5): never shown, and not retried.
+ITEM_CHANGED = "item_changed"
 
 
-def deliver_hint(repository: Repository, assist_id: str, *, clock: Clock | None = None
-                 ) -> tuple[str, dict[str, Any] | None]:
+_UNCHECKED: Any = object()
+
+
+def deliver_hint(repository: Repository, assist_id: str, *, clock: Clock | None = None,
+                 item: Any = _UNCHECKED) -> tuple[str, dict[str, Any] | None]:
     """Show a prepared hint (the surface received it): ``shown = 1`` once, with
-    its time, in one transaction with the check that its submission is still
-    open. Returns ``(SHOWN, row)`` when this call showed it; else
-    ``(SUBMISSION_COMPLETE, None)`` when the submission already committed an
-    attempt (whichever order the hint and the submit finished in), or
-    ``(NOT_DELIVERABLE, None)`` (already shown, withheld, or unknown). The
-    caller must not show the text unless the outcome is ``SHOWN``."""
+    its time, in one transaction with the check that its count is still open.
+    Returns ``(SHOWN, row)`` when this call showed it; else
+    ``(SUBMISSION_COMPLETE, None)`` when an attempt closed its count (its
+    submission's, or a keyless one of its session and item committed after
+    it was requested; whichever order the hint and the submit finished in),
+    ``(ITEM_CHANGED, None)`` when ``item`` is given and is None or no longer
+    the item the row was written for (its ``practice_item_hash``; round 3,
+    W5), or ``(NOT_DELIVERABLE, None)`` (already shown, withheld, or
+    unknown). The caller must not show the text unless the outcome is
+    ``SHOWN``."""
 
     with repository.atomic():
         connection = repository.connection()
+        if item is not _UNCHECKED:
+            row = store.assist(connection, assist_id)
+            if row is not None and not row.get("shown") and (
+                    item is None or practice_item_hash(item) != row.get("practice_item_hash")):
+                return ITEM_CHANGED, None
         if store.mark_shown(connection, assist_id, shown_at=utc_now_iso(clock)):
             return SHOWN, store.assist(connection, assist_id)
         row = store.assist(connection, assist_id)
         if row is not None and not row.get("shown") and (
-                row.get("attempt_id") or store.submission_committed(connection, row.get("submission_id"))):
+                row.get("attempt_id") or store.count_closed(connection, assist_id)):
             return SUBMISSION_COMPLETE, None
         return NOT_DELIVERABLE, None
 
@@ -885,6 +925,7 @@ def undelivered_result(assist_id: str, outcome: str) -> HintResultV1:
     message = {
         SUBMISSION_COMPLETE: "This answer was already submitted, so the hint was not shown.",
         REVEAL_NOT_RECORDED: "The hint couldn't be recorded just now, so it isn't shown yet; try again.",
+        ITEM_CHANGED: "This item changed since the hint was written, so it isn't shown; ask again.",
     }.get(outcome, "That hint can no longer be shown; ask again.")
     return HintResultV1(status=UNAVAILABLE, assist_id=assist_id, reason=outcome, message=message)
 
@@ -982,6 +1023,7 @@ __all__ = [
     "HintRequestError",
     "HintRequestV1",
     "HintResultV1",
+    "ITEM_CHANGED",
     "OWNER_KINDS",
     "NOT_DELIVERABLE",
     "READY",

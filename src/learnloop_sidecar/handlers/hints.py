@@ -262,10 +262,13 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     from learnloop.attempts.reveal_ledger import record_reveal_strict, reveal_episode_id
 
     vault, repository = ctx.require_vault()
+    # The item as loaded now: a hint written for an item since removed or
+    # changed is refused before it is marked shown (round 3, W5), so its
+    # reveal is always written against the item it was written for.
     item = vault.practice_items.get(practice_item_id)
     try:
         with repository.atomic():
-            outcome, row = hint_service.deliver_hint(repository, assist_id)
+            outcome, row = hint_service.deliver_hint(repository, assist_id, item=item)
             if outcome == hint_service.SHOWN and row is not None and item is not None \
                     and row.get("hint_kind") and row.get("level"):
                 try:

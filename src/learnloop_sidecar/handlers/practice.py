@@ -672,14 +672,9 @@ def _server_hint_fold(
 
     from learnloop.db.connection import connect
 
-    since = None
-    if submission_id is None:
-        attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
-        since = attempts[0]["created_at"] if attempts else None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        count, primed = read_fold(
-            connection, practice_item_id=practice_item_id, session_id=session_id,
-            submission_id=submission_id, since=since,
+        count, primed, since = read_fold(
+            connection, practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id,
         )
     return ServerHintFold(
         practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id, since=since,
