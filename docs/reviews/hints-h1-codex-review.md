@@ -637,3 +637,126 @@ code it waits a fixed half-second instead, so it fails on the bound, not on an
 - Not run: references (no schema change), and the frontend and cargo. The
   full suite, the whole durability lane and vitest are left for the landing
   gate.
+
+## Fix round 5 (after Codex job 20261018-040555-09Q38u)
+
+The Codex verify of `003fc9863` confirmed U2, U3, the lifecycle and every
+boundary. It reopened the stage on three Mediums and one Low, all in reading
+quantities and units:
+
+1. "2 x" was read as a unit: `2*x` became a mismatch and `2` became verified.
+2. 4 cm verified against 4 m, because the "m" was stripped from the end of
+   "cm".
+3. 4 m² gave a mismatch.
+4. (Low) "x /   4", with extra spaces, still split the fraction.
+
+The orchestrator ruled that unit reasoning was not converging and replaced
+it with a simpler rule set that never reasons about units at all. It is
+implemented in `7333da6d8`, with no schema change.
+
+### The rules (now in `hints/maps.py`)
+
+- **`norm(s)`.** It does five things:
+  - strips the math delimiters, `\text{}`, `\mathrm{}`, `\,` and `~`;
+  - writes Unicode superscripts as `^n`;
+  - writes Unicode signs as ASCII;
+  - collapses whitespace to single spaces;
+  - trims the result.
+- **Quantity-shaped.** A reference is quantity-shaped when `norm(reference)`
+  is a number (an integer, a decimal or a/b), then whitespace, then a token
+  starting with a non-digit. Examples: "4 m", "4 m^2", "2 x", "3 cm",
+  "4 °C". `exact_key` keeps such a reference whole.
+- **Goal rules (`structured_verdict`, used by `goal_agreement`).**
+  1. A quantity-shaped reference is verified only when
+     `norm(conclusion + " " + unit)` equals `norm(reference)` as a string. When
+     the unit is empty, `norm(conclusion)` is compared, so a conclusion of
+     "4 m" also matches. Otherwise it is unverified, with the basis
+     `quantity_reference`. It is never a mismatch.
+  2. For any other reference, when the structured unit is not empty, the same
+     string equality decides. Otherwise it is unverified, with the basis
+     `unit_on_conclusion`. It is never a mismatch.
+  3. For any other reference with no unit, `answers_equal` gives verified and
+     `answers_differ` gives `goal_mismatch`. Anything else is unverified
+     (`conclusion_unparsed`, `undecidable`). So `x^2` against `x^3` and `1/4`
+     against `3/4` stay mismatches.
+- **Removed.** `read_quantity`, `compare_quantities`, `Quantity`,
+  `normalize_unit` and every suffix stripping, including in
+  `structured_expression`.
+- **The node value leak check (`value_states_answer`).** A node's value is a
+  leak when rules 1–3 would verify it as the goal, or when
+  `norm(value) == norm(reference)`. This is conservative.
+- **U4.** `number_tokens` now uses a scan, `_standalone`, in place of the
+  fixed-width lookbehinds. The scan skips any amount of whitespace when it
+  checks the slash and parenthesis context on both sides. So "x /   4",
+  "x /  (4)", "x / ( 4 )" and "x/\t4" are denominators. The adjacency rules
+  are unchanged: `x_4`, `2^4`, `4.5`, `x-4`, a signed `- 4`, and whole
+  fractions.
+
+### Tests
+
+- **New tests.** These are in the section "Fix round 5" of
+  `tests/test_approach_maps.py`:
+  - `test_r5_quantities_compare_as_strings_and_never_mismatch[*]`, 13 cases.
+    They cover Codex's cases:
+    - `2 x` against `2*x`, `2` and `2 x`;
+    - `4 m` against `4 cm` with unit `m`, and `3 cm` against `3` with unit
+      `m`;
+    - `4 m²`, `4 m³`, `4 °C` and `(4) m`;
+    - the rule-3 controls: `x^2` against `x^3`, `1/4` against `3/4`, and
+      `1/4` against `0.25`.
+  - `test_r5_a_value_is_a_leak_when_the_goal_rules_verify_it_or_it_equals_the_reference`.
+  - `test_r5_a_denominator_after_any_whitespace_is_not_the_answer[*]`, 4
+    labels, each checked for the answer 4.
+- **Earlier tests re-pinned to these rules.**
+  - `test_u1_a_reference_with_a_unit_is_read_by_the_same_quantity_helper[*]`
+    (round 4's table). These cases changed:
+    - `4 m` against `5`/`m` was a mismatch; it is now unverified
+      (`quantity_reference`).
+    - `4 m` against `4` with no unit was verified; it is now unverified
+      (`quantity_reference`).
+    - `4` against `4`/`m` was verified; it is now unverified
+      (`unit_on_conclusion`).
+    - The `cm` cases were `unit_differs`; they are now `quantity_reference`.
+    - `4m` against `4`/`m` was `unit_ambiguous`; it is now
+      `unit_on_conclusion`.
+    - `4` against `4m` was unverified; it is now `goal_mismatch`, because by
+      rule 3 `4m` is algebra.
+  - `test_r1_a_quantity_carries_its_unit_in_its_own_field`: the reference
+    `4 m` verifies `4`/`m` and `4 m`. The bare reference `4` with `4`/`m` is
+    now unverified (`unit_on_conclusion`), and with `4 m` and no unit it is
+    `conclusion_unparsed`.
+- **Against `003fc9863`.** The tests were run against `003fc9863`'s `src/`
+  and `migrations/` (`git archive`, `-o pythonpath=`). Every Codex case
+  fails there, and so does every new test function: 19 failed. 12 passed:
+  - the rule-3 and string-identity controls;
+  - two labels the old fixed-width lookbehinds already handled.
+
+### Notes
+
+- **For H2.** H2 friction note 8 in `docs/reviews/adaptive-hints-H1.md` now
+  records these rules. Unverified is common for quantity answers: an
+  equivalent but differently spelled unit, `2*x` for "2 x", or a unit on one
+  side only. H2 must not treat unverified as invalid.
+- **Literal reading of "quantity-shaped".** The definition is applied
+  literally: a token starting with any non-digit. So an algebraic reference
+  written with spaces around an operator ("1 - x", "4 + x") is
+  quantity-shaped. It verifies only by string identity and is never a
+  mismatch. That is conservative: verification is lost, but nothing is ever
+  rejected.
+- **No unit means algebra.** A conclusion with letters attached and no unit
+  ("4m") against a bare reference ("4") is algebra under rule 3, so it is a
+  mismatch.
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run lint-imports --no-cache`: 26 kept, 0 broken.
+- `uv run pytest -n 8` over the same 26 files as round 4: **525 passed**.
+- `uv run pytest -m durability` over the four approach-map files: **2
+  passed**.
+- `uv run pytest -n 8 --durable-sqlite tests/test_approach_maps.py`: **152
+  passed**.
+- The thread tests were run once, because the lifecycle is untouched: `u2_`,
+  `u3_`, `r3_`, `r4_`, `m3_`, `m4_`, `m5_`, `l1_` and `f3_`, 26 passed.
+- Not run: references (no schema change), and the frontend and cargo. The
+  full suite, the whole durability lane and vitest are left for the landing
+  gate.
