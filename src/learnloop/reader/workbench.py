@@ -457,16 +457,16 @@ def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
     return {column: (str(serve[column]) if serve.get(column) else None) for column in SERVE_COLUMNS}
 
 
-def held_parts_on(connection: Any, practice_item_id: str) -> tuple[tuple[tuple[int, int], ...], bool]:
+def held_parts_on(connection: Any, practice_item_id: str) -> tuple[tuple[tuple[int, int, tuple[str, ...]], ...], bool]:
     """The help each of the item's open problems holds, read on
     ``connection`` (a submit's own write transaction may pass its connection:
-    RW2b fix round 1, F1), kept in its two parts (fix round 4, item 4):
-    ``(carried, server)``, where ``carried`` is the book once counted and the
-    answer-box hints carried into steps (a client may send these too) and
-    ``server`` the problem's shown checks and level 1-3 hints (no client
-    holds them); and whether any problem showed worked help (a level 4-5
-    hint). The submit joins them with the client's count by
-    ``learnloop.attempts.hint_fold.combine_held``."""
+    RW2b fix round 1, F1), kept in its parts (fix round 5, items 4-5):
+    ``(book, carried, assist_ids)``, where ``book`` is 1 when the problem
+    counted the book, ``carried`` the answer-box hints carried into its steps
+    (authored reveals a client may send too) and ``assist_ids`` the ids of
+    its shown checks and level 1-3 hints (no client holds them); and whether
+    any problem showed worked help (a level 4-5 hint). The submit joins them
+    with the client's counts by ``learnloop.attempts.hint_fold.combine_held``."""
 
     sessions = store.sessions_where(
         connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
@@ -476,7 +476,10 @@ def held_parts_on(connection: Any, practice_item_id: str) -> tuple[tuple[tuple[i
     folds = {session["id"]: assists_store.workbench_fold(connection, workbench_session_id=session["id"],
                                                          practice_item_id=practice_item_id)
              for session in sessions}
-    parts = tuple((session_hints(session), int(folds[session["id"]].hints)) for session in sessions)
+    parts = tuple((book_hints(session), carried_hints(session),
+                   assists_store.workbench_assist_ids(connection, workbench_session_id=session["id"],
+                                                      practice_item_id=practice_item_id))
+                  for session in sessions)
     return parts, any(fold.primed for fold in folds.values())
 
 
@@ -486,7 +489,7 @@ def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
     shown checks and level 1-3 hints) and whether any showed worked help."""
 
     parts, primed = held_parts_on(connection, practice_item_id)
-    return max((carried + server for carried, server in parts), default=0), primed
+    return max((book + carried + len(ids) for book, carried, ids in parts), default=0), primed
 
 
 def held_hints(repository: Any, practice_item_id: str) -> int:

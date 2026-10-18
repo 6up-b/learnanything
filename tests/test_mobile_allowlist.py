@@ -317,6 +317,18 @@ READER_RW2B_RPCS = (
     "workbench.help_state",
 )
 READER_RW2B_EXTENDED_RPCS = ("workbench.submit", "workbench.leave", "workbench.bind", "workbench.refresh_import")
+# RW2b fix round 5 (items 4-5): the two answer-box submits take the authored
+# reveals on their own (``authoredHints``, optional). Desktop only.
+READER_RW2B_FIX5_EXTENDED_RPCS = ("submit_attempt", "submit_dont_know")
+
+
+def test_rw2b_fix5_authored_hints_is_an_optional_param_of_the_two_submits():
+    from learnloop_sidecar import handlers  # noqa: F401 - populates the registry
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    for name in READER_RW2B_FIX5_EXTENDED_RPCS:
+        field = METHOD_REGISTRY[name].params_model.model_fields["authored_hints"]
+        assert field.default is None and not field.is_required(), name
 
 
 def test_the_pinned_rw2b_rpcs_are_all_of_them():
@@ -497,7 +509,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
-    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS,
+    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS + READER_RW2B_FIX5_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

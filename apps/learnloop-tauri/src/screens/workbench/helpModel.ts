@@ -115,6 +115,37 @@ export function verdictFor(check: CheckViewDto | null, chainId: string) {
 /** The bound the server keeps of a checked step's text (its snapshot). */
 export const CHECKED_TEXT_CHARS = 2000;
 
+const FNV_OFFSET = 0xcbf29ce484222325n;
+const FNV_PRIME = 0x100000001b3n;
+const MASK_64 = 0xffffffffffffffffn;
+const fingerprints = new Map<string, string>();
+
+/** A fingerprint of a step's FULL text: FNV-1a (64-bit) over its UTF-8
+ *  bytes, `fnv1a64:<16 hex>`, the same as the sidecar's
+ *  `learnloop.hints.workbench.text_fingerprint` (fix round 5, item 3). */
+export function textFingerprint(text: string): string {
+  const known = fingerprints.get(text);
+  if (known !== undefined) return known;
+  let value = FNV_OFFSET;
+  for (const byte of new TextEncoder().encode(text)) {
+    value ^= BigInt(byte);
+    value = (value * FNV_PRIME) & MASK_64;
+  }
+  const out = `fnv1a64:${value.toString(16).padStart(16, "0")}`;
+  if (fingerprints.size > 500) fingerprints.clear();
+  fingerprints.set(text, out);
+  return out;
+}
+
+/** Whether the text on screen is still the text a verdict was about: the
+ *  full-text fingerprint when the check carries one; otherwise (a row from
+ *  before it) the bounded text, and any text past the bound counts as edited
+ *  (it cannot be compared). */
+function sameAsChecked(body: string, verdict: { checkedText?: string; checkedFingerprint?: string | null }): boolean {
+  if (verdict.checkedFingerprint) return textFingerprint(body) === verdict.checkedFingerprint;
+  return body.length <= CHECKED_TEXT_CHARS && body === verdict.checkedText;
+}
+
 /** The check as it stands against the steps on screen now (review F6): a
  *  step edited since the check dims its marker and joins the stale line at
  *  once, before any save or model call; a step deleted here is stale too. */
@@ -128,9 +159,9 @@ export function withLocalEdits(
   let moved = false;
   const changed = new Set(check.changedSteps);
   const verdicts = check.verdicts.map((verdict) => {
-    if (verdict.editedSinceCheck || verdict.checkedText === undefined) return verdict;
+    if (verdict.editedSinceCheck || (verdict.checkedText === undefined && !verdict.checkedFingerprint)) return verdict;
     const body = bodies.get(verdict.chainId);
-    const edited = body === undefined || body.slice(0, CHECKED_TEXT_CHARS) !== verdict.checkedText;
+    const edited = body === undefined || !sameAsChecked(body, verdict);
     if (!edited) return verdict;
     moved = true;
     if (verdict.number !== null) changed.add(verdict.number);

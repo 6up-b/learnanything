@@ -193,6 +193,7 @@ from sympy.parsing.sympy_parser import (convert_xor, implicit_multiplication_app
                                         standard_transformations)
 
 try:
+    from lark import Token, Tree
     from lark.exceptions import VisitError
     from sympy.parsing.latex.lark import LarkLaTeXParser
     from sympy.parsing.latex.lark.transformer import TransformToSymPyExpr
@@ -201,6 +202,7 @@ try:
 except Exception as exc:  # the lark backend is unusable: nothing is checked
     LATEX = None
     LATEX_PROBLEM = type(exc).__name__
+    Token = Tree = type("Missing", (), {})
     TransformToSymPyExpr = object
     VisitError = Exception
 
@@ -393,8 +395,65 @@ def segments(text):
     return out
 
 
+_LETTER_TYPES = ("SYMBOL", "MULTI_LETTER_SYMBOL", "GREEK_SYMBOL")
+
+
+def _is_letter(token):
+    kind = str(getattr(token, "type", ""))
+    return kind in _LETTER_TYPES or kind.startswith(("LATIN_SYMBOL", "GREEK_SYMBOL"))
+
+
+def names_in(node):
+    """The letters (symbols and names, primes dropped) written in a parse
+    (sub)tree: the syntax, before sympy evaluates anything."""
+    if isinstance(node, Tree):
+        tokens = list(node.scan_values(lambda value: isinstance(value, Token)))
+    elif isinstance(node, Token):
+        tokens = [node]
+    else:
+        tokens = []
+    return {str(token).rstrip("'") for token in tokens if _is_letter(token)}
+
+
+def _plain_count(node):
+    """An exponent written as a plain non-negative whole number (2, {3})."""
+    if isinstance(node, Token):
+        return str(node.type) == "DIGIT" or str(node).isdigit()
+    if isinstance(node, Tree):
+        data = str(node.data)
+        if data == "number":
+            return all(isinstance(child, Token) and str(child).isdigit() for child in node.children)
+        if data == "group_curly_parentheses":
+            inner = [child for child in node.children if not (isinstance(child, Token) and str(child) in "{}")]
+            return len(inner) == 1 and _plain_count(inner[0])
+    return False
+
+
+def spots(tree):
+    """Fix round 5, items 1-2: every place the WRITTEN text restricts a
+    domain, read from the parse tree before any evaluation (x^2/x stays a
+    fraction here): a denominator, a log, a root, and the base of a power
+    that is not a plain whole number. Each spot is the set of letters it
+    involves."""
+    out = []
+    for node in tree.iter_subtrees():
+        data, children = str(node.data), node.children
+        if data in ("fraction", "special_fraction", "div") and len(children) >= 3:
+            out.append(names_in(children[2]))
+        elif data in ("log", "square_root"):
+            out.append(names_in(node))
+        elif data == "superscript":
+            power = children[2] if len(children) == 3 else None
+            if power is not None and not (isinstance(power, Token) and "PRIME" in str(power.type)) \
+                    and not _plain_count(power):
+                out.append(names_in(children[0]) | names_in(power))
+    return out
+
+
 def read(text, known, definition=False):
-    """The text's one relation (a :class:`Rel` of sympy sides)."""
+    """The text's one relation (a :class:`Rel` of sympy sides), with the
+    letters it writes (``names``) and its domain restrictions (``spots``),
+    both read from the syntax."""
     if LATEX is None:
         raise NotChecked("latex_parser_unavailable:" + LATEX_PROBLEM)
     source = math_of(text)
@@ -416,6 +475,8 @@ def read(text, known, definition=False):
     if not (_sympy(value.lhs) and _sympy(value.rhs)):
         raise NotChecked("not_one_relation")
     value.restricted = list(transformer.restricted)
+    value.names = names_in(tree)
+    value.spots = spots(tree)
     return value
 
 
@@ -442,22 +503,40 @@ def _definition(text):
     body = relation.rhs
     if body.atoms(AppliedUndef) or name in {s.name for s in body.atoms(sympy.Symbol)}:
         return None
-    return name, relation.lhs.args[0], body, tuple(relation.restricted)
+    var = relation.lhs.args[0]
+    # Fix round 5, items 1-2: restricted when its WRITTEN body restricts its
+    # variable (a denominator, log, root, or a power not a whole number).
+    flagged = any(var.name in spot for spot in relation.spots)
+    uses = frozenset(relation.names - {name, var.name})
+    return name, var, body, tuple(relation.restricted), flagged, uses
 
 
 def definitions(problem, earlier):
-    """The names in force: each defined once (a name defined twice
-    differently is dropped, so it never resolves)."""
+    """The names in force, and the restricted ones among them (fix round 5,
+    items 1-2). A name defined twice with another body, or another
+    restriction status, is dropped, so it never resolves. A name is
+    restricted when its written body restricts its variable, or writes a
+    restricted name."""
     found, conflicted = {}, set()
     for text in list(segments(problem)) + [problem] + list(earlier):
         entry = definition(text)
         if entry is None:
             continue
-        name, var, body, restricted = entry
-        if name in found and (found[name][0] != var or sympy.simplify(found[name][1] - body) != 0):
+        name, var, body, restricted, flagged, uses = entry
+        if name in found and (found[name][0] != var or found[name][3] != flagged
+                              or sympy.simplify(found[name][1] - body) != 0):
             conflicted.add(name)
-        found.setdefault(name, (var, body, restricted))
-    return {name: value for name, value in found.items() if name not in conflicted}
+        found.setdefault(name, (var, body, restricted, flagged, uses))
+    known = {name: value for name, value in found.items() if name not in conflicted}
+    flagged_names = {name for name, value in known.items() if value[3]}
+    grew = True
+    while grew:
+        grew = False
+        for name, value in known.items():
+            if name not in flagged_names and value[4] & (flagged_names | conflicted):
+                flagged_names.add(name)
+                grew = True
+    return known, flagged_names
 
 
 def resolve(expression, known):
@@ -561,7 +640,7 @@ def classify(relation, known, declared_kind):
     return out
 
 
-def solved_equation(claim, variable, known):
+def solved_equation(claim, variable, known, restricted_names=frozenset()):
     """For ``x = value``: the one equation in ``x`` it solves, as a residual:
     the last earlier text's (that is not this same relation), else the
     problem's only one. A definition or an identity is not an equation."""
@@ -570,6 +649,12 @@ def solved_equation(claim, variable, known):
         relation = read(text, known)
         if relation.op != "=" or isinstance(relation.lhs, AppliedUndef):
             raise NotChecked("no_equation")
+        # Fix round 5, items 1-2: the solved equation as WRITTEN (the parse
+        # tree): no restricted name, and no domain restriction at all.
+        if relation.names & restricted_names:
+            raise NotChecked("restricted_name")
+        if any(relation.spots):
+            raise NotChecked("restricted_domain")
         # Fix round 4, item 2: an equation whose written form restricts the
         # variable (a denominator, a log, an even root, a negative power) may
         # exclude the candidate, and sympy's evaluation can cancel that
@@ -815,11 +900,18 @@ def run(claim, checkable):
     if claim.get("kind") not in checkable:
         return model("kind_not_checked")
     try:
-        known = definitions(claim.get("problem"), claim.get("earlier") or [])
+        known, restricted_names = definitions(claim.get("problem"), claim.get("earlier") or [])
         relation = read(claim.get("text"), known)
+        if relation.names & restricted_names:
+            # Fix round 5, items 1-2: a name whose written body restricts its
+            # domain is never used in a check, whatever the kind.
+            raise NotChecked("restricted_name")
         parsed = classify(relation, known, claim.get("kind"))
+        if parsed["kind"] in ("solving", "substitution") and any(relation.spots):
+            # The step's own written text restricts a domain: not for these.
+            raise NotChecked("restricted_domain")
         if parsed["kind"] == "solving":
-            parsed["equation"] = solved_equation(claim, parsed["variable"], known)
+            parsed["equation"] = solved_equation(claim, parsed["variable"], known, restricted_names)
         disagreement = compare(claim, parsed)
     except NotChecked as exc:
         return model(str(exc)[:120])

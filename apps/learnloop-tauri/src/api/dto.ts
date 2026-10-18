@@ -1164,6 +1164,9 @@ export interface SubmitAttemptInput {
   explanationMd?: string | null;
   attemptType: AttemptType;
   hintsUsed: number;
+  /** RW2b fix round 5: the answer box's authored reveals alone (the server
+   *  adds a counted book and the workbench's help itself, each once). */
+  authoredHints?: number | null;
   latencySeconds?: number | null;
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
@@ -8527,6 +8530,9 @@ export interface CheckStepVerdictDto {
   /** The step's text the verdict was about (bounded at 2,000 characters): a
    *  local edit away from it dims the marker at once (review F6). */
   checkedText?: string;
+  /** Fix round 5: a fingerprint of the FULL checked text (`fnv1a64:<hex>`,
+   *  helpModel's textFingerprint); any edit to the text changes it. */
+  checkedFingerprint?: string | null;
 }
 
 export interface CheckViewDto {

@@ -345,6 +345,27 @@ def workbench_fold(connection: sqlite3.Connection, *, workbench_session_id: str,
                          worked=int(row[4]), discriminating=int(row[5]))
 
 
+def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id: str,
+                         practice_item_id: str | None = None) -> tuple[str, ...]:
+    """The ids of the rows :func:`workbench_fold` counts as hint-equivalents
+    (shown, server-counted, unattached checks and level 1-3 hints), so a
+    submit can count each distinct row once across problems (RW2b fix round
+    5, items 4-5)."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return ()
+    clauses = ["surface = 'workbench'", "workbench_session_id = ?", "attempt_id IS NULL", "shown = 1",
+               "counted_by = 'server'", "(assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 3))"]
+    values: list[Any] = [workbench_session_id]
+    if practice_item_id is not None:
+        clauses.append("practice_item_id = ?")
+        values.append(practice_item_id)
+    rows = connection.execute(f"SELECT id FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY id",
+                              tuple(values)).fetchall()
+    return tuple(str(row[0]) for row in rows)
+
+
 def workbench_rows(connection: sqlite3.Connection, workbench_session_id: str) -> list[dict[str, Any]]:
     """Every row of a workbench problem, in the order requested."""
 
@@ -418,6 +439,7 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
+    "workbench_assist_ids",
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",

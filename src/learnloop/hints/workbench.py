@@ -202,10 +202,13 @@ class WorkbenchHintContext:
 
     def snapshot(self) -> list[dict[str, Any]]:
         """``step_snapshot_json``: step ids and content hashes at request time,
-        and each step's text (bounded) for the diagnoser's trace (§5.4)."""
+        each step's text (bounded) for the diagnoser's trace (§5.4), and a
+        fingerprint of its FULL text (:func:`text_fingerprint`) that the
+        workbench compares with the text on screen (fix round 5, item 3)."""
 
         return [{"chain_id": step.chain_id, "step_id": step.step_id, "number": step.number, "kind": step.kind,
-                 "hash": step.content_hash, "body_md": step.body_md[:2000]} for step in self.steps]
+                 "hash": step.content_hash, "body_md": step.body_md[:2000],
+                 "fingerprint": text_fingerprint(step.body_md)} for step in self.steps]
 
     def verdicts_record(self) -> list[dict[str, Any]]:
         return [verdict_record(row) for row in self.verdicts]
@@ -761,6 +764,20 @@ def check_steps(check: Check, output: Any, *, target: Target, context: Workbench
     return check
 
 
+def text_fingerprint(text: str) -> str:
+    """A fingerprint of a step's FULL text: FNV-1a (64-bit) over its UTF-8
+    bytes, as ``fnv1a64:<16 hex>``. The workbench computes the same in
+    ``helpModel.ts`` (``textFingerprint``), synchronously on every edit, so
+    any change to the text dims its verdict at once (fix round 5, item 3:
+    never a bounded prefix)."""
+
+    value = 0xCBF29CE484222325
+    for byte in str(text or "").encode("utf-8"):
+        value ^= byte
+        value = (value * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return f"fnv1a64:{value:016x}"
+
+
 # ---------------------------------------------------------------------------
 # A hint's own checkable claims (Reader §5.3; fix round 1, F14)
 # ---------------------------------------------------------------------------
@@ -1033,6 +1050,7 @@ def schedule_map(vault: Any, sqlite_path: Any, practice_item_id: str, *, client:
 
 
 __all__ = [
+    "text_fingerprint",
     "DISCRIMINATING_RUNG_LABEL",
     "ERROR_KINDS",
     "FALLBACK_KIND",

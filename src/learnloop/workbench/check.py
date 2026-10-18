@@ -755,6 +755,9 @@ def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchS
             # own, bounded as the snapshot is), so the workbench dims the
             # marker the moment the step is edited, before any save or call.
             "checked_text": str((snapshot.get(verdict.chain_id) or {}).get("body_md") or ""),
+            # Fix round 5, item 3: the full text's fingerprint, compared with
+            # the text on screen (None on a row written before it).
+            "checked_fingerprint": (snapshot.get(verdict.chain_id) or {}).get("fingerprint"),
         })
     guess = row.get("error_kind_guess")
     error_kind = None

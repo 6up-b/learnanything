@@ -585,6 +585,8 @@ export const api = {
     sessionId: string;
     practiceItemId: string;
     hintsUsed: number;
+    /** RW2b fix round 5: the authored reveals alone (see SubmitAttemptInput). */
+    authoredHints?: number | null;
     latencySeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;

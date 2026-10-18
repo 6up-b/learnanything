@@ -31,23 +31,47 @@ from learnloop.attempts.stuck import stuck_attempt_type
 from learnloop.db.stores.help_assists import attach_keyless_fold, keyless_window_start, server_fold
 
 
-#: One open workbench problem's help: ``(carried, server)``. ``carried`` is
-#: what the problem holds that the client may also send (RW2a: the book once
-#: counted and the answer-box hints carried into steps); ``server`` is the
-#: problem's own shown checks and level 1-3 hints, which no client count holds.
-HeldPart = tuple[int, int]
+#: One open workbench problem's help: ``(book, carried, assist_ids)``.
+#: ``book`` is 1 when the problem counted the book; ``carried`` the
+#: answer-box hints carried into its steps (authored reveals, which a client
+#: counts too); ``assist_ids`` the ids of its shown checks and level 1-3
+#: hints, which no client holds (RW2b fix round 5, items 4-5).
+HeldPart = tuple[int, int, tuple[str, ...]]
 
 
-def combine_held(client_hints: int, parts: tuple[HeldPart, ...] | list[HeldPart]) -> int:
-    """The client's count joined with the open problems' help, each distinct
-    assist once (RW2b fix round 4, item 4). Only the overlap is deduplicated:
-    a carried count the client may hold too (the RW2a book, the carried
-    hints) is taken as the larger of the two; the problem's server assists
-    (checks, level 1-3 hints) add to it. Over several open problems, the
-    larger total (one problem is what the learner worked)."""
+def _part(part: Any) -> HeldPart:
+    """A part as ``(book, carried, ids)`` (a two-number part from before
+    round 5 reads as ``(0, carried, n anonymous ids)``)."""
+
+    if len(part) == 3:
+        book, carried, ids = part
+        return int(book), int(carried), tuple(str(entry) for entry in ids)
+    carried, server = part
+    return 0, int(carried), tuple(f"#{index}" for index in range(int(server)))
+
+
+def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = None) -> int:
+    """The submit's count from the client's and the open problems' help.
+
+    With ``authored_hints`` (the client's authored reveals, sent on their
+    own: fix round 5, items 4-5) it is the sum of distinct components:
+    the authored reveals (the larger of the client's and the carried count,
+    the same reveals counted twice), the book once (any problem that counted
+    it), and every distinct server assist id over all the problems (a row
+    belongs to one problem, so none is counted twice); never less than the
+    client's own total. Without it (an older client) it is round 4's rule:
+    per problem the larger of the client's count and the problem's carried
+    part (book and carried hints), plus its server assists, the larger total
+    over the problems."""
 
     client = int(client_hints)
-    return max([client] + [max(client, int(carried)) + int(server) for carried, server in parts])
+    parts = [_part(part) for part in parts]
+    if authored_hints is None:
+        return max([client] + [max(client, book + carried) + len(ids) for book, carried, ids in parts])
+    authored = max([int(authored_hints)] + [carried for _book, carried, _ids in parts])
+    book = 1 if any(book for book, _carried, _ids in parts) else 0
+    distinct = {entry for _book, _carried, ids in parts for entry in ids}
+    return max(client, authored + book + len(distinct))
 
 
 @dataclass(frozen=True)
@@ -98,10 +122,11 @@ class ServerHintFold:
     #: attempt's transaction by ``held_reader`` (the sidecar's callable: the
     #: attempt path never reads the workbench) so a check or hint shown during
     #: grading is counted. With it, ``base_hints`` is
-    #: ``combine_held(held_client_hints, held_parts) + held_extra_hints``, as
-    #: ``_held_assistance`` computes it before grading (fix round 4, item 4:
-    #: the client's count and the problems' server assists add; only the
-    #: carried overlap counts once). None: as before RW2b.
+    #: ``combine_held(held_client_hints, held_parts, authored_hints=
+    #: held_authored_hints) + held_extra_hints``, as ``_held_assistance``
+    #: computes it before grading (fix rounds 4 and 5, items 4-5: distinct
+    #: components add; only the same thing counted twice counts once).
+    #: None: as before RW2b.
     held_reader: Callable[[Any], tuple[tuple[HeldPart, ...], bool]] | None = field(
         default=None, compare=False, repr=False)
     held_client_hints: int = 0
@@ -110,8 +135,11 @@ class ServerHintFold:
     #: held help makes an independent attempt the assisted type.
     held_hints: int = 0
     held_primed: bool = False
-    #: Each open problem's ``(carried, server)`` help (:func:`combine_held`).
-    held_parts: tuple[HeldPart, ...] = ()
+    #: Each open problem's ``(book, carried, assist_ids)`` help (:func:`combine_held`).
+    held_parts: tuple[Any, ...] = ()
+    #: The client's authored reveals, sent on their own (fix round 5); None
+    #: for an older client (round 4's rule).
+    held_authored_hints: int | None = None
     #: The item's allowed attempt types: held help makes an independent
     #: attempt the assisted type the answer box picks (``_held_assistance``);
     #: None leaves the type alone (``submit_dont_know``).
@@ -120,8 +148,9 @@ class ServerHintFold:
     def base(self) -> int:
         if self.held_reader is None:
             return int(self.base_hints)
-        parts = self.held_parts or (((int(self.held_hints), 0),) if self.held_hints else ())
-        return combine_held(self.held_client_hints, parts) + int(self.held_extra_hints)
+        parts = self.held_parts or (((0, int(self.held_hints), ()),) if self.held_hints else ())
+        return combine_held(self.held_client_hints, parts,
+                            authored_hints=self.held_authored_hints) + int(self.held_extra_hints)
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
@@ -182,10 +211,12 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         # between keeps the count read before grading). Fix round 4, item 4:
         # the same rule as before grading (:func:`combine_held`).
         now_parts, now_primed = fold.held_reader(connection)
-        now_parts = tuple((int(carried), int(server)) for carried, server in now_parts)
-        before = combine_held(fold.held_client_hints, fold.held_parts)
-        parts = now_parts if combine_held(fold.held_client_hints, now_parts) >= before else tuple(fold.held_parts)
-        largest = max((carried + server for carried, server in parts), default=0)
+        now_parts = tuple(_part(part) for part in now_parts)
+        authored = fold.held_authored_hints
+        before = combine_held(fold.held_client_hints, fold.held_parts, authored_hints=authored)
+        parts = (now_parts if combine_held(fold.held_client_hints, now_parts, authored_hints=authored) >= before
+                 else tuple(fold.held_parts))
+        largest = max((book + carried + len(ids) for book, carried, ids in map(_part, parts)), default=0)
         held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), parts)
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one

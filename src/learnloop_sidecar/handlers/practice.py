@@ -161,6 +161,10 @@ class SubmitAttemptInput(ParamsModel):
     #: cross-language contract that only a comment held together.
     explanation_md: str | None = None
     hints_used: int = 0
+    #: RW2b fix round 5 (items 4-5): the answer box's authored reveals on
+    #: their own, apart from the book and the workbench's help the server
+    #: counts itself (``combine_held``). Absent (an older client): round 4's rule.
+    authored_hints: int | None = Field(default=None, ge=0)
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
     primed: bool = False
@@ -186,6 +190,10 @@ class DontKnowInput(ParamsModel):
     session_id: str
     practice_item_id: str
     hints_used: int = 0
+    #: RW2b fix round 5 (items 4-5): the answer box's authored reveals on
+    #: their own, apart from the book and the workbench's help the server
+    #: counts itself (``combine_held``). Absent (an older client): round 4's rule.
+    authored_hints: int | None = Field(default=None, ge=0)
     latency_seconds: int | None = None
     self_grade: SelfGradeInputDto | None = None
     probe_presentation_id: str | None = None
@@ -896,7 +904,7 @@ def _plan_presentation(repository, params: Any) -> str | None:
 
 
 def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
-                     held: tuple[tuple[int, int], ...] | None = None) -> tuple[int, str]:
+                     held: tuple[Any, ...] | None = None, authored_hints: int | None = None) -> tuple[int, str]:
     """Fold in the assistance the item's open workbench problems hold (Reader
     workbench RW2a, review F2): the book one counted and the answer-box hints
     it carried. The server holds them, so the record never depends on a
@@ -921,19 +929,18 @@ def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
 
     if held is None:
         held = _held_read(repository, item)[0]
-    largest = max((carried + server for carried, server in held), default=0)
+    largest = max((book + carried + len(ids) for book, carried, ids in held), default=0)
     if largest <= 0:
         return hints_used, attempt_type
     if attempt_type == "independent_attempt":
         attempt_type = stuck_attempt_type(item.attempt_types_allowed, hints_used=largest)
-    return combine_held(int(hints_used), held), attempt_type
+    return combine_held(int(hints_used), held, authored_hints=authored_hints), attempt_type
 
 
 def _held_read(repository, item) -> tuple[tuple[tuple[int, int], ...], bool]:
     """Reader workbench RW2b (§5.4): the help the item's open problems hold,
-    ``(parts, primed)``: per problem ``(carried, server)`` (its book and
-    carried hints; its shown checks and level 1-3 hints: fix round 4, item
-    4), and whether any showed worked help (a level 4-5 hint, which primes
+    ``(parts, primed)``: per problem ``(book, carried, assist_ids)`` (fix
+    rounds 4 and 5, items 4-5), and whether any showed worked help (a level 4-5 hint, which primes
     every submit of the item). ``((), False)`` with no workbench help, so
     every submit is exactly as before RW2b."""
 
@@ -970,13 +977,13 @@ def _held_reader(practice_item_id: str):
     return read
 
 
-def _held_fields(item, held: tuple[tuple[tuple[int, int], ...], bool], *, client_hints: int, extra_hints: int,
-                 attempt_types: bool) -> dict[str, Any]:
+def _held_fields(item, held: tuple[tuple[Any, ...], bool], *, client_hints: int, extra_hints: int,
+                 attempt_types: bool, authored_hints: int | None = None) -> dict[str, Any]:
     parts = tuple(held[0])
     return {"held_reader": _held_reader(item.id), "held_client_hints": int(client_hints),
             "held_extra_hints": int(extra_hints),
-            "held_hints": max((carried + server for carried, server in parts), default=0),
-            "held_parts": parts, "held_primed": bool(held[1]),
+            "held_hints": max((book + carried + len(ids) for book, carried, ids in parts), default=0),
+            "held_parts": parts, "held_primed": bool(held[1]), "held_authored_hints": authored_hints,
             "held_types": tuple(item.attempt_types_allowed or ()) if attempt_types else None}
 
 
@@ -1118,7 +1125,7 @@ def submit_attempt_on(
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     held = _held_read(repository, item)
     client_hints, attempt_type = _held_assistance(repository, item, params.hints_used, params.attempt_type,
-                                                  held=held[0])
+                                                  held=held[0], authored_hints=params.authored_hints)
     # Substantive tutor questions asked mid-attempt count as hints: fold them
     # into hints_used so the existing hint dampening / FSRS rating caps apply.
     question_hints = hint_equivalents_for_submission(
@@ -1147,7 +1154,7 @@ def submit_attempt_on(
         base_primed=bool(params.primed) or disclosure_primed,
         max_useful_hints=item.hint_policy.max_useful_hints, window_fold=hint_window_fold,
         held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=question_hints,
-                          attempt_types=True),
+                          attempt_types=True, authored_hints=params.authored_hints),
     )
     hints_used = hint_fold.hints_used()
     primed = hint_fold.primed()
@@ -1314,7 +1321,8 @@ def submit_dont_know_on(
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
     held = _held_read(repository, item)
-    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt", held=held[0])
+    hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt", held=held[0],
+                                         authored_hints=params.authored_hints)
     # Adaptive hints H2a (spec §5): a shown hint is never lost, here too. The
     # tutor-question fold's absence here predates H2a and is left as it was
     # (spec §14 Q5); the clamp applies to the total the server's rows join.
@@ -1327,7 +1335,8 @@ def submit_dont_know_on(
         max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
         stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
-        held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=0, attempt_types=False),
+        held=_held_fields(item, held, client_hints=params.hints_used, extra_hints=0, attempt_types=False,
+                          authored_hints=params.authored_hints),
     )
     hints_used = hint_fold.hints_used()
     server_primed = hint_fold.primed()
