@@ -421,20 +421,6 @@ gives. The 3 that pass there are guards. All 10 pass on the fix. Fakes only.
 `grep "Target(" src/learnloop/hints` finds no other construction. The
 writer prompt only reads the Target.
 
-### Open question
-
-**A keyless attempt does not attach rows.** H0 attaches by submission key,
-and that logic is unchanged here. A hint shown under key `k1` before a
-keyless attempt commits is counted by that attempt. If the same client later
-submits `k1` itself in the same session, the hint can be counted again. Two
-fixes would close this:
-
-- bind or attach the window's rows on a keyless submit (an H0 attach
-  change);
-- refuse a keyless submit while keyed rows are shown in its window.
-
-Either is a successor decision.
-
 ### Gate (fix round 3)
 
 The full suite, the whole durability lane and vitest run once, in the
@@ -454,4 +440,57 @@ landing gate.
   **0 errors** (head 211). Committed in `ff1ec0df6`: commit labels, line
   citations, and the `help_assists` note's test list (it now lists the
   round-3 file).
+- Model calls: **0**. No migration and no `apps/` change.
+
+## Fix round 3b (closes round 3's keyless double count)
+
+The orchestrator ruled the gap round 3 recorded as High-class, because a hint
+could be counted twice. The fix is `fe69c0410`, and the references are
+regenerated in `0fa750cfe`.
+
+- **The attempt that counts a server hint row attaches it.**
+  - Inside the attempt's write transaction, after the attempt row exists,
+    `apply_attempt` calls `hint_fold.attach_keyless`. That sets
+    `attempt_id` on every row a keyless fold counted.
+  - It is the same NULL-to-value write that H0's attach makes, and H0's
+    identity trigger allows it.
+  - The rows are defined once, in `help_assists._fold_rows`, for both the
+    count and the attach: unattached, shown, server-counted hint rows of the
+    session and item, requested after the window start.
+  - The window start is the one `refolded_draft` reads under the same lock.
+    The draft carries it even when the count is unchanged.
+- **Every fold counts unattached rows only**, keyed or keyless (it already
+  did: `attempt_id IS NULL`). So a row a keyless attempt took is never
+  counted again, whatever its key.
+- **H0's keyed attach is unchanged.** It only attaches rows whose
+  `attempt_id` is NULL. So it never moves a row a keyless attempt took.
+- **Telemetry rows are untouched.** Client-counted authored rows are not
+  attached or folded here.
+- **Replay never attaches** (`replace_existing`).
+
+Tests are in `tests/test_hint_h2a_review_round3.py`, round-3b section. Run
+against `git archive 664a5ad1e`, 2 of its 4 tests fail:
+
+- `test_3b_a_keyless_submit_attaches_the_hint_it_counted` fails because the
+  row's `attempt_id` stayed NULL.
+- `test_3b_a_hint_counted_by_a_keyless_submit_is_never_counted_again` fails
+  because the k1 submit counted the hint a second time (1, not 0).
+
+The guards pass there:
+
+- `test_3b_keyed_flows_are_unchanged`;
+- `test_3b_authored_reveal_telemetry_is_not_taken_by_a_keyless_submit`;
+- round 3's `test_w1_a_hint_free_keyless_submit_records_what_it_did`.
+
+This closes round 3's open question, which is removed above.
+
+### Gate (fix round 3b)
+
+- `uv run lint-imports --no-cache`: **26 kept, 0 broken**.
+- `uv run pytest -n 8` on round 3's 48 files: **1280 passed**.
+- Durability:
+  - `-m durability` on the touched files: **2 passed**;
+  - `--durable-sqlite` (WAL) on the round-3, round-2 and review files,
+    `test_hint_evidence` and `test_hint_telemetry`: **136 passed**.
+- References: **0 errors** (head 211).
 - Model calls: **0**. No migration and no `apps/` change.
