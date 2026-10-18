@@ -1924,3 +1924,42 @@ def test_r5_a_denominator_after_any_whitespace_is_not_the_answer(label):
     result = _plain(_count_map(step_state="two pairs", step_label=label, **_neutral_goal("4")), "4")
     assert result.valid and "label_leak" not in result.reasons, (label, result.details)
     assert not M.states_answer(label, "4") and "4" not in M.number_tokens(label)
+
+
+# -- Fix round 6 (after Codex job 20261018-041655-wgruxL) -----------------------------------
+
+
+@pytest.mark.parametrize(("conclusion", "verified"), [("2X", False), ("2*X", False), ("2*x", True), ("2x", True)])
+def test_c1_structured_equality_keeps_symbol_case(conclusion, verified):
+    """Codex: reference 2x verified the conclusion 2X (answer_check's text
+    shortcut casefolds). A mismatch is fine where answers_differ holds."""
+
+    result = _plain(_goal_map("2x", goal_state="The answer is found", conclusion=conclusion), "2x")
+    assert result.verified_goal is verified, (conclusion, result.goal_basis, result.reasons)
+    if not verified:
+        assert "goal_mismatch" in result.reasons or not result.verified_goal
+
+
+def test_c1_the_value_leak_check_keeps_symbol_case():
+    def marked(value: str) -> bool:
+        result = _plain(_goal_map("2x", goal_state="The answer is found", conclusion="", step_state="a step",
+                                  value=value), "2x")
+        return "count" in result.leak_marked_by_code
+
+    assert marked("2*x") and marked("2x")
+    assert not marked("2X") and not marked("2*X")
+
+
+def test_c2_a_value_the_question_states_is_never_a_label_leak():
+    question = "Evaluate f(t)=t at t=4."
+    payload = _count_map(step_state="the function", step_label="Evaluate at 4", **_neutral_goal("4"))
+    assert _plain(payload, "4", public_text=question).valid
+    assert "label_leak" in _plain(payload, "4").reasons  # control: a question that does not state it
+
+
+def test_c3_a_leading_dot_decimal_quantity_is_kept_whole():
+    assert M.quantity_shaped(".5 m") and M.exact_key(".5 m") == ".5 m"
+    result = _plain(_goal_map(".5 m", goal_state="The length is found", conclusion=".5", unit="m"), ".5 m")
+    assert result.valid and result.verified_goal
+    other = _plain(_goal_map(".5 m", goal_state="The length is found", conclusion=".6", unit="m"), ".5 m")
+    assert other.valid and not other.verified_goal and other.goal_basis == "quantity_reference"

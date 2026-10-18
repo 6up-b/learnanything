@@ -432,7 +432,9 @@ _SUPERSCRIPTS = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\
 _SUPERSCRIPT_RUN = re.compile("[\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b\u207a]+")
 #: A number (integer, decimal or a/b), whitespace, then a token starting with
 #: a non-digit: "4 m", "4 m^2", "2 x", "3 cm", "4 °C".
-_QUANTITY_SHAPED = re.compile(r"[-+]?\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)?\s+\D.*", re.S)
+_QUANTITY_SHAPED = re.compile(
+    # Leading-dot decimals count (".5 m"; fix round 6, C3).
+    r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:/(?:\d+(?:\.\d+)?|\.\d+))?\s+\D.*", re.S)
 
 
 def norm(text: str | None) -> str:
@@ -483,9 +485,9 @@ def structured_verdict(expression: str | None, unit: str | None, key: str) -> tu
     if parsed is None:
         return "unverified", "conclusion_unparsed"
     target = normalize_key(key) or key
-    if _equal(parsed, target) is True:
+    if _structured_equal(parsed, target) is True:
         return "verified", "exact_key"
-    if _differ(parsed, target) is True:
+    if _structured_differ(parsed, target) is True:
         return "mismatch", "conclusion"
     return "unverified", "undecidable"
 
@@ -522,12 +524,15 @@ def label_leaks(label: str, expressions: Collection[str], expected_answer: str |
     if not label.strip():
         return False
     key = exact_key(expected_answer)
+    # What the question itself states is a given, never a leak (fix round 6,
+    # C2: the exemption now comes before the span and short-key checks too).
+    if key and public_text.strip() and states_answer(public_text, key):
+        return False
     if span_leaks_expected(label, expected_answer) or (key and (span_leaks_expected(label, str(key))
                                                                 or _states_short_key(label, key))):
         return True
-    # An equivalent of the answer in the label (fix round 2, M1), unless the
-    # question itself states the answer: what the question states is a given.
-    return bool(key) and states_answer(label, key) and not states_answer(public_text, key)
+    # An equivalent of the answer in the label (fix round 2, M1).
+    return bool(key) and states_answer(label, key)
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +567,43 @@ def _equal(left: str, right: str) -> bool | None:
         return answers_equal(left, right)[0]
     except Exception:  # noqa: BLE001
         return None
+
+
+def _case_only(left: str, right: str) -> bool:
+    """Whether two expressions differ only in letter case, which answer_check's
+    text shortcut (``casefold``) would call equal."""
+
+    squash = lambda value: re.sub(r"\s+", "", value)  # noqa: E731
+    return squash(left) != squash(right) and squash(left).casefold() == squash(right).casefold()
+
+
+def _structured_equal(left: str, right: str) -> bool | None:
+    """Case-sensitive mathematical equality for the structured map fields
+    (fix round 6, C1): ``2X`` is never ``2x``. answer_check (and grading) is
+    unchanged; when two texts differ only in case, its case-folded shortcut
+    is bypassed and only the exact polynomial forms (which keep symbol case)
+    decide, else nothing does."""
+
+    if re.sub(r"\s+", "", left) == re.sub(r"\s+", "", right):
+        return True
+    if _case_only(left, right):
+        try:
+            parsed_left, parsed_right = parse_answer(left), parse_answer(right)
+        except Exception:  # noqa: BLE001
+            return None
+        if parsed_left is None or parsed_right is None:
+            return None
+        return parsed_left[0] == parsed_right[0]
+    return _equal(left, right)
+
+
+def _structured_differ(left: str, right: str) -> bool | None:
+    """The case-sensitive counterpart of ``answers_differ`` (C1)."""
+
+    if _case_only(left, right):
+        equal = _structured_equal(left, right)
+        return None if equal is None else not equal
+    return _differ(left, right)
 
 
 def _differ(left: str, right: str) -> bool | None:
