@@ -333,3 +333,160 @@ No model calls were made, live or paid. Fakes only.
   CLI, config and serializer pins; the frontend and cargo.
 - The full suite, the whole durability lane and the whole vitest run are left
   for the landing gate.
+
+## Fix round 3 (after Codex job 20261018-032508-6kTAc9)
+
+The Codex verify of `50fbf3fc3` confirmed M3, M5, L1 and the spend
+accounting. It reopened the stage on four Mediums and three Lows. Prose parsing
+for goals and leaks was not converging, so the orchestrator's rulings R1-R4
+change the design. Everything is fixed in `07b0dcdec`. There is no schema
+change: the new fields live inside `map_json`, so migration 211, its head
+fixture and the references are untouched.
+
+### How the tests were checked against the old code
+
+The 30 new tests are in `tests/test_approach_maps.py`, in the section "Fix
+round 3". They were run against `50fbf3fc3`'s `src/` and `migrations/`,
+exported with `git archive` and put first with `-o pythonpath=`. No worktree
+file was swapped and nothing was stashed.
+
+The fixtures write the new node fields only when the model declares them
+(`approach_map_fakes._structured_fields`). So on the old tree each test fails
+on its behaviour, not on `extra_forbidden`.
+
+- **Every new test function fails.** That is 26 failed.
+- **Four parametrized cases pass on the old code**, and stay as controls:
+  - R3 `ledger` and `store`: both already re-checked the fence inside their
+    transaction through `_holds`;
+  - R2, with the expected answer `1/4` and the span `$P(X \le 1/2) = \frac{1}{4}$`;
+  - R2, with the expected answer `4` and the state "a share of 3/4".
+- **The R3 failures are Codex's reproduction.** On the old code, with the
+  write lock held and the registry closed while the write waits, the claim,
+  release, checkpoint and receipt writes all land in the closed vault.
+- **The R4 failures are Codex's.** On the old code:
+  - close returns `True` while a build is alive;
+  - the second drain takes another 0.4 s;
+  - the log line names `call_id: null`.
+
+No model calls were made, live or paid.
+
+| Codex item | ruling | severity | verdict | tests |
+|---|---|---|---|---|
+| 2, 3 | R1 | Medium | fixed | `test_r1_prose_or_a_mentioned_answer_never_verifies_the_goal[*]` (4), `test_r1_only_the_structured_conclusion_verifies_or_contradicts`, `test_r1_a_quantity_carries_its_unit_in_its_own_field`, `test_r1_an_unparsed_conclusion_or_no_key_is_stored_unverified`, `test_r1_the_builders_output_schema_requires_the_structured_fields` |
+| 1 | R2 | Medium | fixed (best effort; see below) | `test_r2_an_answer_inside_a_math_span_or_with_a_unicode_sign_is_marked[*]` (5), `test_r2_a_sign_stays_attached_and_a_fraction_is_never_split[*]` (7), `test_r2_a_structured_value_equal_to_the_answer_marks_its_node` |
+| 4 | R3 | Medium | fixed | `test_r3_a_close_while_a_write_waits_for_the_lock_lands_nothing[claim, release, checkpoint, receipt, ledger, store]` |
+| 5, 6, 7 | R4 | Low | fixed | `test_r4_launch_and_close_are_atomic`, `test_r4_a_generation_is_drained_once`, `test_r4_a_dropped_receipt_logs_its_call_id` |
+
+### What changed
+
+- **R1** (`hints/maps.py`; the builder's prompt).
+  - `MapNode` gains `conclusion` (the goal's final answer as a bare
+    expression, with no prose and no units, or `""` for a proof) and `unit`.
+    Both are required by the builder's strict output schema. The pydantic
+    default `""` lets older fixtures and other nodes omit them.
+  - `goal_agreement(conclusion, expected, unit)` decides from the conclusion
+    alone:
+    - `verified` only when it parses and `answers_equal` holds against the
+      exact key;
+    - `goal_mismatch` (basis `conclusion`) only when it parses and
+      `answers_differ` holds;
+    - otherwise `unverified`, stored with `verified_goal = 0` and the basis
+      `no_exact_key`, `no_conclusion`, `conclusion_unparsed` or `undecidable`.
+      It is never rejected.
+  - "Parses" means `answer_check.parse_answer` or `safe_math_text`, after the
+    shared normalisation (`structured_expression`). A declared unit written
+    after the expression is dropped. An expression is "unparsed" when it is
+    any of:
+    - a quantity with its unit still attached ("4 m");
+    - an equation, an inequality or `!=`;
+    - prose.
+  - The prose goal check, `assignment_conclusion` and the token-presence path
+    are removed. "Distance = 4 m" is now just prose: the conclusion is `4`
+    with unit `m`.
+  - `goal_answer` stays as the builder's informational restatement, and a
+    label still must not contain it. It no longer decides anything.
+  - The F2 tests and round 2's M2 tests, which pinned prose-based verdicts,
+    are replaced by the R1 tests.
+- **R2** (`hints/maps.py`).
+  - Each node may carry `value`, the bare expression its state establishes.
+    A non-goal node whose `value` equals the answer under `answers_equal` is
+    marked as a leak by code (`value_states_answer`). A leak node's `value`
+    and `conclusion` join the expressions a label must not contain.
+  - Prose extraction, improved once:
+    - every math span (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`) is taken whole as a
+      candidate before its delimiters are stripped;
+    - Unicode signs (−, ‐, ‑, ‒, –, —, ﹣, －, ＋) are written as ASCII;
+    - a sign stays attached, so `-4`, `−4` and `x-4` never state `4`;
+    - a fraction is never split, so the numerator and denominator of `3/4`,
+      `\frac{3}{4}` and `(3)/(4)` are not candidates. This applies to the
+      lone-digit matcher too.
+  - Candidates are compared with `answers_equal`. Codex's cases are now
+    caught: `$\frac{2}{8}$` for `0.25`, `$x*x$` for `x^2`, and `−4` for `-4`.
+- **R3** (`hints/map_builder.py`; `db/stores/model_calls.py`).
+  - **The fenced transaction.** `_fenced_txn` is the one write fence. It
+    acquires BEGIN IMMEDIATE first. Only then does it take the registry gate
+    and re-check the generation token and the lease (owner, epoch and expiry,
+    or the generation only when taking a new claim). It holds the gate until
+    the commit.
+  - **The writes it covers.** Every late write goes through it: the claim,
+    renew, release, the receipt start and finish, the checkpoint save and
+    discard, judgments and map rows. The pre-acquired `open_` boolean
+    (`_write_gate`) is removed.
+  - **Closing.** `close()` takes the gate only to change the generation. A
+    writer still waiting on the database lock holds nothing that close waits
+    on. When it gets the lock it sees the new generation and rolls back,
+    however long busy_timeout kept it waiting.
+  - **Receipts and checkpoints.** These are written transactionally on the
+    fence's connection. The receipt start goes through the pinned connection,
+    and when fenced out it raises, so no request is sent. The finish and the
+    checkpoint SQL are shared from the store (`finish_receipt`,
+    `insert_checkpoint`, `delete_checkpoint`), so the SQL-owner rule holds.
+    The store's own methods are unchanged in behaviour.
+- **R4** (`hints/map_builder.py`).
+  - **(5)** `BackgroundBuilds.launch` admits, registers and starts a build
+    under the registry lock, and refuses once the registry is closed. So a
+    close either refuses the build or joins it.
+  - **(6)** A generation is drained once. Closing an already-closed registry
+    joins nothing more, so a vault switch (close, then bind) and shutdown
+    (the handler, then `serve()`'s `finally`) each spend one deadline.
+  - **(7)** A dropped receipt logs `event["id"]`.
+
+### Limits and notes
+
+- **Prose leak detection is best-effort defence in depth.** The binding leak
+  gate is H2's leak control on the written hint text (spec §4.6), which H2
+  must run on every hint. This is recorded as H2 friction note 7 in
+  `docs/reviews/adaptive-hints-H1.md` §8. Structured `value` and
+  `conclusion` are what code relies on.
+- **Known Low.** Prose that needs algebraic rewriting to show the answer, for
+  example "x times x" written in words for `x^2`, is not detected.
+- **Unverified maps (H2 friction note 8).** An unverified map is stored and
+  usable. H2 must not treat unverified as invalid.
+- **Close waits for one commit.** Close waits on the gate only for a commit
+  already holding the database lock. In rollback-journal mode, that commit
+  can itself wait for readers, up to busy_timeout. Close never waits on a
+  writer that is still queued for the lock.
+- **Version labels unchanged.** `PROMPT_VERSION` and `MAP_SCHEMA_VERSION`
+  were not bumped, because no map has been stored outside tests (migration
+  211 is unlanded). The prompt text changed, and so does its hash and
+  checkpoint key.
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run lint-imports --no-cache`: 26 kept, 0 broken.
+- `uv run pytest -n 8` over round 2's 25 files plus
+  `test_model_call_receipt_owners.py` (the store refactor): **489 passed**.
+  The first run had one failure: `test_architecture`'s SQL-owner rule caught
+  a raw `DELETE` in `map_builder`. That SQL was moved into the store, and the
+  rerun is green.
+- `uv run pytest -m durability` over the four approach-map files: **2
+  passed**. These include the two-process F3 test.
+- `uv run pytest -n 8 --durable-sqlite tests/test_approach_maps.py`: **116
+  passed**.
+- The thread and timing tests were rerun 3 times with `-n 4`:
+  - `r3_`, `r4_`, `m3_`, `m4_`, `m5_`, `l1_` and `f3_`: 24 passed each time;
+  - the same set without `f3_`, under `--durable-sqlite`: 19 passed each
+    time.
+- Not run: references (no schema change), and the frontend and cargo (no
+  `apps/` change). The full suite, the whole durability lane and vitest are
+  left for the landing gate.
