@@ -3,8 +3,8 @@ title: "Config - hints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
-source_commit_timestamp: "2026-10-18T13:44:01-04:00"
+source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
+source_commit_timestamp: "2026-10-18T15:39:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml hints"
@@ -30,12 +30,12 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/hints"
@@ -83,12 +83,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
 
 ## Extension and modification guidance
 
