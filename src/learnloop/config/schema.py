@@ -1343,6 +1343,13 @@ class AIRoutingConfig(BaseModel):
     # recommended; a metered one is held to hints.max_daily_cost_usd at
     # hints.price_per_million (unset: refused before sending).
     hint_writer: str | None = None
+    # Adaptive hints H2b (spec_adaptive_hints_v1 §6.1, §7.2, D11): outcome
+    # placement, one structured call in the background after a hinted answer
+    # graded not fully correct (never on a request path). Empty =
+    # ai.active_provider; any chat profile, Codex (codex_low) included.
+    # Metered routes join hints.maps.max_daily_cost_usd at
+    # hints.price_per_million (unset: refused before sending).
+    hint_outcome: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1970,6 +1977,16 @@ class HintsConfig(BaseModel):
     1-3) and ``primed`` (levels 4-5) and a ``tutor_answer`` reveal on key
     overlap, with their existing meaning (§5), so no scoring, scheduling,
     projection or serving change and no successor.
+
+    H2b adds the practice screen's hint panel and outcome placement:
+    ``authored_offer_after_seconds`` (a display cap: how long a hint is
+    written before the panel offers the item's own hint instead) and
+    ``outcome_placement_enabled`` (one background call on route
+    ``ai.routing.hint_outcome`` after a hinted answer graded not fully
+    correct, placing the final answer on the item's approach map: measurement
+    only, never the grade, the diagnosis or evidence; it joins the maps'
+    envelope ``maps.max_daily_cost_usd``). Neither is read by scoring,
+    scheduling, projection or serving, so no successor.
     """
 
     telemetry_enabled: bool = True
@@ -1998,6 +2015,16 @@ class HintsConfig(BaseModel):
     #: item's authored hints and says so. Codex and the ChatGPT plan are
     #: ``estimated_only`` and never counted against it.
     max_daily_cost_usd: float = Field(default=1.00, ge=0.0)
+    #: H2b: seconds a hint is being written before the panel offers the
+    #: item's own hint instead (*use the item's hint instead*: the request is
+    #: cancelled first, so only one hint is recorded). A display cap.
+    authored_offer_after_seconds: float = Field(default=4.0, gt=0)
+    #: H2b (spec §6.1, D11): after a hinted answer graded not fully correct on
+    #: an item with an approach map, one background call (route
+    #: ``ai.routing.hint_outcome``) places the final answer on the map, so the
+    #: report can say whether the learner got past the hint's target.
+    #: Measurement only; off, no call is made.
+    outcome_placement_enabled: bool = True
 
 
 class ReaderInquiryConfig(BaseModel):

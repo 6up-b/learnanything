@@ -115,6 +115,9 @@ class SidecarContext:
         # refreshes that only need fresh vault/DB state, not a runtime health pass.
         if maintenance:
             run_startup_maintenance(self.vault, self.repository)
+            # Adaptive hints H2b (review F4, F5): work a previous process
+            # committed the source of and never queued or finished.
+            self.reconcile_hint_work()
             # A previous process may have left queued or leased jobs; resume.
             self.resume_post_attempt_jobs()
             # ... and imported exercises' key checks it never committed
@@ -137,6 +140,31 @@ class SidecarContext:
                 self.ingest_jobs.resume_book_preparation()
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not resume a book's queued preparation", exc_info=True)
+
+    def reconcile_hint_work(self) -> None:
+        """Adaptive hints H2b, at a vault's open (review F4, F5): queue the
+        replies to hints and discriminating answers whose learner-text job
+        never committed, and start, in the background, the outcome placements
+        of hinted attempts that never got one (a process that ended before
+        scheduling, or a placement a vault switch fenced). Both are
+        idempotent and keep their own switches; neither blocks opening the
+        vault, and neither reads learner text or calls a model here."""
+
+        if self.vault is None or self.repository is None:
+            return
+        try:
+            from learnloop.diagnosis.text_gaps.jobs import reconcile_hint_feedback
+
+            reconcile_hint_feedback(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - never block opening the vault
+            _LOGGER.warning("could not queue unread replies to hints", exc_info=True)
+        try:
+            from learnloop.hints.outcome import reconcile_outcome_placements
+
+            reconcile_outcome_placements(self.vault, self.repository.sqlite_path,
+                                         client=getattr(self, "hint_outcome_client", None), builds=self.map_builds)
+        except Exception:  # noqa: BLE001 - never block opening the vault
+            _LOGGER.warning("could not resume outcome placements", exc_info=True)
 
     def close_background_builds(self) -> bool:
         """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""
@@ -517,6 +545,14 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             **({"recap": {"enabled": config.recap.enabled, "wrap_up_enabled": config.recap.wrap_up_enabled}}
                if (config.recap.enabled or config.recap.wrap_up_enabled) and config.reader_inquiry.enabled
                else {}),
+            # Adaptive hints H2b: the practice screen's hint panel. Present only
+            # while adaptive hints are on (hints.adaptive_enabled, and the
+            # telemetry their rows need), so with them off the snapshot is
+            # exactly what it was and the screen is the base's (G-H1).
+            **({"hints": {"adaptive_enabled": True,
+                          "authored_offer_after_seconds": config.hints.authored_offer_after_seconds,
+                          "help_style": config.hints.help_style}}
+               if config.hints.adaptive_enabled and config.hints.telemetry_enabled else {}),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

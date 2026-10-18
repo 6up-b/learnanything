@@ -113,6 +113,8 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
         return question_record(connection, str(text.question_event_id or text.source_id), topics=topics)
     if text.source_kind == "reader_formative":
         return formative_record(connection, str(text.source_id), topics=topics)
+    if text.source_kind == "hint_feedback":
+        return hint_feedback_record(connection, text)
     inputs = answer_inputs(connection, [text.attempt_id]).union(
         Inputs.of(items=[text.practice_item_id], topics=topics))
     if text.source_kind == "diagnosis":
@@ -143,6 +145,21 @@ def formative_record(connection: Any, question_id: str, *, topics: Iterable[str]
     source = {"ref_type": "canonical_source", "ref_id": row[1] or row[0], "source_id": row[1],
               "extraction_id": row[0], "span_ids": sorted(spans)}
     return WriteRecord(Inputs.of(topics=topics, sources=[source]))
+
+
+def hint_feedback_record(connection: Any, text: Any) -> WriteRecord:
+    """Adaptive hints H2b: what a reply to a hint shows its reader -- the
+    learner's words (no attempt's answer contract while the attempt is
+    open), the item's question, and the hint or question it answered. A hint
+    is written from the item's solution, so the item's solution is an input:
+    nothing the reply names is released before the solution is."""
+
+    topics = tuple(text.anchor_learning_object_ids or ())
+    item = [text.practice_item_id] if text.practice_item_id else []
+    inputs = Inputs.of(items=item, solution_items=item, topics=topics)
+    if text.attempt_id:
+        inputs = inputs.union(answer_inputs(connection, [text.attempt_id]))
+    return WriteRecord(inputs)
 
 
 def reading_record(connection: Any, text: Any, reading: Any = None) -> WriteRecord:
@@ -190,6 +207,7 @@ __all__ = [
     "TUTOR_UNRECORDED",
     "drafter_record",
     "formative_record",
+    "hint_feedback_record",
     "question_record",
     "reading_record",
     "text_record",

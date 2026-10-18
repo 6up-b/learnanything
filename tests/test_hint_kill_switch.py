@@ -103,3 +103,91 @@ def test_the_served_item_and_its_cold_check_fields_are_unchanged_by_the_switch(t
     off = serve(_vault(tmp_path, name="off", config=ADAPTIVE_OFF).root)
     assert on == off
     assert METHOD_REGISTRY["practice.request_hint"] is not None
+
+
+# -- H2b: the app snapshot's switch and the help-style write ---------------------------
+
+
+def _config_dto(root):
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.context import config_dto
+
+    return config_dto(load_vault(root))
+
+
+def test_h2b_the_snapshot_names_the_panel_only_while_adaptive_hints_are_on(tmp_path):
+    """G-H1: the screen reads a ``hints`` key the sidecar sends only while
+    adaptive hints are on (and the telemetry their rows need); off, the app
+    snapshot's config is exactly what it was before H2b."""
+
+    on = _config_dto(_vault(tmp_path, name="on").root)
+    off = _config_dto(_vault(tmp_path, name="off", config=ADAPTIVE_OFF).root)
+    telemetry_off = _config_dto(_vault(tmp_path, name="t", config="[hints]\ntelemetry_enabled = false\n").root)
+    assert on["hints"] == {"adaptiveEnabled": True, "authoredOfferAfterSeconds": 4.0, "helpStyle": "balanced"}
+    assert "hints" not in off and "hints" not in telemetry_off
+    assert {key: value for key, value in on.items() if key != "hints"} == off == telemetry_off
+
+
+def test_h2b_the_app_snapshot_through_the_sidecar_carries_no_hints_key_when_off(tmp_path):
+    paths = _vault(tmp_path, config=ADAPTIVE_OFF)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    # What load_vault answers (``ctx.app_snapshot``), as the app reads it.
+    snapshot = METHOD_REGISTRY["load_vault"].handler(ctx, None)
+    assert "hints" not in snapshot["config"]
+    paths_on = _vault(tmp_path, name="on")
+    ctx_on = SidecarContext()
+    ctx_on.load(paths_on.root)
+    assert METHOD_REGISTRY["load_vault"].handler(ctx_on, None)["config"]["hints"]["adaptiveEnabled"] is True
+
+
+def test_h2b_set_help_style_writes_the_one_stored_preference_and_reloads(tmp_path):
+    from learnloop_sidecar.errors import SidecarError
+
+    paths = _vault(tmp_path)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    toml = paths.root / "learnloop.toml"
+    answer = _call(ctx, "practice.set_help_style", {"helpStyle": "guide_me"})
+    assert answer["helpStyle"] == "guide_me"
+    vault, _repository = ctx.require_vault()
+    assert vault.config.hints.help_style == "guide_me"
+    assert 'help_style = "guide_me"' in toml.read_text()
+    # The same style again writes nothing.
+    before = toml.read_bytes()
+    assert _call(ctx, "practice.set_help_style", {"helpStyle": "guide_me"})["helpStyle"] == "guide_me"
+    assert toml.read_bytes() == before
+    # The chooser reads it per request (the state's help style).
+    from learnloop.db.repositories import Repository
+    from learnloop.hints.state import assemble_state
+
+    item = vault.practice_items[ITEM]
+    state = assemble_state(vault, Repository.attach(paths.sqlite_path), item, session_id="s", submission_id="k",
+                           work_md="", seconds_on_item=None, now_iso="2026-10-18T09:00:00Z")
+    assert state.help_style == "guide_me"
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises((ValidationError, SidecarError)):
+        _call(ctx, "practice.set_help_style", {"helpStyle": "lazy"})
+
+
+def test_h2b_outcome_placement_follows_the_adaptive_kill_switch(tmp_path, monkeypatch):
+    """With adaptive hints off no outcome placement starts, even with a
+    client injected (there are no shown service hints, and the switch is read
+    first)."""
+
+    from learnloop.hints import map_builder
+
+    started: list = []
+    monkeypatch.setattr(map_builder.BackgroundBuilds, "launch", lambda self, *a, **k: started.append(a) or None)
+    paths = _vault(tmp_path, config=ADAPTIVE_OFF)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    ctx.hint_outcome_client = object()
+    session_id = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    _call(ctx, "submit_attempt", {"sessionId": session_id, "practiceItemId": ITEM, "answerMd": "U, Sigma",
+                                  "attemptType": "independent_attempt", "hintsUsed": 0, "submissionId": "k1",
+                                  "selfGrade": {"criterionPoints": {}, "confidence": 3}})
+    assert started == []

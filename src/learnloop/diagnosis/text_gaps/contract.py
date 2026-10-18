@@ -30,11 +30,14 @@ PIPELINE_VERSION = "learner-text-gaps-v1"
 #: Versioned provenance of what the pipeline writes into the vault: a created
 #: concept / LO, an added prerequisite edge (the serving gate reads it).
 PROVENANCE_MECHANISM = LEARNER_TEXT_GAP_MECHANISM
-SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text")
+SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "workbench_text", "hint_feedback")
 #: The kinds this pipeline reads today: ``workbench_text`` is admitted by the
 #: schema (migration 208) for RW2b, which builds its adapter; until then a
 #: queued one is skipped as having nothing to read.
-READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative")
+#: Adaptive hints H2b (migration 212) adds ``hint_feedback``: the practice
+#: screen's "doesn't connect" text and discriminating answers, read from
+#: ``help_assists`` (:func:`~.sources.hint_feedback_text`).
+READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak
@@ -43,7 +46,10 @@ READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_
 #: (or RW2b's workbench text, RW2d) needs its own algorithm successor with a
 #: kill switch (Codex review of RW1b, F1). Before RW1b no row of either kind
 #: existed, so excluding them changes nothing that was served.
-NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text")
+#: ``hint_feedback`` (adaptive hints H2b) joins them for the same reason: a
+#: gap named in a reply to a hint is content and the next hint's rivals,
+#: never a serving change (spec_adaptive_hints_v1 §9; no successor).
+NON_SERVING_SOURCE_KINDS = ("reader_formative", "workbench_text", "hint_feedback")
 #: The kinds, plus ``unread`` (the context model's reading failed and the
 #: Decider gave none either).
 KINDS = LEARNER_GAP_KINDS

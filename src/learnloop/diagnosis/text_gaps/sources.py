@@ -476,6 +476,137 @@ def reader_formative_text(vault: LoadedVault, repository: Repository, question_i
     )
 
 
+#: Adaptive hints H2b: the two roles of a ``hint_feedback`` text (spec §9).
+HINT_FEEDBACK_ROLES = ("hint_feedback", "discriminate_answer")
+#: Bounds on what the reader is shown besides the text (prompt size only).
+HINT_TEXT_CHARS = 2_000
+
+
+def hint_feedback_row(repository: Repository, assist_id: str) -> dict[str, Any] | None:
+    """A practice-screen ``help_assists`` row whose learner text is a
+    ``hint_feedback`` source (spec §9), with its role, or None: a "doesn't
+    connect" reply with text (``request = 'feedback'``, role
+    ``hint_feedback``) or an answer to a discriminating question
+    (``assist_kind = 'discriminate_answer'``, role ``discriminate_answer``).
+    Outside the workbench only: the workbench's texts are ``workbench_text``."""
+
+    with repository.connection() as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                              ).fetchone() is None:
+            return None
+        cursor = connection.execute("SELECT * FROM help_assists WHERE id = ?", (assist_id,))
+        raw = cursor.fetchone()
+        if raw is None:
+            return None
+        row = dict(zip([column[0] for column in cursor.description], raw))
+    if row.get("surface") == "workbench" or not str(row.get("feedback_text") or "").strip():
+        return None
+    if row.get("assist_kind") == "discriminate_answer":
+        row["role"] = "discriminate_answer"
+    elif row.get("assist_kind") == "hint" and row.get("request") == "feedback":
+        row["role"] = "hint_feedback"
+    else:
+        return None
+    return row
+
+
+def hint_feedback_ids(repository: Repository) -> list[str]:
+    """Every ``help_assists`` row whose text is a ``hint_feedback`` source
+    (:func:`hint_feedback_row`'s rule), oldest first: what the backlog sweep
+    and the sidecar's start-up reconciliation may queue (H2b review F4: a row
+    that committed while its job did not)."""
+
+    with repository.connection() as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                              ).fetchone() is None:
+            return []
+        rows = connection.execute(
+            "SELECT id FROM help_assists WHERE surface != 'workbench' "
+            "AND TRIM(COALESCE(feedback_text, '')) != '' "
+            "AND (assist_kind = 'discriminate_answer' OR (assist_kind = 'hint' AND request = 'feedback')) "
+            "ORDER BY requested_at, id"
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def _json_field(value: Any) -> dict[str, Any]:
+    try:
+        parsed = json.loads(value or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _assist_text(repository: Repository, item: Any, assist_id: str | None) -> tuple[str, int | None]:
+    """The text a learner replied to (a hint, or a discriminating question)
+    and its level. Worked help (levels 4-5) is not shown to the reader: it
+    can carry the item's solution, and a reader is never shown an answer key."""
+
+    if not assist_id:
+        return "", None
+    with repository.connection() as connection:
+        found = connection.execute("SELECT body_md, authored_index, level FROM help_assists WHERE id = ?",
+                                   (assist_id,)).fetchone()
+    if found is None:
+        return "", None
+    body, index, level = found[0], found[1], found[2]
+    if level is not None and int(level) >= 4:
+        return "", int(level)
+    if body:
+        return str(body)[:HINT_TEXT_CHARS], level
+    if index is not None and item is not None and 0 <= int(index) < len(item.hints):
+        return str(item.hints[int(index)])[:HINT_TEXT_CHARS], level
+    return "", level
+
+
+def hint_feedback_text(vault: LoadedVault, repository: Repository, assist_id: str) -> LearnerText | None:
+    """Adaptive hints H2b: a "doesn't connect" reply's text or a
+    discriminating answer, read by the gap reader (``hint_feedback``).
+
+    The text is the learner's own; the context is the item's question, its
+    LO, the role, and what the learner was answering (the hint replied to,
+    with the shortcut, or the question asked), never the item's answer key or
+    worked help. The item's LO anchors it and its subject grounds it; the
+    gap row carries the item, so a gap named mid-attempt joins the next
+    hint's rivals (``learnloop.hints.discriminating``)."""
+
+    row = hint_feedback_row(repository, assist_id)
+    if row is None:
+        return None
+    item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+    if item is None:
+        return None
+    lo = vault.learning_objects.get(item.learning_object_id)
+    context: dict[str, Any] = {"surface": "hint_feedback", "role": row["role"], "question": item.prompt}
+    if lo is not None:
+        context["learning_objects"] = [lo.title]
+    if row["role"] == "hint_feedback":
+        answered = _json_field(row.get("options_json")).get("answered_assist_id")
+        hint, level = _assist_text(repository, item, answered)
+        context["hint_replied_to"] = hint or ("worked help (not shown)" if level and level >= 4 else "")
+        if row.get("feedback_shortcut"):
+            context["shortcut"] = str(row["feedback_shortcut"])
+    else:
+        question_id = _json_field(row.get("placement_json")).get("question_assist_id")
+        question, _level = _assist_text(repository, item, question_id)
+        context["question_asked"] = question
+    subject = item.subjects[0] if getattr(item, "subjects", None) else (
+        lo.subjects[0] if lo is not None and lo.subjects else None)
+    return LearnerText(
+        source_kind="hint_feedback",
+        source_id=str(row["id"]),
+        text=str(row["feedback_text"]),
+        context_judge="gap_reader",
+        created_at=str(row.get("requested_at") or ""),
+        subject_id=subject,
+        anchor_learning_object_ids=(item.learning_object_id,) if item.learning_object_id else (),
+        practice_item_id=item.id,
+        attempt_id=row.get("attempt_id"),
+        reading=None,
+        context=context,
+    )
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -488,6 +619,8 @@ def learner_text(
         return stuck_answer_text(vault, repository, source_id, stuck_source)
     if source_kind == "reader_formative":
         return reader_formative_text(vault, repository, source_id)
+    if source_kind == "hint_feedback":
+        return hint_feedback_text(vault, repository, source_id)
     if source_kind == "workbench_text":
         # Admitted by the schema (migration 208); RW2b builds this adapter.
         # Until then there is nothing to read, so the job is skipped.
@@ -502,6 +635,9 @@ __all__ = [
     "StuckTextSource",
     "diagnosis_text",
     "formative_row",
+    "hint_feedback_ids",
+    "hint_feedback_row",
+    "hint_feedback_text",
     "learner_text",
     "missed_formative_ids",
     "reader_formative_text",

@@ -233,17 +233,54 @@ def _fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | N
 
 
 def attach_keyless_fold(
-    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, since: str | None, attempt_id: str
+    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, since: str | None, attempt_id: str,
+    submitted_at: str | None = None,
 ) -> int:
     """A keyless attempt takes the server hint rows its fold counted (round
     3b): ``attempt_id`` set once (NULL to a value, as H0's attach writes and
     its identity trigger allows), in the attempt's own write transaction, so
     no later fold, keyed or keyless, counts them again. Only server-counted
-    hint rows: H0's authored-reveal telemetry is attached by key as before."""
+    hint rows: H0's authored-reveal telemetry is attached by key as before.
+    ``submitted_at`` (fix round 4, F12): the submit's admission time, written
+    where a row has none (the first stamp stays; no latency), so a hint
+    delivered during grading keeps its timing once an attempt takes it."""
 
     where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id, submission_id=None,
                                since=since)
-    cursor = connection.execute(f"UPDATE help_assists SET attempt_id = ? WHERE {where}", (attempt_id, *values))
+    cursor = connection.execute(
+        f"UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?) WHERE {where}",
+        (attempt_id, submitted_at, *values))
+    return int(cursor.rowcount or 0)
+
+
+def fold_row_count(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str,
+                   submission_id: str | None, since: str | None = None) -> int:
+    """How many rows a fold counts (:func:`_fold_rows`), every level: what a
+    workbench problem's record line names as "shown on the answer box"
+    before Submit (H2b fix round 3, ruling R1; read-only)."""
+
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id,
+                               submission_id=submission_id, since=since)
+    row = connection.execute(f"SELECT COUNT(*) FROM help_assists WHERE {where}", values).fetchone()
+    return int(row[0] or 0)
+
+
+def stamp_window_submitted(connection: sqlite3.Connection, *, practice_item_id: str, session_id: str,
+                           since: str | None, submitted_at: str) -> int:
+    """When a workbench submission reached the sidecar, before grading, on the
+    window's rows it folds (H2b re-review F9, under fix round 3's ruling R1:
+    :func:`_fold_rows` with no key) that are still unstamped: the first stamp
+    stays, as :func:`stamp_submitted`'s. No latency: the problem's
+    open-to-submit latency starts when the problem opened, after these hints
+    were shown on the answer box, so it is not on their basis (the report
+    counts them ``no_submit_latency``, never a wrong figure)."""
+
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id, submission_id=None,
+                               since=since)
+    cursor = connection.execute(
+        f"UPDATE help_assists SET submitted_at = ? WHERE {where} AND submitted_at IS NULL",
+        (submitted_at, *values),
+    )
     return int(cursor.rowcount or 0)
 
 
@@ -257,6 +294,7 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
-    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "insert_assist", "keyless_window_start",
-    "mark_shown", "server_fold", "stamp_submitted", "submission_assists", "submission_committed",
+    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
+    "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
+    "stamp_window_submitted", "submission_assists", "submission_committed",
 ]

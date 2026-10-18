@@ -141,10 +141,44 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
     view = _run(
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
+        server_hints=_carried_server_hints(repository, row),
         extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts,
                "presentation": _presentation(vault, repository, row)},
     )
     return to_camel(view)
+
+
+def _carried_server_hints(repository, session: dict[str, Any]) -> int:
+    """The answer box's shown server hints the problem's submit will fold
+    (H2b fix round 3, ruling R1), every level: what the record line names
+    before Submit. The same window the submit folds: the open problem's
+    practice session and item, the rows requested since the item's last
+    attempt there, whatever their key. A read; never writes."""
+
+    item_id = session.get("practice_item_id")
+    if not item_id or session.get("status") != "open":
+        return 0
+    practice_session = session.get("practice_session_id")
+    if not practice_session:
+        recent = repository.most_recent_open_session()
+        practice_session = recent["id"] if recent else None
+    if not practice_session:
+        return 0
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.help_assists import fold_row_count, keyless_window_start
+
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                                  ).fetchone() is None:
+                return 0
+            since = keyless_window_start(connection, practice_item_id=str(item_id), session_id=str(practice_session))
+            return fold_row_count(connection, practice_item_id=str(item_id), session_id=str(practice_session),
+                                  submission_id=None, since=since)
+    except Exception:  # noqa: BLE001 - a display line never fails a read
+        return 0
 
 
 def _answer(payload: dict[str, Any]) -> dict[str, Any]:
@@ -557,7 +591,11 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         plan_presentation_id=plan_presentation_id,
         declared_stuck=plan.composed.declared_stuck,
     )
-    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface)
+    # H2b fix round 3, ruling R1: the attempt folds the answer box's shown
+    # server hints by the keyless window (its practice session and item,
+    # since the item's last attempt there, whatever their key) and takes
+    # exactly those rows in its own transaction.
+    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface, hint_window_fold=True)
     vault, repository = ctx.require_vault()
     _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
          practice_session_id=practice_session_id)

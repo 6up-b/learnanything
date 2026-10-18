@@ -195,6 +195,8 @@ def test_the_migration_names_both_kinds_in_one_rebuild():
     sql = next(m for m in discover_migrations() if m.version == 208).path.read_text()
     assert sql.count("'workbench_text', 'reader_formative'") == 2
     assert "PRAGMA foreign_keys = OFF" in sql
-    # No other migration widens these CHECKs again.
-    later = [m for m in discover_migrations() if m.version > 208]
+    # No other migration widens these CHECKs again, except adaptive hints
+    # H2b's 212 (hint_feedback only): the G-H17 deviation recorded in the
+    # hints spec's §15 since H0 (tests/test_hint_feedback_widening.py).
+    later = [m for m in discover_migrations() if m.version > 208 and m.version != 212]
     assert not any("learner_text_gaps__" in m.path.read_text() for m in later)

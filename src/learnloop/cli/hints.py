@@ -56,7 +56,9 @@ def hints_report(
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Hints by surface, kind and level (authored hints are the baseline): shown, items,
-    sessions, timing, more help, the attempt's outcome and later independent success."""
+    sessions, timing, more help, the attempt's outcome and later independent success;
+    "doesn't connect" by shortcut, outcome placements, the expertise-reversal split,
+    help abuse and avoidance counts, and latency and cost per route. Read-only."""
 
     from learnloop.hints.report import build_hints_report, item_caps
 

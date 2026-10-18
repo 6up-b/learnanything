@@ -3,13 +3,13 @@ title: "learner_text_gap_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "9f23467fc4ed201165b5142ad6c2d9b55d8b94bd"
+source_commit_timestamp: "2026-10-18T14:03:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_text_gap_jobs"
   - "table learner_text_gap_jobs"
-schema_head: 211
+schema_head: 212
 table_name: "learner_text_gap_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/182_learner_text_gaps.sql`.
-- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`.
+- **Schema touched by:** `182_learner_text_gaps.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -106,6 +106,9 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_held_grade_composition.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_feedback_widening.py`
+- `tests/test_hint_h2b_review.py`
 - `tests/test_learner_text_gaps_composition.py`
 - `tests/test_learner_text_gaps_rereview.py`
 - `tests/test_learner_text_source_widening.py`
@@ -132,7 +135,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 CREATE TABLE "learner_text_gap_jobs" (
   id TEXT PRIMARY KEY,
   source_kind TEXT NOT NULL CHECK (source_kind IN (
-    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative'
+    'tutor_question', 'stuck_answer', 'diagnosis', 'workbench_text', 'reader_formative', 'hint_feedback'
   )),
   source_id TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'queued'

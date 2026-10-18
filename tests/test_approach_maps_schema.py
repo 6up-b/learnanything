@@ -20,7 +20,7 @@ from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, applied_
 from learnloop.db.stores import approach_maps as store
 from learnloop.db.table_roles import TableRole, role_for_table
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_211" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_212" / "state.sqlite"
 NOW = "2026-10-18T09:00:00Z"
 #: §9's columns, plus the revision keys and the trigger H1 adds.
 SPEC_COLUMNS = {"id", "practice_item_id", "practice_item_hash", "family_id", "version", "map_json", "seeds_json",
@@ -52,11 +52,14 @@ def _upgrade(tmp_path: Path) -> Path:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [211]
+    # Later migrations (adaptive hints H2b's 212) follow 211 on the way to head.
+    assert [migration.version for migration in applied][0] == 211
     after = _schema(database)
     assert set(after) - set(before) == {"approach_maps", "idx_approach_maps_item", "idx_approach_maps_family",
                                         "approach_maps_no_update", "approach_maps_no_delete"}
-    assert {name: sql for name, sql in after.items() if name in before} == before  # nothing else changed
+    # 212 rebuilds the two learner-text tables (their source_kind CHECK only).
+    assert {name: sql for name, sql in after.items() if name in before and not name.startswith("learner_text_gap")} \
+        == {name: sql for name, sql in before.items() if not name.startswith("learner_text_gap")}  # nothing else changed
     return database
 
 
@@ -131,8 +134,8 @@ def test_the_store_refuses_unknown_columns(tmp_path):
             store.insert_map(connection, {**_row("am_1"), "routes": "[]"})
 
 
-def test_the_head_fixture_is_at_211_in_rollback_mode():
+def test_the_head_fixture_is_at_212_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 211
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 212
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

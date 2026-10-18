@@ -109,6 +109,8 @@ AITask = Literal[
     # writer (a chat route that never resolves to Codex, spec D9).
     "hint_chooser",
     "hint_writer",
+    # Adaptive hints H2b: outcome placement (background, after submit).
+    "hint_outcome",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -210,6 +212,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Adaptive hints H2a: one hint written for the learner's current work
     # (the downgrade and the re-ask are the same operation).
     "hint_writer": "hint_writer",
+    # Adaptive hints H2b: one hinted answer placed on its item's approach map
+    # (measurement only, background).
+    "hint_outcome": "hint_outcome",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

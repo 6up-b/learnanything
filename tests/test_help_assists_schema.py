@@ -32,7 +32,7 @@ from learnloop.db.stores import help_assists as store
 from learnloop.db.table_roles import TableRole, role_for_table
 
 NOW = "2026-10-17T10:00:00.000Z"
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_211" / "state.sqlite"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_212" / "state.sqlite"
 
 #: spec_adaptive_hints_v1 §9, "This spec's columns".
 HINTS_SPEC_COLUMNS = {
@@ -136,7 +136,10 @@ def _upgrade(tmp_path: Path) -> Path:
         "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",
     }
-    assert {name: sql for name, sql in after.items() if name in before} == before  # nothing else changed
+    # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
+    # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
+    assert {name: sql for name, sql in after.items() if name in before and not name.startswith("learner_text_gap")} \
+        == {name: sql for name, sql in before.items() if not name.startswith("learner_text_gap")}  # nothing else changed
     return database
 
 
@@ -348,6 +351,6 @@ def test_help_assists_is_a_raw_ledger():
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
     assert HEAD.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 211
+    assert max(applied_versions(HEAD)) == max(m.version for m in discover_migrations()) == 212
     for suffix in ("-wal", "-shm", "-journal"):
         assert not HEAD.with_name(HEAD.name + suffix).exists()

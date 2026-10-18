@@ -94,9 +94,12 @@ from typing import Any, Iterable
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.hints import report_adaptive as A
+from learnloop.hints.writer import PROMPT_VERSION as _WRITER_PROMPT_VERSION
 from learnloop.vault.hashes import practice_item_hash
 
-REPORT_VERSION = "hints-report-v1"
+#: v2 (H2b): the adaptive hints' rows (§6.3) join H0's descriptive ones.
+REPORT_VERSION = "hints-report-v2"
 #: How many items the per-item list shows (a display cap).
 TOP_ITEMS = 20
 #: The intervals' nominal coverage, and the normal quantile Wilson uses for it.
@@ -107,6 +110,17 @@ UNAIDED_UNKNOWN_REASONS = (
     "more_help_followed", "primed", "help_not_ordered", "help_order_ambiguous", "workbench_state_unknown",
     "help_count_capped",
     "help_cap_unknown", "ungraded", "not_fully_correct",
+)
+#: H2b: the cases where a placement, not the grade, settles unaided progress.
+_REACHED = ("reached", "reached_next_placement", "reached_outcome_placement")
+_NOT_REACHED = ("not_reached_next_placement", "not_reached_outcome_placement")
+#: The row columns the report reads: never the learner's text (``feedback_text``)
+#: or a hint's text (``body_md``).
+_ROW_COLUMNS = (
+    "id, surface, assist_kind, hint_kind, level, practice_item_id, practice_item_hash, practice_session_id, "
+    "attempt_id, submission_id, authored_index, work_chars, work_hash, counted_by, requested_at, shown_at, "
+    "submitted_at, submit_latency_seconds, request, feedback_shortcut, options_json, contract_failures_json, "
+    "chooser, latency_ms, prompt_version, target_node_id, from_node_id, route_id, map_id, horizon"
 )
 #: Why "seconds into the attempt" is unknown for a row.
 INTO_ATTEMPT_UNKNOWN_REASONS = ("no_submit_time", "no_submit_latency")
@@ -140,6 +154,15 @@ def _own_disclosure(reveal: Mapping[str, Any], submission_id: str | None) -> boo
     except ValueError:
         return False
     return isinstance(identity, dict) and identity.get("submission") == submission_id
+
+
+def _hint_reveal(reveal: Mapping[str, Any]) -> bool:
+    """A shown hint's own key overlap (H2a's delivery: ``tutor_answer`` with
+    basis ``hint:<kind>:L<level>``): the hint is one of the help rows already,
+    so its reveal is not other assistance (H2b)."""
+
+    basis = reveal["basis"]
+    return reveal["source_kind"] == "tutor_answer" and isinstance(basis, str) and basis.startswith("hint:")
 
 
 def _wilson(count: int, of: int) -> dict[str, Any] | None:
@@ -271,12 +294,19 @@ def build_hints_report(
         rows = [
             dict(row)
             for row in connection.execute(
-                "SELECT id, surface, assist_kind, hint_kind, level, practice_item_id, practice_item_hash, "
-                "practice_session_id, attempt_id, submission_id, authored_index, work_chars, counted_by, "
-                "requested_at, shown_at, submitted_at, submit_latency_seconds "
-                f"FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
+                f"SELECT {_ROW_COLUMNS} FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
                 parameters,
             ).fetchall()
+        ]
+        # H2b: every hint row of the selection, shown or not (the routes'
+        # latency, re-asks, withholds and fallbacks; help abuse).
+        all_rows = [
+            dict(row) for row in connection.execute(
+                f"SELECT {_ROW_COLUMNS} FROM help_assists"
+                + (" WHERE surface = ?" if surface is not None else "") + " ORDER BY requested_at, id",
+                [surface] if surface is not None else [],
+            ).fetchall()
+            if since_at is None or ((_when(row["requested_at"]) or now) >= since_at)
         ]
         rows = [
             row for row in rows
@@ -334,6 +364,22 @@ def build_hints_report(
             attempt_id: _other_assistance(connection, attempts[attempt_id])
             for attempt_id in sorted({row["resolved_attempt"] for row in rows if row["resolved_attempt"]})
         }
+        # H2b (§6.1, §6.3): the replies, the outcome placements and the maps
+        # the hints were placed on.
+        replies: dict[str, list[str]] = defaultdict(list)
+        for entry in A.ledger(connection, "hint_fit"):
+            rationale = A.loads(entry["rationale"]) or {}
+            replies[str(entry["left_id"])].append(str(rationale.get("shortcut") or "none"))
+        placed: dict[str, str] = {}
+        for entry in A.ledger(connection, "hint_outcome"):
+            placed[str(entry["left_id"])] = str(entry["verdict"])
+        maps = A.map_paths(connection, (row["map_id"] for row in rows))
+        smaller_steps = Counter(A.answered_id(row) for row in rows if row["request"] == "smaller_step")
+        since_iso = since_at.isoformat() if since_at else None
+        seeking = A.help_seeking(connection, all_rows, since=since_iso, percentiles=_percentiles, share=_share,
+                                 when=_when, surface=surface)
+        route_rows = A.routes(connection, all_rows, since=since_iso, percentiles=_percentiles, when=_when,
+                              writer_prompt_version=_WRITER_PROMPT_VERSION, surface=surface)
 
     def later(attempt: dict[str, Any], pool: list[dict[str, Any]]) -> str:
         """The next independent attempt's outcome, never a later one's."""
@@ -361,16 +407,36 @@ def build_hints_report(
         if row["resolved_attempt"]:
             by_attempt[row["resolved_attempt"]].append(row)
 
+    def following(row: dict[str, Any]) -> list[dict[str, Any]]:
+        """The hints shown after this one in its attempt, in order (a
+        discriminating answer is not help)."""
+
+        return sorted((other for other in by_attempt[row["resolved_attempt"]]
+                       if other["assist_kind"] == "hint"
+                       and (other["requested_at"], other["id"]) > (row["requested_at"], row["id"])),
+                      key=lambda other: (other["requested_at"], other["id"]))
+
     def unaided(row: dict[str, Any]) -> str:
-        """``reached`` when the grade settles it (§6.1), else why it is unknown."""
+        """``reached`` when the grade settles it (§6.1), ``reached_next_placement``
+        / ``not_reached_next_placement`` when the next hint's placement does
+        (H2b), ``reached_outcome_placement`` / ``not_reached_outcome_placement``
+        when the final answer's outcome placement does, else why it is unknown."""
 
         attempt = attempts[row["resolved_attempt"]]
-        if any((other["requested_at"], other["id"]) > (row["requested_at"], row["id"])
-               for other in by_attempt[row["resolved_attempt"]]):
+        later = following(row)
+        if later:
+            if other_help[row["resolved_attempt"]] is None:
+                settled = A.progress_by_next_placement(row, later[0], maps)
+                if settled is not None:
+                    return f"{settled}_next_placement"
             return "more_help_followed"
         if attempt["primed"]:
             return "primed"
-        recorded = sum(1 for other in by_attempt[row["resolved_attempt"]] if other["counted_by"] == "client")
+        # Every count the attempt's hints_used holds from these rows: the
+        # client's own reveals and (H2a) the server's levels 1-3.
+        recorded = sum(1 for other in by_attempt[row["resolved_attempt"]]
+                       if other["counted_by"] == "client"
+                       or (other["counted_by"] == "server" and int(other["level"] or 3) <= 3))
         hints_used = int(attempt["hints_used"] or 0)
         if other_help[row["resolved_attempt"]] == "help" or hints_used > recorded:
             return "help_not_ordered"
@@ -386,7 +452,12 @@ def build_hints_report(
         outcome = _outcome(attempt["correctness"])
         if outcome == "ungraded":
             return "ungraded"
-        return "reached" if outcome == "correct" else "not_fully_correct"
+        if outcome == "correct":
+            return "reached"
+        verdict = placed.get(str(row["id"]))
+        if verdict in ("reached", "not_reached"):
+            return f"{verdict}_outcome_placement"
+        return "not_fully_correct"
 
     kinds: list[dict[str, Any]] = []
     for (row_surface, assist_kind, hint_kind, level), members in sorted(
@@ -400,6 +471,7 @@ def build_hints_report(
         timing_unknown = 0
         into_unknown: Counter = Counter()
         more_help = 0
+        more_help_levels: Counter = Counter()
         progress = Counter(unaided(row) for row in attached)
         for row in attached:
             attempt = attempts[row["resolved_attempt"]]
@@ -417,11 +489,10 @@ def build_hints_report(
             else:
                 timing_unknown += 1
                 into_unknown["no_submit_time"] += 1
-            if any(
-                (other["requested_at"], other["id"]) > (row["requested_at"], row["id"])
-                for other in by_attempt[row["resolved_attempt"]]
-            ):
+            later_rows = following(row)
+            if later_rows:
                 more_help += 1
+                more_help_levels[str(later_rows[0]["level"])] += 1
         counted_attempts = {row["resolved_attempt"] for row in attached}
         outcomes = Counter(_outcome(attempts[a]["correctness"]) for a in counted_attempts)
         graded = sum(outcomes.get(key, 0) for key in ("correct", "partial", "incorrect"))
@@ -460,9 +531,38 @@ def build_hints_report(
             "timing_unknown": timing_unknown,
             "more_help_in_attempt": _share(more_help, len(attached)),
             "unaided_next_progress": {
-                "reached": _share(progress.get("reached", 0), len(attached)),
+                "reached": _share(sum(progress.get(key, 0) for key in _REACHED), len(attached)),
+                "reached_by": {key.removeprefix("reached_") if key != "reached" else "grade": progress.get(key, 0)
+                               for key in _REACHED},
+                "not_reached": _share(sum(progress.get(key, 0) for key in _NOT_REACHED), len(attached)),
+                "not_reached_by": {key.removeprefix("not_reached_"): progress.get(key, 0) for key in _NOT_REACHED},
                 "unknown": {reason: progress.get(reason, 0) for reason in UNAIDED_UNKNOWN_REASONS},
             },
+            # H2b (§6.1): the level of the help that followed, the replies,
+            # the outcome placements, who chose the hint.
+            "more_help_level": dict(sorted(more_help_levels.items())),
+            "doesnt_connect": {
+                "replied": _share(sum(1 for row in members if replies.get(str(row["id"]))), len(members)),
+                "by_shortcut": {shortcut: sum(replies.get(str(row["id"]), []).count(shortcut) for row in members)
+                                for shortcut in A.SHORTCUTS},
+            },
+            "outcome_placement": {
+                **{verdict: sum(1 for row in attached if placed.get(str(row["id"])) == verdict)
+                   for verdict in ("reached", "not_reached", "unknown")},
+                "not_placed": sum(1 for row in attached if str(row["id"]) not in placed),
+                "of": len(attached),
+            },
+            "chooser": dict(sorted(Counter(str(row["chooser"]) for row in members).items())),
+            **({"waypoint": {
+                # §6.1: the goal reached *before* further help. The next
+                # hint's placement says where the work stood when more help
+                # was asked, so a goal it shows reached counts (H2b review F6);
+                # unaided() answers "more_help_followed" when it cannot say.
+                "goals_reached_without_more_help": _share(
+                    sum(1 for row in attached if unaided(row) in _REACHED), len(attached)),
+                "smaller_steps_taken": _share(sum(1 for row in members if smaller_steps.get(str(row["id"]))),
+                                              len(members)),
+            }} if hint_kind == "waypoint" else {}),
             "attempt_outcome": {key: outcomes.get(key, 0) for key in ("correct", "partial", "incorrect", "ungraded")},
             "attempt_correct": _share(outcomes.get("correct", 0), graded),
             "attempt_types": dict(sorted(Counter(attempts[a]["attempt_type"] for a in counted_attempts).items())),
@@ -471,6 +571,10 @@ def build_hints_report(
                 "learning_object": later_block(later_lo),
             },
         })
+
+    def later_independent(attempt_id: str) -> str:
+        attempt = attempts[attempt_id]
+        return later(attempt, independent_by_item.get(attempt["practice_item_id"], []))
 
     per_item_all = Counter(row["practice_item_id"] for row in rows)
     top_items = [
@@ -502,12 +606,39 @@ def build_hints_report(
         },
         "kinds": kinds,
         "top_items": top_items,
+        # H2b (§6.3): the expertise-reversal split, help abuse and avoidance,
+        # and latency and cost per route.
+        "expertise_reversal": A.expertise_reversal(
+            [row for row in rows if row["assist_kind"] == "hint" and row["counted_by"] == "server"],
+            summarize=lambda members: _split_columns(members, attempts, unaided, replies, later_independent)),
+        "help_seeking": seeking,
+        "routes": route_rows,
         "not_yet_measured": [
-            # The unaided-progress cases the grade cannot settle (H2's hint and
-            # outcome placements); the grade-settled ones are in each kind's row.
-            "unaided_next_progress_unknown_cases", "doesnt_connect", "off_policy_estimates",
-            "expertise_reversal_split",
+            # H5's estimates, after a month of H2 rows.
+            "off_policy_estimates",
         ],
+    }
+
+
+def _split_columns(members: list[dict[str, Any]], attempts: Mapping[str, Any], unaided: Any,
+                   replies: Mapping[str, list[str]], later_independent: Any) -> dict[str, Any]:
+    """The expertise-reversal split's columns for one group of hints (§6.3):
+    unaided next progress, "too big a jump" and any "doesn't connect" reply,
+    and later independent success on the item."""
+
+    attached = [row for row in members if row.get("resolved_attempt")]
+    progress = Counter(unaided(row) for row in attached)
+    later = Counter(later_independent(attempt) for attempt in {row["resolved_attempt"] for row in attached})
+    return {
+        "shown": len(members),
+        "unaided_next_progress": _share(sum(progress.get(key, 0) for key in _REACHED), len(attached)),
+        "too_big_a_jump": _share(sum(1 for row in members if "too_big" in replies.get(str(row["id"]), [])),
+                                 len(members)),
+        "doesnt_connect": _share(sum(1 for row in members if replies.get(str(row["id"]))), len(members)),
+        "later_independent_success_item": {
+            **{key: later.get(key, 0) for key in ("pass", "fail", "ungraded", "pending")},
+            "pass_rate": _share(later.get("pass", 0), later.get("pass", 0) + later.get("fail", 0)),
+        },
     }
 
 
@@ -595,8 +726,9 @@ def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None
         "SELECT source_kind, basis, attempt_id, created_at FROM reveal_events WHERE practice_item_id = ? AND amount > 0",
         (item_id,),
     ).fetchall():
-        if not _own_disclosure(reveal, attempt["submission_id"]):
-            positions.add(_window_position(reveal, **window))
+        if _own_disclosure(reveal, attempt["submission_id"]) or _hint_reveal(reveal):
+            continue
+        positions.add(_window_position(reveal, **window))
     if "inside" in positions:
         return "help"
     if "ambiguous" in positions:

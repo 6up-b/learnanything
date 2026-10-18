@@ -290,6 +290,17 @@ def test_the_pinned_hints_h2a_rpcs_are_all_of_them():
     assert set(HINTS_H2A_RPCS) == set(HINT_SERVICE_RPCS)
 
 
+# Adaptive hints H2b (spec_adaptive_hints_v1 §4.8, D5, G-H13): the hint
+# panel's help-style editor (the "⋯" menu and Settings). Desktop only.
+HINTS_H2B_RPCS = ("practice.set_help_style",)
+
+
+def test_the_pinned_hints_h2b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.hints import HINT_PANEL_RPCS
+
+    assert set(HINTS_H2B_RPCS) == set(HINT_PANEL_RPCS)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -461,7 +472,8 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
-    + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS,
+    + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
+    + HINTS_H2B_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

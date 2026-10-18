@@ -505,7 +505,7 @@ def test_the_report_describes_authored_reveals_and_what_followed(tmp_path):
     other = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
     _reveal(ctx, other, 0, key="k3")  # never submitted: unattached
     report = build_hints_report(paths.sqlite_path)
-    assert report["report_version"] == "hints-report-v1"
+    assert report["report_version"] == "hints-report-v2"
     assert {key: value for key, value in report["totals"].items() if key != "per_attempt"} == {
         "shown": 3, "items": 1, "sessions": 2, "attempts": 1, "unattached": 1, "resolved_by_submission": 0,
     }
@@ -548,7 +548,9 @@ def test_the_report_cli_reads_the_vault_read_only(tmp_path):
         "maps": {"enabled": True, "build_on_serve": True, "max_daily_cost_usd": 0.5},
         # Adaptive hints H2a's keys (the report shows the section as configured).
         "adaptive_enabled": True, "chooser_enabled": True, "choice_policy": "sample",
-        "chooser_timeout_seconds": 3.0, "help_style": "balanced", "max_daily_cost_usd": 1.0}
+        "chooser_timeout_seconds": 3.0, "help_style": "balanced", "max_daily_cost_usd": 1.0,
+        # Adaptive hints H2b's keys.
+        "authored_offer_after_seconds": 4.0, "outcome_placement_enabled": True}
     # Adaptive hints H1's section, read from the same read-only connection's database.
     assert report["maps"]["versions_stored"] == 0 and report["maps"]["validation"]["failures_by_reason"] == {}
     assert hashlib.sha256(paths.sqlite_path.read_bytes()).hexdigest() == before
@@ -910,7 +912,7 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     from learnloop.db.copies import backup_database
     from learnloop.hints.report import build_hints_report
 
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_211" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_212" / "state.sqlite"
     database = tmp_path / "state.sqlite"
     backup_database(head, database)
     with closing(connect(database)) as connection:

@@ -57,6 +57,20 @@ class ServerHintFold:
     #: (``stuck_attempt_type``): the item's allowed types and the probe flag.
     stuck_types: tuple[str, ...] | None = None
     stuck_probe: bool = False
+    #: A workbench submit (H2b fix round 3, ruling R1). Its attempt keeps its
+    #: own submission key (idempotency, receipts), but its fold is built with
+    #: ``submission_id=None``: the window above, the rule H2a already uses
+    #: and verified for a keyless submit. So the answer box's hints carry
+    #: into steps whatever key they were requested under, the attempt takes
+    #: them in its own transaction (:func:`attach_keyless`), and an
+    #: answer-box attempt that committed first starts the next window, so
+    #: nothing is counted twice (F10). Only the submit-time stamp reads it.
+    window_fold: bool = False
+    #: When the submission reached the sidecar (H0's admission stamp; None
+    #: without a key or telemetry). Fix round 4, F12: the rows the attempt's
+    #: transactional refold takes are stamped with it where unstamped (a hint
+    #: delivered during grading missed the submit-time stamp). No latency.
+    submitted_at: str | None = None
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
@@ -139,7 +153,7 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
     if exists is None:
         return 0
     return attach_keyless_fold(connection, practice_item_id=fold.practice_item_id, session_id=fold.session_id,
-                               since=fold.since, attempt_id=attempt_id)
+                               since=fold.since, attempt_id=attempt_id, submitted_at=fold.submitted_at)
 
 
 __all__ = ["ServerHintFold", "attach_keyless", "read_fold", "refolded_draft"]

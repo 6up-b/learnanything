@@ -209,6 +209,10 @@ def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any
         result = hint_service.request_hint(vault, worker_repo, request, writer_client=writer_client,
                                            chooser_client_factory=chooser_factory, seed=seed,
                                            cancelled=cancelled)
+        if request.request == "feedback" and (request.feedback_text or "").strip() and result.assist_id:
+            # H2b (spec §9): the reply's text is learner text, queued now so a
+            # gap it names can join the next hint's rivals.
+            _queue_learner_text(ctx, vault, worker_repo, result.assist_id)
         return result.as_dict()
 
     job = _jobs(ctx).start(ctx, item.id, work)
@@ -269,8 +273,15 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     try:
         with repository.atomic():
             outcome, row = hint_service.deliver_hint(repository, assist_id, item=item)
+            # H2b, the authored-reveal ruling: an authored hint the service
+            # serves leaves the evidence the client's reveal of the same hint
+            # leaves, which writes no reveal row (spec §3.2; §10.1 successor
+            # 3 keeps authored reveals out of the ledger in v1). It still
+            # counts at level 3 as a server row. Every other kind keeps §5's
+            # tutor_answer reveal.
             if outcome == hint_service.SHOWN and row is not None and item is not None \
-                    and row.get("hint_kind") and row.get("level"):
+                    and row.get("hint_kind") and row.get("level") \
+                    and not hint_service.reveal_exempt(str(row["hint_kind"])):
                 try:
                     amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
                     record_reveal_strict(
@@ -360,7 +371,55 @@ def answer_discriminating(ctx: SidecarContext, params: DiscriminateAnswerInput) 
             answer_md=params.answer_md)
     except HintRequestError as exc:
         raise SidecarError(exc.code, str(exc), details={"field": exc.field} if exc.field else None) from exc
+    if recorded.get("assist_id"):
+        # H2b (spec §9): a discriminating answer is learner text too.
+        _queue_learner_text(ctx, vault, repository, str(recorded["assist_id"]))
     return versioned(recorded)
 
 
-__all__ = ["HINT_SERVICE_RPCS", "HintJobs"]
+def _queue_learner_text(ctx: SidecarContext, vault: Any, repository: Any, assist_id: str) -> None:
+    """Queue a ``hint_feedback`` learner text (H2b, migration 212) and wake
+    the post-attempt worker's ``gaps`` slot. Never fails the hint."""
+
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_hint_feedback
+
+        if enqueue_hint_feedback(vault, repository, assist_id=assist_id):
+            ctx.post_attempt_worker.notify()
+    except Exception as exc:  # noqa: BLE001 - learner-text gaps never reach the hint
+        log_event("hint_feedback_enqueue_failed", assist_id=assist_id, error=type(exc).__name__)
+
+
+#: H2b: the hint panel's help-style editor (the "⋯" menu and Settings).
+HINT_PANEL_RPCS: tuple[str, ...] = ("practice.set_help_style",)
+HELP_STYLES = ("let_me_struggle", "balanced", "guide_me")
+
+
+class SetHelpStyleInput(ParamsModel):
+    help_style: Literal["let_me_struggle", "balanced", "guide_me"]
+
+
+@method("practice.set_help_style", SetHelpStyleInput)
+def set_help_style(ctx: SidecarContext, params: SetHelpStyleInput) -> dict[str, Any]:
+    """Write the one stored help-style preference every surface reads
+    (``[hints] help_style``, spec D5): from the hint panel's "⋯" menu and from
+    Settings. The narrowest write there is: no generic config write exists
+    (each Settings section has its own RPC), so this one key goes through the
+    comment-preserving settings store and the vault reloads, as
+    ``reader.set_cue_preferences`` does. A stated preference the chooser
+    weighs, never a block (§4.5). No change, no write."""
+
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+
+    vault, _repository = ctx.require_vault()
+    if vault.config.hints.help_style != params.help_style:
+        try:
+            apply_config_updates(vault.root / "learnloop.toml", {("hints", "help_style"): params.help_style})
+        except SettingsStoreError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        ctx.reload(maintenance=False)
+        vault, _repository = ctx.require_vault()
+    return versioned({"help_style": vault.config.hints.help_style})
+
+
+__all__ = ["HELP_STYLES", "HINT_PANEL_RPCS", "HINT_SERVICE_RPCS", "HintJobs"]

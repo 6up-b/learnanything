@@ -217,6 +217,20 @@ def reveal_basis(kind: str, level: int) -> str:
     return f"hint:{kind}:L{level}"
 
 
+#: H2b, the authored-reveal ruling (orchestrator, from the H2a landing): the
+#: kinds whose delivery writes no reveal row. An item's own hint revealed by
+#: the client writes none (§3.2; §10.1 successor 3 keeps authored reveals out
+#: of the reveal ledger in v1), so the same hint served by the service writes
+#: none either: one hint, one evidence trail, whichever path showed it.
+REVEAL_EXEMPT_KINDS = frozenset({"authored"})
+
+
+def reveal_exempt(kind: str) -> bool:
+    """Whether a delivered hint of ``kind`` writes no ``reveal_events`` row."""
+
+    return kind in REVEAL_EXEMPT_KINDS
+
+
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
@@ -778,6 +792,10 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
             "outcome": served.outcome, "reason": served.reason, "rounds": served.rounds,
             "chooser_reason": choice.reason if choice is not None else None,
             "state_unread": state.unread,
+            # H2b: the two state values the report's expertise-reversal split
+            # reads (§6.3), as the chooser saw them at request time.
+            "state_at_request": {"placement_intent": state.placement_intent,
+                                 "p_success": round(state.p_success, 4) if state.p_success is not None else None},
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
         }),
@@ -1043,7 +1061,9 @@ __all__ = [
     "record_discriminate_answer",
     "request_hint",
     "reveal_amount",
+    "REVEAL_EXEMPT_KINDS",
     "reveal_basis",
+    "reveal_exempt",
     "shown_text",
     "undelivered_result",
 ]

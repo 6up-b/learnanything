@@ -23,7 +23,7 @@ import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui"
 import { CardControls } from "../components/CardControls";
 import { ItemPresentation } from "../components/ItemPresentation";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
-import { algoConfig, masteryTone, STUCK_PROMPT_TEXT } from "../app/algoConfig";
+import { algoConfig, masteryTone, setAdaptiveHelpStyle, STUCK_PROMPT_TEXT } from "../app/algoConfig";
 import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
@@ -34,6 +34,8 @@ import { useAnswerExposure, type RecordDisplay } from "./feedback/answerExposure
 import { AnswerWaiting } from "./feedback/FeedbackSurface";
 import type { WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
 import { Workbench } from "./workbench/Workbench";
+import { HintPanel } from "./practice/HintPanel";
+import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -422,6 +424,34 @@ export function PracticeScreen({
     await saveDraft();
   }, [saveDraft]);
 
+  // Adaptive hints H2b (spec_adaptive_hints_v1 §4.8): hints written for the
+  // learner's work, while the sidecar says they are on (`hints` in the app
+  // snapshot's config). Off, `adaptive` is null and every path below is the
+  // base's, byte for byte (G-H1).
+  const adaptive = algoConfig().adaptiveHints;
+  const [helpStyle, setHelpStyle] = useState(adaptive?.helpStyle ?? "balanced");
+  const answerRef = useRef(answer);
+  answerRef.current = answer;
+  const adaptiveHints = useAdaptiveHints({
+    enabled: adaptive !== null,
+    sessionId: session.sessionId,
+    practiceItemId,
+    submissionId: () => submissionId.current,
+    answer: () => answerRef.current,
+    flushDraft,
+    secondsOnItem: elapsedSeconds,
+    authoredHints: item?.hints ?? [],
+    hintsUsed,
+    authoredOfferAfterSeconds: adaptive?.authoredOfferAfterSeconds ?? 4,
+    onDisabled: () => revealAuthoredHint(),
+    onAuthoredReveal: (index) => revealAuthoredAt(index),
+    onHelpStyleSaved: (style) => {
+      setAdaptiveHelpStyle(style);
+      setHelpStyle(style);
+    },
+    onError
+  });
+
   useEffect(() => registerVaultDraft({
     freeze: () => {
       vaultFrozen.current = true;
@@ -620,31 +650,81 @@ export function PracticeScreen({
   // still submits as it (review F13).
   const serveRef = useRef({ schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null });
   serveRef.current = { schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null };
+  // Adaptive hints H2b (review F2; fix round 3, ruling R2): before the
+  // answer box is hidden, the hints still being written are held (cancelled,
+  // or read once when shown first; a job whose outcome is unknown is kept and
+  // read when the answer box is back) and every poll stops, so none is
+  // delivered where the learner cannot see it. Nothing about the hints goes
+  // with the work: the problem's submit folds the hints the server showed on
+  // the answer box itself (ruling R1). Off, the hold is a no-op.
+  const enteringSteps = useRef(false);
+  // Fix round 4, F11: one answer box -> steps transition at a time. A second
+  // open or resume while one is in flight is ignored, and a failed one
+  // gives the hints back only when it is still the latest transition and
+  // the answer box is the surface showing.
+  const transition = useRef({ token: 0, busy: false });
+  const stepsShown = useRef(false);
+  const beginTransition = useCallback((): number | null => {
+    if (transition.current.busy) return null;
+    transition.current = { token: transition.current.token + 1, busy: true };
+    return transition.current.token;
+  }, []);
+  const endTransition = useCallback((token: number) => {
+    if (transition.current.token === token) transition.current = { ...transition.current, busy: false };
+  }, []);
+  const handOff = useCallback(async (): Promise<number> => {
+    enteringSteps.current = true;
+    await adaptiveHints.hold();
+    return adaptiveHints.holdGeneration();
+  }, [adaptiveHints.hold, adaptiveHints.holdGeneration]);
+  const handOffFailed = useCallback((token: number, heldAt: number | undefined) => {
+    if (token !== transition.current.token || stepsShown.current) return;
+    enteringSteps.current = false;
+    adaptiveHints.resume(heldAt);
+  }, [adaptiveHints.resume]);
+  const showSteps = useCallback((next: WorkbenchSessionDto) => {
+    stepsShown.current = true;
+    setWbSession(next);
+  }, []);
   const openWorkbench = useCallback(async () => {
     if (!item) return;
+    const token = beginTransition();
+    if (token === null) return;
+    let heldAt: number | undefined;
     try {
+      heldAt = await handOff();
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
-      setWbSession(result.session);
+      showSteps(result.session);
     } catch (error) {
+      handOffFailed(token, heldAt);
       onError(errorMessage(error, "Couldn't open the step workbench."));
+    } finally {
+      endTransition(token);
     }
-  }, [item, onError, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, showSteps, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
+    const token = beginTransition();
+    if (token === null) return;
+    let heldAt: number | undefined;
     try {
+      heldAt = await handOff();
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
-      setWbSession(result.session);
+      showSteps(result.session);
     } catch (error) {
+      handOffFailed(token, heldAt);
       onError(errorMessage(error, "Couldn't reopen your steps."));
+    } finally {
+      endTransition(token);
     }
-  }, [onError, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, onError, showSteps, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
@@ -682,6 +762,15 @@ export function PracticeScreen({
   assistPendingRef.current = assistPending;
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
   const stepsMode = workbenchAvailable && wbSession !== null;
+  stepsShown.current = stepsMode;
+  // H2b review F2: hints are asked for again once the answer box is back.
+  useEffect(() => {
+    if (stepsMode) {
+      enteringSteps.current = false;
+    } else if (!enteringSteps.current) {
+      adaptiveHints.resume();
+    }
+  }, [stepsMode, adaptiveHints.resume]);
   // A book counted on this problem, in steps left this visit or on its open
   // problem (after a restart too), counts on the answer box as one hint.
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
@@ -796,11 +885,45 @@ export function PracticeScreen({
       onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
       return;
     }
+    if (adaptive) {
+      // Adaptive hints H2b: the press asks for a hint written for this work,
+      // only where its panel is shown (review F2: never in steps, whichever
+      // control was pressed).
+      if (stepsMode || enteringSteps.current) return;
+      void adaptiveHints.press();
+      return;
+    }
+    revealAuthoredHint();
+  }
+
+  /** Today's authored path, exactly (with adaptive hints off, or when the
+   *  sidecar answers that they are). */
+  function revealAuthoredHint() {
     // Adaptive hints H0: the hint this press shows (none past the last one).
     if (item && session.sessionId && hintsUsed < item.hints.length) {
       recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
     }
     setHintsUsed((value) => Math.min(item?.hints.length ?? 0, value + 1));
+  }
+
+  /** Adaptive hints H2b: the item's hint `index`, taken instead of a hint
+   *  still being written (the request was cancelled first): the client's
+   *  own reveal, client-counted as before. Resolves to its telemetry row. */
+  async function revealAuthoredAt(index: number): Promise<string | null> {
+    if (!item || !session.sessionId) return null;
+    // Counted at once for a hand-off into steps that reads it before the
+    // next render (review F1); the render sets the ref from the state.
+    carriedRef.current = { ...carriedRef.current, hints: carriedRef.current.hints + 1 };
+    setHintsUsed((value) => value + 1);
+    try {
+      const recorded = await Promise.resolve(api.recordHintReveal?.({
+        sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current,
+        authoredIndex: index, answerMd: answer, revealedAt: new Date().toISOString()
+      }));
+      return recorded?.assistId ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async function stopDiagnosing() {
@@ -1658,11 +1781,12 @@ export function PracticeScreen({
                 />
               </div>
             ) : null}
-            {item.hints.slice(0, hintsUsed).map((hint, index) => (
+            {item.hints.slice(0, hintsUsed - adaptiveHints.clientRevealCount).map((hint, index) => (
               <div className="hint-banner" key={hint}>
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
+            {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
             {hintsUsed > item.hints.length ? (
               // Hints seen in steps that the item no longer shows still count (final F2).
               <div className="hint-banner" data-testid="hints-carried">
@@ -1741,8 +1865,10 @@ export function PracticeScreen({
                 {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
                   <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting || assistPending}>Submit</PrimaryAction>
                 )}
-                {!probeActive && !onYourOwnCheck && hintsUsed < item.hints.length && !selfGradeVisible ? (
-                  <QuietAction onClick={revealHint} disabled={submitting}>{hintsUsed > 0 ? "Hint again" : "Hint"}</QuietAction>
+                {!probeActive && !onYourOwnCheck && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
+                  <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
+                    {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
+                  </QuietAction>
                 ) : null}
                 {stuckPrompt && !stuck && !selfGradeVisible ? (
                   <QuietAction onClick={pressStuck} disabled={submitting}>I'm stuck</QuietAction>
@@ -1803,7 +1929,8 @@ export function PracticeScreen({
       </div>
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
-        ...(probeActive || onYourOwnCheck || item.hints.length === 0 ? [] : [{ key: "^h", label: "hint" }]),
+        ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []
+          : [adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
@@ -1819,7 +1946,7 @@ export function PracticeScreen({
         { key: "esc", label: "today" }
       ] : [
         { key: "^enter", label: "submit" },
-        { key: "^h", label: "hint" },
+        adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" },
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         { key: "?", label: "ask tutor" },

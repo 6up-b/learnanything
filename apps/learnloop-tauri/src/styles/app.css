@@ -337,6 +337,19 @@ button { color: inherit; }
   font-size: 12px;
 }
 .keybar b { color: var(--text); }
+/* Adaptive hints H2b (D13): a key-bar entry that is also a control looks
+   like the label it was; static, nothing moves. */
+.keybar-control {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.keybar-control:hover { text-decoration: underline; text-underline-offset: 3px; }
+.keybar-control:focus-visible { outline: 1px solid var(--border-strong); outline-offset: 2px; }
 
 .form-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .segmented { display: inline-flex; border: 1px solid var(--border); }

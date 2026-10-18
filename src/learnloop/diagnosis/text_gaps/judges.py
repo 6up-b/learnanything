@@ -222,6 +222,9 @@ def kind_state(text: LearnerText) -> dict[str, Any]:
         "reader_formative": "an answer the learner wrote to a short question while reading, then judged "
                             "as only partly right or not right",
         "workbench_text": "text the learner wrote while working a problem beside the book",
+        "hint_feedback": "text the learner wrote back to a hint while answering a question: a reply saying the "
+                         "hint did not connect to their work, or an answer to a question that tells two "
+                         "explanations of their trouble apart",
     }[text.source_kind]
     return {"learner_text": text.text, "what_it_is": surface, "about": dict(text.context)}
 

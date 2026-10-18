@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "9f23467fc4ed201165b5142ad6c2d9b55d8b94bd"
+source_commit_timestamp: "2026-10-18T14:03:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 211
+schema_head: 212
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -124,6 +124,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/hints/map_report.py`
+- `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
@@ -157,11 +158,11 @@ None found by exact static reference scan.
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination.py`
 - `tests/test_graph_nomination_ingest.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_outcome.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
-- `tests/test_interaction_signals.py`
-- `tests/test_intervention_outcomes_replayer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "9f23467fc4ed201165b5142ad6c2d9b55d8b94bd"
+source_commit_timestamp: "2026-10-18T14:03:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 211
+schema_head: 212
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -165,6 +165,7 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_exam_protection.py`
 - `tests/test_grading_cli.py`
+- `tests/test_hint_feedback_texts.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_reader_active_reading.py`
@@ -180,7 +181,6 @@ Indexes and uniqueness:
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_rw4_kill_switches.py`
 - `tests/test_source_exercise_import.py`
-- `tests/test_voi_stopping.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

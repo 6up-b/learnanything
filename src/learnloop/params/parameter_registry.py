@@ -996,6 +996,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "the hint writer's and chooser's metered spend a UTC day / the chooser's time box before the "
         "fallback serves; money and latency bounds, no measurement authority (no constant decides which "
         "hint a learner gets, spec H3)."),
+    # Adaptive hints H2b: how long a hint is written before the practice
+    # screen's panel offers the item's own hint instead (a display cap; the
+    # offer cancels the request first, so one hint is recorded either way).
+    _ConfigRule(_exact(
+        "hints.authored_offer_after_seconds",
+    ), "structural", "display",
+        "seconds a hint is being written before the panel offers the item's own hint instead; a display "
+        "cap, no measurement authority (no constant decides which hint a learner gets, spec H3)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

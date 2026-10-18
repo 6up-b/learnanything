@@ -3,13 +3,13 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "9f23467fc4ed201165b5142ad6c2d9b55d8b94bd"
+source_commit_timestamp: "2026-10-18T14:03:10-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 211
+schema_head: 212
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
   - "src/learnloop/hints/map_builder.py"
+  - "src/learnloop/hints/outcome.py"
   - "src/learnloop/matching/judge.py"
   - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/reader/reader_quick_check.py"
@@ -107,6 +108,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_approach_maps.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_outcome.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_recurrence_merge_composition.py`

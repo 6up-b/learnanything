@@ -114,6 +114,11 @@ import type {
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
   PracticeItemDetail,
+  HelpStyle,
+  HintCancelDto,
+  HintDiscriminateAnswerDto,
+  HintJobDto,
+  HintRequestInput,
   PracticeSubmissionAcknowledgementDto,
   PracticeSubmissionRecoveryDto,
   GetNextProbeItemDto,
@@ -544,6 +549,24 @@ export const api = {
   }) => call<{ version: number; recorded: boolean; reason: string | null; assistId: string | null }>(
     "practice_record_hint_reveal", { input },
   ),
+  /** Adaptive hints H2a/H2b: ask for a hint written for the learner's work
+   *  (a job: the answer is at once; poll hintJob, whose read that returns the
+   *  ready hint shows it). */
+  requestHint: (input: HintRequestInput) => call<HintJobDto>("practice_request_hint", { input }),
+  hintJob: (jobId: string) => call<HintJobDto>("practice_hint_job", { input: { jobId } }),
+  /** Before delivery only: the hint is never shown and counts nothing. */
+  cancelHint: (jobId: string) => call<HintCancelDto>("practice_cancel_hint", { input: { jobId } }),
+  /** A discriminating question's answer, typed in its own box (never the draft). */
+  answerDiscriminating: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+    questionAssistId: string;
+    answerMd: string;
+  }) => call<HintDiscriminateAnswerDto>("practice_answer_discriminating", { input }),
+  /** The one stored help-style preference every surface reads ([hints] help_style). */
+  setHelpStyle: (helpStyle: HelpStyle) =>
+    call<{ version: number; helpStyle: HelpStyle }>("practice_set_help_style", { input: { helpStyle } }),
   recoverPracticeSubmission: (input: {
     sessionId: string;
     practiceItemId: string;
