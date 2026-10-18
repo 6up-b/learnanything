@@ -138,6 +138,10 @@ MERGE_PURPOSE = "approach_map_merge"
 #: The receipts' owner kind, and the kind the daily cap counts.
 OWNER_KIND = "approach_map"
 ENVELOPE = "hints.maps.max_daily_cost_usd"
+#: The receipts the maps' envelope counts: the maps' own and (H2b, spec
+#: §7.3) outcome placement's, which joins the same daily cap.
+OUTCOME_OWNER_KIND = "hint_outcome"
+ENVELOPE_OWNER_KINDS = (OWNER_KIND, OUTCOME_OWNER_KIND)
 LEDGER_TASK = "approach_map_valid"
 #: ``LEARNLOOP_APPROACH_MAP_BUILDS=off``: a serve never starts a build that
 #: would resolve a real client (the test suite sets it, as it sets
@@ -188,13 +192,14 @@ def maps_envelope(vault: LoadedVault, repository: Repository, *, clock: Clock | 
     vault's spend ledger (``source_service_spend``) under its own envelope:
     each metered map request reserves its estimate in one BEGIN IMMEDIATE
     transaction checking today's total plus the estimate against the cap.
-    Today's total is the map receipts (owner kind ``approach_map``) priced at
+    Today's total is the map receipts (owner kind ``approach_map``) and outcome
+    placement's (``hint_outcome``, H2b: it joins this envelope, spec §7.3) priced at
     ``hints.price_per_million`` plus the reservations in flight; subscription
     receipts are ``estimated_only`` and count nothing."""
 
     return SharedDailyEnvelope(
         vault, repository, day=midnight(clock), cap=float(vault.config.hints.maps.max_daily_cost_usd),
-        clock=clock, name=ENVELOPE, owner_kinds=(OWNER_KIND,),
+        clock=clock, name=ENVELOPE, owner_kinds=ENVELOPE_OWNER_KINDS,
         price_per_million=vault.config.hints.price_per_million)
 
 
@@ -202,7 +207,8 @@ def maps_spend_today(vault: LoadedVault, connection: sqlite3.Connection, *, cloc
     """Today's map spend as the cap counts it, with the cap and what remains."""
 
     accounting = daily_accounting(connection, vault, midnight(clock), envelope=ENVELOPE, now=utc_now_iso(clock),
-                                  owner_kinds=(OWNER_KIND,), price_per_million=vault.config.hints.price_per_million)
+                                  owner_kinds=ENVELOPE_OWNER_KINDS,
+                                  price_per_million=vault.config.hints.price_per_million)
     cap = float(vault.config.hints.maps.max_daily_cost_usd)
     return {
         "envelope": ENVELOPE, "day": accounting["day"], "cap_usd": cap, "metered_usd": float(accounting["usd"]),
@@ -672,22 +678,25 @@ def claim_key(practice_item_id: str) -> str:
     return f"{CLAIM_TASK}:{practice_item_id}"
 
 
-def _try_claim(repository: Repository, item_id: str, fence: "BuildFence | None" = None) -> _Claim | None:
+def _try_claim(repository: Repository, item_id: str, fence: "BuildFence | None" = None, *,
+               key: str | None = None, task: str = CLAIM_TASK, producer: str = OWNER_KIND) -> _Claim | None:
     owner = f"{PROCESS_TOKEN}:{new_ulid()}"
+    key = key or claim_key(item_id)
     try:
         with _fenced_txn(repository, None, fence=fence, lease=False) as connection:
             status, epoch = claim_work(
-                connection, claim_key=claim_key(item_id), task=CLAIM_TASK, producer=OWNER_KIND,
+                connection, claim_key=key, task=task, producer=producer,
                 prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
     except _LeaseLost:
         return None
     if status == CLAIMED and epoch is not None:
-        return _Claim(claim_key(item_id), owner, int(epoch), fence=fence)
+        return _Claim(key, owner, int(epoch), fence=fence)
     return None
 
 
 def _claim(repository: Repository, item_id: str, until: float | None,
-           fence: "BuildFence | None" = None) -> _Claim | None:
+           fence: "BuildFence | None" = None, *, key: str | None = None, task: str = CLAIM_TASK,
+           producer: str = OWNER_KIND) -> _Claim | None:
     """Claim the item's builds across processes, waiting until ``until``
     (``time.monotonic()``; None: until claimed; a dead holder's lease lapses
     within ``CLAIM_LEASE_SECONDS``). None: another process holds it."""
@@ -695,7 +704,7 @@ def _claim(repository: Repository, item_id: str, until: float | None,
     while True:
         if fence is not None and not fence.live():
             return None
-        claim = _try_claim(repository, item_id, fence)
+        claim = _try_claim(repository, item_id, fence, key=key, task=task, producer=producer)
         if claim is not None:
             return claim
         if until is not None and time.monotonic() >= until:
@@ -719,13 +728,17 @@ def _release(repository: Repository, claim: _Claim) -> None:
 
 @contextmanager
 def _claimed(repository: Repository, item_id: str, until: float | None, *,
-             fence: "BuildFence | None" = None) -> Iterator[_Claim | None]:
+             fence: "BuildFence | None" = None, key: str | None = None, task: str = CLAIM_TASK,
+             producer: str = OWNER_KIND) -> Iterator[_Claim | None]:
     """Hold the item's durable claim for the block, renewing its lease while
     the block runs; yields None (and holds nothing) when another process has
     it. The heartbeat sets ``claim.lost`` once the lease cannot be renewed
     (taken over, expired or its vault switched away; fix round 2, M3)."""
 
-    claim = _claim(repository, item_id, until, fence)
+    # ``key``/``task``/``producer`` (H2b): another background job of the
+    # hints package (outcome placement) takes its own durable claim through
+    # the same lease, heartbeat and fence; the defaults are the map's.
+    claim = _claim(repository, item_id, until, fence, key=key, task=task, producer=producer)
     if claim is None:
         yield None
         return

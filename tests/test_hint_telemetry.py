@@ -548,7 +548,9 @@ def test_the_report_cli_reads_the_vault_read_only(tmp_path):
         "maps": {"enabled": True, "build_on_serve": True, "max_daily_cost_usd": 0.5},
         # Adaptive hints H2a's keys (the report shows the section as configured).
         "adaptive_enabled": True, "chooser_enabled": True, "choice_policy": "sample",
-        "chooser_timeout_seconds": 3.0, "help_style": "balanced", "max_daily_cost_usd": 1.0}
+        "chooser_timeout_seconds": 3.0, "help_style": "balanced", "max_daily_cost_usd": 1.0,
+        # Adaptive hints H2b's keys.
+        "authored_offer_after_seconds": 4.0, "outcome_placement_enabled": True}
     # Adaptive hints H1's section, read from the same read-only connection's database.
     assert report["maps"]["versions_stored"] == 0 and report["maps"]["validation"]["failures_by_reason"] == {}
     assert hashlib.sha256(paths.sqlite_path.read_bytes()).hexdigest() == before

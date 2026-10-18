@@ -1179,7 +1179,23 @@ def submit_attempt_on(
         vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
         latency_seconds=params.latency_seconds,
     )
+    # Adaptive hints H2b (spec §6.1, D11): a hinted answer graded not fully
+    # correct is placed on its item's approach map in the background, after
+    # the response is built. Measurement only; the submit never waits on it,
+    # fails because of it or changes because of it.
+    _schedule_hint_outcome(ctx, vault, repository, result.attempt_id)
     return payload
+
+
+def _schedule_hint_outcome(ctx: SidecarContext, vault, repository, attempt_id: str) -> None:
+    try:
+        from learnloop.hints.outcome import schedule_outcome_placement
+
+        schedule_outcome_placement(vault, repository.sqlite_path, attempt_id,
+                                   client=getattr(ctx, "hint_outcome_client", None),
+                                   builds=getattr(ctx, "map_builds", None))
+    except Exception as exc:  # noqa: BLE001 -- never reaches the submit
+        log_event("hint_outcome_schedule_failed", attempt_id=attempt_id, error=type(exc).__name__)
 
 
 @method("submit_dont_know", DontKnowInput)
