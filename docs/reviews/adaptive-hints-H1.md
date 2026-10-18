@@ -509,3 +509,9 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`; `/tmp/learnloop-fullsuite.
 - Frontend and Tauri: unchanged, so npm, vitest, `frontend:build` and `cargo check` were not run.
 - References: `db_generate_reference.py` (head 211; new `Tables/approach_maps.md`; `Config - hints.md`; commit labels and line citations elsewhere) and `db_validate_reference.py`: **0 errors** (330 table notes, 886 leaves); `validate_vault.py`: passed (1125 notes).
 - Snapshots: `tests/cli_help_snapshot.json` rewritten (`hints`, `hints maps`, `hints maps build`); the template `.pyc` cleared before the defaults snapshots were recomputed and again before the targeted run.
+
+## 11. Commits
+
+- `3c2b23fe6` the stage (migration 211, head fixture, store, `learnloop.hints` maps, seeds, builder and report, route and config, the serve hook, CLI, import contracts, snapshots, tests, spec §15, this record).
+- `ee2f49530` the references regenerated on `3c2b23fe6` (commit labels only; `db_validate_reference` 0 errors; `validate_vault` passed).
+- This record's commit list (docs only).
