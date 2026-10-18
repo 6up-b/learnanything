@@ -86,12 +86,23 @@ def test_every_rw4a_rpc_refuses_and_writes_nothing(make, section, values):
         "what_do_i_need_first", "where_else_explained", "where_is_this_used"}
 
 
+def _without_timings(value):
+    """Wall times differ run to run; everything else must match."""
+
+    if isinstance(value, dict):
+        return {key: _without_timings(item) for key, item in value.items() if key not in ("timingsMs", "timings_ms")}
+    if isinstance(value, list):
+        return [_without_timings(item) for item in value]
+    return value
+
+
 def test_t6s_library_search_is_unchanged(make):
     _p, on = make()
     _q, off = make("library_ask", {"enabled": False})
     for deep in (False, True):
         params = {"query": QUESTION, "deep": deep}
-        assert call(on, "reader.search_sources", params) == call(off, "reader.search_sources", params)
+        assert _without_timings(call(on, "reader.search_sources", params)) == _without_timings(
+            call(off, "reader.search_sources", params))
 
 
 def test_the_readers_tutor_spans_are_unchanged(make, monkeypatch):

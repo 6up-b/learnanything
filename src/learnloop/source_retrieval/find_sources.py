@@ -275,27 +275,66 @@ def facet_lists(vault: LoadedVault, repository: Repository,
 
 
 def expanded_learning_objects(vault: LoadedVault, lo_ids: Sequence[str], kind: str) -> list[str]:
-    """The LOs one LO-graph expansion reaches from ``lo_ids``, read as the graph
-    is (similarity never creates an edge): ``prerequisites`` and
-    ``confusables`` as the LOs list them, ``applications`` the LOs that list
-    one of them as a prerequisite. Known LOs only, never the starting ones.
-    The Reader's caller-side expansion (its RW4a) reads the graph here too."""
+    """The LOs one LO-graph expansion reaches from ``lo_ids``, read as the vault
+    stores the graph (similarity never creates an edge).
+
+    ``LearningObject.prerequisites`` and ``.confusables`` name **concepts**
+    (the knowledge model's reading, as placement and the tutor's prerequisite
+    questions take them), and the concept graph adds ``prerequisite`` and
+    ``confusable_with`` edges; the LOs reached are the LOs of those concepts.
+    An entry naming an LO id directly is read as that LO.
+
+    * ``prerequisites``: the concepts an anchor LO lists, and the sources of
+      ``prerequisite`` edges into its concept;
+    * ``applications``: the LOs that list an anchor LO's concept (or the LO
+      itself) as a prerequisite, and the LOs of the concepts a ``prerequisite``
+      edge from its concept leads to;
+    * ``confusables``: the concepts an anchor LO lists as confusable, and its
+      concept's ``confusable_with`` neighbours (either direction).
+
+    Known LOs only, never the starting ones. The Reader's caller-side
+    expansion (its RW4a) reads the graph here too; the Reader review records
+    that the first reading took the lists as LO ids, which matched no real
+    vault (docs/reviews/reader-workbench-RW4a.md)."""
 
     if kind not in EXPANSIONS:
         raise ValueError(f"expand must name {', '.join(EXPANSIONS)}")
     known = vault.learning_objects
+    edges = list(getattr(vault, "edges", None) or ())
+    by_concept: dict[str, list[str]] = {}
+    for other in known.values():
+        by_concept.setdefault(str(other.concept), []).append(other.id)
+
+    def reach(names: Sequence[str]) -> list[str]:
+        found: list[str] = []
+        for name in names:
+            name = str(name)
+            found.extend([name] if name in known else by_concept.get(name, []))
+        return found
+
     related: list[str] = []
     for lo_id in lo_ids:
         lo = known.get(lo_id)
         if lo is None:
             continue
+        concept = str(lo.concept)
         if kind == "prerequisites":
-            related.extend(str(value) for value in lo.prerequisites)
+            related.extend(reach([*lo.prerequisites, *(edge.source for edge in edges
+                                                      if edge.relation_type == "prerequisite"
+                                                      and edge.target == concept)]))
         elif kind == "confusables":
-            related.extend(str(value) for value in lo.confusables)
+            related.extend(reach([*lo.confusables, *(edge.target if edge.source == concept else edge.source
+                                                    for edge in edges if edge.relation_type == "confusable_with"
+                                                    and concept in (edge.source, edge.target))]))
         else:
-            related.extend(other.id for other in known.values() if lo_id in other.prerequisites)
-    return [lo for lo in dict.fromkeys(related) if lo in known and lo not in lo_ids]
+            related.extend(other.id for other in known.values()
+                           if lo_id in other.prerequisites or concept in other.prerequisites)
+            related.extend(reach([edge.target for edge in edges
+                                  if edge.relation_type == "prerequisite" and edge.source == concept]))
+    anchors = set(lo_ids)
+    anchor_concepts = {str(known[lo_id].concept) for lo_id in lo_ids if lo_id in known}
+    return [lo for lo in dict.fromkeys(related)
+            if lo in known and lo not in anchors and str(known[lo].concept) not in anchor_concepts]
 
 
 def expansion_lists(vault: LoadedVault, repository: Repository, lo_ids: Sequence[str],

@@ -58,6 +58,38 @@ def test_the_graph_is_read_as_it_is(library):
         expanded_learning_objects(vault, ["lo_matrices"], "similar")
 
 
+def _edge(relation: str, source: str, target: str):
+    from learnloop.vault.models import ConceptEdge
+
+    return ConceptEdge(id=f"e_{source}_{target}", relation_type=relation, source=source, target=target,
+                       created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z")
+
+
+def test_concept_edges_and_lo_ids_are_read_too(library):
+    """The vault's concept graph: a prerequisite edge into the anchor's concept
+    is a prerequisite, one out of it an application, a confusable_with edge
+    either way a confusable; an entry naming an LO id is that LO."""
+
+    paths, _repository = library
+    vault = load_vault(paths.root)
+    for lo_id in ("lo_matrices", "lo_inner"):
+        vault.learning_objects[lo_id].prerequisites = []
+    vault.learning_objects["lo_matrices"].confusables = []
+    vault.edges = [_edge("prerequisite", "concept_vectors", "concept_matrices"),
+                   _edge("prerequisite", "concept_matrices", "concept_inner"),
+                   _edge("confusable_with", "singular_value_decomposition", "concept_matrices"),
+                   _edge("related", "concept_inner", "concept_matrices")]
+    assert expanded_learning_objects(vault, ["lo_matrices"], "prerequisites") == ["lo_vectors"]
+    assert expanded_learning_objects(vault, ["lo_matrices"], "applications") == ["lo_inner"]
+    assert expanded_learning_objects(vault, ["lo_matrices"], "confusables") == ["lo_svd_definition"]
+    vault.edges = []
+    vault.learning_objects["lo_matrices"].prerequisites = ["lo_vectors"]  # an LO id, read as that LO
+    assert expanded_learning_objects(vault, ["lo_matrices"], "prerequisites") == ["lo_vectors"]
+    # "related" never orders anything, and the anchor's own concept is never its prerequisite.
+    vault.learning_objects["lo_matrices"].prerequisites = ["concept_matrices"]
+    assert expanded_learning_objects(vault, ["lo_matrices"], "prerequisites") == []
+
+
 def test_the_sources_specs_expand_lists_read_the_same_graph(library):
     """The refactor kept expansion_lists' behaviour (one graph read for both)."""
 

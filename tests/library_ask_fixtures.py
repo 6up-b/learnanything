@@ -4,9 +4,13 @@
 an exam in one source set, three LOs) with a concept graph and provenance
 links the expansion can read:
 
-* ``lo_matrices`` (the question's LO) lists ``lo_vectors`` as a prerequisite
-  and ``lo_svd_definition`` as a confusable;
-* ``lo_inner`` lists ``lo_matrices`` as a prerequisite (an application);
+* each LO has its own concept, and the lists name concepts, as real vaults
+  do (``LearningObject.prerequisites`` and ``.confusables`` are concept ids);
+* ``lo_matrices`` (the question's LO) lists ``concept_vectors``
+  (``lo_vectors``'s) as a prerequisite and ``singular_value_decomposition``
+  (``lo_svd_definition``'s) as a confusable;
+* ``lo_inner`` lists ``concept_matrices`` as a prerequisite (an application
+  of ``lo_matrices``);
 * each LO is linked to its own passages (``entity_source_links``).
 
 ``OrganizerFake`` answers the library organizer from the prompt's own JSON
@@ -43,10 +47,21 @@ def _set_lo(paths: Any, lo_id: str, **values: Any) -> None:
     write_yaml(path, payload)
 
 
+CONCEPTS = {"lo_matrices": "concept_matrices", "lo_vectors": "concept_vectors", "lo_inner": "concept_inner"}
+
+
 def build_library_vault(root: Path) -> tuple[Any, Any, dict[str, list[str]]]:
     paths, repository, spans = build_textbook_vault(root)
-    _set_lo(paths, "lo_matrices", prerequisites=["lo_vectors"], confusables=["lo_svd_definition"])
-    _set_lo(paths, "lo_inner", prerequisites=["lo_matrices"])
+    concepts = read_yaml(paths.concepts_path)
+    for concept in CONCEPTS.values():
+        concepts["concepts"][concept] = {
+            "title": concept.replace("_", " ").title(), "type": "concept", "aliases": [], "description": concept,
+            "tags": [], "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z"}
+    write_yaml(paths.concepts_path, concepts)
+    for lo_id, concept in CONCEPTS.items():
+        _set_lo(paths, lo_id, concept=concept)
+    _set_lo(paths, "lo_matrices", prerequisites=["concept_vectors"], confusables=["singular_value_decomposition"])
+    _set_lo(paths, "lo_inner", prerequisites=["concept_matrices"])
     for lo_id, keys in LINKS.items():
         for extraction_id, span_id in keys:
             source_id, revision_id = SOURCES[extraction_id]
