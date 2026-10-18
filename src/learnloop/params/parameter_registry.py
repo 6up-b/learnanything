@@ -977,6 +977,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the library answer's organizer's metered spend a UTC day; a money bound, no measurement "
         "authority (its notes are display only)."),
+    # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
+    # UTC day (maps are stored help, read by no grading, scheduling, serving or
+    # replay path; validation verdicts go to judgment_ledger, never evidence).
+    _ConfigRule(_exact(
+        "hints.maps.max_daily_cost_usd",
+    ), "structural", "operational",
+        "the approach-map builds' and merges' metered spend a UTC day; a money bound, no measurement "
+        "authority (maps are help, never evidence)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(
