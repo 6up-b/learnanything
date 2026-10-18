@@ -412,3 +412,8 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`; `/tmp/learnloop-fullsuite.
 - `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml`: ok.
 - References: `db_generate_reference.py` (head 210; new `help_assists` and `Config - hints` notes; commit labels and line citations elsewhere) and `db_validate_reference.py`: **0 errors** (329 table notes, 881 leaves); `validate_vault.py`: passed (1124 notes). `desktop_validate.py` and `module_validate.py` fail on this base for files H0 does not touch (`pdfSelection/testing/syntheticBook.ts`; missing module notes such as `ai/agreement.md`); not part of this gate.
 - Snapshots: `tests/cli_help_snapshot.json` rewritten (`hints`, `hints report`, the root help); the template `.pyc` cleared before the defaults snapshots were recomputed and before the targeted run.
+
+## 12. Commits
+
+- `308b13bd8` the stage (migration 210, head fixture, store, `learnloop.hints`, the RPC and attach, config and snapshots, the report, frontend and Tauri, tests, spec §15, this record).
+- `be34c4a73` the references regenerated on `308b13bd8` (commit labels only; `db_validate_reference` 0 errors; `validate_vault` passed).
