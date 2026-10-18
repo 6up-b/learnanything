@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
+source_commit_timestamp: "2026-10-18T16:28:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -22,11 +22,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/__init__.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/ai/agreement.py"
   - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/attempts/attempts.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -170,6 +170,7 @@ None found by exact static reference scan.
 - `tests/hint_fakes.py`
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_adaptive_difficulty_ad1.py`
@@ -184,7 +185,6 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_card.py`
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_compare.py`
-- `tests/test_embedding_store.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

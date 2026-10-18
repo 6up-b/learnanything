@@ -3,8 +3,8 @@ title: "Config - decider_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
+source_commit_timestamp: "2026-10-18T16:28:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml decider_routes"
@@ -21,6 +21,7 @@ source_paths:
   - "tests/ad_fakes.py"
   - "tests/facet_identity_fakes.py"
   - "tests/structured_ai.py"
+  - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_adaptive_difficulty_ad1.py"
   - "tests/test_codex_output_schema.py"
@@ -29,7 +30,6 @@ source_paths:
   - "tests/test_decider_landing.py"
   - "tests/test_diagnosis_pipeline.py"
   - "tests/test_exam_protection_landing.py"
-  - "tests/test_facet_reword_confirm.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/decider-routes"
@@ -71,6 +71,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/ad_fakes.py`
 - `tests/facet_identity_fakes.py`
 - `tests/structured_ai.py`
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_codex_output_schema.py`
@@ -79,7 +80,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_decider_landing.py`
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_exam_protection_landing.py`
-- `tests/test_facet_reword_confirm.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "Config - reader_intent"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
+source_commit_timestamp: "2026-10-18T16:28:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_intent"
@@ -26,11 +26,11 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ai_compare.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
-  - "tests/test_chatgpt_plan_cli.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -71,11 +71,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ai_compare.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
-- `tests/test_chatgpt_plan_cli.py`
 
 ## Extension and modification guidance
 

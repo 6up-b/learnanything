@@ -3,8 +3,8 @@ title: "Config - adaptive_difficulty"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
+source_commit_timestamp: "2026-10-18T16:28:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml adaptive_difficulty"
@@ -18,21 +18,21 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/adaptive_difficulty/backfill.py"
   - "src/learnloop/adaptive_difficulty/spend.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
-  - "src/learnloop/adaptive_difficulty/outside.py"
   - "tests/ad_fakes.py"
   - "tests/codex_cli_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_migration.py"
   - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_ad1_reading_opportunities.py"
   - "tests/test_adaptive_difficulty_ad1.py"
   - "tests/test_ai_config.py"
-  - "tests/test_approach_maps.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/adaptive-difficulty"
@@ -58,8 +58,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `adaptive_difficulty.outside_forecasters` | `["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]` | array | modeled default or validator seed | Controls outside forecasters in adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3137` |
 | `adaptive_difficulty.rating_tap` | `true` | boolean | modeled default or validator seed | Turns rating tap behavior on or off within adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3140` |
 | `adaptive_difficulty.feature_audit` | `true` | boolean | modeled default or validator seed | Turns feature audit behavior on or off within adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3141` |
-| `adaptive_difficulty.daily_spend_cap_usd` | `0.5` | number | modeled default or validator seed | Controls daily spend cap usd in adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3142`; `src/learnloop/adaptive_difficulty/spend.py:38` |
-| `adaptive_difficulty.price_per_million` | `null` | nullable | modeled default or validator seed | Controls price per million in adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3143`; `src/learnloop/adaptive_difficulty/feature_audit.py:352`; `src/learnloop/adaptive_difficulty/outside.py:238` |
+| `adaptive_difficulty.daily_spend_cap_usd` | `0.5` | number | modeled default or validator seed | Controls daily spend cap usd in adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3142`; `src/learnloop/adaptive_difficulty/backfill.py:182`; `src/learnloop/adaptive_difficulty/spend.py:38` |
+| `adaptive_difficulty.price_per_million` | `null` | nullable | modeled default or validator seed | Controls price per million in adaptive difficulty AD1, measure and log (no successor): the master switch; forecast_receipts (at every plan serve, in its transaction, the reading-opportunity sweep into ad_reading_opportunities, the frozen serve inputs of a never-attempted item in item_serve_inputs and the in-process forecasts as item_unassisted_success rows of forecast_receipts, and the first-hint progress marker on the attempt); outside_forecasters (llm_v1:item once per item revision and llm_v3:llm / llm_v3:decider per presentation, in the background on routes ad_forecast_llm and ad_forecast_decider); rating_tap (the optional Felt tap stored on the attempt); feature_audit (one Decider judgment per audited task-feature dimension in judgment_ledger, LLM fallback on ad_feature_audit); the metered daily cap and the owner's price for a metered LLM route; logged only, nothing serving, scoring, scheduling, evidence or certification reads them, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:3143`; `src/learnloop/adaptive_difficulty/backfill.py:121`; `src/learnloop/adaptive_difficulty/feature_audit.py:392` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -74,12 +74,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_config.py`
-- `tests/test_approach_maps.py`
 
 ## Extension and modification guidance
 

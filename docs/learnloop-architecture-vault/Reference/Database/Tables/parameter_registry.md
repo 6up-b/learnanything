@@ -3,8 +3,8 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62cff2d6d93c4be37da5662fa10e6a758291dc4d"
-source_commit_timestamp: "2026-10-18T15:39:39-04:00"
+source_commit: "5db4ad2a18e57f9c0a5f5f36cd6fe49a6f133fcd"
+source_commit_timestamp: "2026-10-18T16:28:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_architecture.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_grading_cli.py`
