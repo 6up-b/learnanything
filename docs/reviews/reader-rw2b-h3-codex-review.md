@@ -144,3 +144,70 @@ Test files run: test_active_errors_overlay.py test_ai_compare.py test_approach_m
    claim edited out.
 3. **Binding is textual (F3, F14).** A learner who writes `\frac{1}{2}` where the model writes `1/2` gets the model's
    reading, never a wrong `checked`. A sympy-level binding that parses the learner's LaTeX is left for later.
+
+## Re-review (Codex job `20261018-172852-5htI4v`, `ca196c450..reader/rw2b`)
+
+Codex confirmed **F1** and **F2** fixed, **reopened F3** and raised **F16** (Medium). Both were reproduced
+with failing tests first, then fixed in `0ead90ec9`; the references were regenerated on top. **None rejected.**
+**Paid calls: none ($0.00).** Every model is a fake; no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Assistance created after admission escapes the count | confirmed fixed by Codex | `7ce123267` | no change |
+| F2 | High | Numerical sampling certifies false identities | confirmed fixed by Codex | `7ce123267` | no change |
+| F3 (reopened) | High | Substring binding lets part of a side validate the whole step | fixed | `0ead90ec9` | `test_reader_rw2b_review.py::test_f3r_*` (5 tests). All 5 failed on the old binder; the end-to-end repro (`x + x = 2*x + 1`, declared `x+x → 2*x`) came back `valid, checked, ✓` and now stays `questionable, model, ?`. |
+| F16 | Medium | New hint claims bypass answer-leak filtering | fixed | `0ead90ec9` | `test_f16_a_claim_that_states_the_answer_withholds_the_hint_and_is_never_stored`, `test_f16_a_harmless_claim_is_kept_and_a_leaking_one_re_asks`. Both failed on the old code (one writer call, the leaking claim served). |
+
+* **F3 (reopened).** The binder is now its own pure module, `learnloop.workbench.binding`, and the check
+  (`claims_from`) and a hint's claims (`hint_claim_verifier`) share it through `check._bound`. The step's text is
+  read as relations. It is split outside brackets at separators (line breaks, `;`, `:`, `, `, a sentence's `.`,
+  `⇒`, the connectives *so / and / or / then...*, and the qualifiers *on / for / where / if / with...*, whose
+  conditions become relations of their own), then at `=`, `<`, `≤`, `≠`, `≈`. A transformation binds only when the
+  step asserts **exactly one relation** that the problem or an earlier step did not already state, and that relation
+  is the transformation's:
+  * the operator is `=` (an inequality's own relation);
+  * the right side is the **whole** result (`1` for a normalization);
+  * the left side is the **whole** input: equal to it (equivalence, inequality), the whole operand of the kind's
+    operator (`d/dx(...)`, `\frac{d}{dx}(...)`, `(...)'`, `\int ... dx`, `\lim_{...}`, `\sum_..^..`,
+    `[...]_a^b`, `...|_{x=a}`), or a one-letter name (`F(x)`, `f'(x)`, `P(X ≤ 1/2)`) that stands for a whole side
+    written in the problem or an earlier step;
+  * a step that starts with `=` continues the step before it (its left side is that step's last side);
+  * for solving, the relation is `variable = result`, and the solved equation is written whole in the problem, an
+    earlier step or the step.
+
+  So `x + x = 2*x + 1`, `y + x + x = 2x`, `d/dx (x^3 + x) = 3x^2` (claim `x^3 → 3x^2`), `x + x = 2x = 5`,
+  `x = 2 or x = -2` and a bare expression stay the model's reading. An unbound claim is still run and recorded as
+  before (`bound = false`, `transformation_not_in_step:<n>`). The F14 test fixture `FALSE_CLAIM` had been bound only
+  by the old substring artifact (`2` inside `x^2`). It now names a step that writes the false derivative
+  (`F'(x) = 2`).
+* **F16.** `hints.workbench.verify_claims` takes the item and the map (`service.py` passes `item` and
+  `state.map`) and runs every claim's statement through H2a's level-aware `leak_flags`, the same check as the hint's
+  text and plan labels. Worked levels 4-5 are exempt there, as in H2a. A leaking statement adds
+  `claim_<flag>:<step>` to `check.leaks`, so the round is re-asked and then withheld, like any leak. It is recorded
+  with status `withheld`, its flags, and an empty statement, so its words are never stored in
+  `contract_failures_json` or shown.
+
+### Gate (re-review step)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over the 46 files below (every test file that greps for `workbench.check`, `hints.workbench`, `hints.service`, `hint_service`, `verify_claims`, `workbench_help` or the hint/workbench fakes; every `test_workbench*.py` and `test_reader_workbench*.py`; and the contract tests: architecture, serializer snapshot, desktop RPC contract, sidecar contract, mobile allowlist, table roles, coordinated migrations, tracked fixture databases, registry audit, help-assists schema) | **822 passed** (54.9 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_review.py`, `test_workbench_check.py`, `test_workbench_hints.py` | **63 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved; there is no schema change. |
+| frontend (`npm`), `cargo check` | not run: nothing under `apps/` changed |
+
+There is no migration, no config key and no RPC or serializer change.
+
+Test files run: test_approach_map_replay.py test_architecture.py test_coordinated_migrations.py test_desktop_rpc_contract.py test_help_assists_schema.py test_hint_authored_reveal_ruling.py test_hint_blind.py test_hint_contracts.py test_hint_discriminating.py test_hint_evidence.py test_hint_feedback_texts.py test_hint_h2a_review.py test_hint_h2a_review_round2.py test_hint_h2a_review_round3.py test_hint_h2a_review_round4.py test_hint_h2b_fix3.py test_hint_h2b_fix4.py test_hint_h2b_rereview.py test_hint_h2b_review.py test_hint_kill_switch.py test_hint_outcome.py test_hint_replies.py test_hint_report.py test_hint_service.py test_mobile_allowlist.py test_reader_rw2b_review.py test_reader_workbench_rw2a.py test_registry_audit.py test_sidecar_contract.py test_sidecar_serializer_snapshot.py test_table_roles.py test_tracked_fixture_databases.py test_workbench_assistance.py test_workbench_check.py test_workbench_check_kinds.py test_workbench_check_map.py test_workbench_chooser.py test_workbench_discriminate.py test_workbench_help_kill_switch.py test_workbench_hint_service.py test_workbench_hints.py test_workbench_in_session_gaps.py test_workbench_report.py test_workbench_step_graph.py test_workbench_text_gaps.py test_workbench_trace.py
+
+### Open question (default taken)
+
+* **Stricter binding (F3).** Some natural steps now get the model's reading where the old binder said *checked*:
+  a chain `a = b = c`, a step that defines and then derives (`f(x) = x^3, so f'(x) = 3x^2`), and an assertion with
+  prose before its left side (`We have x + x = 2x` and `Adding gives x + x = 2x` bind; `Adding up x + x = 2x` does not). The default is the
+  honest label, never a wrong *checked*. A sympy-level parse of the learner's LaTeX that could bind a chain
+  link by link is left for later.
