@@ -760,3 +760,75 @@ implemented in `7333da6d8`, with no schema change.
 - Not run: references (no schema change), and the frontend and cargo. The
   full suite, the whole durability lane and vitest are left for the landing
   gate.
+
+## Fix round 6 (after Codex job 20261018-041655-wgruxL)
+
+The Codex verify of `2dc621957` confirmed the round-5 rule set, the lifecycle
+and every boundary. It reported one Medium and three Lows. C1–C3 are fixed in
+`dc60570bf`, following the orchestrator's rulings; Codex's item 3 stays a
+known Low. There is no schema change.
+
+The 9 new tests are in `tests/test_approach_maps.py`, in the section "Fix
+round 6". They were run against `2dc621957`'s `src/` and `migrations/` (`git
+archive`, `-o pythonpath=`). Every new test function fails there: 4 failed.
+3 parametrized cases pass there and stay as controls: `2x` and `2*x` against
+`2x` verify, and `2*X` is not verified.
+
+| Codex item | ruling | severity | verdict | tests |
+|---|---|---|---|---|
+| 1 | C1 | Medium | fixed | `test_c1_structured_equality_keeps_symbol_case[2X, 2*X, 2*x, 2x]`, `test_c1_the_value_leak_check_keeps_symbol_case` |
+| 2 | C2 | Low | fixed | `test_c2_a_value_the_question_states_is_never_a_label_leak` |
+| 4 | C3 | Low | fixed | `test_c3_a_leading_dot_decimal_quantity_is_kept_whole` |
+| 3 | — | Low | known, recorded | nested grouping and spaced exponents in prose (see below) |
+
+### What changed (`hints/maps.py`)
+
+- **C1.** The structured map fields (`conclusion` under rule 3, and `value`
+  through the same rules) now use case-sensitive mathematical equality.
+  - `_structured_equal` and `_structured_differ` wrap the checker. When two
+    expressions differ only in letter case, answer_check's case-folded text
+    shortcut is bypassed. Only the exact polynomial forms decide, and those
+    keep symbol case. If those forms don't parse, nothing decides
+    (unverified).
+  - Every other pair goes through `answers_equal` / `answers_differ` as
+    before.
+  - `answer_check` and grading are unmodified.
+  - Results against `2x`: `2X` and `2*X` are never verified. Both are
+    `goal_mismatch`, because their polynomial forms decidably differ, which
+    the ruling allows. `2*x` is verified.
+  - The value leak check follows the same rule, and its
+    `norm(value) == norm(reference)` arm is already case-sensitive.
+- **C2.** `label_leaks` applies the public-given exemption first. When the
+  question itself states the answer (`states_answer(public_text, key)`), no
+  span, short-key or equivalence check can flag the label. The leak-node
+  expression check keeps its own exemption, as before. So for the question
+  "Evaluate f(t)=t at t=4." and the reference `4`, the label "Evaluate at 4"
+  is not a `label_leak`.
+  - This supersedes the F1 note "a label that the answer check flags is not
+    exempt just because the question states the value".
+- **C3.** The quantity number pattern now includes leading-dot decimals
+  (`.5`, and `.5` in a/b). `.5 m` is quantity-shaped, `exact_key` keeps it
+  whole, and the conclusion `.5` with unit `m` verifies.
+
+### Known Low (Codex item 3, recorded and not fixed)
+
+In prose, against the answer `4`, these still read the `4` as standalone and
+mark a false leak:
+
+- a denominator inside nested or square brackets: "x / ((4))", "x / [4]";
+- an exponent written with spaces: "m ^ 4".
+
+Prose detection is best-effort defence in depth. The binding leak gate is
+H2's text control (§4.6, H2 friction note 7).
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`; the lifecycle is untouched, so no thread reruns)
+
+- `uv run lint-imports --no-cache`: 26 kept, 0 broken.
+- `uv run pytest -n 8` over the same 26 files as round 5: **532 passed**.
+- `uv run pytest -m durability` over the four approach-map files: **2
+  passed**.
+- `uv run pytest -n 8 --durable-sqlite tests/test_approach_maps.py`: **159
+  passed**.
+- Not run: references (no schema change), and the frontend and cargo. The
+  full suite, the whole durability lane and vitest are left for the landing
+  gate.
