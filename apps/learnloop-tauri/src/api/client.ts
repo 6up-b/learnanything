@@ -16,6 +16,9 @@ import type {
   WorkbenchSubmitDto,
   WorkbenchSubmitInput,
   WorkbenchSummaryDto,
+  WorkbenchHelpJobDto,
+  WorkbenchHelpStateDto,
+  WorkbenchRequestHelpInput,
   ReaderRecapDto,
   ReaderRecapEvent,
   ReaderWrapUpDto,
@@ -1581,6 +1584,20 @@ export const api = {
     call<{ version: number; sessions: WorkbenchSummaryDto[] }>("workbench_for_item", { input }),
   workbenchForSource: (input: { extractionId: string }) =>
     call<{ version: number; sessions: WorkbenchSummaryDto[]; openSessionDays: number }>("workbench_for_source", { input }),
+  // Reader workbench RW2b + adaptive hints H3: "Check my work" and the help
+  // ladder (jobs: the read that returns a ready check or hint shows it).
+  workbenchCheck: (input: { sessionId: string }) => call<WorkbenchHelpJobDto>("workbench_check", { input }),
+  workbenchSuggestHelp: (input: { sessionId: string; focusedStepId?: string | null }) =>
+    call<WorkbenchHelpJobDto>("workbench_suggest_help", { input }),
+  workbenchRequestHelp: (input: WorkbenchRequestHelpInput) =>
+    call<WorkbenchHelpJobDto>("workbench_request_help", { input }),
+  workbenchHelpJob: (jobId: string) => call<WorkbenchHelpJobDto>("workbench_help_job", { input: { jobId } }),
+  workbenchCancelHelp: (jobId: string) => call<HintCancelDto>("workbench_cancel_help", { input: { jobId } }),
+  workbenchAnswerDiscriminating: (input: { sessionId: string; questionAssistId: string; answerMd: string }) =>
+    call<HintDiscriminateAnswerDto>("workbench_answer_discriminating", { input }),
+  workbenchSetHelpStyle: (input: { sessionId: string; helpStyle: HelpStyle | null }) =>
+    call<{ version: number; helpStyle: HelpStyle | null; storedHelpStyle: HelpStyle }>("workbench_set_help_style", { input }),
+  workbenchHelpState: (input: { sessionId: string }) => call<WorkbenchHelpStateDto>("workbench_help_state", { input }),
   // Reader workbench RW6a: "Last time here" and Wrap up (pure reads), and the
   // three events (recap_shown, recap_dismissed, wrap_up_opened). Desktop only.
   readerRecap: (input: { extractionId: string; visitId?: string | null }) =>

@@ -95,9 +95,8 @@ import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
-import { Workbench } from "./workbench/Workbench";
+import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
-import { MIN_WORKBENCH_WIDTH, SPLIT_STEP, clampSplitWidth } from "./workbench/splitWidth";
 import {
   askGroundingSpans,
   clip,
@@ -2663,81 +2662,18 @@ export function ReaderScreen({
         </div>
 
         {working && wbActive ? (
-          <>
-            {wbBookHidden && wbSourceShown ? (
-              // W8: the book hidden so this can be the learner's own attempt.
-              <div
-                data-testid="workbench-book-cover"
-                style={{
-                  position: "absolute", zIndex: 20, background: COLOR.bg, display: "flex", alignItems: "center",
-                  justifyContent: "center", padding: 32, textAlign: "center",
-                  ...(wbStacked ? { left: 0, right: 0, bottom: 0, top: "50%" } : { left: 0, top: 0, bottom: 0, width: `calc(100% - ${wbCtl.width + 6}px)` }),
-                }}
-              >
-                <div style={{ maxWidth: 360, fontFamily: FONT_MONO, fontSize: 12, lineHeight: 1.7, color: COLOR.textDim }}>
-                  <p style={{ margin: 0 }}>{WORKBENCH_COPY.bookHiddenCover}</p>
-                  <p style={{ margin: "10px 0 0" }}>{WORKBENCH_COPY.bookHiddenHow}</p>
-                </div>
-              </div>
-            ) : null}
-            {!wbStacked ? (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label="resize the workbench"
-                aria-valuemin={MIN_WORKBENCH_WIDTH}
-                aria-valuemax={clampSplitWidth(Number.MAX_SAFE_INTEGER, window.innerWidth)}
-                aria-valuenow={wbCtl.width}
-                tabIndex={0}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    event.preventDefault();
-                    // The workbench is on the right: dragging the edge left widens it.
-                    wbCtl.resizeBy(event.key === "ArrowLeft" ? SPLIT_STEP : -SPLIT_STEP);
-                  }
-                }}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  const startX = event.clientX;
-                  const startWidth = wbCtl.width;
-                  const onMove = (move: MouseEvent) => wbCtl.setWidth(startWidth + (startX - move.clientX));
-                  const onUp = () => {
-                    window.removeEventListener("mousemove", onMove);
-                    window.removeEventListener("mouseup", onUp);
-                  };
-                  window.addEventListener("mousemove", onMove);
-                  window.addEventListener("mouseup", onUp);
-                }}
-                style={{ width: 6, flexShrink: 0, cursor: "col-resize", borderLeft: `1px solid ${COLOR.border}`, background: COLOR.bg }}
-              />
-            ) : null}
-            <div
-              data-workbench-pane=""
-              data-layout={wbStacked ? "stacked" : "split"}
-              className="ll-scroll"
-              style={{
-                width: wbStacked ? "100%" : wbCtl.width, flexShrink: 0, minHeight: 0, overflowY: "auto",
-                ...(wbStacked ? { flex: wbSourceShown ? "0 0 50%" : "1 1 auto" } : { height: "100%" }),
-              }}
-            >
-              <Workbench
-                key={wbActive.session.sessionId}
-                initial={wbActive.session}
-                layout={wbStacked ? "stacked" : "split"}
-                readOnly={wbActive.readOnly}
-                autoFocus={wbActive.autoFocus}
-                practiceSessionId={workbench?.practiceSessionId ?? null}
-                schedulerCandidateId={wbActive.schedulerCandidateId}
-                planPresentationId={wbActive.planPresentationId}
-                onSession={wbCtl.update}
-                onLeave={(session) => leaveWorkbench(session)}
-                onAbandoned={(session) => leaveWorkbench(session, true)}
-                onSubmitted={wbCtl.submitted}
-                onShowInBook={() => wbCtl.setSheetOpen(!wbCtl.sheetOpen)}
-                onError={onError}
-              />
-            </div>
-          </>
+          <ReaderWorkingPosture
+            wbCtl={wbCtl}
+            active={wbActive}
+            stacked={wbStacked}
+            bookHidden={wbBookHidden}
+            sourceShown={wbSourceShown}
+            practiceSessionId={workbench?.practiceSessionId ?? null}
+            onLeave={(session) => leaveWorkbench(session)}
+            onAbandoned={(session) => leaveWorkbench(session, true)}
+            onPeekPassage={peekPassage}
+            onError={onError}
+          />
         ) : null}
         {comparing && render ? (
           <LibraryPane

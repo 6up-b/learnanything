@@ -301,6 +301,30 @@ def test_the_pinned_hints_h2b_rpcs_are_all_of_them():
     assert set(HINTS_H2B_RPCS) == set(HINT_PANEL_RPCS)
 
 
+# Reader workbench RW2b + adaptive hints H3 (spec_reader_workbench_v1 §5.2-5.6,
+# D20): "Check my work", the help ladder (suggest, take, reply, read, cancel),
+# the discriminating answer, the header's help style and the restored help;
+# and the RW2a RPCs they extend (the submit's fold, Leave's learner text, the
+# bind's background map). Desktop only.
+READER_RW2B_RPCS = (
+    "workbench.check",
+    "workbench.suggest_help",
+    "workbench.request_help",
+    "workbench.help_job",
+    "workbench.cancel_help",
+    "workbench.answer_discriminating",
+    "workbench.set_help_style",
+    "workbench.help_state",
+)
+READER_RW2B_EXTENDED_RPCS = ("workbench.submit", "workbench.leave", "workbench.bind", "workbench.refresh_import")
+
+
+def test_the_pinned_rw2b_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.workbench_help import WORKBENCH_HELP_RPCS
+
+    assert set(READER_RW2B_RPCS) == set(WORKBENCH_HELP_RPCS)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -473,7 +497,7 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
     + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
     + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS + HINTS_H2A_RPCS + HINTS_H2A_EXTENDED_RPCS
-    + HINTS_H2B_RPCS,
+    + HINTS_H2B_RPCS + READER_RW2B_RPCS + READER_RW2B_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

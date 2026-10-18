@@ -1,0 +1,337 @@
+// Reader workbench RW2b: one problem's checks and help (spec §5.2-5.6; UX
+// §4.0, §5.4-5.8). Every model-backed action is a job: the press answers at
+// once and the hook paces the reads (350 ms rising to 1.5 s); the read that
+// returns a ready check or hint SHOWS it (the server marks it shown and
+// counts it), so exactly what that read returns is rendered. Nothing a
+// result does moves focus, animates or opens a dialog (W12): results land
+// under their steps and the record line updates.
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "../../api/client";
+import type {
+  CheckViewDto,
+  HelpStyle,
+  HelpSuggestionDto,
+  HintShortcut,
+  LadderRungDto,
+  WorkbenchHelpJobDto,
+  WorkbenchHelpResultDto,
+  WorkbenchHintViewDto,
+  WorkbenchRecordDto,
+  WorkbenchRequestHelpInput,
+  WorkbenchStepLabelsDto,
+} from "../../api/dto";
+import { errorMessage } from "../../errors";
+import { DEFAULT_RUNGS } from "./helpModel";
+
+const FIRST_POLL_MS = 350;
+const MAX_POLL_MS = 1500;
+
+export interface LadderState {
+  open: boolean;
+  /** The step Help opened below (its chain id). */
+  focusedStepId: string | null;
+  chosen: number;
+  /** The learner moved the choice: a late suggestion no longer moves it. */
+  touched: boolean;
+  suggestion: HelpSuggestionDto | null;
+  rungs: LadderRungDto[];
+  pending: boolean;
+  steps: WorkbenchStepLabelsDto | null;
+  notice: string | null;
+}
+
+export interface HelpNotice {
+  /** The step the notice sits under (chain id), or null for the problem. */
+  stepId: string | null;
+  message: string;
+}
+
+export interface BridgeState {
+  status: "pending" | "ready" | "none";
+  line?: string;
+  spanId?: string | null;
+  extractionId?: string | null;
+}
+
+export interface WorkbenchHelp {
+  enabled: boolean;
+  hintsEnabled: boolean;
+  check: CheckViewDto | null;
+  checkPending: boolean;
+  checkNotice: string | null;
+  ladder: LadderState;
+  hints: WorkbenchHintViewDto[];
+  hintPending: { stepId: string | null } | null;
+  notice: HelpNotice | null;
+  bridges: Record<string, BridgeState>;
+  helpStyle: HelpStyle | null;
+  storedHelpStyle: HelpStyle;
+  runCheck: () => Promise<void>;
+  openHelp: (focusedStepId: string | null) => void;
+  closeHelp: () => void;
+  choose: (level: number) => void;
+  take: (level?: number) => Promise<void>;
+  reply: (hint: WorkbenchHintViewDto, reply: { shortcut?: HintShortcut; text?: string; stepId?: string | null }) => Promise<void>;
+  bookWay: (hint: WorkbenchHintViewDto) => Promise<void>;
+  smallerStep: (hint: WorkbenchHintViewDto) => Promise<void>;
+  answerDiscriminating: (hint: WorkbenchHintViewDto, answer: string) => Promise<void>;
+  cancelHint: () => Promise<void>;
+  setHelpStyle: (style: HelpStyle | null) => Promise<void>;
+}
+
+const closedLadder: LadderState = {
+  open: false, focusedStepId: null, chosen: 1, touched: false, suggestion: null, rungs: DEFAULT_RUNGS,
+  pending: false, steps: null, notice: null,
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function useWorkbenchHelp(options: {
+  sessionId: string;
+  enabled: boolean;
+  hintsEnabled: boolean;
+  storedHelpStyle: HelpStyle;
+  readOnly?: boolean;
+  /** Save the resting edits before a check or a hint reads the steps. */
+  beforeRequest: () => Promise<boolean>;
+  onRecord: (record: WorkbenchRecordDto) => void;
+}): WorkbenchHelp {
+  const { sessionId, enabled, hintsEnabled } = options;
+  const [check, setCheck] = useState<CheckViewDto | null>(null);
+  const [checkPending, setCheckPending] = useState(false);
+  const [checkNotice, setCheckNotice] = useState<string | null>(null);
+  const [ladder, setLadder] = useState<LadderState>(closedLadder);
+  const [hints, setHints] = useState<WorkbenchHintViewDto[]>([]);
+  const [hintPending, setHintPending] = useState<{ stepId: string | null; jobId?: string } | null>(null);
+  const [notice, setNotice] = useState<HelpNotice | null>(null);
+  const [bridges, setBridges] = useState<Record<string, BridgeState>>({});
+  const [helpStyle, setHelpStyleState] = useState<HelpStyle | null>(null);
+  const [storedHelpStyle, setStoredHelpStyle] = useState<HelpStyle>(options.storedHelpStyle);
+  const alive = useRef(true);
+  const generation = useRef(0);
+  const onRecordRef = useRef(options.onRecord);
+  onRecordRef.current = options.onRecord;
+  const beforeRef = useRef(options.beforeRequest);
+  beforeRef.current = options.beforeRequest;
+  const hintJob = useRef<string | null>(null);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  // A resumed problem restores its last check and its hints (§5.1).
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void api.workbenchHelpState({ sessionId }).then((state) => {
+      if (cancelled || !alive.current) return;
+      setCheck(state.check);
+      setHints(state.hints);
+      setHelpStyleState(state.helpStyle);
+      setStoredHelpStyle(state.storedHelpStyle);
+      const restored: Record<string, BridgeState> = {};
+      for (const hint of state.hints) {
+        if (hint.bridge) restored[hint.assistId] = { status: "ready", line: hint.bridge.line, spanId: hint.bridge.spanId, extractionId: hint.bridge.extractionId };
+      }
+      setBridges(restored);
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, sessionId]);
+
+  const poll = useCallback(async (started: WorkbenchHelpJobDto): Promise<WorkbenchHelpJobDto> => {
+    let job = started;
+    let wait = FIRST_POLL_MS;
+    while (job.jobId && job.state === "pending" && alive.current) {
+      await sleep(wait);
+      wait = Math.min(MAX_POLL_MS, Math.round(wait * 1.5));
+      job = await api.workbenchHelpJob(job.jobId);
+    }
+    return job;
+  }, []);
+
+  const followBridge = useCallback(async (hintAssistId: string, jobId: string) => {
+    setBridges((current) => ({ ...current, [hintAssistId]: { status: "pending" } }));
+    try {
+      const job = await poll(await api.workbenchHelpJob(jobId));
+      const result = job.result;
+      if (!alive.current) return;
+      setBridges((current) => ({
+        ...current,
+        [hintAssistId]: result && result.status === "ready" && result.shown
+          ? { status: "ready", line: result.line, spanId: result.spanId ?? null, extractionId: result.extractionId ?? null }
+          : { status: "none" },
+      }));
+    } catch {
+      if (alive.current) setBridges((current) => ({ ...current, [hintAssistId]: { status: "none" } }));
+    }
+  }, [poll]);
+
+  const runCheck = useCallback(async () => {
+    if (!enabled || checkPending || options.readOnly) return;
+    setCheckNotice(null);
+    if (!(await beforeRef.current())) {
+      setCheckNotice("Your latest steps aren't saved yet, so they can't be checked. They're safe in this window.");
+      return;
+    }
+    setCheckPending(true);
+    try {
+      const job = await poll(await api.workbenchCheck({ sessionId }));
+      const result: WorkbenchHelpResultDto | null = job.result;
+      if (!alive.current) return;
+      if (job.state === "cancelled" || !result) return;
+      if (result.check) setCheck(result.check);
+      if (result.record) onRecordRef.current(result.record);
+      if (result.status === "unchanged") setCheckNotice("Nothing changed since the last check, so it still stands.");
+      else if (result.status !== "ready" || !result.shown) setCheckNotice(result.message ?? "Couldn't check your steps just now. They're saved — try again ↵");
+    } catch (error) {
+      if (alive.current) setCheckNotice(`Couldn't reach LearnLoop's model. Your steps are saved — try again ↵ (${errorMessage(error)})`);
+    } finally {
+      if (alive.current) setCheckPending(false);
+    }
+  }, [enabled, checkPending, options.readOnly, poll, sessionId]);
+
+  const openHelp = useCallback((focusedStepId: string | null) => {
+    if (!enabled || !hintsEnabled || options.readOnly) return;
+    const mine = ++generation.current;
+    setLadder({ ...closedLadder, open: true, focusedStepId, pending: true });
+    void (async () => {
+      try {
+        await beforeRef.current();
+        const job = await poll(await api.workbenchSuggestHelp({ sessionId, focusedStepId }));
+        if (!alive.current || generation.current !== mine) return;
+        const result = job.result;
+        setLadder((current) => {
+          if (!current.open) return current;
+          if (!result || result.status !== "ready" || !result.suggestion) {
+            return { ...current, pending: false, notice: result?.message ?? null };
+          }
+          const suggestion = result.suggestion;
+          return {
+            ...current, pending: false, suggestion, rungs: suggestion.rungs.length ? suggestion.rungs : current.rungs,
+            steps: result.steps ?? null, chosen: current.touched ? current.chosen : suggestion.level,
+          };
+        });
+      } catch {
+        if (alive.current && generation.current === mine) setLadder((current) => ({ ...current, pending: false }));
+      }
+    })();
+  }, [enabled, hintsEnabled, options.readOnly, poll, sessionId]);
+
+  const closeHelp = useCallback(() => {
+    generation.current += 1;
+    setLadder(closedLadder);
+  }, []);
+
+  const choose = useCallback((level: number) => {
+    setLadder((current) => ({ ...current, chosen: Math.max(1, Math.min(5, level)), touched: true }));
+  }, []);
+
+  const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null) => {
+    if (hintJob.current) return;
+    setNotice(null);
+    await beforeRef.current();
+    setHintPending({ stepId });
+    try {
+      const started = await api.workbenchRequestHelp({ sessionId, ...input });
+      hintJob.current = started.jobId;
+      const job = await poll(started);
+      hintJob.current = null;
+      if (!alive.current) return;
+      const result = job.result;
+      if (job.state === "cancelled" || !result) return;
+      if (result.status === "ready" && result.shown && result.assistId) {
+        const view: WorkbenchHintViewDto = {
+          assistId: result.assistId, kind: result.kind ?? "next_step", level: result.level ?? 3,
+          hintMd: result.hintMd ?? "", labels: result.labels ?? {},
+          aboutStepId: result.steps?.aboutStepId ?? stepId, continueFromStepId: result.steps?.continueFromStepId ?? null,
+          stepLine: result.stepLine ?? "", replies: result.replies ?? [], discriminatingAnswer: null, bridge: null,
+        };
+        setHints((current) => [...current, view]);
+        if (result.record) onRecordRef.current(result.record);
+        if (result.message) setNotice({ stepId: view.aboutStepId, message: result.message });
+        if (result.bridgeJobId) void followBridge(result.assistId, result.bridgeJobId);
+      } else {
+        setNotice({ stepId: result.steps?.aboutStepId ?? stepId, message: result.message ?? "Couldn't write a hint. Your steps are saved — try again ↵" });
+      }
+    } catch (error) {
+      hintJob.current = null;
+      if (alive.current) setNotice({ stepId, message: `Couldn't reach LearnLoop's model. Your steps are saved — try again ↵ (${errorMessage(error)})` });
+    } finally {
+      if (alive.current) setHintPending(null);
+    }
+  }, [followBridge, poll, sessionId]);
+
+  const take = useCallback(async (level?: number) => {
+    const chosen = level ?? ladder.chosen;
+    const { suggestion, focusedStepId } = ladder;
+    closeHelp();
+    await requestHint({
+      request: "more", takenLevel: chosen, offeredLevel: suggestion?.level ?? null,
+      suggestionId: suggestion?.suggestionId ?? null, focusedStepId,
+    }, ladder.steps?.aboutStepId ?? focusedStepId);
+  }, [closeHelp, ladder, requestHint]);
+
+  const reply = useCallback(async (hint: WorkbenchHintViewDto, value: { shortcut?: HintShortcut; text?: string; stepId?: string | null }) => {
+    await requestHint({
+      request: "feedback", answeredAssistId: hint.assistId, feedbackShortcut: value.shortcut,
+      feedbackText: value.text?.trim() ? value.text : undefined, feedbackStepId: value.stepId ?? hint.aboutStepId,
+    }, value.shortcut === "not_where_stuck" ? value.stepId ?? hint.aboutStepId : hint.aboutStepId);
+  }, [requestHint]);
+
+  const bookWay = useCallback(async (hint: WorkbenchHintViewDto) => {
+    await requestHint({ request: "book_way", answeredAssistId: hint.assistId }, hint.aboutStepId);
+  }, [requestHint]);
+
+  const smallerStep = useCallback(async (hint: WorkbenchHintViewDto) => {
+    await requestHint({ request: "smaller_step", answeredAssistId: hint.assistId }, hint.aboutStepId);
+  }, [requestHint]);
+
+  const answerDiscriminating = useCallback(async (hint: WorkbenchHintViewDto, answer: string) => {
+    try {
+      const recorded = await api.workbenchAnswerDiscriminating({ sessionId, questionAssistId: hint.assistId, answerMd: answer });
+      if (!alive.current) return;
+      setHints((current) => current.map((entry) => (entry.assistId === hint.assistId
+        ? { ...entry, discriminatingAnswer: { answerMd: answer, message: recorded.message ?? "" } }
+        : entry)));
+    } catch (error) {
+      if (alive.current) setNotice({ stepId: hint.aboutStepId, message: `Your answer wasn't recorded (${errorMessage(error)}); it's still in the box.` });
+    }
+  }, [sessionId]);
+
+  const cancelHint = useCallback(async () => {
+    const jobId = hintJob.current;
+    if (!jobId) return;
+    try {
+      await api.workbenchCancelHelp(jobId);
+    } catch {
+      // A cancel that fails leaves the hint to land; it counts only if shown.
+    }
+  }, []);
+
+  const setHelpStyle = useCallback(async (style: HelpStyle | null) => {
+    const previous = helpStyle;
+    setHelpStyleState(style);
+    try {
+      const saved = await api.workbenchSetHelpStyle({ sessionId, helpStyle: style });
+      if (alive.current) {
+        setHelpStyleState(saved.helpStyle);
+        setStoredHelpStyle(saved.storedHelpStyle);
+      }
+    } catch {
+      if (alive.current) setHelpStyleState(previous);
+    }
+  }, [helpStyle, sessionId]);
+
+  return {
+    enabled, hintsEnabled, check, checkPending, checkNotice, ladder, hints, hintPending, notice, bridges,
+    helpStyle, storedHelpStyle, runCheck, openHelp, closeHelp, choose, take, reply, bookWay, smallerStep,
+    answerDiscriminating, cancelHint, setHelpStyle,
+  };
+}

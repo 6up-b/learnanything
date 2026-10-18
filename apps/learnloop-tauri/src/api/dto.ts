@@ -8005,6 +8005,8 @@ export interface WorkbenchRecordDto {
   line: string;
   footer: string;
   stuckNote: string | null;
+  /** RW2b: the problem's own shown checks and hints (only when it has any). */
+  help?: { checks: number; byLevel: number[]; worked: number; primed: boolean };
 }
 
 export interface WorkbenchPartDto {
@@ -8494,5 +8496,149 @@ export interface HintRequestInput {
   feedbackText?: string;
   feedbackSelection?: string;
   takenLevel?: 4 | 5;
+  secondsOnItem?: number;
+}
+
+
+// ── Reader workbench RW2b + adaptive hints H3: checks and the help ladder ──
+// (spec_reader_workbench_v1 §5.2-5.6; the sidecar's workbench.check,
+// workbench.suggest_help, workbench.request_help, workbench.help_job,
+// workbench.cancel_help, workbench.answer_discriminating,
+// workbench.set_help_style and workbench.help_state). Desktop only.
+
+export type CheckVerdict = "valid" | "questionable" | "unchecked";
+export type CheckMethod = "checked" | "checked_numerically" | "model";
+
+export interface CheckStepVerdictDto {
+  chainId: string;
+  number: number | null;
+  verdict: CheckVerdict;
+  method: CheckMethod;
+  /** ✓ ≠ ≈ ? · (UX §3.4): never a colour, never a score. */
+  mark: string;
+  /** "checked", "checked numerically" or "model's reading, not checked". */
+  label: string;
+  reason: string;
+  dependsOn: string[];
+  assumption: string;
+  first: boolean;
+  editedSinceCheck: boolean;
+  deletedSinceCheck: boolean;
+}
+
+export interface CheckViewDto {
+  assistId: string;
+  checkedAt: string | null;
+  verdicts: CheckStepVerdictDto[];
+  firstQuestionableStepId: string | null;
+  errorKind: { kind: string; label: string; reason: string } | null;
+  assumptions: string[];
+  symbolicAvailable: boolean;
+  stale: boolean;
+  changedSteps: number[];
+}
+
+export interface WorkbenchStepLabelsDto {
+  aboutStepId: string | null;
+  aboutStep: number | null;
+  continueFromStepId: string | null;
+  continueFromStep: number | null;
+  firstQuestionableStep: number | null;
+}
+
+export interface LadderRungDto {
+  level: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  consequence: string;
+  workedHelp: boolean;
+  discriminating: boolean;
+}
+
+export interface HelpSuggestionDto {
+  level: number;
+  kind: string;
+  chooser: "decider" | "fallback";
+  horizonIndex: number | null;
+  propensity: number | null;
+  suggestionId: string | null;
+  reason: string | null;
+  why: string;
+  split: string | null;
+  rungs: LadderRungDto[];
+  kindLabel: string | null;
+  horizonLabel: string | null;
+}
+
+export interface WorkbenchHelpResultDto {
+  status: string;
+  assistId?: string | null;
+  reason?: string | null;
+  message?: string | null;
+  shown?: boolean | null;
+  /** A check's view, on the read that delivered it (or an unchanged re-check). */
+  check?: CheckViewDto | null;
+  /** The ladder's suggestion (suggest jobs). */
+  suggestion?: HelpSuggestionDto;
+  steps?: WorkbenchStepLabelsDto;
+  /** A hint (hint jobs): the H2a result fields. */
+  hintMd?: string | null;
+  kind?: string | null;
+  level?: number | null;
+  labels?: HintLabelsDto;
+  discriminating?: HintDiscriminatingDto | null;
+  replies?: string[];
+  stepLine?: string;
+  bridgeJobId?: string | null;
+  /** A bridge (bridge jobs). */
+  line?: string;
+  spanId?: string | null;
+  extractionId?: string | null;
+  label?: string | null;
+  /** The record line and footer after a delivered check or hint (G62). */
+  record?: WorkbenchRecordDto;
+}
+
+export interface WorkbenchHelpJobDto {
+  version: number;
+  jobId: string | null;
+  kind?: "check" | "suggest" | "hint" | "bridge";
+  state: "pending" | "done" | "cancelled";
+  result: WorkbenchHelpResultDto | null;
+}
+
+export interface WorkbenchHintViewDto {
+  assistId: string;
+  kind: string;
+  level: number;
+  hintMd: string;
+  labels: HintLabelsDto;
+  aboutStepId: string | null;
+  continueFromStepId: string | null;
+  stepLine: string;
+  replies: string[];
+  discriminatingAnswer: { answerMd: string; message: string } | null;
+  bridge: { assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } | null;
+}
+
+export interface WorkbenchHelpStateDto {
+  version: number;
+  check: CheckViewDto | null;
+  hints: WorkbenchHintViewDto[];
+  helpStyle: HelpStyle | null;
+  storedHelpStyle: HelpStyle;
+  hintsEnabled: boolean;
+}
+
+export interface WorkbenchRequestHelpInput {
+  sessionId: string;
+  request?: HintRequestKind;
+  takenLevel?: number;
+  offeredLevel?: number | null;
+  suggestionId?: string | null;
+  focusedStepId?: string | null;
+  answeredAssistId?: string;
+  feedbackShortcut?: HintShortcut;
+  feedbackText?: string;
+  feedbackStepId?: string | null;
   secondsOnItem?: number;
 }

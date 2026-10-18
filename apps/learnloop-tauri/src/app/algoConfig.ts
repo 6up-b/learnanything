@@ -34,6 +34,11 @@ export interface AlgoDisplayConfig {
    *  sends a `hints` key only while adaptive hints are on, so null until it
    *  says so, and null leaves the practice screen exactly as before H2b. */
   adaptiveHints: AdaptiveHintsConfig | null;
+  /** Reader workbench RW2b's kill switch (`workbench.help_enabled`): the
+   *  sidecar sends `workbench.help` only while it is on, so null until it
+   *  says so, and null leaves the workbench exactly as RW2a drew it. The
+   *  ladder's hints need the hint service too (`adaptiveHints`). */
+  workbenchHelp: { bridge: boolean } | null;
 }
 
 export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
@@ -55,7 +60,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   workbench: false,
   recap: false,
   wrapUp: false,
-  adaptiveHints: null
+  adaptiveHints: null,
+  workbenchHelp: null
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -66,7 +72,7 @@ export function setAlgoConfig(config: unknown): void {
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown };
-    workbench?: { enabled?: unknown };
+    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
   };
@@ -86,6 +92,9 @@ export function setAlgoConfig(config: unknown): void {
           authoredOfferAfterSeconds: asNumber(root.hints.authoredOfferAfterSeconds, 4),
           helpStyle: asHelpStyle(root.hints.helpStyle)
         }
+      : null,
+    workbenchHelp: root.workbench?.enabled === true && root.workbench.help?.enabled === true
+      ? { bridge: root.workbench.help.bridge === true }
       : null
   };
 }

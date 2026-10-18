@@ -1336,6 +1336,15 @@ sidecar_passthrough!(workbench_submit, "workbench.submit");
 sidecar_passthrough!(workbench_session_for_attempt, "workbench.session_for_attempt");
 sidecar_passthrough!(workbench_for_item, "workbench.for_item");
 sidecar_passthrough!(workbench_for_source, "workbench.for_source");
+// Reader workbench RW2b + adaptive hints H3 (checks and the help ladder): desktop only.
+sidecar_passthrough!(workbench_check, "workbench.check");
+sidecar_passthrough!(workbench_suggest_help, "workbench.suggest_help");
+sidecar_passthrough!(workbench_request_help, "workbench.request_help");
+sidecar_passthrough!(workbench_help_job, "workbench.help_job");
+sidecar_passthrough!(workbench_cancel_help, "workbench.cancel_help");
+sidecar_passthrough!(workbench_answer_discriminating, "workbench.answer_discriminating");
+sidecar_passthrough!(workbench_set_help_style, "workbench.set_help_style");
+sidecar_passthrough!(workbench_help_state, "workbench.help_state");
 // Reader workbench RW6a ("Last time here" and Wrap up): desktop only.
 sidecar_passthrough!(reader_recap, "reader.recap");
 sidecar_passthrough!(reader_recap_event, "reader.recap_event");

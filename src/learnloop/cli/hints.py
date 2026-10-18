@@ -75,6 +75,16 @@ def hints_report(
             item_caps=item_caps(loaded.practice_items.values()),
         )
         report["hints"] = loaded.config.hints.model_dump(mode="json")
+        if surface in (None, "workbench"):
+            # Reader workbench RW2b: the checkpoint's workbench rows (absent
+            # when the vault has none).
+            from learnloop.hints.report_workbench import build_workbench_report
+
+            block = build_workbench_report(path, since=_since(since, now), item_facets={
+                item.id: [loaded.canonical_facet_id(str(facet)) for facet in item.evidence_facets]
+                for item in loaded.practice_items.values()})
+            if block is not None:
+                report["workbench"] = block
         from learnloop.hints.map_report import build_maps_report
 
         report["maps"] = build_maps_report(loaded, path)
