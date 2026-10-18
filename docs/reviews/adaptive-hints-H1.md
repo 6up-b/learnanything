@@ -404,6 +404,8 @@ Changed: `tests/conftest.py` (the build guard), `tests/test_hint_telemetry.py`
    trigger, model calls and today's spend so the owner sees it. Alternatives:
    `build_on_serve = false` (maps only from the CLI backfill and, at H2, inline
    on a hint), or route `approach_map` to `codex_low`.
+
+   Owner decision 2026-10-18: hints.maps.build_on_serve stays on (background map build per newly served item revision; also gates the learner-route merge after a shown hint).
 2. **Rebuild on new seeds.** A map is current for its item revision and
    item-side seeds; new book passages do not rebuild it, new correct answers
    reach it through the lazy merge. Default: as built; the CLI could gain a

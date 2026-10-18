@@ -486,6 +486,8 @@ uv run learnloop gaps run --vault <path> --dry-run
    `build_on_serve`. Default: on, as the spec says; `outcome_placement_enabled
    = false` stops it. A metered route needs `hints.price_per_million` and is
    held to the maps' $0.50 a day.
+
+   Owner decision 2026-10-18: hints.outcome_placement_enabled stays on by default.
 2. **"Doesn't connect" text and discriminating answers are read by
    learner-text gaps** with the pipeline's own switch and daily call cap: each
    reply with text is one gap-reader call in the background. Default: on with
@@ -539,3 +541,165 @@ needs no other assistance in the attempt). A reply during a redo is
 progress (with its `reached_by` basis) and later independent success (pending
 counted, never imputed). Rows served under `argmax` log propensity 1 and give
 no support; fallback and `learner_pick` rows are outside the sampling.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/h2b-onto-main`. Main's tip was `5b2efaf24` (the H2a landing), which is the stage's base. The stage tip is `0a7cfb588`, unchanged. The last orchestrator verify (Codex job `20261018-140653-RA8vrI`, after fix round 4) is clean. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `60082b1a9`: a real `--no-ff` merge of `hints/h2b` onto `5b2efaf24`. Main had not moved, so the merged tree is exactly the stage tip (`git diff 0a7cfb588 60082b1a9` is empty).
+- `e013a4a06`: the references regenerated on the merged tree (commit labels only).
+- This record, with the two owner decisions of 2026-10-18 (here under §8 question 1, and in `adaptive-hints-H1.md` under §7 question 1).
+
+No gate fix was needed.
+
+### Merge
+
+- **No conflicts.** 518 files changed against main.
+- **Migration 212** is the head. `fixtures/migration_head_212` is in rollback mode: header bytes 18-19 are 1/1, `journal_mode` is `delete`, its last `schema_migrations` row is 212, and there is no `-wal` or `-shm`. `fixtures/migration_head_211` is gone (renamed by the stage).
+- **`apps/` changed** (23 files, `src-tauri` 2 of them: the five passthroughs), so the whole vitest run, the build and `cargo check` ran.
+- **No algorithm successor.** The vaults keep their label.
+
+### Regenerated
+
+- **References.** `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 212, 330 table notes. 393 notes changed, and the change is only `source_commit` and `source_commit_timestamp`.
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** `python tests/test_cli_help_snapshot.py --write`: no change.
+- **RPC pins and the parameter registry, checked first.** `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py`, `test_cli_help_snapshot.py`, `test_registry_audit.py`, `test_grading_cli.py` and `test_p0_cutover_mvp08.py`: **237 passed**, no file rewritten. `practice.set_help_style` is pinned desktop-only (`HINT_PANEL_RPCS`, `HINTS_H2B_RPCS`). The three new config keys are classified.
+- **`validate_vault.py`**: passes (1,125 notes; 1,123 of 1,123 reachable).
+- **Known failures, not from this stage, not fixed:** `desktop_validate.py` stops on `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts` (unclassified desktop source), and `module_validate.py` reports its 844 issues, as before.
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`, and every command ran as `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock` (the lock was free; AD1's worktree and processes were not touched). Every test uses fakes. **This is the first full run over the stage's code.** Every stage step and all four fix rounds had run targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **26 kept**, 0 broken |
+| full suite `pytest -n auto` on `e013a4a06` | **13,630 passed, 2 xfailed, 0 failed** (18 min 10 s; `fixtures-local/h2b-landing-fullsuite.log`). H2a's landing ran 13,549 |
+| `pytest -m durability` | **112 passed**, 13,520 deselected (3 min 41 s; `fixtures-local/h2b-landing-durability.log`) |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (the whole vitest run) | **130 files, 1,046 tests passed** on the first run (the `FeedbackScreen` load flake did not fire) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | ok |
+| thread, lock, fence and timing tests | all passed on the first run, so no reruns were needed. The known `"8841"` flake in `test_mcp_c1a_review.py` did not fire |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run, apart from this record |
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (probability with its `.learnloop/state.sqlite`) were copied once with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-h2b/orig/`. Every other copy came from `orig/` through the same helper. `arxiv_v2` was not opened. Both vaults start at schema 165, label `mvp-0.8`, with **0** `model_call_receipts`.
+- **Code.** Main's code is `git archive 5b2efaf24` and the merge's is `git archive e013a4a06` (`src`, `migrations`, `pyproject.toml`), each first on `sys.path`. Every run printed the `learnloop` package it imported.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`. `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories and still are. No `*_API_KEY`, `OPENROUTER*`, `OPENAI*`, `ANTHROPIC*` or `LEARNLOOP_AI_PROVIDER` variable was set.
+- **Model routes, set before anything ran** (`scripts/neutralize3.py`, run under each code). Every field of that code's own `AIRoutingConfig` went to an unreachable loopback with a key variable that was never set:
+  - chat routes, including `hint_writer`, `approach_map` and `hint_outcome` (merge only), to `blackhole` (`openai_chat` at `http://127.0.0.1:9/v1`);
+  - decider-only routes, including `hint_chooser`, to `blackhole_decider` (`127.0.0.1:9`);
+  - `ai.active_provider` to `blackhole`, the fallback cleared;
+  - `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank`, `dense`, and `[embedding]` off;
+  - `[learner_text_gaps] enabled = false`;
+  - `[hints.maps] build_on_serve = false` on every copy, and `[hints] outcome_placement_enabled = false` on every merge copy except (f).
+  - A resolver check over every `AITask` (54 on the merge, 53 on main) found nothing outside those two profiles except `embedding` (disabled, keyless).
+- The only exception is (d1), the "default routing" run: `ai.active_provider` stayed the vault's `codex`, and `hint_writer` was left unset, so it resolves to Codex. There is no Codex login.
+
+**(a) Migration 212, and (b) byte identity**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate): main's code / the merge's | 165 → 211 (46) / 165 → 212 (47) | 165 → 211 (46) / 165 → 212 (47) |
+| schema objects, main@211 vs merge@212 | 1,395 on both; none only on one side. **Only the two widened tables' SQL differs**: `'hint_feedback'` added to the `source_kind` CHECK of `learner_text_gaps` and `learner_text_gap_jobs`, plus one comment line on `learner_text_gaps` (`-- help_assists.id (hint_feedback)`) | 1,394 on both; the same two diffs |
+| indexes and triggers of the two tables | preserved, SQL identical: `learner_text_gaps_created`, `_created_lo`, `_target`, two autoindexes, triggers `learner_text_gaps_no_delete` and `_no_update`; `learner_text_gap_jobs_order` and two autoindexes | same |
+| rows of every table (335) | **identical** (16,537 rows). `schema_migrations`: merge has 212 extra; the other rows differ only in `applied_at` (the open's time) | **identical** (7,635 rows; same) |
+| `foreign_key_check` / `integrity_check`, both sides | 0 / ok | 0 / ok |
+| `rebuild --shadow --json`, main@211 vs merge@212 | **0 differences** after normalisation (raw: the marker id and the database hashes); facet 0, mastery 2, schedule 8; live database unchanged on both | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (raw: the copy paths); 57 issues, 1 error | **0 differences**; 101 issues, 48 errors |
+| **(b)** at `mvp-0.8`: certification and curves (every facet's timeline, 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification`) | **byte-identical** (39 facets, 84 points, 2 corrections; 21 LOs, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs) |
+| the Today queue at a frozen clock (2026-10-18 09:00 UTC), no session, a session and a greedy session | **byte-identical** (41 items) | **byte-identical** (67 items) |
+| upgraded by main's code to `mvp-0.27` (`--to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code (main: nothing to apply; merge: 212) | **byte-identical** certification and curves (82 points, 7 corrections) and Today queue (43 items) | **byte-identical** (Today queue 67 items) |
+
+All eight `mvp-0.8` and `mvp-0.27` outputs are also the same bytes as H2a's landing produced (`landing-h2a/out`).
+
+**(c) Practice through the real sidecar** (stdio, copies of probability). The sequence:
+- `initialize`, `get_config`, `set_grading_provider manual`, `start_session`;
+- on `pi_prob_derive_complement`: `get_practice_item`, `get_probe_contract`, `practice.record_hint_reveal` (authored hint 0, key `landing-h2b-k1`), `save_practice_draft`, `submit_attempt` (self-grade, with the `submissionId`), `acknowledge_practice_submission`;
+- on `pi_incl_derive_intersections` (another LO): `get_practice_item`, `submit_dont_know` (key `k2`), acknowledge;
+- **added**, on `pi_story_binomial_translation` (a third LO): `get_practice_item`, then "Work in steps" with no hint: `workbench.open` (origin `practice`, entry `practice_screen`), `workbench.get`, `workbench.submit` (no steps, so the empty answer is scored 0 with no model call; a written step would need a grader, and manual grading has no workbench fallback);
+- `get_session`, `shutdown`.
+
+The runs were (i) main's code, twice, (ii) the merge with `[hints] adaptive_enabled = false`, and (iii) the merge with the default (on).
+
+**Normalisation** (H2a's, unchanged): ULIDs, ISO timestamps, the copy's path, `initialize`'s two schema-head fields (211 against 212), the `dr_<hex>` and `lol_<hex>` ids in the database comparison. Then two expected differences were taken out and recorded:
+- the merge's `initialize` lists `practice.set_help_style` in `capabilities.methods`, in (ii) and (iii);
+- in (iii) only, `get_config` carries `hints: {adaptiveEnabled: true, authoredOfferAfterSeconds: 4.0, helpStyle: "balanced"}`. This is the app snapshot's key. (ii) has none, and its `get_config` is raw-identical to main's.
+
+| Check | Result |
+|---|---|
+| every response, (i) vs (i) vs (ii) vs (iii) | **identical** for all 19 calls after the normalisation above. 0 floats differ, and there are no other differences. `get_practice_item` 11,559 bytes, `submit_attempt` 7,825, `submit_dont_know` 16,092, `workbench.submit` 15,201 |
+| the database delta | **identical** across all four runs |
+| the attempts, (i) vs (ii) vs (iii) | **identical**. The `open_text` attempt has `hints_used` 1, `primed` 0, class `verification` (assisted, FSRS, no certification). The `dont_know` has `hints_used` 0, `primed` 0, `verification` (certification eligible). The workbench attempt (`desktop_practice_workbench`, typed `dont_know`, scored 0) has `hints_used` 0, `primed` 0, certification eligible. No `reveal_events` rows. One `help_assists` row: the client-counted authored reveal, level 3, attached to the first attempt. 0 receipts, 0 `approach_maps` |
+
+**(d) The authored-reveal ruling** (merge, adaptive on). Copies of probability. On `pi_prob_derive_complement`: `save_practice_draft`, then `practice.request_hint` ("more") twice, each polled to settle, then `submit_attempt` with the client's `hintsUsed = 0`, the same answer, self-grade and key as (c), then acknowledge.
+
+| Run | First request | Second request | The attempt |
+|---|---|---|---|
+| **d1, default routing** (the writer resolves to `codex`) | `ready`: **the authored fallback** (kind `authored`, level 3, `authoredIndex` 0), reason **`codex_refused`**, shown | **`unavailable`**, `codex_refused`, not shown | `hints_used` **1** (the server's level-3 row), `primed` 0, class `verification`, assisted, no certification. **0 `reveal_events` rows** (H2a's landing measured one `tutor_answer` row of 0.143 for this hint). It is **identical, field for field, to (c)(i)'s attempt from the client's authored reveal**: `hints_used`, `primed`, `correctness`, type, surface and the whole activity class, and 0 reveal rows on both |
+| **d2, `hint_writer` at `127.0.0.1:9`** (metered, unpriced) | `ready`, the authored fallback, reason **`unpriced`**, shown | `unavailable`, `unpriced` | the same as d1, and identical to (c)(i)'s |
+
+The unavailable row stays `shown = 0` with no `counted_by`. It is attached to the attempt, as H2a noted (bookkeeping only).
+
+**(e) The hand-off** (merge, adaptive on, the writer at the loopback, so the served hint is the authored fallback, `unpriced`):
+- **e1.** A served authored hint, then "Work in steps" on the same item. `workbench.get`'s record line reads `hints 1`: "1 hint (1 shown on the answer box) → practice with help". The client's `carriedHints` was 0. Then `workbench.submit`. The workbench attempt has **`hints_used` 1**, `primed` 0, and is assisted. The `help_assists` row (`counted_by = 'server'`, key `landing-h2b-k1`, no problem link) is **attached to it**. 0 reveal rows.
+- **e2.** The same hint and "Work in steps", then `workbench.leave`, back on the answer box: `submit_attempt` (client `hintsUsed` 0). The attempt has **`hints_used` 1**, and the row is attached to it. The left problem's record then reads `hints 0` ("your own attempt"). Resumed and submitted, its attempt has **`hints_used` 0**, certification eligible. **Counted once.**
+
+**(f) Outcome placement on** (`outcome_placement_enabled = true`, `hint_outcome` at `127.0.0.1:9`; `build_on_serve` false, so no map exists):
+- A served authored hint, then a wrong `submit_attempt` (self-grade 1 of 4, `correctness` 0.25).
+- The background placement logged `hint outcome placement: {status: "no_map", rounds: 0}`. The authored hint's row names no map, so it did nothing.
+- Reopened (a new sidecar, `initialize`): the vault-open reconcile pass found that attempt (hinted, wrong, unplaced) and logged `hint outcome placement (reconciled): {status: "no_map", rounds: 0}`. `no_map` places nothing, so the pass moved on and ended.
+- What it recorded: **nothing.** 0 receipts, 0 `judgment_ledger` rows (no `hint_outcome` verdict), 0 `judgment_work_claims` rows (no claim is taken before `_due` says due), no evidence. The reopen's only database change is the vault-open facet recompute every `initialize` makes (`facet_capability_evidence` and `facet_recall_state` timestamps, the same on a plain re-initialize).
+
+**(g) `practice.set_help_style`** (`guide_me`): the only config file it wrote is **the copy's own `learnloop.toml`** (`fixtures-local/landing-h2b/cc/g/learnloop.toml`). It added `help_style = "guide_me"` to the existing `[hints]` table, with the comments and the other keys kept. 120 files were hashed before and after (the copy, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`). Nothing outside the copy changed, and `~/.config`-style config dirs stayed empty.
+- The copy's `state.sqlite` (and its `-wal`/`-shm`) also changed. This is the vault reload after the write: the same facet timestamp recompute a re-initialize makes. A check run (`g2`) showed `set_help_style` right after an `initialize` changes no table, and `get_config` changes none.
+- The same style a second time wrote nothing.
+
+**`model_call_receipts` across all 46 databases** under `landing-h2b/` (copies and stubs): **0 rows**, so none finished. **`approach_maps` is empty on every copy.**
+
+### For the owner
+
+- **Migration 212 applies on the next open.** It widens `learner_text_gaps.source_kind` and `learner_text_gap_jobs.source_kind` with `hint_feedback`. It changes no row (checked above). Close the app, MCP and the mobile host, and back up first. There is no algorithm successor and no `--to` command.
+- **What appears on the practice screen:**
+  - `^h hint` in the key bar becomes clickable, and the plain card's *Hint* button shows for every item.
+  - A press asks the hint service. The hint panel opens below the answer box, with each hint's label line and its quiet reply lines.
+  - After 4 s of writing, *use the item's hint instead* is offered.
+  - The panel has a feedback box (*that's not where I'm stuck* picks lines of your draft), worked-help picks with their consequence stated, and a discriminating question's own answer box.
+  - The "⋯" menu holds the help style, which is also in Settings → *Hints · help style*.
+  - With adaptive hints off, the screen is exactly as before.
+- **Adaptive hints are still never written on Codex.** To get them, sign in once (`uv run learnloop ai signin chatgpt`) and set `[ai.routing] hint_writer` to a `chatgpt_plan` profile (§7), or use a priced OpenRouter profile (`[hints] price_per_million`). Until then, `^h` serves the item's own hints (reason `codex_refused`), then says none is left.
+- **Turning things off** (`learnloop.toml`):
+
+  ```toml
+  [hints]
+  adaptive_enabled = false            # the practice screen and RPCs exactly as before (parity (c)(ii))
+  outcome_placement_enabled = false   # no background outcome calls
+  ```
+
+- **Reading the report.** `uv run learnloop hints report --vault <path> --json` (`hints-report-v2`) is read-only, makes no model call and reads no learner text. Per kind and level it shows replies (*doesn't connect*), the next hint's level, outcome placement (reached, not reached, unknown, not placed), the chooser, unaided next progress and its basis, expertise reversal, help seeking, and each route's requests and receipts. `--since 14d --surface practice` narrows it.
+- **Outcome placement's cost:**
+  - one background call per hinted answer graded not fully correct on an item **with a map**;
+  - plus up to 20 catch-up calls per vault open (the reconcile pass);
+  - on `ai.routing.hint_outcome`, which is unset and so uses the active provider. On Codex that is the subscription (`estimated_only`). On a metered route it sits inside the maps' $0.50/day envelope and needs `hints.price_per_million`.
+  - An authored hint names no map, so until maps exist (build on serve, or `learnloop hints maps build`) it costs nothing (parity (f)).
+- **Open questions (defaults taken):**
+  - from §8:
+    - 1: outcome placement on by default. **Decided by the owner 2026-10-18: stays on.**
+    - 2: "doesn't connect" text and discriminating answers are read by learner-text gaps with the pipeline's own switch;
+    - 3: the panel is not restored after a restart;
+    - 4: line selection for *not where I'm stuck*;
+    - 5: the P(success) split at the median;
+    - 6: H2a's carried defaults;
+    - 7: the keyless fence at second resolution, left as built.
+  - from H1 §7, question 1: build on serve. **Decided by the owner 2026-10-18: stays on**, and it also gates the learner-route merge after a shown hint.
+  - the Codex review and its four fix rounds left no open question. The last verify (`20261018-140653-RA8vrI`) is clean.
+- **New at landing** (observations; none blocks, nothing fixed here):
+  - **An empty "Work in steps" submit after a hint is typed `dont_know` and assisted** (e1: `hints_used` 1, scored 0). This is consistent with the fold. A written workbench submit needs a grader: with no model and the manual provider it is refused (`grading_fallback_required`), and the workbench offers no self-grade (RW2a's open question 2). So parity exercised only the empty submit.
+  - **`set_help_style` reloads the vault**, so its write is followed by the open-time facet timestamp recompute in `state.sqlite` (as any `initialize`). This is not a config write to the database.
+  - **The reconcile pass revisits a `no_map` attempt on every open** for 14 days. It is a local read with no call, no claim and no row, and it is not counted against the pass's 20.
