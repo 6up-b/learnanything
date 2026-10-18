@@ -3,15 +3,15 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 208
-table_count: 327
+schema_head: 209
+table_count: 328
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -21,13 +21,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-208"
+  - "learnloop/database/schema-head-209"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 327 user tables at migration head 208. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 328 user tables at migration head 209. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 327 user tables at migration head 208. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 147 |
 | [[Table Roles#Derived|`derived`]] | 19 |
 | [[Table Roles#Receipt|`receipt`]] | 68 |
-| [[Table Roles#Workflow|`workflow`]] | 83 |
+| [[Table Roles#Workflow|`workflow`]] | 84 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 314 |
+| `active` | 315 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -434,6 +434,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/item_skeletons|item_skeletons]] — `workflow` · `active` · Gives item skeleton a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `model_id`, `subject_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_ledger|judgment_ledger]] — `raw_ledger` · `active` · Gives judgment ledger a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `supersedes_id`, `left_id`, `right_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_work_claims|judgment_work_claims]] — `workflow` · `active` · Gives judgment work claim a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `judgment_id`, `prompt_version`, `input_hash`, making the operational relationship explicit.
+- [[Reference/Database/Tables/library_asks|library_asks]] — `workflow` · `active` · Gives library ask a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `extraction_id`, `comparison_id`, `question_event_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/maintenance_notices|maintenance_notices]] — `workflow` · `active` · Stores actionable maintenance items surfaced by operational checks. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `entity_id`, `notice_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_devices|mobile_devices]] — `workflow` · `active` · Gives mobile device a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `token_hash`, `label`, `scope`, making the operational relationship explicit.
 - [[Reference/Database/Tables/mobile_pairing_attempts|mobile_pairing_attempts]] — `workflow` · `active` · Gives mobile pairing attempt a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `at`, making the operational relationship explicit.

@@ -3,13 +3,13 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
   - "table workbench_sessions"
-schema_head: 208
+schema_head: 209
 table_name: "workbench_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -119,6 +119,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_reader_find_sources_callers.py`
 - `tests/test_reader_recap.py`
 - `tests/test_reader_workbench_rw2a.py`
 

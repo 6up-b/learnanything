@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 208
+schema_head: 209
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_library_ask.py`
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_migrations.py`
@@ -133,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
+- `tests/test_rw4_kill_switches.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`

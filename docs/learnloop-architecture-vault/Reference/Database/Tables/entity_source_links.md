@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 208
+schema_head: 209
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -143,6 +143,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/library_ask_fixtures.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_facet_authority.py`
 - `tests/test_facet_authority_review.py`
@@ -162,7 +163,6 @@ Indexes and uniqueness:
 - `tests/test_provenance_service.py`
 - `tests/test_reread_safety.py`
 - `tests/test_revision_refresh.py`
-- `tests/test_source_deletion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

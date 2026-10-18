@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 208
+SCHEMA_HEAD = 209
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -881,6 +881,8 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "reader_intent": "reader workbench RW1b: the intent box (a small, unfocused box under a selection whose words one typed Decider choice routes to a palette action, run exactly as the palette's own; the palette grouped by the five learner intentions): the kill switch, speculative routing once typing pauses (its switch and pause), the routing's timeout and the route's daily call cap (speculation stops at 80% of it); routing writes ledger rows and salience-only events only",
     "reader_active_reading": "reader workbench RW1b: active reading on a selected derivation or worked example (try the next step with the book's next lines folded, why does this step work, what does this assume, reconstruct this later, another way to see this): the kill switch; the questions are the quick-check producer's formative rows and never an attempt",
     "reader_formative": "reader workbench RW1b: a next-step, why-step or assumption answer the learner marks partly or no becomes reader_formative learner text for learner-text gaps (tier 2: never evidence, mastery or FSRS): the kill switch",
+    "library_ask": "reader workbench RW4a: ask your library (Shift+Enter in the library search, Ctrl+Shift+F or a selection's where else / where is this used / what do I need first): verbatim passages from the sources service's find_sources under the Reader caller's derived policy, grouped by source and role, each with one organizer line (one listwise call, route library_organizer) that must cite its own passage: the kill switch, the concept-graph expansion's switch, the personalized chip's default and the organizer's daily metered cap; retrieval is context and the lines are display (no successor)",
+    "reader_compare": "reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch",
     "proof_check": "the valid-alternative gate for proofs and explanations, in the grader (mvp-0.20): the kill switch of the own-route rules and the server-side unlocated rule (mvp-0.17's separate route check was removed on 2026-10-13)",
     "voi_stopping": "value-of-information stopping (mvp-0.21): the kill switch and per-site sub-switches that lift four count caps (probe observations per session, further follow-ups per LO, further teach-backs, project probes per day) onto value of information, and the multi-family EVSI study's three switches (the robust completion gate while value decides, the 2-3 check lookahead, the value gate's robust quantile)",
     "decider_routes": "Tier 1, the Decider migration (mvp-0.22, owner 2026-10-13): one kill switch per small judgment the Decider decides with its LLM as fallback, the facet span-support check and the method-explicit required-method statement judgment",

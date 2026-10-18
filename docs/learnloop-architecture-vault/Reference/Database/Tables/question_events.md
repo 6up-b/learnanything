@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 208
+schema_head: 209
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -54,7 +54,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -151,6 +151,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_inquiry.py`
 - `src/learnloop/source_retrieval/evaluation.py`
+- `src/learnloop/source_retrieval/library_ask.py`
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/question_queue.py`
@@ -173,6 +174,7 @@ Indexes and uniqueness:
 - `tests/test_exam_protection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_library_ask.py`
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
@@ -182,9 +184,8 @@ Indexes and uniqueness:
 - `tests/test_reader_inquiry_status.py`
 - `tests/test_reader_recap.py`
 - `tests/test_reveal_ledger.py`
+- `tests/test_rw4_kill_switches.py`
 - `tests/test_source_retrieval_tutor.py`
-- `tests/test_tier1_decider.py`
-- `tests/test_tutor_qa.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

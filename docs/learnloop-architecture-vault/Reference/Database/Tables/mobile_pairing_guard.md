@@ -3,13 +3,13 @@ title: "mobile_pairing_guard"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "08424033a0a4f8ee01af71dfd3020abd28fcca75"
-source_commit_timestamp: "2026-10-17T18:41:07-04:00"
+source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
+source_commit_timestamp: "2026-10-17T20:01:27-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite mobile_pairing_guard"
   - "table mobile_pairing_guard"
-schema_head: 208
+schema_head: 209
 table_name: "mobile_pairing_guard"
 table_role: "workflow"
 functionality_status: "active"
