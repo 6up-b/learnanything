@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "7c00d43297172e54d1845b80402bfd83d3b7f921"
+source_commit_timestamp: "2026-10-18T16:01:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -134,6 +134,8 @@ None found by exact static reference scan.
 - `src/learnloop/hints/map_report.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report_adaptive.py`
+- `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/hints/workbench.py`
 - `src/learnloop/matching/judge.py`
 - `src/learnloop/ops/contamination/judge.py`
 - `src/learnloop/ops/contamination/report.py`

@@ -3,8 +3,8 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "7c00d43297172e54d1845b80402bfd83d3b7f921"
+source_commit_timestamp: "2026-10-18T16:01:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/hints/report_workbench.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
@@ -132,6 +133,8 @@ None found by exact static reference scan.
 - `tests/test_forecast_receipts_landing.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_learner_text_gaps_flow.py`
+- `tests/test_workbench_step_graph.py`
+- `tests/test_workbench_text_gaps.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

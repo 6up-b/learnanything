@@ -163,7 +163,7 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
     assert set(judges) == {"llm_probability_decider", "llm_probability_llm", "router_decider", "router_llm",
                            "tier1_decider", "learner_gap_decider", "reader_intent",
                            "library_organizer", "approach_map", "hint_chooser", "hint_writer",
-                           "hint_outcome"}
+                           "hint_outcome", "workbench_check"}
     # Review F5: the Tier-1 routes send learner text in the ordinary course.
     assert "misconception" in judges["tier1_decider"]["disclosure"]
     assert "stuck answers" in judges["learner_gap_decider"]["disclosure"]
