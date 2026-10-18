@@ -27,7 +27,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
-from learnloop.db.stores.help_assists import keyless_window_start, server_fold
+from learnloop.db.stores.help_assists import attach_keyless_fold, keyless_window_start, server_fold
 
 
 @dataclass(frozen=True)
@@ -107,6 +107,11 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         return draft, None
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
                                      session_id=fold.session_id, submission_id=fold.submission_id)
+    if since != fold.since:
+        # The window the attempt attaches (:func:`attach_keyless`) is the one
+        # read here, under the write lock.
+        draft = replace(draft, server_hint_fold=replace(fold, since=since))
+        fold = draft.server_hint_fold
     if (count, primed) == (fold.folded_hints, fold.folded_primed):
         return draft, None
     now = replace(fold, folded_hints=count, folded_primed=primed, since=since)
@@ -119,4 +124,22 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     ), now
 
 
-__all__ = ["ServerHintFold", "read_fold", "refolded_draft"]
+def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
+    """A keyless submit's attempt takes the rows its fold counted (round 3b),
+    in its own write transaction after the attempt row exists: the window
+    :func:`refolded_draft` read under the same lock. A keyed submit's rows are
+    attached by H0's attach, by key, as before. Returns how many it attached."""
+
+    fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
+    if fold is None or fold.submission_id is not None:
+        return 0
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+    ).fetchone()
+    if exists is None:
+        return 0
+    return attach_keyless_fold(connection, practice_item_id=fold.practice_item_id, session_id=fold.session_id,
+                               since=fold.since, attempt_id=attempt_id)
+
+
+__all__ = ["ServerHintFold", "attach_keyless", "read_fold", "refolded_draft"]

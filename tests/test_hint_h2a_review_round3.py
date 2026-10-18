@@ -270,3 +270,68 @@ def test_w5_an_unchanged_item_still_delivers(tmp_path):
                                                "answerMd": WORK, "takenLevel": 5})
     assert job["result"]["status"] == "ready" and job["result"]["shown"] is True
     assert len(reveals(paths.sqlite_path)) == 1
+
+
+# ---------------------------------------------------------------------------
+# Round 3b: the attempt that counts a server hint row attaches it
+# ---------------------------------------------------------------------------
+
+def _shown_hint(tmp_path, option: str = "next_step@L3"):
+    paths = hint_vault(tmp_path, config=ARGMAX)
+    store_map(paths)
+    ctx = _context(paths, inline=True)
+    session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    ctx.hint_writer_client = WriterFake()
+    ctx.hint_chooser_client = ChooserFake(prefer(option, 0.9))
+    job = _call(ctx, "practice.request_hint", {"sessionId": session, "practiceItemId": ITEM, "submissionId": "k1",
+                                               "answerMd": WORK})
+    assert job["result"]["shown"] is True
+    return paths, ctx, session
+
+
+def _submit_k1(ctx, session):
+    return _call(ctx, "submit_attempt", {
+        "sessionId": session, "practiceItemId": ITEM, "answerMd": WORK, "attemptType": "independent_attempt",
+        "hintsUsed": 0, "selfGrade": SELF_GRADE, "submissionId": "k1"})
+
+
+def test_3b_a_keyless_submit_attaches_the_hint_it_counted(tmp_path):
+    paths, ctx, session = _shown_hint(tmp_path)
+    keyless = _submit_keyless(ctx, session)
+    assert _attempt(paths, keyless["attemptId"])["hints_used"] == 1
+    [row] = assists(paths.sqlite_path)
+    assert row["attempt_id"] == keyless["attemptId"]
+
+
+def test_3b_a_hint_counted_by_a_keyless_submit_is_never_counted_again(tmp_path):
+    paths, ctx, session = _shown_hint(tmp_path)
+    keyless = _submit_keyless(ctx, session)
+    keyed = _submit_k1(ctx, session)
+    assert _attempt(paths, keyless["attemptId"])["hints_used"] == 1
+    assert _attempt(paths, keyed["attemptId"])["hints_used"] == 0
+    [row] = assists(paths.sqlite_path)
+    assert row["attempt_id"] == keyless["attemptId"]  # the keyed attach never moves it
+
+
+def test_3b_keyed_flows_are_unchanged(tmp_path):
+    paths, ctx, session = _shown_hint(tmp_path)
+    keyed = _submit_k1(ctx, session)
+    assert _attempt(paths, keyed["attemptId"])["hints_used"] == 1
+    [row] = assists(paths.sqlite_path)
+    assert row["attempt_id"] == keyed["attemptId"]
+    # A later keyless submit in the session finds nothing left to count or take.
+    keyless = _submit_keyless(ctx, session)
+    assert _attempt(paths, keyless["attemptId"])["hints_used"] == 0
+    assert assists(paths.sqlite_path)[0]["attempt_id"] == keyed["attemptId"]
+
+
+def test_3b_authored_reveal_telemetry_is_not_taken_by_a_keyless_submit(tmp_path):
+    paths = hint_vault(tmp_path, config=ARGMAX)
+    ctx = _context(paths)
+    session = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    _call(ctx, "practice.record_hint_reveal", {"sessionId": session, "practiceItemId": ITEM, "submissionId": "k1",
+                                               "authoredIndex": 0, "answerMd": WORK})
+    keyless = _submit_keyless(ctx, session, hints=1)
+    assert _attempt(paths, keyless["attemptId"])["hints_used"] == 1
+    [row] = assists(paths.sqlite_path)
+    assert row["counted_by"] == "client" and row["attempt_id"] is None

@@ -40,7 +40,7 @@ from learnloop.scheduling.fsrs import (
     rating_from_score,
 )
 from learnloop.attempts.ability_transition import estimate_ability_transition
-from learnloop.attempts.hint_fold import ServerHintFold, refolded_draft
+from learnloop.attempts.hint_fold import ServerHintFold, attach_keyless, refolded_draft
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
     GradingValidationError,
@@ -3035,6 +3035,10 @@ def apply_attempt(
         attempt = _refold_server_hints(vault, repository, attempt)
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
+            # Round 3b: a keyless attempt takes the hint rows it counted, so
+            # no later fold counts them again (a keyed one's are H0's attach).
+            attach_keyless(repository.connection(), attempt.draft, result.attempt_id)
+        if not attempt.replace_existing:
             _save_completion_work(vault, repository, attempt.draft, result, clock=clock)
         return result
 
@@ -3059,7 +3063,8 @@ def _refold_server_hints(vault: LoadedVault, repository: Repository, attempt: Ap
         return attempt
     draft, changed = refolded_draft(repository.connection(), attempt.draft)
     if changed is None:
-        return attempt
+        # The count stands; the draft may carry the window read here (round 3b).
+        return attempt if draft is attempt.draft else replace(attempt, draft=draft)
     grade = attempt.grade
     if (draft.attempt_type == "dont_know" or draft.declared_dont_know) and grade.error_attributions == (
             _self_grade_attributions(vault, [], _dont_know_error_type(vault, attempt.draft.hints_used), [])):

@@ -202,6 +202,24 @@ def server_fold(
     folds the session's unattached rows requested after ``since`` (the item's
     last attempt in this session: the window ``mark_shown`` closes)."""
 
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id,
+                               submission_id=submission_id, since=since)
+    row = connection.execute(
+        "SELECT COALESCE(SUM(CASE WHEN level BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(MAX(CASE WHEN level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) "
+        f"FROM help_assists WHERE {where}",
+        values,
+    ).fetchone()
+    return int(row[0] or 0), bool(row[1])
+
+
+def _fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | None,
+               since: str | None) -> tuple[str, tuple[Any, ...]]:
+    """The rows a fold counts (:func:`server_fold`) and a keyless attempt
+    attaches (:func:`attach_keyless_fold`): one definition, so the rows
+    attached are exactly the rows counted. Only unattached rows: a row an
+    attempt took is never counted again, whatever its key."""
+
     clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
                "counted_by = 'server'", "assist_kind = 'hint'"]
     values: list[Any] = [practice_item_id, session_id]
@@ -211,13 +229,22 @@ def server_fold(
     elif since is not None:
         clauses.append("requested_at > ?")
         values.append(since)
-    row = connection.execute(
-        "SELECT COALESCE(SUM(CASE WHEN level BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0), "
-        "COALESCE(MAX(CASE WHEN level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) "
-        f"FROM help_assists WHERE {' AND '.join(clauses)}",
-        tuple(values),
-    ).fetchone()
-    return int(row[0] or 0), bool(row[1])
+    return " AND ".join(clauses), tuple(values)
+
+
+def attach_keyless_fold(
+    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, since: str | None, attempt_id: str
+) -> int:
+    """A keyless attempt takes the server hint rows its fold counted (round
+    3b): ``attempt_id`` set once (NULL to a value, as H0's attach writes and
+    its identity trigger allows), in the attempt's own write transaction, so
+    no later fold, keyed or keyless, counts them again. Only server-counted
+    hint rows: H0's authored-reveal telemetry is attached by key as before."""
+
+    where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id, submission_id=None,
+                               since=since)
+    cursor = connection.execute(f"UPDATE help_assists SET attempt_id = ? WHERE {where}", (attempt_id, *values))
+    return int(cursor.rowcount or 0)
 
 
 def _latency(value: float | None) -> float | None:
@@ -230,6 +257,6 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
-    "COLUMNS", "TABLE", "assist", "attach_submission", "count_closed", "insert_assist", "keyless_window_start",
+    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "insert_assist", "keyless_window_start",
     "mark_shown", "server_fold", "stamp_submitted", "submission_assists", "submission_committed",
 ]
