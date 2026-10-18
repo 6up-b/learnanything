@@ -39,13 +39,16 @@ is the next node) the grade settles one case: a fully correct submission with
 no further help after the hint reached the goal. "No further help" is
 established only from records no cap applies to: the submission's own rows
 and, for the attempt (after the item's previous attempt, up to this one),
-the tutor's questions, reveal events (except the attempt's own post-attempt
-displays and this submission's own self-grade disclosure). A workbench
-problem's help cannot be reconstructed from its current state (the book can
-be hidden, or first shown, after the submit; RW2b/H3 write it to
-``help_assists``), so a workbench problem on the item that could have been
-open during the window makes the case ``workbench_state_unknown``. An event attributed to an attempt was written after
-that attempt existed, so attribution orders it: one attributed to the
+the tutor's questions (any status: a pending or failed turn can still be
+answered), reveal events (except the attempt's own post-attempt displays and
+this submission's own self-grade disclosure). A workbench problem's help
+cannot be reconstructed from its current state (the book can be hidden, or
+first shown, after the submit, and an imported problem can be rebound to
+another item; RW2b/H3 write its help to ``help_assists``), so a workbench
+problem that could have been open during the window makes the case
+``workbench_state_unknown`` unless it can never have been bound to the item
+(a problem opened on another item). An event attributed to an attempt was
+written after that attempt existed, so attribution orders it: one attributed to the
 previous attempt is after the window opened (but still must precede this
 attempt), one attributed to this attempt came after it. Otherwise the
 whole-second times decide, and an event in the same second as a boundary
@@ -560,10 +563,10 @@ def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None
     """Assistance the attempt recorded outside its help rows, read uncapped
     from the records themselves: ``"help"``, ``"ambiguous"`` (an event whose
     order against the window cannot be established), ``"workbench"`` (a
-    workbench problem that could have been open in the window) or None. Over
-    the attempt's window (after the item's previous attempt, up to this one;
-    ``tutor_qa.hint_equivalents_for_attempt``'s): a tutor question that was
-    answered or counted as a hint, or a reveal event (a post-attempt display
+    workbench problem that could have been open in the window and bound to
+    the item) or None. Over the attempt's window (after the item's previous
+    attempt, up to this one; ``tutor_qa.hint_equivalents_for_attempt``'s): a
+    tutor question on the item, or a reveal event (a post-attempt display
     of the previous attempt included; the attempt's own post-attempt displays
     and this submission's own self-grade disclosure excluded)."""
 
@@ -580,10 +583,12 @@ def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None
         "until": _second(attempt["created_at"]),
     }
     positions: set[str] = set()
+    # Every tutor question on the item, whatever its status: a pending or
+    # failed turn can still be completed (``Repository.update_question_event_answer``
+    # has no status guard, and it rewrites ``hint_equivalent`` too), so the
+    # status at report time is not the status at submit (round 5).
     for question in connection.execute(
-        "SELECT attempt_id, created_at FROM question_events WHERE practice_item_id = ? "
-        "AND (hint_equivalent = 1 OR answer_status = 'answered')",
-        (item_id,),
+        "SELECT attempt_id, created_at FROM question_events WHERE practice_item_id = ?", (item_id,),
     ).fetchall():
         positions.add(_window_position(question, **window))
     for reveal in connection.execute(
@@ -597,11 +602,36 @@ def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None
     if "ambiguous" in positions:
         return "ambiguous"
     problems = connection.execute(
-        "SELECT created_at, closed_at FROM workbench_sessions WHERE practice_item_id = ?", (item_id,)
+        "SELECT practice_item_id, import_status, created_at, closed_at FROM workbench_sessions"
     ).fetchall()
-    if any(_could_overlap(problem, since=window["since"], until=window["until"]) for problem in problems):
+    if any(
+        _could_overlap(problem, since=window["since"], until=window["until"])
+        and not _never_this_item(problem, item_id)
+        for problem in problems
+    ):
         return "workbench"
     return None
+
+
+def _never_this_item(problem: Mapping[str, Any], item_id: str) -> bool:
+    """Whether a workbench problem could never have been bound to the item
+    (round 5). Only one kind qualifies: a problem opened on an item
+    (``import_status = 'none'``), bound to another one. Its binding is fixed by
+    construction: ``reader.workbench.open_session`` writes ``practice_item_id``
+    with it, ``bind`` refuses a problem whose status is ``none``, ``mark_import``
+    leaves it unchanged, and no writer sets the status back to ``none`` (they
+    set ``pending``, ``failed`` or ``bound``). Every imported problem
+    (``pending``, ``failed``, ``bound``) can be bound, and rebound, by
+    ``bind``, and no durable history of its bindings exists (``bind`` writes
+    an interaction event, a table with no append-only guarantee), so its
+    current binding proves nothing about the window: it is unknown, bound
+    elsewhere or unbound alike."""
+
+    return (
+        problem["import_status"] == "none"
+        and problem["practice_item_id"] is not None
+        and problem["practice_item_id"] != item_id
+    )
 
 
 def _could_overlap(problem: Mapping[str, Any], *, since: datetime | None, until: datetime | None) -> bool:

@@ -1260,3 +1260,103 @@ def test_a_workbench_problem_with_an_unreadable_time_could_have_been_open(tmp_pa
     _submit(ctx, session_id, hints=1, key="k1")
     _workbench(paths, "wb_unreadable", created_at="not a time", closed_at="2026-10-17T08:00:00Z")
     assert _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
+
+
+# -- review round 5 (after Codex job 20261018-004402-IAnAPx) ----------------------------
+
+
+def _open_import(paths, *, bind_to: str | None = None) -> str:
+    """A Reader problem opened from a selection, as an import (no item yet),
+    with the book hidden; bound through ``workbench.bind`` when asked."""
+
+    from learnloop.reader import workbench as WB
+
+    repository = Repository(paths.sqlite_path)
+    row, _resumed = WB.open_session(
+        repository, origin="reader", entry="work_through", stem_md="Define the SVD.",
+        import_status="pending", source_visible=False,
+    )
+    if bind_to is not None:
+        WB.bind(repository, row["id"], bind_to)
+    return row["id"]
+
+
+def _hinted_attempt(paths, monkeypatch) -> None:
+    now = _moving_clock(monkeypatch, FROZEN)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T09:00:10Z")
+    now["t"] = FROZEN + timedelta(seconds=30)
+    _submit(ctx, session_id, hints=1, key="k1")
+
+
+def test_rebinding_an_imported_problem_to_another_item_never_flips_the_attempt(tmp_path, monkeypatch):
+    """Round 5, Codex's scenario: an imported problem bound to the item is open
+    during the attempt; ``workbench.bind`` later rebinds it to item B. Its
+    current binding proves nothing about the window: unknown, before and after."""
+
+    from learnloop.reader import workbench as WB
+
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN - timedelta(minutes=5))
+    problem = _open_import(paths, bind_to=ITEM)
+    _hinted_attempt(paths, monkeypatch)
+    before = _progress(paths)
+    WB.bind(Repository(paths.sqlite_path), problem, "pi_other_item")
+    assert before == _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
+
+
+def test_an_unbound_problem_open_in_the_window_is_workbench_state_unknown(tmp_path, monkeypatch):
+    """Round 5: an import that has not bound yet may later bind to this item
+    (or may have been this item's problem, rebound): unknown."""
+
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN - timedelta(minutes=5))
+    _open_import(paths)
+    _hinted_attempt(paths, monkeypatch)
+    assert _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
+
+
+def test_a_problem_opened_on_another_item_leaves_the_attempt_reached(tmp_path, monkeypatch):
+    """Round 5, the control: a problem opened on another item
+    (``import_status = 'none'``) can never be bound to this one, so even open
+    across the window it plays no part. Its binding is fixed: ``bind`` refuses
+    it and ``mark_import`` leaves it unchanged."""
+
+    from learnloop.reader import workbench as WB
+
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, origin, entry, created_at, updated_at) "
+            "VALUES ('wb_other', 'pi_other_item', 'Another problem.', 'practice', 'practice_screen', ?, ?)",
+            ("2026-10-17T08:59:00Z", "2026-10-17T08:59:00Z"),
+        )
+        connection.commit()
+    _hinted_attempt(paths, monkeypatch)
+    assert _progress(paths) == {"reached": 1}
+    repository = Repository(paths.sqlite_path)
+    with pytest.raises(WB.WorkbenchError):
+        WB.bind(repository, "wb_other", ITEM)
+    for status in ("pending", "failed"):
+        assert WB.mark_import(repository, "wb_other", status=status)["import_status"] == "none"
+    assert _progress(paths) == {"reached": 1}
+
+
+def test_a_pending_or_failed_tutor_question_counts_as_help(tmp_path, monkeypatch):
+    """Round 5 audit: a question's status and hint flag are rewritten by its
+    completion (``Repository.update_question_event_answer``, no status guard), so a pending
+    or failed turn in the window may yet be, or have been, answered: help."""
+
+    for status in ("pending", "failed"):
+        now = _moving_clock(monkeypatch, FROZEN)
+        paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."], name=status)
+        ctx, session_id = _sidecar(paths.root)
+        _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T09:00:10Z")
+        Repository(paths.sqlite_path).insert_question_event({
+            "context": "practice", "practice_item_id": ITEM, "session_id": session_id,
+            "question_md": "Why are the factors orthogonal?", "answer_md": None, "question_type": None,
+            "facets": [], "hint_equivalent": False, "answer_status": status, "created_at": _stamp(FROZEN + timedelta(seconds=20)),
+        })
+        now["t"] = FROZEN + timedelta(seconds=30)
+        _submit(ctx, session_id, hints=1, key="k1")
+        assert _progress(paths) == {"reached": 0, "help_not_ordered": 1}, status
