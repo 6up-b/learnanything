@@ -36,6 +36,19 @@ from learnloop.content.pipeline.jobs import IngestJobManager
 _LOGGER = logging.getLogger(__name__)
 
 
+class LoadedVaultProvider:
+    """A context's loaded vault (called) and its reload generation (AD1 fix round 5, V1)."""
+
+    def __init__(self, context: "SidecarContext") -> None:
+        self._context = context
+
+    def __call__(self) -> LoadedVault | None:
+        return self._context.vault
+
+    def generation(self) -> int:
+        return int(self._context.vault_generation)
+
+
 @dataclass
 class SidecarContext:
     vault_root: Path | None = None
@@ -59,6 +72,21 @@ class SidecarContext:
     # starts belong to the loaded vault. Opening another vault, shutdown and
     # EOF drain them (bounded) and fence their late writes.
     map_builds: BackgroundBuilds = field(default_factory=BackgroundBuilds, repr=False)
+    # Adaptive difficulty AD1 (fix round 5, V1): bumped every time the loaded
+    # vault object is replaced (a load, a reload, a re-read after recovery or
+    # adoption). A background job's protection check reads it before and
+    # after it builds the held-out predicate from the loaded vault, and its
+    # request and record admissions compare it, so a reload in between is
+    # never judged by the vault it replaced.
+    vault_generation: int = field(default=0, repr=False)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        if name == "vault":
+            # After the vault is in place: a reader that saw the old
+            # generation and then the new vault rebuilds once, harmlessly; one
+            # that saw the old vault always sees the generation move.
+            object.__setattr__(self, "vault_generation", getattr(self, "vault_generation", 0) + 1)
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
@@ -188,13 +216,15 @@ class SidecarContext:
         except Exception:  # noqa: BLE001 - never block a reload
             _LOGGER.warning("could not schedule AD preparation of new item revisions", exc_info=True)
 
-    def loaded_vault(self) -> LoadedVault | None:
-        """The vault loaded now (adaptive difficulty AD1, fix round 4, V1): a
-        background job checks its requests against this vault's held-out
-        predicate at each check, not the one it was started with, so a
-        same-vault reload's source-set or exam-scope edit is seen."""
+    @property
+    def loaded_vault(self) -> "LoadedVaultProvider":
+        """The provider of the vault loaded now (adaptive difficulty AD1, fix
+        rounds 4 and 5, V1): a background job checks its requests against this
+        vault's held-out predicate at each check, not the one it was started
+        with, so a same-vault reload's source-set or exam-scope edit is seen;
+        its ``generation()`` is :attr:`vault_generation`."""
 
-        return self.vault
+        return LoadedVaultProvider(self)
 
     def close_background_builds(self) -> bool:
         """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""
@@ -840,16 +870,20 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     from learnloop_sidecar.handlers.sessions import draft_self_grade_disclosure
 
     disclosure = draft_self_grade_disclosure(row)
-    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress
+    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress, draft_hint_seen
 
     marker = draft_first_hint_progress(
         focus.get("practice") if isinstance(focus, dict) else None, submission_id
     )
+    hint_seen = draft_hint_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
     return to_camel(
         {
             # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
             # marker, present only when one was kept for this retry key.
             **({"first_hint_progress": marker} if marker is not None else {}),
+            # AD1 fix round 5 (V4): a hint was seen on this draft; present
+            # only when one was, for this retry key.
+            **({"hint_seen": True} if hint_seen else {}),
             "current_practice_item_id": row.get("current_practice_item_id"),
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,

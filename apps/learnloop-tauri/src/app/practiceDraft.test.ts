@@ -26,7 +26,7 @@ const mirror = (overrides: Partial<PracticeDraftMirror> = {}): PracticeDraftMirr
 it("restores the stuck marker from the in-memory mirror after navigation", () => {
   expect(restoredPracticeDraft("item-1", mirror(), checkpoint())).toEqual({
     answer: "mirrored", hints: 1, submissionId: "key-2", stuck: true, teachBack: null, planPresentationId: null,
-    selfGradeDisclosure: null, firstHintProgress: null
+    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
   });
   expect(restoredPracticeDraft("item-1", mirror({ declaredStuck: false }), null).stuck).toBe(false);
 });
@@ -41,7 +41,7 @@ it("restores the stuck marker from the session checkpoint after a restart", () =
 it("never carries a stuck marker to another item", () => {
   expect(restoredPracticeDraft("item-2", mirror(), checkpoint({ declaredStuck: true }))).toEqual({
     answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
-    selfGradeDisclosure: null, firstHintProgress: null
+    selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
   });
 });
 

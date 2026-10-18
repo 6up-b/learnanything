@@ -212,6 +212,7 @@ def _session_topics(vault, repository, session_id: str, demonstrated_attempt_ids
 _KEEP: Any = object()
 #: Adaptive difficulty AD1: the practice draft RPC's "leave the marker as it is".
 KEEP_MARKER: Any = _KEEP
+KEEP_HINT_SEEN: Any = _KEEP
 
 
 def patch_checkpoint(
@@ -221,6 +222,7 @@ def patch_checkpoint(
     plan_presentation_id: Any = _KEEP,
     self_grade_disclosure: Any = _KEEP,
     first_hint_progress: Any = _KEEP,
+    hint_seen: Any = _KEEP,
 ) -> None:
     """Merge ``params`` into the session's checkpoint.
 
@@ -261,6 +263,9 @@ def patch_checkpoint(
 
     if first_hint_progress is not _KEEP:
         focus = _with_first_hint_progress(focus, first_hint_progress)
+
+    if hint_seen is not _KEEP:
+        focus = _with_hint_seen(focus, hint_seen)
 
     current_item = _merged_value(existing, params, fields, "current_practice_item_id")
     if self_grade_disclosure is not _KEEP:
@@ -362,6 +367,33 @@ def _with_first_hint_progress(focus: dict[str, Any] | None, marker: str | None) 
         practice.pop("firstHintProgress", None)
     payload["practice"] = practice
     return payload
+
+
+def _with_hint_seen(focus: dict[str, Any] | None, seen: Any) -> dict[str, Any]:
+    """Adaptive difficulty AD1 fix round 5 (V4): keep "a hint was seen on this
+    draft" in the practice envelope with the retry key it was set under (no
+    schema change), so a draft restored without a first-hint marker knows
+    the first hint's timing is unknown. Anything but True clears it."""
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    key = practice.get("submissionId") or practice.get("submission_id")
+    if seen is True and isinstance(key, str) and key.strip():
+        practice["hintSeen"] = {"submissionId": key.strip()}
+    else:
+        practice.pop("hintSeen", None)
+    payload["practice"] = practice
+    return payload
+
+
+def draft_hint_seen(practice: dict[str, Any] | None, submission_id: str | None) -> bool:
+    """Whether a saved draft records a hint seen under ``submission_id``."""
+
+    if not isinstance(practice, dict) or not submission_id:
+        return False
+    stored = practice.get("hintSeen")
+    return isinstance(stored, dict) and stored.get("submissionId") == submission_id
 
 
 def draft_first_hint_progress(practice: dict[str, Any] | None, submission_id: str | None) -> str | None:

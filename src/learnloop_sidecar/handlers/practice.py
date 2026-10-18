@@ -71,6 +71,7 @@ from learnloop_sidecar.handlers.queue import (
 )
 from learnloop_sidecar.handlers.serializers import practice_item_detail
 from learnloop_sidecar.handlers.sessions import (
+    KEEP_HINT_SEEN,
     SessionCheckpointInput,
     clear_checkpoint,
     draft_plan_presentation,
@@ -108,6 +109,12 @@ class PracticeDraftCheckpoint(ParamsModel):
     #: Adaptive difficulty AD1 (§11.2): the first-hint progress marker, kept
     #: with the draft's retry key so a restored draft keeps it.
     first_hint_progress: Literal["no_draft", "draft_started"] | None = None
+    #: AD1 fix round 5 (V4): a hint of any kind was seen on this draft (an
+    #: authored reveal, a delivered hint, a carried hint or book), kept with
+    #: the retry key, whatever the switches, so a draft restored without a
+    #: marker knows its first hint's timing is unknown. Never read by
+    #: grading, scheduling or the assistance count (``hints_used``).
+    hint_seen: bool | None = None
 
 
 class SelfGradeDisclosureInput(ParamsModel):
@@ -609,6 +616,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
         ),
         plan_presentation_id=params.plan_presentation_id,
         first_hint_progress=_draft_marker(vault, params),
+        hint_seen=params.hint_seen if "hint_seen" in params.model_fields_set else KEEP_HINT_SEEN,
     )
     return {"ok": True}
 

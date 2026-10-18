@@ -135,6 +135,7 @@ export function PracticeScreen({
   restoredTeachBack,
   restoredDisclosure = null,
   restoredFirstHintProgress = null,
+  restoredHintSeen = false,
   onFeedback,
   onBlockEnd,
   onContinueDiagnostic,
@@ -178,6 +179,8 @@ export function PracticeScreen({
   restoredDisclosure?: SelfGradeDisclosureDto | null;
   /** Adaptive difficulty AD1 (§11.2): the restored draft's first-hint marker. */
   restoredFirstHintProgress?: FirstHintProgress | null;
+  /** AD1 fix round 5 (V4): the restored draft saw a hint of some kind. */
+  restoredHintSeen?: boolean;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
    *  attempt in it, not just the one that closed it. */
@@ -201,6 +204,8 @@ export function PracticeScreen({
     selfGradeDisclosure?: SelfGradeDisclosureDto | null;
     /** Adaptive difficulty AD1 (§11.2): the first-hint progress marker. */
     firstHintProgress?: FirstHintProgress | null;
+    /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
+    hintSeen?: boolean;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -257,12 +262,22 @@ export function PracticeScreen({
   const ratingTap = algoConfig().ratingTap;
   const [difficultyRating, setDifficultyRating] = useState<DifficultyRating | null>(null);
   // AD1 (§11.2): the first-hint progress marker, kept with the draft.
-  // A restored draft's hints with no saved marker: their timing is unknown,
-  // so this attempt records none (fix round 4, V4; §5.3).
+  // A restored draft that saw a hint (fix round 5, V4: any kind, saved with
+  // the draft as `hintSeen`; a legacy draft without it: its counted hints)
+  // with no saved marker: that hint's timing is unknown, so this attempt
+  // records none (fix round 4, V4; §5.3).
   const firstHint = useFirstHintProgress({ enabled: algoConfig().firstHintProgress, restored: restoredFirstHintProgress,
-                                           hintsBefore: (restoredHints ?? 0) > 0 });
+                                           hintsBefore: restoredHintSeen === true || (restoredHints ?? 0) > 0 });
   const firstHintRef = useRef(firstHint.value);
   firstHintRef.current = firstHint.value;
+  // AD1 fix round 5 (V4): whether a hint of any kind (an authored reveal, a
+  // delivered hint, a carried hint or book) was seen on this draft, saved
+  // with it whatever the switches. Persistence only: hintsUsed and the
+  // assistance count are unchanged.
+  const [hintSeen, setHintSeen] = useState(restoredHintSeen === true);
+  const hintSeenRef = useRef(hintSeen);
+  hintSeenRef.current = hintSeen;
+  const seeHint = useCallback(() => setHintSeen(true), []);
   const [fallbackRequired, setFallbackRequired] = useState(!gradingReady);
   // The self-grade panel is only revealed once the learner clicks Submit (and
   // grading actually needs a self-grade), never while they are still answering.
@@ -312,7 +327,8 @@ export function PracticeScreen({
     // Router R2a (review F5): saved with the draft so a draft resumed after a
     // restart still submits bound to its plan presentation.
     planPresentationId,
-    ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
+    ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
+    ...(hintSeen ? { hintSeen: true } : {})
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -409,10 +425,11 @@ export function PracticeScreen({
       schedulerCandidateId,
       declaredStuck: stuck,
       planPresentationId,
-      ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
+      ...(firstHint.value ? { firstHintProgress: firstHint.value } : {}),
+      ...(hintSeen ? { hintSeen: true } : {})
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value, hintSeen]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -475,8 +492,11 @@ export function PracticeScreen({
   // Adaptive difficulty AD1: a hint the panel delivered is a first hint too.
   const deliveredHints = adaptiveHints.entries.length;
   useEffect(() => {
-    if (deliveredHints > 0) firstHint.mark(attemptProgressRef.current);
-  }, [deliveredHints, firstHint.mark]);
+    if (deliveredHints > 0) {
+      firstHint.mark(attemptProgressRef.current);
+      seeHint();
+    }
+  }, [deliveredHints, firstHint.mark, seeHint]);
 
   useEffect(() => registerVaultDraft({
     freeze: () => {
@@ -620,7 +640,7 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
     }, 350);
     return () => clearTimeout(timer);
-  }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId, stuck]);
+  }, [answer, flushDraft, hintsUsed, hintSeen, onError, practiceItemId, session.sessionId, stuck]);
 
   useEffect(() => {
     return () => {
@@ -637,7 +657,7 @@ export function PracticeScreen({
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
                        planPresentationId: presentation,
                        selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null,
-                       firstHintProgress: firstHintRef.current });
+                       firstHintProgress: firstHintRef.current, hintSeen: hintSeenRef.current });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -729,8 +749,14 @@ export function PracticeScreen({
     if (carried > 0) setHintsUsed((value) => Math.max(value, carried));
     // Every assist the problem held comes back: its hints and its book (F2).
     if (closing?.record.bookCounted) setBookLeft(true);
+    if (carried > 0 || closing?.record.bookCounted) {
+      // AD1 fix round 5 (V4): carried hints arrive untimed; with no marker
+      // yet, this attempt's first hint is behind it, timing unknown.
+      firstHint.noteUntimedHint();
+      seeHint();
+    }
     setWbSession(null);
-  }, [item]);
+  }, [item, firstHint.noteUntimedHint, seeHint]);
   const refreshWbItemSessions = useCallback(() => {
     if (!item) return;
     const itemId = item.id;
@@ -774,6 +800,9 @@ export function PracticeScreen({
   carriedRef.current = { hints: hintsUsed, book: bookCarried };
   // A carried book is a hint the marker never timed (fix round 4, V4).
   if (bookCarried) firstHint.noteUntimedHint();
+  useEffect(() => {
+    if (bookCarried) seeHint();
+  }, [bookCarried, seeHint]);
 
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
@@ -898,7 +927,10 @@ export function PracticeScreen({
    *  sidecar answers that they are). */
   function revealAuthoredHint() {
     // Adaptive difficulty AD1: the first hint seen sets the progress marker.
-    if (item && hintsUsed < item.hints.length) firstHint.mark(attemptProgressRef.current);
+    if (item && hintsUsed < item.hints.length) {
+      firstHint.mark(attemptProgressRef.current);
+      seeHint();
+    }
     // Adaptive hints H0: the hint this press shows (none past the last one).
     if (item && session.sessionId && hintsUsed < item.hints.length) {
       recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
@@ -912,6 +944,7 @@ export function PracticeScreen({
   async function revealAuthoredAt(index: number): Promise<string | null> {
     if (!item || !session.sessionId) return null;
     firstHint.mark(attemptProgressRef.current);
+    seeHint();
     // Counted at once for a hand-off into steps that reads it before the
     // next render (review F1); the render sets the ref from the state.
     carriedRef.current = { ...carriedRef.current, hints: carriedRef.current.hints + 1 };

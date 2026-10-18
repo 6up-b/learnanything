@@ -155,8 +155,14 @@ def prepare_items(vault: Any, repository: Any, item_ids: Iterable[str], *, clien
 
 def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients | None,
              decider_factory: Callable[[], Any] | None, clock: Any, fence: Any,
-             live_vault: Callable[[], Any] | None) -> list[dict[str, Any]]:
-    """Prepare exactly these revisions (each an item as it was found), in order."""
+             live_vault: Callable[[], Any] | None,
+             results: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Prepare exactly these revisions (each an item as it was found), in order.
+
+    Each visited revision's entry is appended to ``results`` as soon as it is
+    done, with ``settled`` (fix round 5, V2): prepared, already done, or
+    terminal (protected, no longer active, no longer in the vault). A caller
+    that sees an exception knows which revisions were visited."""
 
     from learnloop.adaptive_difficulty.feature_audit import audit_revision, item_revision
     from learnloop.adaptive_difficulty.protection import protection
@@ -164,16 +170,21 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
     def live() -> bool:
         return fence is None or fence.live()
 
-    results: list[dict[str, Any]] = []
+    results = results if results is not None else []
     current = live_vault() if live_vault is not None else vault
     protected = protection(current if current is not None else vault, repository)
     for item in items:
         if not live():
             break
         item_id = str(item.id)
-        if getattr(item, "status", "active") != "active":
+        content_hash = item_revision(item)[0]
+        loaded = current if current is not None else vault
+        if getattr(item, "status", "active") != "active" or item_id not in (loaded.practice_items or {}):
+            # Terminal: retrying an ineligible or removed item changes nothing.
+            results.append({"practice_item_id": item_id, "content_hash": content_hash, "status": "ineligible",
+                            "settled": True})
             continue
-        entry: dict[str, Any] = {"practice_item_id": item_id, "content_hash": item_revision(item)[0]}
+        entry: dict[str, Any] = {"practice_item_id": item_id, "content_hash": content_hash}
         if feature_audit_enabled(vault.config):
             entry["audit"] = audit_revision(
                 vault, repository, item, clock=clock, protected=protected, fence=fence, live_vault=live_vault,
@@ -185,8 +196,9 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
         if LLM_V1 in outside_forecasters(vault.config):
             entry["llm_v1"] = forecast_item(vault, repository, item, clients=clients, clock=clock,
                                             protected=protected, fence=fence, live_vault=live_vault).as_dict()
+        entry["settled"] = _settled(entry)
         results.append(entry)
-        if _settled(entry):
+        if entry["settled"]:
             with _GUARD:
                 _PREPARED.add((str(Path(repository.sqlite_path)), item_id, entry["content_hash"]))
     return results
@@ -195,6 +207,10 @@ def _prepare(vault: Any, repository: Any, items: list[Any], *, clients: Clients 
 #: Item revisions this process has prepared to the end (audited or current,
 #: forecast or current, or protected): a plan read never schedules them again.
 _PREPARED: set[tuple[str, str, str]] = set()
+#: Settled: done (ok, audited in full), already done (current), or terminal
+#: (protected; the switch off). Everything else (refused_spend, busy,
+#: unavailable, failed, stale, an audit with dimensions unanswered) is
+#: retried by a later run (fix round 5, V2).
 _SETTLED = {"current", "protected", "disabled", "ok"}
 
 
@@ -284,33 +300,44 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
         queue.running = True
         vault, clients, clock, live_vault = queue.vault, queue.clients, queue.clock, queue.live_vault
 
-    def finish(done: set[tuple[str, str]]) -> None:
+    def finish(results: list[dict[str, Any]]) -> None:
+        """Only settled revisions leave the queue (fix round 5, V2).
+
+        Why: a run used to drop every revision it returned (a refused_spend,
+        a busy claim, an unavailable route, an incomplete audit) and, after
+        an exception, the whole batch, so an unchanged reload never retried
+        them. Now a revision the run never reached (unvisited: an exception,
+        the vault switched or closed; the revision that raised is among them)
+        waits at the front, ahead of what arrived since; a revision visited
+        and not settled goes to the back, so a revision that keeps failing
+        never starves new ones. Either is retried only by a later trigger (a
+        reload or a plan read), at most PREPARE_LIMIT a run; runs never chain."""
+
+        visited = {(entry["practice_item_id"], entry["content_hash"]): bool(entry.get("settled"))
+                   for entry in results}
         with _GUARD:
-            # A revision the run never reached (its vault was switched or
-            # closed) waits for a later run, ahead of what arrived since.
-            left = {key: item for key, item in batch if key not in done}
-            queue.pending = {**left, **{key: item for key, item in queue.pending.items() if key not in left}}
+            unvisited = {key: item for key, item in batch if key not in visited}
+            retry = {key: item for key, item in batch if visited.get(key) is False}
+            waiting = {key: item for key, item in queue.pending.items() if key not in unvisited and key not in retry}
+            queue.pending = {**unvisited, **waiting, **retry}
             queue.taken = set()
             queue.running = False
 
     def work(fence: Any) -> Callable[[], None]:
         def run() -> None:
-            done: set[tuple[str, str]] = set()
+            results: list[dict[str, Any]] = []
             try:
                 if fence.live():
                     from learnloop.db.repositories import Repository
 
                     repository = Repository.attach(Path(sqlite_path))
-                    results = _prepare(vault, repository, [item for _key, item in batch], clients=clients,
-                                       decider_factory=None, clock=clock, fence=fence, live_vault=live_vault)
-                    done = {(entry["practice_item_id"], entry["content_hash"]) for entry in results}
-                    # An inactive revision is skipped, not left waiting.
-                    done |= {key for key, item in batch if getattr(item, "status", "active") != "active"}
+                    _prepare(vault, repository, [item for _key, item in batch], clients=clients,
+                             decider_factory=None, clock=clock, fence=fence, live_vault=live_vault,
+                             results=results)
             except Exception:  # noqa: BLE001 - a background job never reaches the serve
                 LOG.warning("adaptive difficulty preparation run failed", exc_info=True)
-                done = {key for key, _item in batch}
             finally:
-                finish(done)
+                finish(results)
         return run
 
     try:
@@ -319,7 +346,7 @@ def _start_run(sqlite_path: Any, queue: _Queue, *, builds: Any, limit: int) -> t
         LOG.warning("adaptive difficulty preparation run not started", exc_info=True)
         thread = None
     if thread is None:
-        finish(set())
+        finish([])
     return thread
 
 

@@ -329,30 +329,40 @@ def _verdict_text(p: float) -> str:
     return f"{float(p):.6f}"
 
 
-def _may_record(send: SendGuard, outcome: ForecastOutcome) -> bool:
-    """Whether the forecast may be recorded: its content is still not protected.
+def _record_admission(send: SendGuard, outcome: ForecastOutcome) -> Callable[[], None] | None:
+    """The forecast's record admission, or None when its content is protected now.
 
     A request sent before its content was marked held out still returns; its
     receipt and payloads (which quote that content) are then not written, and
-    its model-call receipt keeps the accounting (Codex re-review F11)."""
+    its model-call receipt keeps the accounting (Codex re-review F11). An
+    answer recovered from an earlier paid call (a checkpoint or a completed
+    receipt: nothing is paid twice) passes this same check against the vault
+    loaded now (fix round 5, V3). The admission returned is run inside the
+    write transaction: a reload since the check refuses it (fix round 5, V1)."""
 
     try:
-        send.check("record")
+        generation = send.check("record")
     except ProtectedContent as exc:
-        outcome.status, outcome.p, outcome.receipt_id, outcome.reason = "protected", None, None, str(exc)[:200]
-        return False
-    return True
+        _protected(outcome, exc)
+        return None
+    return lambda: send.confirm(generation, "record")
+
+
+def _protected(outcome: ForecastOutcome, exc: Exception) -> None:
+    outcome.status, outcome.p, outcome.receipt_id, outcome.reason = "protected", None, None, str(exc)[:200]
 
 
 def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str,
-           request: Any, response: Any, received: str, judgment: Mapping[str, Any] | None) -> str | None:
+           request: Any, response: Any, received: str, judgment: Mapping[str, Any] | None,
+           admit: Callable[[], None] | None = None) -> str | None:
     """The forecast's payloads, its receipt and (accepted) its judgment, in one transaction.
 
     ``repository`` is the claim's fenced repository: nothing lands once the
     job's claim or vault is lost. The judgment (Codex review F8, handoffs §0:
     every paid verdict appends to ``judgment_ledger``) is written only with
     the receipt it belongs to, so a receipt key written once has one
-    judgment; a failed or refused forecast has a receipt and no verdict."""
+    judgment; a failed or refused forecast has a receipt and no verdict.
+    ``admit`` runs first inside the transaction (the record admission)."""
 
     from dataclasses import replace
 
@@ -361,6 +371,8 @@ def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at:
     receipt = replace(receipt, columns={**dict(receipt.columns),
                                         "algorithm_version": vault.config.algorithms.algorithm_version})
     with repository.atomic():
+        if admit is not None:
+            admit()
         _store_payloads(repository, payload_key, receipt.forecaster, request, response, received,
                         vault.config.router.payload_retention_days)
         written = record_receipts(repository, [receipt], created_at=created_at)
@@ -462,19 +474,24 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
         status, outcome.reason = "refused_spend", str(exc)[:200]
     except (AIProviderUnavailable, AIInvalidOutput, TimeoutError, ValueError) as exc:
         status, outcome.reason = "failed", f"{type(exc).__name__}"
-    if not _may_record(send, outcome):
+    admit = _record_admission(send, outcome)
+    if admit is None:
         return
     received = utc_now_iso(clock)
     final_key = key if status == "ok" else f"{key}:{status}:{received}"
-    outcome.receipt_id = _write(repository, vault, _receipt(
-        key=final_key, forecaster=LLM_V1, version=V1_PROMPT_VERSION, scope="item", decision_kind="item_prepare",
-        binding_kind=FIRST_PRESENTATION, inputs=inputs, inputs_as_of=issued, p=p, status=status,
-        received_at=received, model=model, request_hash=request_hash,
-        columns={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
-                 "item_content_hash": content_hash, "decision_ref": content_hash},
-    ), created_at=issued, payload_key=final_key, request={"prompt": prompt}, response=response, received=received,
-        judgment={"left_kind": "practice_item_revision", "left_id": content_hash, "judge": "llm", "model": model,
-                  "prompt_version": V1_PROMPT_VERSION, "input_hash": request_hash})
+    try:
+        outcome.receipt_id = _write(repository, vault, _receipt(
+            key=final_key, forecaster=LLM_V1, version=V1_PROMPT_VERSION, scope="item", decision_kind="item_prepare",
+            binding_kind=FIRST_PRESENTATION, inputs=inputs, inputs_as_of=issued, p=p, status=status,
+            received_at=received, model=model, request_hash=request_hash,
+            columns={"practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
+                     "item_content_hash": content_hash, "decision_ref": content_hash},
+        ), created_at=issued, payload_key=final_key, request={"prompt": prompt}, response=response, received=received,
+            judgment={"left_kind": "practice_item_revision", "left_id": content_hash, "judge": "llm", "model": model,
+                      "prompt_version": V1_PROMPT_VERSION, "input_hash": request_hash}, admit=admit)
+    except ProtectedContent as exc:
+        _protected(outcome, exc)
+        return
     outcome.status, outcome.p = status, p
 
 
@@ -673,25 +690,30 @@ def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str,
         status, outcome.reason = "refused_spend", str(exc)[:200]
     except Exception as exc:  # noqa: BLE001 - a failed forecaster is a failed receipt, never a crash
         status, outcome.reason = "failed", type(exc).__name__
-    if not _may_record(send, outcome):
+    admit = _record_admission(send, outcome)
+    if admit is None:
         return outcome
     received = utc_now_iso(clock)
     final_key = key if status == "ok" else f"{key}:{status}:{received}"
     version = V3_PROMPT_VERSION if name == LLM_V3_LLM else DECIDER_QUESTION_SET
     request_hash = content_key(request)
-    outcome.receipt_id = _write(repository, vault, _receipt(
-        key=final_key, forecaster=name, version=version,
-        scope="presentation", decision_kind="serve", binding_kind="plan_presentation", inputs=inputs,
-        inputs_as_of=served_at, p=p, status=status, received_at=received, model=model,
-        request_hash=request_hash,
-        columns={"practice_item_id": str(frozen["practice_item_id"]),
-                 "learning_object_id": frozen.get("learning_object_id"),
-                 "plan_presentation_id": presentation_id, "decision_ref": presentation_id},
-    ), created_at=max(issued, served_at), payload_key=final_key, request=request, response=response,
-        received=received,
-        judgment={"left_kind": "plan_presentation", "left_id": presentation_id,
-                  "judge": "llm" if name == LLM_V3_LLM else "decider", "model": model,
-                  "prompt_version": version, "input_hash": request_hash})
+    try:
+        outcome.receipt_id = _write(repository, vault, _receipt(
+            key=final_key, forecaster=name, version=version,
+            scope="presentation", decision_kind="serve", binding_kind="plan_presentation", inputs=inputs,
+            inputs_as_of=served_at, p=p, status=status, received_at=received, model=model,
+            request_hash=request_hash,
+            columns={"practice_item_id": str(frozen["practice_item_id"]),
+                     "learning_object_id": frozen.get("learning_object_id"),
+                     "plan_presentation_id": presentation_id, "decision_ref": presentation_id},
+        ), created_at=max(issued, served_at), payload_key=final_key, request=request, response=response,
+            received=received,
+            judgment={"left_kind": "plan_presentation", "left_id": presentation_id,
+                      "judge": "llm" if name == LLM_V3_LLM else "decider", "model": model,
+                      "prompt_version": version, "input_hash": request_hash}, admit=admit)
+    except ProtectedContent as exc:
+        _protected(outcome, exc)
+        return outcome
     outcome.status, outcome.p = status, p
     return outcome
 

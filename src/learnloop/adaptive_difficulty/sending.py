@@ -39,6 +39,12 @@ from learnloop.ai.execution import active_request_gate, gate_model_requests
 from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
 
 
+#: How many times a check rebuilds protection when the vault was reloaded
+#: while it was being built (fix round 5, V1), before refusing.
+RELOAD_RETRIES = 3
+_UNREADABLE = object()
+
+
 class ProtectedContent(AIInterrupted):
     """A request refused before it was sent: something it quotes is protected now.
 
@@ -59,7 +65,10 @@ class SendGuard:
     predicate can only add to today's; it never replaces it). ``live_vault``:
     the provider of the vault loaded now (the sidecar's context's vault at
     check time); None for a caller with no reload (the CLI backfill, which
-    holds the vault it loaded), whose own ``vault`` is then the current one."""
+    holds the vault it loaded), whose own ``vault`` is then the current one.
+    A provider with a ``generation()`` method (the sidecar's) also reports
+    its reload generation, which every check and admission binds to (fix
+    round 5, V1)."""
 
     def __init__(self, vault: Any, repository: Any, *, items: Iterable[Any] = (), item_ids: Iterable[str] = (),
                  identities: Iterable[Mapping[str, Any]] = (), protected: Any = None,
@@ -77,8 +86,11 @@ class SendGuard:
         #: Why the job's requests were refused (None: none was).
         self.refused: str | None = None
 
-    def check(self, purpose: str = "request") -> None:
+    def check(self, purpose: str = "request") -> Any:
         """Raise :class:`ProtectedContent` when the job may send (or record) nothing more.
+
+        Returns the reload generation the check judged (None without a
+        provider of one), for :meth:`confirm` at the admission it guards.
 
         Why here, before each request and not once per job (Codex re-review
         F11): the check used to run once before the forecaster pair, so a
@@ -90,12 +102,42 @@ class SendGuard:
         with self._lock:
             if self.refused is not None:
                 raise ProtectedContent(self.refused)
-        reason = self._protected_now()
+        reason, generation = self._protected_now()
+        self._refuse_if(reason, purpose)
+        return generation
+
+    def confirm(self, generation: Any, purpose: str = "record") -> None:
+        """Refuse when the vault was reloaded since ``generation`` was checked.
+
+        Fix round 5, V1: a check judges one vault; a reload between it and
+        the admission it guards (the physical request, the record's write
+        transaction) could replace that vault with one that holds the
+        content out. The admission compares the generation and refuses when
+        it moved; the job's later requests are refused too."""
+
+        moved = None
+        if self._generation_reader() is not None and self._generation() != generation:
+            moved = "the vault was reloaded after its protection was checked"
+        self._refuse_if(moved, purpose)
+
+    def _refuse_if(self, reason: str | None, purpose: str) -> None:
         with self._lock:
             if reason is not None and self.refused is None:
                 self.refused = f"{reason} (refused before {purpose})"
             if self.refused is not None:
                 raise ProtectedContent(self.refused)
+
+    def _generation_reader(self) -> Callable[[], Any] | None:
+        return getattr(self._live_vault, "generation", None) if self._live_vault is not None else None
+
+    def _generation(self) -> Any:
+        reader = self._generation_reader()
+        if reader is None:
+            return None
+        try:
+            return reader()
+        except Exception:  # noqa: BLE001 - an unreadable generation never matches
+            return _UNREADABLE
 
     def _loaded_vault(self) -> tuple[Any | None, str | None]:
         """The vault loaded now, or None with why (fix round 4, V1).
@@ -118,12 +160,30 @@ class SendGuard:
             return None, "another vault is loaded"
         return current, None
 
-    def _protected_now(self) -> str | None:
+    def _protected_now(self) -> tuple[str | None, Any]:
+        """``(why it is protected or None, the reload generation judged)``.
+
+        Fix round 5, V1: the loaded vault is read once and its protection
+        built from it, which takes a while; a same-root reload in between
+        (an exam scope added) replaced the vault, and the old one's verdict
+        was used. The reload generation is read before and after: when it
+        moved, protection is rebuilt from the new vault, up to
+        :data:`RELOAD_RETRIES` times, then the request is refused."""
+
+        for _attempt in range(1 + RELOAD_RETRIES):
+            before = self._generation()
+            vault, gone = self._loaded_vault()
+            if vault is None:
+                return gone, before
+            reason = self._judged(vault)
+            after = self._generation()
+            if before == after and after is not _UNREADABLE:
+                return reason, after
+        return "the vault kept being reloaded while its protection was checked", None
+
+    def _judged(self, vault: Any) -> str | None:
         from learnloop.adaptive_difficulty.protection import Protection, protection
 
-        vault, gone = self._loaded_vault()
-        if vault is None:
-            return gone
         current = protection(vault, self._repository)
         if self._earlier:
             current = Protection(current.ids | self._earlier, current.material)
@@ -156,7 +216,9 @@ class _GuardGate:
         self._outer = outer
 
     def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
-        self._guard.check(purpose)
+        # Immediately before the physical request: the check, then its
+        # generation compared once more (fix round 5, V1).
+        self._guard.confirm(self._guard.check(purpose), purpose)
         if self._outer is None:
             return None
         return self._outer.admit(client, purpose=purpose, prompt=prompt, budget=budget)
@@ -186,7 +248,7 @@ def ask_llm(guard: SendGuard, route: Any, client: Any, *, price: float | None, r
 
     def admit(_estimate: Any) -> None:
         # PaidCalls asks before every attempt, and before it allows a retry.
-        guard.check(purpose)
+        guard.confirm(guard.check(purpose), purpose)
 
     calls = PaidCalls(route=route, budget=SpendBudget(SpendCaps(max_estimated_usd=None, **dict(caps)),
                                                       subscription=subscription),

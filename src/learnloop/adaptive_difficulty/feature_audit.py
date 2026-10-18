@@ -223,8 +223,12 @@ def canonical_audits(connection: Any, content_hash: str, *, as_of: str | None = 
 
 
 def _append(repository: Any, *, content_hash: str, item_id: str, dimension: str, judge: str, verdict: str,
-            model: str, input_hash: str, score: float | None, rationale: Mapping[str, Any], now: str) -> str:
+            model: str, input_hash: str, score: float | None, rationale: Mapping[str, Any], now: str,
+            admit: Callable[[], None] | None = None) -> str:
     with repository.atomic():
+        if admit is not None:
+            # The record admission, inside the write (fix round 5, V1).
+            admit()
         return append_judgment(
             repository.connection(), task=TASK, left_kind=LEFT_KIND, left_id=content_hash, right_kind=RIGHT_KIND,
             right_id=dimension, judge=judge, judge_model=model or "unknown", prompt_version=VERSION,
@@ -373,10 +377,14 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
         outcome.decider_status = status
         try:
             # Nothing is recorded once the revision is protected (F11).
-            send.check("recording the Decider's audit")
+            generation = send.check("recording the Decider's audit")
         except ProtectedContent:
             outcome.decider_status = "protected"
             raise
+
+        def admit_decider() -> None:
+            send.confirm(generation, "recording the Decider's audit")
+
         for dimension in remaining:
             question = questions[dimension]
             probabilities = distributions.get(dimension, {})
@@ -389,7 +397,7 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
                 score=probabilities.get(choice) if choice else None,
                 rationale={"status": "ok" if choice else verdict, "probabilities": probabilities,
                            "dimension": dimension, "schema": SCHEMA},
-                now=utc_now_iso(clock),
+                now=utc_now_iso(clock), admit=admit_decider,
             )
             outcome.judgment_ids.append(judgment_id)
             if choice is not None:
@@ -449,14 +457,23 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
     model = str(calls.last_resolved_model or getattr(resolved, "model", None) or route.model or "unknown")
     try:
         # Nothing is recorded once the revision is protected (F11).
-        send.check("recording the LLM's audit")
+        generation = send.check("recording the LLM's audit")
     except ProtectedContent:
         outcome.llm_status = "protected"
         raise
+
+    def admit_llm() -> None:
+        try:
+            send.confirm(generation, "recording the LLM's audit")
+        except ProtectedContent:
+            outcome.llm_status = "protected"
+            raise
+
     outcome.llm_status = "ok"
     values = answer.model_dump(mode="json")
     now = utc_now_iso(clock)
     with repository.atomic():
+        admit_llm()
         owner_key = f"{TASK}:{content_hash}:{','.join(dimensions)}"
         store.insert_payload(repository.connection(), owner_key=owner_key, forecaster=TASK, kind="request",
                              content={"prompt": prompt}, created_at=now)
@@ -473,7 +490,7 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
             rationale={"fallback": decider_rows[dimension][1] if dimension in decider_rows else "decider_off",
                        "decider_judgment_id": decider_rows[dimension][0] if dimension in decider_rows else None,
                        "dimension": dimension, "schema": SCHEMA},
-            now=utc_now_iso(clock),
+            now=utc_now_iso(clock), admit=admit_llm,
         )
         outcome.judgment_ids.append(judgment_id)
         outcome.answered[dimension] = str(value)

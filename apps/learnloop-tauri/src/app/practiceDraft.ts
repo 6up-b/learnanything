@@ -16,6 +16,8 @@ export type PracticeDraftMirror = {
   selfGradeDisclosure?: SelfGradeDisclosureDto | null;
   /** Adaptive difficulty AD1 (§11.2): the first-hint progress marker. */
   firstHintProgress?: FirstHintProgress | null;
+  /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
+  hintSeen?: boolean;
 };
 
 export type RestoredPracticeDraft = {
@@ -34,6 +36,9 @@ export type RestoredPracticeDraft = {
   selfGradeDisclosure: SelfGradeDisclosureDto | null;
   /** Adaptive difficulty AD1 (§11.2): the marker kept with this draft. */
   firstHintProgress: FirstHintProgress | null;
+  /** AD1 fix round 5 (V4): a hint was seen on this draft (false on a legacy
+   *  draft that never recorded it, and on a draft with no hint). */
+  hintSeen: boolean;
 };
 
 /** What a practice screen for `practiceItemId` restores: the in-memory mirror
@@ -55,13 +60,14 @@ export function restoredPracticeDraft(
         localDraft.selfGradeDisclosure && localDraft.selfGradeDisclosure.submissionId === localDraft.submissionId
           ? localDraft.selfGradeDisclosure
           : null,
-      firstHintProgress: localDraft.firstHintProgress ?? null
+      firstHintProgress: localDraft.firstHintProgress ?? null,
+      hintSeen: localDraft.hintSeen === true
     };
   }
   if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
     return {
       answer: "", hints: 0, submissionId: null, stuck: false, teachBack: null, planPresentationId: null,
-      selfGradeDisclosure: null, firstHintProgress: null
+      selfGradeDisclosure: null, firstHintProgress: null, hintSeen: false
     };
   }
   return {
@@ -76,6 +82,7 @@ export function restoredPracticeDraft(
         ? checkpoint.selfGradeDisclosure
         : null,
     // The sidecar returns it only under the draft's own retry key.
-    firstHintProgress: checkpoint.firstHintProgress ?? null
+    firstHintProgress: checkpoint.firstHintProgress ?? null,
+    hintSeen: checkpoint.hintSeen === true
   };
 }

@@ -743,6 +743,9 @@ export interface SessionCheckpoint {
   /** Adaptive difficulty AD1 (§11.2): the draft's first-hint progress marker,
    *  present only when one was kept under this retry key. */
   firstHintProgress?: FirstHintProgress | null;
+  /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft;
+   *  present (true) only when one was, under this retry key. */
+  hintSeen?: boolean;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
