@@ -792,25 +792,45 @@ class WorkbenchHintWriterOutputV1(HintWriterOutputV1):
 #: How a claim stands once checked: ``checked`` / ``checked_numerically``
 #: (the verifier decided it and it holds), ``failed`` (it decided it and it
 #: does not hold: re-asked once, then downgraded), ``model`` (the model's
-#: reading, not checked).
+#: reading, not checked), ``withheld`` (it would give the answer away: its
+#: round is re-asked, then withheld; re-review F16).
 CLAIM_LABELS: Mapping[str, str] = {"checked": "checked", "checked_numerically": "checked numerically",
-                                   "model": "model's reading, not checked"}
+                                   "model": "model's reading, not checked", "withheld": "withheld"}
 #: ``verifier(claims, context) -> [{"index", "method", "holds", "reason"}]``,
 #: one per claim in order (the Reader's check path, injected by the caller).
 ClaimVerifier = Callable[[Sequence[HintClaim], "WorkbenchHintContext"], Sequence[Mapping[str, Any]]]
 
 
 def verify_claims(check: Check, output: Any, *, target: Target, context: WorkbenchHintContext,
-                  verifier: ClaimVerifier | None) -> list[dict[str, Any]]:
+                  verifier: ClaimVerifier | None, item: Any = None,
+                  current: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     """Check one answer's claims (level 2 and up): a claim about a step that
     does not exist, or one the verifier decides does not hold, fails the
     round (``wb_claim_failed:<step>``: re-asked once with the failure named,
     then H2a's downgrade "without its unverified claims"); every other claim
-    is labelled as it stands. Returns the claims as recorded and shown."""
+    is labelled as it stands. Returns the claims as recorded and shown.
+
+    Re-review F16: every claim's statement is shown under the hint, so it goes
+    through the same level-aware leak checks as the hint's text and plan
+    labels (H2a's :func:`~learnloop.hints.contracts.leak_flags` with the
+    item's map): a leaking statement flags the round (``claim_<flag>:<step>``:
+    re-asked, then withheld, as any leak) and is recorded without its words."""
 
     claims = list(getattr(output, "claims", None) or ())
     if not claims or target.level < 2:
         return []
+    leaking: dict[int, list[str]] = {}
+    if item is not None:
+        from learnloop.hints.contracts import leak_flags
+
+        for index, claim in enumerate(claims):
+            flags = leak_flags([str(claim.statement or "")], item=item, current=current, level=target.level)
+            if flags:
+                leaking[index] = flags
+                for flag in flags:
+                    code = f"claim_{flag}:{claim.step}"
+                    if code not in check.leaks:
+                        check.leaks.append(code)
     numbers = {step.number for step in context.steps}
     outcomes: list[Mapping[str, Any]] = []
     if verifier is not None:
@@ -833,9 +853,14 @@ def verify_claims(check: Check, output: Any, *, target: Target, context: Workben
             status = method
         else:
             status = "model"
-        recorded.append({"step": int(claim.step), "statement": " ".join(str(claim.statement).split())[:240],
+        statement = " ".join(str(claim.statement).split())[:240]
+        if index in leaking:
+            # F16: never stored or shown; the flags say why.
+            status, statement = "withheld", ""
+        recorded.append({"step": int(claim.step), "statement": statement,
                          "status": status, "label": CLAIM_LABELS.get(status, "doesn't hold"),
-                         "kind": claim.kind, "reason": str(outcome.get("reason") or "")[:200]})
+                         "kind": claim.kind, "reason": str(outcome.get("reason") or "")[:200],
+                         **({"leaks": leaking[index]} if index in leaking else {})})
     return recorded
 
 

@@ -39,7 +39,6 @@ from contextlib import closing
 from dataclasses import dataclass, field
 import json
 import os
-import re
 import time
 from typing import Any
 
@@ -62,7 +61,7 @@ from learnloop.practice_index.paid import (
     plan_route,
     resolve_client,
 )
-from learnloop.workbench import symbolic
+from learnloop.workbench import binding, symbolic
 from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
 from learnloop.vault.hashes import practice_item_hash
 
@@ -441,42 +440,20 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
                         symbolic=symbolic_rows)
 
 
-_NORMAL_SWAPS = (("\\left", ""), ("\\right", ""), ("**", "^"), ("\\cdot", "*"), ("\\times", "*"), ("·", "*"),
-                 ("×", "*"), ("≤", "<="), ("≥", ">="), ("\\leq", "<="), ("\\geq", ">="), ("\\le", "<="),
-                 ("\\ge", ">="), ("−", "-"), ("\\,", ""), ("\\!", ""), ("\\;", ""), ("$", ""), ("{", ""),
-                 ("}", ""))
-
-
-def _normal(text: str) -> str:
-    """Text reduced for matching a declared expression to the learner's
-    writing: case, spacing, LaTeX grouping, ``**`` against ``^`` and an
-    implicit product do not matter (``2*x**2`` matches ``2x^2``); a product
-    of two numbers keeps its sign (``6*7`` never matches ``67``)."""
-
-    out = str(text or "").lower()
-    for old, new in _NORMAL_SWAPS:
-        out = out.replace(old, new)
-    out = re.sub(r"\s+", "", out)
-    return re.sub(r"(?<!\d)\*|\*(?!\d)", "", out)
-
-
-def _bound(transformation: Transformation, step: hint_workbench.WorkbenchStep,
+def _bound(transformation: Any, step: hint_workbench.WorkbenchStep,
            earlier: Sequence[hint_workbench.WorkbenchStep], problem_text: str) -> bool:
-    """Fix round 1, F3: a declared transformation speaks for the step only
-    when it is the learner's: its result is written in the step (a
-    normalization's result is the fixed one), and its input in the step, an
-    earlier step or the problem. Otherwise it checks some other expression."""
+    """Fix round 1, F3 (re-review F3): a declared transformation speaks for
+    the step only when it is the learner's whole assertion
+    (:func:`learnloop.workbench.binding.binds`): the step's one new relation,
+    its result the whole right side and its input the whole left side (or
+    the whole operand, or a name for a whole side written in the problem or
+    an earlier step). Otherwise it checks some other expression."""
 
-    expression = _normal(transformation.expression)
-    if not expression:
-        return False
-    here = _normal(step.body_md)
-    if transformation.kind != "normalization":
-        result = _normal(transformation.result)
-        if not result or result not in here:
-            return False
-    sources = [here, _normal(problem_text)] + [_normal(other.body_md) for other in earlier]
-    return any(expression in source for source in sources)
+    ordered = sorted(earlier, key=lambda other: other.number)
+    return binding.binds(kind=str(transformation.kind), expression=str(transformation.expression or ""),
+                         result=str(transformation.result or ""), variable=str(transformation.variable or ""),
+                         relation=str(transformation.relation or ""), step=step.body_md,
+                         earlier=[other.body_md for other in ordered], problem=problem_text)
 
 
 def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *,
@@ -505,9 +482,8 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
     """The check path for a hint's own claims (Reader §5.3 "hints are verified
     separately"; fix round 1, F14), handed to the hint service: each claim
     about step n is run through the same sandboxed harness as a check's
-    declared transformation when it is the learner's (its expression and its
-    result each written in step n, an earlier step or the problem, at least
-    one in step n itself); every other claim, every claim with
+    declared transformation when it is the learner's whole assertion in step
+    n (:func:`_bound`, the check's own binding); every other claim, every claim with
     ``workbench.symbolic_checks_enabled`` off and every claim without the
     sandbox stays the model's reading."""
 
@@ -523,13 +499,8 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
             step = by_number.get(int(claim.step))
             if step is None or claim.kind not in symbolic.KINDS:
                 continue
-            here = _normal(step.body_md)
-            sources = [here, _normal(problem_text)] + [_normal(other.body_md) for other in context.steps
-                                                       if other.number < step.number]
-            expression, result = _normal(claim.expression), _normal(claim.result)
-            parts = [expression] + ([result] if claim.kind != "normalization" else [])
-            if not all(part and any(part in source for source in sources) for part in parts) or not any(
-                    part in here for part in parts):
+            earlier = [other for other in context.steps if other.number < step.number]
+            if not _bound(claim, step, earlier, problem_text):
                 model[index] = {"method": symbolic.MODEL, "holds": None, "reason": "not the learner's expression"}
                 continue
             runnable.append(symbolic.SymbolicClaim(

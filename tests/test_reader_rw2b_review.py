@@ -469,8 +469,11 @@ def _with_claims(*claims):
 
 TRUE_CLAIM = _claim(1, "your step 1 is the antiderivative of the density", kind="integration", expression="2*x",
                     result="x**2", variable="x")
-FALSE_CLAIM = _claim(1, "your step 1 differentiates to 2", kind="differentiation", expression="x^2", result="2",
-                     variable="x")
+# Re-review F3: a claim binds to the learner's whole assertion, so the false
+# claim is about a step that writes it (``F'(x) = 2``; ``x^2`` is step 1's side).
+FALSE_CLAIM = _claim(2, "your step 2 differentiates x^2 to 2", kind="differentiation", expression="x^2",
+                     result="2", variable="x")
+FALSE_STEPS = ("F(x) = x^2 on [0, 1]", "F'(x) = 2")
 
 
 def test_f14_a_hints_checkable_claim_is_verified_and_labelled_checked(tmp_path):
@@ -495,10 +498,10 @@ def test_f14_a_claim_that_does_not_hold_is_reasked_once_naming_it(tmp_path):
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(TRUE_CLAIM)])
     _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
-    wb, _chains = open_problem(ctx)
+    wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
     assert hint["status"] == "ready" and writer.calls == 2
-    assert "wb_claim_failed:1" in writer.contexts[1]["previous_answer_problems"]["failures"]
+    assert "wb_claim_failed:2" in writer.contexts[1]["previous_answer_problems"]["failures"]
     assert [claim["status"] for claim in hint["claims"]] == ["checked"]
 
 
@@ -509,7 +512,7 @@ def test_f14_a_claim_failing_twice_falls_to_the_next_step_without_it(tmp_path):
     _needs_bwrap()
     writer = WriterFake([_with_claims(FALSE_CLAIM), _with_claims(FALSE_CLAIM), wb_answer])
     paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
-    wb, _chains = open_problem(ctx)
+    wb, _chains = open_problem(ctx, steps=FALSE_STEPS)
     hint = _take(ctx, wb, 3)
     assert writer.calls == 3 and hint["status"] == "ready" and hint["kind"] == "next_step"
     assert hint["claims"] == []
@@ -529,3 +532,150 @@ def test_f14_an_uncheckable_claim_is_shown_as_the_models_reading(tmp_path):
     hint = _take(ctx, wb, 3)
     assert [(claim["status"], claim["label"]) for claim in hint["claims"]] == [
         ("model", "model's reading, not checked")]
+
+
+# == Re-review (Codex, job 20261018-172852-5htI4v) ============================================
+
+# -- F3 (reopened): a transformation binds to the learner's whole assertion --------------------
+
+
+def _wb_step(number, body):
+    from learnloop.hints.workbench import WorkbenchStep
+
+    return WorkbenchStep(chain_id=f"c{number}", step_id=f"s{number}", number=number, kind="step", body_md=body)
+
+
+def _binds(steps, transformation, *, problem=""):
+    """Whether ``transformation`` (about the last of ``steps``) binds."""
+
+    from learnloop.workbench.check import Transformation, _bound
+
+    *earlier, step = [_wb_step(index + 1, body) for index, body in enumerate(steps)]
+    return _bound(Transformation(**_transformation(**transformation)), step, earlier, problem)
+
+
+def test_f3r_a_transformation_of_part_of_the_learners_side_never_validates_the_step(tmp_path):
+    from tests.workbench_help_fakes import CheckFake
+
+    _needs_bwrap()
+
+    def answer(_context):
+        from tests.workbench_help_fakes import step_check
+
+        return {"steps": [step_check(1, "questionable", reason="one side has an extra term",
+                                     transformation=_transformation(kind="equivalence", expression="x+x",
+                                                                    result="2*x"))],
+                "first_questionable_step": 1, "error_kind_guess": "invalid_algebra",
+                "error_kind_reason": "a slip", "error_readings": [], "assumptions": []}
+
+    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    wb, _chains = open_problem(ctx, steps=("x + x = 2*x + 1",))
+    [verdict] = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["check"]["verdicts"]
+    assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")
+
+
+def test_f3r_the_result_must_be_the_whole_side_and_the_input_the_whole_other_side():
+    equivalence = {"kind": "equivalence", "expression": "x+x", "result": "2*x"}
+    assert _binds(["x + x = 2x"], equivalence)
+    assert _binds(["Combining like terms: $x + x = 2x$."], equivalence)
+    assert not _binds(["x + x = 2*x + 1"], equivalence)
+    assert not _binds(["y + x + x = 2x"], equivalence)
+    assert not _binds(["x + x = 2x^2"], equivalence)
+    # A chain continued from the step before binds to that step's last side.
+    assert _binds(["x + x", "= 2x"], equivalence)
+    assert not _binds(["3 + x + x", "= 2x"], equivalence)
+
+
+def test_f3r_every_relation_the_step_asserts_must_be_the_one_checked():
+    equivalence = {"kind": "equivalence", "expression": "x+x", "result": "2*x"}
+    # A second, unchecked assertion in the step keeps the model's reading.
+    assert not _binds(["x + x = 2x, and 2x = 3x"], equivalence)
+    assert not _binds(["x + x = 2x = 5"], equivalence)
+    # Restating an earlier step's relation is not a new assertion.
+    assert _binds(["y = 1", "y = 1, so x + x = 2x"], equivalence)
+    # An inequality binds only with its own relation.
+    inequality = {"kind": "inequality", "expression": "x^2+1", "result": "0", "relation": ">"}
+    assert _binds(["x^2 + 1 > 0"], inequality)
+    assert not _binds(["x^2 + 1 >= 0"], inequality)
+    assert not _binds(["x^2 + 1 = 0"], inequality)
+
+
+def test_f3r_an_operator_binds_to_its_whole_operand_or_to_a_named_whole_side():
+    derivative = {"kind": "differentiation", "expression": "x^3", "result": "3x^2", "variable": "x"}
+    assert _binds([r"\frac{d}{dx}\left(x^3\right) = 3x^2"], derivative)
+    assert _binds(["d/dx (x^3) = 3x^2"], derivative)
+    assert not _binds(["d/dx (x^3 + x) = 3x^2"], derivative)
+    assert not _binds(["d/dx (x^3) = 3x^2 + 1"], derivative)
+    # A name (F(x), f'(x), P(...)) stands for a whole side written elsewhere.
+    assert _binds(["f(x) = x^3", "f'(x) = 3x^2"], derivative)
+    assert not _binds(["f(x) = x^3 + x", "f'(x) = 3x^2"], derivative)
+    integral = {"kind": "integration", "expression": "2*x", "result": "x**2", "variable": "x"}
+    problem = "X has density f(x) = 2x on [0, 1]. Find P(X ≤ 1/2)."
+    assert _binds(["F(x) = x^2 on [0, 1]"], integral, problem=problem)
+    assert _binds([r"\int 2x \, dx = x^2"], integral)
+    assert not _binds([r"\int 2x + 1 \, dx = x^2"], integral)
+    normalization = {"kind": "normalization", "expression": "2*x", "result": "", "variable": "x", "lower": "0",
+                     "upper": "1"}
+    assert _binds([r"\int_0^1 2x \, dx = 1"], normalization)
+    assert not _binds([r"\int_0^1 2x \, dx = 2"], normalization)
+    solving = {"kind": "solving", "expression": "x^2 - 4 = 0", "result": "2", "variable": "x"}
+    assert _binds(["x^2 - 4 = 0", "x = 2"], solving)
+    assert not _binds(["x^2 - 4 = 5", "x = 2"], solving)
+    assert not _binds(["x^2 - 4 = 0", "x = 2 or x = -2"], solving)
+    # A bare expression asserts no relation: nothing binds.
+    assert not _binds(["x + x", "2x"], {"kind": "equivalence", "expression": "x+x", "result": "2*x"})
+
+
+def test_f3r_a_hints_claim_about_part_of_a_side_is_the_models_reading():
+    from learnloop.hints.workbench import HintClaim
+    from learnloop.workbench.check import hint_claim_verifier
+
+    class _Config:
+        class workbench:  # noqa: N801 - a config stand-in
+            symbolic_checks_enabled = True
+
+    class _Vault:
+        config = _Config
+
+    class _Context:
+        steps = [_wb_step(1, "x + x = 2*x + 1")]
+
+    claim = HintClaim(step=1, statement="x + x is 2x", **_transformation(kind="equivalence", expression="x+x",
+                                                                           result="2*x"))
+    verify = hint_claim_verifier(_Vault(), type("Item", (), {"prompt": ""})(),
+                                 sandbox_run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("ran")))
+    [outcome] = verify([claim], _Context())
+    assert (outcome["method"], outcome["holds"]) == ("model", None)
+
+
+# -- F16: a hint's claims go through the level-aware leak checks --------------------------------
+
+
+def test_f16_a_claim_that_states_the_answer_withholds_the_hint_and_is_never_stored(tmp_path):
+    import json
+
+    from tests.hint_fakes import WriterFake
+
+    leaking = _claim(1, "The final answer is P(X ≤ 1/2) = 1/4.")
+    writer = WriterFake([_with_claims(leaking), _with_claims(leaking)])
+    paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    wb, _chains = open_problem(ctx)
+    hint = _take(ctx, wb, 3)
+    assert writer.calls == 2
+    assert hint.get("claims", []) == [] and "1/4" not in json.dumps(hint)
+    assert "claim" in " ".join(writer.contexts[1]["previous_answer_problems"]["leaks"])
+    [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "hint"]
+    assert row["shown"] == 0
+    assert "1/4" not in (row["contract_failures_json"] or "")
+
+
+def test_f16_a_harmless_claim_is_kept_and_a_leaking_one_re_asks(tmp_path):
+    from tests.hint_fakes import WriterFake
+
+    writer = WriterFake([_with_claims(_claim(1, "The final answer is P(X ≤ 1/2) = 1/4.")),
+                         _with_claims(_claim(1, "your step 1 stands as written"))])
+    _paths, ctx, _session = sidecar(tmp_path, writer=writer, chooser=ChooserFake(prefer("next_step@L3", 0.9)))
+    wb, _chains = open_problem(ctx)
+    hint = _take(ctx, wb, 3)
+    assert hint["status"] == "ready" and writer.calls == 2
+    assert [claim["statement"] for claim in hint["claims"]] == ["your step 1 stands as written"]

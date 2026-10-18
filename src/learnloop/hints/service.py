@@ -452,7 +452,7 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             workbench_module.check_steps(check, as_served, target=current, context=request.workbench)
             # Reader §5.3: the hint's own claims, verified before it is shown.
             claims = workbench_module.verify_claims(check, as_served, target=current, context=request.workbench,
-                                                    verifier=claim_verifier)
+                                                    verifier=claim_verifier, item=item, current=state.map)
         served.rounds.append({"round": round_, "kind": current.kind, "level": current.level,
                               "failures": list(check.failures), "leaks": list(check.leaks)})
         if claims:
