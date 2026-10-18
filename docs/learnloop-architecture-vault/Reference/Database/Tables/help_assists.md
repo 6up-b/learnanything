@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c7eb3bd499119bb301c8e29207fd12d74ce02f52"
-source_commit_timestamp: "2026-10-18T07:31:56-04:00"
+source_commit: "3d189580ed05dacf5feb3c298b2d5d4cd0364bbd"
+source_commit_timestamp: "2026-10-18T07:55:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -170,6 +170,7 @@ None found by exact static reference scan.
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
 - `tests/test_help_assists_schema.py`
+- `tests/test_hint_h2a_review_round3.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_asks_migration.py`
 
