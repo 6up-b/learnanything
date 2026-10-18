@@ -206,3 +206,44 @@ test_valuation_calibration_fields
 3. On the library page with the workbench on, picking a proposal opens the first passage's book.
    **Default: yes** (the check needs its passage beside it); without the workbench the practice
    screen opens with the way back to that passage.
+
+## Re-review (codex job 20261017-214404-XZZn8O)
+
+The re-review confirmed F1-F4 fixed and reopened the stage on three Medium defects the F6 job
+wire introduced. All three reproduced (fail first on 4c4c0deac) and are fixed in b77dd14f9; the
+references were regenerated on it in 9d9d8775c (commit labels and the config leaves' line
+citations, 13 of which ece5d0786 had already moved; schema head 209 unchanged).
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F11 | Medium | Job polling blocks the serial sidecar | fixed | b77dd14f9 | `tests/test_library_ask_review.py::test_reading_a_pending_job_never_waits_on_the_serial_loop` (on the base a `waitMs: 1000` read of a gated job is accepted and holds the loop for a second; now `reader.library_job` has no `wait_ms`, a read answers at once and a read asking to wait is invalid params); `libraryAskJobs.test.tsx` F13 case also pins that every read is `{ jobId }` only. The hook paces its reads (`JOB_POLL_MS` = 250 ms, as the intent box's poll) between instant reads, so opening a source, peeking or saving is never queued behind a poll. `tests/library_ask_fixtures.finish_job` waits on the job itself, then reads it. |
+| F12 | Medium | Late failures escape cancellation fencing | fixed | b77dd14f9 | `libraryAskJobs.test.tsx`: "a cancelled tutor request's late failure never replaces the next answer" (on the base the old rejection turned the landed second answer into `failed`) and "a superseded comparison whose start fails late leaves the cancelled state alone" (on the base `failed` over `cancelled`). `runJob` now catches inside its epoch fence: a stale rejection (start or read) returns `null`; only the active run's failure reaches the stage's catch. Covers notes, compare and the tutor alike. |
+| F13 | Medium | Leaving the Reader leaves job polling active | fixed | b77dd14f9 | `libraryAskJobs.test.tsx`: "leaving the Reader cancels a pending job and stops reading it" (on the base: no cancel, polling continued) and "a job that starts after the Reader is gone is cancelled and never read" (on the base: no cancel). An unmount cleanup bumps every stage's epoch and cancels the known jobs; a start answering afterwards is already stale, so it is cancelled unread; the poll loop re-checks liveness after each pause and each read. |
+
+Fail-first: the four new vitest cases failed on 4c4c0deac for the reported reasons (checked with
+the `waitMs` assertions relaxed, so the F12/F13 failures were the fencing ones: `failed` instead of
+`landed`/`idle`, zero cancel calls); the new backend test failed on 4c4c0deac (the `waitMs` read was
+accepted). Not touched: RW1b's `reader.intent_routing` still takes a bounded `wait_ms` (250 ms
+from its hook); it is RW1b's path and out of this stage, noted for a successor.
+
+### Re-review gate (b77dd14f9 + 9d9d8775c)
+
+- `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` (5.14.0): ok.
+- `uv run lint-imports --no-cache`: 24 kept, 0 broken.
+- `TMPDIR=fixtures-local/tmp uv run pytest -n auto` over 12 files: **299 passed** —
+  tests/test_architecture.py, tests/test_library_ask_expand.py, tests/test_library_ask.py,
+  tests/test_library_ask_review.py, tests/test_library_asks_migration.py,
+  tests/test_mobile_allowlist.py, tests/test_reader_compare_table.py,
+  tests/test_reader_find_sources_callers.py, tests/test_reader_intentions.py,
+  tests/test_reader_intent.py, tests/test_rw4_kill_switches.py, tests/test_desktop_rpc_contract.py
+  (with tests/library_ask_fixtures.py). No migration, DB or connection change, so no durability run.
+- Frontend (apps/learnloop-tauri): `npm install` ok; `npm run typecheck` ok; `npx vitest run
+  src/screens/reader/libraryAskJobs.test.tsx src/screens/reader/libraryAsk.test.tsx
+  src/screens/reader/libraryAskSwitchOff.test.tsx`: 3 files, **23 passed**; the Reader's files
+  (`npx vitest run src/screens/reader src/screens/ReaderScreen`): 47 files, **367 passed**;
+  `npm run frontend:build`: built. No src-tauri change (no cargo check needed).
+- References: `db_generate_reference.py` then `db_validate_reference.py`: 0 errors (13 stale
+  citation errors before regeneration); `validate_vault.py`: passed (1122 notes).
+- No schema, config, CLI or RPC-name change (the desktop RPC contract and mobile allowlist pins
+  pass unchanged; `reader.library_job`'s input lost `waitMs`).
+- No model calls, paid or otherwise.
