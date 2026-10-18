@@ -804,3 +804,123 @@ in progress when this lands.
   The commit labels and line citations were regenerated in `dcfbba20c`. No
   schema change this round.
 - Model calls: 0.
+
+## Fix round 6 (orchestrator)
+
+The round-5 verify (codex-job `20261018-183139-KmfWBT`) confirmed V3's
+recovery path, V4 and migration 213, and found four remaining items. The
+orchestrator's binding rulings are applied below. Each new test failed on
+`c6dd14a29` (`git archive c6dd14a29`, with `-o pythonpath=<tmp>/src`).
+
+**The guarantee, stated precisely.** It is in `sending.py`'s why-comment
+(the module docstring and `SendGuard.check`):
+
+> Nothing is sent or recorded whose content was held out in the vault
+> snapshot current at that request's or record's admission. Reading the
+> snapshot and admitting are one atomic step relative to reload.
+
+A reload that lands *after* admission cannot be told apart from an owner
+edit made a moment after the send, so it is out of scope. No lock is held
+across protection building, a model call, transport work or an SQLite
+commit.
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| V1-a | High | The vault and its generation are not published atomically | fixed | `87bb2df57` | `test_a_publication_paused_between_assignment_and_bump_is_never_admitted` |
+| V1-b | High | A reload remains possible after the final confirmation | **rejected as out of scope** (orchestrator) | pinned in `87bb2df57` | `test_the_last_confirmation_runs_after_the_outer_gate_and_the_receipt` |
+| V3 | Medium | A transient refusal is treated as settled | fixed | `87bb2df57` | `test_a_harmless_reload_between_the_audits_check_and_its_record_is_retried`, `test_four_interrupted_checks_are_stale_and_retried`, `test_a_stale_refusal_reports_stale_and_held_out_content_reports_protected` |
+| V4 | Medium | A failing revision starves the rest | fixed | `87bb2df57` | `test_a_revision_that_keeps_raising_never_starves_the_rest`; round 5's `test_an_exception_keeps_the_revision_that_raised_queued` updated to this ruling |
+
+**V1-a.** `SidecarContext._vault_lock` is a `threading.Lock`.
+`__setattr__("vault")` assigns the vault and bumps `vault_generation`
+together under it. Two methods on the `loaded_vault` provider use the same
+lock:
+
+- `snapshot()` reads `(vault, generation)` under it;
+- `admit(generation)` compares the generation under it.
+
+`SendGuard` reads the snapshot both before and after it builds protection,
+and `confirm` admits through `admit()`. So a reader can never pair the new
+vault with the old generation, and no reload is published between the
+comparison and the admission. The lock is held only for those instructions.
+
+The test reproduces the verify's interleaving. A worker is judging the old
+vault while a reload, published as the context publishes it, assigns the
+protected vault and pauses before the bump. On `c6dd14a29` the worker
+passed both `check()` and `confirm()`. Now it waits for the whole
+publication, sees the generation move, judges the new vault, and refuses
+(`protected`).
+
+**V1-b: rejected as out of scope, per the orchestrator's ruling.** A reload
+after the final confirmation is the case the guarantee excludes: it cannot
+be told apart from an owner edit made right after the send, and closing it
+would mean holding a lock across transport work or a commit. What changed
+instead is that the confirmation now sits as close to dispatch as the code
+allows:
+
+- The guard's request gate admits *after* the outer gate. A refusal settles
+  the outer admission, so nothing it reserved is kept.
+- The last confirmation runs once the request's start receipt is written
+  (`claims.FencedRepository.record_model_event` calls
+  `sending.before_dispatch`). That is the last work before the transport
+  sends. A refusal there closes the receipt as `interrupted`: never sent,
+  no usage.
+- For a record, the confirmation stays the last check before the insert,
+  inside its write transaction (`_write`, `_append`).
+
+The pin installs an outer gate. It checks that each request (the LLM's and
+the Decider's) is sent straight after `receipt` and then `confirm`, and that
+after the Decider's outer admission the order is `confirm`, `receipt`,
+`confirm`, then the send. On `c6dd14a29` the guard confirmed before the
+outer gate, and nothing confirmed after the receipt.
+
+**V3.** The refusal statuses are now split:
+
+- `ProtectedContent` / `protected` means the content is held out in the
+  snapshot that was judged. It is terminal.
+- `StaleSnapshot` (a subclass) / `stale` is retryable. It covers a reload
+  under the check, a confirmation whose generation moved, another vault or
+  none loaded, an unreadable provider, and retries exhausted.
+
+`refusal_status` maps an exception to its status. The forecasts and the
+audit report `stale`, and `decider_status` / `llm_status` are labelled the
+same way. `stale` is not in `_SETTLED`: the revision stays queued at the
+back, is never cached in `_PREPARED`, and an audit left with unanswered
+dimensions because of it is not settled.
+
+On `c6dd14a29`:
+
+- a harmless reload between the audit's record check and its record
+  admission refused the record as `protected`; with the forecast off, the
+  revision was cached as settled and never retried;
+- four interrupted checks did the same.
+
+Now both are `stale`, and the next trigger audits the revision.
+
+**V4.** `_prepare` catches each revision's exception. That revision is
+recorded as visited and unsettled (`failed`), goes to the back of the queue
+as retryable, and the run continues with the next revision, still at most
+20 per run. Revisions the run never reached (an exception outside any one
+revision, or a vault switch) keep their place at the front.
+
+With A raising every time, the visits are A, B, C, then A on each later
+trigger. On `c6dd14a29` they were A on every trigger.
+
+### Gate (fix round 6, targeted)
+
+- `uv run lint-imports --no-cache`: 27 kept, 0 broken.
+- `uv run pytest -n auto` over 116 files: **2289 passed**. The files:
+  - every `tests/test_ad1_*.py`, and `test_adaptive_difficulty_ad1`;
+  - `test_architecture`, `test_registry_audit`, `test_judge_routes`;
+  - the request-gate and receipt files;
+  - `test_desktop_rpc_contract`, `test_sidecar_contract`,
+    `test_sidecar_serializer_snapshot`;
+  - every file that uses `SidecarContext`. This is the trimmed list the
+    ruling allows.
+- `--durable-sqlite tests/test_ad1_fix_round6.py`: 6 passed.
+- The round-5 and round-6 files run serially three times, 16 passed each
+  time. This checks the threaded tests.
+- `db_generate_reference.py`, then `db_validate_reference.py`: 0 errors.
+  The commit labels and line citations were regenerated in `73e82119e`.
+- Nothing under `apps/` changed this round, so the frontend was not rerun.
+  Model calls: 0.
