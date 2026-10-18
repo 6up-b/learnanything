@@ -389,6 +389,62 @@ lines), `tests/conftest.py` (`LEARNLOOP_HINT_MODELS=off`).
   `Configuration.md` and `Database.md`: 894 leaves).
 - No migration, no frontend, no Tauri change.
 
+## 6a. Gate (this step; the full suite, the whole durability lane and vitest run once in the landing gate)
+
+Run on the final tree (`8650441a7`), `TMPDIR` = the worktree's `fixtures-local/tmp`:
+- `uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`: ok.
+- `uv run lint-imports --no-cache`: **26 kept, 0 broken**.
+- Targeted pytest, `uv run pytest -n auto` (template `.pyc` cleared first):
+  **2028 passed** over the new hint tests (97), the H0/H1 hint tests
+  (`test_hint_telemetry`, `test_help_assists_schema`, `test_approach_maps`,
+  `test_approach_map_replay`, `test_approach_maps_schema`,
+  `test_approach_map_boundaries`), the contract pins
+  (`test_mobile_allowlist`, `test_judge_routes`,
+  `test_provider_resolution_parity`, `test_architecture`, `test_table_roles`,
+  `test_coordinated_migrations`, `test_tracked_fixture_databases`,
+  `test_cli_help_snapshot`, `test_sidecar_serializer_snapshot`,
+  `test_desktop_rpc_contract`, `test_vault_template`, `test_config_refactor`,
+  `test_registry_audit`, `test_grading_cli`, `test_p0_cutover_mvp08`,
+  `test_field_config`, `test_sensitivity_certificates`,
+  `test_constraint_engine`, the `test_mvp0*_upgrade` snapshot files,
+  `test_plan_determinism`, `test_open_world_gate`, `test_kinship_feature`,
+  `test_chatgpt_plan_workspace`, `test_openai_embedding_client`,
+  `test_project_cli`, `test_reading_step_switch`, `test_recurrence_commands`,
+  `test_regrade_contract_successor`, `test_regrade_contract_upgrade`,
+  `test_serve_eligibility_review`, `test_diagnosis_input_provenance`), the
+  Decider callers (`test_decider_agreement`, `test_decider_landing`,
+  `test_facet_reword_confirm`, `test_facet_span_support`,
+  `test_method_explicit_landing`, `test_method_explicit_upgrade`,
+  `test_tier1_decider`, `test_reader_intent`, `test_reader_rw1b_review`,
+  `test_reader_rw1b_rereview`), every test file that drives the practice
+  handler's submits (`test_causal_repair_sidecar_rpcs`,
+  `test_daily_plan_composition`, `test_daily_plan_review_regressions`,
+  `test_daily_plan_rpc`, `test_diagnosis_async_router`, `test_diagnosis_card`,
+  `test_field_signal_production_paths`, `test_placement_opening_probes`,
+  `test_reader_rw3a_landing`, `test_reader_workbench_rw2a`,
+  `test_router_r1_composition`, `test_router_r2a_serving`,
+  `test_router_r2bc_landing`, `test_sidecar_contract`,
+  `test_sidecar_item_authoring`, `test_sidecar_trace_and_clarification`,
+  `test_sidecar_tutor_qa`, `test_stuck_prompt`, `test_ux_phase4_feedback`)
+  and the policy and grader contracts (`test_blind_grading_contract`,
+  `test_causal_activity_policy`). The hint files reran twice more: 97 passed
+  each time.
+- Durability: `-m durability` on `test_help_assists_schema`,
+  `test_hint_telemetry`, `test_approach_maps_schema`: **2 passed**; the new
+  evidence, service and discriminating tests under `--durable-sqlite` (WAL,
+  the job threads' concurrent connections): **56 passed**. No migration.
+- References: `db_generate_reference.py` then `db_validate_reference.py`:
+  **0 errors** (head 211; 894 effective leaves).
+- No frontend or Tauri change, so no npm, vitest or cargo step.
+- A no-model smoke on a backup-API copy of `fixtures/linear_algebra` under
+  `fixtures-local/h2a-smoke/` (every API-key variable unset, empty `HOME`,
+  `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR`, `LEARNLOOP_HINT_MODELS`,
+  `LEARNLOOP_APPROACH_MAP_BUILDS` and `LEARNLOOP_ROUTER_MODELS` off): the
+  vault's active provider is Codex and `ai.routing.hint_writer` is unset, so
+  `practice.request_hint` answered `unavailable` / `codex_refused` with the
+  spec's reason (that item has no authored hint), one unshown request row, and
+  **0 model calls, 0 receipts, $0**. No paid or live call was made in this stage.
+
 ## 7. Owner-run commands
 
 ```bash
