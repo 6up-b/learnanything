@@ -342,3 +342,132 @@ Decider has no retry path, so its plan is unchanged.
   - frontend and cargo: nothing under `apps/` changed;
   - config keys: none added, so the parameter registry is unchanged.
 - Model calls: 0.
+
+## Fix round 3 (orchestrator)
+
+The final Codex verify (codex-job `20261018-164756-bRhYCN`, over
+`f9429d94e..da8c3f611`) confirmed F1, F2, F12 and F13 fixed and reopened
+F11 [High] at `outside.py:587`. The held-out check of the frozen identities
+ran once, before the whole forecaster pair. Two cases still leaked:
+
+- a source marked held out while the first LLM request ran still reached
+  the Decider request after it;
+- an LLM retry after `AIOutputTruncated` still sent it.
+
+Both outcomes reported `ok`.
+
+**Binding ruling (orchestrator).** Every frozen identity is revalidated
+against the current held-out predicate immediately before each physical
+model request. That covers:
+
+- each forecaster in the pair, the Decider request, and every retry or
+  fallback attempt;
+- every other place AD sends frozen or historical content: the feature
+  audit's Decider request and its LLM fallback, and the backfill.
+
+The check has one home, a pre-send guard in AD's paid-call path, not one
+check per call site. When it fails, that request and every later request in
+the job are refused as `protected`. Requests already sent keep their
+accounting. No receipt or judgment may record `ok` on a refused request.
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| F11 (reopened) | High | Protection changes between model requests still leak frozen history | fixed | `b1e520ce7` | `tests/test_ad1_send_guard.py` (below) |
+
+**The guard.** `learnloop.adaptive_difficulty.sending` is AD's only
+paid-call path. `ask_llm` wraps `PaidCalls` and `ask_decider` wraps
+`decider_judgments.ask_decider`. They carry every AD request:
+
+- `llm_v3:llm`, `llm_v3:decider` and `llm_v1:item` in `outside.py`;
+- the feature audit's Decider request and its LLM fallback in
+  `feature_audit.py`;
+- the backfill and the background preparation, which run those two.
+
+Each job builds one `SendGuard` from what its requests quote:
+
+- the item id;
+- the current revision;
+- for a presentation, the frozen `protection_identities` (the target and
+  the history).
+
+`SendGuard.check` holds the why-comment that cites F11. It reads the
+predicate afresh each time with `protection.protection`. A predicate the
+caller computed earlier can add ids, but it never replaces today's
+predicate. The check is consulted at three points:
+
+- **before every attempt.** This is `PaidCalls`' `admit` hook, which it
+  also asks before allowing a retry, so the retry after `AIOutputTruncated`
+  is checked again. The Decider request is checked before its admission.
+- **before every physical request.** The guard is also installed as the
+  context's request gate (`ai.execution.gate_model_requests`). It sits in
+  front of any gate already installed, found through the new
+  `ai.execution.active_request_gate()`, and never replaces it. A mark that
+  lands after the attempt was admitted but before the transport sends the
+  request is still refused.
+- **before each record.** A response that comes back after its content was
+  marked held out does not get its receipt, payloads (which quote the
+  content) or judgment written. This step is stricter than the ruling,
+  which forbids only an `ok` built on a refused request. It also keeps A8's
+  "never written into an AD payload".
+
+The first refusal is sticky. `ProtectedContent` is an `AIInterrupted`, so no
+retry loop or transport relabels it. Every later request of the job is then
+refused, and AD reports `protected`:
+
+- the forecasters return `protected` with no receipt;
+- the audit returns `status: protected`, with `decider_status` or
+  `llm_status` set to `protected`.
+
+A transport that reports the refusal as its own failure is still classified
+`protected`, through the sticky state. Requests already sent keep their
+`model_call_receipts` and their spend. The tests assert this: one completed
+or truncated receipt per request sent, and none for a refused one. The old
+one-time check (`_frozen_protected`) is gone. Its revalidation rule,
+`Protection.covers_identity`, is unchanged.
+
+**Tests** (`tests/test_ad1_send_guard.py`, fakes only). 6 of 7 failed on
+`da8c3f611` through `git archive da8c3f611` into `fixtures-local/tmp` with
+`-o pythonpath=<tmp>/src`, each for the behavioral reason in its docstring.
+None failed on an import.
+
+- `test_a_source_held_out_during_the_llm_request_refuses_the_decider_request`
+  is the verify's first reproduction. On the old tree the Decider was sent
+  the sentinel.
+- `test_a_source_held_out_inside_a_truncated_attempt_refuses_the_retry` is
+  the verify's second. On the old tree 2 LLM prompts were sent.
+- `test_a_source_held_out_just_before_the_physical_request_is_refused_by_the_request_gate`
+  covers the request-gate layer. On the old tree the Decider request was
+  sent.
+- `test_a_revision_held_out_during_the_decider_request_refuses_the_llm_fallback`
+  covers the feature audit's fallback. On the old tree the fallback was sent
+  the stem and both judges were ledgered.
+- `test_a_revision_held_out_inside_a_truncated_fallback_attempt_refuses_the_retry`
+  covers the fallback's retry. On the old tree 2 prompts were sent.
+- `test_a_unit_held_out_while_the_backfill_runs_refuses_its_later_forecasts`
+  covers the backfill. On the old tree it reused its start-of-run predicate
+  and forecast the newly held-out items.
+- `test_with_nothing_protected_the_pair_is_unchanged` is the control. It
+  passes on both trees: another span is marked held out mid-pair, both
+  forecasts are sent exactly and recorded `ok`, with two judgments.
+
+### Gate (fix round 3, targeted per the owner rule)
+
+- `uv run lint-imports --no-cache`: 27 kept, 0 broken.
+- `uv run pytest -n auto` (`TMPDIR=fixtures-local/tmp`): **283 passed**.
+  The files:
+  - AD: `tests/test_ad1_send_guard.py tests/test_ad1_codex_rereview_fixes.py
+    tests/test_ad1_codex_review_fixes.py tests/test_ad1_attempt_columns.py
+    tests/test_ad1_migration.py tests/test_ad1_outside_and_cli.py
+    tests/test_ad1_reading_opportunities.py tests/test_adaptive_difficulty_ad1.py`;
+  - required: `tests/test_architecture.py tests/test_registry_audit.py
+    tests/test_judge_routes.py`. No `test_parameter_registry*` file exists;
+    the parameter registry is covered by `test_registry_audit.py`;
+  - touched (the request gate, the model-call receipts):
+    `tests/test_decider_landing.py tests/test_model_call_receipt_owners.py
+    tests/test_glm_ocr.py tests/test_ux_phase1_review_fixes.py`.
+- `--durable-sqlite` on `tests/test_ad1_send_guard.py`: 7 passed.
+- `db_generate_reference.py`, then `db_validate_reference.py`: 0 errors.
+  The commit labels and the moved line citations (`backfill.py`,
+  `feature_audit.py`) were regenerated in `75b172c66`.
+- `git diff --check`: clean.
+- Model calls: 0.
