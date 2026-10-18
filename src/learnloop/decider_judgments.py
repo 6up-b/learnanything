@@ -56,7 +56,10 @@ SERVING_TASKS = (
 #: span-support check, and the one-time judgment of a statement a required
 #: method is read from (a textbook exercise's at import, a PF variant's stem
 #: at selection; off, its LLM judge decides it).
-CONTENT_TASKS = ("facet_span_support", "required_method_statement")
+#: Adaptive difficulty AD1 adds ``ad_feature_audit``: one choice per audited
+#: task-feature dimension of an item revision (no learner text; its LLM judge
+#: is ``ai.routing.ad_feature_audit``; ``learnloop.adaptive_difficulty.feature_audit``).
+CONTENT_TASKS = ("facet_span_support", "required_method_statement", "ad_feature_audit")
 #: The verdict of a Decider row that holds no answer: never an option of any Tier-1 question.
 #: ``tied``: two or more options share its top probability, so the argmax
 #: names none of them (review F8); the judgment goes where a failure goes.
@@ -125,9 +128,18 @@ def connection_note(config: Any) -> str | None:
                      if task not in {"learner_gap_judge", "learner_gap_kind"})
     passages = enabled(config, "facet_span_support") and bool(
         getattr(getattr(config, "facet_identity", None), "reword_confirm", False))
+    # Adaptive difficulty AD1 (read from config here: AD imports this module):
+    # the feature audit asks the Tier-1 Decider how a practice question is
+    # built; llm_v3:decider asks its own route to forecast the next answer.
+    ad = getattr(config, "adaptive_difficulty", None)
+    ad_on = bool(ad is not None and getattr(ad, "enabled", False))
+    audit = ad_on and bool(getattr(ad, "feature_audit", False)) and enabled(config, "ad_feature_audit")
+    forecasts = ad_on and bool(getattr(ad, "forecast_receipts", False)) and "llm_v3:decider" in (
+        getattr(ad, "outside_forecasters", None) or ())
     destinations = {
         destination
-        for route, live in ((ROUTE, tier1_text or passages), ("learner_gap_decider", gap_text))
+        for route, live in ((ROUTE, tier1_text or passages or audit), ("learner_gap_decider", gap_text),
+                            ("ad_forecast_decider", forecasts))
         if live and (destination := decider_destination(config, route)) is not None
     }
     if not destinations:
@@ -137,6 +149,10 @@ def connection_note(config: Any) -> str | None:
         what.append("your answers and questions (whether a mix-up or a gap is one it already knows)")
     if passages:
         what.append("the book passages behind a reworded skill")
+    if forecasts:
+        what.append("how your earlier answers on a topic went (to forecast your next one)")
+    if audit:
+        what.append("how your practice questions are built")
     if len(destinations) == 1:
         ((key, where),) = destinations
         return f"With {key}, LearnLoop also asks {where}, short questions about {' and about '.join(what)}."

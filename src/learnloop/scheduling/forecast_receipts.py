@@ -64,17 +64,29 @@ RECEIPT_SHAPE_VERSION = "forecast_receipt_v1"
 DIAGNOSIS_NEXT_OBSERVATION = "diagnosis_next_observation"
 REPAIR_COLD_OUTCOME = "repair_cold_outcome"
 CHECK_OUTCOME = "check_outcome"
-FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME)
+#: Adaptive difficulty AD1 (spec_adaptive_difficulty_v1 §8.1): the forecast of
+#: unassisted success (§5.3's event) on one presentation, or on an item
+#: revision's first presentation for an item-only forecaster. This family is
+#: the spec's ``item_forecasts`` (no table of its own).
+ITEM_UNASSISTED_SUCCESS = "item_unassisted_success"
+FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS)
 
 SCOPES = ("next_observation", "followup_task", "presentation", "item")
 
 #: The exact chains a resolver may follow; ``none`` is censored at birth.
 PRESENTED_ATTEMPT_ON_FACET = "presented_attempt_on_facet"
 FOLLOWUP_TASK = "followup_task"
+#: AD1's item-scoped forecast: scored against the first bound presentation of
+#: the revision it names (``item_content_hash``).
+FIRST_PRESENTATION = "first_presentation"
 NO_BINDING = "none"
-BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation", NO_BINDING)
+BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation",
+                 FIRST_PRESENTATION, NO_BINDING)
 
-DECISION_KINDS = ("diagnosis", "cold_retry_schedule")
+#: ``serve`` (AD1): a presentation's forecasts, in-process in the serve
+#: transaction or from an outside forecaster after it; ``item_prepare`` (AD1):
+#: an item-only forecast made when the revision is prepared for the pool.
+DECISION_KINDS = ("diagnosis", "cold_retry_schedule", "serve", "item_prepare")
 
 
 @dataclass(frozen=True)
@@ -96,6 +108,19 @@ class ForecastReceipt:
     inputs_as_of: str | None = None
     p: float | None = None
     columns: Mapping[str, Any] = field(default_factory=dict)
+
+
+def valid_for_serve(receipt: Mapping[str, Any], served_at: str | None) -> bool:
+    """AD1's validity rule (spec_adaptive_difficulty_v1 §8.1): a forecast is
+    valid for a presentation iff the inputs it read are no later than the
+    serve (``inputs_as_of <= served_at``), whenever it arrived. A late outside
+    forecast is still a true forecast for scoring; whether it could also
+    inform the serve is the separate frozen-inputs rule (it must have been
+    received before the serve). Unparseable times are invalid."""
+
+    as_of = parse_utc(str(receipt.get("inputs_as_of") or "")) if receipt.get("inputs_as_of") else None
+    served = parse_utc(str(served_at)) if served_at else None
+    return as_of is not None and served is not None and as_of <= served
 
 
 def receipts_enabled(vault: Any) -> bool:
@@ -242,8 +267,10 @@ __all__ = [
     "CHECK_OUTCOME",
     "DECISION_KINDS",
     "DIAGNOSIS_NEXT_OBSERVATION",
+    "FIRST_PRESENTATION",
     "FOLLOWUP_TASK",
     "FORECAST_KINDS",
+    "ITEM_UNASSISTED_SUCCESS",
     "ForecastReceipt",
     "NO_BINDING",
     "PRESENTED_ATTEMPT_ON_FACET",
@@ -255,4 +282,5 @@ __all__ = [
     "inputs_digest",
     "receipts_enabled",
     "record_receipts",
+    "valid_for_serve",
 ]

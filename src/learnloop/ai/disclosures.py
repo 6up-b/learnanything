@@ -28,6 +28,9 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("hint_chooser", "decider", "hint_chooser"),
     ("hint_writer", "llm", "hint_writer"),
     ("hint_outcome", "llm", "hint_outcome"),
+    ("ad_forecast_llm", "llm", "adaptive_difficulty"),
+    ("ad_forecast_decider", "decider", "adaptive_difficulty"),
+    ("ad_feature_audit", "llm", "ad_feature_audit"),
 )
 
 _WHEN = {
@@ -55,7 +58,10 @@ _WHEN = {
         "when you run learnloop diagnose review. At every version, the cited source passages and the "
         "new wording of a facet reword a proposal makes, and (decider_routes.required_method_statement, "
         "while ai.routing.rubric_phrasing_judge is unset) a textbook exercise's statement with the method "
-        "its import proposes, or a practice-family variant's stem with its parent's method (no learner text)."
+        "its import proposes, or a practice-family variant's stem with its parent's method (no learner text). "
+        "While adaptive_difficulty.feature_audit and decider_routes.ad_feature_audit are on, once per version of "
+        "a practice question, in the background: its statement and reference answer, so the Decider can say "
+        "how the question is built (no learner text)."
     ),
     "learner_text_gaps": (
         "When the learner-text gap pipeline reads your tutor questions, stuck answers or diagnosis "
@@ -102,6 +108,22 @@ _WHEN = {
         "answer draft, the earlier hints and your replies, and a short summary of your state, so "
         "LearnLoop's model can write the hint for your work. Never sent to Codex (hints fall back to the "
         "question's own hints there)."
+    ),
+    "adaptive_difficulty": (
+        "While adaptive_difficulty.outside_forecasters names them (by default all three), in the background "
+        "and never while you wait: once per new version of a practice question, before it is first served, its "
+        "statement, topic and skill names (llm_v1:item, never the reference answer, rubric or hints); and after "
+        "each daily-plan question is served, the same plus a short record of your earlier answers on its topic "
+        "and the topics it builds on, as of when it was served (each earlier question, whether it was right, the "
+        "hints used, never your answer text), so LearnLoop can score how well each forecaster predicts your "
+        "answers (llm_v3:llm on ai.routing.ad_forecast_llm, llm_v3:decider on ai.routing.ad_forecast_decider). "
+        "Measurement only: nothing served, graded or scheduled changes. Never material held out for an exam."
+    ),
+    "ad_feature_audit": (
+        "While adaptive_difficulty.feature_audit is on, when the Decider gives no answer for a dimension (or with "
+        "decider_routes.ad_feature_audit off): a practice question's statement and reference answer, once per "
+        "version, in the background, so LearnLoop's model can say how the question is built (complexity, "
+        "transfer, scaffolding, span, response). No learner text."
     ),
     "hint_outcome": (
         "While hints.adaptive_enabled and hints.outcome_placement_enabled are on, in the background after you "

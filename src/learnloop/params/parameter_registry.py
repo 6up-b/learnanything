@@ -1004,6 +1004,19 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "display",
         "seconds a hint is being written before the panel offers the item's own hint instead; a display "
         "cap, no measurement authority (no constant decides which hint a learner gets, spec H3)."),
+    # Adaptive difficulty AD1: the outside forecasters' and the feature
+    # audit's metered spend a UTC day (receipts and judgments only: nothing
+    # serving, scoring, scheduling, evidence or certification reads them, A2).
+    # The owner's price for a metered LLM route of these roles is null by
+    # default, so the default-config audit never sees it as a numeric leaf;
+    # a configured price is one (Codex review F7).
+    _ConfigRule(_exact(
+        "adaptive_difficulty.daily_spend_cap_usd",
+        "adaptive_difficulty.price_per_million",
+    ), "structural", "operational",
+        "the outside forecasters' and feature audit's metered spend a UTC day / the owner's price (USD per "
+        "million tokens) for a metered LLM route of these roles; a money bound and its rate, no measurement "
+        "authority (AD1 logs forecasts and audits, it decides nothing served)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

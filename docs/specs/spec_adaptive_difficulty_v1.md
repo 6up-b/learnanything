@@ -719,6 +719,7 @@ The LO view has neither, and in the subject view `χ_C = χ_Q = 0` removes both 
 
 **Frozen in a receipt.** `ad_reading_opportunities` (RECEIPT, append-only; §11.2) holds one row per (opportunity, LO): its kind and subkind, the source row's id and write time, the facets and doses as the mapping resolved them, the `ad_dose_offers` id when a randomized offer produced it (§5.12), the mapping version, and the authority class `salience_only`.
 - **Written by a sweep.** At every serve, in the serve transaction and before its forecasts, a sweep records every opportunity whose source row was written since the last sweep. AD1's backfill sweeps the history once (§14).
+  - *Amended at the AD1 Codex review (2026-10-18; `docs/reviews/adaptive-difficulty-ad1-codex-review.md`, F4):* a tutor exchange exists once its answer completes, so its source time is `question_events.answered_at` (migration 213, set once by the pending-to-answered update; a row written already answered keeps `created_at`), and every serve's sweep reads every answered exchange not yet recorded, however long ago it was asked. A question pending at a serve is never placed before it.
 - **Why a receipt.** `reader_section_progress` is WORKFLOW and is deleted with its extraction, and the section-to-LO mapping depends on content that can change (§3.1).
 - **Ordering.** Replay orders opportunities by their source row's write time. Every serve's sweep has already recorded everything written before it, so the state replay rebuilds is the state each serve saw (§7.3's rule for signals).
 - **Switch.** The receipt is written under `forecast_receipts`, like AD's other receipts; `reading_opportunities` governs only whether the subject view applies it.
@@ -1028,6 +1029,8 @@ The features and signals an AD decision or update reads are fixed when the item 
 
 ### 8.1 Receipts (AD1; switch `forecast_receipts`)
 
+*Amended at AD1 (2026-10-18; `docs/reviews/adaptive-difficulty-ad1.md`):* `item_forecasts` is not a table of its own. Item forecasts are rows of kind `item_unassisted_success` in the `forecast_receipts` receipt family (migration 206, built for this by the saved-diagnosis-forecasts stage; owner-confirmed item 3 of `docs/reviews/diagnosis-forecast-receipts.md`): `scope` `presentation` (binding `plan_presentation`) or `item` (binding `first_presentation`, with `item_content_hash`), `created_at` as `issued_at`, `p` and optional `p_categories` in `forecast_json`, `received_at`, `status` and `algorithm_version` as below. Below, `item_forecasts` names these rows.
+
 `item_forecasts` (RECEIPT, append-only), one row per (presentation, forecaster), or per (item revision, forecaster) for an item-only forecaster:
 - **`scope`:** `presentation` or `item`;
 - **presentation reference** (scope `presentation`): `plan_presentation_id`, `probe_presentation_id`, `scheduler_candidate_id`, or an exam session's pooled item (written when `start_exam` freezes its predictions, `goals/exam_session.py:1-12`);
@@ -1041,6 +1044,8 @@ The features and signals an AD decision or update reads are fixed when the item 
 - `algorithm_version`.
 
 **Validity rule.** A forecast is valid iff `inputs_as_of ≤ served_at`, whenever it arrives. So outside forecasters never sit on the critical path, and a late answer is still a true forecast *for scoring*. Whether it can also *inform* a decision is a separate rule: only a receipt received before the serve enters that serve's frozen inputs (§7.3, §7.5). An item-scoped receipt is scored against the item's first bound presentation. In-process forecasters (AD, the incumbent, `lo_general`) write their rows in the serve transaction, beside `plan_presentations` (plan R2 §5.2). Raw responses from paid forecasters go to `item_forecast_payloads` (WORKFLOW, pruned like `router_decision_payloads`); the receipt keeps the hash.
+
+*Amended at the AD1 Codex review (2026-10-18; `docs/reviews/adaptive-difficulty-ad1-codex-review.md`, F2, F3, F8):* `inputs_as_of` is true only if the inputs are the ones the serve had. So the `llm_v3:*` request inputs (the served revision's item view and the history card with each earlier grade as it then stood) are frozen in the serve transaction, as an `item_forecast_payloads` request row, and the background job sends exactly those; a presentation without them (served while the forecasters were off, or whose first recording failed) is never forecast, and a reopened step's serve records nothing new. Every accepted outside forecast also appends one `judgment_ledger` row (task `ad_item_forecast`: model, prompt version, request hash, the receipt key), in its receipt's transaction.
 
 ### 8.2 Forecasters
 
@@ -1355,7 +1360,7 @@ A8, §9.5. A test plants a sentinel string in a held-out unit. It asserts the se
 |---|---|---|---|
 | `practice_attempts.difficulty_rating` | RAW_LEDGER column (nullable) | `easy` / `about_right` / `hard`, tapped before feedback | — |
 | `practice_attempts.first_hint_progress` | RAW_LEDGER column (nullable) | `no_draft` / `draft_started`: whether an answer had been started when the first ordinary hint was revealed (§5.3). The practice screen reads the same marker it already sends with tutor questions (`apps/learnloop-tauri/src/screens/PracticeScreen.tsx:284-285`) at the first hint reveal (`:619`), keeps it in the saved draft, and sends it on submit. Null on every earlier row, from clients that do not send it, and while `forecast_receipts` is off; null reads as `unknown` | — |
-| `item_forecasts` | RECEIPT (append-only) | §8.1, with `scope` (`presentation` / `item`) | never cleared |
+| `item_forecasts` | RECEIPT (append-only): rows of kind `item_unassisted_success` in `forecast_receipts` (migration 206), no table of its own (amended at AD1) | §8.1, with `scope` (`presentation` / `item`) | never cleared |
 | `item_forecast_payloads` | WORKFLOW | raw outside-forecaster responses; pruned after `router.payload_retention_days` | — |
 | `item_serve_inputs` | RECEIPT (append-only) | §7.5: per presentation of a never-attempted item, the served revision's hash, stamped and resolved features with audit ids, the signal vector with receipt ids, `pre_exposed`, the resolution version, and from the AD2/AD3 successor the loadings in force with their ledger ids and the coupling version | never cleared |
 | `ad_reading_opportunities` | RECEIPT (append-only) | §5.11: per (reading opportunity, LO), the kind (`reading`, `reader_tutor_exchange`, `worked_example`, `in_passage_question`) and subkind, the source row's id and write time, the facets and doses as resolved, the `ad_dose_offers` id when an offer produced it, the mapping version, and the authority class `salience_only`; plus one verdict row per judged in-passage question (D22: kind `in_passage_question`, subkind `self_check:matched` or `self_check:missed`, the `judgment_ledger` row's id and write time as its source, the question's facets and doses); written by the serve-time sweep and AD1's one-time backfill | never cleared |
@@ -1486,7 +1491,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 **Needs:** the "diagnosis input provenance" stage landed (`spec_mcp_frontend_c1.md` §4.8; D18).
 
 **Builds:**
-- migration: `item_forecasts` (with `scope`), `item_forecast_payloads`, `item_serve_inputs`, `ad_reading_opportunities`, `practice_attempts.difficulty_rating`, `practice_attempts.first_hint_progress`;
+- migration: `item_forecasts` (with `scope`; *amended at AD1: kind `item_unassisted_success` rows of migration 206's `forecast_receipts`, so migration 213 adds no such table*), `item_forecast_payloads`, `item_serve_inputs`, `ad_reading_opportunities`, `practice_attempts.difficulty_rating`, `practice_attempts.first_hint_progress` (*and, amended at the AD1 Codex review, `question_events.answered_at`, §5.11*);
 - table roles;
 - the serve-input receipt (§7.5) and the in-process forecasters `mastery_ekf` and `lo_general+composite`, written in the serve transaction;
 - outside forecasters behind `outside_forecasters`, spend-capped: `llm_v1:item` once per item revision when it is prepared for the pool, plus its one-time backfill; `llm_v3:*` asynchronously per presentation (§8.2);

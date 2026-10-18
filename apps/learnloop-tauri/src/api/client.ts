@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
+  DifficultyRating,
+  FirstHintProgress,
   CompareTableDto,
   LibraryAskDto,
   LibraryAskEntry,
@@ -532,6 +534,10 @@ export const api = {
     declaredStuck?: boolean;
     /** Router R2a (review F5): kept with the draft so a resumed draft binds. */
     planPresentationId?: string | null;
+    /** Adaptive difficulty AD1 (§11.2): the first-hint progress marker. */
+    firstHintProgress?: FirstHintProgress | null;
+    /** AD1 fix round 5 (V4): a hint of any kind was seen on this draft. */
+    hintSeen?: boolean;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   /** Adaptive hints H0: telemetry for one authored hint the screen revealed
    *  (fire and forget; never awaited by the screen, and never invalidates). */
@@ -590,6 +596,9 @@ export const api = {
     schedulerCandidateId?: string | null;
     /** Router R2a: the daily-plan presentation this answer is to. */
     planPresentationId?: string | null;
+    /** Adaptive difficulty AD1 (§12, §11.2), as on `submitAttempt`. */
+    difficultyRating?: DifficultyRating | null;
+    firstHintProgress?: FirstHintProgress | null;
   }) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_dont_know", { input })),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),

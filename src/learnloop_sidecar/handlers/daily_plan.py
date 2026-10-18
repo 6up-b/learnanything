@@ -198,7 +198,47 @@ def get_daily_plan(ctx: SidecarContext, params: PlanSessionInput) -> dict[str, A
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
-    return versioned(_current_view(env))
+    view = _current_view(env)
+    _schedule_ad(ctx, env, step=None)
+    return versioned(view)
+
+
+def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] | None) -> None:
+    """Adaptive difficulty AD1 (spec §8.2, §7.2): after the response is built,
+    the planned items' revisions are prepared for the pool in the background
+    (feature audit, then ``llm_v1:item``), and a served step's presentation
+    gets its ``llm_v3`` forecasts. Never waits, fails or changes the step."""
+
+    try:
+        from learnloop.adaptive_difficulty.background import (
+            schedule_item_preparation,
+            schedule_presentation_forecasts,
+        )
+        from learnloop.adaptive_difficulty.switches import any_background_work
+
+        vault = env.vault
+        if not any_background_work(vault.config):
+            return
+        clients = getattr(ctx, "ad_clients", None)
+        builds = getattr(ctx, "map_builds", None)
+        # The vault loaded at each check, not this request's (fix round 4, V1).
+        live_vault = getattr(ctx, "loaded_vault", None)
+        sqlite_path = env.repository.sqlite_path
+        presentation_id = (step or {}).get("presentation_id")
+        if presentation_id:
+            schedule_presentation_forecasts(vault, sqlite_path, str(presentation_id), clients=clients, builds=builds,
+                                            live_vault=live_vault)
+        from learnloop.daily_plan.engine import latest_today
+
+        record = latest_today(env)
+        if record is not None:
+            planned = [item.practice_item_id for item in record.items() if not item.resolved]
+            schedule_item_preparation(vault, sqlite_path, planned, clients=clients, builds=builds,
+                                      live_vault=live_vault)
+    except Exception:  # noqa: BLE001 - background scheduling never reaches the plan
+        import logging
+
+        logging.getLogger(__name__).warning("AD1 background work not scheduled", exc_info=True)
 
 
 @method("set_plan_minutes", PlanMinutesInput)
@@ -228,7 +268,10 @@ def next_plan_item(ctx: SidecarContext, params: NextPlanItemInput) -> dict[str, 
     record, step, context = advance_with_context(
         env, serve=params.serve, skip_practice_item_id=params.skip_practice_item_id
     )
-    return versioned({"enabled": True, "step": step, **_view(env, record, step, context)})
+    result = versioned({"enabled": True, "step": step, **_view(env, record, step, context)})
+    if params.serve:
+        _schedule_ad(ctx, env, step=step)
+    return result
 
 
 @method("plan_reading_ended", PlanReadingEndedInput)
@@ -315,6 +358,7 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
     if selection is not None:
         result["proposal_pick"] = _proposal_delivery(ctx, params, selection,
                                                      router_decision_id=_served_decision(record, step))
+    _schedule_ad(ctx, env, step=step)
     return versioned(result)
 
 

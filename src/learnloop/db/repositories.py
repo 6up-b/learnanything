@@ -4186,9 +4186,9 @@ class Repository(
                   preceding_tutor_move, scaffold_level, warning_state, learner_mode,
                   question_opportunity, hints_used_before, direct_explanation_request,
                   attempt_progress, signal_channel, source_context_json, created_at,
-                  assessment_contract_version_id
+                  assessment_contract_version_id, answer_mode
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -4223,6 +4223,9 @@ class Repository(
                     ),
                     now,
                     None if contract is None else str(contract),
+                    # Adaptive difficulty AD1 (§5.11, fix round 4, V5): the
+                    # reader tutor's answer mode, set once at the ask.
+                    event.get("answer_mode"),
                 ),
             )
             connection.commit()
@@ -4325,6 +4328,7 @@ class Repository(
         source_context: Mapping[str, Any] | None = None,
         leak_overlap: float | None = None,
         remediation_episode_id: str | None = None,
+        answered_at: str | None = None,
     ) -> bool:
         """Complete (or fail) a pending question event after the provider call.
 
@@ -4332,8 +4336,11 @@ class Repository(
         with answer_status='pending'; this fills in the answer and the tutor's
         classification (including the §13.4 epistemic vs interaction-preference
         channel), or marks the turn 'failed' while keeping the question text as
-        evidence."""
+        evidence. An answer stamps ``answered_at`` (default: now) once: the
+        first completion's time is kept (adaptive difficulty AD1, migration
+        213; Codex review F4)."""
 
+        completed = answered_at or utc_now_iso()
         with self.connection() as connection:
             cursor = connection.execute(
                 """
@@ -4343,7 +4350,8 @@ class Repository(
                     signal_channel = COALESCE(?, signal_channel),
                     source_context_json = COALESCE(?, source_context_json),
                     leak_overlap = COALESCE(?, leak_overlap),
-                    remediation_episode_id = COALESCE(?, remediation_episode_id)
+                    remediation_episode_id = COALESCE(?, remediation_episode_id),
+                    answered_at = CASE WHEN ? = 'answered' THEN COALESCE(answered_at, ?) ELSE answered_at END
                 WHERE id = ?
                 """,
                 (
@@ -4357,6 +4365,8 @@ class Repository(
                     _json(dict(source_context)) if source_context is not None else None,
                     leak_overlap,
                     remediation_episode_id,
+                    answer_status,
+                    completed,
                     event_id,
                 ),
             )
@@ -18155,6 +18165,13 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
+        for column in ("difficulty_rating", "first_hint_progress"):
+            if attempt.get(column) is not None:
+                # Adaptive difficulty AD1 (migration 213): written only when
+                # set, so a database attached below 213 still records every
+                # attempt without them.
+                columns.append(column)
+                values.append(attempt[column])
         presentation_id = _bindable_plan_presentation(connection, attempt)
         if presentation_id is not None:
             # Router R2a (migration 202): the plan presentation this attempt

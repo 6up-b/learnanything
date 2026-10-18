@@ -43,6 +43,11 @@ os.environ["LEARNLOOP_APPROACH_MAP_BUILDS"] = "off"
 # (ctx.hint_writer_client / ctx.hint_chooser_client, or the service's
 # writer_client / chooser_client_factory arguments).
 os.environ["LEARNLOOP_HINT_MODELS"] = "off"
+# Adaptive difficulty AD1: a plan serve and a plan build schedule the outside
+# forecasters and the feature audit in the background (on by default). No
+# test reaches a real model: with this set, no AD job resolves a client unless
+# the test injected a fake (ctx.ad_clients, or the job's own client arguments).
+os.environ["LEARNLOOP_AD_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

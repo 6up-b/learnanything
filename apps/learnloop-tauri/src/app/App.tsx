@@ -1263,6 +1263,8 @@ export function App() {
             restoredStuck={restored.stuck}
             restoredTeachBack={restored.teachBack}
             restoredDisclosure={restored.selfGradeDisclosure}
+            restoredFirstHintProgress={restored.firstHintProgress}
+            restoredHintSeen={restored.hintSeen}
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}
             onContinueDiagnostic={openPractice}

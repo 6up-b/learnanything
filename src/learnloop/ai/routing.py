@@ -111,6 +111,11 @@ AITask = Literal[
     "hint_writer",
     # Adaptive hints H2b: outcome placement (background, after submit).
     "hint_outcome",
+    # Adaptive difficulty AD1: the outside forecasters (an LLM route and a
+    # decider task) and the feature audit's LLM judge (background work).
+    "ad_forecast_llm",
+    "ad_forecast_decider",
+    "ad_feature_audit",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -118,7 +123,7 @@ AITask = Literal[
 #: overrides them, the same rule as ``ai.routing.embedding``.
 DECIDER_TASKS: frozenset[str] = frozenset(
     {"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider", "reader_intent",
-     "hint_chooser"}
+     "hint_chooser", "ad_forecast_decider"}
 )
 #: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
 #: structured question of a chat model, or typed questions of a decision model
@@ -215,6 +220,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Adaptive hints H2b: one hinted answer placed on its item's approach map
     # (measurement only, background).
     "hint_outcome": "hint_outcome",
+    # Adaptive difficulty AD1: one item forecast (llm_v1:item, llm_v3:llm)
+    # and one feature-audit dimension judged by the LLM (background work).
+    "ad_item_forecast": "ad_forecast_llm",
+    "ad_feature_audit": "ad_feature_audit",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

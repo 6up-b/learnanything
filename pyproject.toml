@@ -195,6 +195,30 @@ ignore_imports = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "adaptive-difficulty-never-writes-evidence"
+name = "Adaptive difficulty is a predictor, never evidence: learnloop.adaptive_difficulty imports no evidence writer (spec A2, A12, §11.3)"
+type = "forbidden"
+source_modules = ["learnloop.adaptive_difficulty"]
+# The modules that record attempts, grading evidence, mastery, facet recall,
+# FSRS, certification and the canonical projection, and the adapters. AD1
+# writes only its own receipts, forecast_receipts, judgment_ledger and
+# practice_item_snapshots (db stores); it reads the learner field's pure
+# replay rows and placement's live incumbent adapter, which write nothing.
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.goals",
+    "learnloop.curriculum",
+    "learnloop.diagnosis",
+    "learnloop.tutor",
+    "learnloop.daily_plan",
+    "learnloop.router",
+    "learnloop.cli",
+    "learnloop_sidecar",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "graders-never-read-approach-maps"
 name = "The grader and the diagnoser never see an approach map (hints spec H2, G-H4; H1's boundary)"
 type = "forbidden"

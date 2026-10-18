@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -36,6 +37,35 @@ from learnloop.content.pipeline.jobs import IngestJobManager
 _LOGGER = logging.getLogger(__name__)
 
 
+class LoadedVaultProvider:
+    """A context's loaded vault (called) and its reload generation (AD1 fix round 5, V1)."""
+
+    def __init__(self, context: "SidecarContext") -> None:
+        self._context = context
+
+    def __call__(self) -> LoadedVault | None:
+        return self.snapshot()[0]
+
+    def generation(self) -> int:
+        return self.snapshot()[1]
+
+    def snapshot(self) -> tuple[LoadedVault | None, int]:
+        """``(vault, generation)``, read together under the publication lock (fix round 6, V1-a)."""
+
+        with self._context._vault_lock:
+            return self._context.vault, int(self._context.vault_generation)
+
+    def admit(self, generation: Any) -> bool:
+        """Whether the snapshot ``generation`` is still the published one.
+
+        The comparison runs under the publication lock, so no reload is
+        published between reading it and the admission it decides; the lock
+        is held for this comparison only (fix round 6, V1-a)."""
+
+        with self._context._vault_lock:
+            return int(self._context.vault_generation) == generation
+
+
 @dataclass
 class SidecarContext:
     vault_root: Path | None = None
@@ -59,12 +89,41 @@ class SidecarContext:
     # starts belong to the loaded vault. Opening another vault, shutdown and
     # EOF drain them (bounded) and fence their late writes.
     map_builds: BackgroundBuilds = field(default_factory=BackgroundBuilds, repr=False)
+    # Adaptive difficulty AD1 (fix round 5, V1): bumped every time the loaded
+    # vault object is replaced (a load, a reload, a re-read after recovery or
+    # adoption). A background job's protection check reads it before and
+    # after it builds the held-out predicate from the loaded vault, and its
+    # request and record admissions compare it, so a reload in between is
+    # never judged by the vault it replaced.
+    vault_generation: int = field(default=0, repr=False)
+    # Fix round 6 (V1-a): the vault and its generation are published together
+    # under this lock, and read together (``loaded_vault.snapshot()``), so no
+    # reader sees the new vault with the old generation. Held for those few
+    # instructions only, never across loading, protection, a model call or
+    # an SQLite commit.
+    _vault_lock: Any = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name != "vault":
+            object.__setattr__(self, name, value)
+            return
+        lock = self.__dict__.get("_vault_lock")
+        if lock is None:  # the dataclass's own __init__, before the lock exists
+            object.__setattr__(self, name, value)
+            object.__setattr__(self, "vault_generation", self.__dict__.get("vault_generation", 0) + 1)
+            return
+        with lock:
+            object.__setattr__(self, name, value)
+            object.__setattr__(self, "vault_generation", self.__dict__.get("vault_generation", 0) + 1)
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
         if self.vault_root is not None and target != self.vault_root:
             # A switch: the previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+        # Adaptive difficulty AD1 (Codex review F10): a reload of the same
+        # vault compares its items with these, to prepare new revisions.
+        previous = self.vault if self.vault_root is not None and target == self.vault_root else None
         self.vault_root = target
         self.vault = load_vault(self.vault_root)
         self.repository = open_vault_repository(
@@ -110,6 +169,7 @@ class SidecarContext:
         )
 
         schedule_certification_cold_probes(self.vault, self.repository)
+        self.prepare_new_revisions(previous)
         # Startup maintenance probes the Codex runtime, which (for the HTTP provider)
         # can launch the server and block up to startup_timeout_seconds. Skip it on
         # refreshes that only need fresh vault/DB state, not a runtime health pass.
@@ -165,6 +225,34 @@ class SidecarContext:
                                          client=getattr(self, "hint_outcome_client", None), builds=self.map_builds)
         except Exception:  # noqa: BLE001 - never block opening the vault
             _LOGGER.warning("could not resume outcome placements", exc_info=True)
+
+    def prepare_new_revisions(self, previous: LoadedVault | None, item_ids: list[str] | None = None) -> None:
+        """Adaptive difficulty AD1 (spec §7.2, §8.2; Codex review F10): the
+        feature audit and ``llm_v1:item`` of item revisions published,
+        imported or edited since the last load (or the watcher's changed
+        items), in the background on the vault's build registry. Never
+        blocks or fails the reload."""
+
+        if self.vault is None or self.repository is None:
+            return
+        try:
+            from learnloop.adaptive_difficulty.background import schedule_new_revisions
+
+            schedule_new_revisions(previous, self.vault, self.repository.sqlite_path, item_ids=item_ids,
+                                   clients=getattr(self, "ad_clients", None), builds=self.map_builds,
+                                   live_vault=self.loaded_vault)
+        except Exception:  # noqa: BLE001 - never block a reload
+            _LOGGER.warning("could not schedule AD preparation of new item revisions", exc_info=True)
+
+    @property
+    def loaded_vault(self) -> "LoadedVaultProvider":
+        """The provider of the vault loaded now (adaptive difficulty AD1, fix
+        rounds 4 and 5, V1): a background job checks its requests against this
+        vault's held-out predicate at each check, not the one it was started
+        with, so a same-vault reload's source-set or exam-scope edit is seen;
+        its ``generation()`` is :attr:`vault_generation`."""
+
+        return LoadedVaultProvider(self)
 
     def close_background_builds(self) -> bool:
         """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""
@@ -406,6 +494,8 @@ class SidecarContext:
                 "snapshot": self.app_snapshot(),
             }
 
+        if changed:
+            self.prepare_new_revisions(None, item_ids=changed)
         revision = (
             repository.bump_queue_revision()
             if changed
@@ -521,6 +611,15 @@ def vault_summary(vault: LoadedVault) -> dict[str, Any]:
     )
 
 
+def _adaptive_difficulty_dto(config: Any) -> dict[str, Any]:
+    from learnloop.adaptive_difficulty.switches import rating_tap_enabled, receipts_enabled
+
+    rating, marker = rating_tap_enabled(config), receipts_enabled(config)
+    if not (rating or marker):
+        return {}
+    return {"adaptive_difficulty": {"rating_tap": rating, "first_hint_progress": marker}}
+
+
 def config_dto(vault: LoadedVault) -> dict[str, Any]:
     config = vault.config
     return versioned(
@@ -553,6 +652,11 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                           "authored_offer_after_seconds": config.hints.authored_offer_after_seconds,
                           "help_style": config.hints.help_style}}
                if config.hints.adaptive_enabled and config.hints.telemetry_enabled else {}),
+            # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's
+            # rating tap and first-hint progress marker. Present only while
+            # one of them is on, so with both off the snapshot is exactly
+            # what it was before AD1 and the screen sends neither.
+            **_adaptive_difficulty_dto(config),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,
@@ -794,8 +898,20 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     from learnloop_sidecar.handlers.sessions import draft_self_grade_disclosure
 
     disclosure = draft_self_grade_disclosure(row)
+    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress, draft_hint_seen
+
+    marker = draft_first_hint_progress(
+        focus.get("practice") if isinstance(focus, dict) else None, submission_id
+    )
+    hint_seen = draft_hint_seen(focus.get("practice") if isinstance(focus, dict) else None, submission_id)
     return to_camel(
         {
+            # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
+            # marker, present only when one was kept for this retry key.
+            **({"first_hint_progress": marker} if marker is not None else {}),
+            # AD1 fix round 5 (V4): a hint was seen on this draft; present
+            # only when one was, for this retry key.
+            **({"hint_seen": True} if hint_seen else {}),
             "current_practice_item_id": row.get("current_practice_item_id"),
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,
