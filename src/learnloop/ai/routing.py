@@ -103,6 +103,8 @@ AITask = Literal[
     "reader_intent",
     # Reader workbench RW4a: the library answer's organizer (a listwise task).
     "library_organizer",
+    # Adaptive hints H1: the approach-map builder and learner-route merge.
+    "approach_map",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -196,6 +198,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Reader workbench RW4a: one listwise call noting what each passage of a
     # library answer contributes.
     "library_organizer": "library_organizer",
+    # Adaptive hints H1: one approach map built from an item's seeds, and the
+    # learner's new correct routes merged into it (background work).
+    "approach_map": "approach_map",
+    "approach_map_merge": "approach_map",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

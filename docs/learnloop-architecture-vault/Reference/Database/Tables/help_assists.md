@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
+source_commit_timestamp: "2026-10-18T02:36:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 210
+schema_head: 211
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/210_help_assists.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
+  - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
   - "src/learnloop/hints/report.py"
   - "src/learnloop/hints/telemetry.py"
   - "src/learnloop/reader/reader_observations.py"
-  - "src/learnloop/reader/recap.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -164,6 +164,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_approach_map_replay.py`
+- `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
 - `tests/test_help_assists_schema.py`
 - `tests/test_hint_telemetry.py`

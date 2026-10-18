@@ -32,6 +32,11 @@ for _decider_key in ("OPENROUTER_API_KEY", "PERPLEXITY_API_KEY"):
 # routes are "off" (the staged rule chooses, as with no model set up), and a
 # test of the mixture injects fake models into its own runtime.
 os.environ["LEARNLOOP_ROUTER_MODELS"] = "off"
+# Adaptive hints H1: a session serve starts an approach-map build in the
+# background (hints.maps.build_on_serve, on by default). No test reaches a
+# real model: with this set, a serve starts no build unless the test injected
+# a fake client (ctx.approach_map_client or the builder's client argument).
+os.environ["LEARNLOOP_APPROACH_MAP_BUILDS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

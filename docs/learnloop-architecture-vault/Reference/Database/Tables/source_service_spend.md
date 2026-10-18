@@ -3,13 +3,13 @@ title: "source_service_spend"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
+source_commit_timestamp: "2026-10-18T02:36:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_service_spend"
   - "table source_service_spend"
-schema_head: 210
+schema_head: 211
 table_name: "source_service_spend"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/194_source_service_spend.sql"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/hints/map_builder.py"
   - "src/learnloop/source_retrieval/library_ask.py"
   - "src/learnloop/source_retrieval/service_spend.py"
 tags:
@@ -99,6 +100,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_approach_maps.py`
 - `tests/test_exam_protection.py`
 - `tests/test_source_service_spend_accounting.py`
 - `tests/test_source_service_spend_envelopes.py`

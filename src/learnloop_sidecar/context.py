@@ -13,6 +13,7 @@ from learnloop.attempts.stuck import stuck_prompt_active
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
+from learnloop.hints.map_builder import BackgroundBuilds
 from learnloop.substrate.canonical_projection_rollout import (
     refresh_canonical_projection_on_startup,
 )
@@ -54,14 +55,23 @@ class SidecarContext:
     post_attempt_worker: PostAttemptWorker = field(
         default_factory=PostAttemptWorker, repr=False
     )
+    # Adaptive hints H1 (fix round 2, M4): the approach-map builds a serve
+    # starts belong to the loaded vault. Opening another vault, shutdown and
+    # EOF drain them (bounded) and fence their late writes.
+    map_builds: BackgroundBuilds = field(default_factory=BackgroundBuilds, repr=False)
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
-        self.vault_root = Path(vault_path).resolve()
+        target = Path(vault_path).resolve()
+        if self.vault_root is not None and target != self.vault_root:
+            # A switch: the previous vault's map builds stop before anything of the new one opens.
+            self.map_builds.close()
+        self.vault_root = target
         self.vault = load_vault(self.vault_root)
         self.repository = open_vault_repository(
             self.vault.root,
             VaultPaths(self.vault.root, self.vault.config).sqlite_path,
         )
+        self.map_builds.bind(self.repository.sqlite_path)
         # Finish a facet merge or undo that a previous process left mid-flight
         # before anything reads or re-projects the vault (facet identity F12).
         if _recover_facet_identity_actions(self.vault_root, self.repository):
@@ -127,6 +137,11 @@ class SidecarContext:
                 self.ingest_jobs.resume_book_preparation()
             except Exception:  # noqa: BLE001 - never block opening the library
                 _LOGGER.warning("could not resume a book's queued preparation", exc_info=True)
+
+    def close_background_builds(self) -> bool:
+        """Drain the approach-map builds (shutdown and EOF; bounded, never hangs)."""
+
+        return self.map_builds.close()
 
     def _worker_target(self) -> tuple[LoadedVault, Path] | None:
         if self.vault is None or self.repository is None:

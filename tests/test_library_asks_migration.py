@@ -59,8 +59,10 @@ def _upgrade(tmp_path: Path) -> Path:
         applied = apply_migrations(database)
     assert [migration.version for migration in applied][0] == 209
     after = _schema(database)
-    # Later migrations (adaptive hints H0's 210, help_assists) follow 209 on the way to head.
-    added = {name for name in set(after) - set(before) if "help_assists" not in name}
+    # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
+    # approach_maps) follow 209 on the way to head.
+    added = {name for name in set(after) - set(before)
+             if "help_assists" not in name and "approach_maps" not in name}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     assert {name: sql for name, sql in after.items() if name in before} == before  # nothing else changed
     return database
@@ -105,6 +107,6 @@ def test_library_asks_is_workflow():
 
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_210" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_211" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 210
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 211

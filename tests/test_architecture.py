@@ -102,6 +102,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Adaptive hints H0: help_assists (migration 210), the authored-hint
         # reveal rows and their attach to the attempt at submit.
         "src/learnloop/db/stores/help_assists.py",
+        # Adaptive hints H1: approach_maps (migration 211), one immutable row
+        # per map version (the builder in learnloop.hints.map_builder).
+        "src/learnloop/db/stores/approach_maps.py",
         # Reader workbench RW4a: library_asks (migration 209), one row per
         # library question with its manifests and organizer lines.
         "src/learnloop/db/stores/library_asks.py",

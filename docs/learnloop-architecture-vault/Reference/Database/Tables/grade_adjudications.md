@@ -3,13 +3,13 @@ title: "grade_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
+source_commit_timestamp: "2026-10-18T02:36:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_adjudications"
   - "table grade_adjudications"
-schema_head: 210
+schema_head: 211
 table_name: "grade_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"

@@ -62,6 +62,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("agent_runs", TableRole.RECEIPT),
     ("angle_inventories", TableRole.RAW_LEDGER),
     ("apply_intents", TableRole.WORKFLOW),
+    # Adaptive hints H1: approach maps (migration 211), one immutable row per
+    # map version. Paid output: never cleared, rebuilt or regenerated; replay
+    # never reads it (G-H10).
+    ("approach_maps", TableRole.WORKFLOW),
     ("assessment_contract_versions", TableRole.RAW_LEDGER),
     # Slice 1 M2: the validated diagnosis ledger (append-only; re-diagnosis
     # supersedes). Replay reads it and never calls the diagnoser (S7).

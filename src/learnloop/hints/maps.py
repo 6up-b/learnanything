@@ -1,0 +1,898 @@
+"""Adaptive hints H1: the approach map and its validation in code (spec §4.3).
+
+An approach map is a small subgoal graph of one practice item: **nodes**
+(a subgoal label, the state established there, what in a learner's work shows
+it is reached, the trace-contract or skeleton checkpoint it matches, and
+whether its state gives the answer away), **edges** (the technique and
+principle that move from one node to the next, with the item's facets they
+exercise) and **routes** (node paths from the givens to the goal, each with
+its origin: the reference solution, a trace-contract recipe, the PF skeleton,
+a source's worked example, the model's own distinct route, or the learner's
+own correct solutions).
+
+This module is pure: the wire models the builder's model answers with, the
+validator every map passes before it is stored (a map that fails is re-asked
+once, then not stored; :mod:`learnloop.hints.map_builder`), and the merge of a
+learner's new routes. Nothing here is evidence, and nothing here reaches the
+grader (standing constraints H1, H2).
+
+Field names: the spec's ``edges: from; to`` are ``from_node`` / ``to_node``
+(``from`` is a Python keyword); a route's ``learner_attempt_ids`` carries the
+learner's attempts that took it, so a matching route "gains the attempt id"
+(§4.3) without rewriting its origin.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Collection, Mapping, Sequence
+from dataclasses import dataclass, field
+import json
+import re
+from typing import Any, Literal
+
+from learnloop.ai.schemas import WireModel
+from learnloop.attempts.answer_check import (
+    answers_differ,
+    answers_equal,
+    parse_answer,
+    reference_final_answer,
+    safe_math_text,
+)
+from learnloop.tutor.tutor_qa import span_leaks_expected
+
+MAP_SCHEMA_VERSION = "approach_map.v1"
+
+#: Every reason a map can fail validation (the report counts them).
+REASONS: tuple[str, ...] = (
+    "malformed",
+    "cycle",
+    "no_route",
+    "no_reference_route",
+    "route_not_given_to_goal",
+    "foreign_facet",
+    "empty_label",
+    "label_leak",
+    "unknown_checkpoint",
+    "unknown_origin",
+    "goal_mismatch",
+    # A seeded learner solution on no route, or on two (Codex review F4).
+    "unplaced_attempt",
+    # A learner-route merge's own reasons.
+    "merge_unknown_attempt",
+    "merge_unplaced_attempt",
+    "merge_unknown_route",
+    "merge_node_collision",
+)
+#: Origins without a reference list; ``source:`` and ``learner:`` carry ids
+#: and ``trace_contract`` may name its recipe (``trace_contract:<recipe id>``).
+PLAIN_ORIGINS = frozenset({"reference", "trace_contract", "skeleton", "model"})
+
+
+class MapNode(WireModel):
+    id: str
+    role: Literal["given", "step", "goal"]
+    #: A subgoal label: short, structural, no answer values.
+    label: str
+    #: What is established at this point (LaTeX allowed).
+    state: str
+    #: What in a learner's work shows the node is reached.
+    recognizers: list[str]
+    #: The trace-contract or skeleton checkpoint it matches, or "".
+    checkpoint_id: str
+    #: The state contains or gives away the expected answer.
+    leak: bool
+    #: A step's or given's structured value: the bare expression its state
+    #: establishes, or "" (fix round 3, R2: a value equal to the answer marks
+    #: the node a leak by code).
+    value: str = ""
+    #: The goal's structured conclusion: the final answer as a bare
+    #: expression, no prose and no units, or "" for a proof; "" on every other
+    #: node (fix round 3, R1: the ONLY basis of goal verification).
+    conclusion: str = ""
+    #: The unit of ``conclusion`` or ``value`` ("m", "cm^2"), or "".
+    unit: str = ""
+
+
+class MapEdge(WireModel):
+    from_node: str
+    to_node: str
+    technique: str
+    principle: str
+    facet_ids: list[str]
+
+
+class MapRoute(WireModel):
+    id: str
+    name: str
+    #: Node ids from a given to the goal, each step an edge.
+    path: list[str]
+    #: reference | trace_contract[:<recipe id>] | skeleton | model |
+    #: source:<span refs> | learner:<attempt refs>
+    origin: str
+    #: The learner's attempts that took this route (refs in a prompt, ids once stored).
+    learner_attempt_ids: list[str]
+
+
+class ApproachMapV1(WireModel):
+    nodes: list[MapNode]
+    edges: list[MapEdge]
+    routes: list[MapRoute]
+    goal_node_id: str
+    #: The builder's restatement of the final answer, or "" (a proof).
+    #: Informational, and a label must not contain it; the goal is verified
+    #: only from the goal node's structured ``conclusion`` (fix round 3, R1).
+    goal_answer: str
+
+
+class MergeMatch(WireModel):
+    attempt_ref: str
+    #: The existing route the attempt took.
+    route_id: str
+
+
+class MergeNewRoute(WireModel):
+    id: str
+    name: str
+    attempt_refs: list[str]
+    #: Nodes new to the map (existing node ids may appear in ``path`` and edges).
+    nodes: list[MapNode]
+    edges: list[MapEdge]
+    path: list[str]
+
+
+class LearnerRouteMergeV1(WireModel):
+    """The merge's answer: each new correct attempt either took an existing
+    route or opens a new one (origin ``learner:<attempt ids>``)."""
+
+    matches: list[MergeMatch]
+    new_routes: list[MergeNewRoute]
+
+
+@dataclass(frozen=True)
+class MapContext:
+    """What a map is checked against: the item and its seeds."""
+
+    expected_answer: str | dict[str, Any]
+    #: The item's facets (canonical ids) and the canonicalizer edges' ids go through.
+    facet_ids: frozenset[str]
+    canonical_facet: Callable[[str], str] = field(default=lambda value: value)
+    #: Trace-contract and skeleton checkpoint ids a node may link to.
+    checkpoint_ids: frozenset[str] = frozenset()
+    recipe_ids: frozenset[str] = frozenset()
+    #: Prompt ref -> stored id for seeded source spans ("s1" -> "ext:span") and attempts ("a1" -> attempt id).
+    span_refs: Mapping[str, str] = field(default_factory=dict)
+    attempt_refs: Mapping[str, str] = field(default_factory=dict)
+    #: The question as the learner reads it: an expression it states is a
+    #: given, never a leak (a label may say "evaluate at 1/2").
+    public_text: str = ""
+
+
+@dataclass
+class Validation:
+    valid: bool
+    reasons: list[str]
+    details: list[dict[str, Any]]
+    verified_goal: bool
+    goal_basis: str
+    #: The map as stored: refs replaced by ids, code-marked leaks set.
+    normalized: ApproachMapV1 | None = None
+    leak_marked_by_code: list[str] = field(default_factory=list)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "valid": self.valid, "reasons": list(self.reasons), "details": list(self.details),
+            "verified_goal": self.verified_goal, "goal_basis": self.goal_basis,
+            "leak_marked_by_code": list(self.leak_marked_by_code), "schema": MAP_SCHEMA_VERSION,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Leak expressions
+# ---------------------------------------------------------------------------
+
+_MATH = re.compile(r"\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]", re.S)
+#: A number a label would leak: fractional, decimal or of two digits or more
+#: (a lone digit appears in labels and states by accident).
+_NUMBER = re.compile(r"(?<![\w.])-?\d+(?:[.,/]\d+)+|(?<![\w.])-?\d{2,}")
+#: A run of non-space characters carrying an operator: an equation or formula.
+_FORMULA = re.compile(r"\S*[=^\\]\S*")
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"\s+", "", str(text or "")).replace("$", "").lower()
+
+
+def leak_expressions(text: str) -> set[str]:
+    """The expressions of a leak node's state a label must not contain:
+    its math segments, formulas and numbers (normalized, at least two characters)."""
+
+    found: set[str] = set()
+    for match in _MATH.finditer(text or ""):
+        segment = next(group for group in match.groups() if group is not None)
+        found.add(_squash(segment))
+    plain = _MATH.sub(" ", text or "")
+    found.update(_squash(match.group(0)) for match in _FORMULA.finditer(plain))
+    found.update(_squash(match.group(0)) for match in _NUMBER.finditer(text or ""))
+    return {expression.strip(".,;:") for expression in found if len(expression.strip(".,;:")) >= 2}
+
+
+#: An exact key the span-leak check cannot see: a lone digit, optionally
+#: signed (``span_leaks_expected`` deliberately ignores one-character tokens,
+#: and ``leak_expressions`` keeps two characters or more).
+_LONE_DIGIT_KEY = re.compile(r"-?\d")
+
+
+def _states_short_key(text: str, key: str | None) -> bool:
+    """Whether ``text`` states a lone-digit key as a number of its own (Codex
+    review F1): "4" in "The count is 4" or "$x = 4$", never inside "14",
+    "4.5", "3/4", "x_4" or "2^4"."""
+
+    value = _signs(key).strip()
+    if not _LONE_DIGIT_KEY.fullmatch(value):
+        return False
+    # One tokenizer (fix rounds 3 and 4): a sign stays attached across
+    # whitespace ("-4", "- 4" and "−  4" never state 4) and a fraction is
+    # one token ("3/4", "3 / 4", "\\frac{3}{4}", "(3)/(4)" state neither 3 nor 4).
+    return value in number_tokens(text)
+
+
+# -- one normalisation for both sides (fix rounds 2 and 3) ---------------------------------
+#
+# Prose detection here is best-effort defence in depth: the binding leak gate
+# is H2's leak control on the written hint text (spec §4.6), run on every
+# hint. Structured fields (a node's ``value``, the goal's ``conclusion``) are
+# what code relies on; prose that needs algebraic rewriting ("x times x")
+# is a known gap.
+
+_MATH_SPAN = re.compile(r"\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]", re.S)
+_DELIMITERS = re.compile(r"\$\$|\$|\\\(|\\\)|\\\[|\\\]")
+_LEFT_RIGHT = re.compile(r"\\(?:left|right)(?![A-Za-z])")
+_FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+#: Unicode minus and dash signs written as ASCII (fix round 3, R2).
+_SIGNS = str.maketrans({"\u2212": "-", "\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-",
+                        "\u2014": "-", "\ufe63": "-", "\uff0d": "-", "\ufe62": "+", "\uff0b": "+"})
+#: ``=`` as an assignment or equation, never inside ``<=``, ``>=``, ``!=`` or ``==``.
+_EQUALS = re.compile(r"(?<![<>!=])=(?!=)")
+#: A number with an optional sign (spaced or not) and an optional whole
+#: fraction part; its context is checked by :func:`_standalone` (fix round 5).
+_NUMBER_CANDIDATE = re.compile(r"(?P<sign>[-+]\s*)?\d+(?:\.\d+)?(?:\s*/\s*[-+]?\s*\d+(?:\.\d+)?)?")
+#: Characters that make an adjacent number part of something else (an
+#: identifier, a decimal, a power, a subscript, a command or a brace group).
+_ATTACHED_LEFT = re.compile(r"[\w.^_/\\{}]")
+_ATTACHED_RIGHT = re.compile(r"[\w^/}]")
+
+
+def _skip_left(text: str, index: int) -> int:
+    """The index of the first non-space character left of ``index`` (-1 if none)."""
+
+    index -= 1
+    while index >= 0 and text[index].isspace():
+        index -= 1
+    return index
+
+
+def _skip_right(text: str, index: int) -> int:
+    while index < len(text) and text[index].isspace():
+        index += 1
+    return index
+
+
+def _standalone(text: str, match: re.Match[str]) -> bool:
+    """Whether a number candidate is a number of its own (fix round 5, U4):
+    a scan across ANY whitespace on both sides, never fixed-width lookbehinds.
+    It is not a denominator ("x /   4", "x /  (4)"), not a numerator of a
+    fraction it is not part of ("4 / x", "(4)/(5)"), not attached to an
+    identifier, a decimal, a power or a subscript ("x_4", "2^4", "4.5"),
+    and a sign directly after an operand is that operand's ("x-4")."""
+
+    start, end = match.start(), match.end()
+    sign = match.group("sign")
+    before = text[start - 1] if start > 0 else ""
+    if sign:
+        if before and (_ATTACHED_LEFT.match(before) or before in ")"):
+            return False  # "x-4": a binary minus, and the digit after it is no number of its own
+    elif before and (_ATTACHED_LEFT.match(before) or before in "-+"):
+        return False
+    left = _skip_left(text, start)
+    if left >= 0 and text[left] == "(":
+        left = _skip_left(text, left)
+    if left >= 0 and text[left] == "/":
+        return False  # a denominator
+    after = text[end] if end < len(text) else ""
+    if after and (_ATTACHED_RIGHT.match(after) or (after in ".," and text[end + 1:end + 2].isdigit())):
+        return False
+    right = _skip_right(text, end)
+    if right < len(text) and text[right] == ")":
+        right = _skip_right(text, right + 1)
+    return not (right < len(text) and text[right] == "/")  # a numerator
+
+
+def number_tokens(text: str | None) -> list[str]:
+    """The standalone numbers of a text, whole: signed (``-4``), decimal or a
+    whole fraction, whitespace removed and a leading ``+`` dropped."""
+
+    plain = _LEFT_RIGHT.sub("", _DELIMITERS.sub(" ", _signs(text)))
+    tokens = [re.sub(r"\s+", "", match.group(0)) for match in _NUMBER_CANDIDATE.finditer(plain)
+              if _standalone(plain, match)]
+    return [token[1:] if token.startswith("+") else token for token in tokens]
+
+
+#: A word that ends an expression in prose ("x^2 on [0, 1]", "4 socks").
+_PROSE_WORD = re.compile(r"\s+([A-Za-z]{2,})\b")
+_MATH_NAMES = frozenset({"sqrt", "sin", "cos", "tan", "exp", "log", "ln", "pi"})
+_SINGLE_SYMBOL = re.compile(r"-?\d|[A-Za-z]")
+#: A number followed by a word: a quantity with its unit ("4 m"), not an expression.
+_QUANTITY = re.compile(r"\d\s+[A-Za-z]")
+_CANDIDATE_CHARS = 60
+
+
+def _signs(text: str | None) -> str:
+    return str(text or "").translate(_SIGNS)
+
+
+def normalize_math(text: str) -> str:
+    """The text with Unicode signs written ASCII, its math delimiters
+    (``$…$``, ``\\(…\\)``, ``\\[…\\]``) and ``\\left``/``\\right`` removed and
+    ``\\frac{a}{b}`` written ``(a)/(b)``: the one form a state, a label, a
+    structured value and the expected answer are compared in."""
+
+    value = _LEFT_RIGHT.sub("", _DELIMITERS.sub(" ", _signs(text)))
+    previous = None
+    while previous != value:
+        previous, value = value, _FRAC.sub(r"(\1)/(\2)", value)
+    return value
+
+
+def _clean(expression: str) -> str:
+    value = re.sub(r"\s+", " ", expression).strip().rstrip(".,;:").strip()
+    # A spaced sign is the number's ("- 4" is -4; the checker would read a list bullet; U4).
+    value = re.sub(r"^([-+])\s+(?=\d)", r"\1", value)
+    return value[1:].strip() if value.startswith("+") else value
+
+
+def normalize_key(text: str | None) -> str:
+    """An answer or key in the shared form: normalised, whitespace and a leading ``+`` stripped."""
+
+    return re.sub(r"\s+", "", _clean(normalize_math(text or "")))
+
+
+def _cut_prose(expression: str) -> str:
+    """An expression up to the first prose word or clause break after it."""
+
+    value = expression
+    for match in _PROSE_WORD.finditer(value):
+        if match.group(1).lower() not in _MATH_NAMES:
+            value = value[: match.start()]
+            break
+    return _clean(re.split(r"[,;]|\.(?:\s|$)", value)[0])
+
+
+def answer_candidates(text: str) -> list[str]:
+    """The expressions a text states, in the shared form: the whole content
+    of every math span (taken before its delimiters are stripped; fix round
+    3, R2), its standalone signed numbers and whole fractions, the value after
+    each ``=``, and the whole text when it is a short expression."""
+
+    signed = _signs(text)
+    found: list[str] = []
+    for match in _MATH_SPAN.finditer(signed):
+        content = next(group for group in match.groups() if group is not None)
+        found.append(_clean(normalize_math(content)))
+    plain = _LEFT_RIGHT.sub("", _DELIMITERS.sub(" ", signed))
+    found.extend(number_tokens(plain))
+    normalized = normalize_math(signed)
+    found.extend(_cut_prose(side) for side in _EQUALS.split(normalized)[1:])
+    whole = _clean(normalized)
+    if whole and len(whole) <= _CANDIDATE_CHARS and _PROSE_WORD.search(" " + whole) is None:
+        found.append(whole)
+    return [value for value in dict.fromkeys(found) if value]
+
+
+def structured_expression(text: str | None) -> str | None:
+    """A structured field (a node's ``value``, the goal's ``conclusion``) as an
+    expression the guarded checker reads, or None: empty, prose, a quantity
+    with a unit ("4 m"), an equation, or not parseable."""
+
+    raw = _signs(text).strip()
+    plain = normalize_math(raw)
+    if not plain.strip() or _QUANTITY.search(plain) or _EQUALS.search(plain) or re.search(r"[<>]|!=", plain):
+        return None
+    if any(word.lower() not in _MATH_NAMES for word in re.findall(r"[A-Za-z]{2,}", plain)):
+        return None
+    expression = normalize_key(raw)
+    try:
+        parses = parse_answer(expression) is not None or safe_math_text(expression)
+    except Exception:  # noqa: BLE001 - a checker failure is "unparsed", never a verdict
+        return None
+    return expression if parses else None
+
+
+def states_answer(text: str, key: str | None) -> bool:
+    """Whether ``text`` states an expression equivalent to the key, by the
+    guarded answer checker on both sides in the shared form (best-effort
+    prose detection; fix rounds 2 and 3). A single-symbol key is a token
+    match (word boundary), never a substring."""
+
+    target = normalize_key(key)
+    if not target:
+        return False
+    if _SINGLE_SYMBOL.fullmatch(target):
+        if target[-1].isdigit() and _states_short_key(text, target):
+            return True
+        if target.isalpha():
+            return re.search(rf"(?<![\w.,/^_\\]){re.escape(target)}(?!\w)", normalize_math(text)) is not None
+    return any(_equal(candidate, target) is True for candidate in answer_candidates(text))
+
+
+# -- quantities: string identity only, never unit reasoning (fix round 5) ------------------
+
+_TEXT_MARKUP = re.compile(r"\\(?:text|mathrm)\s*\{([^{}]*)\}")
+_SUPERSCRIPTS = str.maketrans("\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b\u207a",
+                              "0123456789-+")
+_SUPERSCRIPT_RUN = re.compile("[\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207b\u207a]+")
+#: A number (integer, decimal or a/b), whitespace, then a token starting with
+#: a non-digit: "4 m", "4 m^2", "2 x", "3 cm", "4 °C".
+_QUANTITY_SHAPED = re.compile(
+    # Leading-dot decimals count (".5 m"; fix round 6, C3).
+    r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:/(?:\d+(?:\.\d+)?|\.\d+))?\s+\D.*", re.S)
+
+
+def norm(text: str | None) -> str:
+    """The answer as a comparable string (fix round 5): math delimiters,
+    ``\\text{}``, ``\\mathrm{}``, ``\\,`` and ``~`` stripped, Unicode
+    superscripts written ``^n`` and Unicode signs ASCII, whitespace collapsed
+    to single spaces and trimmed. No unit is ever interpreted."""
+
+    value = _DELIMITERS.sub(" ", _signs(text))
+    value = _TEXT_MARKUP.sub(r"\1", value)
+    value = value.replace("\\,", " ").replace("~", " ")
+    value = _SUPERSCRIPT_RUN.sub(lambda match: "^" + match.group(0).translate(_SUPERSCRIPTS), value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def quantity_shaped(reference: str | None) -> bool:
+    """Whether ``norm(reference)`` is a number, whitespace, then a token
+    starting with a non-digit (fix round 5)."""
+
+    return _QUANTITY_SHAPED.fullmatch(norm(reference)) is not None
+
+
+def _with_unit(expression: str | None, unit: str | None) -> str:
+    unit = (unit or "").strip()
+    return norm(f"{expression or ''} {unit}" if unit else expression)
+
+
+def structured_verdict(expression: str | None, unit: str | None, key: str) -> tuple[str, str]:
+    """``(verified | mismatch | unverified, basis)`` for a structured
+    ``conclusion`` (or ``value``) with its ``unit`` against the exact key
+    (fix round 5). Three rules, no unit reasoning:
+
+    1. A quantity-shaped key: verified iff ``norm(expression + " " + unit)``
+       (``norm(expression)`` when the unit is empty) equals ``norm(key)``;
+       else unverified, ``quantity_reference``. Never a mismatch.
+    2. Any other key with a unit: verified iff the same string equality
+       holds; else unverified, ``unit_on_conclusion``. Never a mismatch.
+    3. Any other key, no unit: ``answers_equal`` verifies, ``answers_differ``
+       is a mismatch, anything else is unverified."""
+
+    if quantity_shaped(key):
+        return ("verified", "exact_key") if _with_unit(expression, unit) == norm(key) else (
+            "unverified", "quantity_reference")
+    if (unit or "").strip():
+        return ("verified", "exact_key") if _with_unit(expression, unit) == norm(key) else (
+            "unverified", "unit_on_conclusion")
+    parsed = structured_expression(expression)
+    if parsed is None:
+        return "unverified", "conclusion_unparsed"
+    target = normalize_key(key) or key
+    if _structured_equal(parsed, target) is True:
+        return "verified", "exact_key"
+    if _structured_differ(parsed, target) is True:
+        return "mismatch", "conclusion"
+    return "unverified", "undecidable"
+
+
+def value_states_answer(value: str | None, unit: str | None, key: str | None) -> bool:
+    """A structured ``value`` is a leak when the goal rules would verify it
+    as the goal, or when ``norm(value)`` equals ``norm(key)`` (fix round 5;
+    conservative)."""
+
+    if not (value or "").strip() or not key:
+        return False
+    return structured_verdict(value, unit, key)[0] == "verified" or norm(value) == norm(key)
+
+
+def gives_away(text: str, expected_answer: str | dict[str, Any], key: str | None = None) -> bool:
+    """Whether ``text`` contains or gives away the expected answer: the
+    tutor's span-leak check against the whole answer and, where the answer
+    has an exact key (a worked solution's final value), against the key; a
+    lone-digit key, which the span check ignores, by its own number token;
+    and any stated expression equivalent to the key (fix round 2, M1)."""
+
+    if span_leaks_expected(text, expected_answer):
+        return True
+    if not key:
+        return False
+    return span_leaks_expected(text, str(key)) or _states_short_key(text, key) or states_answer(text, key)
+
+
+def label_leaks(label: str, expressions: Collection[str], expected_answer: str | dict[str, Any], *,
+                public_text: str = "") -> bool:
+    squashed = _squash(label)
+    if any(expression and expression in squashed for expression in expressions):
+        return True
+    if not label.strip():
+        return False
+    key = exact_key(expected_answer)
+    # What the question itself states is a given, never a leak (fix round 6,
+    # C2: the exemption now comes before the span and short-key checks too).
+    if key and public_text.strip() and states_answer(public_text, key):
+        return False
+    if span_leaks_expected(label, expected_answer) or (key and (span_leaks_expected(label, str(key))
+                                                                or _states_short_key(label, key))):
+        return True
+    # An equivalent of the answer in the label (fix round 2, M1).
+    return bool(key) and states_answer(label, key)
+
+
+# ---------------------------------------------------------------------------
+# The goal check
+# ---------------------------------------------------------------------------
+
+def exact_key(expected_answer: str | dict[str, Any]) -> str | None:
+    """The expected answer's exact key: the answer itself when it is a short
+    parseable expression (in the shared form when only that parses:
+    ``$\\frac{1}{4}$``), else the numeric conclusion a worked solution ends
+    with (``answer_check``, on the text or its shared form), else None (a
+    proof, a description)."""
+
+    reference = expected_answer if isinstance(expected_answer, str) else json.dumps(expected_answer, sort_keys=True)
+    if not reference.strip():
+        return None
+    try:
+        if quantity_shaped(reference):
+            return reference.strip()  # "4 m", "4\\,\\text{m}": compared whole, by norm (fix round 5)
+        if parse_answer(reference) is not None:
+            return reference.strip()
+        normalized = normalize_key(reference)
+        if normalized and parse_answer(normalized) is not None:
+            return normalized
+        return reference_final_answer(reference) or reference_final_answer(normalize_math(reference))
+    except Exception:  # noqa: BLE001 - a checker failure means no key, never a verdict
+        return None
+
+
+def _equal(left: str, right: str) -> bool | None:
+    try:
+        return answers_equal(left, right)[0]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _case_only(left: str, right: str) -> bool:
+    """Whether two expressions differ only in letter case, which answer_check's
+    text shortcut (``casefold``) would call equal."""
+
+    squash = lambda value: re.sub(r"\s+", "", value)  # noqa: E731
+    return squash(left) != squash(right) and squash(left).casefold() == squash(right).casefold()
+
+
+def _structured_equal(left: str, right: str) -> bool | None:
+    """Case-sensitive mathematical equality for the structured map fields
+    (fix round 6, C1): ``2X`` is never ``2x``. answer_check (and grading) is
+    unchanged; when two texts differ only in case, its case-folded shortcut
+    is bypassed and only the exact polynomial forms (which keep symbol case)
+    decide, else nothing does."""
+
+    if re.sub(r"\s+", "", left) == re.sub(r"\s+", "", right):
+        return True
+    if _case_only(left, right):
+        try:
+            parsed_left, parsed_right = parse_answer(left), parse_answer(right)
+        except Exception:  # noqa: BLE001
+            return None
+        if parsed_left is None or parsed_right is None:
+            return None
+        return parsed_left[0] == parsed_right[0]
+    return _equal(left, right)
+
+
+def _structured_differ(left: str, right: str) -> bool | None:
+    """The case-sensitive counterpart of ``answers_differ`` (C1)."""
+
+    if _case_only(left, right):
+        equal = _structured_equal(left, right)
+        return None if equal is None else not equal
+    return _differ(left, right)
+
+
+def _differ(left: str, right: str) -> bool | None:
+    try:
+        return answers_differ(left, right)[0]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def goal_agreement(conclusion: str, expected_answer: str | dict[str, Any], unit: str = "") -> tuple[str, str]:
+    """``(verified | unverified | mismatch, basis)``: the goal node's
+    structured ``conclusion`` against the expected answer's exact key (§4.3;
+    fix round 3, R1). Nothing else decides it: no prose state, no token
+    presence, no declaration.
+
+    The rules are :func:`structured_verdict`'s (fix round 5): a quantity-
+    shaped key or a conclusion with a unit verifies only by ``norm`` string
+    identity and is never a mismatch; otherwise the guarded checker decides.
+    ``unverified`` bases: ``no_exact_key``, ``no_conclusion``,
+    ``quantity_reference``, ``unit_on_conclusion``, ``conclusion_unparsed``,
+    ``undecidable``. An unverified goal never rejects a map (the spec's
+    "stored as unverified")."""
+
+    key = exact_key(expected_answer)
+    if key is None:
+        return "unverified", "no_exact_key"
+    if not (conclusion or "").strip():
+        return "unverified", "no_conclusion"
+    return structured_verdict(conclusion, unit, key)
+
+
+# ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+def _has_cycle(node_ids: Sequence[str], edges: Sequence[MapEdge]) -> bool:
+    incoming = {node: 0 for node in node_ids}
+    outgoing: dict[str, list[str]] = {node: [] for node in node_ids}
+    for edge in edges:
+        outgoing[edge.from_node].append(edge.to_node)
+        incoming[edge.to_node] += 1
+    ready = [node for node, count in incoming.items() if count == 0]
+    seen = 0
+    while ready:
+        node = ready.pop()
+        seen += 1
+        for target in outgoing[node]:
+            incoming[target] -= 1
+            if incoming[target] == 0:
+                ready.append(target)
+    return seen != len(node_ids)
+
+
+def _origin(origin: str, context: MapContext, reasons: list[str], details: list[dict[str, Any]],
+            route_id: str) -> str:
+    """The stored origin (refs replaced by ids), recording an unknown one."""
+
+    value = (origin or "").strip()
+    kind, _, rest = value.partition(":")
+    if value in PLAIN_ORIGINS:
+        return value
+    if kind == "trace_contract" and rest in context.recipe_ids:
+        return value
+    if kind in ("source", "learner") and rest:
+        refs = [ref.strip() for ref in rest.split(",") if ref.strip()]
+        table = context.span_refs if kind == "source" else context.attempt_refs
+        resolved = [table.get(ref) or (ref if ref in table.values() else None) for ref in refs]
+        if refs and all(resolved):
+            return f"{kind}:" + ",".join(dict.fromkeys(str(ref) for ref in resolved))
+    reasons.append("unknown_origin")
+    details.append({"reason": "unknown_origin", "route_id": route_id, "origin": value})
+    return value
+
+
+def validate_map(candidate: ApproachMapV1, context: MapContext) -> Validation:
+    """Every rule of §4.3's "validation in code"; failures by reason."""
+
+    reasons: list[str] = []
+    details: list[dict[str, Any]] = []
+
+    def fail(reason: str, **detail: Any) -> None:
+        reasons.append(reason)
+        details.append({"reason": reason, **detail})
+
+    nodes = {node.id: node for node in candidate.nodes}
+    if not candidate.nodes or len(nodes) != len(candidate.nodes):
+        fail("malformed", problem="no nodes or duplicate node ids")
+    goal = nodes.get(candidate.goal_node_id)
+    goals = [node.id for node in candidate.nodes if node.role == "goal"]
+    if goal is None or goals != [candidate.goal_node_id]:
+        fail("malformed", problem="the goal must be exactly one node with role goal")
+    if not any(node.role == "given" for node in candidate.nodes):
+        fail("malformed", problem="no given node")
+    dangling = [(edge.from_node, edge.to_node) for edge in candidate.edges
+                if edge.from_node not in nodes or edge.to_node not in nodes]
+    if dangling:
+        fail("malformed", problem="edges name unknown nodes", edges=dangling[:5])
+    edges = [edge for edge in candidate.edges if edge.from_node in nodes and edge.to_node in nodes]
+    if any(edge.from_node == edge.to_node for edge in edges) or _has_cycle(list(nodes), edges):
+        fail("cycle")
+    pairs = {(edge.from_node, edge.to_node) for edge in edges}
+    # Routes: a given to the goal, every step an edge.
+    route_ids = [route.id for route in candidate.routes]
+    if not candidate.routes:
+        fail("no_route")
+    elif len(set(route_ids)) != len(route_ids):
+        fail("malformed", problem="duplicate route ids")
+    normalized_routes: list[MapRoute] = []
+    for route in candidate.routes:
+        path = list(route.path)
+        ok = (len(path) >= 2 and len(set(path)) == len(path) and all(node in nodes for node in path)
+              and nodes[path[0]].role == "given" and path[-1] == candidate.goal_node_id
+              and all((left, right) in pairs for left, right in zip(path, path[1:])))
+        if not ok:
+            fail("route_not_given_to_goal", route_id=route.id)
+        origin = _origin(route.origin, context, reasons, details, route.id)
+        attempts = []
+        for ref in route.learner_attempt_ids:
+            resolved = context.attempt_refs.get(ref) or (ref if ref in context.attempt_refs.values() else None)
+            if resolved is None:
+                fail("unknown_origin", route_id=route.id, attempt=ref)
+            else:
+                attempts.append(resolved)
+        normalized_routes.append(route.model_copy(update={"origin": origin,
+                                                          "learner_attempt_ids": list(dict.fromkeys(attempts))}))
+    if candidate.routes and not any(route.origin.strip() == "reference" for route in candidate.routes):
+        fail("no_reference_route")
+    # Every seeded learner solution is on exactly one route (Codex review F4):
+    # the map's route assignments are what later merges treat as mined, so a
+    # solution left off every route would never be placed.
+    placements: dict[str, int] = {}
+    for route in normalized_routes:
+        for attempt in route.learner_attempt_ids:
+            placements[attempt] = placements.get(attempt, 0) + 1
+    seeded = list(dict.fromkeys(str(value) for value in context.attempt_refs.values()))
+    unplaced = [attempt for attempt in seeded if placements.get(attempt, 0) == 0]
+    twice = [attempt for attempt, count in placements.items() if count > 1]
+    if unplaced:
+        fail("unplaced_attempt", attempts=unplaced[:10])
+    if twice:
+        fail("unplaced_attempt", problem="an attempt on two routes", attempts=twice[:10])
+    # Facets: every edge's facets belong to the item.
+    for edge in edges:
+        foreign = [facet for facet in edge.facet_ids if context.canonical_facet(facet) not in context.facet_ids]
+        if foreign:
+            fail("foreign_facet", edge=[edge.from_node, edge.to_node], facets=foreign)
+    # Checkpoint links resolve.
+    for node in candidate.nodes:
+        if node.checkpoint_id.strip() and node.checkpoint_id.strip() not in context.checkpoint_ids:
+            fail("unknown_checkpoint", node_id=node.id, checkpoint_id=node.checkpoint_id)
+    # Leaks: code marks every node whose state gives the answer away, and the goal.
+    marked: list[str] = []
+    normalized_nodes: list[MapNode] = []
+    key = exact_key(context.expected_answer)
+    for node in candidate.nodes:
+        leak = (node.leak or node.id == candidate.goal_node_id or gives_away(node.state, context.expected_answer, key)
+                or value_states_answer(node.value, node.unit, key))
+        if leak and not node.leak:
+            marked.append(node.id)
+        normalized_nodes.append(node.model_copy(update={"leak": leak}))
+    expressions: set[str] = set()
+    for node in normalized_nodes:
+        if node.leak:
+            expressions |= leak_expressions(node.state)
+            for field_value in (node.value, node.conclusion):
+                if field_value.strip():
+                    expressions |= leak_expressions(field_value) | {_squash(normalize_math(field_value))}
+    if candidate.goal_answer.strip():
+        expressions |= leak_expressions(candidate.goal_answer) | {_squash(candidate.goal_answer)}
+    public = _squash(context.public_text)
+    expressions = {expression for expression in expressions if len(expression) >= 2 and expression not in public}
+    for node in normalized_nodes:
+        if not node.label.strip():
+            fail("empty_label", node_id=node.id)
+        elif label_leaks(node.label, expressions, context.expected_answer, public_text=context.public_text):
+            fail("label_leak", node_id=node.id)
+    # The goal agrees with the expected answer by exact key where one exists.
+    agreement, basis = goal_agreement(goal.conclusion if goal else "", context.expected_answer,
+                                      goal.unit if goal else "")
+    if agreement == "mismatch":
+        fail("goal_mismatch", conclusion=goal.conclusion if goal else "", basis=basis)
+    ordered = list(dict.fromkeys(reasons))
+    normalized = candidate.model_copy(update={"nodes": normalized_nodes, "routes": normalized_routes})
+    return Validation(valid=not ordered, reasons=ordered, details=details,
+                      verified_goal=agreement == "verified", goal_basis=basis,
+                      normalized=normalized if not ordered else None, leak_marked_by_code=marked)
+
+
+# ---------------------------------------------------------------------------
+# The learner-route merge
+# ---------------------------------------------------------------------------
+
+def apply_merge(current: ApproachMapV1, merge: LearnerRouteMergeV1, *,
+                attempt_refs: Mapping[str, str]) -> tuple[ApproachMapV1, list[str], list[dict[str, Any]]]:
+    """The current map with the learner's new routes (§4.3 "approach mining").
+
+    A matching route gains the attempt id; an attempt on no existing route
+    opens a route with origin ``learner:<attempt ids>``. Every new attempt
+    must be placed once, and only on routes and nodes that exist or are added.
+    Returns the merged map and the merge's own failure reasons (the merged
+    map then still goes through :func:`validate_map`)."""
+
+    reasons: list[str] = []
+    details: list[dict[str, Any]] = []
+    routes = {route.id: route.model_copy(deep=True) for route in current.routes}
+    node_ids = {node.id for node in current.nodes}
+    placed: list[str] = []
+    for match in merge.matches:
+        attempt = attempt_refs.get(match.attempt_ref)
+        if attempt is None:
+            reasons.append("merge_unknown_attempt")
+            details.append({"reason": "merge_unknown_attempt", "attempt": match.attempt_ref})
+            continue
+        route = routes.get(match.route_id)
+        if route is None:
+            reasons.append("merge_unknown_route")
+            details.append({"reason": "merge_unknown_route", "route_id": match.route_id})
+            continue
+        route.learner_attempt_ids = list(dict.fromkeys([*route.learner_attempt_ids, attempt]))
+        placed.append(attempt)
+    nodes = [node.model_copy(deep=True) for node in current.nodes]
+    edges = [edge.model_copy(deep=True) for edge in current.edges]
+    for new in merge.new_routes:
+        attempts = [attempt_refs.get(ref) for ref in new.attempt_refs]
+        if not attempts or not all(attempts):
+            reasons.append("merge_unknown_attempt")
+            details.append({"reason": "merge_unknown_attempt", "route_id": new.id})
+            continue
+        if new.id in routes or any(node.id in node_ids for node in new.nodes):
+            reasons.append("merge_node_collision")
+            details.append({"reason": "merge_node_collision", "route_id": new.id})
+            continue
+        nodes.extend(new.nodes)
+        node_ids.update(node.id for node in new.nodes)
+        edges.extend(new.edges)
+        ids = [str(attempt) for attempt in attempts]
+        routes[new.id] = MapRoute(id=new.id, name=new.name, path=list(new.path),
+                                  origin="learner:" + ",".join(dict.fromkeys(ids)), learner_attempt_ids=ids)
+        placed.extend(ids)
+    unplaced = [attempt for attempt in attempt_refs.values() if attempt not in placed]
+    if unplaced:
+        reasons.append("merge_unplaced_attempt")
+        details.append({"reason": "merge_unplaced_attempt", "attempts": unplaced})
+    if len(placed) != len(set(placed)):
+        reasons.append("malformed")
+        details.append({"reason": "malformed", "problem": "an attempt placed on two routes"})
+    merged = current.model_copy(update={"nodes": nodes, "edges": edges, "routes": list(routes.values())})
+    return merged, list(dict.fromkeys(reasons)), details
+
+
+def route_counts(map_payload: Mapping[str, Any]) -> dict[str, int]:
+    """Routes by origin kind (reference, trace_contract, skeleton, source, model, learner)."""
+
+    counts: dict[str, int] = {}
+    for route in map_payload.get("routes") or ():
+        kind = str(route.get("origin") or "").partition(":")[0] or "unknown"
+        counts[kind] = counts.get(kind, 0) + 1
+    return counts
+
+
+__all__ = [
+    "MAP_SCHEMA_VERSION",
+    "PLAIN_ORIGINS",
+    "REASONS",
+    "ApproachMapV1",
+    "LearnerRouteMergeV1",
+    "MapContext",
+    "MapEdge",
+    "MapNode",
+    "MapRoute",
+    "MergeMatch",
+    "MergeNewRoute",
+    "Validation",
+    "answer_candidates",
+    "apply_merge",
+    "exact_key",
+    "gives_away",
+    "goal_agreement",
+    "label_leaks",
+    "leak_expressions",
+    "normalize_key",
+    "normalize_math",
+    "route_counts",
+    "norm",
+    "number_tokens",
+    "quantity_shaped",
+    "states_answer",
+    "structured_expression",
+    "structured_verdict",
+    "value_states_answer",
+    "validate_map",
+]

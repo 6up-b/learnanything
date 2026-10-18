@@ -3,8 +3,8 @@ title: "Config - cues"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0729cfae0c105ea204a9e90ae1b99819f6a21fef"
-source_commit_timestamp: "2026-10-18T01:00:22-04:00"
+source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
+source_commit_timestamp: "2026-10-18T02:36:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml cues"
@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/reader/reader_cues.py"
+  - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
@@ -26,11 +27,10 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
+  - "tests/test_approach_map_boundaries.py"
+  - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
-  - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/cues"
@@ -51,10 +51,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `cues.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW3a (display only, no successor): the Guide's own passages on a Learning Object with a recent misunderstanding shown as quiet margin marks with a fixed note and a "because" line, their taps (salience-only events and learner_card verdicts on passage_cue) and the density control. Off: the guide plan carries no cues and the Reader shows no marks and no density control. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1959`; `src/learnloop/reader/reader_cues.py:106` |
-| `cues.density` | `"normal"` | string | modeled default or validator seed | The learner's display limit of margin marks per section: off, fewer, normal or more (0, 1, 2 or 4); "fewer marks like this" steps it down one notch. Remembered in vault config so it holds across devices. A display limit only, never a count that decides learning. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1960`; `src/learnloop/reader/reader_cues.py:111` |
-| `cues.one_per_viewport` | `true` | boolean | modeled default or validator seed | At most one margin mark per screenful at every density (spacing computed when the text is laid out, never while scrolling); off leaves the per-section density budget alone. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1961`; `src/learnloop/reader/reader_cues.py:135` |
-| `cues.off_sources` | `[]` | array | modeled default or validator seed | Source ids the learner switched margin cues off for (from a mark's popover; undoable until they leave the source). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1962`; `src/learnloop/reader/reader_cues.py:130` |
+| `cues.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW3a (display only, no successor): the Guide's own passages on a Learning Object with a recent misunderstanding shown as quiet margin marks with a fixed note and a "because" line, their taps (salience-only events and learner_card verdicts on passage_cue) and the density control. Off: the guide plan carries no cues and the Reader shows no marks and no density control. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2003`; `src/learnloop/reader/reader_cues.py:106` |
+| `cues.density` | `"normal"` | string | modeled default or validator seed | The learner's display limit of margin marks per section: off, fewer, normal or more (0, 1, 2 or 4); "fewer marks like this" steps it down one notch. Remembered in vault config so it holds across devices. A display limit only, never a count that decides learning. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2004`; `src/learnloop/reader/reader_cues.py:111` |
+| `cues.one_per_viewport` | `true` | boolean | modeled default or validator seed | At most one margin mark per screenful at every density (spacing computed when the text is laid out, never while scrolling); off leaves the per-section density budget alone. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2005`; `src/learnloop/reader/reader_cues.py:135` |
+| `cues.off_sources` | `[]` | array | modeled default or validator seed | Source ids the learner switched margin cues off for (from a mark's popover; undoable until they leave the source). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2006`; `src/learnloop/reader/reader_cues.py:130` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -63,6 +63,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
@@ -70,11 +71,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
+- `tests/test_approach_map_boundaries.py`
+- `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
-- `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
 
 ## Extension and modification guidance
 

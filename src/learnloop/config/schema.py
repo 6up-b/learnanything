@@ -1323,6 +1323,13 @@ class AIRoutingConfig(BaseModel):
     # source_retrieval.llm_price_per_million or the notes are skipped and
     # labelled. Serves live requests, so the fast route is recommended.
     library_organizer: str | None = None
+    # Adaptive hints H1 (spec_adaptive_hints_v1 §4.3, §7.2): the approach-map
+    # builder and the learner-route merge, one structured call each, in the
+    # background (never on a request path). Empty = ai.active_provider; any
+    # chat profile, Codex (codex_low) included. Metered routes are held to
+    # hints.maps.max_daily_cost_usd at hints.price_per_million (unset: a
+    # metered build is refused before sending); Codex is estimated_only.
+    approach_map: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1889,6 +1896,35 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class HintsMapsConfig(BaseModel):
+    """Adaptive hints H1: approach maps (spec_adaptive_hints_v1 §4.3, §4.3.1, §9).
+
+    An approach map is a small subgoal graph of one item (nodes, edges and
+    alternative routes with their origin) built by one structured call on
+    route ``ai.routing.approach_map`` from the item's reference solution,
+    rubric, authored hints, trace contract, PF skeleton, the learner's own
+    textbook worked examples and the learner's own correct solutions, checked
+    in code and stored in ``approach_maps`` (a revised item or changed seeds
+    gets a new row). Nothing in H1 shows a map: the hint writer (H2) and the
+    Reader workbench (RW2b) read it later, and the grader never does.
+
+    ``build_on_serve``: when the practice screen serves an item that has no
+    map for its current revision, one is built in the background (never on the
+    request path: the serve neither waits for it nor changes because of it),
+    once per item revision. Each such build is one model call (Codex on the
+    subscription is ``estimated_only``); ``learnloop hints report`` shows the
+    counts and the day's spend. ``max_daily_cost_usd``: the metered dollars a
+    UTC day for map builds and merges, shared by every process (a capped day
+    builds nothing more and says so). ``enabled`` is the kill switch: off,
+    nothing is built and nothing reads a map. Maps are help, never evidence:
+    no scoring, scheduling, projection or serving change, so no successor.
+    """
+
+    enabled: bool = True
+    build_on_serve: bool = True
+    max_daily_cost_usd: float = Field(default=0.50, ge=0.0)
+
+
 class HintsConfig(BaseModel):
     """Adaptive hints (spec_adaptive_hints_v1 §9). H0 adds only the telemetry.
 
@@ -1903,9 +1939,17 @@ class HintsConfig(BaseModel):
     no-op, and the practice RPCs and screen are exactly as before H0.
     The phases after H0 add their own keys here (``adaptive_enabled``,
     ``chooser_enabled``, ``help_style`` and the rest of §9's list).
+
+    H1 adds ``price_per_million``: the owner's price (USD per million tokens)
+    for the hint routes on a METERED profile (OpenRouter, an API key); unset,
+    a metered call is refused before it is sent (the spend rule). Codex and
+    the ChatGPT plan need none: their cost is ``estimated_only``. And
+    ``maps`` (:class:`HintsMapsConfig`).
     """
 
     telemetry_enabled: bool = True
+    price_per_million: float | None = Field(default=None, gt=0)
+    maps: HintsMapsConfig = Field(default_factory=HintsMapsConfig)
 
 
 class ReaderInquiryConfig(BaseModel):

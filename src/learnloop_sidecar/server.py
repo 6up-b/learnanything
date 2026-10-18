@@ -29,20 +29,24 @@ _INTERNAL_ERROR_MESSAGE = (
 
 def serve(stdin: TextIO, stdout: TextIO) -> None:
     ctx = SidecarContext()
-    for raw_line in stdin:
-        line = raw_line.strip()
-        if not line:
-            continue
-        try:
-            request = json.loads(line)
-        except json.JSONDecodeError as exc:
-            _write(stdout, {"jsonrpc": "2.0", "id": None, "error": json_rpc_error(-32700, str(exc))})
-            continue
-        response = _handle(ctx, request)
-        if response is not None:
-            _write(stdout, response)
-        if ctx.shutdown_requested:
-            break
+    try:
+        for raw_line in stdin:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                request = json.loads(line)
+            except json.JSONDecodeError as exc:
+                _write(stdout, {"jsonrpc": "2.0", "id": None, "error": json_rpc_error(-32700, str(exc))})
+                continue
+            response = _handle(ctx, request)
+            if response is not None:
+                _write(stdout, response)
+            if ctx.shutdown_requested:
+                break
+    finally:
+        # Shutdown or EOF: background map builds stop writing (bounded drain).
+        ctx.close_background_builds()
 
 
 def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:

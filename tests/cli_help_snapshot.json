@@ -1,7 +1,7 @@
 {
   "<root>": {
     "bytes": 24947,
-    "sha256": "bbde7ed831a298f0bb11d883ee6fa42cdd9bf73e887362133cb3c8ac374788ab"
+    "sha256": "0418d8e5a0afc53bc0eea9df978c4fcb7ee76fedff2439befdb86d3b58cf0646"
   },
   "accept": {
     "bytes": 1593,
@@ -588,8 +588,16 @@
     "sha256": "1ebb2acf1249f0575b759ebee807fb8e9933b197965430fce9ee55d06927dab2"
   },
   "hints": {
-    "bytes": 1757,
-    "sha256": "206e044fb6fcaad659b1d17e31c0a471cde2f12b6520eb80e33c793d16dda005"
+    "bytes": 1842,
+    "sha256": "42e422d0a64fb66ef7d7a9339fa788c83d0064f6f0aaf8c38736747264683daa"
+  },
+  "hints maps": {
+    "bytes": 1672,
+    "sha256": "08054b251fa9a1387ca41e2651e0730634d4c1fd68d682a8ecf6b6d205e83ad7"
+  },
+  "hints maps build": {
+    "bytes": 1971,
+    "sha256": "c20567376659b6d4ff71d0a2316636d57be43c4240058432e8692a7f600f2602"
   },
   "hints report": {
     "bytes": 1627,
