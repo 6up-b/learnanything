@@ -3,8 +3,8 @@ title: "Config - decider_routes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8120221bb2505342e2b330fbb8c7bba8d5aef04d"
-source_commit_timestamp: "2026-10-18T19:13:07-04:00"
+source_commit: "9dbe585eb1b7e798d93de67e1d5badfba2a3c754"
+source_commit_timestamp: "2026-10-18T19:24:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml decider_routes"
@@ -24,12 +24,12 @@ source_paths:
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round4.py"
   - "tests/test_ad1_fix_round6.py"
+  - "tests/test_ad1_fix_round9.py"
   - "tests/test_ad1_outside_and_cli.py"
   - "tests/test_ad1_send_guard.py"
   - "tests/test_adaptive_difficulty_ad1.py"
   - "tests/test_codex_output_schema.py"
   - "tests/test_contamination_report.py"
-  - "tests/test_decider_agreement.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/decider-routes"
@@ -74,12 +74,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_fix_round6.py`
+- `tests/test_ad1_fix_round9.py`
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_send_guard.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_codex_output_schema.py`
 - `tests/test_contamination_report.py`
-- `tests/test_decider_agreement.py`
 
 ## Extension and modification guidance
 
