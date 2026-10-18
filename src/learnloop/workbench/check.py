@@ -448,7 +448,7 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
 
 
 def _claim(index: int, transformation: Any, text: str, earlier: Sequence[hint_workbench.WorkbenchStep],
-           problem_text: str) -> symbolic.SymbolicClaim:
+           problem_text: str, names_context: Sequence[str] = ()) -> symbolic.SymbolicClaim:
     """Fix round 3 (the orchestrator's ruling on F3): what is checked is
     ``text``, the learner's own writing, parsed from its LaTeX in the
     sandbox (:mod:`learnloop.workbench.symbolic`). The declared
@@ -463,7 +463,8 @@ def _claim(index: int, transformation: Any, text: str, earlier: Sequence[hint_wo
         result=str(transformation.result or ""), variable=str(transformation.variable or ""),
         value=str(transformation.value or ""), lower=str(transformation.lower or ""),
         upper=str(transformation.upper or ""), relation=str(transformation.relation or ""), text=text,
-        earlier=tuple(other.body_md for other in ordered if other.kind == "step"), problem=problem_text)
+        earlier=tuple(other.body_md for other in ordered if other.kind == "step"), problem=problem_text,
+        names_context=tuple(names_context))
 
 
 def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *,
@@ -508,8 +509,12 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
             step = by_number.get(int(claim.step))
             if step is None or claim.kind not in symbolic.KINDS:
                 continue
-            upto = [other for other in context.steps if other.number <= step.number]
-            runnable.append(_claim(index, claim, str(claim.statement or ""), upto, problem_text))
+            # Fix round 7: the steps before the claim's step (a solve claim is
+            # checked against the step just before it); the claim's own step
+            # is read for its names only.
+            before = [other for other in context.steps if other.number < step.number]
+            runnable.append(_claim(index, claim, str(claim.statement or ""), before, problem_text,
+                                   names_context=(step.body_md,)))
         if runnable:
             results, problem = symbolic.run_checks(runnable, run=sandbox_run)
             for outcome in results:

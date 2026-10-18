@@ -116,6 +116,8 @@ class SymbolicClaim:
     text: str = ""
     earlier: tuple[str, ...] = ()
     problem: str = ""
+    #: Texts read only for their names (fix round 7): a hint claim's own step.
+    names_context: tuple[str, ...] = ()
 
     def oversized(self) -> str | None:
         """Which bound the claim exceeds (it is then never checked), or None."""
@@ -129,6 +131,9 @@ class SymbolicClaim:
             return "text"
         if len(self.earlier) > MAX_EARLIER or any(len(str(text or "")) > MAX_TEXT_CHARS for text in self.earlier):
             return "earlier"
+        if len(self.names_context) > MAX_EARLIER or any(len(str(text or "")) > MAX_TEXT_CHARS
+                                                         for text in self.names_context):
+            return "names_context"
         if len(str(self.problem or "")) > MAX_PROBLEM_CHARS:
             return "problem"
         return None
@@ -140,7 +145,7 @@ class SymbolicClaim:
         return {"index": self.index, "kind": self.kind, "expression": self.expression, "result": self.result,
                 "variable": self.variable, "value": self.value, "lower": self.lower, "upper": self.upper,
                 "relation": self.relation, "text": self.text, "earlier": [str(text) for text in self.earlier],
-                "problem": self.problem}
+                "problem": self.problem, "names_context": [str(text) for text in self.names_context]}
 
 
 @dataclass(frozen=True)
@@ -472,9 +477,82 @@ _MATH_COMMANDS = frozenset((
 ))
 #: An identifier (a letter, or a command) applied to an argument: f(x), f\left(x, \phi(x).
 _APPLIED = re.compile(r"(?:(?<![\\A-Za-z])[A-Za-z]|\\([A-Za-z]+))'*\s*(?:\\left\s*)?\(")
-#: A definition name(var) = ... (or :=) anywhere in a text: the name it defines.
-_DEFINES = re.compile(r"(?:(?<![\\A-Za-z])([A-Za-z])|\\([A-Za-z]+))\s*(?:\\left\s*)?\(\s*\\?[A-Za-z]+\s*"
-                      r"(?:\\right\s*)?\)\s*:?=")
+#: Greek letters: identifiers, never names of the parser.
+_GREEK = frozenset((
+    "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta", "theta", "vartheta", "iota", "kappa",
+    "lambda", "mu", "nu", "xi", "pi", "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon", "phi",
+    "varphi", "chi", "psi", "omega", "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi",
+    "Psi", "Omega",
+))
+#: The only commands a checked text may write (fix round 7): the parser's
+#: functions, relations and operators, and Greek letters. Any other command
+#: (\mathrm, \operatorname, \text, \mathbf, \prime, ...) refuses.
+_ALLOWED_COMMANDS = _MATH_COMMANDS | _GREEK | frozenset((
+    "infty", "pm", "mp", "le", "ge", "leq", "geq", "ne", "neq", "lt", "gt", "approx",
+))
+_IDENT = r"(?:(?<![\\A-Za-z])([A-Za-z])|\\([A-Za-z]+))"
+_SUBSCRIPT = r"(?:\s*_\s*(?:\{[^{}]*\}|\\[A-Za-z]+|[A-Za-z0-9]))?"
+#: An identifier (subscript allowed) applied to an argument, or primed: a NAME.
+_NAME_USE = re.compile(_IDENT + _SUBSCRIPT + r"(?:\s*(?:'|\\prime|\^\s*\{?\s*\\prime\s*\}?))*"
+                       r"\s*(?:\\left\s*)?\(|" + _IDENT + _SUBSCRIPT + r"\s*(?:'|\^\s*\{?\s*\\prime)")
+_WRAPPER = re.compile(r"\\([A-Za-z]+)\s*\{([^{}]*)\}")
+_SUBSCRIPTED = re.compile(_IDENT + r"'*\s*_")
+
+
+def _unwrapped(text):
+    """``text`` with formatting wrappers taken off (``\\mathrm{f}`` is ``f``),
+    so a formatted name is still the name (fix round 7)."""
+    text = str(text or "")
+    for _ in range(8):
+        new = _WRAPPER.sub(lambda match: match.group(2) if match.group(1) not in _ALLOWED_COMMANDS
+                           else match.group(0), text)
+        if new == text:
+            break
+        text = new
+    return text
+
+
+def scan_names(texts):
+    """Fix round 7: every NAME in ``texts``: any identifier written directly
+    before ``(`` (whitespace, ``\\left``, a subscript or primes between) or
+    with a prime, canonical (formatting off, ``\\alpha`` is ``alpha``, the
+    subscript dropped to its base). Conservative: an extra name only costs a
+    check. The parser's built-in functions are excepted."""
+    out = set()
+    for text in texts:
+        for match in _NAME_USE.finditer(_unwrapped(text)):
+            groups = [group for group in match.groups() if group]
+            name = groups[0] if groups else None
+            if name and name not in _MATH_COMMANDS:
+                out.add(canonical(name))
+    return out
+
+
+def identifiers(text):
+    """The identifiers a text writes, canonical: Greek commands and single letters."""
+    plain = _unwrapped(text)
+    out = {name for name in re.findall(r"\\([A-Za-z]+)", plain) if name in _GREEK}
+    out |= set(re.findall(r"[A-Za-z]", re.sub(r"\\[A-Za-z]+", " ", plain)))
+    return out
+
+
+def name_rule(text, names):
+    """Fix round 7, rule 1: the reason ``text`` may not be checked, or ''.
+    Refused: any command outside :data:`_ALLOWED_COMMANDS` (formatting
+    included), any subscript on an identifier, and any identifier that is a
+    NAME (:func:`scan_names`)."""
+    raw = str(text or "")
+    for command in re.findall(r"\\([A-Za-z]+)", raw):
+        if command not in _ALLOWED_COMMANDS:
+            return "formatting_or_command"
+    if _SUBSCRIPTED.search(raw):
+        for match in _SUBSCRIPTED.finditer(raw):
+            command = match.group(2)
+            if command is None or command in _GREEK:
+                return "subscript"
+    if identifiers(raw) & names:
+        return "names_a_name"
+    return ""
 
 
 def applies_a_name(tree, source):
@@ -493,19 +571,6 @@ def applies_a_name(tree, source):
         if command is None or command not in _MATH_COMMANDS:
             return True
     return False
-
-
-def defined_names(problem, earlier):
-    """Fix round 6: the names the problem or an earlier step defines
-    (``name(var) = ...``), canonical; a step that writes one is never
-    checked (definitions are not resolved)."""
-    out = set()
-    for text in [str(problem or "")] + [str(text or "") for text in earlier]:
-        for match in _DEFINES.finditer(text):
-            name = match.group(1) or match.group(2)
-            if name and name not in _MATH_COMMANDS:
-                out.add(canonical(name))
-    return out
 
 
 def explicit(expression):
@@ -582,19 +647,21 @@ def classify(relation, declared_kind):
     return out
 
 
-def solved_equation(claim, variable, defined):
-    """For ``x = value``: the one equation in ``x`` it solves, as a residual:
-    the last earlier text's (that is not this same relation), else the
-    problem's only one. A definition or an identity is not an equation, and
-    (fix round 6) neither is one that applies or writes a name, or has ANY
-    restriction token (a denominator, log, root, or power not a whole
-    number), whatever letters it involves."""
+def solved_equation(claim, variable, names):
+    """For ``x = value`` (fix round 7, rule 2): the equation it solves, as a
+    residual, read ONLY from the immediately preceding step (never an older
+    one), or for a first step from the problem's single equation. That text
+    must be exactly one relation, pass the name rule, and have no
+    restriction token in its written text (a denominator, log, root, or a
+    power that is not a whole number). Otherwise nothing is checked."""
 
     def equation_of(text):
+        if name_rule(text, names):
+            raise NotChecked("equation_names")
         relation = read(text)
         if relation.op != "=":
             raise NotChecked("no_equation")
-        if relation.applies or relation.names & defined:
+        if relation.applies:
             raise NotChecked("applies_a_name")
         if relation.spots or relation.restricted:
             raise NotChecked("restricted_domain")
@@ -608,15 +675,7 @@ def solved_equation(claim, variable, defined):
             raise NotChecked("no_equation")
         return residual
 
-    own = read(claim.get("text"))
-    earlier = []
-    for text in claim.get("earlier") or []:
-        try:
-            if read(text).same(own):
-                continue
-        except NotChecked:
-            pass
-        earlier.append(text)
+    earlier = list(claim.get("earlier") or [])
     if earlier:
         return equation_of(earlier[-1])
     found = []
@@ -831,19 +890,24 @@ def run(claim, checkable):
     if claim.get("kind") not in checkable:
         return model("kind_not_checked")
     try:
-        defined = defined_names(claim.get("problem"), claim.get("earlier") or [])
+        # Fix rounds 6-7 (the orchestrator's rulings): names are never
+        # resolved. Every NAME in the problem, the earlier steps and the text
+        # itself, by a blunt token scan; a text that formats, subscripts or
+        # writes one is never checked.
+        names = scan_names([claim.get("problem")] + list(claim.get("earlier") or [])
+                           + list(claim.get("names_context") or []) + [claim.get("text")])
+        refused = name_rule(claim.get("text"), names)
+        if refused:
+            raise NotChecked(refused)
         relation = read(claim.get("text"))
-        if relation.applies or relation.names & defined:
-            # Fix round 6 (the orchestrator's ruling): defined names are never
-            # resolved, so a text that applies a name, or writes one the
-            # problem or an earlier step defines, is never checked.
-            raise NotChecked("applies_a_name" if relation.applies else "defined_name")
+        if relation.applies:
+            raise NotChecked("applies_a_name")
         parsed = classify(relation, claim.get("kind"))
         if parsed["kind"] == "solving" and (relation.spots or relation.restricted):
             # Any restriction token in the step's own text (fix round 6).
             raise NotChecked("restricted_domain")
         if parsed["kind"] == "solving":
-            parsed["equation"] = solved_equation(claim, parsed["variable"], defined)
+            parsed["equation"] = solved_equation(claim, parsed["variable"], names)
         disagreement = compare(claim, parsed)
     except NotChecked as exc:
         return model(str(exc)[:120])
