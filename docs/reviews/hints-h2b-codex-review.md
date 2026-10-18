@@ -235,3 +235,182 @@ pins:
 
 The full suite, the whole durability lane and the whole vitest run are left
 to the landing gate (owner rule, 2026-10-17).
+
+## Re-review
+
+Codex re-reviewed `e02b62c37..hints/h2b` (job `20261018-105207-cFaDI3`) and
+reopened F1 and F2 (High). It also found F8 and F9 (Medium). This round
+reproduced each finding with a test that failed before the fix, then fixed
+it. All four are fixed and none was rejected. No live or paid model call was
+made; every model-backed path is tested with fakes. There is no migration, no
+new config key and no new RPC.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Reopened: a second "Work in steps" after closing the problem loses the carried hints | fixed | see the commit recording this section | `tests/test_hint_h2b_rereview.py::test_f1_*` (5) |
+| F2 | High | Reopened: `hold()` does not wait for polls in flight and resolves when the cancel fails | fixed | same | `practice/useAdaptiveHints.hold.test.tsx` (3); `PracticeScreen.adaptiveHandoff.test.tsx` "F2 (re-review): ..." |
+| F8 | Medium | The vault-open placement pass can starve placeable attempts | fixed | same | `tests/test_hint_h2b_rereview.py::test_f8_*` (2) |
+| F9 | Medium | Carried hints lose their submission timing | fixed | same | `tests/test_hint_h2b_rereview.py::test_f9_*` (2) |
+
+**Reproduction.** The new tests were run on the unfixed tree (`9193ce661`)
+before any source change:
+
+- Backend: 6 failed and 3 passed. The two F1 reproductions (close, open a new
+  problem, submit: `hints_used = 0`, and a level 5 that no longer primes), both
+  F9 tests (`submitted_at` stays NULL; the store function did not exist) and
+  both F8 tests failed. The 3 that passed are guards for the fix, not
+  reproductions. They check that the hints count once, that a reopened problem
+  keeps its own hints, and that nothing crosses practice sessions.
+- Frontend: all 4 new tests failed. `hold()` resolved while the read was still
+  answering. It also resolved (with no value) when the cancel failed. The
+  screen then opened the workbench anyway.
+
+### F1: hints carried into a closed problem
+
+The link from a hint row to its problem (`workbench_session_id`) can be set
+only once, because H0's identity trigger allows NULL to a value and nothing
+else. So a second hand-off cannot link again the rows the closed problem
+holds. Changing the trigger would need a migration that rewrites H0's
+schema, which this stage rules out (migration 212 only widens the
+`hint_feedback` source kind).
+
+The fix leaves the link alone. Instead, a problem the learner closed
+(`abandoned`) *releases* the rows it carries. `help_assists._carried_rows`
+gives one definition for the fold, its attach and its stamp. A workbench
+problem carries:
+
+- the rows linked to it, as before;
+- the rows linked to a closed problem on the same item, in the submit's
+  practice session. These are the rows the answer box's own key would still
+  count there.
+
+Before Submit, the record line counts released rows from any practice
+session still open.
+
+Released rows count once, whichever attempt commits first:
+
+- the problem opened in place of the closed one;
+- the closed problem itself, if it is reopened;
+- the answer box, under its key.
+
+They never cross into another practice session, so a problem in a later
+session does not inherit an old hint. Like rows linked directly, released
+rows attach to the attempt in the attempt's own write transaction. H2a's fold,
+fence, `mark_shown` and delivery are unchanged. `read_fold` and
+`attach_carried` now pass the practice session they already held.
+
+### F2: a hold that waits for reads, and fails when it must
+
+In `useAdaptiveHints`:
+
+- A poll's `practice.hint_job` read is now tracked with the requests and
+  offers in flight, so `hold()` waits for it.
+- A read that delivers a hint is shown even if something settled the request
+  meanwhile. Entries are de-duplicated by `assistId`. Before, the read was
+  dropped because `pendingRef` had been cleared.
+- A poll that errors while held leaves the job to `hold()`.
+- `hold()` now resolves to a boolean.
+  - It resolves `true` when nothing is pending: the hint was cancelled, or it
+    was delivered and read.
+  - It resolves `false` when the cancel or the read after `already_shown`
+    fails. In that case the request stays pending, holding ends, and a new
+    poll chain starts. A chain token stops the old chain, so there is never
+    more than one chain.
+- When the hold fails, `PracticeScreen` keeps the answer box and does not
+  call `workbench.open`. The hint is delivered on the answer box, where the
+  learner can see it, and the error is reported once.
+
+### F8: page past what cannot be placed
+
+`reconcile_outcome_placements` used to read one page of 20 candidates. It now
+reads pages of `RECONCILE_PAGE = 50`, oldest first, with a
+`(created_at, id)` cursor. It moves past candidates that place nothing and
+spend nothing (`not_due`, `no_map`, `already_placed`, `busy`, `disabled`).
+`RECONCILE_LIMIT = 20` now counts placements, not candidates.
+
+Other behaviour:
+
+- The pass stops at `capped`, `unpriced`, `unavailable` or `stale`, as before.
+- One pass runs per vault at a time, guarded by an in-flight key.
+- Each candidate is claimed in memory only while it is being placed, so a
+  submit's own placement is not doubled.
+
+`RECONCILE_PAGE` is a module constant that bounds a read, not a setting, so
+it does not go in the config or the parameter registry. `RECONCILE_LIMIT` is
+handled the same way.
+
+### F9: carried rows' submit time
+
+`help_assists.stamp_carried_submitted`, called through
+`telemetry.stamp_carried_submission` from `submit_attempt_on` and
+`submit_dont_know_on` right after the keyed stamp, writes the workbench
+submission's admission time on the rows it carries. The rule is the same as
+`stamp_submitted`: the first stamp stays, and the stamp is made only when
+the keyed stamp was (telemetry on, with a key).
+
+No latency is written. The workbench's open-to-submit latency is measured
+from when the problem opened (`Workbench.tsx` `openedAt`), which is after the
+hint was shown on the answer box. Taking away the reveal-to-submit gap would
+not give the time from the answer box's open to the hint; it would give a
+negative number clamped to 0. So these rows are now timed for "reveal to
+submit", and "seconds into the attempt" is reported as `no_submit_latency`
+instead of a wrong figure. The test checks both report fields.
+
+### Gate (re-review fix step)
+
+| step | result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 26 kept, 0 broken |
+| targeted `uv run pytest -n auto` (contract pins and hint and workbench files, list A; `TMPDIR=fixtures-local/tmp`) | 868 passed |
+| targeted `uv run pytest -n auto` (practice and workbench handler callers, list B) | 135 passed |
+| `uv run pytest --durable-sqlite` on test_hint_h2b_rereview, test_hint_h2b_review, test_help_assists_schema | 33 passed (the new file 3 more times alone: 9 passed each) |
+| `uv run pytest -m durability` on test_help_assists_schema, test_hint_feedback_widening, test_coordinated_migrations | 4 passed |
+| `npm run typecheck` | no errors |
+| `npx vitest run` (10 files, list C) | 103 passed (78 + 25) |
+| `npm run frontend:build` | built |
+| `cargo check` | not needed (nothing under `src-tauri` changed) |
+| `db_validate_reference.py` | 0 errors (head 212; no schema change); `validate_vault.py` passes |
+
+Two validators fail for reasons outside this step:
+
+- `desktop_validate.py` still stops on `syntheticBook.ts`, as in the first
+  round.
+- `module_validate.py` reports 844 issues, nearly all missing notes for
+  modules this stage did not touch (`learnloop/ai/agreement`,
+  `chatgpt_plan/*`, ...). Coverage is 474 of 886 modules.
+
+The first round's record says `module_validate.py` passes, but the
+validator's checks are repo-wide and this step adds no module.
+
+**Test files run.**
+
+- **A (pytest):** test_hint_authored_reveal_ruling, test_hint_blind,
+  test_hint_contracts, test_hint_discriminating, test_hint_evidence,
+  test_hint_feedback_texts, test_hint_feedback_widening, test_hint_h2a_review,
+  test_hint_h2a_review_round2, test_hint_h2a_review_round3,
+  test_hint_h2a_review_round4, test_hint_h2b_review, test_hint_h2b_rereview,
+  test_hint_kill_switch, test_hint_outcome, test_hint_replies,
+  test_hint_report, test_hint_service, test_hint_telemetry,
+  test_approach_map_replay, test_approach_maps, test_architecture,
+  test_help_assists_schema, test_library_asks_migration,
+  test_mobile_allowlist, test_reader_workbench_rw2a,
+  test_desktop_rpc_contract, test_sidecar_contract, test_cli_help_snapshot,
+  test_table_roles, test_coordinated_migrations,
+  test_tracked_fixture_databases, test_learner_text_gaps_flow.
+- **B (pytest):** test_daily_plan_composition,
+  test_daily_plan_review_regressions, test_daily_plan_rpc,
+  test_learner_text_source_widening, test_reader_active_reading,
+  test_router_r1_composition, test_rw4_kill_switches,
+  test_sidecar_item_authoring, test_stuck_prompt,
+  test_characterization_probe_submission.
+- **C (vitest):** practice/useAdaptiveHints.hold (new),
+  PracticeScreen.adaptiveHandoff, PracticeScreen.adaptiveHints,
+  PracticeScreen.adaptiveOff, PracticeScreen.hintTelemetry,
+  PracticeScreen.phase4, PracticeScreen.workbench, PracticeScreen,
+  practice/HelpStyleSettings, practice/hintCopy.
+
+The full suite, the whole durability lane and the whole vitest run are left
+to the landing gate (owner rule, 2026-10-17).

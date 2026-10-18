@@ -16,9 +16,11 @@
 //
 // H2b review F2: a hint is shown only where the learner can see it. Before
 // the panel's surface is hidden ("Work in steps"), `hold()` refuses new
-// requests, waits for the ones in flight and cancels a hint still being
-// written (a job is only ever delivered by a read, so an unread job is never
-// shown); a hint delivered before the cancel stays shown and counted. The
+// requests, waits for the ones in flight (polls' reads too) and cancels a
+// hint still being written (a job is only ever delivered by a read, so an
+// unread job is never shown); a hint delivered before the cancel stays shown
+// and counted, and when the cancel cannot be established the hold fails and
+// the surface stays (re-review F2). The
 // authored offer is claimed synchronously, so a double click reveals one
 // hint (F3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -97,6 +99,9 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
   const suspended = useRef(false);
   // Requests and authored offers still answering (what `hold()` waits for).
   const inflight = useRef(new Set<Promise<unknown>>());
+  // The live chain of polls: a hold that fails starts a new one, and the
+  // chain it replaces stops at its next timer.
+  const pollChain = useRef(0);
   // H2b review F3: the authored offer, claimed before its cancel is awaited.
   const offerClaim = useRef<string | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
@@ -162,27 +167,35 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     }
   }, []);
 
-  const poll = useCallback((jobId: string, attempt: number, mine: number) => {
+  const poll = useCallback((jobId: string, attempt: number, mine: number, chain: number = pollChain.current) => {
     const delay = POLL_DELAYS_MS[Math.min(attempt, POLL_DELAYS_MS.length - 1)];
     const timer = window.setTimeout(async () => {
+      if (chain !== pollChain.current) return;
       if (generation.current !== mine || pendingRef.current?.jobId !== jobId) return;
       // Held (the panel's surface is hidden): `hold()` settles the job.
       if (suspended.current) return;
       let job: HintJobDto;
       try {
-        job = await api.hintJob(jobId);
+        // Re-review F2: a read in flight is one `hold()` waits for (the read
+        // is what delivers a hint).
+        job = await track(api.hintJob(jobId));
       } catch (error) {
         if (generation.current !== mine) return;
+        // Held meanwhile: whether it was delivered is `hold()`'s to establish.
+        if (suspended.current) return;
         settle();
         opts.current.onError(errorMessage(error));
         return;
       }
-      if (generation.current !== mine || pendingRef.current?.jobId !== jobId) return;
+      if (generation.current !== mine) return;
+      const current = pendingRef.current?.jobId === jobId;
       if (job.state === "pending") {
-        poll(jobId, attempt + 1, mine);
+        if (current) poll(jobId, attempt + 1, mine, chain);
         return;
       }
-      settle();
+      if (current) settle();
+      // A hint this read delivered is shown whatever settled the request
+      // meanwhile (re-review F2): never delivered and dropped.
       if (job.state === "done") handleDone(job.result);
     }, delay);
     timers.current.push(timer);
@@ -312,39 +325,54 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
   };
 
   /** H2b review F2: before the panel's surface is hidden. Refuses new
-   *  requests, waits for the ones answering, and cancels a hint still being
-   *  written (never read, so never shown); one delivered first is read once
-   *  and kept. Resolves when nothing is pending. */
-  const hold = useCallback(async () => {
+   *  requests, waits for the ones answering (polls' reads included), and
+   *  cancels a hint still being written (never read, so never shown); one
+   *  delivered first is read once and kept. Resolves true when nothing is
+   *  pending; false (re-review F2) when the cancel could not be established:
+   *  the request stays pending and is polled again, so the screen keeps the
+   *  answer box, where it is delivered, open. */
+  const hold = useCallback(async (): Promise<boolean> => {
     suspended.current = true;
     while (inflight.current.size) {
       await Promise.allSettled([...inflight.current]);
     }
     const live = pendingRef.current;
-    if (!live) return;
+    if (!live) return true;
     const mine = generation.current;
     if (!live.jobId) {
       settle();
-      return;
+      return true;
     }
-    try {
-      const answer = await api.cancelHint(live.jobId);
-      if (generation.current !== mine) return;
-      if (answer.cancelled) {
-        settle();
-        return;
+    const jobId = live.jobId;
+    const release = (error?: unknown) => {
+      // Not held: requests and polls go on where the hint can be seen.
+      suspended.current = false;
+      if (error !== undefined) opts.current.onError(errorMessage(error));
+      if (pendingRef.current === live) {
+        pollChain.current += 1; // one chain of polls, never two
+        poll(jobId, 0, mine);
       }
-      // already_shown: delivered before the cancel; its result is read once.
-      const job = await api.hintJob(live.jobId);
-      if (generation.current !== mine) return;
-      settle();
-      if (job.state === "done") handleDone(job.result);
+      return false;
+    };
+    try {
+      const answer = await track(api.cancelHint(jobId));
+      if (generation.current !== mine) return true;
+      if (answer.cancelled) {
+        if (pendingRef.current === live) settle();
+        return true;
+      }
+      // already_shown: delivered before the cancel; its result is read again.
+      const job = await track(api.hintJob(jobId));
+      if (generation.current !== mine) return true;
+      if (job.state !== "done") return release();
+      if (pendingRef.current === live) settle();
+      handleDone(job.result);
+      return true;
     } catch (error) {
-      if (generation.current !== mine) return;
-      settle();
-      opts.current.onError(errorMessage(error));
+      if (generation.current !== mine) return true;
+      return release(error);
     }
-  }, [handleDone, settle]);
+  }, [handleDone, poll, settle]);
 
   /** The panel's surface is shown again: requests are accepted. */
   const resume = useCallback(() => {

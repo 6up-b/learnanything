@@ -91,7 +91,8 @@ def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
     window is the session's rows requested after the item's last attempt in
     this session: exactly the rows ``mark_shown`` stops showing once this
     attempt commits (round 3, W1). A workbench submit adds the answer box's
-    rows carried into its problem (H2b review F1)."""
+    rows carried into its problem (H2b review F1), and those a closed
+    problem of the item released in this practice session (re-review F1)."""
 
     exists = connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
@@ -106,7 +107,7 @@ def read_fold(connection: Any, *, practice_item_id: str, session_id: str,
     if workbench_session_id is not None:
         carried, carried_primed, _rows = carried_fold(
             connection, practice_item_id=practice_item_id, workbench_session_id=workbench_session_id,
-            exclude_submission_id=submission_id)
+            exclude_submission_id=submission_id, practice_session_id=session_id)
         count, primed = count + carried, primed or carried_primed
     return count, primed, since
 
@@ -175,7 +176,7 @@ def attach_carried(connection: Any, draft: Any, attempt_id: str) -> int:
         return 0
     return attach_carried_fold(connection, practice_item_id=fold.practice_item_id,
                                workbench_session_id=fold.workbench_session_id, attempt_id=attempt_id,
-                               exclude_submission_id=fold.submission_id)
+                               exclude_submission_id=fold.submission_id, practice_session_id=fold.session_id)
 
 
 __all__ = ["ServerHintFold", "attach_carried", "attach_keyless", "read_fold", "refolded_draft"]

@@ -33,6 +33,7 @@ from learnloop.hints.map_builder import schedule_build_on_serve
 from learnloop.hints.telemetry import (
     attach_reveals_to_attempt,
     record_authored_reveal,
+    stamp_carried_submission,
     stamp_submission,
     telemetry_enabled,
 )
@@ -706,6 +707,23 @@ def _stamp_hint_submission(
         return None
 
 
+def _stamp_carried_hints(repository, fold: ServerHintFold, submitted_at: str | None) -> None:
+    """H2b re-review F9: a workbench submission's submit time on the answer
+    box's rows it carries (their key is the answer box's, so the stamp above
+    never reaches them). Only when that stamp was made (telemetry on, a
+    key); telemetry only: a failure is logged, never raised."""
+
+    if submitted_at is None or fold.workbench_session_id is None:
+        return
+    try:
+        stamp_carried_submission(
+            repository, practice_item_id=fold.practice_item_id, workbench_session_id=fold.workbench_session_id,
+            practice_session_id=fold.session_id, submitted_at=submitted_at, exclude_submission_id=fold.submission_id,
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
+        log_event("hint_carried_stamp_failed", practice_item_id=fold.practice_item_id, error=type(exc).__name__)
+
+
 def _attach_hint_reveals(
     vault, repository, submission_id: str | None, practice_item_id: str, attempt_id: str,
     *, submitted_at: str | None = None, latency_seconds: float | None = None,
@@ -1092,6 +1110,7 @@ def submit_attempt_on(
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
+    _stamp_carried_hints(repository, hint_fold, hint_submitted_at)
     if declared_stuck and not learner_answer_md.strip():
         # An empty stuck answer: nothing to grade, so no provider and no
         # self-grade; recorded at once as an ordinary attempt scored 0.
@@ -1240,6 +1259,7 @@ def submit_dont_know_on(
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
+    _stamp_carried_hints(repository, hint_fold, hint_submitted_at)
     if stuck:
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:

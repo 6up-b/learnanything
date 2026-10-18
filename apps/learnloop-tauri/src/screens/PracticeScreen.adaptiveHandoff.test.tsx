@@ -289,3 +289,21 @@ it("F3: an offer whose request a poll already settled reveals nothing", async ()
   expect(api.recordHintReveal).not.toHaveBeenCalled();
   expect(screen.queryByText("Start with the CDF.")).toBeNull();
 });
+
+it("F2 (re-review): when the cancel cannot be established the answer box stays open and the hint is shown there", async () => {
+  config(true);
+  api.requestHint.mockResolvedValue(pending());
+  let deliver = false;
+  api.hintJob.mockImplementation(async () => (deliver ? done(ready({ hintMd: "Delivered on the answer box." })) : pending()));
+  api.cancelHint.mockRejectedValue(new Error("sidecar busy"));
+  await open();
+  fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+  await screen.findByText("Writing a hint for your work…");
+  fireEvent.click(screen.getByRole("button", { name: /work in steps/i }));
+  await waitFor(() => expect(api.cancelHint).toHaveBeenCalledWith("hjob_1"));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(api.workbenchOpen).not.toHaveBeenCalled();
+  expect(screen.queryByRole("region", { name: "workbench" })).toBeNull();
+  deliver = true;
+  expect(await screen.findByText("Delivered on the answer box.", undefined, { timeout: 3000 })).toBeTruthy();
+});

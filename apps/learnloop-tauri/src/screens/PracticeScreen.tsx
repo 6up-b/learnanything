@@ -657,9 +657,12 @@ export function PracticeScreen({
   // the hints it showed for it into the problem (its own rows, never a count
   // sent from here). Off, the hold is a no-op and nothing more is sent.
   const enteringSteps = useRef(false);
+  // When the cancel cannot be established (re-review F2) the hand-off
+  // answers null: the answer box stays, so a hint delivered meanwhile is
+  // shown where the learner can see it (the hold reported the error).
   const handOff = useCallback(async () => {
     enteringSteps.current = true;
-    await adaptiveHints.hold();
+    if (!(await adaptiveHints.hold())) return null;
     return adaptive && session.sessionId
       ? { carriedSubmissionId: submissionId.current, carriedSessionId: session.sessionId }
       : {};
@@ -672,6 +675,10 @@ export function PracticeScreen({
     if (!item) return;
     try {
       const carried = await handOff();
+      if (carried === null) {
+        handOffFailed();
+        return;
+      }
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
@@ -686,6 +693,10 @@ export function PracticeScreen({
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     try {
       const carried = await handOff();
+      if (carried === null) {
+        handOffFailed();
+        return;
+      }
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({

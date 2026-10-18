@@ -456,6 +456,40 @@ def schedule_outcome_placement(vault: LoadedVault, sqlite_path: Any, attempt_id:
 #: still joins the maps' envelope, and a checkpointed answer is not paid again).
 RECONCILE_LOOKBACK_DAYS = 14
 RECONCILE_LIMIT = 20
+#: How many candidates one read of the backlog returns (re-review F8): the
+#: pass reads page after page, past candidates it cannot place, so the bound
+#: above counts placements, never candidates looked at.
+RECONCILE_PAGE = 50
+#: Outcomes that placed nothing and spent nothing: the pass moves on to the
+#: next candidate without counting them against :data:`RECONCILE_LIMIT`.
+_NOTHING_PLACED = frozenset({"not_due", "no_map", "already_placed", "busy", "disabled"})
+#: Outcomes after which the rest waits for the next open (or the envelope's next day).
+_STOP = frozenset({"capped", "unpriced", "unavailable", "stale"})
+
+
+def _unplaced_page(sqlite_path: Any, *, since: str, limit: int,
+                   after: tuple[str, str] | None = None) -> list[tuple[str, str]]:
+    """One page of :func:`unplaced_attempts` as ``(created_at, id)``, after
+    the cursor ``after`` (the last candidate of the previous page)."""
+
+    with closing(connect(Path(sqlite_path), read_only=True)) as connection:
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if not {"help_assists", "judgment_ledger", "practice_attempts"} <= tables:
+            return []
+        cursor_sql, cursor_values = "", ()
+        if after is not None:
+            cursor_sql = "AND (a.created_at > ? OR (a.created_at = ? AND a.id > ?)) "
+            cursor_values = (after[0], after[0], after[1])
+        rows = connection.execute(
+            "SELECT a.created_at, a.id FROM practice_attempts a WHERE a.created_at >= ? "
+            "AND a.correctness IS NOT NULL "
+            "AND a.correctness < 1.0 - 1e-9 AND TRIM(COALESCE(a.learner_answer_md, '')) != '' "
+            "AND EXISTS (SELECT 1 FROM help_assists h WHERE h.attempt_id = a.id AND h.assist_kind = 'hint' "
+            "AND h.shown = 1) "
+            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger j WHERE j.task = ? AND j.right_kind = 'practice_attempt' "
+            f"AND j.right_id = a.id) {cursor_sql}ORDER BY a.created_at, a.id LIMIT ?",
+            (since, LEDGER_TASK, *cursor_values, int(limit))).fetchall()
+    return [(str(row[0]), str(row[1])) for row in rows]
 
 
 def unplaced_attempts(sqlite_path: Any, *, since: str, limit: int = RECONCILE_LIMIT) -> list[str]:
@@ -464,19 +498,7 @@ def unplaced_attempts(sqlite_path: Any, *, since: str, limit: int = RECONCILE_LI
     vault switch that fenced it) left undone. Oldest first; local reads only.
     :func:`_due` decides each one again under its claim."""
 
-    with closing(connect(Path(sqlite_path), read_only=True)) as connection:
-        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-        if not {"help_assists", "judgment_ledger", "practice_attempts"} <= tables:
-            return []
-        rows = connection.execute(
-            "SELECT a.id FROM practice_attempts a WHERE a.created_at >= ? AND a.correctness IS NOT NULL "
-            "AND a.correctness < 1.0 - 1e-9 AND TRIM(COALESCE(a.learner_answer_md, '')) != '' "
-            "AND EXISTS (SELECT 1 FROM help_assists h WHERE h.attempt_id = a.id AND h.assist_kind = 'hint' "
-            "AND h.shown = 1) "
-            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger j WHERE j.task = ? AND j.right_kind = 'practice_attempt' "
-            "AND j.right_id = a.id) ORDER BY a.created_at, a.id LIMIT ?",
-            (since, LEDGER_TASK, int(limit))).fetchall()
-    return [str(row[0]) for row in rows]
+    return [attempt_id for _created, attempt_id in _unplaced_page(sqlite_path, since=since, limit=limit)]
 
 
 def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client: Any | None = None,
@@ -490,8 +512,11 @@ def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client
     recovery left it undone). Every placement goes through
     :func:`place_outcome`: the same switches, claim, lease, fence and
     envelope, and a paid answer checkpointed before the interruption is
-    recovered without paying again. Returns at once and never raises; None
-    when nothing was started."""
+    recovered without paying again. The candidates are read page by page,
+    oldest first, past those that place nothing (an inactive item, no map:
+    re-review F8), so they never hold a later one out of the pass; ``limit``
+    bounds the placements. One pass per vault at a time. Returns at once and
+    never raises; None when nothing was started."""
 
     try:
         if not placement_enabled(vault.config):
@@ -504,39 +529,57 @@ def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client
 
         since = (parse_utc(utc_now_iso(clock)) - timedelta(days=RECONCILE_LOOKBACK_DAYS)).isoformat().replace(
             "+00:00", "Z")
-        pending = unplaced_attempts(sqlite_path, since=since, limit=limit)
-        if not pending:
+        page_size = max(1, int(RECONCILE_PAGE))
+        first_page = _unplaced_page(sqlite_path, since=since, limit=page_size)
+        if not first_page:
             return None
         registry = builds if builds is not None else maps._DEFAULT_BUILDS
         path = str(Path(sqlite_path))
+        pass_key = (path, _PASS)
         with _INFLIGHT_GUARD:
-            claimed = [attempt_id for attempt_id in pending if (path, attempt_id) not in _INFLIGHT]
-            _INFLIGHT.update((path, attempt_id) for attempt_id in claimed)
-        if not claimed:
-            return None
+            if pass_key in _INFLIGHT:
+                return None
+            _INFLIGHT.add(pass_key)
+
+        def place_one(repository: Repository, attempt_id: str, fence: "maps.BuildFence") -> OutcomeResult | None:
+            candidate = (path, attempt_id)
+            with _INFLIGHT_GUARD:
+                if candidate in _INFLIGHT:
+                    return None  # a submit's own placement has it
+                _INFLIGHT.add(candidate)
+            try:
+                return place_outcome(vault, repository, attempt_id, client=client, clock=clock, fence=fence)
+            except Exception:  # noqa: BLE001 - one attempt never stops the pass
+                LOG.warning("hint outcome reconciliation failed for %s", attempt_id, exc_info=True)
+                return None
+            finally:
+                with _INFLIGHT_GUARD:
+                    _INFLIGHT.discard(candidate)
 
         def work(fence: "maps.BuildFence") -> Callable[[], None]:
             def run() -> None:
                 try:
                     repository = Repository.attach(Path(sqlite_path))
-                    for attempt_id in claimed:
-                        if not fence.live():
-                            return
-                        try:
-                            outcome = place_outcome(vault, repository, attempt_id, client=client, clock=clock,
-                                                    fence=fence)
-                        except Exception:  # noqa: BLE001 - one attempt never stops the pass
-                            LOG.warning("hint outcome reconciliation failed for %s", attempt_id, exc_info=True)
-                            continue
-                        LOG.info("hint outcome placement (reconciled): %s",
-                                 json.dumps(outcome.as_dict(), sort_keys=True, default=str))
-                        if on_done is not None:
-                            on_done(outcome)
-                        if outcome.status in ("capped", "unpriced", "unavailable", "stale"):
-                            return  # the rest waits for the next open (or the envelope's next day)
+                    placed, page = 0, first_page
+                    while page:
+                        for _created, attempt_id in page:
+                            if not fence.live() or placed >= limit:
+                                return
+                            outcome = place_one(repository, attempt_id, fence)
+                            if outcome is None:
+                                continue
+                            LOG.info("hint outcome placement (reconciled): %s",
+                                     json.dumps(outcome.as_dict(), sort_keys=True, default=str))
+                            if on_done is not None:
+                                on_done(outcome)
+                            if outcome.status in _STOP:
+                                return  # the rest waits for the next open (or the envelope's next day)
+                            if outcome.status not in _NOTHING_PLACED:
+                                placed += 1
+                        page = _unplaced_page(sqlite_path, since=since, limit=page_size, after=page[-1])
                 finally:
                     with _INFLIGHT_GUARD:
-                        _INFLIGHT.difference_update((path, attempt_id) for attempt_id in claimed)
+                        _INFLIGHT.discard(pass_key)
 
             return run
 
@@ -548,7 +591,7 @@ def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client
         finally:
             if thread is None:
                 with _INFLIGHT_GUARD:
-                    _INFLIGHT.difference_update((path, attempt_id) for attempt_id in claimed)
+                    _INFLIGHT.discard(pass_key)
         if thread is None:
             return None
         with maps._INFLIGHT_GUARD:
@@ -559,8 +602,12 @@ def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client
         return None
 
 
+#: The in-flight key of a vault's reconciliation pass (one at a time).
+_PASS = "__reconcile_outcome_placements__"
+
+
 __all__ = [
     "LEDGER_TASK", "OWNER_KIND", "OutcomePlacementV1", "OutcomeResult", "PROMPT_VERSION", "RECONCILE_LIMIT",
-    "RECONCILE_LOOKBACK_DAYS", "ROUTE_TASK", "VERDICTS", "hint_verdict", "place_outcome", "placement_enabled",
+    "RECONCILE_LOOKBACK_DAYS", "RECONCILE_PAGE", "ROUTE_TASK", "VERDICTS", "hint_verdict", "place_outcome", "placement_enabled",
     "reconcile_outcome_placements", "schedule_outcome_placement", "unplaced_attempts", "validate_placement",
 ]
