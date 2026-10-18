@@ -279,3 +279,8 @@ uv run learnloop gaps run --backlog --vault <path>                         # swe
 `docs/reviews/reader-rw2b-h3-codex-review.md`: 15 findings (3 High), all fixed in `7ce123267`. That round supersedes
 deviation 5 and open question 1 (the check now runs on Codex, `estimated_only`, F12) and the first item of deviation
 13, which is open question 2 (a hint's own checkable claims are now verified before it is shown, F14).
+
+**Fix round 3 (orchestrator ruling on F3).** The symbolic check (`learnloop/workbench/symbolic.py`, described above) no longer checks the model's declared
+expressions. It parses the learner's own LaTeX step (sympy, lark backend) and checks that relation. The
+declaration only picks the kind, and inequality and boundary are no longer checked. See the review file's "Fix
+round 3".

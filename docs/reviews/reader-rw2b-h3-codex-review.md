@@ -211,3 +211,131 @@ Test files run: test_approach_map_replay.py test_architecture.py test_coordinate
   prose before its left side (`We have x + x = 2x` and `Adding gives x + x = 2x` bind; `Adding up x + x = 2x` does not). The default is the
   honest label, never a wrong *checked*. A sympy-level parse of the learner's LaTeX that could bind a chain
   link by link is left for later.
+
+## Fix round 3 (orchestrator ruling)
+
+The final verify (Codex job `20261018-175123-prT5bb`) **reopened F3 a second time**. It confirmed F1, F2 and F16.
+Five reproductions came back `valid, checked, ✓` after being marked questionable:
+
+* a name resolved to the wrong definition (`g'(x) = 3x^2` checked as the derivative of `f`'s `x^3`);
+* `d/dy` checked as `d/dx`;
+* `\int_0^2` checked over `[0, 1]`;
+* a limit at 2 checked at 1;
+* `x^{2+1} = x^2+1` losing its grouping.
+
+The hint-claim path shared the flaw. The cause: the model declared the transformation and its expressions and
+parameters, and `binding.py` only loosely matched that declaration to the learner's text.
+
+**Ruling: heuristic binding had not converged, so the design changes. "Checked" comes only from the learner's own
+written step, parsed by code.** Fixed in `28bb9da42`; the references were regenerated on top. **Paid calls: none
+($0.00).** Every model is a fake.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F3 (reopened twice) | High | Declared parameters and loose binding certify wrong steps | fixed by redesign | `28bb9da42` | `test_reader_rw2b_fix3.py` (19 tests, all 19 fail on `86611ee9e`); `test_workbench_check_kinds.py` rewritten (16); the F2, F3, F10, F14 and F3r tests in `test_reader_rw2b_review.py` restated on LaTeX steps |
+
+**What the check does now** (`learnloop.workbench.symbolic`, the sandboxed harness):
+
+* **The parse.** It parses the step's (or a hint claim's own statement's) LaTeX with
+  `sympy.parsing.latex` on the **lark** backend (an Earley parse, `ambiguity="explicit"`). Grouping is kept:
+  `x^{2+1}` is `x**3`. A transformer subclass keeps a relation as a relation; sympy's `Eq` would evaluate
+  `\int_0^2 2x\,dx = 1` to `False`. The parse gives one relation, both sides, the left side's operator
+  (`Derivative`, `Integral`, `Limit`, `Sum`, a defined name) and that operator's variable, bounds and point.
+  The check is run on THAT relation (`simplify(lhs - rhs) == 0`, or the operator applied to the parsed operand
+  and compared with the parsed right side), with the same positive and negative controls as before.
+* **The declaration only picks the kind.** Its expression, result, variable, bounds, point and relation are never
+  check inputs. Each one that is set is compared with the parse, and the expression is required. Any disagreement
+  (`declaration_disagrees:<field>`) means the model's reading.
+* **Names.** A name resolves only to a definition `name(var) = expr` that code parses from an earlier learner step
+  or from a delimited math segment of the problem (`$...$`, `\(...\)`, `\[...\]`). The step being checked is never
+  a source. A name defined twice differently does not resolve. Primes differentiate the definition (`f'(x)`). An
+  ambiguous parse (`f(x)` read as `f*x`) is resolved only by the names in force: a reading that uses an undefined
+  name as a function refuses, and a reading that uses a defined name as a variable is dropped.
+* **What stays the model's reading:**
+  * anything that does not parse;
+  * an ambiguous parse (`\lim_{x \to 2} x^2`, `\sin^2 x + ...`, `x(x+1)`);
+  * an unresolved name;
+  * prose: a run of two or more letters that is neither a LaTeX command nor a differential;
+  * more than one relation (`a = b = c`, a step continuing with `= ...`);
+  * an operator nested inside a side or on the right side;
+  * an unsupported kind;
+  * the lark backend being unusable (`latex_parser_unavailable`).
+
+  There is no string or regex fallback that can produce "checked". The only regex rejects prose before the parse.
+* **No "doesn't follow" while unknowns remain.** A difference that is not zero but still has free symbols gives the
+  model's reading, never `≠`: the step may be an equation to solve (`(x-2)(x+2) = 0`), not a false identity. `≠ checked`
+  needs an exact non-zero constant (`6 \cdot 7 = 43`, `\int_0^2 2x\,dx = 1`).
+* **Kinds that can be checked:**
+  * equivalence;
+  * substitution (`f(a)` for a defined `f`);
+  * differentiation (`\frac{d}{dx}(...)`, or `f'(x)`);
+  * integration, definite or an antiderivative up to a constant;
+  * normalization (a definite integral equal to 1);
+  * limit;
+  * sum;
+  * solving: `x = v` against the step before's one equation, or, for a first step, the problem's only equation
+    in `x`. The negative control skips other roots.
+
+  **Inequality and boundary are no longer checked.** Sampling can certify a false inequality, and the parser reads
+  no evaluation bar. Both stay declared kinds in the prompt.
+* **The hint-claim path uses the same rule.** A claim is checked only when its own `statement` parses, its
+  declaration agrees, and the relation holds. Names resolve to the problem's and the learner's definitions up to
+  the claim's step. A statement in words stays the model's reading. The persisted claims, and so what `help_state`
+  shows again, are these verdicts. The workbench `claims_rule` now asks for the statement as one LaTeX relation.
+* **The host.** It trusts a harness verdict only when the harness reports `bound: true` (it parsed the text and the
+  declaration agreed). Otherwise the result is `transformation_not_in_step:<n>` and the model's reading.
+  `learnloop/workbench/binding.py` (substring, normalization and name-fallback matching) is **deleted**.
+  `placement_json.symbolic[].bound` and the ledger's `bound` now come from the harness. The check prompt is
+  `workbench_check.v2`: the declaration must match what the step writes.
+* **Unchanged:**
+  * the PF-b sandbox path;
+  * the controls;
+  * the bubblewrap-missing behaviour (every verdict is the model's reading);
+  * `workbench.symbolic_checks_enabled`.
+
+  No migration, no config key, and no RPC, serializer or check-label rendering change. The frontend was not
+  touched, so vitest was not run.
+
+**New dependency: `lark>=1.3.1`** (pure Python, MIT), a core dependency in `pyproject.toml` and `uv.lock`, added with
+`uv add lark`. sympy's LaTeX parser needs it for the lark backend. It is importable in the sandbox, which runs the
+venv's interpreter with `-I`.
+
+**Fail-before** (`git archive 86611ee9e | tar -x` into `fixtures-local/tmp`, run with `-o pythonpath=<tmp>/src`; `lark`
+importable there):
+
+* `test_reader_rw2b_fix3.py`: **19 failed of 19**. These are:
+  * the five reproductions;
+  * the integral case through the hint-claim path;
+  * positive controls for all nine kinds (equivalence, derivative, definite integral, antiderivative,
+    normalization, limit, sum, solve, substitution), each a correct step parsed from LaTeX that must come back
+    `✓ checked`;
+  * grouping (`x^{2+1} = x^2+1` not checked, `x^{2+1} = x^3` checked);
+  * a name defined in an earlier step resolving and an undefined one not resolving, in both the check and the
+    hint paths.
+* `test_workbench_check_kinds.py`: 16 of 16 failed. The file is rewritten, and on the old code its claims carry no
+  `text`.
+* `test_reader_rw2b_review.py`: 7 of 29 failed (the restated F2, F3r and F14 tests).
+
+### Gate (fix round 3)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over the 50 files below (every `test_workbench*.py`, `test_hint*.py`, `test_pf_sandbox*.py`, `test_reader_workbench*.py`, `test_reader_rw2b_review.py`, `test_reader_rw2b_fix3.py`, the contract tests: architecture, registry audit, judge routes, mobile allowlist, desktop RPC contract, sidecar contract; and every test that greps for `uv.lock` or `pyproject`: approach-map boundaries, daily-plan owner decisions, project redaction, project capture, reader observation records, workbench hint service) | **980 passed** (45.5 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix3.py`, `test_workbench_check_kinds.py`, `test_reader_rw2b_review.py`, `test_workbench_check.py` | **82 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved; there is no schema change. |
+| frontend (`npm`), `cargo check` | not run: nothing under `apps/` changed, and no check-label rendering changed |
+
+### Open question (default taken)
+
+* **Fewer checked verdicts, none wrong.** Several natural notations now get the model's reading:
+  * `\sin^2 x`, `\exp(-t) + t` and `x(x+1)` parse ambiguously in sympy's lark grammar;
+  * `d/dx` and `\pi` are not in that grammar;
+  * steps with words (`F(x) = x^2 on [0, 1]`) and chains do not parse to one relation;
+  * a wrong step that still has unknowns gives no `≠`.
+
+  The default is the honest label. A learner who writes `(\sin x)^2`, `x \cdot (x+1)` or brackets a limit's body
+  gets a check.
