@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 212
+schema_head: 213
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/field/signals.py"
-  - "src/learnloop/ops/pf_reports.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -163,6 +164,7 @@ Indexes and uniqueness:
 
 - `tests/recap_fixtures.py`
 - `tests/test_activity_substrate.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_exam_protection.py`
 - `tests/test_grading_cli.py`
 - `tests/test_hint_feedback_texts.py`
@@ -180,7 +182,6 @@ Indexes and uniqueness:
 - `tests/test_reader_reconstruct.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_rw4_kill_switches.py`
-- `tests/test_source_exercise_import.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

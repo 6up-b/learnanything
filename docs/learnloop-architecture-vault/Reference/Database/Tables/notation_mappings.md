@@ -3,13 +3,13 @@ title: "notation_mappings"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite notation_mappings"
   - "table notation_mappings"
-schema_head: 212
+schema_head: 213
 table_name: "notation_mappings"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_provenance_service.py`
 - `tests/test_source_append.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_exam_readiness_and_conflict.py`
 - `tests/test_synthesis_runs_repo.py`
 

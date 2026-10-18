@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 212
+schema_head: 213
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,10 +21,10 @@ source_paths:
   - "migrations/023_exam_pool.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/goals/exam_pool.py"
+  - "src/learnloop/adaptive_difficulty/protection.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/goals/exam_session.py"
-  - "src/learnloop/learner_protection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -98,6 +98,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/protection.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/goals/exam_pool.py`

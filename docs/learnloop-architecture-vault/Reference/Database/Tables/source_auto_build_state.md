@@ -3,13 +3,13 @@ title: "source_auto_build_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_auto_build_state"
   - "table source_auto_build_state"
-schema_head: 212
+schema_head: 213
 table_name: "source_auto_build_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 - `tests/test_ux_phase1_finish.py`
 - `tests/test_ux_phase1_review_fixes.py`
 - `tests/test_ux_phase1_round2_rereview.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_reading_hardening_review_fixes.py`
 - `tests/test_reading_hardening_verify_fixes.py`
 

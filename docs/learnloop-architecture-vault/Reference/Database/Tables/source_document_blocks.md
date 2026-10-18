@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 212
+schema_head: 213
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,11 +26,11 @@ source_paths:
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/hints/state.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
-  - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -121,6 +121,7 @@ Database triggers:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/exam_marking.py`
@@ -140,7 +141,6 @@ Database triggers:
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
-- `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -158,6 +158,7 @@ Database triggers:
 - `tests/test_sources_merge_composition.py`
 - `tests/test_tutor_delivery_fixes.py`
 - `tests/helpers.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority_review.py`
@@ -166,7 +167,6 @@ Database triggers:
 - `tests/test_ingest_runner.py`
 - `tests/test_keep_local_retired.py`
 - `tests/test_primed_attempts.py`
-- `tests/test_reader_active_reading.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

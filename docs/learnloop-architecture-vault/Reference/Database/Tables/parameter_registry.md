@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 212
+schema_head: 213
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_architecture.py`
 - `tests/test_constraint_engine.py`
 - `tests/test_grading_cli.py`

@@ -3,13 +3,13 @@ title: "source_unit_inventories"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_unit_inventories"
   - "table source_unit_inventories"
-schema_head: 212
+schema_head: 213
 table_name: "source_unit_inventories"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/041_source_unit_inventories.sql"
+  - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/db/repositories.py"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 
@@ -124,6 +126,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_exam_protection_identity.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_inventory_merge_parallel.py`

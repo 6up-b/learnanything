@@ -3,8 +3,8 @@ title: "Config - exam_seeding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml exam_seeding"
@@ -22,6 +22,7 @@ source_paths:
   - "tests/diagnosis_fakes.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/openai_fakes.py"
+  - "tests/test_adaptive_difficulty_ad1.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_anchor_resolution.py"
   - "tests/test_attempt_ai_flow.py"
@@ -30,7 +31,6 @@ source_paths:
   - "tests/test_causal_attribution_exhibit.py"
   - "tests/test_causal_attribution_p0.py"
   - "tests/test_causal_attribution_p1.py"
-  - "tests/test_causal_attribution_p2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/exam-seeding"
@@ -64,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/diagnosis_fakes.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/openai_fakes.py`
+- `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_anchor_resolution.py`
 - `tests/test_attempt_ai_flow.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
-- `tests/test_causal_attribution_p2.py`
 
 ## Extension and modification guidance
 

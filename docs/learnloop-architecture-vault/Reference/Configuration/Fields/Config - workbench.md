@@ -3,8 +3,8 @@ title: "Config - workbench"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml workbench"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `workbench.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW2a (no successor): the step workbench beside the source in the Reader and the practice screen's "Work in steps", saved as typed, resumable, abandonable and reopened, submitted through the ordinary attempt path (a visible book is one hints_used). Off: no workbench entry anywhere, every workbench RPC refuses, the config DTO carries no workbench key, and the practice screen is byte-identical. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2099`; `src/learnloop/reader/workbench.py:119`; `src/learnloop_sidecar/context.py:540` |
-| `workbench.open_session_days` | `30` | integer | modeled default or validator seed | Days an open workbench problem may go untouched before the recap shows it as "unfinished", without alarm. A display limit only: nothing is closed automatically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2100`; `src/learnloop/reader/workbench.py:124`; `src/learnloop_sidecar/context.py:539` |
+| `workbench.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW2a (no successor): the step workbench beside the source in the Reader and the practice screen's "Work in steps", saved as typed, resumable, abandonable and reopened, submitted through the ordinary attempt path (a visible book is one hints_used). Off: no workbench entry anywhere, every workbench RPC refuses, the config DTO carries no workbench key, and the practice screen is byte-identical. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2113`; `src/learnloop/reader/workbench.py:119`; `src/learnloop_sidecar/context.py:639` |
+| `workbench.open_session_days` | `30` | integer | modeled default or validator seed | Days an open workbench problem may go untouched before the recap shows it as "unfinished", without alarm. A display limit only: nothing is closed automatically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2114`; `src/learnloop/reader/workbench.py:124`; `src/learnloop_sidecar/context.py:638` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

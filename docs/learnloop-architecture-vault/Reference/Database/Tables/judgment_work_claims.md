@@ -3,13 +3,13 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
   - "table judgment_work_claims"
-schema_head: 212
+schema_head: 213
 table_name: "judgment_work_claims"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/176_recurrence_groups.sql"
+  - "src/learnloop/adaptive_difficulty/background.py"
+  - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
   - "src/learnloop/hints/map_builder.py"
   - "src/learnloop/hints/outcome.py"
   - "src/learnloop/matching/judge.py"
-  - "src/learnloop/reader/reader_intent.py"
-  - "src/learnloop/reader/reader_quick_check.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -107,6 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_fix_round5.py`
 - `tests/test_approach_maps.py`
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_outcome.py`

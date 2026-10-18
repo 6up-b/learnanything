@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 212
+schema_head: 213
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/057_forecast_ledger.sql"
-  - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/cli/diagnosis.py"
-  - "src/learnloop/cli/evsi.py"
-  - "src/learnloop/config/compat.py"
-  - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
-  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/adaptive_difficulty/__init__.py"
+  - "src/learnloop/adaptive_difficulty/background.py"
+  - "src/learnloop/adaptive_difficulty/claims.py"
+  - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/serve.py"
+  - "src/learnloop/adaptive_difficulty/switches.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -57,7 +58,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/057_forecast_ledger.sql`.
-- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`.
+- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -125,6 +126,12 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/ad_fakes.py`
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_fix_round5.py`
+- `tests/test_ad1_migration.py`
+- `tests/test_ad1_send_guard.py`
+- `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_config_refactor.py`
@@ -139,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/test_forecast_ledger.py`
-- `tests/test_sidecar_goals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "activity_patterns"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_patterns"
   - "table activity_patterns"
-schema_head: 212
+schema_head: 213
 table_name: "activity_patterns"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/073_activity_patterns_and_features.sql"
+  - "src/learnloop/adaptive_difficulty/feature_audit.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
@@ -26,7 +27,6 @@ source_paths:
   - "src/learnloop/curriculum/pattern_ladder.py"
   - "src/learnloop/curriculum/rung_backfill.py"
   - "src/learnloop/curriculum/task_blueprints.py"
-  - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/activity_patterns.py"
 tags:
   - "learnloop/database/table"

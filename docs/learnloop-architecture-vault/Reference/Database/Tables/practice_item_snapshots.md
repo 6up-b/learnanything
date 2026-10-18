@@ -3,13 +3,13 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
   - "table practice_item_snapshots"
-schema_head: 212
+schema_head: 213
 table_name: "practice_item_snapshots"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,12 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/164_item_snapshots_and_adjudication_fk.sql"
+  - "src/learnloop/adaptive_difficulty/__init__.py"
+  - "src/learnloop/adaptive_difficulty/backfill.py"
+  - "src/learnloop/adaptive_difficulty/feature_audit.py"
+  - "src/learnloop/adaptive_difficulty/protection.py"
+  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/field/item_content.py"
-  - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/field/probability_states.py"
-  - "src/learnloop/learner_context.py"
+  - "src/learnloop/db/stores/ad_receipts.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -52,7 +54,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/164_item_snapshots_and_adjudication_fk.sql`.
-- **Schema touched by:** `164_item_snapshots_and_adjudication_fk.sql`.
+- **Schema touched by:** `164_item_snapshots_and_adjudication_fk.sql`, `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -88,6 +90,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/backfill.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
@@ -107,6 +110,9 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_adaptive_difficulty_ad1.py`
+- `tests/test_architecture.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`

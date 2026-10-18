@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 212
+schema_head: 213
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/019_question_events.sql"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/text_gaps/jobs.py"
-  - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/instructional/interventions.py"
 tags:
@@ -54,7 +54,7 @@ It belongs to the **tutor and remediation** navigation family. The family contex
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/019_question_events.sql`.
-- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`.
+- **Schema touched by:** `019_question_events.sql`, `026_question_event_answer_status.sql`, `027_question_promotions.sql`, `030_probe_pilot_and_policy.sql`, `086_reader_dialogue.sql`, `102_question_resolution.sql`, `117_question_promotion_jobs_and_queue_revision.sql`, `151_cold_measurement_opportunities.sql`, `154_reveal_ledger.sql`, `182_learner_text_gaps.sql`, `205_write_provenance.sql`, `208_learner_text_source_kinds.sql`, `209_library_asks.sql`, `212_hint_feedback_source_kind.sql`, `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -95,6 +95,8 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `leak_overlap` | `REAL` | no | — | — | Stored value |
 | `remediation_episode_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `assessment_contract_version_id` | `TEXT` | no | — | — | Application-validated soft reference |
+| `answered_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `answer_mode` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -126,6 +128,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
@@ -167,6 +170,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad1_fix_round4.py`
+- `tests/test_ad1_migration.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
@@ -184,9 +190,6 @@ Indexes and uniqueness:
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_reader_inquiry_status.py`
-- `tests/test_reader_recap.py`
-- `tests/test_reveal_ledger.py`
-- `tests/test_rw4_kill_switches.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -237,7 +240,8 @@ CREATE TABLE "question_events" (
     signal_channel IS NULL OR signal_channel IN ('epistemic', 'interaction_preference')
   )
 , resolution TEXT NOT NULL DEFAULT 'open'
-  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT);
+  CHECK (resolution IN ('open', 'resolved', 'dismissed')), source_context_json TEXT, leak_overlap REAL, remediation_episode_id TEXT, assessment_contract_version_id TEXT, answered_at TEXT, answer_mode TEXT
+  CHECK (answer_mode IS NULL OR answer_mode IN ('answer_directly', 'help_me_reason', 'ask_me_first')));
 ```
 
 ## Related notes

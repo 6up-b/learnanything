@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 212
+schema_head: 213
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -25,11 +25,11 @@ source_paths:
   - "src/learnloop/placement/predictor.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
+  - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
-  - "src/learnloop/daily_plan/headline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -99,6 +99,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/forecasters.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
@@ -118,7 +119,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/learner/mastery.py`
 - `src/learnloop/learner/recall_calibration.py`
-- `src/learnloop/ops/doctor.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

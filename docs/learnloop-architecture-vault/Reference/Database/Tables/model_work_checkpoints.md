@@ -3,13 +3,13 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
   - "table model_work_checkpoints"
-schema_head: 212
+schema_head: 213
 table_name: "model_work_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
+  - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/ingest/extractors/base.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -97,6 +97,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_fix_round4.py`
+- `tests/test_ad1_fix_round5.py`
 - `tests/test_approach_maps.py`
 - `tests/test_glm_ocr.py`
 - `tests/test_hint_feedback_texts.py`

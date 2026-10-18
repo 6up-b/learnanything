@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "60082b1a9bc32ea973fa13243b85a2b9c76e7284"
-source_commit_timestamp: "2026-10-18T14:11:50-04:00"
+source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
+source_commit_timestamp: "2026-10-18T19:32:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 212
+schema_head: 213
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,12 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/202_router_staged_frame.sql"
+  - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/serve.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/plan_presentations.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
-  - "src/learnloop/evsi_calibration/live_report.py"
-  - "src/learnloop/router/outcomes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -100,6 +101,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/outside.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 
@@ -116,6 +118,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_evsi_staged_binding.py`
 - `tests/test_forecast_receipts.py`
