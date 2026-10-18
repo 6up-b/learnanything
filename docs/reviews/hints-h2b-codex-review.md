@@ -596,3 +596,143 @@ Two validators fail for reasons outside this round. Both failures predate it:
 
 The full suite, the whole durability lane and the whole vitest run are left
 to the landing gate (owner rule, 2026-10-17).
+
+## Fix round 4 (orchestrator rulings)
+
+The orchestrator's whole-stage Codex verify (job `20261018-134453-3ZMKMm`)
+confirmed R1's counting: 99 in-memory checks passed, among them same-second
+boundaries, the interrupted keyed attach, levels 4-5 and workbench-owned
+keys. It also confirmed migration 212 and the head fixture. It reopened four
+items. The orchestrator ruled on each, and this round implements the
+rulings. Each fix has a test that fails on `16a0071f2`. No live or paid
+model call was made. There is no migration, no new config key and no new
+RPC.
+
+### Findings
+
+| id | severity | title | verdict | commit | test |
+|---|---|---|---|---|---|
+| F11 | High | A failed overlapping "Work in steps" open resumed hints while steps were showing | fixed | `9f23467fc` | `PracticeScreen.adaptiveHandoff.test.tsx` "F11: ..."; `useAdaptiveHints.hold.test.tsx` "F11: ..." (2) |
+| F12 | Medium | A hint delivered during grading lost its submit time when the transactional refold took it | fixed | `9f23467fc` | `tests/test_hint_h2b_fix4.py::test_f12_*` |
+| F13 | Medium | The vault-open pass swallowed `AIInterrupted` and did not count failures | fixed | `9f23467fc` | `tests/test_hint_h2b_fix4.py::test_f13_*` (2) |
+| F14 | Medium | Delayed placement judged a hint against today's map, not the one recorded on the hint | fixed | `9f23467fc` | `tests/test_hint_h2b_fix4.py::test_f14_*` (3) |
+
+### F11: one transition at a time, and a hold generation
+
+`PracticeScreen` serializes the answer box -> steps transitions:
+
+- `openWorkbench` and `resumeWorkbench` take a transition token. A second
+  open or resume while one is in flight is ignored.
+- A failed transition calls `resume()` only if it is still the latest
+  transition and the answer box is the visible surface. The `stepsShown` ref
+  is set when steps open and on every render.
+
+Inside the hook, every `hold()` bumps a hold generation, and
+`holdGeneration()` returns the latest one:
+
+- `resume(heldAt)` names the hold it ends. A resume of a hold that a later
+  hold superseded is a no-op.
+- A retained job's read that answers after a later hold began shows
+  nothing, and the job stays retained for that hold's resume.
+
+### F12: the admission time on the rows the refold takes
+
+`ServerHintFold.submitted_at` carries the submit's admission time, which is
+H0's stamp. It is None without a key or telemetry. Both submit paths set it
+right after the stamp. `attach_keyless_fold`, through `attach_keyless`, now
+writes `submitted_at = COALESCE(submitted_at, <admission time>)` on the rows
+it attaches. No latency is written, so the `no_submit_latency` bucket stays.
+
+The function is shared, so keyless answer-box submits get the same
+treatment. Their admission time is None, so nothing changes for them. An
+existing stamp is never overwritten.
+
+### F13: interrupted and failed placements in the vault-open pass
+
+- An `AIInterrupted` from `place_outcome` now becomes the `interrupted`
+  outcome, which is in `_STOP`, so the pass stops at once.
+- Any other exception becomes `failed` and counts against `RECONCILE_LIMIT`.
+
+The skips decided before any call (`not_due`, `no_map`, `already_placed`,
+`busy`, `disabled`, and the new `map_changed`) are returned as statuses,
+never raised, so they still do not count. One deviation from the ruling's
+letter: an exception raised before a call could start also counts. The pass
+cannot tell the two apart, and counting both keeps the bound conservative.
+
+### F14: the map recorded on the hint
+
+`_due` now picks the placement map from the attempt's shown hint rows
+(`_recorded_map`). It takes the newest hint's recorded `map_id` that passes
+three checks:
+
+- the map loads;
+- it is the item's map;
+- it was built for the item revision that both the hint row
+  (`help_assists.practice_item_hash`) and today's item are at.
+
+Today's item must match because the prompt shows today's question text.
+
+Today's map is never used in place of a recorded one. The other cases:
+
+- **A hint recorded on another map, or on one that fails these checks.** It
+  is judged against no map. It gets a terminal `unknown` with reason
+  `map_changed`, and its own `hint_map_id` in the rationale.
+- **No hint of the attempt has a usable map.** No call is made. The rows are
+  written with judge `verifier`, no model and `map_id: null`, and the result
+  is `map_changed`. This fits the existing `judgment_ledger` shape, so no
+  schema change is needed. The rows are terminal, so the paged reconcile
+  never looks at the attempt again and never counts it.
+- **No hint names a map at all.** The result is `no_map`, as before.
+
+The immediate post-submit path and the reconcile pass share `_due`, so both
+follow the rule.
+
+### Tests and fail-before counts
+
+- **Backend, new `tests/test_hint_h2b_fix4.py`.** Run against
+  `git archive 16a0071f2 src migrations` with `-o pythonpath`: 5 of 6
+  failed.
+  - F12: sidecar B delivers a hint under the answer box's key after the
+    workbench submit's stamp and before its commit. The row now carries
+    `submitted_at`, with no latency.
+  - F13: an interrupted placement stops the pass after the first candidate.
+    Before, all 3 candidates were tried.
+  - F13: failures are bounded by the limit: 2 of 4 at limit 2. Before, all 4
+    were tried.
+  - F14: interrupt, revise the item, build its new map, reconcile. No call
+    is made and nothing is judged against the new map. The result is a
+    terminal `unknown` (`map_changed`), and the next open has nothing left
+    to look at.
+  - F14: the immediate path, likewise.
+
+  The 6th test passes on the old tree too. It is a guard: a hint is placed
+  on its own map when a newer version of another revision exists.
+- **Frontend.** The 3 new tests were run against the old files: `16a0071f2`'s
+  `apps/learnloop-tauri` was extracted to the scratchpad and the new test
+  files copied in, which leaves the worktree untouched. All 3 failed:
+  - the verify's double-click sequence (the cancel fails, the first open
+    succeeds, an overlapping second fails). The old tree read the retained
+    job while steps were showing;
+  - a stale resume reads nothing;
+  - a read answering after a later hold shows nothing.
+
+### Gate (fix round 4)
+
+| step | result |
+|---|---|
+| `uv run lint-imports --no-cache` | 26 kept, 0 broken |
+| targeted `uv run pytest -n auto`, round 3's list A (every `test_hint_*`, now including test_hint_outcome and test_hint_h2b_fix4) | 892 passed |
+| targeted `uv run pytest -n auto`, round 3's list B (practice and workbench handler callers) | 156 passed |
+| `uv run pytest --durable-sqlite` on test_hint_h2b_fix4, test_hint_h2b_fix3, test_hint_h2b_rereview, test_hint_h2b_review, test_help_assists_schema, test_hint_outcome | 63 passed |
+| `uv run pytest -m durability` on test_help_assists_schema, test_hint_feedback_widening, test_coordinated_migrations | 4 passed |
+| `npm run typecheck` | no errors |
+| `npx vitest run` (round 3's 13 files) | 154 passed |
+| `npm run frontend:build` | built |
+| `cargo check` | not needed (nothing under `src-tauri` changed) |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels only); 0 errors (head 212); `validate_vault.py` passes |
+
+As before, two validators fail for reasons that predate this stage:
+`desktop_validate.py` stops on `syntheticBook.ts`, and `module_validate.py`
+reports its 844 repo-wide issues. The full suite, the whole durability lane
+and the whole vitest run are left to the landing gate (owner rule,
+2026-10-17).
