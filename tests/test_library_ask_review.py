@@ -359,11 +359,40 @@ def test_a_blocked_organizer_never_holds_up_the_next_reader_rpc(library):
     gate.set()
     jobs = ctx.library_ask_jobs
     assert jobs.get(job["jobId"]).done.wait(30)
-    assert call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"], "waitMs": 10})["state"] == "cancelled"
+    assert call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"]})["state"] == "cancelled"
     # The paid output is kept: asking again reuses it, with no second call.
     assert json.loads(ask_rows(repository)[0]["organizer_json"])["status"] == "judged"
     again = call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
     assert again["reused"] is True and len(slow.prompts) == 1
+
+
+def test_reading_a_pending_job_never_waits_on_the_serial_loop(library):
+    """Codex re-review F11: a job read answers at once (the frontend paces its
+    polls); a read that asks to wait is refused rather than holding the loop."""
+
+    import time
+
+    from pydantic import ValidationError
+
+    from learnloop_sidecar.handlers.library_ask import LibraryJobInput
+
+    paths, _repository, _spans = library
+    ctx = context(paths.root)
+    asked = _ask(ctx)
+    gate = threading.Event()
+    ctx.library_organizer_client = slow = OrganizerFake(gate=gate)
+    try:
+        job = call_rpc(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
+        assert job["state"] == "pending" and slow.started.wait(30)
+        began = time.monotonic()
+        with pytest.raises(ValidationError):  # the server answers it as invalid params
+            call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"], "waitMs": 1000})
+        assert call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"]})["state"] == "pending"
+        assert time.monotonic() - began < 0.5
+        assert "wait_ms" not in LibraryJobInput.model_fields
+    finally:
+        gate.set()
+    assert finish_job(ctx, job)["status"] == "judged"
 
 
 def test_every_model_backed_rpc_answers_with_a_job(library, monkeypatch):

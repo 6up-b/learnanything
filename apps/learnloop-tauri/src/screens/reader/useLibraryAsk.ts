@@ -14,8 +14,11 @@
 // The ask, the notes, compare and the tutor each run as a sidecar job (the
 // sidecar never waits on a model on its request path, so reading, peeking and
 // opening another source go on meanwhile): the hook reads the job until it is
-// done, and *cancel* (or closing the pane, or asking again) cancels it; a
-// cancelled or superseded job's result never lands (Codex review F6).
+// done, and *cancel* (or closing the pane, asking again or leaving the Reader)
+// cancels it; a cancelled or superseded job's result never lands, nor does its
+// late failure (Codex review F6; re-review F12, F13). A read of a job answers
+// at once (a wait would hold the serial sidecar), so the hook paces its reads
+// (re-review F11).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -82,8 +85,12 @@ const CANCELLED = { phase: "idle" as ModelActionPhase, value: null, failure: nul
 
 type JobStage = "ask" | "notes" | "compare" | "tutor";
 const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor"];
-/** How long one read of a job waits for it (the sidecar caps it at a second). */
-const JOB_WAIT_MS = 1000;
+/** The pause between reads of a pending job (the sidecar's read never waits, F11). */
+export const JOB_POLL_MS = 250;
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** A refusal that says why (held-out material), else the stage's own line. */
 function failureLine(error: unknown, fallback: string): string {
@@ -154,23 +161,34 @@ export function useLibraryAsk({
     if (jobId) void api.readerLibraryJobCancel({ jobId }).catch(() => undefined);
   }, []);
 
-  /** Start a stage's job and read it until it is done; null once cancelled or superseded. */
+  /** Start a stage's job and read it until it is done; null once cancelled or
+   * superseded, whether it then answers or fails (a stale failure is dropped
+   * here, so no stage's catch sees it: re-review F12). */
   const runJob = useCallback(async <T,>(stage: JobStage, start: () => Promise<LibraryJobDto<T>>): Promise<T | null> => {
     cancelStage(stage);
     const epoch = epochsRef.current[stage];
     const live = () => epochsRef.current[stage] === epoch;
-    let job = await start();
-    if (!live()) {
-      if (job.state === "pending") void api.readerLibraryJobCancel({ jobId: job.jobId }).catch(() => undefined);
-      return null;
-    }
-    jobsRef.current[stage] = job.jobId;
-    while (job.state === "pending") {
-      job = await api.readerLibraryJob<T>({ jobId: job.jobId, waitMs: JOB_WAIT_MS });
+    try {
+      let job = await start();
+      if (!live()) {
+        // Started after a cancel or after the Reader closed: cancel it, never read it (F13).
+        if (job.state === "pending") void api.readerLibraryJobCancel({ jobId: job.jobId }).catch(() => undefined);
+        return null;
+      }
+      jobsRef.current[stage] = job.jobId;
+      while (job.state === "pending") {
+        await pause(JOB_POLL_MS);
+        if (!live()) return null;
+        job = await api.readerLibraryJob<T>({ jobId: job.jobId });
+        if (!live()) return null;
+      }
+      if (jobsRef.current[stage] === job.jobId) delete jobsRef.current[stage];
+      return job.state === "done" ? job.result : null;
+    } catch (error) {
       if (!live()) return null;
+      if (jobsRef.current[stage]) delete jobsRef.current[stage];
+      throw error;
     }
-    if (jobsRef.current[stage] === job.jobId) delete jobsRef.current[stage];
-    return job.state === "done" ? job.result : null;
   }, [cancelStage]);
 
   const loadNotes = useCallback(async (key: number, askId: string) => {
@@ -345,6 +363,13 @@ export function useLibraryAsk({
     for (const stage of JOB_STAGES) cancelStage(stage);
     keyRef.current += 1;
     setState(null);
+  }, [cancelStage]);
+
+  // Leaving the Reader: every job still running is cancelled and no longer
+  // read, and a job that starts afterwards is cancelled unread (re-review F13).
+  useEffect(() => () => {
+    for (const stage of JOB_STAGES) cancelStage(stage);
+    keyRef.current += 1;
   }, [cancelStage]);
 
   // Switched off while open (a contract reload): nothing stays.

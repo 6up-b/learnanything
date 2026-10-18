@@ -319,7 +319,7 @@ it("each part runs as a sidecar job: a pending one is cancelled and its late res
   api.readerLibraryJob.mockReturnValue(late.promise.then((value) => done(value, "notes")));
   await askFromSelection();
   const pane = await screen.findByRole("region", { name: "ask your library" });
-  await waitFor(() => expect(api.readerLibraryJob).toHaveBeenCalledWith({ jobId: "ljob_notes", waitMs: 1000 }));
+  await waitFor(() => expect(api.readerLibraryJob).toHaveBeenCalledWith({ jobId: "ljob_notes" }));
   // The passages are read while the notes are written; the pending line offers cancel.
   expect(within(pane).getByText("A symmetric matrix equals its transpose.")).toBeTruthy();
   fireEvent.click(within(pane).getByRole("button", { name: "cancel" }));

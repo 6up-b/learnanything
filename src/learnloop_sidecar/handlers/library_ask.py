@@ -17,8 +17,10 @@ contract has no ``library_ask`` key.
 **Never on the request path** (W12, UX §4.0; Codex review F6). The sidecar is
 serial, so each model-backed RPC here (the ask, its notes, compare and the
 tutor) starts its work on a small worker thread, as the intent box's router
-does, and answers at once with a job: ``reader.library_job`` reads it (a
-bounded wait), ``reader.library_job_cancel`` cancels it (the result is fenced:
+does, and answers at once with a job: ``reader.library_job`` reads it (at
+once: it never waits, since a wait would hold every request queued behind it;
+the frontend paces its polls, Codex re-review F11), ``reader.library_job_cancel``
+cancels it (the result is fenced:
 a cancelled job never answers; a paid call already sent finishes and its
 receipt and paid output are kept, as a cancelled Reader Ask's are). Opening
 another source, peeking or saving meanwhile is answered at once.
@@ -53,8 +55,6 @@ LIBRARY_ASK_RPCS: tuple[str, ...] = (
 )
 #: The most jobs kept in memory for reading back (oldest dropped first).
 MAX_KEPT_JOBS = 64
-#: The longest one read may wait for a job to finish (a poll, not a timeout).
-MAX_WAIT_MS = 1_000
 
 
 def prompt_contract_fields(vault: Any) -> dict[str, Any]:
@@ -253,21 +253,20 @@ def _start(ctx: SidecarContext, kind: str, ask_id: str | None, work: Work) -> di
 
 
 class LibraryJobInput(ParamsModel):
+    #: No wait: the read answers at once, so a poll never holds the serial loop
+    #: (opening a source, peeking or saving behind it); the frontend paces its
+    #: polls (Codex re-review F11).
     job_id: str
-    wait_ms: int = 0
 
 
 @method("reader.library_job", LibraryJobInput)
 def reader_library_job(ctx: SidecarContext, params: LibraryJobInput) -> dict[str, Any]:
-    """A library job's state; waits up to ``wait_ms`` (at most a second) for it."""
+    """A library job's state, at once (never a wait on the request path)."""
 
     _require(ctx)
     job = _jobs(ctx).get(params.job_id)
     if job is None:
         raise SidecarError("not_found", "That library request is no longer kept; ask again.")
-    wait = max(0, min(int(params.wait_ms), MAX_WAIT_MS))
-    if wait:
-        job.done.wait(wait / 1000)
     return _job_payload(job)
 
 

@@ -1489,7 +1489,7 @@ export const api = {
     call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
     call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
-  readerLibraryJob: <T>(input: { jobId: string; waitMs?: number }) =>
+  readerLibraryJob: <T>(input: { jobId: string }) =>
     call<LibraryJobDto<T>>("reader_library_job", { input }),
   readerLibraryJobCancel: (input: { jobId: string }) =>
     call<LibraryJobDto<null>>("reader_library_job_cancel", { input }),

@@ -56,12 +56,11 @@ JOB_RPCS = frozenset({"reader.library_ask", "reader.library_ask_notes", "reader.
 def finish_job(ctx: Any, job: dict[str, Any], *, timeout: float = 60.0) -> dict[str, Any]:
     """Read a library job until it is done; its result (a failed job raises its error)."""
 
-    import time
-
-    deadline = time.monotonic() + timeout
-    while job["state"] == "pending":
-        assert time.monotonic() < deadline, f"library job {job['jobId']} did not finish"
-        job = call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"], "waitMs": 1000})
+    if job["state"] == "pending":
+        # The read never waits (Codex re-review F11): wait on the job itself, then read it.
+        kept = ctx.library_ask_jobs.get(job["jobId"])
+        assert kept is not None and kept.done.wait(timeout), f"library job {job['jobId']} did not finish"
+        job = call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"]})
     assert job["state"] == "done", job
     return job["result"]
 
