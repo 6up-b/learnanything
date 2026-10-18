@@ -343,6 +343,8 @@ class _Served:
     model: str | None = None
     prompt: str | None = None
     latency_ms: int | None = None
+    #: H3 (fix round 1, F14): the served hint's claims, as checked.
+    claims: list[dict[str, Any]] | None = None
 
 
 def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, item: PracticeItem
@@ -399,7 +401,7 @@ def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, i
 
 def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state: HintState, target: Target,
            writer: WriterRoute, *, request: HintRequestV1, assist_id: str,
-           cancelled: Callable[[], bool]) -> _Served:
+           cancelled: Callable[[], bool], claim_verifier: Any | None = None) -> _Served:
     """Ask, check, re-ask once naming the failure; then the level-3
     ``next_step`` downgrade (§4.6), except where it would raise a fixed level
     (:func:`downgrade_allowed`: then nothing is served); a leak re-asked
@@ -437,14 +439,24 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
                               workbench=request.workbench.prompt_block() if request.workbench is not None
                               else None)
         served.prompt = prompt
+        ask_kwargs: dict[str, Any] = {}
+        if request.workbench is not None:
+            # H3 (fix round 1, F14): the workbench's answer adds the hint's claims.
+            ask_kwargs["result_model"] = workbench_module.WorkbenchHintWriterOutputV1
         with call_labels(judge="llm", question_set_version=WRITER_PROMPT_VERSION, state_hash=state.state_hash()):
-            output = writer.ask(prompt, owner_id=assist_id, metadata={**metadata, "round": round_})
+            output = writer.ask(prompt, owner_id=assist_id, metadata={**metadata, "round": round_}, **ask_kwargs)
         check, as_served, served_kind, record = _check_round(output, current, state, item)
+        claims: list[dict[str, Any]] = []
         if request.workbench is not None:
             # H3: the rules a step list makes exact (the Reader's rules 1-3, 7).
             workbench_module.check_steps(check, as_served, target=current, context=request.workbench)
+            # Reader §5.3: the hint's own claims, verified before it is shown.
+            claims = workbench_module.verify_claims(check, as_served, target=current, context=request.workbench,
+                                                    verifier=claim_verifier)
         served.rounds.append({"round": round_, "kind": current.kind, "level": current.level,
                               "failures": list(check.failures), "leaks": list(check.leaks)})
+        if claims:
+            served.rounds[-1]["claims"] = claims
         if record is not None:
             served.discriminating = record
         placement_rule = unplaced_work(as_served, served_kind, current, state, request) \
@@ -499,6 +511,7 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
         if check.ok:
             served.outcome = "downgraded" if downgraded else "served"
             served.kind, served.level, served.output = served_kind, current.level, as_served
+            served.claims = claims or None
             served.text = as_served.hint_md
             served.horizon_index = current.horizon_index
             if (current.level == 3 and served_kind in ("next_step", "waypoint", "subgoal_plan", "error_specific")
@@ -632,10 +645,13 @@ def request_hint(
     seed: str | None = None,
     clock: Clock | None = None,
     cancelled: Callable[[], bool] | None = None,
+    claim_verifier: Any | None = None,
 ) -> HintResultV1:
     """One hint request (§4.1). The row is written prepared (``shown = 0``);
     :func:`deliver` shows it. Raises :class:`HintRequestError` on a malformed
-    request; a model failure never raises (the fallback serves)."""
+    request; a model failure never raises (the fallback serves).
+    ``claim_verifier``: the workbench's check path for a hint's own claims
+    (H3, :func:`learnloop.hints.workbench.verify_claims`); unused elsewhere."""
 
     if not adaptive_enabled(vault.config):
         return HintResultV1(status=DISABLED, reason="adaptive_disabled",
@@ -701,7 +717,7 @@ def request_hint(
                             shortcut=request.feedback_shortcut, answered=answered)
             try:
                 served = _write(vault, repository, item, state, target, writer, request=request,
-                                assist_id=assist_id, cancelled=is_cancelled)
+                                assist_id=assist_id, cancelled=is_cancelled, claim_verifier=claim_verifier)
             except AIInterrupted:
                 raise
             except WriterUnavailable as exc:
@@ -892,6 +908,8 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
                                  "p_success": round(state.p_success, 4) if state.p_success is not None else None},
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
+            # H3 (F14): the served hint's claims as checked (workbench only).
+            **({"claims": served.claims} if served.claims else {}),
         }),
         "leak_flags_json": _json(served.leaks) if served.leaks else None,
         "shown": 0,

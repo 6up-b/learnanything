@@ -23,9 +23,19 @@ about-step and ``continue_from`` as the request's current work
 * delivers a workbench row (:func:`deliver_workbench`) only while its
   submission has not been admitted (its ``submitted_at`` stamp, written by the
   workbench submit before it reads the fold), inside H2a's own delivery and
-  fence, so a row is either counted at Submit or never shown (G-H3);
+  fence; a row written after that stamp and shown during grading is counted
+  by the attempt's transactional refold (fix round 1, F1), and none is shown
+  once the attempt commits (G-H3);
 * validates the map nodes a check names for its valid steps
-  (:func:`place_steps`; the Reader never reads a map itself).
+  (:func:`place_steps`; the Reader never reads a map itself);
+* verifies a hint's own checkable claims about the learner's steps before it
+  is shown (:func:`verify_claims`, Reader §5.3 "hints are verified separately
+  from how they are written"; fix round 1, F14): the writer declares each
+  claim at level 2 and up (:class:`WorkbenchHintWriterOutputV1`, the
+  workbench's output only), the Reader's check path checks it (an injected
+  verifier: the sandboxed symbolic harness), a failed claim is re-asked once
+  and then falls to H2a's level-3 downgrade, and an uncheckable one is
+  labelled the model's reading.
 
 Help, never evidence (``hints-never-write-evidence``): nothing here reads or
 writes an attempt, a reveal, mastery, FSRS or certification.
@@ -40,6 +50,8 @@ import json
 import random
 from typing import Any
 
+from pydantic import Field
+
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import help_assists as store
 from learnloop.hints import chooser as chooser_module
@@ -49,6 +61,8 @@ from learnloop.hints.discriminating import Rival, rival_id
 from learnloop.hints.kinds import HORIZON_LABELS, KINDS, WORKED_HELP_MARK, WORKED_LEVELS, option_id, parse_option
 from learnloop.hints.options import OFFERABLE, Option, OptionSet, build_options, precondition
 from learnloop.hints.state import HintState
+from learnloop.hints.writer import HintWriterOutputV1
+from learnloop.ai.schemas import WireModel
 
 SURFACE = "workbench"
 #: The ladder's rungs (spec §5.2).
@@ -225,6 +239,14 @@ class WorkbenchHintContext:
                 "and up quote it. Say first which steps stand, and build only on standing steps"
                 + (f": continue from step {continue_from}." if continue_from else ".")
                 + " Never treat a questionable step, or a step depending on it, as standing."
+            ),
+            "claims_rule": (
+                "At level 2 and up, list in claims every checkable statement your hint makes about a step "
+                "(that a step's derivative, integral, value, solution or rewriting is or is not right), with "
+                "the step number and the transformation in sympy syntax (kind one of: equivalence, "
+                "differentiation, integration, substitution, solving, limit, sum, inequality, boundary, "
+                "normalization; the expression and the result it should equal). Code checks each claim before "
+                "the hint is shown; a claim that does not hold sends the hint back. [] when it claims nothing."
             ),
         }
         if self.error_kind_enabled and self.error_kind_guess:
@@ -734,6 +756,87 @@ def check_steps(check: Check, output: Any, *, target: Target, context: Workbench
         if placement.reached_node_id and placement.reached_node_id != node:
             check.fail("wb_rule7_not_from_continue_from")
     return check
+
+
+# ---------------------------------------------------------------------------
+# A hint's own checkable claims (Reader §5.3; fix round 1, F14)
+# ---------------------------------------------------------------------------
+
+class HintClaim(WireModel):
+    """One checkable statement a workbench hint makes about a step, with its
+    transformation in sympy syntax (the check's declared kinds)."""
+
+    #: The step number the claim is about.
+    step: int
+    #: The claim in the hint's words ("your derivative in step 3 matches f").
+    statement: str
+    kind: str
+    expression: str
+    result: str
+    variable: str
+    value: str
+    lower: str
+    upper: str
+    relation: str
+
+
+class WorkbenchHintWriterOutputV1(HintWriterOutputV1):
+    """The writer's answer on the workbench: H2a's, plus the hint's claims
+    (the practice screen's output, prompt and schema are unchanged)."""
+
+    claims: list[HintClaim] = Field(default_factory=list, description=(
+        "at level 2 and up, every checkable statement the hint makes about a step, each with its step "
+        "number and transformation; [] when none"))
+
+
+#: How a claim stands once checked: ``checked`` / ``checked_numerically``
+#: (the verifier decided it and it holds), ``failed`` (it decided it and it
+#: does not hold: re-asked once, then downgraded), ``model`` (the model's
+#: reading, not checked).
+CLAIM_LABELS: Mapping[str, str] = {"checked": "checked", "checked_numerically": "checked numerically",
+                                   "model": "model's reading, not checked"}
+#: ``verifier(claims, context) -> [{"index", "method", "holds", "reason"}]``,
+#: one per claim in order (the Reader's check path, injected by the caller).
+ClaimVerifier = Callable[[Sequence[HintClaim], "WorkbenchHintContext"], Sequence[Mapping[str, Any]]]
+
+
+def verify_claims(check: Check, output: Any, *, target: Target, context: WorkbenchHintContext,
+                  verifier: ClaimVerifier | None) -> list[dict[str, Any]]:
+    """Check one answer's claims (level 2 and up): a claim about a step that
+    does not exist, or one the verifier decides does not hold, fails the
+    round (``wb_claim_failed:<step>``: re-asked once with the failure named,
+    then H2a's downgrade "without its unverified claims"); every other claim
+    is labelled as it stands. Returns the claims as recorded and shown."""
+
+    claims = list(getattr(output, "claims", None) or ())
+    if not claims or target.level < 2:
+        return []
+    numbers = {step.number for step in context.steps}
+    outcomes: list[Mapping[str, Any]] = []
+    if verifier is not None:
+        try:
+            outcomes = list(verifier(claims, context))
+        except Exception:  # noqa: BLE001 - a verifier failure leaves every claim the model's reading
+            outcomes = []
+    recorded = []
+    for index, claim in enumerate(claims):
+        outcome = outcomes[index] if index < len(outcomes) else {}
+        method = str(outcome.get("method") or "model")
+        holds = outcome.get("holds")
+        if int(claim.step) not in numbers:
+            status = "failed"
+            check.fail(f"wb_claim_unknown_step:{claim.step}")
+        elif method in ("checked", "checked_numerically") and holds is False:
+            status = "failed"
+            check.fail(f"wb_claim_failed:{claim.step}")
+        elif method in ("checked", "checked_numerically") and holds is True:
+            status = method
+        else:
+            status = "model"
+        recorded.append({"step": int(claim.step), "statement": " ".join(str(claim.statement).split())[:240],
+                         "status": status, "label": CLAIM_LABELS.get(status, "doesn't hold"),
+                         "kind": claim.kind, "reason": str(outcome.get("reason") or "")[:200]})
+    return recorded
 
 
 # ---------------------------------------------------------------------------

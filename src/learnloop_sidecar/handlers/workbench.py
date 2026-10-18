@@ -597,9 +597,12 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
                 "practiceSession": session_snapshot(repository, practice_session_id) if practice_session_id else None,
             })
     # RW2b (§5.4, G-H3): the submission's admission time on the problem's
-    # help rows FIRST, so a check or hint is either shown before the plan
-    # reads the fold below (and counted) or never shown (its delivery refuses
-    # a stamped row). H0's own stamp in the submit then keeps this one.
+    # help rows FIRST (a row stamped then is never delivered after); H0's own
+    # stamp in the submit then keeps this one. A row written after the stamp
+    # and shown while the submit grades is counted by the attempt's
+    # transactional refold of the open problem's help (fix round 1, F1:
+    # ``ServerHintFold.held_reader``), and none is shown once the attempt
+    # commits under the submission's key (``help_assists.mark_shown``).
     _stamp_help_rows(repository, params.session_id, params.latency_seconds)
     plan = _run(WB.submission_plan, repository, params.session_id)
     item = vault.practice_items.get(plan.practice_item_id)

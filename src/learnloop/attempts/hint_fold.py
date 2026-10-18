@@ -23,7 +23,8 @@ refolded draft; the grade is reused (no grader sees hints).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from collections.abc import Callable
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
@@ -71,19 +72,45 @@ class ServerHintFold:
     #: transactional refold takes are stamped with it where unstamped (a hint
     #: delivered during grading missed the submit-time stamp). No latency.
     submitted_at: str | None = None
+    #: Reader workbench RW2b (fix round 1, F1): the help the item's open
+    #: workbench problems hold (Reader §5.4's held rule: their book, carried
+    #: hints, shown checks and hints; a workbench submit's own problem is one
+    #: of them, still open until its attempt commits), read again inside the
+    #: attempt's transaction by ``held_reader`` (the sidecar's callable: the
+    #: attempt path never reads the workbench) so a check or hint shown during
+    #: grading is counted. With it, ``base_hints`` is
+    #: ``max(held_client_hints, held_hints) + held_extra_hints``, as
+    #: ``_held_assistance`` computes it before grading. None: as before RW2b.
+    held_reader: Callable[[Any], tuple[int, bool]] | None = field(default=None, compare=False, repr=False)
+    held_client_hints: int = 0
+    held_extra_hints: int = 0
+    held_hints: int = 0
+    held_primed: bool = False
+    #: The item's allowed attempt types: held help makes an independent
+    #: attempt the assisted type the answer box picks (``_held_assistance``);
+    #: None leaves the type alone (``submit_dont_know``).
+    held_types: tuple[str, ...] | None = None
+
+    def base(self) -> int:
+        if self.held_reader is None:
+            return int(self.base_hints)
+        return max(int(self.held_client_hints), int(self.held_hints)) + int(self.held_extra_hints)
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)
-        total = int(self.base_hints) + count
+        total = self.base() + count
         if self.max_useful_hints > 0 and (self.clamp_without_fold or count):
             total = min(total, self.max_useful_hints)
         return total
 
     def primed(self, folded_primed: bool | None = None) -> bool:
-        return bool(self.base_primed) or bool(self.folded_primed if folded_primed is None else folded_primed)
+        return bool(self.base_primed) or bool(self.held_primed) or bool(
+            self.folded_primed if folded_primed is None else folded_primed)
 
     def attempt_type(self, current: str, folded: int | None = None) -> str:
         if self.stuck_types is None:
+            if self.held_types is not None and self.held_hints > 0 and current == "independent_attempt":
+                return stuck_attempt_type(list(self.held_types), hints_used=self.held_hints)
             return current
         return stuck_attempt_type(list(self.stuck_types), hints_used=self.hints_used(folded), probe=self.stuck_probe)
 
@@ -121,14 +148,22 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
         return draft, None
     count, primed, since = read_fold(connection, practice_item_id=fold.practice_item_id,
                                      session_id=fold.session_id, submission_id=fold.submission_id)
+    held = (fold.held_hints, fold.held_primed)
+    if fold.held_reader is not None:
+        # RW2b (fix round 1, F1): the open problems' help, under the same
+        # lock; only ever raised (a problem another process submitted in
+        # between keeps the count read before grading).
+        now_hints, now_primed = fold.held_reader(connection)
+        held = (max(int(now_hints), int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed))
     if since != fold.since:
         # The window the attempt attaches (:func:`attach_keyless`) is the one
         # read here, under the write lock.
         draft = replace(draft, server_hint_fold=replace(fold, since=since))
         fold = draft.server_hint_fold
-    if (count, primed) == (fold.folded_hints, fold.folded_primed):
+    if (count, primed) == (fold.folded_hints, fold.folded_primed) and held == (fold.held_hints, fold.held_primed):
         return draft, None
-    now = replace(fold, folded_hints=count, folded_primed=primed, since=since)
+    now = replace(fold, folded_hints=count, folded_primed=primed, since=since, held_hints=held[0],
+                  held_primed=held[1])
     return replace(
         draft,
         hints_used=now.hints_used(),

@@ -457,6 +457,25 @@ def _serve_changes(serve: Mapping[str, str | None] | None) -> dict[str, Any]:
     return {column: (str(serve[column]) if serve.get(column) else None) for column in SERVE_COLUMNS}
 
 
+def held_on(connection: Any, practice_item_id: str) -> tuple[int, bool]:
+    """The help the item's open problems hold, read on ``connection`` (a
+    submit's own write transaction may pass its connection: RW2b fix round 1,
+    F1): the hint-equivalents (the book one counted, the answer-box hints it
+    carried, the shown checks and level 1-3 hints; the larger over the open
+    problems) and whether any showed worked help (a level 4-5 hint)."""
+
+    sessions = store.sessions_where(
+        connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
+    )
+    # RW2b: the problem's shown checks and hints count too, so a submit
+    # from the answer box records the help the open problem holds.
+    folds = {session["id"]: assists_store.workbench_fold(connection, workbench_session_id=session["id"],
+                                                         practice_item_id=practice_item_id)
+             for session in sessions}
+    hints = max((session_hints(session) + folds[session["id"]].hints for session in sessions), default=0)
+    return hints, any(fold.primed for fold in folds.values())
+
+
 def held_hints(repository: Any, practice_item_id: str) -> int:
     """The hint-equivalents the item's open problems hold (review F2): the
     book one counted and the answer-box hints it carried. Every submit for the
@@ -465,15 +484,7 @@ def held_hints(repository: Any, practice_item_id: str) -> int:
     clamps it to the hints the item shows today."""
 
     with repository.connection() as connection:
-        sessions = store.sessions_where(
-            connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
-        )
-        # RW2b: the problem's shown checks and hints count too, so a submit
-        # from the answer box records the help the open problem holds.
-        folds = {session["id"]: assists_store.workbench_fold(connection, workbench_session_id=session["id"],
-                                                             practice_item_id=practice_item_id)
-                 for session in sessions}
-    return max((session_hints(session) + folds[session["id"]].hints for session in sessions), default=0)
+        return held_on(connection, practice_item_id)[0]
 
 
 def held_primed(repository: Any, practice_item_id: str) -> bool:
@@ -481,12 +492,7 @@ def held_primed(repository: Any, practice_item_id: str) -> bool:
     hint): every submit for the item is then primed (RW2b, §5.4)."""
 
     with repository.connection() as connection:
-        sessions = store.sessions_where(
-            connection, column="practice_item_id", value=practice_item_id, statuses=("open",),
-        )
-        return any(assists_store.workbench_fold(connection, workbench_session_id=session["id"],
-                                                practice_item_id=practice_item_id).primed
-                   for session in sessions)
+        return held_on(connection, practice_item_id)[1]
 
 
 def _resume_existing(
@@ -1222,6 +1228,7 @@ __all__ = [
     "default_book_visible",
     "ensure_contract",
     "held_hints",
+    "held_on",
     "held_primed",
     "help_fold",
     "import_request",

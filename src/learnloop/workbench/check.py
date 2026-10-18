@@ -16,12 +16,13 @@ transformations are checked by fixed sympy code in the PF-b sandbox
 ran and its controls behaved (G9). It never gives the correction, never a
 score, never a colour.
 
-**Never on Codex.** The check is on the request path (a 10 s p50 target,
-§5.8); the spec recommends a ChatGPT-plan or fast OpenRouter profile and does
-not allow Codex for it, so the same rule as ``hint_writer`` (D9) applies: a
-Codex route is refused before any call, saying why. A metered route is held
-to ``workbench.max_daily_cost_usd`` at ``workbench.price_per_million``
-(unset: refused before sending); every route to ``workbench.max_calls_per_session``.
+**Every route, Codex included** (fix round 1, F12: the owner's decision of
+2026-10-12 lets Codex run every paid role on the subscription, its cost
+estimated from token usage, ``estimated_only``; the spec's D7 recommends a
+ChatGPT-plan or fast OpenRouter profile for the 10 s p50, a target reported,
+not enforced, §5.8). A metered route is held to
+``workbench.max_daily_cost_usd`` at ``workbench.price_per_million`` (unset:
+refused before sending); every route to ``workbench.max_calls_per_session``.
 
 **Help, recorded as one hint-equivalent** (§5.2 "why a check counts as
 help"): the result is a ``help_assists`` row (``assist_kind = 'check'``,
@@ -38,6 +39,7 @@ from contextlib import closing
 from dataclasses import dataclass, field
 import json
 import os
+import re
 import time
 from typing import Any
 
@@ -51,10 +53,10 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import help_assists as assists_store
+from learnloop.db.stores.judgments import append_judgment
 from learnloop.hints import workbench as hint_workbench
 from learnloop.ids import new_ulid
 from learnloop.practice_index.paid import (
-    SUBSCRIPTION_PROFILE_TYPES,
     PaidCalls,
     PaidRoute,
     plan_route,
@@ -70,8 +72,6 @@ PROMPT_VERSION = "workbench_check.v1"
 ENVELOPE = "workbench.max_daily_cost_usd"
 #: Owner kinds the workbench's daily envelope counts (its own calls).
 ENVELOPE_OWNER_KINDS = ("workbench_check",)
-#: Codex's profile types: the check never runs on them (the request path).
-CODEX_PROFILE_TYPES = frozenset(SUBSCRIPTION_PROFILE_TYPES - {"chatgpt_plan"})
 #: ``LEARNLOOP_WORKBENCH_MODELS=off``: no workbench route resolves a real
 #: client (the test suite sets it); an injected client still answers.
 MODELS_ENV = "LEARNLOOP_WORKBENCH_MODELS"
@@ -193,7 +193,7 @@ def build_prompt(item: Any, rubric: Any, steps: Sequence[hint_workbench.Workbenc
 # ---------------------------------------------------------------------------
 
 class CheckUnavailable(Exception):
-    """The check cannot run (``reason``: ``codex_refused`` | ``unrouted`` |
+    """The check cannot run (``reason``: ``unrouted`` |
     ``unpriced`` | ``capped`` | ``session_capped`` | ``unavailable`` |
     ``models_off``); ``message`` is the learner's line."""
 
@@ -210,17 +210,25 @@ def daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None = 
                                price_per_million=section.price_per_million)
 
 
+def session_calls_on(connection: Any, workbench_session_id: str) -> int:
+    """The workbench's own calls for this problem so far, read on
+    ``connection``: its checks' receipts and its bridge searches (one row per
+    search, written before it runs, found or not: fix round 1, F9)."""
+
+    row = connection.execute(
+        "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND owner_id LIKE ? "
+        "AND parent_call_id IS NULL", (OWNER_KIND, f"{workbench_session_id}:%")).fetchone()
+    bridges = connection.execute(
+        "SELECT COUNT(*) FROM help_assists WHERE surface = 'workbench' AND workbench_session_id = ? "
+        "AND assist_kind = 'bridge'", (workbench_session_id,)).fetchone()
+    return int(row[0] or 0) + int(bridges[0] or 0)
+
+
 def session_calls(repository: Repository, workbench_session_id: str) -> int:
-    """The workbench's own calls for this problem so far (its receipts)."""
+    """The workbench's own calls for this problem so far (:func:`session_calls_on`)."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        row = connection.execute(
-            "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind = ? AND owner_id LIKE ? "
-            "AND parent_call_id IS NULL", (OWNER_KIND, f"{workbench_session_id}:%")).fetchone()
-        bridges = connection.execute(
-            "SELECT COUNT(*) FROM help_assists WHERE surface = 'workbench' AND workbench_session_id = ? "
-            "AND assist_kind = 'bridge'", (workbench_session_id,)).fetchone()
-    return int(row[0] or 0) + int(bridges[0] or 0)
+        return session_calls_on(connection, workbench_session_id)
 
 
 class CheckRoute:
@@ -243,12 +251,6 @@ class CheckRoute:
 
     def problem(self) -> CheckUnavailable | None:
         section = self.vault.config.workbench
-        profile_type = str(self.route.profile_type or "").strip().lower()
-        if profile_type in CODEX_PROFILE_TYPES:
-            return CheckUnavailable(
-                "codex_refused",
-                f"Checks aren't run on Codex ({self.route.provider}): it's too slow while you work. Route "
-                "ai.routing.workbench_check to a ChatGPT-plan or fast OpenRouter profile.")
         if self.injected is None and models_off():
             return CheckUnavailable("models_off", f"{MODELS_ENV}=off: no workbench model is reached.")
         if self.injected is None and not self.route.available:
@@ -323,7 +325,8 @@ def _leaks(text: str, item: Any) -> bool:
 
 def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], item: Any, *,
              map_record: Mapping[str, Any] | None, error_kind_enabled: bool,
-             outcomes: Mapping[int, symbolic.SymbolicOutcome] | None = None) -> CheckedSteps:
+             outcomes: Mapping[int, symbolic.SymbolicOutcome] | None = None,
+             unbound: frozenset[int] | set[int] = frozenset()) -> CheckedSteps:
     """The check as shown: every claim checked in code (module docstring)."""
 
     by_number = {step.number: step for step in steps}
@@ -355,8 +358,13 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
         if reason and _leaks(reason, item):
             dropped.append(f"reason_gives_answer:{entry.step}")
             reason = NEUTRAL_REASON if verdict == "questionable" else ""
+        assumption = " ".join(str(entry.assumption or "").split())[:200]
+        if assumption and _leaks(assumption, item):
+            # Fix round 1, F4: every line the learner sees is leak-checked.
+            dropped.append(f"assumption_gives_answer:{entry.step}")
+            assumption = ""
         rows[step.chain_id] = {"step": step, "verdict": verdict, "reason": reason, "quote": quote,
-                               "depends": tuple(dict.fromkeys(depends)), "assumption": str(entry.assumption or "")[:200],
+                               "depends": tuple(dict.fromkeys(depends)), "assumption": assumption,
                                "claim": (str(entry.map.node_id or ""), str(entry.map.route_id or "")),
                                "method": symbolic.MODEL}
     # Symbolic outcomes: a check that ran overrides the model's reading.
@@ -365,8 +373,13 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
         step = by_number.get(number)
         if step is None or step.chain_id not in rows:
             continue
-        symbolic_rows.append({"step": number, **outcome.as_dict()})
+        symbolic_rows.append({"step": number, **outcome.as_dict(), "bound": number not in unbound})
         if outcome.method == symbolic.MODEL or outcome.holds is None:
+            continue
+        if number in unbound:
+            # F3: it checked an expression the learner did not write; the
+            # step keeps the model's reading.
+            dropped.append(f"transformation_not_in_step:{number}")
             continue
         row = rows[step.chain_id]
         row["method"] = outcome.method
@@ -413,27 +426,197 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
                 readings.append((kind, statement))
     else:
         guess = ""
-    assumptions = [" ".join(str(text).split())[:160] for text in output.assumptions if str(text).strip()][:6]
+    assumptions = []
+    for index, text in enumerate(output.assumptions):
+        line = " ".join(str(text).split())[:160]
+        if not line:
+            continue
+        if _leaks(line, item):
+            dropped.append(f"assumptions_gives_answer:{index}")
+            continue
+        assumptions.append(line)
+    assumptions = assumptions[:6]
     return CheckedSteps(verdicts=verdicts, first_questionable=first, error_kind_guess=guess or None,
                         error_kind_reason=reason, readings=readings, assumptions=assumptions, dropped=dropped,
                         symbolic=symbolic_rows)
 
 
-def claims_from(output: WorkbenchCheckOutputV1,
-                steps: Sequence[hint_workbench.WorkbenchStep]) -> list[symbolic.SymbolicClaim]:
-    """The declared transformations, indexed by step number."""
+_NORMAL_SWAPS = (("\\left", ""), ("\\right", ""), ("**", "^"), ("\\cdot", "*"), ("\\times", "*"), ("·", "*"),
+                 ("×", "*"), ("≤", "<="), ("≥", ">="), ("\\leq", "<="), ("\\geq", ">="), ("\\le", "<="),
+                 ("\\ge", ">="), ("−", "-"), ("\\,", ""), ("\\!", ""), ("\\;", ""), ("$", ""), ("{", ""),
+                 ("}", ""))
 
-    numbers = {step.number for step in steps if step.kind == "step"}
+
+def _normal(text: str) -> str:
+    """Text reduced for matching a declared expression to the learner's
+    writing: case, spacing, LaTeX grouping, ``**`` against ``^`` and an
+    implicit product do not matter (``2*x**2`` matches ``2x^2``); a product
+    of two numbers keeps its sign (``6*7`` never matches ``67``)."""
+
+    out = str(text or "").lower()
+    for old, new in _NORMAL_SWAPS:
+        out = out.replace(old, new)
+    out = re.sub(r"\s+", "", out)
+    return re.sub(r"(?<!\d)\*|\*(?!\d)", "", out)
+
+
+def _bound(transformation: Transformation, step: hint_workbench.WorkbenchStep,
+           earlier: Sequence[hint_workbench.WorkbenchStep], problem_text: str) -> bool:
+    """Fix round 1, F3: a declared transformation speaks for the step only
+    when it is the learner's: its result is written in the step (a
+    normalization's result is the fixed one), and its input in the step, an
+    earlier step or the problem. Otherwise it checks some other expression."""
+
+    expression = _normal(transformation.expression)
+    if not expression:
+        return False
+    here = _normal(step.body_md)
+    if transformation.kind != "normalization":
+        result = _normal(transformation.result)
+        if not result or result not in here:
+            return False
+    sources = [here, _normal(problem_text)] + [_normal(other.body_md) for other in earlier]
+    return any(expression in source for source in sources)
+
+
+def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *,
+                problem_text: str = "") -> list[symbolic.SymbolicClaim]:
+    """The declared transformations, indexed by step number, each marked
+    whether it is bound to the learner's own expressions (:func:`_bound`)."""
+
+    by_number = {step.number: step for step in steps if step.kind == "step"}
     claims = []
     for entry in output.steps:
         transformation = entry.transformation
-        if int(entry.step) not in numbers or transformation.kind not in symbolic.KINDS:
+        step = by_number.get(int(entry.step))
+        if step is None or transformation.kind not in symbolic.KINDS:
             continue
+        earlier = [other for other in steps if other.number < step.number]
         claims.append(symbolic.SymbolicClaim(
             index=int(entry.step), kind=transformation.kind, expression=transformation.expression,
             result=transformation.result, variable=transformation.variable, value=transformation.value,
-            lower=transformation.lower, upper=transformation.upper, relation=transformation.relation))
+            lower=transformation.lower, upper=transformation.upper, relation=transformation.relation,
+            bound=_bound(transformation, step, earlier, problem_text)))
     return claims
+
+
+def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None = None
+                        ) -> Callable[[Sequence[Any], Any], list[dict[str, Any]]]:
+    """The check path for a hint's own claims (Reader §5.3 "hints are verified
+    separately"; fix round 1, F14), handed to the hint service: each claim
+    about step n is run through the same sandboxed harness as a check's
+    declared transformation when it is the learner's (its expression and its
+    result each written in step n, an earlier step or the problem, at least
+    one in step n itself); every other claim, every claim with
+    ``workbench.symbolic_checks_enabled`` off and every claim without the
+    sandbox stays the model's reading."""
+
+    problem_text = str(getattr(item, "prompt", "") or "")
+
+    def verify(claims: Sequence[Any], context: Any) -> list[dict[str, Any]]:
+        model = [{"method": symbolic.MODEL, "holds": None, "reason": "not checked"} for _ in claims]
+        if not bool(vault.config.workbench.symbolic_checks_enabled):
+            return model
+        by_number = {step.number: step for step in context.steps}
+        runnable: list[symbolic.SymbolicClaim] = []
+        for index, claim in enumerate(claims):
+            step = by_number.get(int(claim.step))
+            if step is None or claim.kind not in symbolic.KINDS:
+                continue
+            here = _normal(step.body_md)
+            sources = [here, _normal(problem_text)] + [_normal(other.body_md) for other in context.steps
+                                                       if other.number < step.number]
+            expression, result = _normal(claim.expression), _normal(claim.result)
+            parts = [expression] + ([result] if claim.kind != "normalization" else [])
+            if not all(part and any(part in source for source in sources) for part in parts) or not any(
+                    part in here for part in parts):
+                model[index] = {"method": symbolic.MODEL, "holds": None, "reason": "not the learner's expression"}
+                continue
+            runnable.append(symbolic.SymbolicClaim(
+                index=index, kind=claim.kind, expression=claim.expression, result=claim.result,
+                variable=claim.variable, value=claim.value, lower=claim.lower, upper=claim.upper,
+                relation=claim.relation))
+        if runnable:
+            results, problem = symbolic.run_checks(runnable, run=sandbox_run)
+            for outcome in results:
+                model[outcome.index] = {"method": outcome.method, "holds": outcome.holds,
+                                        "reason": problem or outcome.reason}
+        return model
+
+    return verify
+
+
+# ---------------------------------------------------------------------------
+# The verdicts in judgment_ledger (spec W10; fix round 1, F10)
+# ---------------------------------------------------------------------------
+
+#: The model's verdict per step (judge ``llm``) and the sandbox's per declared
+#: transformation (judge ``verifier``); the subject is the check's
+#: ``help_assists`` row (left) and the step's chain id (right).
+LEDGER_TASK = "workbench_check"
+LEDGER_TASK_SYMBOLIC = "workbench_check_symbolic"
+
+
+def _step_of(entry: str) -> str | None:
+    """The step number a ``dropped`` entry names (``kind:3``, ``kind:3->1``)."""
+
+    _kind, _sep, rest = entry.partition(":")
+    return rest.split("->", 1)[0] if rest else None
+
+
+def ledger_rows(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep],
+                checked: CheckedSteps, claims: Sequence[symbolic.SymbolicClaim],
+                outcomes: Mapping[int, symbolic.SymbolicOutcome], *, sandbox_ran: bool) -> list[dict[str, Any]]:
+    """What the check appends to ``judgment_ledger`` (pure): one ``llm``
+    verdict per step the model judged, with what validation did to it and
+    the verdict shown; one ``verifier`` verdict per declared transformation
+    the sandbox ran (whether it was bound to the learner's step, F3)."""
+
+    by_number = {step.number: step for step in steps}
+    shown = {verdict.chain_id: verdict for verdict in checked.verdicts}
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in output.steps:
+        step = by_number.get(int(entry.step))
+        if step is None or step.chain_id in seen:
+            continue
+        seen.add(step.chain_id)
+        verdict = entry.verdict if entry.verdict in VERDICTS else "unchecked"
+        final = shown.get(step.chain_id)
+        rationale = {
+            "step": step.number, "shown_verdict": final.verdict if final else None,
+            "method": final.method if final else symbolic.MODEL,
+            "validation": [item for item in checked.dropped if _step_of(item) == str(step.number)],
+        }
+        if final is not None and final.chain_id == checked.first_questionable and checked.error_kind_guess:
+            rationale["error_kind_guess"] = checked.error_kind_guess
+        rows.append({"task": LEDGER_TASK, "judge": "llm", "right_id": step.chain_id, "verdict": verdict,
+                     "rationale": rationale})
+    if sandbox_ran:
+        for claim in claims:
+            outcome = outcomes.get(claim.index)
+            step = by_number.get(claim.index)
+            if outcome is None or step is None:
+                continue
+            verdict = "undecided" if outcome.method == symbolic.MODEL or outcome.holds is None else (
+                "holds" if outcome.holds else "does_not_follow")
+            rows.append({"task": LEDGER_TASK_SYMBOLIC, "judge": "verifier", "right_id": step.chain_id,
+                         "verdict": verdict, "claim": claim.payload(),
+                         "rationale": {"step": step.number, "kind": claim.kind, "method": outcome.method,
+                                       "bound": claim.bound, "reason": outcome.reason}})
+    return rows
+
+
+def _append_ledger(connection: Any, assist_id: str, rows: Sequence[Mapping[str, Any]], *, model: str | None,
+                   input_hash: str, created_at: str) -> None:
+    for row in rows:
+        llm = row["judge"] == "llm"
+        append_judgment(
+            connection, task=str(row["task"]), left_kind="help_assist", left_id=assist_id,
+            right_kind="workbench_step", right_id=str(row["right_id"]), judge=str(row["judge"]),
+            judge_model=(model or "unknown") if llm else None, prompt_version=PROMPT_VERSION if llm else None,
+            input_hash=input_hash if llm else content_key(row.get("claim") or {}), verdict=str(row["verdict"]),
+            rationale=json.dumps(row["rationale"], sort_keys=True), created_at=created_at)
 
 
 # ---------------------------------------------------------------------------
@@ -519,12 +702,15 @@ def run_check(
         return CheckResult("unavailable", reason="cancelled", message=None)
     outcomes: dict[int, symbolic.SymbolicOutcome] = {}
     sym_problem = None
+    unbound: set[int] = set()
+    claims: list[symbolic.SymbolicClaim] = []
     if section.symbolic_checks_enabled:
-        claims = claims_from(output, live)
+        claims = claims_from(output, live, problem_text=str(getattr(item, "prompt", "") or ""))
+        unbound = {claim.index for claim in claims if not claim.bound}
         results, sym_problem = symbolic.run_checks(claims, run=sandbox_run) if claims else ([], None)
         outcomes = {outcome.index: outcome for outcome in results}
     checked = validate(output, live, item, map_record=map_record, error_kind_enabled=section.error_kind_enabled,
-                       outcomes=outcomes)
+                       outcomes=outcomes, unbound=unbound)
     checked.symbolic_problem = sym_problem
     latency = int((time.monotonic() - started) * 1000)
     context = hint_workbench.WorkbenchHintContext(workbench_session_id=workbench_session_id, steps=tuple(live),
@@ -552,8 +738,14 @@ def run_check(
         "model": route.model, "prompt_version": PROMPT_VERSION, "input_hash": content_key(prompt),
         "latency_ms": latency, "requested_at": requested_at,
     }
+    ledger = ledger_rows(output, live, checked, claims, outcomes,
+                         sandbox_ran=bool(claims) and sym_problem is None)
     with repository.atomic():
-        assists_store.insert_assist(repository.connection(), row)
+        connection = repository.connection()
+        assists_store.insert_assist(connection, row)
+        # W10 (F10): the model's and the verifier's verdicts, in the row's transaction.
+        _append_ledger(connection, assist_id, ledger, model=route.model, input_hash=row["input_hash"],
+                       created_at=requested_at)
     return CheckResult("ready", assist_id=assist_id, row=row)
 
 
@@ -582,6 +774,10 @@ def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchS
             "reason": verdict.reason, "depends_on": list(verdict.depends_on), "assumption": verdict.assumption,
             "first": verdict.chain_id == row.get("first_questionable_step_id"),
             "edited_since_check": changed, "deleted_since_check": step is None,
+            # Fix round 1, F6: the text this verdict was about (the learner's
+            # own, bounded as the snapshot is), so the workbench dims the
+            # marker the moment the step is edited, before any save or call.
+            "checked_text": str((snapshot.get(verdict.chain_id) or {}).get("body_md") or ""),
         })
     guess = row.get("error_kind_guess")
     error_kind = None
@@ -602,12 +798,13 @@ def check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchS
 
 
 __all__ = [
-    "CODEX_PROFILE_TYPES",
     "CheckResult",
     "CheckRoute",
     "CheckUnavailable",
     "CheckedSteps",
     "ENVELOPE",
+    "LEDGER_TASK",
+    "LEDGER_TASK_SYMBOLIC",
     "MARKS",
     "METHOD_LABELS",
     "MODELS_ENV",
@@ -619,9 +816,12 @@ __all__ = [
     "check_view",
     "claims_from",
     "daily_envelope",
+    "hint_claim_verifier",
     "last_check",
+    "ledger_rows",
     "run_check",
     "session_calls",
+    "session_calls_on",
     "steps_hash",
     "validate",
 ]

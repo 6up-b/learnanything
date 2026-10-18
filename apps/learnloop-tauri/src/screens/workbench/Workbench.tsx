@@ -32,7 +32,7 @@ import { HelpLadder } from "./HelpLadder";
 import { HelpStyleControl } from "./HelpStyleControl";
 import { HintCard, type StepOption } from "./StepHints";
 import { WhereThisGoes } from "./WhereThisGoes";
-import { HELP_COPY, verdictFor } from "./helpModel";
+import { HELP_COPY, verdictFor, withLocalEdits } from "./helpModel";
 import { useWorkbenchHelp } from "./useWorkbenchHelp";
 
 export type WorkbenchLayout = "split" | "stacked" | "full";
@@ -139,6 +139,17 @@ export function Workbench(props: WorkbenchProps) {
     const chain = stepChain(step);
     return chain ? [{ chainId: chain, number: index + 1 }] : [];
   });
+  // Review F6: the last check against the steps on screen now (an edit dims
+  // its marker at once, with no save or model call).
+  const check = helpOn ? withLocalEdits(help.check, live.map((step) => ({ chainId: stepChain(step), body: step.body }))) : null;
+  // Review F5: help aimed at no saved step (a fresh problem's first move, a
+  // step deleted since) is placed under the problem's steps, never dropped.
+  const liveChains = new Set(stepOptions.map((option) => option.chainId));
+  const onAStep = (stepId: string | null) => stepId !== null && liveChains.has(stepId);
+  const ladderLoose = helpOn && help.ladder.open && !onAStep(help.ladder.focusedStepId ?? focusedChain);
+  const pendingLoose = Boolean(helpOn && help.hintPending && !onAStep(help.hintPending.stepId ?? focusedChain));
+  const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain));
+  const looseHints = helpOn ? help.hints.filter((hint) => !onAStep(hint.aboutStepId)) : [];
 
   function runCheck() {
     if (canHelp) void help.runCheck();
@@ -444,13 +455,13 @@ export function Workbench(props: WorkbenchProps) {
             />
           );
           const chain = stepChain(step);
-          const verdict = helpOn && chain ? verdictFor(help.check, chain) : null;
+          const verdict = helpOn && chain ? verdictFor(check, chain) : null;
           const stepHints = helpOn && chain ? help.hints.filter((hint) => hint.aboutStepId === chain) : [];
           const ladderHere = helpOn && help.ladder.open && chain !== null && (help.ladder.focusedStepId ?? focusedChain) === chain;
           const pendingHere = helpOn && help.hintPending && chain !== null && (help.hintPending.stepId ?? focusedChain) === chain;
           const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain;
           // UX §5.2: focusing a step lightly outlines the steps it depends on (the last check's graph).
-          const focusedVerdict = helpOn && focusedKey ? verdictFor(help.check, stepChain(live.find((entry) => entry.key === focusedKey) ?? step) ?? "") : null;
+          const focusedVerdict = helpOn && focusedKey ? verdictFor(check, stepChain(live.find((entry) => entry.key === focusedKey) ?? step) ?? "") : null;
           const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain));
           return (
             <li key={step.key} data-step-key={step.key} data-depended-on={outlined ? "true" : undefined}
@@ -460,7 +471,7 @@ export function Workbench(props: WorkbenchProps) {
               <div style={{ flex: 1, minWidth: 0, opacity: step.kind === "stuck" ? 0.8 : 1 }}>
                 {step.kind === "stuck" ? <LearnerVoice label="you · stuck">{editor}</LearnerVoice> : editor}
                 {helpOn && step.kind === "stuck" && !readOnly ? <WhereThisGoes box="stuck" /> : null}
-                {helpOn && help.check && chain ? <QuestionableNote check={help.check} chainId={chain} /> : null}
+                {helpOn && check && chain ? <QuestionableNote check={check} chainId={chain} /> : null}
                 {stepHints.map((hint) => (
                   <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
                     bridge={help.bridges[hint.assistId]}
@@ -504,7 +515,7 @@ export function Workbench(props: WorkbenchProps) {
                   </div>
                 ) : null}
               </div>
-              {helpOn && help.check ? <VerdictCell verdict={verdict} /> : null}
+              {helpOn && check ? <VerdictCell verdict={verdict} /> : null}
               {!readOnly ? (
                 <button type="button" aria-label={`delete step ${number}`} aria-disabled={leaving} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
                   delete
@@ -514,6 +525,32 @@ export function Workbench(props: WorkbenchProps) {
           );
         })}
       </ol>
+      {looseHints.length || pendingLoose || noticeLoose || ladderLoose ? (
+        <div data-testid="workbench-problem-help" style={{ display: "flex", flexDirection: "column", gap: 4, marginLeft: 36 }}>
+          {looseHints.map((hint) => (
+            <HintCard key={hint.assistId} hint={hint} steps={stepOptions} pending={Boolean(help.hintPending) || !canHelp}
+              bridge={help.bridges[hint.assistId]}
+              onReply={(reply) => void help.reply(hint, reply)} onBookWay={() => void help.bookWay(hint)}
+              onSmallerStep={() => void help.smallerStep(hint)}
+              onAnswer={(text) => void help.answerDiscriminating(hint, text)}
+              onSkip={() => help.openHelp(hint.aboutStepId)} onPeek={props.onPeekPassage ? peek : undefined} />
+          ))}
+          {pendingLoose ? (
+            <div role="status" aria-live="polite">
+              <MeaningLabel style={{ fontSize: 11 }}><span aria-hidden="true">◐</span> {HELP_COPY.writing}</MeaningLabel>{" "}
+              <button type="button" style={{ ...linkStyle, fontSize: 10 }} onClick={() => void help.cancelHint()}>cancel</button>
+            </div>
+          ) : null}
+          {noticeLoose && help.notice ? (
+            <div role="status" aria-live="polite"><MeaningLabel style={{ fontSize: 11 }}>{help.notice.message}</MeaningLabel></div>
+          ) : null}
+          {ladderLoose ? (
+            <HelpLadder ladder={help.ladder} onChoose={help.choose}
+              onTake={(level) => void help.take(level)}
+              onClose={() => help.closeHelp()} />
+          ) : null}
+        </div>
+      ) : null}
       {!readOnly && open ? (
         <button type="button" aria-disabled={leaving} style={{ ...linkStyle, alignSelf: "flex-start", fontSize: 10 }} onClick={() => { if (!leaving) requestFocus(wb.addStep(live[live.length - 1]?.key ?? null, "step")); }}>
           + a step
@@ -617,7 +654,7 @@ export function Workbench(props: WorkbenchProps) {
           <MeaningLabel style={{ fontSize: 11, color: COLOR.amber }}>{leaveNote}</MeaningLabel>
         </div>
       ) : null}
-      {helpOn ? <CheckSummary check={help.check} pending={help.checkPending} notice={help.checkNotice} /> : null}
+      {helpOn ? <CheckSummary check={check} pending={help.checkPending} notice={help.checkNotice} /> : null}
       {confidenceRow}
       {recordLine}
       {actions}

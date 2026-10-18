@@ -1353,10 +1353,10 @@ class AIRoutingConfig(BaseModel):
     # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
     # work", one structured chat call on the request path (step verdicts,
     # the step graph, the map node each valid step reaches, the error-kind
-    # guess, the declared symbolic checks). Empty = ai.active_provider, but
-    # it never resolves to Codex (too slow for the request path, the same
-    # rule as hint_writer): the check is refused there and says so. A
-    # metered profile is held to workbench.max_daily_cost_usd at
+    # guess, the declared symbolic checks). Empty = ai.active_provider.
+    # Codex runs it on the owner's subscription (estimated_only, fix round 1,
+    # F12; the spec's D7 recommends a ChatGPT-plan or fast OpenRouter profile
+    # for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
     # workbench.price_per_million (unset: refused before sending).
     workbench_check: str | None = None
 
@@ -2129,7 +2129,7 @@ class WorkbenchConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=1.0, ge=0)
     #: The owner's price (USD per million tokens) for a METERED
     #: ``ai.routing.workbench_check`` profile; unset, a metered check is
-    #: refused before it is sent. Codex never runs a check (the request path).
+    #: refused before it is sent. Codex needs none (estimated_only).
     price_per_million: float | None = Field(default=None, gt=0)
 
 

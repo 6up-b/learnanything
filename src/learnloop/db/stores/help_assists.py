@@ -376,12 +376,33 @@ def bind_workbench_rows(connection: sqlite3.Connection, *, workbench_session_id:
                              attempt_id=attempt_id)
 
 
+#: The columns a bridge search writes once it has run (RW2b fix round 1, F9).
+_BRIDGE_RESULT_COLUMNS = ("body_md", "placement_json", "cited_span_ids_json", "retrieval_manifest_json")
+
+
+def settle_bridge(connection: sqlite3.Connection, assist_id: str, fields: Mapping[str, Any]) -> bool:
+    """A bridge search's outcome on the row written before it ran (its place
+    among the problem's calls): only its result columns, only while unshown."""
+
+    names = [name for name in fields if name in _BRIDGE_RESULT_COLUMNS]
+    if not names:
+        return False
+    cursor = connection.execute(
+        f"UPDATE help_assists SET {', '.join(f'{name} = ?' for name in names)} "
+        "WHERE id = ? AND assist_kind = 'bridge' AND shown = 0",
+        (*[fields[name] for name in names], assist_id),
+    )
+    return bool(cursor.rowcount)
+
+
 def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
-    """A bridge (counted by neither) delivered to the workbench: shown once."""
+    """A bridge (counted by neither) delivered to the workbench: shown once,
+    and only one that found a passage (a search's row is written before it
+    runs, RW2b fix round 1, F9)."""
 
     cursor = connection.execute(
         "UPDATE help_assists SET shown = 1, shown_at = ? WHERE id = ? AND shown = 0 AND assist_kind = 'bridge' "
-        "AND counted_by IS NULL",
+        "AND counted_by IS NULL AND cited_span_ids_json IS NOT NULL",
         (shown_at, assist_id),
     )
     return bool(cursor.rowcount)
@@ -400,5 +421,5 @@ __all__ = [
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",
-    "WorkbenchFold", "bind_workbench_rows", "mark_bridge_shown", "workbench_fold", "workbench_rows",
+    "WorkbenchFold", "bind_workbench_rows", "mark_bridge_shown", "settle_bridge", "workbench_fold", "workbench_rows",
 ]

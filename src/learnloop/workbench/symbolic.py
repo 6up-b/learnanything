@@ -11,8 +11,14 @@ stays the model's reading.
 Each check is trusted only when its **controls behave**: a negative control
 (the claimed result perturbed) must be rejected, and, where sympy can compute
 the true result, a positive control (that result) must be accepted. Then a
-passing claim is *checked* (``✓``) and a failing one *doesn't follow* (``≠``).
-Inequalities are sampled numerically and labelled "checked numerically".
+claim sympy decides exactly is *checked* (``✓`` holds, ``≠`` doesn't follow):
+it simplifies to an identity, an exact number is not zero, or it fails at
+sampled points on both sides of zero. One that vanishes at every sampled
+point on both signs but that sympy cannot prove, or a decimal constant, is
+*checked numerically*; one that holds on part of the samples only (an
+identity on a domain the step does not state, ``Abs(x) = x``,
+``sqrt(x**2) = x``) is the model's reading (fix round 1, F2). Inequalities are
+sampled numerically and labelled "checked numerically".
 
 Declared kinds (§5.3): ``equivalence``, ``differentiation``, ``integration``
 (indefinite, or definite with stated bounds), ``substitution``, ``solving``,
@@ -50,6 +56,10 @@ class SymbolicClaim:
     lower: str = ""
     upper: str = ""
     relation: str = ""
+    #: Whether the claim's expressions are the learner's own (fix round 1,
+    #: F3: :func:`learnloop.workbench.check.claims_from`); an unbound claim is
+    #: checked and recorded but never decides the step's verdict.
+    bound: bool = True
 
     def payload(self) -> dict[str, Any]:
         return {"index": self.index, "kind": self.kind, "expression": self.expression[:MAX_EXPRESSION_CHARS],
@@ -123,29 +133,86 @@ def equation(text):
     return parse(text)
 
 
+EXACT, NUMERIC = "exact", "numeric"
+
+
+def _floats(expression):
+    return bool(expression.atoms(sympy.Float))
+
+
+def _value(expression, point=None):
+    """A complex value at ``point`` (30 digits), or None when it has none."""
+    try:
+        number = complex(sympy.N(expression.subs(point) if point else expression, 30))
+    except (TypeError, ValueError, ZeroDivisionError, OverflowError):
+        return None
+    if number != number or abs(number) == float("inf"):
+        return None
+    return number
+
+
+def _tolerance(expression):
+    """Zero within rounding: tight for exact numbers, relative to the
+    magnitudes written for decimals (0.1 + 0.2 = 0.3)."""
+    if not _floats(expression):
+        return 1e-20
+    scale = max([1.0] + [abs(float(atom)) for atom in expression.atoms(sympy.Float)])
+    return 1e-12 * scale
+
+
 def zero(value):
-    """Identically zero: simplify, else (with free symbols) zero at sampled
-    points, else numerically zero."""
+    """Whether ``value`` is identically zero, and how that was decided:
+    ``(True, EXACT)`` when sympy simplifies it to zero; ``(False, EXACT)`` when
+    an exact number is not zero, or when it is non-zero at every sampled point
+    on BOTH sides of zero (so no sign or domain restriction rescues the
+    identity); ``(True, NUMERIC)`` when it vanishes at every sampled point on
+    both sides but sympy could not prove it; ``(False, NUMERIC)`` for a
+    decimal constant off zero; ``(None, None)`` when it cannot tell (zero on
+    part of the samples only: an identity that holds on a domain, such as
+    ``Abs(x) = x`` or ``sqrt(x**2) = x`` for x >= 0, which the step does not
+    state; or too few points evaluate). Fix round 1, F2: "checked" is never
+    given for a numerically small constant or a domain-dependent identity."""
     simplified = sympy.simplify(value)
     if simplified == 0:
-        return True
+        return True, EXACT
     free = sorted(simplified.free_symbols, key=lambda s: s.name)
     if not free:
-        return abs(complex(sympy.N(simplified))) < 1e-9
+        if not _floats(simplified):
+            if simplified.is_zero is False:
+                return False, EXACT
+            if simplified.is_zero is True:
+                return True, EXACT
+        number = _value(simplified)
+        if number is None:
+            return None, None
+        return abs(number) <= _tolerance(simplified), NUMERIC
     rng = random.Random(11)
-    checked = 0
-    for _ in range(12):
-        point = {s: rng.uniform(0.3, 2.7) for s in free}
-        try:
-            number = complex(sympy.N(simplified.subs(point)))
-        except (TypeError, ValueError):
+    tolerance = _tolerance(simplified)
+    zeros = nonzeros = 0
+    for index in range(16):
+        # Both signs for every variable: the first point all positive, the
+        # second all negative, the rest mixed.
+        if index == 0:
+            signs = {s: 1 for s in free}
+        elif index == 1:
+            signs = {s: -1 for s in free}
+        else:
+            signs = {s: rng.choice((-1, 1)) for s in free}
+        point = {s: sympy.Rational(rng.randint(30, 270), 100) * signs[s] for s in free}
+        number = _value(simplified, point)
+        if number is None:
             continue
-        if number != number:
-            continue
-        checked += 1
-        if abs(number) > 1e-7:
-            return False
-    return checked >= 3
+        if abs(number) <= tolerance:
+            zeros += 1
+        else:
+            nonzeros += 1
+    if zeros + nonzeros < 6:
+        return None, None
+    if nonzeros == 0:
+        return True, NUMERIC
+    if zeros == 0:
+        return False, EXACT if not _floats(simplified) else NUMERIC
+    return None, None
 
 
 def symbol(claim, expression):
@@ -186,7 +253,8 @@ def truth(claim):
 
 
 def holds(claim, result_text):
-    """Whether the step's claim holds with ``result_text`` as its result."""
+    """Whether the step's claim holds with ``result_text`` as its result, and
+    how it was decided (:func:`zero`): ``(holds, how)``."""
     kind = claim["kind"]
     if kind == "normalization":
         # The density's integral over the support equals the result (one).
@@ -279,13 +347,20 @@ def run(claim):
         # The controls are taken around the TRUE result (sympy's): it must be
         # accepted, and a perturbed one rejected; only then does the claim's
         # verdict mean anything.
-        if not holds(claim, str(true)):
+        if holds(claim, str(true))[0] is not True:
             return {"method": "model", "holds": None, "reason": "the positive control was rejected"}
-        if holds(claim, perturbed(claim, str(true))):
+        if holds(claim, perturbed(claim, str(true)))[0] is not False:
             return {"method": "model", "holds": None, "reason": "the negative control was accepted"}
-    elif holds(claim, perturbed(claim, claim["result"])):
+    elif holds(claim, perturbed(claim, claim["result"]))[0] is not False:
         return {"method": "model", "holds": None, "reason": "the negative control was accepted"}
-    return {"method": "checked", "holds": bool(holds(claim, claim["result"])), "reason": ""}
+    verdict, how = holds(claim, claim["result"])
+    if verdict is None:
+        # Fix round 1, F2: true on part of the samples only (a domain the
+        # step does not state) or too few points: the model's reading.
+        return {"method": "model", "holds": None, "reason": "holds only on part of the domain, or undecided"}
+    if how == EXACT:
+        return {"method": "checked", "holds": bool(verdict), "reason": ""}
+    return {"method": "checked_numerically", "holds": bool(verdict), "reason": "sampled points on both signs"}
 
 
 with open(workdir + "/input.json", encoding="utf-8") as handle:

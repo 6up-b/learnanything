@@ -17,9 +17,11 @@ DELIVERS it (:func:`learnloop.hints.workbench.deliver_workbench`, inside H2a's
 delivery and fence): its prepared ``help_assists`` row becomes shown, and a
 hint's key overlap writes its ``tutor_answer`` reveal with basis
 ``workbench_hint:<kind>:L<n>`` in the same transaction (the authored kind
-exempt, H2b's ruling). A row is delivered only while its problem's submission
-has not been admitted (the submit stamps its rows before it reads the fold),
-so every shown row is counted at Submit and no row is shown after (G-H3).
+exempt, H2b's ruling). A row stamped by its problem's submit is never
+delivered after; a row written later and shown while the submit grades is
+counted by the attempt's transactional refold (fix round 1, F1); none is
+shown once the attempt commits (G-H3). Every read re-checks the switches
+(F13).
 A delivered hint in the Reader starts the bridge to the book in the background
 (``workbench.bridge_enabled``), which never delays the hint.
 """
@@ -289,10 +291,15 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
     writer, factory, seed = _hint_clients(ctx)
     labels = _context_labels(context)
 
+    verifier = check_module.hint_claim_verifier(vault, item, sandbox_run=getattr(ctx, "workbench_sandbox_run", None))
+
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
         result = hint_service.request_hint(vault, worker_repo, request, writer_client=writer,
-                                           chooser_client_factory=factory, seed=seed, cancelled=cancelled)
+                                           chooser_client_factory=factory, seed=seed, cancelled=cancelled,
+                                           claim_verifier=verifier)
         payload = result.as_dict()
+        # Reader §5.3 (F14): the hint's claims as checked, each labelled.
+        payload["claims"] = help_module.served_claims(worker_repo, result.assist_id)
         payload["steps"] = labels
         payload["step_line"] = hint_workbench.step_labels(context)["line"]
         if result.status == hint_service.UNAVAILABLE and result.reason in help_module.WRITER_DOWN_REASONS:
@@ -372,6 +379,9 @@ def _payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
         raise SidecarError("not_found", "That request is no longer kept; ask again.")
     base = {"job_id": job.job_id, "kind": meta.kind}
     with job.lock:
+        if meta.kind == BRIDGE and not job.delivered and not bool(_vault.config.workbench.bridge_enabled):
+            # F13: the bridge's switch went off while it searched.
+            job.cancelled = True
         if job.cancelled and not job.delivered:
             return versioned({**base, "state": "cancelled", "result": None})
         if not job.done.is_set():
@@ -417,8 +427,22 @@ def _record(ctx: SidecarContext, session_id: str) -> dict[str, Any]:
 
 @method("workbench.help_job", HelpJobInput)
 def help_job(ctx: SidecarContext, params: HelpJobInput) -> dict[str, Any]:
-    """A check, suggestion, hint or bridge job's state, at once (never a wait)."""
+    """A check, suggestion, hint or bridge job's state, at once (never a wait).
 
+    The switches are read again here (fix round 1, F13): with
+    ``workbench.help_enabled`` off (a reload while a job was pending) the job
+    is cancelled before anything is delivered, counted or bridged, and the
+    read refuses ``help_disabled``; a bridge waiting while
+    ``workbench.bridge_enabled`` went off is cancelled, never shown."""
+
+    vault, _repository = ctx.require_vault()
+    if not help_module.help_enabled(vault):
+        job = _jobs(ctx).get(params.job_id)
+        if job is not None:
+            with job.lock:
+                if not job.delivered:
+                    job.cancelled = True
+        raise SidecarError("help_disabled", "Checks and help are switched off (workbench.help_enabled = false).")
     return _payload(ctx, params.job_id)
 
 
@@ -461,8 +485,12 @@ def _start_bridge(ctx: SidecarContext, meta: _JobMeta, hint_assist_id: str) -> s
     def work(worker_repo: Any, _cancelled: Callable[[], bool]) -> dict[str, Any]:
         from learnloop.workbench.bridge import bridge_for_hint
 
+        # F9: the search is one of the problem's calls (reserved before it
+        # runs) and its metered calls join the workbench's daily envelope.
         return bridge_for_hint(vault, worker_repo, workbench_session_id=meta.session_id,
-                               hint_assist_id=hint_assist_id, item=item, provider=provider)
+                               hint_assist_id=hint_assist_id, item=item, provider=provider,
+                               envelope=check_module.daily_envelope(vault, worker_repo),
+                               max_calls=int(vault.config.workbench.max_calls_per_session))
 
     job = _jobs(ctx).start(ctx, item.id, work)
     _meta(ctx)[job.job_id] = _JobMeta(BRIDGE, meta.session_id, item.id)

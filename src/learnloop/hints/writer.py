@@ -340,14 +340,15 @@ class WriterRoute:
 
     _owner_id = "hint"
 
-    def ask(self, prompt: str, *, owner_id: str, metadata: Mapping[str, Any]) -> HintWriterOutputV1:
+    def ask(self, prompt: str, *, owner_id: str, metadata: Mapping[str, Any],
+            result_model: type[HintWriterOutputV1] = HintWriterOutputV1) -> HintWriterOutputV1:
         if self.calls is None:
             self._owner_id = owner_id
             self.open()
         assert self.calls is not None
         self.calls.owner_id = owner_id
         with spend_envelopes(self.envelope):
-            return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=HintWriterOutputV1,
+            return self.calls.call(self.client, purpose=PURPOSE, prompt=prompt, result_model=result_model,
                                    output_tokens=self.route.output_tokens, metadata=dict(metadata),
                                    deadline=self.deadline)
 

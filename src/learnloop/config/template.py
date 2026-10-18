@@ -1357,7 +1357,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # bridge_enabled (all true), max_calls_per_session = 24,
     # max_daily_cost_usd = 1.00 and price_per_million (unset; modelled
     # defaults, left out of the decision-only template) and the chat route
-    # ai.routing.workbench_check (unset: the active provider, never Codex). A
+    # ai.routing.workbench_check (unset: the active provider; Codex allowed,
+    # estimated_only). A
     # shown check or hint reaches the attempt only through hints_used (one
     # each, levels 1-3) and primed (levels 4-5) and a tutor_answer reveal on
     # key overlap, with their existing meaning, so no scoring, scheduling,

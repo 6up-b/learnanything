@@ -13,7 +13,7 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import { quietLine, quietLink } from "../../components/PlainParts";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { MeaningLabel, ModelVoice } from "../reader/voices";
-import { HELP_COPY, WORKBENCH_SHORTCUTS, hintLabel } from "./helpModel";
+import { HELP_COPY, WORKBENCH_SHORTCUTS, claimLine, hintLabel } from "./helpModel";
 import type { BridgeState } from "./useWorkbenchHelp";
 import { WhereThisGoes } from "./WhereThisGoes";
 
@@ -149,6 +149,17 @@ export function HintCard({
     <div data-testid="workbench-hint" data-hint-kind={hint.kind} data-level={hint.level} style={{ marginTop: 4 }}>
       <Voice note={hintLabel(hint).replace(/^◇ model · /, "")}>
         <MarkdownMath value={hint.hintMd} />
+        {hint.claims?.length ? (
+          // Reader §5.3 (review F14): what the hint claims about a step, each
+          // labelled checked or the model's reading.
+          <div data-testid="workbench-hint-claims" style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {hint.claims.map((claim, index) => (
+              <MeaningLabel key={index} style={{ fontSize: 11 }}>
+                <span data-claim-status={claim.status}>{claimLine(claim)}</span>
+              </MeaningLabel>
+            ))}
+          </div>
+        ) : null}
         {asking ? (
           <DiscriminatingBox hint={hint} disabled={pending} onAnswer={onAnswer} onSkip={onSkip} />
         ) : null}

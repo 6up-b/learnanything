@@ -112,6 +112,40 @@ export function verdictFor(check: CheckViewDto | null, chainId: string) {
   return check?.verdicts.find((verdict) => verdict.chainId === chainId) ?? null;
 }
 
+/** The bound the server keeps of a checked step's text (its snapshot). */
+export const CHECKED_TEXT_CHARS = 2000;
+
+/** The check as it stands against the steps on screen now (review F6): a
+ *  step edited since the check dims its marker and joins the stale line at
+ *  once, before any save or model call; a step deleted here is stale too. */
+export function withLocalEdits(
+  check: CheckViewDto | null,
+  steps: readonly { chainId: string | null; body: string }[],
+): CheckViewDto | null {
+  if (!check) return null;
+  const bodies = new Map<string, string>();
+  for (const step of steps) if (step.chainId) bodies.set(step.chainId, step.body);
+  let moved = false;
+  const changed = new Set(check.changedSteps);
+  const verdicts = check.verdicts.map((verdict) => {
+    if (verdict.editedSinceCheck || verdict.checkedText === undefined) return verdict;
+    const body = bodies.get(verdict.chainId);
+    const edited = body === undefined || body.slice(0, CHECKED_TEXT_CHARS) !== verdict.checkedText;
+    if (!edited) return verdict;
+    moved = true;
+    if (verdict.number !== null) changed.add(verdict.number);
+    return { ...verdict, editedSinceCheck: true, deletedSinceCheck: verdict.deletedSinceCheck || body === undefined };
+  });
+  if (!moved) return check;
+  return { ...check, verdicts, stale: true, changedSteps: [...changed].sort((a, b) => a - b) };
+}
+
+/** A hint's claim as shown under it (Reader §5.3, review F14). */
+export function claimLine(claim: { statement: string; status: string; label: string }): string {
+  const mark = claim.status === "model" ? "≈" : "✓";
+  return `${mark} ${claim.statement} — ${claim.label}`;
+}
+
 /** "checked your steps as of 21:42 — step 3 has changed since" (UX §5.4). */
 export function staleLine(check: CheckViewDto | null): string | null {
   if (!check || !check.stale) return null;

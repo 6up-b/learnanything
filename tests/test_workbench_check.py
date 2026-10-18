@@ -5,7 +5,7 @@ sandbox's symbolic check ran and its controls behaved (and without
 bubblewrap every marker is the model's reading); never the correction, never
 a score; the first questionable step with a reason quoting it; the
 error-kind guess labelled as the model's guess. A check is one hint once
-shown and never on Codex; the per-problem call cap and the daily money cap
+shown, on any route (Codex estimated from tokens); the per-problem call cap and the daily money cap
 hold; an unchanged re-check counts nothing; a check cancelled before it was
 read counts nothing. Fakes only (the symbolic harness runs in the real
 sandbox where bubblewrap is installed, else through a fake runner).
@@ -101,8 +101,10 @@ def test_editing_a_checked_step_marks_it_stale_and_a_new_check_runs(tmp_path):
 def test_a_checked_step_says_checked_only_when_the_sandbox_ran_and_its_controls_behaved(tmp_path):
     def answer(context):
         payload = check_answer(context)
-        payload["steps"][0]["transformation"] = _transformation(kind="integration", expression="2*t", result="x**2",
-                                                                variable="t", lower="0", upper="x")
+        # Each claim is the learner's own (fix round 1, F3): its input in the
+        # problem or an earlier step, its result in the step.
+        payload["steps"][0]["transformation"] = _transformation(kind="integration", expression="2*x", result="x**2",
+                                                                variable="x")
         payload["steps"][1]["transformation"] = _transformation(kind="substitution", expression="x**2",
                                                                 result="1/4 + 1", variable="x", value="1/2")
         return payload
@@ -126,7 +128,7 @@ def test_a_checked_step_says_checked_only_when_the_sandbox_ran_and_its_controls_
     original = pf.require_sandbox
     pf.require_sandbox = lambda: "/usr/bin/bwrap"
     try:
-        wb, _chains = open_problem(ctx)
+        wb, _chains = open_problem(ctx, steps=(STEP_1, "so F(1/2) = 1/4 + 1"))
         view = _check(ctx, wb)["check"]
     finally:
         pf.require_sandbox = original
@@ -204,14 +206,20 @@ def test_unknown_steps_later_dependencies_and_foreign_quotes_are_dropped(tmp_pat
     assert {"unknown_step:7", "depends_on_not_earlier:1->2", "quote_not_in_step:2"} <= set(dropped)
 
 
-def test_a_check_never_runs_on_codex_and_counts_nothing(tmp_path):
+def test_a_check_runs_on_codex_with_its_cost_estimated_from_tokens(tmp_path):
+    # Fix round 1, F12: the owner's decision (2026-10-12) lets Codex run every
+    # paid role on the subscription; no price is needed and the receipt is
+    # estimated_only.
+    from tests.hint_fakes import receipts
+
     paths, ctx, _session = sidecar(tmp_path, check=CheckFake(provider_type="codex_sdk"))
     wb, _chains = open_problem(ctx)
     result = _check(ctx, wb)
-    assert result["status"] == "unavailable" and result["reason"] == "codex_refused"
-    assert "Codex" in result["message"] and ctx.workbench_check_client.calls == 0
-    assert help_rows(paths, wb) == []
-    assert call(ctx, "workbench.get", {"sessionId": wb})["session"]["record"]["hints"] == 0
+    assert result["status"] == "ready" and result["shown"] is True
+    assert ctx.workbench_check_client.calls == 1
+    [receipt] = receipts(paths.sqlite_path, check_module.OWNER_KIND)
+    assert "estimated_only" in json.dumps({key: receipt[key] for key in receipt if receipt[key] is not None})
+    assert call(ctx, "workbench.get", {"sessionId": wb})["session"]["record"]["hints"] == 1
 
 
 def test_the_per_problem_call_cap_holds(tmp_path):

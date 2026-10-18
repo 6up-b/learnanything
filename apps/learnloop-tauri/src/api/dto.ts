@@ -8524,6 +8524,9 @@ export interface CheckStepVerdictDto {
   first: boolean;
   editedSinceCheck: boolean;
   deletedSinceCheck: boolean;
+  /** The step's text the verdict was about (bounded at 2,000 characters): a
+   *  local edit away from it dims the marker at once (review F6). */
+  checkedText?: string;
 }
 
 export interface CheckViewDto {
@@ -8588,6 +8591,7 @@ export interface WorkbenchHelpResultDto {
   discriminating?: HintDiscriminatingDto | null;
   replies?: string[];
   stepLine?: string;
+  claims?: HintClaimDto[];
   bridgeJobId?: string | null;
   /** A bridge (bridge jobs). */
   line?: string;
@@ -8618,6 +8622,18 @@ export interface WorkbenchHintViewDto {
   replies: string[];
   discriminatingAnswer: { answerMd: string; message: string } | null;
   bridge: { assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } | null;
+  /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
+  claims?: HintClaimDto[];
+}
+
+export interface HintClaimDto {
+  step: number;
+  statement: string;
+  /** checked | checked_numerically | model (failed claims are never shown). */
+  status: string;
+  label: string;
+  kind: string;
+  reason: string;
 }
 
 export interface WorkbenchHelpStateDto {

@@ -222,8 +222,33 @@ def hint_views(vault: Any, repository: Repository, session_id: str) -> list[dict
                                       .get("settled") else UNSETTLED_LINE}
             if answer is not None else None,
             "bridge": bridge_view(bridge) if bridge is not None else None,
+            "claims": row_claims(row),
         })
     return views
+
+
+def row_claims(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """A hint row's own claims as checked (Reader §5.3; fix round 1, F14)."""
+
+    try:
+        return list(json.loads(row.get("contract_failures_json") or "{}").get("claims") or [])
+    except (TypeError, ValueError, AttributeError):
+        return []
+
+
+def served_claims(repository: Repository, assist_id: str | None) -> list[dict[str, Any]]:
+    """The claims of the hint ``assist_id`` (``[]`` when it has none)."""
+
+    if not assist_id:
+        return []
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.help_assists import assist
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        row = assist(connection, assist_id)
+    return row_claims(row) if row is not None else []
 
 
 def _step_line(about: int | None, continue_from: int | None) -> str:
@@ -285,6 +310,8 @@ __all__ = [
     "WRITER_DOWN_REASONS",
     "TAILORED_UNAVAILABLE",
     "bridge_view",
+    "row_claims",
+    "served_claims",
     "fallback_level",
     "help_enabled",
     "hint_context",

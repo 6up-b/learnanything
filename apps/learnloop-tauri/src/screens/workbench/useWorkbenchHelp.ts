@@ -5,6 +5,18 @@
 // counts it), so exactly what that read returns is rendered. Nothing a
 // result does moves focus, animates or opens a dialog (W12): results land
 // under their steps and the record line updates.
+//
+// Leaving (review F7): no read is sent once the workbench has gone (the
+// lifecycle is checked after every wait, before every delivering read), and
+// every check or hint still pending is cancelled, so it is never shown and
+// counts nothing. A read already in flight when the learner leaves may have
+// delivered its result: that result counts (the server showed it) and is
+// never lost, because reopening the problem restores every shown check and
+// hint (workbench.help_state).
+//
+// Unsaved work (review F8): when the latest edits cannot be saved, neither a
+// check nor a hint nor a suggestion is asked for (they would read older
+// steps than the ones on screen); the learner's choice on the ladder stays.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -24,6 +36,7 @@ import { errorMessage } from "../../errors";
 import { DEFAULT_RUNGS } from "./helpModel";
 
 const FIRST_POLL_MS = 350;
+export const UNSAVED_HELP = "Your latest steps aren't saved yet, so help can't read them. They're safe in this window.";
 const MAX_POLL_MS = 1500;
 
 export interface LadderState {
@@ -116,11 +129,16 @@ export function useWorkbenchHelp(options: {
   const beforeRef = useRef(options.beforeRequest);
   beforeRef.current = options.beforeRequest;
   const hintJob = useRef<string | null>(null);
+  /** Checks and hints asked for and not yet read to the end (cancelled on leaving). */
+  const pendingJobs = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     alive.current = true;
+    const pending = pendingJobs.current;
     return () => {
       alive.current = false;
+      for (const jobId of pending) void api.workbenchCancelHelp(jobId).catch(() => undefined);
+      pending.clear();
     };
   }, []);
 
@@ -145,13 +163,21 @@ export function useWorkbenchHelp(options: {
     };
   }, [enabled, sessionId]);
 
-  const poll = useCallback(async (started: WorkbenchHelpJobDto): Promise<WorkbenchHelpJobDto> => {
+  const poll = useCallback(async (started: WorkbenchHelpJobDto, counted = false): Promise<WorkbenchHelpJobDto> => {
     let job = started;
     let wait = FIRST_POLL_MS;
-    while (job.jobId && job.state === "pending" && alive.current) {
-      await sleep(wait);
-      wait = Math.min(MAX_POLL_MS, Math.round(wait * 1.5));
-      job = await api.workbenchHelpJob(job.jobId);
+    const jobId = job.jobId;
+    if (counted && jobId && job.state === "pending") pendingJobs.current.add(jobId);
+    try {
+      while (job.jobId && job.state === "pending" && alive.current) {
+        await sleep(wait);
+        // F7: gone while waiting: no delivering read (the unmount cancels it).
+        if (!alive.current) break;
+        wait = Math.min(MAX_POLL_MS, Math.round(wait * 1.5));
+        job = await api.workbenchHelpJob(job.jobId);
+      }
+    } finally {
+      if (jobId && alive.current) pendingJobs.current.delete(jobId);
     }
     return job;
   }, []);
@@ -182,7 +208,12 @@ export function useWorkbenchHelp(options: {
     }
     setCheckPending(true);
     try {
-      const job = await poll(await api.workbenchCheck({ sessionId }));
+      const started = await api.workbenchCheck({ sessionId });
+      if (!alive.current) {
+        if (started.jobId) void api.workbenchCancelHelp(started.jobId).catch(() => undefined);
+        return;
+      }
+      const job = await poll(started, true);
       const result: WorkbenchHelpResultDto | null = job.result;
       if (!alive.current) return;
       if (job.state === "cancelled" || !result) return;
@@ -203,7 +234,13 @@ export function useWorkbenchHelp(options: {
     setLadder({ ...closedLadder, open: true, focusedStepId, pending: true });
     void (async () => {
       try {
-        await beforeRef.current();
+        if (!(await beforeRef.current())) {
+          // F8: no suggestion read from older steps; the rungs stay to choose from.
+          if (alive.current && generation.current === mine) {
+            setLadder((current) => ({ ...current, pending: false, notice: UNSAVED_HELP }));
+          }
+          return;
+        }
         const job = await poll(await api.workbenchSuggestHelp({ sessionId, focusedStepId }));
         if (!alive.current || generation.current !== mine) return;
         const result = job.result;
@@ -233,15 +270,25 @@ export function useWorkbenchHelp(options: {
     setLadder((current) => ({ ...current, chosen: Math.max(1, Math.min(5, level)), touched: true }));
   }, []);
 
-  const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null) => {
+  const requestHint = useCallback(async (input: Omit<WorkbenchRequestHelpInput, "sessionId">, stepId: string | null,
+    flushed = false) => {
     if (hintJob.current) return;
     setNotice(null);
-    await beforeRef.current();
+    if (!flushed && !(await beforeRef.current())) {
+      // F8: as a check: nothing is asked for against steps older than the screen's.
+      if (alive.current) setNotice({ stepId, message: UNSAVED_HELP });
+      return;
+    }
+    if (!alive.current) return;
     setHintPending({ stepId });
     try {
       const started = await api.workbenchRequestHelp({ sessionId, ...input });
+      if (!alive.current) {
+        if (started.jobId) void api.workbenchCancelHelp(started.jobId).catch(() => undefined);
+        return;
+      }
       hintJob.current = started.jobId;
-      const job = await poll(started);
+      const job = await poll(started, true);
       hintJob.current = null;
       if (!alive.current) return;
       const result = job.result;
@@ -252,6 +299,7 @@ export function useWorkbenchHelp(options: {
           hintMd: result.hintMd ?? "", labels: result.labels ?? {},
           aboutStepId: result.steps?.aboutStepId ?? stepId, continueFromStepId: result.steps?.continueFromStepId ?? null,
           stepLine: result.stepLine ?? "", replies: result.replies ?? [], discriminatingAnswer: null, bridge: null,
+          claims: result.claims ?? [],
         };
         setHints((current) => [...current, view]);
         if (result.record) onRecordRef.current(result.record);
@@ -269,13 +317,19 @@ export function useWorkbenchHelp(options: {
   }, [followBridge, poll, sessionId]);
 
   const take = useCallback(async (level?: number) => {
+    if (hintJob.current) return;
     const chosen = level ?? ladder.chosen;
     const { suggestion, focusedStepId } = ladder;
+    if (!(await beforeRef.current())) {
+      // F8: the ladder stays open with the learner's choice, and says why.
+      if (alive.current) setLadder((current) => ({ ...current, chosen, touched: true, notice: UNSAVED_HELP }));
+      return;
+    }
     closeHelp();
     await requestHint({
       request: "more", takenLevel: chosen, offeredLevel: suggestion?.level ?? null,
       suggestionId: suggestion?.suggestionId ?? null, focusedStepId,
-    }, ladder.steps?.aboutStepId ?? focusedStepId);
+    }, ladder.steps?.aboutStepId ?? focusedStepId, true);
   }, [closeHelp, ladder, requestHint]);
 
   const reply = useCallback(async (hint: WorkbenchHintViewDto, value: { shortcut?: HintShortcut; text?: string; stepId?: string | null }) => {
