@@ -339,3 +339,83 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
   The default is the honest label. A learner who writes `(\sin x)^2`, `x \cdot (x+1)` or brackets a limit's body
   gets a check.
+
+## Fix round 4 (orchestrator)
+
+The whole-stage Codex verify (job `20261018-183325-jlC3Dn`, at `2293d793a`) confirmed:
+
+* the host's `bound=true` gate and the missing-sandbox fallback;
+* lark locked at 1.3.1 and importable in the sandbox;
+* the ordinary SQL fold;
+* the shared service, the discriminating question, the text adapter and T6.
+
+It raised seven items (five High, two Medium). The orchestrator ruled on each. Six are fixed in `6cca393ac`
+and one is rejected. Each fixed item has a test in `tests/test_reader_rw2b_fix4.py` that fails on `2293d793a`.
+**Paid calls: none ($0.00).** Every model is a fake.
+
+| item | severity | title | verdict | test or reason |
+|---|---|---|---|---|
+| 1 | High | Truncated learner text can certify a false step | fixed | `test_item1_*` (2, both fail before): `1=1`, then 1,997 spaces, then `+1` is checked whole (`≠`); past the bound the result is `too_long:text` |
+| 2 | High | Solving loses excluded values in parsing | fixed | `test_item2_*` (fails before: `\frac{x^2}{x} = 2x`, then `x = 0`, came back `✓`) |
+| 3 | High | A clipped claim keeps its "checked" label | fixed | `test_item3_a_claim_longer_than_its_display_bound_is_never_checked` (fails before); `..._stored_exactly_as_it_was_verified` (guard) |
+| 4 | High | `max(client, held)` loses a distinct assist | fixed | `test_item4_a_workbench_check_and_an_answer_box_reveal_are_two_assists` and `..._transactional_refold_...` (both fail before: 1, now 2); the carried-alone and the carried-plus-check workbench submit guards (1, 2) pass before and after, and the G5 rows (`test_workbench_assistance.py`, `test_reader_workbench_rw2a.py`) hold |
+| 5 | High (as calibrated) | `workbench_check` permits Codex | **rejected** | The stage brief allows Codex where the spec explicitly allows it. `spec_reader_workbench_v1` says Codex "may run every paid LLM role", and D7 makes latency reported, not enforced: F12's ruling. No code change; `test_a_check_runs_on_codex_with_its_cost_estimated_from_tokens` stays. |
+| 6 | Medium | A true real odd-root equation came back `≠ checked` | fixed | `test_item6_*` (fails before: `\sqrt[3]{-8} = -2` came back `checked, holds false`) |
+| 7 | Medium | `workbench.cancel_help` bypasses the switch | fixed | `test_item7_every_help_rpc_refuses_when_help_is_switched_off` over all eight RPCs. The `cancel_help` case fails before (it cancelled the job); the other seven pass before and after. |
+
+* **Item 1.** `SymbolicClaim.oversized()` names any bound a claim exceeds:
+  * the step or claim text (4,000 characters, the check's step bound);
+  * any earlier step (4,000) or more than 200 of them;
+  * the problem (8,000);
+  * a declared field (400; variable 40, relation 4).
+
+  Such a claim is never sent to the sandbox. Its outcome is `model` with reason `too_long:<what>`, `bound = false`.
+  The payload no longer clips anything: whatever is sent is sent whole.
+* **Item 2.** The harness's transformer records what the written text restricts, before sympy evaluates it:
+  * every denominator (`_handle_division`);
+  * every log argument;
+  * every square-root radicand;
+  * the base of a negative or fractional power.
+
+  A definition carries its restrictions to every use of its name. Solving is never checked (`restricted_domain`)
+  when any restriction of the solved equation contains the variable, or when the evaluated residual still has the
+  variable in a denominator. lark's evaluating parse cannot substitute into an unevaluated form, so per the ruling
+  such a step stays the model's reading. Other kinds are unchanged.
+* **Item 3.** `verify_claims` normalises each statement's spacing first and hands the verifier exactly that
+  statement, so what is verified is what is stored and shown. A statement longer than `CLAIM_STATEMENT_CHARS = 240`
+  is never `checked`. It is stored clipped with a visible `…` as the model's reading, unless it fails, which fails
+  the round as before. A checked statement is never clipped.
+* **Item 4.** The open problems' help is kept in two parts per problem, `(carried, server)`
+  (`reader.workbench.held_parts_on`):
+  * `carried` is the RW2a book once counted plus the answer-box hints carried into steps, which a client may also
+    send;
+  * `server` is the problem's shown checks and level 1-3 hints, which no client holds.
+
+  `learnloop.attempts.hint_fold.combine_held(client, parts)` is `max(client, carried) + server`, taking the
+  larger total over open problems. Only the overlap is deduplicated. `held_primed` still ORs in. The same rule runs
+  in `_held_assistance` before grading and in the transactional refold, where `held_reader` now returns the parts.
+  It is only ever raised. `ServerHintFold.held_parts` carries them. The workbench submit now sends only its carried
+  part as the client's count (`SubmissionPlan.client_hints`); its own checks and hints join once through the held
+  fold. Its attempt type still follows the full count.
+* **Item 6.** `\sqrt[n]{...}` with n ≠ 2 (`nth_root`), and any numeric fractional power whose base is not provably
+  non-negative (`fractional_power`), are the model's reading. Real-root semantics are not implemented.
+  `4^{1/2} = 2` and `\sqrt{9} = 3` still check.
+* **Item 7.** `_guard(ctx)` is the one switch guard, `help_disabled` while `workbench.help_enabled` (or
+  `workbench.enabled`) is off. `_require` (check, suggest, request, answer_discriminating, set_help_style,
+  help_state) calls it. `help_job` calls it and, when refused, still cancels a pending job (F13). `cancel_help` now
+  calls it before looking the job up or changing it.
+
+### Gate (fix round 4)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over 53 files: round 3's 50, plus `test_reader_rw2b_fix4.py`, `test_facet_reword_confirm_review.py` and `test_reread_safety.py` (they name the held read) | **1087 passed** (52.6 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix4.py`, `test_reader_rw2b_fix3.py`, `test_workbench_assistance.py`, `test_reader_rw2b_review.py` | **86 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen.workbench.test.tsx src/screens/ReaderScreen.workbench.test.tsx` | **7 files, 93 passed**. No rendering changed; recorded counts did, so this was run to be safe. |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration, no config key and no RPC or serializer shape change.
