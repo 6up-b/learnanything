@@ -564,3 +564,167 @@ job pattern and the delivery-marks-shown rule carry over.
 **H4.** Guided redo and the tutor call the same service with their surface;
 the redo's preserved prefix is the work, and its diagnosis's rivals join the
 state.
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/h2a-onto-main`. Main's tip was `59d300e63` (the H1 landing), which is the stage's base. The stage tip is `36ed9511e`, unchanged. The last orchestrator verify (Codex job `20261018-082319-YKFXBH`) is clean. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `7e9dbe4c1`: a real `--no-ff` merge of `hints/h2a` onto `59d300e63`. Main had not moved, so the merged tree is exactly the stage tip.
+- `57bd9e6b9`: the references regenerated on the merged tree (commit labels only).
+- This record.
+
+No gate fix was needed.
+
+### Merge
+
+- **No conflicts.** No migration: the head stays 211. `fixtures/migration_head_211` is untouched and still in rollback mode: header bytes 18-19 are 1/1, `journal_mode` is `delete`, its last `schema_migrations` row is 211, and there is no `-wal` or `-shm`.
+- **No `apps/` change.** `git diff main -- apps` is empty.
+- **No algorithm successor** (§3). The vaults' labels and the defaults snapshots' meaning are unchanged.
+
+### Regenerated
+
+- **References.** Ran `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 211, 330 table notes. 393 notes changed, and the change is only `source_commit` and `source_commit_timestamp` (`57bd9e6b9`).
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** `python tests/test_cli_help_snapshot.py --write`: no change.
+- **RPC pins.** `test_sidecar_serializer_snapshot.py`, `test_desktop_rpc_contract.py`, `test_mobile_allowlist.py` and `test_cli_help_snapshot.py`: **198 passed**, with no file rewritten. The four H2a RPCs are pinned desktop-only. The serializer snapshot is unchanged.
+- **`validate_vault.py`**: passes (1,125 notes; 1,123 of 1,123 reachable).
+- **Parameter registry checked first** (H1's gate failed there): `test_registry_audit.py`, `test_grading_cli.py` and `test_p0_cutover_mvp08.py` gave **37 passed** before the full suite. `hints.max_daily_cost_usd` and `hints.chooser_timeout_seconds` are classified.
+
+### Gate
+
+Python 3.12.14. `TMPDIR` was merge2's `fixtures-local/tmp`, and every command ran as `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. No paid call was made: every test uses fakes. **This is the first full run over the stage's code.** Every stage step and all four verify-and-fix rounds had run targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **26 kept**, 0 broken |
+| full suite `pytest -n auto` on `57bd9e6b9` (the final code tree) | **13,549 passed, 2 xfailed, 0 failed** (18 min 25 s; `fixtures-local/h2a-landing-fullsuite.log`). H1's landing ran 13,384; the extra 165 are H2a's tests |
+| `pytest -m durability` | **111 passed**, 13,440 deselected (3 min 44 s; `fixtures-local/h2a-landing-durability.log`) |
+| `npm install`, `npm run typecheck` | ok, clean (`apps/` is identical to main's) |
+| `npm test` (vitest) | **124 files, 1,001 tests passed** on the first run (H1's `FeedbackScreen` load flake did not fire) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check` | not run: `src-tauri` is identical to main's |
+| thread, lock, fence and timing tests | all passed on the first run, so no reruns were needed. The known `"8841"` flake in `test_mcp_c1a_review.py` did not fire |
+| tracked fixtures, worktree | `git status` clean after both lanes and the frontend run |
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (probability with its `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases`. The copies came from the main checkout into `fixtures-local/landing-h2a/orig/`. Each original was read once. Every other copy came from `orig/` through the same helper. `arxiv_v2` was not opened.
+- **Starting state.** Both vaults were at schema 165, label `mvp-0.8`, with **0** `model_call_receipts`.
+- **Code.** Main's code is `git archive 59d300e63` and the merge's is `git archive 57bd9e6b9`. Each holds only `src`, `migrations` and `pyproject.toml`, and each is put first on `sys.path`. Every run printed the `learnloop` package it imported.
+- **Environment.** Every run went through `env -i` with only `PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR` and `LANG`.
+  - `HOME`, `CODEX_HOME` and `LEARNLOOP_CONFIG_DIR` were empty directories, and they were still empty at the end (no Codex session or login was written).
+  - So no `*_API_KEY`, `OPENROUTER*`, `OPENAI*`, `ANTHROPIC*` or `LEARNLOOP_AI_PROVIDER` variable was set, and no `settings.env`, Codex login or ChatGPT-plan token was reachable.
+- **Model routes, set before anything ran** (`scripts/neutralize2.py`, run under each code). Every field of that code's own `AIRoutingConfig` was routed to an unreachable loopback, with a key variable that was never set:
+  - chat routes, including `approach_map` and `hint_writer`, to `blackhole` (`openai_chat` at `http://127.0.0.1:9/v1`);
+  - decider-only routes, including `hint_chooser`, `router_decider` and `reader_intent`, to `blackhole_decider` (`decider` at `127.0.0.1:9`);
+  - `ai.active_provider` to `blackhole`, with the fallback cleared;
+  - `[source_retrieval]` `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank` and `dense` false;
+  - `[embedding]` `enabled`, `backfill_enabled` and `backfill_sources_on_extract` false;
+  - `[hints.maps] build_on_serve = false` on every copy, main's included (main has H1's build on serve).
+  - A resolver check over every `AITask` (53 on the merge, 51 on main) found nothing outside those two profiles except `embedding`, which is disabled and keyless.
+- The only exception is (d1), the "default routing" run: there `ai.active_provider` stayed the vault's `codex` and `hint_writer` was left unset, so it resolves to Codex. Every other route was still a loopback.
+
+**(a) and (b): at the vaults' label, and upgraded to `mvp-0.27`**
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate): main's code / the merge's | 165 → 211 (46) / 165 → 211 (46) | 165 → 211 (46) / 165 → 211 (46) |
+| schema objects, main vs merge | **identical** (no object only on one side; no SQL differs) | **identical** |
+| rows of every table (335) | **identical** (16,537 rows; `schema_migrations` 198 on both; `help_assists` and `approach_maps` empty) | **identical** (7,635 rows; same) |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live database unchanged on both) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** at `mvp-0.8`: certification and curves (H0's method: every facet's timeline with the eleven `TimelinePoint` fields, 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification`) | **byte-identical** (39 facets, 84 points, 2 corrections; 21 LOs, 23 recipes, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the Today queue: `build_due_queue` at a frozen clock (2026-10-18 09:00 UTC), `persist_explanations=False`, with no session, a session and a greedy session | **byte-identical** (41 items; head `pi_what_makes_function_axiom_strategy`) | **byte-identical** (67 items; head `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5`) |
+| upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code (nothing to apply) | **byte-identical** certification and curves (82 points, 7 corrections, 1 LO certified) and Today queue (43 items) | **byte-identical** (29 facets, 2 points; Today queue 67 items) |
+
+The `mvp-0.8` and `mvp-0.27` outputs are also the same bytes as H1's landing produced (`landing-h1/r2/out`).
+
+**(c) Practice through the real sidecar** (stdio: `initialize`, then the RPCs, then `shutdown`). The copies are of probability, and the sequence is H1's on `pi_prob_derive_complement`:
+- `set_grading_provider manual`, `start_session`, `get_practice_item` (with the session), `get_probe_contract`;
+- `practice.record_hint_reveal` (authored hint 0, key `landing-h2a-k1`), `save_practice_draft`, `submit_attempt` (self-grade, with the `submissionId`), `acknowledge_practice_submission`;
+- then a second item: `get_practice_item` and `submit_dont_know` (key `landing-h2a-k2`), then acknowledge;
+- `get_session`, `shutdown`.
+
+The runs were (i) main's code, (ii) the merge with `[hints] adaptive_enabled = false`, and (iii) the merge with the default (on). There were two passes:
+- **c**: the `dont_know` item is `pi_prob_verify_partition`, in the same LO as the first item. Run (i) was repeated twice on fresh copies.
+- **c′**: the `dont_know` item is `pi_incl_derive_intersections`, in another LO. Run (i) was repeated once.
+
+**Normalisation.** Only H1's normalisation was applied:
+- ULIDs (session, attempt, receipt and `ha_` assist ids);
+- ISO timestamps;
+- the copy's own path in `initialize`'s `vault.root`;
+- `initialize`'s two schema-head fields (both 211 now, so nothing differed);
+- in the database comparison, `attempt_debug_payloads`' `dr_<hex>` id and `learning_outcome_labels`' `lol_<hex>` id. The `lol_` id differs between two runs of main's own code.
+
+Beyond that, one expected difference was taken out and recorded: the merge's `initialize` lists the four new RPCs in `capabilities.methods` (`practice.request_hint`, `practice.hint_job`, `practice.cancel_hint`, `practice.answer_discriminating`).
+
+| Check | Result |
+|---|---|
+| **c′**, every response, (i) vs (ii) vs (iii) | **identical** for all 14 calls after the normalisation above, and so is a rerun of (i) against itself. The responses are raw-identical or identical after normalising: `get_practice_item` 11,559 bytes, `submit_attempt` 7,825, `submit_dont_know`, `get_session` |
+| **c′**, the database delta (every row added or replaced: 27 tables gain rows, 5 have rows replaced) | **identical** across (i), (ii), (iii) and the rerun of (i) |
+| **c**, every response | identical for 13 of the 14 calls. The odd one is `submit_dont_know` on the same-LO item: 4 floats differ at a relative 2-3·10⁻⁸ (`bayesianSurprise` and the mastery terms), and its database delta has 21 floats at up to 2.5·10⁻⁷. **Two reruns of main's own code differ from (i) by the same amount** (max relative 2.35·10⁻⁸ and 2.45·10⁻⁸; 1.74·10⁻⁷ and 1.82·10⁻⁷ in the database). It is wall-clock decay between the two attempts on one LO, not H2a; c′ removes it |
+| attempts (both passes), (i) vs (ii) vs (iii) | **identical**. The `open_text` attempt: `hints_used` 1, `primed` 0, class `verification` (assisted, FSRS, no certification). The `dont_know`: `hints_used` 0, `primed` 0, class `verification` (certification eligible). There are no `reveal_events` rows (an authored reveal by the client writes none). One `help_assists` row, the client-counted authored reveal, attached. 0 receipts, 0 `approach_maps` |
+
+**(d) `practice.request_hint` through the merge's sidecar** (adaptive on, the default). These are copies of probability. Each run did the following:
+- `save_practice_draft` on `pi_prob_derive_complement`, which has one authored hint;
+- `practice.request_hint` ("more", key `landing-h2a-k1`) twice, each polled with `practice.hint_job` until it settled, then read once more;
+- `submit_attempt` with the client's `hintsUsed = 0` and the same key;
+- on `pi_prob_verify_partition`: `request_hint` (key `k2`), then `practice.cancel_hint` at once, a `hint_job` read 1 s later, and `submit_dont_know` with `k2`.
+
+| Run | First request | Second request | The fold at submit |
+|---|---|---|---|
+| **d1, default routing** (`active_provider = "codex"`, `hint_writer` unset, so it resolves to the `codex` `codex_sdk` profile) | `pending`, then `done`: **`ready`, the authored fallback** (`kind` authored, level 3, `authoredIndex` 0, label "from the item"), reason **`codex_refused`** ("Hints are never written on Codex (codex): it is too slow for a hint. Route ai.routing.hint_writer to a ChatGPT-plan or fast OpenRouter profile."), `shown: true`. The re-read is still `ready` and `shown`, and is not shown twice | **`unavailable`**, reason `codex_refused` (no authored hint left), `shown: false` | `hints_used` **1**: the client sent 0. The shown server row (`counted_by = 'server'`, level 3) adds one, by §5's levels 1-3 rule. `primed` 0, class `verification` (assisted, no certification). Delivery wrote one `reveal_events` row: `tutor_answer`, basis `hint:authored:L3`, amount 0.143, below auto-prime's 0.35. **The unavailable row counts nothing**: it is `shown = 0` with no `counted_by` |
+| **d2, `hint_writer` at `127.0.0.1:9`** (metered, unpriced, key unset) | `ready`, the authored fallback, reason **`unpriced`** ("A metered hint_writer route needs hints.price_per_million."), shown | **`unavailable`**, reason `unpriced` | same as d1: `hints_used` 1, `primed` 0, one `tutor_answer` reveal of 0.143 |
+| **d2b** (extra): d2 plus `[hints] price_per_million = 1.0`, so the route check passes and the writer must resolve a client | `ready`, authored, `chooser = 'fallback'`, propensity 1. The Decider was not ready (no key), so it was not asked and wrote no `hint_choice` row; §4.5's fallback order serves the authored hint first | **`unavailable`**, reason **`unavailable`** (the client did not resolve: no key), so **it fails closed before any transport** | same: `hints_used` 1, `primed` 0 |
+| the cancel, in every run | `request_hint` answered `pending`, and `cancel_hint` answered `{cancelled: true, state: cancelled}`. The later `hint_job` read is `cancelled` with `result: null`. The job's prepared row (authored, level 3) stays **`shown = 0`** | | `submit_dont_know`: `hints_used` **0**, `primed` 0. **Nothing counts** |
+
+In every (d) run: **0 `model_call_receipts`**, 0 `approach_maps`, 0 spend rows, 0 `judgment_work_claims`, and no H1 merge scheduled, because `build_on_serve` was false. `request_hint` answered in about 7 ms (the job), and `shutdown` answered at once.
+
+**(e) The diagnostic block (G-H14)** was reached on a copy:
+- The setup is H0's: `block_setup2.py` put `lo_derive_and_use_basic_probability_rules`' episode in progress and served a presentation of `pi_prob_derive_complement`.
+- `practice.request_hint` then answered at once: `{jobId: null, state: done}`, status **`refused`**, reason `diagnostic_block` ("Hints are off during a diagnostic check.").
+- No job, no `help_assists` row, no receipt.
+
+**`model_call_receipts` across all 50 databases** under `landing-h2a/`: **0** (no row at all, so none finished). **`approach_maps` is empty on every copy.**
+
+### For the owner
+
+- **No migration and no upgrade command.** H2a has no successor. The vaults keep their label, and nothing applies on the next open.
+- **Nothing visible changes yet.** No frontend calls the four new RPCs, so the practice screen is exactly as before until H2b adds the hint panel.
+- **Hints are never written on Codex** (D9). On your vaults the writer follows `ai.active_provider`, which is Codex, so a request serves the item's own hints and says why (`codex_refused`), then `unavailable` (checked above). To get adaptive hints:
+  1. Sign in to the ChatGPT plan once: `uv run learnloop ai signin chatgpt`. The sign-in is saved outside every vault.
+  2. Add a `chatgpt_plan` profile to the vault and set `[ai.routing] hint_writer` to it (stage record §7). A priced OpenRouter profile works too: it needs `[hints] price_per_million`.
+- **The chooser needs a Decider.** `ai.routing.hint_chooser` defaults to the `openrouter_decider` profile, which needs `OPENROUTER_API_KEY` in `settings.env`. Without it, the fallback order serves: the item's hints while they last, then the next step (d2b above).
+- **Turn it off** in the vault's `learnloop.toml`:
+
+  ```toml
+  [hints]
+  adaptive_enabled = false   # the kill switch: the practice RPCs are exactly as before (parity (c)(ii))
+  # chooser_enabled = false  # keep hints, stop asking the Decider
+  ```
+
+- **The daily cap.** `hints.max_daily_cost_usd = 1.00` bounds the chooser and writer on **metered** routes. It is one envelope for both. ChatGPT-plan requests are `estimated_only` and are never counted against it.
+- **The learner-route merge after a shown hint** shares H1's switch: it runs only with `[hints.maps] enabled` and `build_on_serve` both true (and `LEARNLOOP_APPROACH_MAP_BUILDS` not `off`). That is the H1 owner decision: build on serve is **on** by default, so once a hint is shown it schedules one background merge on `ai.routing.approach_map`, which on your vaults is Codex, `estimated_only`. `build_on_serve = false` stops both the serve builds and these merges.
+- **Open questions (defaults taken):**
+  - from the stage record §8:
+    - 1: `adaptive_enabled` on;
+    - 2: the writer unset until the ChatGPT sign-in, so the authored fallback serves;
+    - 3: uniform rival weights, labelled;
+    - 4: hint reveals join auto-prime's 0.35 sum by the existing rule (a successor could exclude them);
+    - 5: `submit_dont_know`'s tutor-question asymmetry left as it was;
+    - 6: `hint_fit` written only for "doesn't connect" replies;
+    - 7: the discriminating answer stays on its row until H2b's adapter;
+  - from the Codex review:
+    - 1: no "from the book" label until T6 verification is wired (a model call);
+    - 2: whether H2b carries the previous placement into replies on unplaceable work;
+    - 3: the writer-down path records no propensity rather than §4.5's 1;
+  - from the fix rounds: round 3's keyless double count was closed by round 3b. Rounds 2 and 4 left none, and the last verify (`20261018-082319-YKFXBH`) is clean.
+- **New at landing** (observations; none blocks, nothing fixed here):
+  - **The same authored hint leaves a different reveal trail by path.** Shown by the hint service (the fallback), it writes a `reveal_events` `tutor_answer` row (0.143 here) as §5 says. Revealed by the client through H0's `practice.record_hint_reveal`, it writes none. Both count one hint. Only the server's adds to auto-prime's sum.
+  - **A metered writer route with no key reports `unpriced` before `unavailable`.** `problem()` checks the price before the client resolves. An OpenRouter writer set up without its key says "no price set" until a price is added, and then "unavailable".
+  - **Unshown rows are attached too.** H0's attach-by-key binds the submission's `shown = 0` rows (the unavailable request, the cancelled job) to the attempt. They are never counted (`shown = 0`, no `counted_by`), so this is bookkeeping only.
+  - **Time-dependent floats in a same-LO `dont_know`** (parity c): run-to-run noise in main's own code, not H2a. A parity sequence that wants byte identity should keep its second item in another LO (c′).
+  - **Not exercised here:** a real written hint, a real Decider choice, and the discriminating question with an answer, since all need a live model (none by rule; the stage's tests cover them with fakes). The background merge after a shown hint was not run either (`build_on_serve` false; covered by `test_f9_*`).
