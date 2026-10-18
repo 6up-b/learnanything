@@ -140,7 +140,8 @@ _CONTRACTS: Mapping[str, str] = {
                          "learner's first move. Set asks_about. State nothing about the solution.",
     "discriminating": "Propose two or three candidate questions (candidates), each a quick check the learner "
                       "can answer in one line, with the answer each rival predicts (predictions: rival_id, "
-                      "answer). Predicted answers must differ between rivals. A question states neither rival "
+                      "answer; exactly one prediction for every rival given, no other ids). Predicted answers "
+                      "must differ between rivals. A question states neither rival "
                       "nor the correction. Also write fallback_hint_md: the plain approach question (level 1) or "
                       "next step (level 3) to serve if no candidate separates them (at level 1, set asks_about for it). "
                       "hint_md may be ''.",
@@ -156,9 +157,11 @@ _CONTRACTS: Mapping[str, str] = {
                  "doing it: target_node_id is the adjacent node on their route.",
     "error_specific": "Name what is wrong in a quoted step (first_questionable_quote) and the principle it "
                       "violates (principle), without the corrected result.",
-    "worked_parallel": "The same move worked on a different instance: a worked example from the learner's own "
-                       "book when one is given (source_origin book, source_quote an exact quote of it), else an "
-                       "AI-written instance (source_origin ai). None of this question's own values.",
+    "worked_parallel": "The same move worked on a different instance, written by you (source_origin ai, "
+                       "source_quote ''). The worked examples given are unverified retrieval hits from the "
+                       "learner's books (worked_examples_verified false): they may show which move to model, but "
+                       "write a new instance rather than copying one, and never label it as the book's. None of "
+                       "this question's own values.",
     "continuation": "Write the next portion forward from the learner's last valid checkpoint, on their route and "
                     "in their notation, stopping short of the goal (end_node_id: the node it ends at).",
     "worked_chunk": "Work a chunk of this problem backward from the goal ('to show X it is enough to show Y'), "
@@ -207,7 +210,9 @@ def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_t
         chosen["horizon"] = HORIZON_LEVELS[target.horizon_index]
     if target.target_node_id:
         chosen["target_node_id"] = target.target_node_id
-        chosen["target_rule"] = "aim at this node (the goal to aim for the learner was given)"
+        chosen["target_rule"] = ("aim at this node (the goal to aim for the learner was given): your "
+                                 "target_node_id is this node or a node on the route before it; a next step "
+                                 "targets the adjacent node on the way to it")
     if target.reference_route:
         chosen["route"] = f"the reference route ({reference_route_id(current) or 'the reference solution'})"
     if target.downgrade:
@@ -247,6 +252,9 @@ def build_prompt(vault: Any, item: Any, state: Any, target: Target, *, request_t
                              for rival in state.rivals]
     if target.kind == "worked_parallel":
         context["worked_examples"] = [{"text": _clip(text, TEXT_CHARS)} for text in state.worked_example_texts]
+        # H1's seeds were retrieved with verify=False: no passage grounds a
+        # "from the book" label (§4.2 asks for T6 verification; review F8).
+        context["worked_examples_verified"] = False
         context["another_instance"] = state.sibling_prompt
     if feedback:
         context["previous_answer_problems"] = dict(feedback)

@@ -189,10 +189,14 @@ def test_after_a_waypoint_more_aims_every_level_3_option_at_its_target(tmp_path)
     paths, vault, repository = _setup(tmp_path)
     first, _w, _c = _ask(vault, repository, "waypoint@L3", answers=[_waypoint])
     target = assists(paths.sqlite_path)[0]["target_node_id"]
+    assert target == "cdf"  # "two steps ahead" on a two-edge route: the last node short of the goal
+    # From the givens, aiming past the waypoint is not aiming at it (review
+    # F2: a node on the way to it would be).
     _second, writer, _c = _ask(vault, repository, "next_step@L3", answers=[
-        lambda c: {**good_answer(c), "target_node_id": "goal" if target != "goal" else "cdf"},
+        lambda c: {**good_answer(c), "target_node_id": "goal", "placement": {
+            **good_answer(c)["placement"], "reached_node_id": "g"}},
         lambda c: {**good_answer(c), "target_node_id": target, "placement": {
-            **good_answer(c)["placement"], "reached_node_id": "g" if target == "cdf" else "cdf"}}])
+            **good_answer(c)["placement"], "reached_node_id": "g"}}])
     options = json.loads(assists(paths.sqlite_path)[1]["options_json"])
     assert options["target_node_id"] == target and "next_step@L3" in options["options"]
     assert "rule6_not_the_waypoint_target" in writer.contexts[1]["previous_answer_problems"]["failures"]

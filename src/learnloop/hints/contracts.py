@@ -10,16 +10,17 @@ quotes against it):
    first questionable point.
 3. It says what stands, when there is work (unless the first questionable
    point is where the work starts).
-4. It keeps the learner's route, unless that route is invalid or the learner
-   asked for another; only ``book_way`` places it on the reference route while
-   the learner's route is valid.
+4. It keeps the learner's route (the placed route, reference or not),
+   unless that route is invalid or the learner asked for another; only
+   ``book_way`` changes a valid route (to the reference route).
 5. It changes strategy when it isn't working: after a "doesn't connect" reply
    other than "the notation", or a second hint on the same work, its kind or
    strategy slug differs from the earlier hints there. After "the notation" it
    keeps the kind and quotes the learner's symbols.
 6. It is placed: with a map, it names its route and target node, and the
    target's distance matches the chosen horizon (or is the last node short of
-   the goal when the route is shorter).
+   the goal when the route is shorter). After a waypoint a level-3 hint aims
+   at it: its target is the waypoint or a node on the way there.
 7. It obeys its kind's contract (§4.2's table).
 
 **Leak control** (binding here, whatever the map's marks say; H1 friction
@@ -92,6 +93,21 @@ def in_work(quote: str, work: str) -> bool:
 
     needle = _squash(quote)
     return bool(needle) and needle in _squash(work)
+
+
+def stands_before(stands: str, questionable: str, work: str) -> bool:
+    """Whether the standing quote ends before the first questionable point in
+    the draft (spacing ignored). Each quote is placed at its first occurrence:
+    the earliest a questionable text appears is where the work first becomes
+    questionable, and a standing text that appears before it stands there.
+    A quote the draft lacks is rule 1-2's own failure (True here)."""
+
+    text = _squash(work)
+    stand, doubt = _squash(stands), _squash(questionable)
+    stand_at, doubt_at = text.find(stand), text.find(doubt)
+    if stand_at < 0 or doubt_at < 0:
+        return True
+    return stand_at + len(stand) <= doubt_at
 
 
 def nodes_by_id(current: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
@@ -257,7 +273,11 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
         check.fail("rule2_questionable_not_in_work")
     if stands and not in_work(stands, work):
         check.fail("rule2_stands_not_in_work")
-    if stands and questionable and _squash(questionable) in _squash(stands):
+    if stands and questionable and (_squash(questionable) in _squash(stands)
+                                    or not stands_before(stands, questionable, work)):
+        # What stands ends before the first questionable point (§4.6 rule 2),
+        # by position in the draft, so a later line that depends on the
+        # questionable one never stands (review F3).
         check.fail("rule2_past_first_questionable")
     if current is not None and placement.reached_node_id and placement.route_id != "new_route":
         if route_distance(current, placement.route_id, placement.reached_node_id,
@@ -268,16 +288,18 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
         check.fail("rule3_nothing_stands")
     if target.downgrade and stands and not in_work(stands, work):
         check.fail("rule3_unverified_claim")
-    # Rule 4: it keeps the learner's route.
+    # Rule 4: it keeps the learner's route, whichever route that is (review
+    # F4: an alternative is never swapped for another, nor the reference for
+    # an alternative). Only ``book_way`` changes a valid route (to the
+    # reference); "I'm using a different approach" keeps the placed route.
     reference = reference_route_id(current)
-    if current is not None and reference is not None and output.route_id:
-        learner_route = placement.route_id or reference
+    if current is not None and output.route_id:
+        learner_route = str(placement.route_id or "") if has_work else ""
         if target.reference_route:
-            if output.route_id != reference:
+            if reference is not None and output.route_id != reference:
                 check.fail("rule4_not_reference_route")
-        elif learner_route != reference and placement.work_valid_so_far and output.route_id == reference:
-            check.fail("rule4_left_learner_route")
-        if target.shortcut == "learner_route" and learner_route != reference and output.route_id == reference:
+        elif learner_route and output.route_id != learner_route and (
+                placement.work_valid_so_far or target.shortcut == "learner_route"):
             check.fail("rule4_left_learner_route")
         if target.shortcut == "learner_route" and has_work and not quotes:
             check.fail("rule4_no_work_named")
@@ -320,7 +342,12 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
                     check.fail("rule6_horizon_mismatch")
             elif kind == "next_step" and distance != 1 and not _route_done(current, output.route_id, start):
                 check.fail("rule6_next_step_not_adjacent")
-    if target.target_node_id and level == 3 and kind in placed_kinds and output.target_node_id != target.target_node_id:
+    if target.target_node_id and level == 3 and kind in placed_kinds and not toward_waypoint(
+            current, output.route_id, placement.reached_node_id or _first_node(current or {}, output.route_id),
+            output.target_node_id, target.target_node_id):
+        # After a waypoint the hint aims at it: its target is the waypoint or
+        # a node on the route before it, so a next step toward a waypoint two
+        # or more edges away targets the adjacent node (review F2).
         check.fail("rule6_not_the_waypoint_target")
     # Rule 7: the kind's contract.
     _kind_contract(check, output, target=target, state=state, item=item, quotes=quotes)
@@ -328,6 +355,26 @@ def check_output(output: Any, *, target: Target, state: Any, item: Any) -> Check
     texts = [output.hint_md, *[label.label for label in output.plan_labels]]
     check.leaks = leak_flags(texts, item=item, current=current, level=level)
     return check
+
+
+def toward_waypoint(current: Mapping[str, Any] | None, route_id: str, start: str | None, aimed: str,
+                    waypoint: str) -> bool:
+    """Whether a hint aiming at ``aimed`` from ``start`` aims at the retained
+    waypoint: ``aimed`` is the waypoint, or lies on the route after ``start``
+    and no later than the waypoint; once the work has reached (or passed) the
+    waypoint, any target does."""
+
+    if aimed == waypoint:
+        return True
+    if current is None or not start:
+        return False
+    path = [str(node) for node in (routes_by_id(current).get(route_id) or {}).get("path") or ()]
+    if start not in path or waypoint not in path:
+        return False
+    here, there = path.index(start), path.index(waypoint)
+    if here >= there:
+        return True
+    return aimed in path[here + 1:there + 1]
 
 
 def _first_node(current: Mapping[str, Any], route_id: str) -> str | None:
@@ -409,10 +456,11 @@ def _kind_contract(check: Check, output: Any, *, target: Target, state: Any, ite
         if output.source_origin not in ("book", "ai"):
             check.fail("worked_parallel_no_origin")
         if output.source_origin == "book":
-            passages = getattr(state, "worked_example_texts", None) or []
-            quote = str(output.source_quote or "").strip()
-            if not quote or not any(in_work(quote, passage) for passage in passages):
-                check.fail("worked_parallel_unverified_source")
+            # "From the book" needs a source quote that passed T6 verification
+            # (§4.2). The passages H2a holds are the map seeds' retrieval hits,
+            # fetched with verify=False (unverified: retrieval rank only), so
+            # none grounds a book label: the example is AI-written (review F8).
+            check.fail("worked_parallel_book_unverified")
     elif kind == "continuation":
         if current is not None:
             goal = goal_node_id(current)
@@ -455,4 +503,6 @@ __all__ = [
     "leak_flags",
     "reference_route_id",
     "route_distance",
+    "stands_before",
+    "toward_waypoint",
 ]

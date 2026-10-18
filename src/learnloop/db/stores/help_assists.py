@@ -126,14 +126,30 @@ def submission_assists(
 def mark_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
     """A prepared server hint (``shown = 0``) delivered to the learner: shown
     once, with its time. Never a row already attached to an attempt (its
-    count was taken) and never twice; True when this call showed it."""
+    count was taken), never a row of a submission that already committed an
+    attempt (H2a review F1: a hint written after the submit's attach has no
+    ``attempt_id`` yet, but its count can no longer be taken) and never
+    twice; True when this call showed it."""
 
     cursor = connection.execute(
         "UPDATE help_assists SET shown = 1, shown_at = ? "
-        "WHERE id = ? AND shown = 0 AND counted_by = 'server' AND attempt_id IS NULL",
+        "WHERE id = ? AND shown = 0 AND counted_by = 'server' AND attempt_id IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM practice_attempts "
+        "WHERE practice_attempts.submission_id = help_assists.submission_id)",
         (shown_at, assist_id),
     )
     return bool(cursor.rowcount)
+
+
+def submission_committed(connection: sqlite3.Connection, submission_id: str | None) -> bool:
+    """Whether a submission key already committed its attempt."""
+
+    if not submission_id:
+        return False
+    row = connection.execute(
+        "SELECT 1 FROM practice_attempts WHERE submission_id = ? LIMIT 1", (submission_id,)
+    ).fetchone()
+    return row is not None
 
 
 def server_fold(
@@ -181,5 +197,5 @@ def _latency(value: float | None) -> float | None:
 
 __all__ = [
     "COLUMNS", "TABLE", "assist", "attach_submission", "insert_assist", "mark_shown", "server_fold",
-    "stamp_submitted", "submission_assists",
+    "stamp_submitted", "submission_assists", "submission_committed",
 ]

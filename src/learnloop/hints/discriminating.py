@@ -11,7 +11,9 @@ misconception on the item since its last attempt). Deduplicated by
 statement; a prompt-size bound keeps the first :data:`MAX_RIVALS`.
 
 **Selection.** The writer proposes a few candidate questions, each with the
-answer it predicts under each rival. Each candidate is compiled as an
+answer it predicts under each rival; a candidate that does not predict every
+rival exactly once is not ranked (every candidate is scored against the same
+rivals and prior, review F6). Each candidate is compiled as an
 instrument (one conditional row per rival: all its mass on the answer that
 rival predicts, over the distinct predicted answers) and ranked with the
 existing ``instrument_expected_information_gain`` under the rivals' weights.
@@ -175,23 +177,36 @@ def compile_candidate(predictions: Mapping[str, str]) -> Any:
                               grader_policy=GRADER_POLICY, provenance=PROVENANCE)
 
 
+def complete_predictions(candidate: Mapping[str, Any], rivals: Sequence[Rival]) -> dict[str, str] | None:
+    """The candidate's predicted answer for every rival, or None when it does
+    not predict each of the request's rivals exactly once (a missing,
+    duplicate or unknown rival id): every candidate is ranked against the
+    same rivals and prior, so EIG compares like with like (review F6)."""
+
+    known = [rival.id for rival in rivals]
+    entries = [(str(entry.get("rival_id")), str(entry.get("answer") or ""))
+               for entry in candidate.get("predictions") or ()]
+    if len(known) < 2 or sorted(rival for rival, _answer in entries) != sorted(known):
+        return None
+    return {rival: answer for rival, answer in entries}
+
+
 def rank_candidates(candidates: Sequence[Mapping[str, Any]], rivals: Sequence[Rival]) -> list[RankedCandidate]:
-    """Every candidate naming at least two of the request's rivals, scored by
-    ``instrument_expected_information_gain`` under uniform weights, best
-    first (ties keep the writer's order). Zero-EIG candidates are kept in the
-    list with their score; :func:`best_candidate` drops them."""
+    """Every candidate predicting an answer for each of the request's rivals
+    (:func:`complete_predictions`), scored by
+    ``instrument_expected_information_gain`` under uniform weights over all
+    of them, best first (ties keep the writer's order). Zero-EIG candidates
+    are kept in the list with their score; :func:`best_candidate` drops them."""
 
     from learnloop.diagnosis.probe_families import instrument_expected_information_gain
 
-    known = {rival.id for rival in rivals}
+    weights = {rival.id: 1.0 / len(rivals) for rival in rivals} if rivals else {}
     ranked: list[RankedCandidate] = []
     for index, candidate in enumerate(candidates):
-        predictions = {str(entry.get("rival_id")): str(entry.get("answer") or "")
-                       for entry in candidate.get("predictions") or () if str(entry.get("rival_id")) in known}
-        if len(predictions) < 2:
+        predictions = complete_predictions(candidate, rivals)
+        if predictions is None:
             continue
         instrument = compile_candidate(predictions)
-        weights = {rival: 1.0 / len(predictions) for rival in predictions}
         eig = instrument_expected_information_gain(weights, instrument, {rival: rival for rival in predictions},
                                                    grader_reliability=1.0)
         ranked.append(RankedCandidate(index, str(candidate.get("question_md") or ""), predictions, float(eig)))
@@ -235,6 +250,7 @@ __all__ = [
     "WEIGHTS_BASIS",
     "best_candidate",
     "compile_candidate",
+    "complete_predictions",
     "normalize_answer",
     "open_rivals",
     "rank_candidates",

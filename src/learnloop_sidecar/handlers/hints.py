@@ -17,7 +17,11 @@ and a key overlap writes the ``reveal_events`` ``tutor_answer`` row with basis
 ``hint:<kind>:L<level>`` (the reveal ledger's writer is the attempt package's,
 so it is written here). ``practice.cancel_hint`` before delivery (the screen
 took the item's own hint instead) leaves the row ``shown = 0``: it counts
-nothing (G-H3). A crash before delivery leaves it unshown too.
+nothing (G-H3). A crash before delivery leaves it unshown too. A read after
+the submission committed its attempt (the hint finished before or after the
+submit) delivers nothing and answers without the hint's text (review F1):
+its count could no longer be taken. A delivered hint schedules H1's lazy
+learner-route merge in the background (§4.3.1 row 3, review F9).
 
 **Counted at submit.** ``submit_attempt`` and ``submit_dont_know`` fold the
 submission's shown server rows (``learnloop_sidecar.handlers.practice``):
@@ -39,6 +43,7 @@ from typing import Any, Callable, Literal
 from pydantic import Field
 
 from learnloop.hints import service as hint_service
+from learnloop.hints.map_builder import schedule_merge_after_hint
 from learnloop.hints.service import HintRequestError, HintRequestV1, adaptive_enabled
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -73,6 +78,9 @@ class _HintJob:
     error: SidecarError | None = None
     cancelled: bool = False
     delivered: bool = False
+    #: A ready hint the read could not deliver (H2a review F1): the
+    #: delivery outcome, and the job answers without the hint from then on.
+    refused: str | None = None
 
 
 class HintJobs:
@@ -218,27 +226,37 @@ def _job_payload(ctx: SidecarContext, job: _HintJob) -> dict[str, Any]:
         if job.error is not None:
             raise job.error
         result = dict(job.result or {})
-        if result.get("status") == hint_service.READY and not job.delivered:
-            _deliver(ctx, job.practice_item_id, str(result["assist_id"]))
-            job.delivered = True
+        if result.get("status") == hint_service.READY and not job.delivered and job.refused is None:
+            outcome = _deliver(ctx, job.practice_item_id, str(result["assist_id"]))
+            if outcome == hint_service.SHOWN:
+                job.delivered = True
+            else:
+                job.refused = outcome
+        if job.refused is not None:
+            # Never the text of a hint the ledger did not record as shown
+            # (G-H3): the submission it was written for is already committed.
+            result = hint_service.undelivered_result(str(result.get("assist_id") or ""), job.refused).as_dict()
         result["shown"] = job.delivered
     return versioned({**base, "state": "done", "result": result})
 
 
-def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> None:
+def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     """Show the prepared row and write its key overlap to the reveal ledger
     (§5: ``tutor_answer`` with basis ``hint:<kind>:L<level>``; best effort,
-    as every reveal writer is)."""
+    as every reveal writer is); then schedule the lazy learner-route merge
+    (§4.3.1 row 3, in the background). Returns the delivery outcome: only
+    ``SHOWN`` lets the hint's text reach the surface."""
 
     from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 
     vault, repository = ctx.require_vault()
-    row = hint_service.deliver(repository, assist_id)
-    if row is None:
-        return
+    outcome, row = hint_service.deliver_hint(repository, assist_id)
+    if outcome != hint_service.SHOWN or row is None:
+        return outcome
+    _schedule_merge(ctx, vault, repository, practice_item_id)
     item = vault.practice_items.get(practice_item_id)
     if item is None or not row.get("hint_kind") or not row.get("level"):
-        return
+        return outcome
     try:
         amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
         record_reveal(repository, practice_item_id=item.id, learning_object_id=item.learning_object_id,
@@ -246,6 +264,21 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> None
                       amount=amount, basis=hint_service.reveal_basis(str(row["hint_kind"]), int(row["level"])))
     except Exception as exc:  # noqa: BLE001 - ledger bookkeeping never fails the delivery
         log_event("hint_reveal_ledger_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
+    return outcome
+
+
+def _schedule_merge(ctx: SidecarContext, vault: Any, repository: Any, practice_item_id: str) -> None:
+    """H1's lazy learner-route merge after a hint is shown (H2a review F9):
+    background, with H1's locks, claim, lease, envelope and kill switches;
+    never delays or fails the delivery."""
+
+    try:
+        schedule_merge_after_hint(vault, repository.sqlite_path, practice_item_id,
+                                  client=getattr(ctx, "approach_map_client", None),
+                                  builds=getattr(ctx, "map_builds", None))
+    except Exception as exc:  # noqa: BLE001 - never reaches the delivery
+        log_event("approach_map_merge_schedule_failed", practice_item_id=practice_item_id,
+                  error=type(exc).__name__)
 
 
 class HintJobInput(ParamsModel):

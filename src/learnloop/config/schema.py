@@ -1924,7 +1924,10 @@ class HintsMapsConfig(BaseModel):
     ``build_on_serve``: when the practice screen serves an item that has no
     map for its current revision, one is built in the background (never on the
     request path: the serve neither waits for it nor changes because of it),
-    once per item revision. Each such build is one model call (Codex on the
+    once per item revision; it also governs the lazy learner-route merge a
+    shown hint schedules in the background when the item's map predates the
+    learner's newest correct answers in its family (H2a, §4.3.1 row 3). Each
+    such build or merge is one model call (Codex on the
     subscription is ``estimated_only``); ``learnloop hints report`` shows the
     counts and the day's spend. ``max_daily_cost_usd``: the metered dollars a
     UTC day for map builds and merges, shared by every process (a capped day
