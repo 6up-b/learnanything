@@ -3,13 +3,13 @@ title: "attention_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_blocks"
   - "table attention_blocks"
-schema_head: 212
+schema_head: 213
 table_name: "attention_blocks"
 table_role: "workflow"
 functionality_status: "active"
@@ -118,6 +118,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/source_service_fakes.py`
+- `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_daily_plan_kill_switch.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`

@@ -3,13 +3,13 @@ title: "pf_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite pf_candidates"
   - "table pf_candidates"
-schema_head: 212
+schema_head: 213
 table_name: "pf_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/174_pf_generation.sql"
+  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/db/stores/pf.py"
   - "src/learnloop/ops/pf_generation.py"
   - "src/learnloop/ops/pf_publish.py"
@@ -110,6 +111,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/serve_inputs.py`
 - `src/learnloop/db/stores/pf.py`
 - `src/learnloop/ops/pf_generation.py`
 

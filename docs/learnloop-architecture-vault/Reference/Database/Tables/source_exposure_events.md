@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 212
+schema_head: 213
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/049_source_exposure_events.sql"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
   - "src/learnloop/instructional/interventions.py"
-  - "src/learnloop/reader/workbench.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
 tags:
@@ -97,6 +97,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
@@ -139,10 +140,10 @@ Indexes and uniqueness:
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_discriminating_search.py`
 - `tests/test_intervention_outcomes_replayer.py`
 - `tests/test_source_exercise_rpcs.py`
-- `tests/test_source_first_needs.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

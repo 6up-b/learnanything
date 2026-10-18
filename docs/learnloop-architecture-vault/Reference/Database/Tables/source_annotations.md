@@ -3,13 +3,13 @@ title: "source_annotations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_annotations"
   - "table source_annotations"
-schema_head: 212
+schema_head: 213
 table_name: "source_annotations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `tests/test_reader_rw1b_review.py`
 - `tests/test_sidecar_reader_p3.py`
 - `tests/test_sidecar_reader_pdf_view.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_annotations.py`
 - `tests/test_p3_journeys.py`
 - `tests/test_reread_safety.py`

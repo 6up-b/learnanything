@@ -3,13 +3,13 @@ title: "reader_section_progress"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_section_progress"
   - "table reader_section_progress"
-schema_head: 212
+schema_head: 213
 table_name: "reader_section_progress"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/106_reader_section_progress.sql"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
@@ -94,6 +95,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/instructional/exposure.py`
@@ -115,6 +117,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad1_migration.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_reread_safety.py`
 - `tests/test_ux_phase1_round2_rereview.py`

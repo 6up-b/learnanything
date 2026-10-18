@@ -3,13 +3,13 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 212
+schema_head: 213
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,11 +23,11 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_block_fts.py"
   - "src/learnloop/db/stores/source_service.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/exam_marking.py"
   - "src/learnloop/content/pipeline/jobs.py"
-  - "src/learnloop/content/pipeline/quick_add.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/exam_marking.py`
@@ -123,7 +124,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
-- `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 
 - `tests/test_migrations.py`
 - `tests/helpers.py`
+- `tests/test_ad1_reading_opportunities.py`
 - `tests/test_daily_plan_reading.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_identity.py`
@@ -149,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_block_fts.py`
-- `tests/test_source_deletion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

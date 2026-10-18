@@ -3,13 +3,13 @@ title: "forecast_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecast_receipts"
   - "table forecast_receipts"
-schema_head: 212
+schema_head: 213
 table_name: "forecast_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/206_forecast_receipts.sql"
-  - "src/learnloop/cli/diagnosis.py"
-  - "src/learnloop/config/schema.py"
-  - "src/learnloop/config/template.py"
-  - "src/learnloop/db/stores/forecast_receipts.py"
-  - "src/learnloop/diagnosis/forecast_receipts.py"
-  - "src/learnloop/diagnosis/remediation.py"
-  - "src/learnloop/diagnosis/split/jobs.py"
+  - "src/learnloop/adaptive_difficulty/__init__.py"
+  - "src/learnloop/adaptive_difficulty/backfill.py"
+  - "src/learnloop/adaptive_difficulty/data_check.py"
+  - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/serve.py"
+  - "src/learnloop/adaptive_difficulty/serve_inputs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +50,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/206_forecast_receipts.sql`.
-- **Schema touched by:** `206_forecast_receipts.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -119,7 +120,10 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/adaptive_difficulty/backfill.py`
+- `src/learnloop/adaptive_difficulty/data_check.py`
+- `src/learnloop/adaptive_difficulty/outside.py`
+- `src/learnloop/adaptive_difficulty/serve.py`
 
 ### Direct SQL writers
 
@@ -134,6 +138,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad_fakes.py`
+- `tests/test_ad1_migration.py`
+- `tests/test_ad1_reading_opportunities.py`
+- `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
 - `tests/test_chatgpt_plan_landing.py`
 - `tests/test_forecast_receipts.py`

@@ -3,13 +3,13 @@ title: "source_render_views"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "bd329423108fa051b67833d157dfd04fe4bc2d82"
-source_commit_timestamp: "2026-10-18T13:30:16-04:00"
+source_commit: "16a0071f286574d02a406707d0d1ea1fb05b8423"
+source_commit_timestamp: "2026-10-18T13:44:01-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_render_views"
   - "table source_render_views"
-schema_head: 212
+schema_head: 213
 table_name: "source_render_views"
 table_role: "workflow"
 functionality_status: "active"
@@ -122,6 +122,7 @@ Indexes and uniqueness:
 
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_render_views.py`
+- `tests/test_ad1_reading_opportunities.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
