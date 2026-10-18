@@ -318,3 +318,80 @@ behaviour that already held.
   tests, the stage record and spec §15).
 - `a107e9a13`: the references regenerated on `04d06282f`.
 - this record.
+
+## Fix round 3 (after Codex job 20261018-002703-ixJaw2)
+
+The Codex verify of `f2c34c928` found V1 and V3 fixed and three Medium
+defects still in V2's other-assistance window in `learnloop/hints/report.py`,
+W1-W3, each reproduced through the full report. All three are fixed in
+`bea7af2a0`. Report inference only: no schema change (so no fixture or
+reference regeneration; `db_validate_reference.py` still reports 0 errors),
+and nothing in grading, `hints_used` or anything submit stores changes.
+
+**Fail first.** The round's tests were run against `f2c34c928`'s code in a
+detached worktree (removed after). **6 failed.** The 4 new tests failed on
+behaviour:
+- W1: `help_not_ordered` where `reached` was expected;
+- W2: the same;
+- W3, lower boundary: `reached` where `help_order_ambiguous` was expected;
+- W3, upper boundary: `help_not_ordered` where `help_order_ambiguous` was
+  expected.
+
+The 2 round-2 tests failed only because their expected reason dict now
+names `help_order_ambiguous: 0`.
+
+| ID | Severity | Title | Verdict | Commit | Tests |
+|---|---|---|---|---|---|
+| W1 | Medium | The attempt's own same-second feedback display counted as help before it | fixed | `bea7af2a0` | `tests/test_hint_telemetry.py::test_the_attempts_own_feedback_display_in_its_second_is_not_help_before_it` |
+| W2 | Medium | A later revisit of the previous attempt's feedback flips the next attempt | fixed | `bea7af2a0` | `::test_a_later_revisit_of_the_previous_attempts_feedback_is_not_help` (and A's feedback before B still counts) |
+| W3 | Medium | A same-second tutor answer at a window boundary gives a false "reached" | fixed | `bea7af2a0` | `::test_help_in_a_boundarys_second_is_order_ambiguous_never_reached` (lower boundary; attributed to A it is help), `::test_help_in_the_attempts_own_second_is_order_ambiguous` (upper boundary, a reveal and a tutor answer) |
+
+### What changed
+
+`_other_assistance` now returns `"help"`, `"ambiguous"` or None. A new
+`_window_position(event, ...)` places each tutor event (answered or counted
+as a hint) and each reveal (`amount > 0`, other than this submission's own
+self-grade disclosure, an exemption kept separate) against the attempt's
+window, from the item's previous attempt up to this one. The window is now
+evaluated in Python over the item's rows, at whole-second resolution
+(`_second`).
+
+- **W1.** An event attributed to the evaluated attempt (`attempt_id`) was
+  written after that attempt existed. It is `outside` whatever its second.
+- **W2.** An event attributed to the previous attempt is after the window
+  opened. That relaxes only the lower bound: the upper bound still applies,
+  so a revisit after the evaluated attempt is `outside`.
+- **W3.** Without attribution, the whole-second time decides. An event in
+  the same second as either boundary, or with an unparseable time, is
+  `ambiguous`. Any `inside` event (or a held workbench hint) gives
+  `help_not_ordered`. Otherwise any `ambiguous` event gives the new reason
+  `help_order_ambiguous`, never `reached`. `UNAIDED_UNKNOWN_REASONS` is now
+  `more_help_followed, primed, help_not_ordered, help_order_ambiguous,
+  help_count_capped, help_cap_unknown, ungraded, not_fully_correct`.
+
+**Pre-existing, not in H0's scope.** Grading's tutor-count fold
+(`tutor_qa.hint_equivalents_for_submission` /
+`count_hint_equivalent_question_events`, `created_at > since`) has the same
+whole-second boundary. A hint-equivalent question stamped in the previous
+attempt's second is not counted into the next attempt's `hints_used`. It is
+left unchanged, as ruled: the W3 test asserts `hints_used == 1` there. It is
+a candidate for a successor.
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run pytest -n auto tests/test_hint_telemetry.py
+  tests/test_help_assists_schema.py tests/test_cli_help_snapshot.py`:
+  **68 passed**. Only `report.py` and its test file changed. The report has
+  no other test file, and the CLI help snapshot is unchanged.
+- `uv run pytest -n auto --durable-sqlite tests/test_hint_telemetry.py
+  tests/test_help_assists_schema.py`: **67 passed**.
+- `uv run lint-imports --no-cache`: **25 kept, 0 broken**.
+- `db_validate_reference.py`: **0 errors**, with no schema change and no
+  regeneration.
+
+**Model calls made in this round: 0.**
+
+### Commits
+
+- `bea7af2a0`: the fixes (`learnloop/hints/report.py`, tests).
+- this record.
