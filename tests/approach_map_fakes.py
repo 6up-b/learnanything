@@ -137,9 +137,23 @@ def receipts(sqlite_path: Path) -> list[dict[str, Any]]:
             "ORDER BY started_at, rowid")]
 
 
-def node(node_id: str, role: str, label: str, state: str, *, checkpoint: str = "", leak: bool = False) -> dict:
-    return {"id": node_id, "role": role, "label": label, "state": state, "recognizers": [state[:20]],
-            "checkpoint_id": checkpoint, "leak": leak}
+def _structured_fields() -> bool:
+    """Whether the map model has the structured node fields (fix round 3):
+    the fixtures omit them on an older model, so a failing-first run against
+    an older tree fails on the behaviour under test, not on the fixture."""
+
+    from learnloop.hints.maps import MapNode
+
+    return {"value", "conclusion", "unit"} <= set(MapNode.model_fields)
+
+
+def node(node_id: str, role: str, label: str, state: str, *, checkpoint: str = "", leak: bool = False,
+         value: str = "", conclusion: str = "", unit: str = "") -> dict:
+    payload = {"id": node_id, "role": role, "label": label, "state": state, "recognizers": [state[:20]],
+               "checkpoint_id": checkpoint, "leak": leak}
+    if _structured_fields():
+        payload.update(value=value, conclusion=conclusion, unit=unit)
+    return payload
 
 
 def edge(source: str, target: str, *, facets: tuple[str, ...] = ()) -> dict:
@@ -154,7 +168,7 @@ def good_map(context: Any = None, **overrides: Any) -> dict[str, Any]:
     payload = {
         "nodes": [node("g", "given", "Read the density", "f(x) = 2x on [0, 1]"),
                   node("cdf", "step", "Find the CDF on the support", "$F(x) = x^2$ on [0, 1]"),
-                  node("goal", "goal", "Evaluate the CDF at the point", "P(X ≤ 1/2) = 1/4")],
+                  node("goal", "goal", "Evaluate the CDF at the point", "P(X ≤ 1/2) = 1/4", conclusion="1/4")],
         "edges": [edge("g", "cdf", facets=("recall",)), edge("cdf", "goal")],
         "routes": [{"id": "r_ref", "name": "CDF route", "path": ["g", "cdf", "goal"], "origin": "reference",
                     "learner_attempt_ids": []}],

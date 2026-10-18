@@ -445,6 +445,18 @@ Changed: `tests/conftest.py` (the build guard), `tests/test_hint_telemetry.py`
    `SharedDailyEnvelope` name (maps keep `hints.maps.max_daily_cost_usd`).
 6. The import-linter contract now names two pure reads; H2's EIG ranking and
    state reads need lines of their own (H0 friction note 3).
+7. (Fix round 3, R2.) The map's prose leak detection (`gives_away`,
+   `label_leaks`, `states_answer` over states and labels) is best-effort
+   defence in depth. The binding leak gate is H2's leak control on the
+   written hint text (spec §4.6), which H2 must run on every hint, whatever
+   the map's `leak` marks say. Rely on the structured fields first: a node's
+   `value` and the goal's `conclusion` (with `unit`) are what code checks
+   with `answer_check.answers_equal`. Prose that needs algebraic rewriting
+   ("x times x" for `x^2`) is a known gap (Low).
+8. (Fix round 3, R1.) `verified_goal` comes only from the goal node's
+   `conclusion`. `goal_answer` is informational. An unverified map (no exact
+   key, no conclusion, or a conclusion that does not parse) is stored and
+   usable; H2 must not treat unverified as invalid.
 
 **RW2b / H3.**
 1. "Check my work" can name `map_node_id` / `route_id` from

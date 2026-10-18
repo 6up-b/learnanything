@@ -273,7 +273,7 @@ def _mutate(name: str) -> dict:
     elif name == "no_route":
         payload["routes"] = []
     elif name == "goal_mismatch":
-        payload["goal_answer"] = "1/3"
+        payload["nodes"][2]["conclusion"] = "1/3"
     elif name == "two_goals":
         payload["nodes"][1]["role"] = "goal"
     elif name == "dangling_edge":
@@ -840,7 +840,7 @@ def _count_map(*, step_state: str, step_label: str, goal_state: str = "There are
     return {
         "nodes": [node("g", "given", "Read the drawer", "two pairs of socks"),
                   node("count", "step", step_label, step_state),
-                  node("goal", "goal", "Report the total", goal_state)],
+                  node("goal", "goal", "Report the total", goal_state, conclusion=goal_answer)],
         "edges": [edge("g", "count"), edge("count", "goal")],
         "routes": [{"id": "r_ref", "name": "Count route", "path": ["g", "count", "goal"], "origin": "reference",
                     "learner_attempt_ids": []}],
@@ -883,31 +883,6 @@ def test_f1_a_single_digit_vault_item_builds_with_its_leaks_marked(tmp_path):
     stored = json.loads(rows(paths.sqlite_path)[0]["map_json"])
     assert {item["id"]: item["leak"] for item in stored["nodes"]} == {"g": False, "count": True, "goal": True}
     assert [json.loads(row["rationale"])["reasons"] for row in ledger(paths.sqlite_path)][0] == ["label_leak"]
-
-
-@pytest.mark.parametrize("goal_answer", ["1/4", ""])
-def test_f2_a_goal_state_that_contradicts_the_answer_is_a_mismatch(paths, goal_answer):
-    """Only the goal node's state is wrong: a correct declaration does not
-    verify it, and an empty one does not let it through unverified."""
-
-    payload = good_map(goal_answer=goal_answer)
-    payload["nodes"][2]["state"] = "Therefore P = 3/4"
-    result = _validate(paths, payload)
-    assert not result.valid and "goal_mismatch" in result.reasons and not result.verified_goal
-    assert any(detail.get("basis") == "goal_state" for detail in result.details if detail["reason"] == "goal_mismatch")
-
-
-def test_f2_the_goal_verifies_from_an_agreeing_state_or_declaration(paths):
-    # ("1/4", "The probability at the point") verified by the declaration alone
-    # before fix round 2 (M2); it is now stored unverified (test_m2_*).
-    for goal_answer, state in (("", "Therefore P = 1/4"), ("1/4", "P(X ≤ 1/2) = 1/4")):
-        payload = good_map(goal_answer=goal_answer)
-        payload["nodes"][2]["state"] = state
-        result = _validate(paths, payload)
-        assert result.valid and result.verified_goal and result.goal_basis == "exact_key", (goal_answer, state)
-    # A wrong declaration with an agreeing state is still a mismatch.
-    payload = good_map(goal_answer="3/4")
-    assert "goal_mismatch" in _validate(paths, payload).reasons
 
 
 def test_f4_every_seeded_solution_needs_exactly_one_route(paths):
@@ -1243,41 +1218,6 @@ def test_m1_a_vault_item_with_a_formatted_answer_builds_with_its_leak_marked(tmp
     assert {item["id"]: item["leak"] for item in stored["nodes"]}["count"] is True
 
 
-@pytest.mark.parametrize(("expected", "goal_state", "goal_answer"), [
-    ("x^2", "Therefore y = x^3", "x^2"),
-    ("1/4", "P = \\frac{3}{4}", "1/4"),
-    ("1/4", "So $P = 0.75$.", "1/4"),
-    ("1/4", "P = \\frac{3}{4}", ""),
-])
-def test_m2_a_goal_state_whose_last_assignment_differs_is_a_mismatch(expected, goal_state, goal_answer):
-    result = _plain(_count_map(step_state="two pairs", step_label="Count the socks", goal_state=goal_state,
-                               goal_answer=goal_answer), expected)
-    assert not result.valid and "goal_mismatch" in result.reasons and not result.verified_goal
-    assert any(detail.get("basis") == "goal_state" for detail in result.details
-               if detail["reason"] == "goal_mismatch"), result.details
-
-
-def test_m2_only_a_checked_goal_state_verifies():
-    for expected, goal_state in (("1/4", "P = \\frac{1}{4}"), ("1/4", "Therefore $P = 0.25$."),
-                                 ("x^2", "Therefore y = x^2"), ("4", "There are 4 socks")):
-        result = _plain(_count_map(step_state="two pairs", step_label="Count the socks", goal_state=goal_state,
-                                   goal_answer=expected), expected)
-        assert result.valid and result.verified_goal and result.goal_basis == "exact_key", (expected, goal_state)
-    # A declaration that agrees with a state the checker cannot read never verifies.
-    unchecked = _plain(_count_map(step_state="two pairs", step_label="Count the socks",
-                                  goal_state="The probability at the point", goal_answer="1/4"), "1/4")
-    assert unchecked.valid and not unchecked.verified_goal and unchecked.goal_basis == "goal_state_unchecked"
-
-
-def test_m2_an_unchecked_goal_is_stored_unverified(paths):
-    payload = good_map()
-    payload["nodes"][2]["state"] = "The probability at the point"
-    outcome = _build(paths, MapFake([payload]))
-    assert outcome.status == "built" and outcome.verified_goal is False
-    [row] = rows(paths.sqlite_path)
-    assert row["verified_goal"] == 0 and json.loads(row["validation_json"])["goal_basis"] == "goal_state_unchecked"
-
-
 def _expire_lease(sqlite_path: Path, key: str) -> None:
     with closing(connect(sqlite_path)) as connection:
         connection.execute("UPDATE judgment_work_claims SET lease_expires_at = ? WHERE claim_key = ?",
@@ -1524,3 +1464,267 @@ def test_l1_a_thread_start_failure_leaves_no_in_flight_mark(paths, monkeypatch):
     fake = MapFake()
     thread = MB.schedule_build_on_serve(vault, paths.sqlite_path, ITEM, client=fake)
     assert thread is not None and MB.wait_for_background_builds(30) and fake.calls == 1
+
+
+# -- Fix round 3 (after Codex job 20261018-032508-6kTAc9) -----------------------------------
+#
+# R1 replaces the prose goal check (F2 and round 2's M2 tests, removed): only
+# the goal node's structured ``conclusion`` verifies or contradicts the answer.
+
+
+def _goal_map(expected: str, *, goal_state: str, conclusion: str, unit: str = "",
+              step_state: str = "two pairs", step_label: str = "Count the socks", value: str = "",
+              value_unit: str = "") -> dict:
+    payload = _count_map(step_state=step_state, step_label=step_label, goal_state=goal_state, goal_answer=expected)
+    payload["nodes"][2].update(conclusion=conclusion, unit=unit)
+    payload["nodes"][1].update(value=value, unit=value_unit)
+    return payload
+
+
+@pytest.mark.parametrize("goal_state", ["There are -4 socks", "There are \\frac{3}{4} socks", "x != 4",
+                                        "There are 4 socks"])
+def test_r1_prose_or_a_mentioned_answer_never_verifies_the_goal(goal_state):
+    """Codex item 2: token presence was proof; now a goal without a
+    conclusion is stored unverified, whatever its prose says."""
+
+    result = _plain(_goal_map("4", goal_state=goal_state, conclusion=""), "4")
+    assert result.valid and not result.verified_goal and result.goal_basis == "no_conclusion", result.details
+
+
+def test_r1_only_the_structured_conclusion_verifies_or_contradicts():
+    for conclusion, expected in (("4", "4"), ("$4$", "4"), ("0.25", "1/4"), ("\\frac{1}{4}", "1/4"),
+                                 ("x^2", "x^2"), ("−4", "-4")):
+        result = _plain(_goal_map(expected, goal_state="The value at the point", conclusion=conclusion), expected)
+        assert result.valid and result.verified_goal and result.goal_basis == "exact_key", (conclusion, expected)
+    for conclusion, expected in (("-4", "4"), ("x^3", "x^2"), ("\\frac{3}{4}", "1/4")):
+        result = _plain(_goal_map(expected, goal_state="The value at the point", conclusion=conclusion), expected)
+        assert not result.valid and "goal_mismatch" in result.reasons, (conclusion, expected)
+        assert [detail["basis"] for detail in result.details if detail["reason"] == "goal_mismatch"] == ["conclusion"]
+    # The prose state is never read: a contradictory sentence does not reject a checked conclusion.
+    prose = _plain(_goal_map("1/4", goal_state="Therefore P = 3/4", conclusion="1/4"), "1/4")
+    assert prose.valid and prose.verified_goal
+
+
+def test_r1_a_quantity_carries_its_unit_in_its_own_field():
+    """Codex item 3: "Distance = 4 m" was rejected as 4m != 4."""
+
+    with_unit = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4", unit="m"), "4")
+    assert with_unit.valid and with_unit.verified_goal
+    declared = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m", unit="m"), "4")
+    assert declared.valid and declared.verified_goal
+    attached = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m"), "4")
+    assert attached.valid and not attached.verified_goal and attached.goal_basis == "conclusion_unparsed"
+
+
+def test_r1_an_unparsed_conclusion_or_no_key_is_stored_unverified(paths, tmp_path):
+    payload = good_map()
+    payload["nodes"][2]["conclusion"] = "one quarter"
+    outcome = _build(paths, MapFake([payload]))
+    assert outcome.status == "built" and outcome.verified_goal is False
+    [row] = rows(paths.sqlite_path)
+    assert row["verified_goal"] == 0 and json.loads(row["validation_json"])["goal_basis"] == "conclusion_unparsed"
+    assert json.loads(row["map_json"])["nodes"][2]["conclusion"] == "one quarter"  # kept inside map_json
+    proof = _plain(_goal_map("Because U is orthogonal, it holds.", goal_state="QED", conclusion="4"),
+                   "Because U is orthogonal, it holds.")
+    assert proof.valid and not proof.verified_goal and proof.goal_basis == "no_exact_key"
+
+
+def test_r1_the_builders_output_schema_requires_the_structured_fields():
+    from learnloop.ai.strict_schema import strict_output_schema
+
+    schema = strict_output_schema(ApproachMapV1)
+    definitions = schema.get("$defs") or schema.get("definitions") or {}
+    node_schema = definitions["MapNode"]
+    assert {"conclusion", "value", "unit"} <= set(node_schema["required"])
+    assert "conclusion" in MB.build_prompt.__globals__["_INSTRUCTIONS"]
+
+
+@pytest.mark.parametrize(("expected", "state"), [
+    ("0.25", "The probability is $\\frac{2}{8}$"),
+    ("x^2", "The result is $x*x$"),
+    ("-4", "The balance is −4"),
+    ("-4", "The balance is –4"),
+    ("1/4", "So far, $P(X \\le 1/2) = \\frac{1}{4}$ holds"),
+])
+def test_r2_an_answer_inside_a_math_span_or_with_a_unicode_sign_is_marked(expected, state):
+    result = _plain(_count_map(step_state=state, step_label="Count the socks", **_neutral_goal(expected)), expected)
+    assert result.valid and "count" in result.leak_marked_by_code, (expected, state, result.details)
+    leaking = _plain(_count_map(step_state="two pairs", step_label=f"Note that {state}", **_neutral_goal(expected)),
+                     expected)
+    assert "label_leak" in leaking.reasons, (expected, state)
+
+
+@pytest.mark.parametrize(("expected", "state"), [
+    ("4", "The balance is -4"), ("4", "The balance is −4"), ("4", "a share of \\frac{3}{4}"),
+    ("4", "a share of (3)/(4)"), ("3", "a share of $\\frac{3}{4}$"), ("4", "a share of 3/4"), ("4", "x-4"),
+])
+def test_r2_a_sign_stays_attached_and_a_fraction_is_never_split(expected, state):
+    result = _plain(_count_map(step_state=state, step_label="Count the socks", **_neutral_goal(expected)), expected)
+    assert result.valid and "count" not in result.leak_marked_by_code, (expected, state)
+
+
+def test_r2_a_structured_value_equal_to_the_answer_marks_its_node():
+    marked = _plain(_goal_map("0.25", goal_state="P is found", conclusion="0.25", step_state="the share of pairs",
+                              value="2/8"), "0.25")
+    assert marked.valid and "count" in marked.leak_marked_by_code
+    with_unit = _plain(_goal_map("4", goal_state="Distance found", conclusion="4", unit="m",
+                                 step_state="the distance", value="4", value_unit="m"), "4")
+    assert "count" in with_unit.leak_marked_by_code
+    other = _plain(_goal_map("0.25", goal_state="P is found", conclusion="0.25", step_state="the CDF",
+                             value="x^2"), "0.25")
+    assert other.valid and "count" not in other.leak_marked_by_code
+    # A label that states a leak node's value fails.
+    leaky = _goal_map("0.25", goal_state="P is found", conclusion="0.25", step_state="the share of pairs",
+                      value="2/8")
+    leaky["nodes"][0]["label"] = "Aim for 2/8"
+    assert "label_leak" in _plain(leaky, "0.25").reasons
+
+
+def _hold_write_lock(sqlite_path: Path) -> sqlite3.Connection:
+    holder = sqlite3.connect(sqlite_path, timeout=30, isolation_level=None)
+    holder.execute("BEGIN IMMEDIATE")
+    return holder
+
+
+def _closed_while_waiting(paths, registry, write) -> tuple[list, dict, dict]:
+    """Codex's gated-transaction reproduction: ``write`` starts while another
+    connection holds the database's write lock; the registry closes (and
+    binds another vault) while it waits; then the lock is released."""
+
+    holder = _hold_write_lock(paths.sqlite_path)
+    before = _snapshot(paths.sqlite_path)
+    outcome: list = []
+
+    def run() -> None:
+        try:
+            outcome.append(write())
+        except Exception as exc:  # noqa: BLE001 - a fenced write may raise; the test reads its effect
+            outcome.append(exc)
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    time.sleep(0.3)  # the write is now waiting for BEGIN IMMEDIATE
+    assert worker.is_alive() and not outcome
+    registry.close(0.1)
+    registry.bind(paths.sqlite_path.parent / "elsewhere.sqlite")
+    holder.rollback()
+    holder.close()
+    worker.join(30)
+    assert not worker.is_alive()
+    return outcome, before, _snapshot(paths.sqlite_path)
+
+
+def _fenced_claim(paths, registry):
+    fence = registry.admit(paths.sqlite_path)
+    claim = MB._try_claim(_repo(paths), ITEM, fence)
+    assert claim is not None
+    return claim
+
+
+@pytest.mark.parametrize("kind", ["claim", "release", "checkpoint", "receipt", "ledger", "store"])
+def test_r3_a_close_while_a_write_waits_for_the_lock_lands_nothing(paths, kind):
+    registry = MB.BackgroundBuilds(drain_seconds=0.1)
+    registry.bind(paths.sqlite_path)
+    repository = _repo(paths)
+    if kind == "claim":
+        fence = registry.admit(paths.sqlite_path)
+        write = lambda: MB._try_claim(repository, ITEM, fence)  # noqa: E731
+    else:
+        claim = _fenced_claim(paths, registry)
+        fenced = MB._FencedRepository(repository, claim)
+        context, _seeds = _context(paths)
+        validation = validate_map(ApproachMapV1.model_validate(good_map()), context)
+        vault = load_vault(paths.root)
+        write = {
+            "release": lambda: MB._release(repository, claim),
+            "checkpoint": lambda: fenced.save_model_checkpoint("approach_map:k", purpose="approach_map",
+                                                               result={"answer": {}}),
+            "receipt": lambda: fenced.record_model_event(
+                "start", {"id": "call_r3", "purpose": "approach_map", "prompt_hash": "p", "schema_hash": "s",
+                          "started_at": MB._lease_now()}, owner_kind=MB.OWNER_KIND, owner_id=ITEM),
+            "ledger": lambda: MB._ledger(repository, item_id=ITEM, right_kind="approach_map_revision", right_id="r",
+                                         prompt="p", verdict="valid", validation=validation, round_=1,
+                                         trigger="serve", clock=None, claim=claim),
+            "store": lambda: MB._store(repository, item=vault.practice_items[ITEM], item_hash="h", structure="s",
+                                       seeds_hash="x", seeds_record={}, validated=validation.normalized,
+                                       validation=validation, trigger="serve", model=None,
+                                       prompt_version=MB.PROMPT_VERSION, prompt="p", clock=None, claim=claim),
+        }[kind]
+    outcome, before, after = _closed_while_waiting(paths, registry, write)
+    assert after == before, f"a {kind} write landed in the closed vault"
+    if kind == "claim":
+        assert outcome == [None]
+    if kind == "store":
+        assert outcome[0].status == "stale"
+
+
+def test_r4_launch_and_close_are_atomic(paths, monkeypatch):
+    """Codex item 5: a close between a build's start and its registration
+    returned True with the build alive. Now the build is registered before it
+    starts, under the lock close takes."""
+
+    registry = MB.BackgroundBuilds(drain_seconds=0.2)
+    registry.bind(paths.sqlite_path)
+    model_gate, pause, paused = threading.Event(), threading.Event(), threading.Event()
+    slow = MapFake(gate=model_gate)
+    original = threading.Thread
+    build_name = f"learnloop-approach-map-{ITEM}"
+
+    class Pausing(original):
+        def start(self):
+            super().start()
+            if self.name == build_name:
+                paused.set()
+                assert pause.wait(10)
+
+    scheduled: list = []
+    closed: list = []
+    scheduler = original(target=lambda: scheduled.append(MB.schedule_build_on_serve(
+        load_vault(paths.root), paths.sqlite_path, ITEM, client=slow, builds=registry)))
+    closer = original(target=lambda: closed.append(registry.close(0.2)))
+    monkeypatch.setattr(MB.threading, "Thread", Pausing)
+    scheduler.start()
+    assert paused.wait(10)
+    assert slow.started.wait(10)  # the build is running; its scheduler has not returned yet
+    closer.start()
+    time.sleep(0.2)
+    pause.set()
+    closer.join(10)
+    scheduler.join(10)
+    monkeypatch.setattr(MB.threading, "Thread", original)
+    assert closed == [False] and registry.running == 1, "close returned while the build it missed was alive"
+    model_gate.set()
+    assert MB.wait_for_background_builds(30)
+    assert rows(paths.sqlite_path) == []  # its generation was cancelled
+
+
+def test_r4_a_generation_is_drained_once(paths):
+    gate = threading.Event()
+    slow = MapFake(gate=gate)
+    ctx, session_id = _sidecar(paths.root, slow)
+    ctx.map_builds.drain_seconds = 0.4
+    _serve(ctx, session_id)
+    assert slow.started.wait(10)
+    started = time.monotonic()
+    assert _call(ctx, "shutdown", {}) == {"ok": True}
+    first = time.monotonic() - started
+    started = time.monotonic()
+    assert ctx.close_background_builds() is False  # serve()'s finally after the handler: no second drain
+    second = time.monotonic() - started
+    ctx.map_builds.bind(paths.sqlite_path)  # bind after close: no second drain either
+    third = time.monotonic() - started
+    assert first >= 0.35 and second < 0.2 and third < 0.2, (first, second, third)
+    gate.set()
+    assert MB.wait_for_background_builds(30)
+
+
+def test_r4_a_dropped_receipt_logs_its_call_id(paths, caplog):
+    registry = MB.BackgroundBuilds(drain_seconds=0.1)
+    registry.bind(paths.sqlite_path)
+    claim = _fenced_claim(paths, registry)
+    registry.close(0.1)
+    fenced = MB._FencedRepository(_repo(paths), claim)
+    with caplog.at_level("WARNING", logger=MB.LOG.name):
+        fenced.record_model_event("finish", {"id": "call_r4_identity", "status": "completed", "input_tokens": 3},
+                                  owner_kind=MB.OWNER_KIND, owner_id=ITEM)
+    assert "call_r4_identity" in caplog.text

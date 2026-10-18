@@ -100,6 +100,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import approach_maps as store
 from learnloop.db.stores.judgment_claims import CLAIMED, claim_work, holds_claim, release_claim, renew_claim
+from learnloop.db.stores.model_calls import delete_checkpoint, finish_receipt, insert_checkpoint
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.hints.map_seeds import (
     MAX_ATTEMPTS,
@@ -261,7 +262,11 @@ _INSTRUCTIONS = (
     "subgoal label with no values and no expression from any later state (e.g. 'Find the CDF on the "
     "support'). state: what is true at the node (LaTeX allowed). recognizers: what in a learner's work shows "
     "the node is reached. checkpoint_id: the id of the trace-contract checkpoint or skeleton checkpoint the "
-    "node matches, else ''. leak: true when the state contains or gives away the expected answer. Edges: "
+    "node matches, else ''. leak: true when the state contains or gives away the expected answer. value: on a "
+    "given or step node, the bare expression its state establishes (e.g. 'x^2'), else ''. conclusion: on the "
+    "goal node, the final answer as a bare expression with no prose, no variable name, no '=' and no units "
+    "(e.g. '1/4', not 'P = 1/4' or '4 m'), or '' for a proof; '' on every other node. unit: the unit of the "
+    "value or conclusion (e.g. 'm'), else ''. Edges: "
     "from_node, to_node, technique (a short name), principle, and facet_ids taken only from allowed_facet_ids "
     "(or none). Routes: id, name, path (node ids from a given to the goal, each consecutive pair an edge), "
     "origin and learner_attempt_ids. origin is 'reference' for the reference solution's route (always "
@@ -271,7 +276,8 @@ _INSTRUCTIONS = (
     "another distinct route a capable student would take. Record only genuinely distinct routes and share "
     "nodes between them. learner_attempt_ids: the learner solution refs that took the route. goal_node_id: "
     "the goal node. goal_answer: the final value or expression the goal establishes, exactly as the reference "
-    "solution states it, or '' for a proof. A family_template, when given, is the map of an isomorphic "
+    "solution states it, or '' for a proof (the goal node's conclusion is that answer as a bare expression). "
+    "A family_template, when given, is the map of an isomorphic "
     "sibling question: keep its structure and write this question's own states, values and leak marks."
 )
 
@@ -281,8 +287,9 @@ _MERGE_INSTRUCTIONS = (
     "existing route matches it, add a new route (new_routes: id, name, attempt_refs, the nodes new to the map "
     "with fresh ids, the edges it needs, and its path from a given to the goal, reusing existing nodes where "
     "the solution passes through them). Place every solution exactly once. Follow the map's own rules: "
-    "structural labels with no values, states, recognizers, checkpoint_id or '', leak marks, facet_ids only "
-    "from allowed_facet_ids."
+    "structural labels with no values, states, recognizers, checkpoint_id or '', leak marks, value (the bare "
+    "expression a new node's state establishes, else ''), conclusion '' and unit, facet_ids only from "
+    "allowed_facet_ids."
 )
 
 
@@ -435,12 +442,10 @@ def _ledger(repository: Repository, *, item_id: str, right_kind: str, right_id: 
     rationale = {"round": round_, "trigger": trigger, "reasons": reasons,
                  "details": (validation.details if validation else [])[:20],
                  "verified_goal": validation.verified_goal if validation else None}
-    with _write_gate(claim) as open_, repository.atomic():
-        # Fenced like the map row (fix round 2, M3/M4): no verdict lands once
-        # the lease or the vault is lost.
-        if not open_ or (claim is not None and not _holds(repository.connection(), claim)):
-            raise _LeaseLost("the build's lease or vault was lost before its verdict was written")
-        append_judgment(repository.connection(), task=LEDGER_TASK, left_kind="practice_item", left_id=item_id,
+    # Fenced like the map row (fix rounds 2 and 3): no verdict lands once the
+    # lease or the vault is lost; the check runs inside the transaction.
+    with _fenced_txn(repository, claim) as connection:
+        append_judgment(connection, task=LEDGER_TASK, left_kind="practice_item", left_id=item_id,
                         right_kind=right_kind, right_id=right_id, judge="verifier",
                         input_hash=content_key(prompt), verdict=verdict, prompt_version=prompt_version,
                         rationale=json.dumps(rationale, sort_keys=True, default=str),
@@ -476,10 +481,7 @@ def _store(repository: Repository, *, item: PracticeItem, item_hash: str, struct
     map_id = "am_" + new_ulid()
     merge = base_map_id is not None
     try:
-        with _write_gate(claim) as open_, repository.atomic():
-            connection = repository.connection()
-            if not open_ or (claim is not None and not _holds(connection, claim)):
-                return _Stored("stale")
+        with _fenced_txn(repository, claim) as connection:
             version, supersedes = store.next_version(connection, item.id)
             if merge:
                 newest = store.current_map(connection, item.id, practice_item_hash=item_hash,
@@ -505,6 +507,8 @@ def _store(repository: Repository, *, item: PracticeItem, item_hash: str, struct
                 "prompt_version": prompt_version, "input_hash": content_key(prompt),
                 "created_at": utc_now_iso(clock), "supersedes_id": supersedes,
             })
+    except _LeaseLost:
+        return _Stored("stale")
     except sqlite3.IntegrityError:
         return _Stored("stale" if merge else "current")
     return _Stored("stored", map_id, version)
@@ -572,23 +576,42 @@ def _require_live(repository: Repository, claim: _Claim) -> None:
 
 
 @contextmanager
-def _write_gate(claim: _Claim | None) -> Iterator[bool]:
-    """Hold the build's registry gate for one write (a vault switch waits for
-    it, then fences every later one); yields whether the write may land."""
+def _fenced_txn(repository: Repository, claim: _Claim | None, *, fence: "BuildFence | None" = None,
+                lease: bool = True) -> Iterator[sqlite3.Connection]:
+    """One fenced write transaction (fix round 3, R3). BEGIN IMMEDIATE is
+    acquired first; only then is the registry gate taken and the generation
+    token and the lease (owner, epoch, expiry) re-checked, and the gate is
+    held until the commit. A writer still waiting for the database lock
+    holds nothing a vault switch waits on; once it gets the lock it sees the
+    switch and rolls back (``_LeaseLost``), however long busy_timeout made
+    it wait. ``lease=False``: the generation only (taking a new claim)."""
 
-    fence = claim.fence if claim is not None else None
-    if fence is None:
-        yield claim is None or not claim.lost.is_set()
-        return
-    with fence.gate():
-        yield fence.live() and not claim.lost.is_set()
+    fence = fence if fence is not None else (claim.fence if claim is not None else None)
+    gate = fence.gate() if fence is not None else None
+    held = False
+    try:
+        with repository.atomic():
+            connection = repository.connection()
+            if gate is not None:
+                gate.acquire()
+                held = True
+            if fence is not None and not fence.live():
+                raise _LeaseLost("the build's vault was closed before this write committed")
+            if claim is not None and lease and not _holds(connection, claim):
+                raise _LeaseLost("the build's lease was lost before this write committed")
+            yield connection
+    finally:
+        if held:
+            gate.release()
 
 
 class _FencedRepository:
     """The repository a build's paid calls write through: receipts and
-    checkpoints land only while the build's lease and vault hold (fix round
-    2, M3/M4). A dropped receipt is logged with its usage; the spend ledger
-    still settles the money (it is written by the envelope, not here)."""
+    checkpoints are written in a :func:`_fenced_txn`, so they commit only
+    while the build's lease and vault hold (fix rounds 2 and 3). A start
+    that is fenced out raises (the request is never sent); a fenced finish
+    or checkpoint is dropped and logged with the call's id and usage. The
+    spend ledger still settles the money (the envelope writes it, not here)."""
 
     def __init__(self, repository: Repository, claim: _Claim) -> None:
         self._repository = repository
@@ -597,26 +620,41 @@ class _FencedRepository:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._repository, name)
 
-    def _write(self, what: str, write: Callable[[], None], detail: Mapping[str, Any]) -> None:
-        with _write_gate(self._claim) as open_:
-            if open_ and _alive(self._repository, self._claim):
-                write()
-                return
+    def _dropped(self, what: str, detail: Mapping[str, Any]) -> None:
         LOG.warning("approach map %s not written: the build's lease or vault was lost (%s)", what,
                     json.dumps(dict(detail), sort_keys=True, default=str))
 
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
-        detail = {key: event.get(key) for key in ("call_id", "input_tokens", "output_tokens", "cost", "resolved_model")}
-        self._write(f"receipt ({action})", lambda: self._repository.record_model_event(
-            action, event, owner_kind=owner_kind, owner_id=owner_id), detail)
+        detail = {"id": event.get("id"), **{key: event.get(key) for key in
+                                            ("input_tokens", "output_tokens", "cost", "resolved_model")}}
+        if action == "start":
+            # On the transaction's pinned connection; fenced out, it raises and nothing is sent.
+            with _fenced_txn(self._repository, self._claim):
+                self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+            return
+        try:
+            with _fenced_txn(self._repository, self._claim) as connection:
+                if action == "finish":
+                    finish_receipt(connection, event, owner_kind=owner_kind, owner_id=owner_id)
+                else:
+                    raise ValueError(f"Unknown model receipt action: {action}")
+        except _LeaseLost:
+            self._dropped(f"receipt ({action})", detail)
 
-    def save_model_checkpoint(self, cache_key: str, **kwargs: Any) -> None:
-        self._write("checkpoint", lambda: self._repository.save_model_checkpoint(cache_key, **kwargs),
-                    {"key": cache_key})
+    def save_model_checkpoint(self, cache_key: str, *, purpose: str, result: dict[str, Any],
+                              usage: dict[str, Any] | None = None) -> None:
+        try:
+            with _fenced_txn(self._repository, self._claim) as connection:
+                insert_checkpoint(connection, cache_key, purpose=purpose, result=result, usage=usage)
+        except _LeaseLost:
+            self._dropped("checkpoint", {"key": cache_key})
 
     def discard_model_checkpoint(self, cache_key: str) -> None:
-        self._write("checkpoint discard", lambda: self._repository.discard_model_checkpoint(cache_key),
-                    {"key": cache_key})
+        try:
+            with _fenced_txn(self._repository, self._claim) as connection:
+                delete_checkpoint(connection, cache_key)
+        except _LeaseLost:
+            self._dropped("checkpoint discard", {"key": cache_key})
 
 
 def _lease_now() -> str:
@@ -631,13 +669,13 @@ def claim_key(practice_item_id: str) -> str:
 
 def _try_claim(repository: Repository, item_id: str, fence: "BuildFence | None" = None) -> _Claim | None:
     owner = f"{PROCESS_TOKEN}:{new_ulid()}"
-    probe = _Claim(claim_key(item_id), owner, 0, fence=fence)
-    with _write_gate(probe) as open_, repository.atomic():
-        if not open_:
-            return None
-        status, epoch = claim_work(
-            repository.connection(), claim_key=claim_key(item_id), task=CLAIM_TASK, producer=OWNER_KIND,
-            prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+    try:
+        with _fenced_txn(repository, None, fence=fence, lease=False) as connection:
+            status, epoch = claim_work(
+                connection, claim_key=claim_key(item_id), task=CLAIM_TASK, producer=OWNER_KIND,
+                prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+    except _LeaseLost:
+        return None
     if status == CLAIMED and epoch is not None:
         return _Claim(claim_key(item_id), owner, int(epoch), fence=fence)
     return None
@@ -663,11 +701,13 @@ def _claim(repository: Repository, item_id: str, until: float | None,
 
 def _release(repository: Repository, claim: _Claim) -> None:
     try:
-        with _write_gate(claim) as open_, repository.atomic():
-            if not open_:
-                return  # a lost lease is not ours to release; a lapsed vault's lapses
-            release_claim(repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
-                          now=_lease_now())
+        # A lost lease is not ours to release, and a closed vault's claim lapses.
+        with _fenced_txn(repository, claim, lease=False) as connection:
+            if claim.lost.is_set():
+                return
+            release_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch, now=_lease_now())
+    except _LeaseLost:
+        return
     except Exception:  # noqa: BLE001 - an unreleased claim simply expires
         LOG.warning("approach map claim release failed", exc_info=True)
 
@@ -689,10 +729,12 @@ def _claimed(repository: Repository, item_id: str, until: float | None, *,
     def beat() -> None:
         while not stop.wait(CLAIM_HEARTBEAT_SECONDS):
             try:
-                with _write_gate(claim) as open_, repository.atomic():
-                    held = open_ and renew_claim(
-                        repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                with _fenced_txn(repository, claim, lease=False) as connection:
+                    held = not claim.lost.is_set() and renew_claim(
+                        connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
                         now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+            except _LeaseLost:
+                held = False
             except Exception:  # noqa: BLE001 - the next beat retries; a lapsed lease fails the liveness check
                 continue
             if not held:
@@ -957,7 +999,8 @@ class BackgroundBuilds:
 
     def bind(self, sqlite_path: Any) -> None:
         """Key the registry to the loaded vault; a different vault (or a closed
-        registry) drains the previous generation and opens a new one."""
+        registry) closes the previous generation (draining it only if no
+        close has drained it yet) and opens a new one."""
 
         key = str(Path(sqlite_path))
         with self._lock:
@@ -973,26 +1016,55 @@ class BackgroundBuilds:
                 return None
             return BuildFence(self, self._generation)
 
+    def launch(self, sqlite_path: Any, work: Callable[[BuildFence], Callable[[], None]], *,
+               name: str) -> threading.Thread | None:
+        """Admit, register and start one build atomically with :meth:`close`
+        (fix round 3, R4): under the registry lock the build is refused once
+        closed, and registered before it starts, so a close either refuses it
+        or joins it. None when refused."""
+
+        with self._lock:
+            if not self._open or (self._path is not None and self._path != str(Path(sqlite_path))):
+                return None
+            fence = BuildFence(self, self._generation)
+            thread = threading.Thread(target=contextvars.Context().run, args=(work(fence),), daemon=True, name=name)
+            self._threads[:] = [existing for existing in self._threads if existing.is_alive()] + [thread]
+            try:
+                thread.start()
+            except BaseException:
+                self._threads.remove(thread)
+                raise
+            return thread
+
     def track(self, thread: threading.Thread) -> None:
         with self._lock:
             self._threads[:] = [existing for existing in self._threads if existing.is_alive()] + [thread]
 
     def close(self, timeout: float | None = None) -> bool:
         """Stop admitting, cancel, and join for at most ``timeout`` seconds
-        (default ``drain_seconds``; never hangs). True when every build ended."""
+        (default ``drain_seconds``; never hangs). True when every build ended.
+
+        A generation is drained once (fix round 3, R4): closing an already
+        closed registry joins nothing more, so a vault switch (close, then
+        bind) and shutdown (the handler, then the server's ``finally``) each
+        spend one deadline."""
 
         bound = self.drain_seconds if timeout is None else max(0.0, timeout)
         end = time.monotonic() + bound
         with self._lock:
+            already = not self._open
             self._open = False
             threads = list(self._threads)
-        # A write already under way finishes first; every later one sees the new generation.
-        held = self._gate.acquire(timeout=bound)
-        try:
+        if already:
+            with self._lock:
+                self._threads[:] = [thread for thread in self._threads if thread.is_alive()]
+                return not self._threads
+        # The generation changes under the gate: a fenced write that holds the
+        # database lock commits first, every later one sees the new generation.
+        # The gate is only ever held after BEGIN IMMEDIATE was acquired, so the
+        # wait is bounded by that one commit.
+        with self._gate:
             self._generation = "gen_" + new_ulid()
-        finally:
-            if held:
-                self._gate.release()
         for thread in threads:
             if thread is not threading.current_thread():
                 thread.join(max(0.0, end - time.monotonic()))
@@ -1032,9 +1104,6 @@ def schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_
         if _active_item(vault, practice_item_id) is None:
             return None
         registry = builds if builds is not None else _DEFAULT_BUILDS
-        fence = registry.admit(sqlite_path)
-        if fence is None:
-            return None
         candidate = (str(Path(sqlite_path)), practice_item_id)
         with _INFLIGHT_GUARD:
             if candidate in _INFLIGHT:
@@ -1042,25 +1111,27 @@ def schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_
             _INFLIGHT.add(candidate)
             key = candidate
 
-        def run() -> None:
-            try:
-                if not fence.live():
-                    return
-                repository = Repository.attach(Path(sqlite_path))
-                outcome = build_map(vault, repository, practice_item_id, trigger="serve", client=client,
-                                    clock=clock, find=find, fence=fence)
-                LOG.info("approach map on serve: %s", json.dumps(outcome.as_dict(), sort_keys=True, default=str))
-            except Exception:  # noqa: BLE001 - a background build never reaches the serve
-                LOG.warning("approach map build on serve failed", exc_info=True)
-            finally:
-                with _INFLIGHT_GUARD:
-                    _INFLIGHT.discard(candidate)
+        def work(fence: BuildFence) -> Callable[[], None]:
+            def run() -> None:
+                try:
+                    if not fence.live():
+                        return
+                    repository = Repository.attach(Path(sqlite_path))
+                    outcome = build_map(vault, repository, practice_item_id, trigger="serve", client=client,
+                                        clock=clock, find=find, fence=fence)
+                    LOG.info("approach map on serve: %s", json.dumps(outcome.as_dict(), sort_keys=True, default=str))
+                except Exception:  # noqa: BLE001 - a background build never reaches the serve
+                    LOG.warning("approach map build on serve failed", exc_info=True)
+                finally:
+                    with _INFLIGHT_GUARD:
+                        _INFLIGHT.discard(candidate)
 
-        thread = threading.Thread(target=contextvars.Context().run, args=(run,), daemon=True,
-                                  name=f"learnloop-approach-map-{practice_item_id}")
-        thread.start()
-        key = None  # the thread owns the in-flight mark now
-        registry.track(thread)
+            return run
+
+        thread = registry.launch(sqlite_path, work, name=f"learnloop-approach-map-{practice_item_id}")
+        if thread is None:
+            return None  # refused: the registry is closed or bound to another vault (finally clears the mark)
+        key = None  # the started thread owns the in-flight mark now
         with _INFLIGHT_GUARD:
             _THREADS[:] = [existing for existing in _THREADS if existing.is_alive()] + [thread]
         return thread

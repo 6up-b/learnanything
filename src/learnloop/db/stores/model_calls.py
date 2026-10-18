@@ -14,19 +14,42 @@ from learnloop.db.stores.source_service import ReservationReleased, released_res
 LABEL_FIELDS = ("judge", "question_set_version", "state_hash")
 
 
+_FINISH_FIELDS = ("status", "finished_at", "input_tokens", "output_tokens", "cached_input_tokens", "cache_write_tokens", "reasoning_tokens", "cost", "provider_response_id", "resolved_model", "usage_json", "finish_reason", "error_type", "output_text")
+
+
+def finish_receipt(connection: Any, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
+    """Finalize a started receipt on the caller's connection (the caller owns the transaction)."""
+
+    connection.execute(
+        f"UPDATE model_call_receipts SET {','.join(f'{field}=?' for field in _FINISH_FIELDS)} WHERE id=? AND status='started' AND owner_kind=? AND owner_id=?",
+        (*(event.get(field) for field in _FINISH_FIELDS), event["id"], owner_kind, owner_id),
+    )
+
+
+def insert_checkpoint(connection: Any, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None = None) -> None:
+    """Write a checkpoint once on the caller's connection (the caller owns the transaction)."""
+
+    connection.execute(
+        "INSERT INTO model_work_checkpoints(cache_key,purpose,result_json,usage_json,created_at) VALUES (?,?,?,?,?) ON CONFLICT(cache_key) DO NOTHING",
+        (cache_key, purpose, json.dumps(result, sort_keys=True), json.dumps(usage or {}, sort_keys=True), datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def delete_checkpoint(connection: Any, cache_key: str) -> None:
+    """Delete one checkpoint on the caller's connection (the caller owns the transaction)."""
+
+    connection.execute("DELETE FROM model_work_checkpoints WHERE cache_key=?", (cache_key,))
+
+
 class ModelCallStoreMixin:
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
         if action == "finish":
-            fields = ("status", "finished_at", "input_tokens", "output_tokens", "cached_input_tokens", "cache_write_tokens", "reasoning_tokens", "cost", "provider_response_id", "resolved_model", "usage_json", "finish_reason", "error_type", "output_text")
             # This call already owns a durable start. A late response may
             # finalize only that receipt, never a canonical row. Use a separate
             # short connection so a borrowed job fence cannot drop known usage
             # after takeover.
             with allow_late_model_records(), closing(connect(self.sqlite_path, read_only=self._read_only)) as connection, connection:
-                connection.execute(
-                    f"UPDATE model_call_receipts SET {','.join(f'{field}=?' for field in fields)} WHERE id=? AND status='started' AND owner_kind=? AND owner_id=?",
-                    (*(event.get(field) for field in fields), event["id"], owner_kind, owner_id),
-                )
+                finish_receipt(connection, event, owner_kind=owner_kind, owner_id=owner_id)
             return
         with self.connection() as connection:
             if action == "start":
@@ -106,10 +129,7 @@ class ModelCallStoreMixin:
         # A separate short connection keeps a borrowed, fenced connection from
         # rejecting it.
         with allow_late_model_records(), closing(connect(self.sqlite_path, read_only=self._read_only)) as connection, connection:
-            connection.execute(
-                "INSERT INTO model_work_checkpoints(cache_key,purpose,result_json,usage_json,created_at) VALUES (?,?,?,?,?) ON CONFLICT(cache_key) DO NOTHING",
-                (cache_key, purpose, json.dumps(result, sort_keys=True), json.dumps(usage or {}, sort_keys=True), datetime.now(timezone.utc).isoformat()),
-            )
+            insert_checkpoint(connection, cache_key, purpose=purpose, result=result, usage=usage)
 
     def discard_model_checkpoint(self, cache_key: str) -> None:
         """Delete a checkpoint whose stored result no longer validates.
@@ -119,4 +139,4 @@ class ModelCallStoreMixin:
         """
 
         with self.connection() as connection:
-            connection.execute("DELETE FROM model_work_checkpoints WHERE cache_key=?", (cache_key,))
+            delete_checkpoint(connection, cache_key)
