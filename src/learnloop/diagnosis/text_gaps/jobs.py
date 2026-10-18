@@ -43,6 +43,8 @@ from learnloop.diagnosis.text_gaps.sources import (
     missed_formative_ids,
     stuck_text_for,
     stuck_texts,
+    workbench_text_ids,
+    workbench_text_row,
 )
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
@@ -173,6 +175,30 @@ def enqueue_hint_feedback(
     return enqueue(repository, source_kind="hint_feedback", source_id=assist_id, clock=clock)
 
 
+def enqueue_workbench_text(
+    vault: LoadedVault, repository: Repository, *, source_id: str, clock: Clock | None = None,
+) -> str | None:
+    """Reader workbench RW2b (spec §5.2 "in-session updates", §5.6): text the
+    learner wrote while working in steps (``workbench_text``), queued when it
+    is written or sent: a reply or a discriminating answer when its row is
+    written, a stuck step's newest version when Help, Check, Leave or Submit
+    sends it. Queued only with the pipeline (``learner_text_gaps.enabled``)
+    and the workbench's help (``workbench.help_enabled``) on, and only for a
+    text (:func:`~.sources.workbench_text_row`). Idempotent per source."""
+
+    if not workbench_text_enabled(vault):
+        return None
+    if workbench_text_row(repository, source_id) is None:
+        return None
+    return enqueue(repository, source_kind="workbench_text", source_id=source_id, clock=clock)
+
+
+def workbench_text_enabled(vault: LoadedVault) -> bool:
+    section = getattr(vault.config, "workbench", None)
+    return pipeline_enabled(vault) and bool(getattr(section, "enabled", True)) and bool(
+        getattr(section, "help_enabled", True))
+
+
 def hint_feedback_enabled(vault: LoadedVault) -> bool:
     """Whether ``hint_feedback`` texts are queued: the pipeline and adaptive hints both on."""
 
@@ -190,7 +216,8 @@ def reconcile_hint_feedback(vault: LoadedVault, repository: Repository, *, clock
 
 
 #: The kinds :func:`sweep_backlog` sweeps (all of them unless told).
-BACKLOG_KINDS = ("stuck_answer", "tutor_question", "diagnosis", "reader_formative", "hint_feedback")
+BACKLOG_KINDS = ("stuck_answer", "tutor_question", "diagnosis", "reader_formative", "hint_feedback",
+                 "workbench_text")
 
 
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
@@ -234,6 +261,10 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
         for assist_id in hint_feedback_ids(repository):
             if queue("hint_feedback", assist_id):
                 counts["hint_feedback"] += 1
+    if "workbench_text" in kinds and workbench_text_enabled(vault):
+        for assist_id in workbench_text_ids(repository):
+            if queue("workbench_text", assist_id):
+                counts["workbench_text"] += 1
     if include_history and {"tutor_question", "diagnosis"} & set(kinds):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             questions = [str(row[0]) for row in connection.execute(
@@ -500,6 +531,7 @@ __all__ = [
     "enqueue_after_diagnosis",
     "enqueue_stuck_answer",
     "enqueue_tutor_question",
+    "enqueue_workbench_text",
     "pending_jobs",
     "pipeline_enabled",
     "plan",
@@ -507,4 +539,5 @@ __all__ = [
     "run_pending",
     "reconcile_hint_feedback",
     "sweep_backlog",
+    "workbench_text_enabled",
 ]

@@ -11,8 +11,14 @@
   next-step, why-step or assumption answer the learner wrote while reading
   and marked *partly* or *no* against the expected answer; read by the
   stuck-text reader with its own task (:data:`~.contract.READER_FORMATIVE_TASK`).
-  ``workbench_text`` (RW2b) is admitted by the schema and read once RW2b
-  builds its adapter.
+* **Workbench text** (RW2b, ``workbench_text``): text the learner wrote while
+  working a problem in steps: a stuck step (its newest version, a
+  ``workbench_steps`` row), a "this doesn't connect" reply with text and an
+  answer to a discriminating question (the workbench's ``help_assists``
+  rows); read by the gap reader with the item, the step, the anchors and the
+  role (``stuck`` | ``hint_feedback`` | ``discriminate_answer``). Read by SQL
+  here, never through the workbench's modules (the import contract
+  ``evidence-never-reads-the-workbench``); the kind is non-serving.
 * **Stuck answer**: a non-empty answer written under "I'm stuck" (the
   stuck prompt, mvp-0.13). ``learnloop.attempts.stuck`` owns the marker
   (``practice_attempts.declared_stuck``) and the read-only views: one stuck
@@ -607,6 +613,119 @@ def hint_feedback_text(vault: LoadedVault, repository: Repository, assist_id: st
     )
 
 
+#: Reader workbench RW2b: the three roles of a ``workbench_text`` (spec §5.6).
+WORKBENCH_TEXT_ROLES = ("stuck", "hint_feedback", "discriminate_answer")
+
+
+def _table(connection: Any, name: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)
+                              ).fetchone() is not None
+
+
+def workbench_text_row(repository: Repository, source_id: str) -> dict[str, Any] | None:
+    """A workbench learner text with its role, or None: a stuck step's
+    version (``workbench_steps``, role ``stuck``, not deleted, non-empty), or
+    a workbench ``help_assists`` row with text (a reply, role
+    ``hint_feedback``; an answer to a discriminating question, role
+    ``discriminate_answer``)."""
+
+    with repository.connection() as connection:
+        if _table(connection, "help_assists"):
+            cursor = connection.execute("SELECT * FROM help_assists WHERE id = ? AND surface = 'workbench'",
+                                        (source_id,))
+            raw = cursor.fetchone()
+            if raw is not None:
+                row = dict(zip([column[0] for column in cursor.description], raw))
+                if not str(row.get("feedback_text") or "").strip():
+                    return None
+                if row.get("assist_kind") == "discriminate_answer":
+                    row["role"] = "discriminate_answer"
+                elif row.get("assist_kind") == "hint" and row.get("request") == "feedback":
+                    row["role"] = "hint_feedback"
+                else:
+                    return None
+                row["text"] = str(row["feedback_text"])
+                row["created"] = str(row.get("requested_at") or "")
+                return row
+        if not _table(connection, "workbench_steps"):
+            return None
+        cursor = connection.execute(
+            "SELECT steps.id, steps.session_id, steps.kind, steps.body_md, steps.deleted, steps.created_at, "
+            "sessions.practice_item_id, sessions.attempt_id, sessions.extraction_id, sessions.span_ids_json "
+            "FROM workbench_steps AS steps JOIN workbench_sessions AS sessions ON sessions.id = steps.session_id "
+            "WHERE steps.id = ?", (source_id,))
+        raw = cursor.fetchone()
+        if raw is None:
+            return None
+        row = dict(zip([column[0] for column in cursor.description], raw))
+    if row["kind"] != "stuck" or row["deleted"] or not str(row["body_md"] or "").strip():
+        return None
+    return {**row, "role": "stuck", "text": str(row["body_md"]), "created": str(row["created_at"] or ""),
+            "workbench_session_id": row["session_id"]}
+
+
+def workbench_text(vault: LoadedVault, repository: Repository, source_id: str) -> LearnerText | None:
+    """Reader workbench RW2b: a workbench text read by the gap reader
+    (``workbench_text``). The text is the learner's own; the context is the
+    item's question, its LO, the role and, for a reply or an answer, what the
+    learner was answering (never the answer key or worked help). The item's
+    LO anchors it; the gap row carries the item, so a gap named mid-problem
+    joins the next hint's rivals."""
+
+    row = workbench_text_row(repository, source_id)
+    if row is None:
+        return None
+    item = vault.practice_items.get(str(row.get("practice_item_id") or ""))
+    if item is None:
+        return None
+    lo = vault.learning_objects.get(item.learning_object_id)
+    context: dict[str, Any] = {"surface": "workbench", "role": row["role"], "question": item.prompt}
+    if lo is not None:
+        context["learning_objects"] = [lo.title]
+    if row["role"] == "hint_feedback":
+        answered = _json_field(row.get("options_json")).get("answered_assist_id")
+        hint, level = _assist_text(repository, item, answered)
+        context["hint_replied_to"] = hint or ("worked help (not shown)" if level and level >= 4 else "")
+        if row.get("feedback_shortcut"):
+            context["shortcut"] = str(row["feedback_shortcut"])
+    elif row["role"] == "discriminate_answer":
+        question_id = _json_field(row.get("placement_json")).get("question_assist_id")
+        question, _level = _assist_text(repository, item, question_id)
+        context["question_asked"] = question
+    subject = item.subjects[0] if getattr(item, "subjects", None) else (
+        lo.subjects[0] if lo is not None and lo.subjects else None)
+    return LearnerText(
+        source_kind="workbench_text",
+        source_id=source_id,
+        text=row["text"],
+        context_judge="gap_reader",
+        created_at=row["created"],
+        subject_id=subject,
+        anchor_learning_object_ids=(item.learning_object_id,) if item.learning_object_id else (),
+        practice_item_id=item.id,
+        attempt_id=row.get("attempt_id"),
+        reading=None,
+        context=context,
+    )
+
+
+def workbench_text_ids(repository: Repository) -> list[str]:
+    """Every workbench reply or discriminating answer with text, oldest first
+    (the backlog sweep; stuck steps are queued when they are sent, by
+    version, never swept)."""
+
+    with repository.connection() as connection:
+        if not _table(connection, "help_assists"):
+            return []
+        rows = connection.execute(
+            "SELECT id FROM help_assists WHERE surface = 'workbench' "
+            "AND TRIM(COALESCE(feedback_text, '')) != '' "
+            "AND (assist_kind = 'discriminate_answer' OR (assist_kind = 'hint' AND request = 'feedback')) "
+            "ORDER BY requested_at, id"
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def learner_text(
     vault: LoadedVault, repository: Repository, source_kind: str, source_id: str,
     *, stuck_source: StuckTextSource | None = None,
@@ -622,9 +741,7 @@ def learner_text(
     if source_kind == "hint_feedback":
         return hint_feedback_text(vault, repository, source_id)
     if source_kind == "workbench_text":
-        # Admitted by the schema (migration 208); RW2b builds this adapter.
-        # Until then there is nothing to read, so the job is skipped.
-        return None
+        return workbench_text(vault, repository, source_id)
     raise ValueError(f"unknown learner-text source {source_kind!r}")
 
 
@@ -647,4 +764,8 @@ __all__ = [
     "stuck_text_for",
     "stuck_texts",
     "tutor_question_text",
+    "WORKBENCH_TEXT_ROLES",
+    "workbench_text",
+    "workbench_text_ids",
+    "workbench_text_row",
 ]

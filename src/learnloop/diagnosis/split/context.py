@@ -104,6 +104,10 @@ class CurrentAttempt:
     learner_answer_md: str
     blind_grade: Mapping[str, Any]
     item_facets: tuple[str, ...] = ()
+    #: Reader workbench RW2b: the step trace of a workbench attempt
+    #: (``workbench_trace.trace_for_attempt``); None for every other attempt,
+    #: whose context renders and hashes exactly as before.
+    workbench_trace: Mapping[str, Any] | None = None
 
     def ref(self) -> AttemptRef:
         return AttemptRef(self.attempt_id, self.completed_at)
@@ -134,6 +138,10 @@ class CurrentAttempt:
                 "describes_confusion": bool(reading.get("describes_confusion")),
                 "confusion_quote": str(reading.get("confusion_quote") or ""),
             }
+        if self.workbench_trace:
+            # RW2b: this attempt's steps and assists (help, never evidence),
+            # under the prompt suffix +workbench-v1.
+            rendered["workbench_trace"] = dict(self.workbench_trace)
         return rendered
 
     def _render(self, grade: Mapping[str, Any]) -> dict[str, Any]:
@@ -199,6 +207,7 @@ def current_attempt_from(
     learner_answer_md: str,
     blind_grade: Mapping[str, Any],
     contract: Mapping[str, Any] | None = None,
+    workbench_trace: Mapping[str, Any] | None = None,
 ) -> CurrentAttempt:
     """The attempt being diagnosed. ``contract`` (method-explicit-3 review
     F3) is the assessment contract its answer was graded under: a
@@ -234,6 +243,7 @@ def current_attempt_from(
         learner_answer_md=learner_answer_md,
         blind_grade=dict(blind_grade),
         item_facets=tuple(vault.canonical_facet_id(str(facet)) for facet in item.evidence_facets),
+        workbench_trace=dict(workbench_trace) if workbench_trace else None,
     )
 
 

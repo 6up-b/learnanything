@@ -113,7 +113,9 @@ def text_record(connection: Any, text: Any) -> WriteRecord:
         return question_record(connection, str(text.question_event_id or text.source_id), topics=topics)
     if text.source_kind == "reader_formative":
         return formative_record(connection, str(text.source_id), topics=topics)
-    if text.source_kind == "hint_feedback":
+    if text.source_kind in ("hint_feedback", "workbench_text"):
+        # RW2b: a workbench text is written beside an open problem and its
+        # hints, as a reply to a hint is (the same record).
         return hint_feedback_record(connection, text)
     inputs = answer_inputs(connection, [text.attempt_id]).union(
         Inputs.of(items=[text.practice_item_id], topics=topics))

@@ -111,6 +111,9 @@ AITask = Literal[
     "hint_writer",
     # Adaptive hints H2b: outcome placement (background, after submit).
     "hint_outcome",
+    # Reader workbench RW2b: "Check my work" (a chat route that never
+    # resolves to Codex, as hint_writer).
+    "workbench_check",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -215,6 +218,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Adaptive hints H2b: one hinted answer placed on its item's approach map
     # (measurement only, background).
     "hint_outcome": "hint_outcome",
+    # Reader workbench RW2b: one check of the learner's steps.
+    "workbench_check": "workbench_check",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

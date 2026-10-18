@@ -921,6 +921,21 @@ def _held_assistance(repository, item, hints_used: int, attempt_type: str) -> tu
     return max(int(hints_used), held), attempt_type
 
 
+def _held_primed(repository, item) -> bool:
+    """Reader workbench RW2b (§5.4): an open problem of the item that showed
+    worked help (a level 4-5 hint) primes every submit for the item, as its
+    checks and hints count (``held_hints``). False with no workbench help, so
+    every submit is exactly as before RW2b."""
+
+    from learnloop.reader.workbench import held_primed
+
+    try:
+        return bool(held_primed(repository, item.id))
+    except Exception as exc:  # noqa: BLE001 -- a vault without the tables holds nothing
+        log_event("workbench_held_primed_failed", practice_item_id=item.id, error=type(exc).__name__)
+        return False
+
+
 def _bind_offer(repository, params, submission_id, *, entry_surface: str | None = None):
     # Reader workbench RW2a: a workbench submit names its own surface; every
     # other caller binds exactly as before (the store's default surface).
@@ -1082,7 +1097,8 @@ def submit_attempt_on(
     # (review round 2, V1).
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
-        base_hints=client_hints + question_hints, base_primed=bool(params.primed) or disclosure_primed,
+        base_hints=client_hints + question_hints,
+        base_primed=bool(params.primed) or disclosure_primed or _held_primed(repository, item),
         max_useful_hints=item.hint_policy.max_useful_hints, window_fold=hint_window_fold,
     )
     hints_used = hint_fold.hints_used()
@@ -1258,7 +1274,8 @@ def submit_dont_know_on(
     stuck = stuck_prompt_active(vault)
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
-        base_hints=hints_used, max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
+        base_hints=hints_used, base_primed=_held_primed(repository, item),
+        max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
         stuck_probe=params.probe_presentation_id is not None, window_fold=hint_window_fold,
     )

@@ -172,11 +172,15 @@ def current_attempt_for(
     if item is None:
         return None
     contract = None
+    trace = None
     if repository is not None:
         from learnloop.db.stores.answered_contracts import answered_contracts
+        from learnloop.diagnosis.split.workbench_trace import trace_for_attempt
 
         with repository.connection() as connection:
             contract = answered_contracts(connection, [str(attempt["id"])]).get(str(attempt["id"]))
+        # RW2b: a workbench attempt's step trace (None for every other).
+        trace = trace_for_attempt(repository, attempt)
     return current_attempt_from(
         vault,
         item,
@@ -185,6 +189,7 @@ def current_attempt_for(
         learner_answer_md=str(attempt.get("learner_answer_md") or ""),
         blind_grade=record,
         contract=contract,
+        workbench_trace=trace,
     )
 
 

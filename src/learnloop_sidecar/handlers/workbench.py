@@ -418,7 +418,39 @@ def workbench_set_book(ctx: SidecarContext, params: WorkbenchSetBookInput) -> di
 def workbench_leave(ctx: SidecarContext, params: WorkbenchSessionInput) -> dict[str, Any]:
     vault, repository = _require(ctx)
     _run(WB.leave, repository, params.session_id)
+    _queue_stuck_texts(ctx, vault, repository, params.session_id)
     return _answer({"session": _view(vault, repository, params.session_id)})
+
+
+def _queue_stuck_texts(ctx: SidecarContext, vault, repository, session_id: str) -> None:
+    """RW2b in-session updates (§5.2): a stuck step's newest text goes to
+    learner-text gaps when Leave or Submit sends it. Off with the help."""
+
+    from learnloop.workbench import ladder as workbench_help
+
+    if not workbench_help.help_enabled(vault):
+        return
+    try:
+        if workbench_help.queue_stuck_texts(vault, repository, session_id):
+            ctx.post_attempt_worker.notify()
+    except Exception:  # noqa: BLE001 - learner-text gaps never reach the workbench
+        return
+
+
+def _schedule_map(ctx: SidecarContext, vault, repository, session_id: str) -> None:
+    """RW2b (§5.2): the bound item's approach map is built in the background
+    (H1's ``build_on_serve``, its switches, locks and envelope). Off with the help."""
+
+    from learnloop.hints import workbench as hint_workbench
+    from learnloop.workbench import ladder as workbench_help
+
+    if not workbench_help.help_enabled(vault):
+        return
+    row = _run(WB.session_row, repository, session_id)
+    if row.get("practice_item_id"):
+        hint_workbench.schedule_map(vault, repository.sqlite_path, row["practice_item_id"],
+                                    client=getattr(ctx, "approach_map_client", None),
+                                    builds=getattr(ctx, "map_builds", None))
 
 
 @method("workbench.abandon", WorkbenchSessionInput)
@@ -461,6 +493,7 @@ def workbench_refresh_import(ctx: SidecarContext, params: WorkbenchSessionInput)
     if len(parts) == 1:
         _run(WB.bind, repository, params.session_id, parts[0]["practiceItemId"])
         _ensure_contract(vault, repository, params.session_id)
+        _schedule_map(ctx, vault, repository, params.session_id)
         return _answer({"session": _view(vault, repository, params.session_id)})
     if not parts:
         _run(WB.mark_import, repository, params.session_id, status="failed",
@@ -482,6 +515,7 @@ def workbench_bind(ctx: SidecarContext, params: WorkbenchBindInput) -> dict[str,
         raise SidecarError("validation_error", "That part is not one this problem's setup made.")
     _run(WB.bind, repository, params.session_id, params.practice_item_id)
     _ensure_contract(vault, repository, params.session_id)
+    _schedule_map(ctx, vault, repository, params.session_id)
     return _answer({"session": _view(vault, repository, params.session_id)})
 
 
@@ -562,6 +596,11 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
                 "session": _view(vault, repository, params.session_id),
                 "practiceSession": session_snapshot(repository, practice_session_id) if practice_session_id else None,
             })
+    # RW2b (§5.4, G-H3): the submission's admission time on the problem's
+    # help rows FIRST, so a check or hint is either shown before the plan
+    # reads the fold below (and counted) or never shown (its delivery refuses
+    # a stamped row). H0's own stamp in the submit then keeps this one.
+    _stamp_help_rows(repository, params.session_id, params.latency_seconds)
     plan = _run(WB.submission_plan, repository, params.session_id)
     item = vault.practice_items.get(plan.practice_item_id)
     if item is None:
@@ -583,6 +622,7 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         answer_md=plan.composed.answer_md,
         attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=plan.hints_used),
         hints_used=plan.hints_used,
+        primed=plan.primed,
         assessment_contract_version_id=plan.assessment_contract_version_id,
         latency_seconds=params.latency_seconds,
         answer_confidence=params.answer_confidence,
@@ -599,11 +639,52 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
     vault, repository = ctx.require_vault()
     _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
          practice_session_id=practice_session_id)
+    _bind_help_rows(repository, params.session_id, plan, attempt_id=str(attempt["attemptId"]),
+                    practice_session_id=practice_session_id)
+    _queue_stuck_texts(ctx, vault, repository, params.session_id)
     return _answer({
         "attempt": attempt,
         "session": _view(vault, repository, params.session_id),
         "practiceSession": session_snapshot(repository, practice_session_id),
     })
+
+
+def _stamp_help_rows(repository, session_id: str, latency_seconds: int | None) -> None:
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.stores.help_assists import stamp_submitted
+
+    row = _run(WB.session_row, repository, session_id)
+    if not row.get("practice_item_id") or row["status"] != "open":
+        return
+    with repository.atomic():
+        connection = repository.connection()
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                              ).fetchone() is None:
+            return
+        stamp_submitted(connection, submission_id=WB.submission_id_for(session_id),
+                        practice_item_id=str(row["practice_item_id"]), submitted_at=utc_now_iso(),
+                        latency_seconds=float(latency_seconds) if latency_seconds is not None else None)
+
+
+def _bind_help_rows(repository, session_id: str, plan, *, attempt_id: str, practice_session_id: str) -> None:
+    """RW2b: the practice session (set at Submit, the schema's rule) and the
+    attempt on the problem's help rows, after the attempt committed. A
+    failure is logged, never raised (the attempt and its counts are made)."""
+
+    from learnloop.db.stores.help_assists import bind_workbench_rows
+    from learnloop_sidecar.logging import log_event
+
+    try:
+        with repository.atomic():
+            connection = repository.connection()
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                                  ).fetchone() is None:
+                return
+            bind_workbench_rows(connection, workbench_session_id=session_id, practice_session_id=practice_session_id,
+                                attempt_id=attempt_id, submission_id=plan.submission_id,
+                                practice_item_id=plan.practice_item_id)
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
+        log_event("workbench_help_bind_failed", session_id=session_id, error=type(exc).__name__)
 
 
 @method("workbench.session_for_attempt", WorkbenchAttemptInput)

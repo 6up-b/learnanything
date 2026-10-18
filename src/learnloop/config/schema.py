@@ -1350,6 +1350,15 @@ class AIRoutingConfig(BaseModel):
     # Metered routes join hints.maps.max_daily_cost_usd at
     # hints.price_per_million (unset: refused before sending).
     hint_outcome: str | None = None
+    # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
+    # work", one structured chat call on the request path (step verdicts,
+    # the step graph, the map node each valid step reaches, the error-kind
+    # guess, the declared symbolic checks). Empty = ai.active_provider, but
+    # it never resolves to Codex (too slow for the request path, the same
+    # rule as hint_writer): the check is refused there and says so. A
+    # metered profile is held to workbench.max_daily_cost_usd at
+    # workbench.price_per_million (unset: refused before sending).
+    workbench_check: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2098,6 +2107,30 @@ class WorkbenchConfig(BaseModel):
 
     enabled: bool = True
     open_session_days: int = Field(default=30, ge=1)
+    #: RW2b (spec §5.2-5.5, §5.9): "Check my work", the help ladder and its
+    #: hints through the one hint service (adaptive hints H3). Off: RW2a only
+    #: (no check, no ladder; every RW2a RPC byte-identical).
+    help_enabled: bool = True
+    #: Declared symbolic checks run in the PF-b sandbox (§5.3); off, every
+    #: verdict is the model's reading.
+    symbolic_checks_enabled: bool = True
+    #: Off: ``discriminating`` is never among the workbench's options and
+    #: rung 1 is an ordinary question (§5.9).
+    discriminate_enabled: bool = True
+    #: Off: no error-kind guess is shown or traced (§5.9).
+    error_kind_enabled: bool = True
+    #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
+    #: background passage lookup through T6's practice context.
+    bridge_enabled: bool = True
+    #: The workbench's own calls (checks, bridges) per problem: a money cap
+    #: counted in calls (§5.8). Hint calls are the hint service's (C8).
+    max_calls_per_session: int = Field(default=24, ge=1)
+    #: The workbench's own metered spend a UTC day (§5.8).
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    #: The owner's price (USD per million tokens) for a METERED
+    #: ``ai.routing.workbench_check`` profile; unset, a metered check is
+    #: refused before it is sent. Codex never runs a check (the request path).
+    price_per_million: float | None = Field(default=None, gt=0)
 
 
 class RecapConfig(BaseModel):

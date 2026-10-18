@@ -43,6 +43,7 @@ from learnloop.diagnosis.split.live import (
 )
 from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
+from learnloop.diagnosis.split.workbench_trace import SUFFIX as WORKBENCH_TRACE_SUFFIX
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
 from learnloop.substrate.recurrence_groups import claim_for_citation, recurrence_active
@@ -821,9 +822,13 @@ def _diagnose(
     blind = store.blind_grade(attempt_id)
     record = dict(blind) if blind is not None else joint_grade_record(vault, repository, attempt)
     current = current_attempt_for(vault, attempt, record, repository) if item is not None else None
+    # RW2b: a workbench attempt's step trace reads under +workbench-v1; every
+    # other attempt's version is unchanged.
+    prompt_version = (f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
+                      if current is not None and current.workbench_trace else DIAGNOSIS_PROMPT_VERSION)
     base_values: dict[str, Any] = {
         "attempt_id": attempt_id,
-        "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
+        "diagnosis_prompt_version": prompt_version,
         "mode": mode,
         "history_mode": settings.history_mode,
         "blind_grade_record_id": payload.get("blind_grade_record_id"),
@@ -877,7 +882,7 @@ def _diagnose(
             "provider_type": getattr(client, "provider_type", None),
             "model": getattr(client, "model", None),
             "prompt_template": "diagnosis",
-            "prompt_version": DIAGNOSIS_PROMPT_VERSION,
+            "prompt_version": prompt_version,
             "output_schema": "DiagnosisProposal",
             "started_at": started_at,
             "status": "running",

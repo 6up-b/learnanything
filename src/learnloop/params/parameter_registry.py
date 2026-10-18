@@ -957,6 +957,18 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "days before an untouched open workbench problem shows as unfinished; a display limit, no "
         "measurement, scheduling or serving authority (nothing is closed automatically)."),
+    # Reader workbench RW2b: the workbench's own calls ("Check my work", the
+    # bridge to the book) per problem, their metered spend a UTC day and the
+    # owner's price for a metered check route (verdicts are help, recorded in
+    # help_assists; a shown check reaches the attempt only through hints_used
+    # with its existing meaning).
+    _ConfigRule(_exact(
+        "workbench.max_calls_per_session",
+        "workbench.max_daily_cost_usd",
+        "workbench.price_per_million",
+    ), "structural", "operational",
+        "the workbench's own model calls per problem / their metered spend a UTC day / the owner's price "
+        "for a metered check route; money bounds, no measurement authority (a check never grades)."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

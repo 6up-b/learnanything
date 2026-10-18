@@ -12,6 +12,7 @@ never evidence: replay and rebuild never read it.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 import sqlite3
 from typing import Any
 
@@ -284,6 +285,108 @@ def stamp_window_submitted(connection: sqlite3.Connection, *, practice_item_id: 
     return int(cursor.rowcount or 0)
 
 
+# -- Reader workbench RW2b (adaptive hints H3) ------------------------------------------
+
+
+@dataclass(frozen=True)
+class WorkbenchFold:
+    """What a workbench problem's shown, server-counted, still-unattached
+    rows add to its attempt (Reader §5.4): one per check and per level 1-3
+    hint, and ``primed`` when any shown hint was at level 4 or 5."""
+
+    checks: int = 0
+    by_level: tuple[int, int, int] = (0, 0, 0)
+    worked: int = 0
+    discriminating: int = 0
+
+    @property
+    def hints(self) -> int:
+        """The hint-equivalents: every check and every level 1-3 hint."""
+
+        return self.checks + sum(self.by_level)
+
+    @property
+    def primed(self) -> bool:
+        return self.worked > 0
+
+    @property
+    def empty(self) -> bool:
+        return self.hints == 0 and self.worked == 0
+
+
+def workbench_fold(connection: sqlite3.Connection, *, workbench_session_id: str,
+                   practice_item_id: str | None = None) -> WorkbenchFold:
+    """The one count the workbench's record line and its submit read
+    (Reader §5.4, G5, G62): the session's ``surface = 'workbench'`` rows that
+    are shown, counted by the server and attached to no attempt. A vault
+    without the table folds nothing."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return WorkbenchFold()
+    clauses = ["surface = 'workbench'", "workbench_session_id = ?", "attempt_id IS NULL", "shown = 1",
+               "counted_by = 'server'"]
+    values: list[Any] = [workbench_session_id]
+    if practice_item_id is not None:
+        clauses.append("practice_item_id = ?")
+        values.append(practice_item_id)
+    row = connection.execute(
+        "SELECT "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'check' THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level = 1 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level = 2 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level = 3 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(SUM(CASE WHEN assist_kind = 'hint' AND hint_kind = 'discriminating' THEN 1 ELSE 0 END), 0) "
+        f"FROM help_assists WHERE {' AND '.join(clauses)}",
+        tuple(values),
+    ).fetchone()
+    return WorkbenchFold(checks=int(row[0]), by_level=(int(row[1]), int(row[2]), int(row[3])),
+                         worked=int(row[4]), discriminating=int(row[5]))
+
+
+def workbench_rows(connection: sqlite3.Connection, workbench_session_id: str) -> list[dict[str, Any]]:
+    """Every row of a workbench problem, in the order requested."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return []
+    rows = connection.execute(
+        f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE surface = 'workbench' AND workbench_session_id = ? "
+        "ORDER BY requested_at, rowid",
+        (workbench_session_id,),
+    ).fetchall()
+    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
+def bind_workbench_rows(connection: sqlite3.Connection, *, workbench_session_id: str, practice_session_id: str,
+                        attempt_id: str, submission_id: str, practice_item_id: str) -> int:
+    """At a workbench submit, after its attempt committed: the practice
+    session the problem was submitted in (NULL until then, set once, as the
+    schema says) on every row of the problem, and the attempt on its rows
+    under the submission's key (H0's attach rule: by key alone, idempotent,
+    a binding never moved)."""
+
+    connection.execute(
+        "UPDATE help_assists SET practice_session_id = ? WHERE surface = 'workbench' "
+        "AND workbench_session_id = ? AND practice_session_id IS NULL",
+        (practice_session_id, workbench_session_id),
+    )
+    return attach_submission(connection, submission_id=submission_id, practice_item_id=practice_item_id,
+                             attempt_id=attempt_id)
+
+
+def mark_bridge_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
+    """A bridge (counted by neither) delivered to the workbench: shown once."""
+
+    cursor = connection.execute(
+        "UPDATE help_assists SET shown = 1, shown_at = ? WHERE id = ? AND shown = 0 AND assist_kind = 'bridge' "
+        "AND counted_by IS NULL",
+        (shown_at, assist_id),
+    )
+    return bool(cursor.rowcount)
+
+
 def _latency(value: float | None) -> float | None:
     """A latency the client sent, or None (a negative one is not believed)."""
 
@@ -297,4 +400,5 @@ __all__ = [
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",
+    "WorkbenchFold", "bind_workbench_rows", "mark_bridge_shown", "workbench_fold", "workbench_rows",
 ]
