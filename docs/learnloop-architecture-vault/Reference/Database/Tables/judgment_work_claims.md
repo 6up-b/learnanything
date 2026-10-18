@@ -3,8 +3,8 @@ title: "judgment_work_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
-source_commit_timestamp: "2026-10-18T02:36:39-04:00"
+source_commit: "d9f2d70b989eb23b3330dd5c98bac1b146551d21"
+source_commit_timestamp: "2026-10-18T04:29:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_work_claims"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/176_recurrence_groups.sql"
   - "src/learnloop/content/authoring/source_exercise_import.py"
   - "src/learnloop/db/stores/judgment_claims.py"
+  - "src/learnloop/hints/map_builder.py"
   - "src/learnloop/matching/judge.py"
   - "src/learnloop/reader/reader_intent.py"
   - "src/learnloop/reader/reader_quick_check.py"
@@ -105,6 +106,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_approach_maps.py`
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_recurrence_merge_composition.py`

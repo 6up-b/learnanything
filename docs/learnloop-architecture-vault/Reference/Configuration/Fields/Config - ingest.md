@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
-source_commit_timestamp: "2026-10-18T02:36:39-04:00"
+source_commit: "d9f2d70b989eb23b3330dd5c98bac1b146551d21"
+source_commit_timestamp: "2026-10-18T04:29:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -30,6 +30,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/ingest/transcription.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
   - "tests/daily_plan_fakes.py"
   - "tests/decider_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
   - "tests/project_support.py"
-  - "tests/recurrence_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -112,8 +112,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `ingest.budgets.synthesis_span_char_cap` | `4000` | integer | modeled default or validator seed | Caps synthesis span char allowed by source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:830`; `src/learnloop/cli/data.py:66`; `src/learnloop_sidecar/handlers/settings.py:186` |
 | `ingest.budgets.quick_add_scope_input_tokens` | `40000` | integer | modeled default or validator seed | Controls quick add scope input tokens in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:834`; `src/learnloop/cli/data.py:66`; `src/learnloop_sidecar/handlers/settings.py:186` |
 | `ingest.runner.lease_ttl_seconds` | `120` | integer | modeled default or validator seed | Sets the lease time-to-live duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:856`; `src/learnloop/cli/app.py:488`; `src/learnloop/cli/runtime.py:435` |
-| `ingest.runner.heartbeat_interval_seconds` | `15` | integer | modeled default or validator seed | Sets the heartbeat interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:857`; `src/learnloop_sidecar/context.py:74` |
-| `ingest.runner.poll_interval_seconds` | `1.0` | number | modeled default or validator seed | Sets the poll interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:858`; `src/learnloop_sidecar/context.py:75` |
+| `ingest.runner.heartbeat_interval_seconds` | `15` | integer | modeled default or validator seed | Sets the heartbeat interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:857`; `src/learnloop_sidecar/context.py:84` |
+| `ingest.runner.poll_interval_seconds` | `1.0` | number | modeled default or validator seed | Sets the poll interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:858`; `src/learnloop_sidecar/context.py:85` |
 
 ## Compatibility-only inputs
 
@@ -132,6 +132,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/approach_map_fakes.py`
 - `tests/conftest.py`
 - `tests/daily_plan_fakes.py`
 - `tests/decider_fakes.py`
@@ -143,7 +144,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
 - `tests/project_support.py`
-- `tests/recurrence_fakes.py`
 
 ## Extension and modification guidance
 

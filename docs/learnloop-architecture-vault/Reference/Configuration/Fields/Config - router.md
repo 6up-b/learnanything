@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3c2b23fe64582f2a898e9227e4a0c6c2327d32f8"
-source_commit_timestamp: "2026-10-18T02:36:39-04:00"
+source_commit: "d9f2d70b989eb23b3330dd5c98bac1b146551d21"
+source_commit_timestamp: "2026-10-18T04:29:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/daily_plan/router_chooser.py"
   - "src/learnloop/daily_plan/router_retrieval.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
+  - "tests/approach_map_fakes.py"
   - "tests/chatgpt_plan_fakes.py"
   - "tests/codex_cli_fakes.py"
   - "tests/conftest.py"
@@ -35,7 +36,6 @@ source_paths:
   - "tests/mcp_world.py"
   - "tests/media_fakes.py"
   - "tests/pf_fakes.py"
-  - "tests/practice_index_fakes.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -86,6 +86,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/approach_map_fakes.py`
 - `tests/chatgpt_plan_fakes.py`
 - `tests/codex_cli_fakes.py`
 - `tests/conftest.py`
@@ -97,7 +98,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/mcp_world.py`
 - `tests/media_fakes.py`
 - `tests/pf_fakes.py`
-- `tests/practice_index_fakes.py`
 
 ## Extension and modification guidance
 
