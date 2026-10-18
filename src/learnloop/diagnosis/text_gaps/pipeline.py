@@ -893,7 +893,12 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
     itself (rule (b)) and needs no record."""
 
     from learnloop.db.stores.write_provenance import WriteRecord, record_text_write
-    from learnloop.diagnosis.text_gaps.provenance import TUTOR_UNRECORDED, formative_record, question_record
+    from learnloop.diagnosis.text_gaps.provenance import (
+        TUTOR_UNRECORDED,
+        formative_record,
+        hint_feedback_record,
+        question_record,
+    )
 
     if text.source_kind == "tutor_question":
         record_text_write(
@@ -909,6 +914,13 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=formative_record(connection, str(text.source_id), topics=text.anchor_learning_object_ids),
             clock=clock,
+        )
+    elif text.source_kind == "hint_feedback":
+        # Adaptive hints H2b: a reply to a hint comes from no committed
+        # answer either: it carries what it was written beside.
+        record_text_write(
+            connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
+            record=hint_feedback_record(connection, text), clock=clock,
         )
     created = outcome.created_learning_object_id
     if outcome.action == "created_prerequisite" and created and created in vault.learning_objects:

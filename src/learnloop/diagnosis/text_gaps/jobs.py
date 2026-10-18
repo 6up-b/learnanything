@@ -37,6 +37,7 @@ from learnloop.diagnosis.text_gaps.sources import (
     StuckTextSource,
     attempt_grade_held,
     formative_row,
+    hint_feedback_row,
     learner_text,
     missed_formative_ids,
     stuck_text_for,
@@ -149,6 +150,28 @@ def enqueue_reader_formative(
     if formative_row(repository, question_id) is None:
         return None
     return enqueue(repository, source_kind="reader_formative", source_id=question_id, clock=clock)
+
+
+def enqueue_hint_feedback(
+    vault: LoadedVault, repository: Repository, *, assist_id: str, clock: Clock | None = None,
+) -> str | None:
+    """Adaptive hints H2b: text written back to a hint on the practice screen
+    (``hint_feedback``): a "doesn't connect" reply's text or an answer to a
+    discriminating question, queued when its ``help_assists`` row is written,
+    so a gap named mid-attempt can join the next hint's rivals (spec §9).
+
+    Queued only with the pipeline (``learner_text_gaps.enabled``) and
+    adaptive hints (``hints.adaptive_enabled``) on, and only for a row with
+    text (:func:`~.sources.hint_feedback_row`); an empty reply queues
+    nothing. Idempotent per row."""
+
+    if not pipeline_enabled(vault):
+        return None
+    if not bool(getattr(getattr(vault.config, "hints", None), "adaptive_enabled", False)):
+        return None
+    if hint_feedback_row(repository, assist_id) is None:
+        return None
+    return enqueue(repository, source_kind="hint_feedback", source_id=assist_id, clock=clock)
 
 
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
@@ -341,7 +364,7 @@ def _retry_or_fail(
 #: ``context_judge`` of each source (a text gone since it was queued is
 #: logged with an empty text).
 _CONTEXT_JUDGE = {"tutor_question": "tutor", "diagnosis": "diagnoser", "stuck_answer": "gap_reader",
-                  "reader_formative": "gap_reader", "workbench_text": "gap_reader"}
+                  "reader_formative": "gap_reader", "workbench_text": "gap_reader", "hint_feedback": "gap_reader"}
 
 
 def _skip(

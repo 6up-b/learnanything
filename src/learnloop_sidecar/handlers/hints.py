@@ -209,6 +209,10 @@ def request_hint(ctx: SidecarContext, params: RequestHintInput) -> dict[str, Any
         result = hint_service.request_hint(vault, worker_repo, request, writer_client=writer_client,
                                            chooser_client_factory=chooser_factory, seed=seed,
                                            cancelled=cancelled)
+        if request.request == "feedback" and (request.feedback_text or "").strip() and result.assist_id:
+            # H2b (spec §9): the reply's text is learner text, queued now so a
+            # gap it names can join the next hint's rivals.
+            _queue_learner_text(ctx, vault, worker_repo, result.assist_id)
         return result.as_dict()
 
     job = _jobs(ctx).start(ctx, item.id, work)
@@ -367,7 +371,23 @@ def answer_discriminating(ctx: SidecarContext, params: DiscriminateAnswerInput) 
             answer_md=params.answer_md)
     except HintRequestError as exc:
         raise SidecarError(exc.code, str(exc), details={"field": exc.field} if exc.field else None) from exc
+    if recorded.get("assist_id"):
+        # H2b (spec §9): a discriminating answer is learner text too.
+        _queue_learner_text(ctx, vault, repository, str(recorded["assist_id"]))
     return versioned(recorded)
+
+
+def _queue_learner_text(ctx: SidecarContext, vault: Any, repository: Any, assist_id: str) -> None:
+    """Queue a ``hint_feedback`` learner text (H2b, migration 212) and wake
+    the post-attempt worker's ``gaps`` slot. Never fails the hint."""
+
+    try:
+        from learnloop.diagnosis.text_gaps.jobs import enqueue_hint_feedback
+
+        if enqueue_hint_feedback(vault, repository, assist_id=assist_id):
+            ctx.post_attempt_worker.notify()
+    except Exception as exc:  # noqa: BLE001 - learner-text gaps never reach the hint
+        log_event("hint_feedback_enqueue_failed", assist_id=assist_id, error=type(exc).__name__)
 
 
 #: H2b: the hint panel's help-style editor (the "⋯" menu and Settings).
