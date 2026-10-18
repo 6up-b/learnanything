@@ -34,7 +34,6 @@ from learnloop.ai.schemas import WireModel
 from learnloop.attempts.answer_check import (
     answers_differ,
     answers_equal,
-    asserted_conclusion,
     parse_answer,
     reference_final_answer,
 )
@@ -223,24 +222,126 @@ def _states_short_key(text: str, key: str | None) -> bool:
     return re.search(pattern, str(text or "")) is not None
 
 
+# -- one normalisation for both sides (fix round 2, M1/M2) -------------------------------
+
+_DELIMITERS = re.compile(r"\$\$|\$|\\\(|\\\)|\\\[|\\\]")
+_LEFT_RIGHT = re.compile(r"\\(?:left|right)(?![A-Za-z])")
+_FRAC = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+#: ``=`` as an assignment or equation, never inside ``<=``, ``>=``, ``!=`` or ``==``.
+_EQUALS = re.compile(r"(?<![<>!=])=(?!=)")
+#: A plain number of its own: an integer, decimal or fraction, never part of
+#: ``x_4``, ``2^4``, ``14`` or ``4.5`` (the controls F1 ruled on).
+_NUMBER_TOKEN = re.compile(r"(?<![\w.^_/\\])[-+]?\d+(?:\.\d+)?(?:\s*/\s*\d+(?:\.\d+)?)?(?![\w^/]|\.\d)")
+#: A word that ends an expression in prose ("x^2 on [0, 1]", "4 socks").
+_PROSE_WORD = re.compile(r"\s+([A-Za-z]{2,})\b")
+_MATH_NAMES = frozenset({"sqrt", "sin", "cos", "tan", "exp", "log", "ln", "pi"})
+_SINGLE_SYMBOL = re.compile(r"-?\d|[A-Za-z]")
+_CANDIDATE_CHARS = 60
+
+
+def normalize_math(text: str) -> str:
+    """The text with its math delimiters (``$…$``, ``\\(…\\)``, ``\\[…\\]``),
+    ``\\left``/``\\right`` removed and ``\\frac{a}{b}`` written ``(a)/(b)``: the
+    one form a state, a label, the goal and the expected answer are compared in."""
+
+    value = _LEFT_RIGHT.sub("", _DELIMITERS.sub(" ", str(text or "")))
+    previous = None
+    while previous != value:
+        previous, value = value, _FRAC.sub(r"(\1)/(\2)", value)
+    return value
+
+
+def _clean(expression: str) -> str:
+    value = re.sub(r"\s+", " ", expression).strip().rstrip(".,;:").strip()
+    return value[1:].strip() if value.startswith("+") else value
+
+
+def normalize_key(text: str | None) -> str:
+    """An answer or key in the shared form: normalised, whitespace and a leading ``+`` stripped."""
+
+    return re.sub(r"\s+", "", _clean(normalize_math(text or "")))
+
+
+def _cut_prose(expression: str) -> str:
+    """An expression up to the first prose word or clause break after it."""
+
+    value = expression
+    for match in _PROSE_WORD.finditer(value):
+        if match.group(1).lower() not in _MATH_NAMES:
+            value = value[: match.start()]
+            break
+    return _clean(re.split(r"[,;]|\.(?:\s|$)", value)[0])
+
+
+def answer_candidates(text: str) -> list[str]:
+    """The expressions a text states, in the shared form: its numbers, the
+    value after each ``=`` and the whole text when it is a short expression."""
+
+    normalized = normalize_math(text)
+    found: list[str] = [_clean(match.group(0)) for match in _NUMBER_TOKEN.finditer(normalized)]
+    sides = _EQUALS.split(normalized)
+    found.extend(_cut_prose(side) for side in sides[1:])
+    whole = _clean(normalized)
+    if whole and len(whole) <= _CANDIDATE_CHARS and _PROSE_WORD.search(" " + whole) is None:
+        found.append(whole)
+    return [value for value in dict.fromkeys(found) if value]
+
+
+def assignment_conclusion(text: str) -> str | None:
+    """The value the text's LAST ``=`` assigns ("Therefore y = x^3" -> ``x^3``), or None."""
+
+    sides = _EQUALS.split(normalize_math(text))
+    if len(sides) < 2:
+        return None
+    return _cut_prose(sides[-1]) or None
+
+
+def states_answer(text: str, key: str | None) -> bool:
+    """Whether ``text`` states an expression equivalent to the key, by the
+    guarded answer checker on both sides in the shared form (fix round 2,
+    M1): ``$4$``, ``\\(4\\)``, ``+4``, ``0.25`` and ``\\frac{1}{4}`` all state
+    ``1/4``-style keys they equal. A single-symbol key is a token match
+    (word boundary), never a substring."""
+
+    target = normalize_key(key)
+    if not target:
+        return False
+    if _SINGLE_SYMBOL.fullmatch(target):
+        if target[-1].isdigit() and _states_short_key(normalize_math(text), target):
+            return True
+        if target.isalpha():
+            return re.search(rf"(?<![\w.,/^_\\]){re.escape(target)}(?!\w)", normalize_math(text)) is not None
+    return any(_equal(candidate, target) is True for candidate in answer_candidates(text))
+
+
 def gives_away(text: str, expected_answer: str | dict[str, Any], key: str | None = None) -> bool:
     """Whether ``text`` contains or gives away the expected answer: the
     tutor's span-leak check against the whole answer and, where the answer
     has an exact key (a worked solution's final value), against the key; a
-    lone-digit key, which the span check ignores, by its own number token."""
+    lone-digit key, which the span check ignores, by its own number token;
+    and any stated expression equivalent to the key (fix round 2, M1)."""
 
     if span_leaks_expected(text, expected_answer):
         return True
     if not key:
         return False
-    return span_leaks_expected(text, str(key)) or _states_short_key(text, key)
+    return span_leaks_expected(text, str(key)) or _states_short_key(text, key) or states_answer(text, key)
 
 
-def label_leaks(label: str, expressions: Collection[str], expected_answer: str | dict[str, Any]) -> bool:
+def label_leaks(label: str, expressions: Collection[str], expected_answer: str | dict[str, Any], *,
+                public_text: str = "") -> bool:
     squashed = _squash(label)
     if any(expression and expression in squashed for expression in expressions):
         return True
-    return bool(label.strip()) and gives_away(label, expected_answer, exact_key(expected_answer))
+    if not label.strip():
+        return False
+    key = exact_key(expected_answer)
+    if span_leaks_expected(label, expected_answer) or (key and (span_leaks_expected(label, str(key))
+                                                                or _states_short_key(label, key))):
+        return True
+    # An equivalent of the answer in the label (fix round 2, M1), unless the
+    # question itself states the answer: what the question states is a given.
+    return bool(key) and states_answer(label, key) and not states_answer(public_text, key)
 
 
 # ---------------------------------------------------------------------------
@@ -249,8 +350,10 @@ def label_leaks(label: str, expressions: Collection[str], expected_answer: str |
 
 def exact_key(expected_answer: str | dict[str, Any]) -> str | None:
     """The expected answer's exact key: the answer itself when it is a short
-    parseable expression, else the numeric conclusion a worked solution ends
-    with (``answer_check``), else None (a proof, a description)."""
+    parseable expression (in the shared form when only that parses:
+    ``$\\frac{1}{4}$``), else the numeric conclusion a worked solution ends
+    with (``answer_check``, on the text or its shared form), else None (a
+    proof, a description)."""
 
     reference = expected_answer if isinstance(expected_answer, str) else json.dumps(expected_answer, sort_keys=True)
     if not reference.strip():
@@ -258,7 +361,10 @@ def exact_key(expected_answer: str | dict[str, Any]) -> str | None:
     try:
         if parse_answer(reference) is not None:
             return reference.strip()
-        return reference_final_answer(reference)
+        normalized = normalize_key(reference)
+        if normalized and parse_answer(normalized) is not None:
+            return normalized
+        return reference_final_answer(reference) or reference_final_answer(normalize_math(reference))
     except Exception:  # noqa: BLE001 - a checker failure means no key, never a verdict
         return None
 
@@ -278,11 +384,12 @@ def _differ(left: str, right: str) -> bool | None:
 
 
 def _state_conclusion(goal_state: str) -> str | None:
-    """The value the goal node's state concludes with, read as an exact key
-    is: the state itself when it is a short expression, else the numeric
-    conclusion of its last sentence ("Therefore P = 3/4" -> "3/4")."""
+    """The value the goal node's state concludes with: its last assignment
+    after the shared normalisation ("Therefore y = x^3" -> ``x^3``,
+    "P = \\frac{3}{4}" -> ``(3)/(4)``; fix round 2, M2), else the state read
+    as an exact key is (the state itself when it is a short expression)."""
 
-    return exact_key(goal_state or "")
+    return assignment_conclusion(goal_state or "") or exact_key(goal_state or "")
 
 
 def goal_agreement(goal_answer: str, goal_state: str, expected_answer: str | dict[str, Any]) -> tuple[str, str]:
@@ -291,24 +398,30 @@ def goal_agreement(goal_answer: str, goal_state: str, expected_answer: str | dic
 
     Both the builder's declaration (``goal_answer``) and the goal node's own
     conclusion (the state routes reach) are checked, and a contradiction in
-    either is a mismatch before anything is verified (Codex review F2): a
-    correct declaration never verifies a goal node that concludes otherwise,
-    and an empty declaration never lets a wrong goal state through."""
+    either is a mismatch before anything is verified (Codex review F2).
+    Only the goal STATE verifies (fix round 2, M2): its conclusion equals the
+    key, or, when it assigns nothing, it states the key. A declaration that
+    agrees with a state the checker cannot read stays unverified (the spec's
+    "the builder's declaration, stored as unverified"); the map may still be
+    stored."""
 
     key = exact_key(expected_answer)
     if key is None:
         return "unverified", "no_exact_key"
+    target = normalize_key(key) or key
     declared = (goal_answer or "").strip()
     concluded = _state_conclusion(goal_state)
-    for value in dict.fromkeys(value for value in (declared, concluded) if value):
-        if _differ(value, key) is True:
-            return "mismatch", "exact_key" if value == declared else "goal_state"
-    candidates = [value for value in (declared, concluded, asserted_conclusion(goal_state or "") or "") if value]
-    for candidate in dict.fromkeys(candidates):
-        if _equal(candidate, key) is True:
-            return "verified", "exact_key"
+    for value, basis in ((declared, "exact_key"), (concluded, "goal_state")):
+        if value and (_differ(normalize_key(value) or value, target) is True):
+            return "mismatch", basis
+    if concluded and _equal(normalize_key(concluded) or concluded, target) is True:
+        return "verified", "exact_key"
+    if assignment_conclusion(goal_state or "") is None and states_answer(goal_state or "", key):
+        return "verified", "exact_key"
     if not declared:
         return "unverified", "no_goal_answer"
+    if _equal(normalize_key(declared) or declared, target) is True:
+        return "unverified", "goal_state_unchecked"
     return "unverified", "undecidable"
 
 
@@ -451,7 +564,7 @@ def validate_map(candidate: ApproachMapV1, context: MapContext) -> Validation:
     for node in normalized_nodes:
         if not node.label.strip():
             fail("empty_label", node_id=node.id)
-        elif label_leaks(node.label, expressions, context.expected_answer):
+        elif label_leaks(node.label, expressions, context.expected_answer, public_text=context.public_text):
             fail("label_leak", node_id=node.id)
     # The goal agrees with the expected answer by exact key where one exists.
     agreement, basis = goal_agreement(candidate.goal_answer, goal.state if goal else "", context.expected_answer)
@@ -549,12 +662,17 @@ __all__ = [
     "MergeMatch",
     "MergeNewRoute",
     "Validation",
+    "answer_candidates",
     "apply_merge",
+    "assignment_conclusion",
     "exact_key",
     "gives_away",
     "goal_agreement",
     "label_leaks",
     "leak_expressions",
+    "normalize_key",
+    "normalize_math",
     "route_counts",
+    "states_answer",
     "validate_map",
 ]

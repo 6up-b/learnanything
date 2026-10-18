@@ -476,8 +476,9 @@ def test_no_rpc_reaches_the_inline_build_or_the_merge():
                 imported.update(alias.name for alias in node_.names)
             if isinstance(node_, ast.Attribute) and node_.attr in ("build_map_inline", "merge_learner_routes"):
                 raise AssertionError(f"{path} reaches {node_.attr} (H2 wires it)")
-    # The serve's background build is the only map entry any RPC reaches.
-    assert imported == {"schedule_build_on_serve"}
+    # The serve's background build is the only map entry any RPC reaches; the
+    # sidecar also owns the builds' lifecycle registry (fix round 2, M4).
+    assert imported == {"schedule_build_on_serve", "BackgroundBuilds"}
 
 
 # -- build on serve (§4.3.1 row 1) --------------------------------------------------------
@@ -897,8 +898,9 @@ def test_f2_a_goal_state_that_contradicts_the_answer_is_a_mismatch(paths, goal_a
 
 
 def test_f2_the_goal_verifies_from_an_agreeing_state_or_declaration(paths):
-    for goal_answer, state in (("", "Therefore P = 1/4"), ("1/4", "P(X ≤ 1/2) = 1/4"),
-                               ("1/4", "The probability at the point")):
+    # ("1/4", "The probability at the point") verified by the declaration alone
+    # before fix round 2 (M2); it is now stored unverified (test_m2_*).
+    for goal_answer, state in (("", "Therefore P = 1/4"), ("1/4", "P(X ≤ 1/2) = 1/4")):
         payload = good_map(goal_answer=goal_answer)
         payload["nodes"][2]["state"] = state
         result = _validate(paths, payload)
@@ -999,7 +1001,7 @@ def _two_processes(monkeypatch, *, claims: bool) -> None:
         from contextlib import contextmanager
 
         @contextmanager
-        def no_claim(_repository, item_id, _until):
+        def no_claim(_repository, item_id, _until, **_kwargs):
             yield MB._Claim(MB.claim_key(item_id), "nobody", 0)
 
         monkeypatch.setattr(MB, "_claimed", no_claim)
@@ -1163,3 +1165,362 @@ def test_f3_a_second_os_process_never_pays_for_an_item_in_flight(tmp_path):
                 child.kill()
                 child.join(10)
     assert len(rows(paths.sqlite_path)) == 1 and len(receipts(paths.sqlite_path)) == 1 and slow.calls == 1
+
+
+# -- Fix round 2 (orchestrator, after Codex job 20261018-025919-tgE3aw) -------------------
+
+from learnloop.db.stores.judgment_claims import claim_work, holds_claim, renew_claim  # noqa: E402
+
+PLAIN_PROMPT = "A question that states no value of its answer."
+
+
+def _plain_context(expected: str, public_text: str = PLAIN_PROMPT) -> MapContext:
+    return MapContext(expected_answer=expected, facet_ids=frozenset(), public_text=public_text)
+
+
+def _plain(payload: dict, expected: str, public_text: str = PLAIN_PROMPT):
+    return validate_map(ApproachMapV1.model_validate(payload), _plain_context(expected, public_text))
+
+
+def _neutral_goal(expected: str) -> dict:
+    """A goal the leak tests do not hinge on: it states the answer as written."""
+
+    return {"goal_state": f"The answer is {expected}", "goal_answer": expected}
+
+
+# The forms Codex listed: (expected answer, a step state that states it).
+M1_CASES = [
+    ("$4$", "4"), ("\\(4\\)", "4"), ("+4", "4"),
+    ("4", "$4$"), ("4", "\\(4\\)"), ("4", "+4"),
+    ("\\frac{1}{4}", "1/4"), ("0.25", "1/4"), ("1/4", "\\frac{1}{4}"), ("1/4", "$0.25$"),
+    ("1/4", "P = \\left(\\frac{1}{4}\\right)"),
+]
+
+
+@pytest.mark.parametrize(("expected", "state"), M1_CASES)
+def test_m1_a_formatted_or_equivalent_answer_is_marked_and_fails_a_label(expected, state):
+    marked = _plain(_count_map(step_state=state, step_label="Count the socks", **_neutral_goal(expected)), expected)
+    assert marked.valid, marked.details
+    assert "count" in marked.leak_marked_by_code, (expected, state)
+    leaking = _plain(_count_map(step_state="two pairs", step_label=f"Reach {state}", **_neutral_goal(expected)),
+                     expected)
+    assert not leaking.valid and "label_leak" in leaking.reasons, (expected, state)
+
+
+def test_m1_a_single_symbol_answer_is_a_token_match_never_a_substring():
+    expected = "x"
+    for state in ("y = x", "the free variable is x", "$x$"):
+        result = _plain(_count_map(step_state=state, step_label="Name the variable", **_neutral_goal(expected)),
+                        expected)
+        assert result.valid and "count" in result.leak_marked_by_code, state
+    leaking = _plain(_count_map(step_state="two pairs", step_label="Solve for x", **_neutral_goal(expected)), expected)
+    assert "label_leak" in leaking.reasons
+    for state in ("x_4", "the next step", "max of two", "\\xi"):
+        result = _plain(_count_map(step_state=state, step_label="Name the variable", **_neutral_goal(expected)),
+                        expected)
+        assert result.valid and "count" not in result.leak_marked_by_code, state
+    assert M.states_answer("Find x", "x") and not M.states_answer("Find next", "x")
+
+
+def test_m1_controls_and_the_questions_own_values_stay_as_ruled():
+    for state in ("14", "x_4", "2^4", "4.5", "3/4"):
+        result = _plain(_count_map(step_state=state, step_label="Count the socks"), "4")
+        assert result.valid and "count" not in result.leak_marked_by_code, state
+    # "Step 4" stays a label leak for the answer 4 (F1, as already ruled).
+    assert "label_leak" in _plain(_count_map(step_state="two pairs", step_label="Step 4"), "4").reasons
+    # An expression the question itself states is a given, never a label leak.
+    stated = "Show that P(X ≤ 1/2) = 1/4."
+    payload = _count_map(step_state="the CDF", step_label="Reach 0.25", goal_state="P = 1/4", goal_answer="1/4")
+    assert _plain(payload, "1/4", public_text=stated).valid
+    assert "label_leak" in _plain(payload, "1/4").reasons
+
+
+def test_m1_a_vault_item_with_a_formatted_answer_builds_with_its_leak_marked(tmp_path):
+    paths = map_vault(tmp_path, prompt=COUNT_PROMPT, expected="$4$", trace_contract=None)
+    outcome = _build(paths, MapFake([_count_map(step_state="+4", step_label="Count the socks")]))
+    assert outcome.status == "built"
+    stored = json.loads(rows(paths.sqlite_path)[0]["map_json"])
+    assert {item["id"]: item["leak"] for item in stored["nodes"]}["count"] is True
+
+
+@pytest.mark.parametrize(("expected", "goal_state", "goal_answer"), [
+    ("x^2", "Therefore y = x^3", "x^2"),
+    ("1/4", "P = \\frac{3}{4}", "1/4"),
+    ("1/4", "So $P = 0.75$.", "1/4"),
+    ("1/4", "P = \\frac{3}{4}", ""),
+])
+def test_m2_a_goal_state_whose_last_assignment_differs_is_a_mismatch(expected, goal_state, goal_answer):
+    result = _plain(_count_map(step_state="two pairs", step_label="Count the socks", goal_state=goal_state,
+                               goal_answer=goal_answer), expected)
+    assert not result.valid and "goal_mismatch" in result.reasons and not result.verified_goal
+    assert any(detail.get("basis") == "goal_state" for detail in result.details
+               if detail["reason"] == "goal_mismatch"), result.details
+
+
+def test_m2_only_a_checked_goal_state_verifies():
+    for expected, goal_state in (("1/4", "P = \\frac{1}{4}"), ("1/4", "Therefore $P = 0.25$."),
+                                 ("x^2", "Therefore y = x^2"), ("4", "There are 4 socks")):
+        result = _plain(_count_map(step_state="two pairs", step_label="Count the socks", goal_state=goal_state,
+                                   goal_answer=expected), expected)
+        assert result.valid and result.verified_goal and result.goal_basis == "exact_key", (expected, goal_state)
+    # A declaration that agrees with a state the checker cannot read never verifies.
+    unchecked = _plain(_count_map(step_state="two pairs", step_label="Count the socks",
+                                  goal_state="The probability at the point", goal_answer="1/4"), "1/4")
+    assert unchecked.valid and not unchecked.verified_goal and unchecked.goal_basis == "goal_state_unchecked"
+
+
+def test_m2_an_unchecked_goal_is_stored_unverified(paths):
+    payload = good_map()
+    payload["nodes"][2]["state"] = "The probability at the point"
+    outcome = _build(paths, MapFake([payload]))
+    assert outcome.status == "built" and outcome.verified_goal is False
+    [row] = rows(paths.sqlite_path)
+    assert row["verified_goal"] == 0 and json.loads(row["validation_json"])["goal_basis"] == "goal_state_unchecked"
+
+
+def _expire_lease(sqlite_path: Path, key: str) -> None:
+    with closing(connect(sqlite_path)) as connection:
+        connection.execute("UPDATE judgment_work_claims SET lease_expires_at = ? WHERE claim_key = ?",
+                           ("2000-01-01T00:00:00+00:00", key))
+        connection.commit()
+
+
+def _claim_row(sqlite_path: Path, key: str) -> dict:
+    with closing(sqlite3.connect(sqlite_path)) as connection:
+        connection.row_factory = sqlite3.Row
+        return dict(connection.execute("SELECT * FROM judgment_work_claims WHERE claim_key = ?", (key,)).fetchone())
+
+
+def _checkpoints(sqlite_path: Path) -> int:
+    with closing(sqlite3.connect(sqlite_path)) as connection:
+        return connection.execute("SELECT COUNT(*) FROM model_work_checkpoints WHERE purpose LIKE 'approach_map%'"
+                                  ).fetchone()[0]
+
+
+def _join_heartbeat(item: str = ITEM, timeout: float = 10.0) -> None:
+    for thread in threading.enumerate():
+        if thread.name == f"learnloop-approach-map-claim-{item}":
+            thread.join(timeout)
+            assert not thread.is_alive()
+
+
+def test_m3_holds_claim_checks_expiry_and_renewal_never_revives_a_lapsed_lease(paths):
+    repository = _repo(paths)
+    start = "2026-10-18T09:00:00+00:00"
+    with repository.atomic():
+        claim_work(repository.connection(), claim_key="k", task=MB.CLAIM_TASK, producer=MB.OWNER_KIND,
+                   prompt_version=None, input_hash="", owner="me", now=start, lease_seconds=10)
+    connection = repository.connection()
+    assert holds_claim(connection, claim_key="k", owner="me", epoch=1, now="2026-10-18T09:00:05+00:00")
+    assert not holds_claim(connection, claim_key="k", owner="me", epoch=1, now="2026-10-18T09:00:20+00:00")
+    assert holds_claim(connection, claim_key="k", owner="me", epoch=1)  # without now: owner and epoch only
+    with repository.atomic():
+        assert not renew_claim(repository.connection(), claim_key="k", owner="me", epoch=1,
+                               now="2026-10-18T09:00:20+00:00", lease_seconds=10)
+    assert _claim_row(paths.sqlite_path, "k")["lease_expires_at"] == "2026-10-18T09:00:10+00:00"
+    with repository.atomic():
+        assert renew_claim(repository.connection(), claim_key="k", owner="me", epoch=1,
+                           now="2026-10-18T09:00:05+00:00", lease_seconds=10)
+
+
+def test_m3_an_expired_claim_writes_no_judgment_and_stores_nothing(paths):
+    repository = _repo(paths)
+    claim = MB._try_claim(repository, ITEM)
+    assert claim is not None
+    _expire_lease(paths.sqlite_path, claim.key)
+    vault = load_vault(paths.root)
+    context, _seeds = _context(paths)
+    validation = validate_map(ApproachMapV1.model_validate(good_map()), context)
+    stored = MB._store(repository, item=vault.practice_items[ITEM], item_hash="h", structure="s", seeds_hash="x",
+                       seeds_record={}, validated=validation.normalized, validation=validation, trigger="cli",
+                       model=None, prompt_version=MB.PROMPT_VERSION, prompt="p", clock=None, claim=claim)
+    assert stored.status == "stale" and rows(paths.sqlite_path) == []
+    with pytest.raises(MB._LeaseLost):
+        MB._ledger(repository, item_id=ITEM, right_kind="approach_map_revision", right_id="r", prompt="p",
+                   verdict="valid", validation=validation, round_=1, trigger="cli", clock=None, claim=claim)
+    assert ledger(paths.sqlite_path) == []
+
+
+def _gated_invalid_build(paths, results: list, **options) -> tuple[MapFake, threading.Thread, threading.Event]:
+    """A build whose first answer is invalid (it would be re-asked), with the model still answering."""
+
+    gate = threading.Event()
+    slow = MapFake([_mutate("label_leaks_a_leak_nodes_expression")], gate=gate)
+    worker = threading.Thread(target=lambda: results.append(_build(paths, slow, **options)))
+    worker.start()
+    assert slow.started.wait(10)
+    return slow, worker, gate
+
+
+def test_m3_a_lost_heartbeat_stops_the_build_before_its_reask(paths, monkeypatch):
+    armed, renewed = threading.Event(), threading.Event()
+
+    def refused(*_args, **_kwargs):
+        if not armed.is_set():
+            return True  # renewed until the model is answering
+        renewed.set()
+        return False
+
+    monkeypatch.setattr(MB, "CLAIM_HEARTBEAT_SECONDS", 0.05)
+    monkeypatch.setattr(MB, "renew_claim", refused)
+    results: list = []
+    slow, worker, gate = _gated_invalid_build(paths, results)
+    armed.set()
+    assert renewed.wait(10)
+    _join_heartbeat()  # the heartbeat has signalled the loss
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "stale" and slow.calls == 1, results[0]
+    assert ledger(paths.sqlite_path) == [] and rows(paths.sqlite_path) == [] and _checkpoints(paths.sqlite_path) == 0
+
+
+def test_m3_a_takeover_while_awaiting_a_response_pays_writes_and_stores_nothing_more(paths):
+    results: list = []
+    slow, worker, gate = _gated_invalid_build(paths, results)
+    key = MB.claim_key(ITEM)
+    _expire_lease(paths.sqlite_path, key)
+    repository = _repo(paths)
+    with repository.atomic():
+        status, epoch = claim_work(repository.connection(), claim_key=key, task=MB.CLAIM_TASK,
+                                   producer=MB.OWNER_KIND, prompt_version=None, input_hash="", owner="proc_b:1",
+                                   now=MB._lease_now(), lease_seconds=MB.CLAIM_LEASE_SECONDS)
+    assert status == "claimed" and epoch == 2
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "stale" and slow.calls == 1, results[0]  # no re-ask
+    assert ledger(paths.sqlite_path) == [] and rows(paths.sqlite_path) == [] and _checkpoints(paths.sqlite_path) == 0
+    row = _claim_row(paths.sqlite_path, key)
+    assert row["lease_owner"] == "proc_b:1" and row["lease_epoch"] == 2 and row["state"] == "leased"
+
+
+def test_m3_a_lapsed_lease_is_never_renewed_by_the_heartbeat(paths, monkeypatch):
+    monkeypatch.setattr(MB, "CLAIM_HEARTBEAT_SECONDS", 0.05)
+    results: list = []
+    slow, worker, gate = _gated_invalid_build(paths, results)
+    key = MB.claim_key(ITEM)
+    _expire_lease(paths.sqlite_path, key)
+    _join_heartbeat()  # its renewal was refused: the lease stays lapsed
+    assert _claim_row(paths.sqlite_path, key)["lease_expires_at"] == "2000-01-01T00:00:00+00:00"
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "stale" and slow.calls == 1
+    assert ledger(paths.sqlite_path) == [] and rows(paths.sqlite_path) == []
+
+
+def _snapshot(sqlite_path: Path) -> dict:
+    with closing(sqlite3.connect(sqlite_path)) as connection:
+        def all_rows(sql: str) -> list:
+            return [tuple(row) for row in connection.execute(sql)]
+
+        return {
+            "maps": all_rows("SELECT * FROM approach_maps ORDER BY id"),
+            "ledger": all_rows("SELECT * FROM judgment_ledger WHERE task = 'approach_map_valid' ORDER BY rowid"),
+            "receipts": all_rows("SELECT * FROM model_call_receipts WHERE owner_kind = 'approach_map' ORDER BY rowid"),
+            "checkpoints": all_rows("SELECT * FROM model_work_checkpoints ORDER BY cache_key"),
+            "claims": all_rows("SELECT * FROM judgment_work_claims ORDER BY claim_key"),
+        }
+
+
+def test_m4_a_vault_switch_while_the_provider_is_slow_writes_nothing_to_either_vault(tmp_path):
+    vault_a = map_vault(tmp_path, name="a", trace_contract=TRACE_CONTRACT)
+    vault_b = map_vault(tmp_path, name="b", trace_contract=TRACE_CONTRACT)
+    gate = threading.Event()
+    slow = MapFake(gate=gate)
+    ctx, session_id = _sidecar(vault_a.root, slow)
+    if hasattr(ctx, "map_builds"):  # (absent before fix round 2: the test then fails on the writes)
+        ctx.map_builds.drain_seconds = 0.2
+    _serve(ctx, session_id)
+    assert slow.started.wait(10)
+    at_switch = _snapshot(vault_a.sqlite_path)
+    assert at_switch["claims"] and at_switch["receipts"]  # the build had claimed and started its call
+    b_before = _snapshot(vault_b.sqlite_path)
+    started = time.monotonic()
+    ctx.load(vault_b.root)
+    assert time.monotonic() - started < 10
+    gate.set()
+    assert MB.wait_for_background_builds(30)
+    assert slow.calls == 1
+    assert _snapshot(vault_a.sqlite_path) == at_switch, "vault A was written after the switch"
+    assert _snapshot(vault_b.sqlite_path) == b_before
+    assert rows(vault_a.sqlite_path) == [] and rows(vault_b.sqlite_path) == []
+    assert ctx.map_builds.admit(vault_a.sqlite_path) is None
+    assert ctx.map_builds.admit(vault_b.sqlite_path) is not None
+
+
+def test_m4_shutdown_and_eof_drain_within_their_bound(paths, monkeypatch):
+    import io
+
+    import learnloop_sidecar.server as server
+
+    gate = threading.Event()
+    slow = MapFake(gate=gate)
+    ctx, session_id = _sidecar(paths.root, slow)
+    if hasattr(ctx, "map_builds"):  # (absent before fix round 2: the test then fails on the writes)
+        ctx.map_builds.drain_seconds = 0.3
+    _serve(ctx, session_id)
+    assert slow.started.wait(10)
+    at_shutdown = _snapshot(paths.sqlite_path)
+    started = time.monotonic()
+    assert _call(ctx, "shutdown", {}) == {"ok": True}
+    assert time.monotonic() - started < 3.0, "shutdown waited on the provider"
+    gate.set()
+    assert MB.wait_for_background_builds(30)
+    assert _snapshot(paths.sqlite_path) == at_shutdown and rows(paths.sqlite_path) == []
+    assert ctx.map_builds.admit(paths.sqlite_path) is None
+    assert MB.schedule_build_on_serve(ctx.vault, paths.sqlite_path, ITEM, client=MapFake(),
+                                      builds=ctx.map_builds) is None
+    # EOF on stdin takes the same path.
+    eof_ctx, _session = _sidecar(paths.root)
+    monkeypatch.setattr(server, "SidecarContext", lambda: eof_ctx)
+    server.serve(io.StringIO(""), io.StringIO())
+    assert eof_ctx.map_builds.admit(paths.sqlite_path) is None
+    # A drained registry (no build left) reports so; reopening a vault admits again.
+    assert eof_ctx.map_builds.close(0.1) is True
+    eof_ctx.map_builds.bind(paths.sqlite_path)
+    assert eof_ctx.map_builds.admit(paths.sqlite_path) is not None
+
+
+def test_m5_a_merge_after_a_revert_stores_a_new_version_of_that_revision(paths):
+    first = _build(paths, MapFake())
+    write_item(paths, trace_contract=TRACE_CONTRACT, hints=["A different authored hint."])
+    second = _build(paths, MapFake())
+    assert second.status == "built" and second.version == 2
+    write_item(paths, trace_contract=TRACE_CONTRACT)  # reverted
+    vault = load_vault(paths.root)
+    assert MB.current_map(vault, _repo(paths), ITEM)["id"] == first.map_id
+    add_attempt(paths.sqlite_path, "a1")
+    merged = MB.merge_learner_routes(vault, _repo(paths), ITEM, client=MapFake())
+    assert merged.status == "merged" and merged.version == 3, merged
+    stored = rows(paths.sqlite_path)[2]
+    assert stored["supersedes_id"] == first.map_id
+    assert (stored["practice_item_hash"], stored["structure_hash"]) == (
+        rows(paths.sqlite_path)[0]["practice_item_hash"], rows(paths.sqlite_path)[0]["structure_hash"])
+    assert MB.current_map(vault, _repo(paths), ITEM)["id"] == merged.map_id
+
+
+def test_m5_a_merge_whose_revision_stopped_being_active_stores_nothing(paths):
+    _build(paths, MapFake())
+    add_attempt(paths.sqlite_path, "a1")
+    gate, results = threading.Event(), []
+    _slow, worker = _gated_merge(paths, gate, results)
+    add_skeleton(paths.sqlite_path)  # a new PF skeleton: the item's active revision moves on
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "stale" and len(rows(paths.sqlite_path)) == 1
+
+
+def test_l1_a_thread_start_failure_leaves_no_in_flight_mark(paths, monkeypatch):
+    original = threading.Thread
+
+    class Unstartable(original):
+        def start(self):
+            raise RuntimeError("can't start new thread")
+
+    vault = load_vault(paths.root)
+    monkeypatch.setattr(MB.threading, "Thread", Unstartable)
+    assert MB.schedule_build_on_serve(vault, paths.sqlite_path, ITEM, client=MapFake()) is None
+    monkeypatch.setattr(MB.threading, "Thread", original)
+    assert not MB._INFLIGHT
+    fake = MapFake()
+    thread = MB.schedule_build_on_serve(vault, paths.sqlite_path, ITEM, client=fake)
+    assert thread is not None and MB.wait_for_background_builds(30) and fake.calls == 1

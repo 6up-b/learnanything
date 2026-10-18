@@ -342,7 +342,8 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
 def _schedule_approach_map(ctx: SidecarContext, vault, repository, practice_item_id: str) -> None:
     try:
         schedule_build_on_serve(vault, repository.sqlite_path, practice_item_id,
-                                client=getattr(ctx, "approach_map_client", None))
+                                client=getattr(ctx, "approach_map_client", None),
+                                builds=getattr(ctx, "map_builds", None))
     except Exception as exc:  # noqa: BLE001 -- never reaches the serve
         log_event("approach_map_schedule_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
 

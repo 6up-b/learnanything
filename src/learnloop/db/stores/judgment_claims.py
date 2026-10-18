@@ -81,16 +81,23 @@ def claim_work(
     return CLAIMED, epoch
 
 
-def holds_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int) -> bool:
-    """True while this worker's lease (owner and epoch) is the claim's current one."""
+def holds_claim(connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int,
+                now: str | None = None) -> bool:
+    """True while this worker's lease (owner and epoch) is the claim's current
+    one; with ``now``, also only while that lease has not expired (a lapsed
+    lease is no one's until it is re-claimed, so its holder's late commit is
+    fenced out; hints H1 fix round 2, M3)."""
 
     row = _row(connection, claim_key)
-    return (
+    held = (
         row is not None
         and row["state"] == "leased"
         and row["lease_owner"] == owner
         and int(row["lease_epoch"] or 0) == int(epoch)
     )
+    if not held or now is None:
+        return held
+    return bool(row["lease_expires_at"]) and parse_utc(str(row["lease_expires_at"])) > parse_utc(now)
 
 
 def complete_claim(
@@ -146,8 +153,15 @@ def take_over_claim(
 def renew_claim(
     connection: sqlite3.Connection, *, claim_key: str, owner: str, epoch: int, now: str, lease_seconds: int
 ) -> bool:
-    """Extend a live lease (a heartbeat); False (and no change) when it is no longer this worker's."""
+    """Extend a live lease (a heartbeat); False (and no change) when it is no
+    longer this worker's or has already expired: a lapsed lease is never
+    revived, because another worker may have judged it free (hints H1 fix
+    round 2, M3)."""
 
+    row = _row(connection, claim_key)
+    if (row is None or not row["lease_expires_at"]
+            or parse_utc(str(row["lease_expires_at"])) <= parse_utc(now)):
+        return False
     expires = (parse_utc(now) + timedelta(seconds=max(1, int(lease_seconds)))).isoformat()
     cursor = connection.execute(
         "UPDATE judgment_work_claims SET lease_expires_at = ?, updated_at = ? WHERE claim_key = ? "

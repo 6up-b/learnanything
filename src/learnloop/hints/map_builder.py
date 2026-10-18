@@ -51,6 +51,25 @@ the revision was stored meanwhile, and a merge only onto the base map it
 read (a stale merge is not stored: its attempts stay unmined and the next
 merge takes them).
 
+**Liveness** (fix round 2, M3). The lease is checked for expiry as well as
+owner and epoch, a lapsed lease is never renewed, and the heartbeat signals a
+lost lease to the builder. Before every paid request (the re-ask and a
+provider retry included) and every ``judgment_ledger`` write the builder
+checks it still holds a live lease; once it does not, it stops and answers
+``stale`` without paying for anything more. The final transaction re-checks
+owner, epoch and expiry inside BEGIN IMMEDIATE.
+
+**Lifecycle** (fix round 2, M4). Builds on serve belong to a
+:class:`BackgroundBuilds` registry the sidecar owns, bound to the loaded vault
+with a generation token. A vault switch, ``shutdown`` and EOF stop admitting
+builds, cancel the ones running and join them for a bounded few seconds.
+Provider calls cannot be interrupted, so their results are fenced instead:
+every late write of a build (receipts, checkpoints, judgments, the map row,
+the claim's renewal and release) goes through the generation token and the
+lease, so a worker of vault A never writes after the switch. The daily spend
+ledger's settlement is the one deliberate exception: money already spent is
+always settled against the cap.
+
 ``hints.maps.enabled = false`` builds nothing and :func:`current_map` reads
 nothing. Maps are help, never evidence, and never reach the grader.
 """
@@ -352,6 +371,9 @@ class _Caller:
     client: Any | None
     clock: Clock | None
     deadline: float | None
+    #: The build's claim: its liveness fences every paid request and every
+    #: receipt and checkpoint write (fix round 2, M3/M4).
+    claim: "_Claim | None" = None
     route: PaidRoute = field(init=False)
     calls: PaidCalls | None = field(init=False, default=None)
     resolved: Any | None = field(init=False, default=None)
@@ -376,8 +398,16 @@ class _Caller:
             # A spent day refuses before anything is retrieved or asked.
             raise SpendLimitExceeded(f"{ENVELOPE}: today's metered map budget is spent")
         budget = SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS), subscription=subscription)
-        self.calls = PaidCalls(route=self.route, budget=budget, price_per_million=price, repository=self.repository,
-                               owner_kind=OWNER_KIND, owner_id=self.item.id)
+        claim = self.claim
+        writes: Any = self.repository if claim is None else _FencedRepository(self.repository, claim)
+
+        def admit(_estimate: Any) -> None:
+            # Before every physical request, its retries included.
+            if claim is not None:
+                _require_live(self.repository, claim)
+
+        self.calls = PaidCalls(route=self.route, budget=budget, price_per_million=price, repository=writes,
+                               owner_kind=OWNER_KIND, owner_id=self.item.id, admit=admit)
         return None
 
     def ask(self, *, purpose: str, prompt: str, result_model: type[BaseModel], metadata: Mapping[str, Any]) -> Any:
@@ -400,12 +430,16 @@ class _Caller:
 
 def _ledger(repository: Repository, *, item_id: str, right_kind: str, right_id: str, prompt: str, verdict: str,
             validation: Validation | None, extra_reasons: Sequence[str] = (), round_: int, trigger: str,
-            clock: Clock | None, prompt_version: str = PROMPT_VERSION) -> None:
+            clock: Clock | None, prompt_version: str = PROMPT_VERSION, claim: "_Claim | None" = None) -> None:
     reasons = list(dict.fromkeys([*extra_reasons, *(validation.reasons if validation else [])]))
     rationale = {"round": round_, "trigger": trigger, "reasons": reasons,
                  "details": (validation.details if validation else [])[:20],
                  "verified_goal": validation.verified_goal if validation else None}
-    with repository.atomic():
+    with _write_gate(claim) as open_, repository.atomic():
+        # Fenced like the map row (fix round 2, M3/M4): no verdict lands once
+        # the lease or the vault is lost.
+        if not open_ or (claim is not None and not _holds(repository.connection(), claim)):
+            raise _LeaseLost("the build's lease or vault was lost before its verdict was written")
         append_judgment(repository.connection(), task=LEDGER_TASK, left_kind="practice_item", left_id=item_id,
                         right_kind=right_kind, right_id=right_id, judge="verifier",
                         input_hash=content_key(prompt), verdict=verdict, prompt_version=prompt_version,
@@ -427,26 +461,34 @@ class _Stored:
 def _store(repository: Repository, *, item: PracticeItem, item_hash: str, structure: str, seeds_hash: str,
            seeds_record: Mapping[str, Any], validated: ApproachMapV1, validation: Validation, trigger: str,
            model: str | None, prompt_version: str, prompt: str, clock: Clock | None,
-           claim: "_Claim | None", base_map_id: str | None = None) -> _Stored:
+           claim: "_Claim | None", base_map_id: str | None = None, vault: LoadedVault | None = None) -> _Stored:
     """Insert the new version, fenced in the same BEGIN IMMEDIATE transaction
-    (Codex review F3): only while ``claim`` is this worker's live lease; a
-    build (``base_map_id`` None) only when no map of its revision exists yet
-    (another process's seeds may differ, so the UNIQUE seeds key alone would
-    let both land); a merge only when ``base_map_id`` is still the item's
-    newest row, so a slower merge never supersedes a newer map with stale
-    content."""
+    (Codex review F3): only while ``claim`` is this worker's lease, unexpired
+    (owner, epoch and expiry; fix round 2, M3) and its vault still loaded
+    (M4); a build (``base_map_id`` None) only when no map of its revision
+    exists yet (another process's seeds may differ, so the UNIQUE seeds key
+    alone would let both land); a merge only when ``base_map_id`` is still
+    the newest row of ITS revision and that revision is still the item's
+    active one (M5: a revert to an earlier revision can merge again), so a
+    slower merge never supersedes a newer map with stale content. A merge
+    supersedes its base."""
 
     map_id = "am_" + new_ulid()
     merge = base_map_id is not None
     try:
-        with repository.atomic():
+        with _write_gate(claim) as open_, repository.atomic():
             connection = repository.connection()
-            if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
-                                                     epoch=claim.epoch):
+            if not open_ or (claim is not None and not _holds(connection, claim)):
                 return _Stored("stale")
             version, supersedes = store.next_version(connection, item.id)
-            if merge and supersedes != base_map_id:
-                return _Stored("stale")
+            if merge:
+                newest = store.current_map(connection, item.id, practice_item_hash=item_hash,
+                                           structure_hash=structure)
+                if newest is None or newest["id"] != base_map_id:
+                    return _Stored("stale")
+                if vault is not None and tuple(item_revision(vault, connection, item)) != (item_hash, structure):
+                    return _Stored("stale")
+                supersedes = base_map_id
             if not merge:
                 existing = store.current_map(connection, item.id, practice_item_hash=item_hash,
                                              structure_hash=structure)
@@ -499,6 +541,82 @@ class _Claim:
     key: str
     owner: str
     epoch: int
+    #: Set by the heartbeat when the lease is lost (fix round 2, M3).
+    lost: threading.Event = field(default_factory=threading.Event, compare=False, repr=False)
+    #: The background build's ticket (M4); None for inline, CLI and merge work.
+    fence: "BuildFence | None" = field(default=None, compare=False, repr=False)
+
+
+class _LeaseLost(Exception):
+    """The build's lease or vault is gone: stop without paying or writing more."""
+
+
+def _holds(connection: sqlite3.Connection, claim: _Claim) -> bool:
+    """Owner, epoch and expiry (fix round 2, M3), and the heartbeat's own signal."""
+
+    if claim.lost.is_set() or (claim.fence is not None and not claim.fence.live()):
+        return False
+    return holds_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch, now=_lease_now())
+
+
+def _alive(repository: Repository, claim: _Claim) -> bool:
+    if claim.lost.is_set() or (claim.fence is not None and not claim.fence.live()):
+        return False
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        return _holds(connection, claim)
+
+
+def _require_live(repository: Repository, claim: _Claim) -> None:
+    if not _alive(repository, claim):
+        raise _LeaseLost("the build's lease or vault was lost; nothing more is paid for")
+
+
+@contextmanager
+def _write_gate(claim: _Claim | None) -> Iterator[bool]:
+    """Hold the build's registry gate for one write (a vault switch waits for
+    it, then fences every later one); yields whether the write may land."""
+
+    fence = claim.fence if claim is not None else None
+    if fence is None:
+        yield claim is None or not claim.lost.is_set()
+        return
+    with fence.gate():
+        yield fence.live() and not claim.lost.is_set()
+
+
+class _FencedRepository:
+    """The repository a build's paid calls write through: receipts and
+    checkpoints land only while the build's lease and vault hold (fix round
+    2, M3/M4). A dropped receipt is logged with its usage; the spend ledger
+    still settles the money (it is written by the envelope, not here)."""
+
+    def __init__(self, repository: Repository, claim: _Claim) -> None:
+        self._repository = repository
+        self._claim = claim
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._repository, name)
+
+    def _write(self, what: str, write: Callable[[], None], detail: Mapping[str, Any]) -> None:
+        with _write_gate(self._claim) as open_:
+            if open_ and _alive(self._repository, self._claim):
+                write()
+                return
+        LOG.warning("approach map %s not written: the build's lease or vault was lost (%s)", what,
+                    json.dumps(dict(detail), sort_keys=True, default=str))
+
+    def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
+        detail = {key: event.get(key) for key in ("call_id", "input_tokens", "output_tokens", "cost", "resolved_model")}
+        self._write(f"receipt ({action})", lambda: self._repository.record_model_event(
+            action, event, owner_kind=owner_kind, owner_id=owner_id), detail)
+
+    def save_model_checkpoint(self, cache_key: str, **kwargs: Any) -> None:
+        self._write("checkpoint", lambda: self._repository.save_model_checkpoint(cache_key, **kwargs),
+                    {"key": cache_key})
+
+    def discard_model_checkpoint(self, cache_key: str) -> None:
+        self._write("checkpoint discard", lambda: self._repository.discard_model_checkpoint(cache_key),
+                    {"key": cache_key})
 
 
 def _lease_now() -> str:
@@ -511,24 +629,30 @@ def claim_key(practice_item_id: str) -> str:
     return f"{CLAIM_TASK}:{practice_item_id}"
 
 
-def _try_claim(repository: Repository, item_id: str) -> _Claim | None:
+def _try_claim(repository: Repository, item_id: str, fence: "BuildFence | None" = None) -> _Claim | None:
     owner = f"{PROCESS_TOKEN}:{new_ulid()}"
-    with repository.atomic():
+    probe = _Claim(claim_key(item_id), owner, 0, fence=fence)
+    with _write_gate(probe) as open_, repository.atomic():
+        if not open_:
+            return None
         status, epoch = claim_work(
             repository.connection(), claim_key=claim_key(item_id), task=CLAIM_TASK, producer=OWNER_KIND,
             prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
     if status == CLAIMED and epoch is not None:
-        return _Claim(claim_key(item_id), owner, int(epoch))
+        return _Claim(claim_key(item_id), owner, int(epoch), fence=fence)
     return None
 
 
-def _claim(repository: Repository, item_id: str, until: float | None) -> _Claim | None:
+def _claim(repository: Repository, item_id: str, until: float | None,
+           fence: "BuildFence | None" = None) -> _Claim | None:
     """Claim the item's builds across processes, waiting until ``until``
     (``time.monotonic()``; None: until claimed; a dead holder's lease lapses
     within ``CLAIM_LEASE_SECONDS``). None: another process holds it."""
 
     while True:
-        claim = _try_claim(repository, item_id)
+        if fence is not None and not fence.live():
+            return None
+        claim = _try_claim(repository, item_id, fence)
         if claim is not None:
             return claim
         if until is not None and time.monotonic() >= until:
@@ -539,7 +663,9 @@ def _claim(repository: Repository, item_id: str, until: float | None) -> _Claim 
 
 def _release(repository: Repository, claim: _Claim) -> None:
     try:
-        with repository.atomic():
+        with _write_gate(claim) as open_, repository.atomic():
+            if not open_:
+                return  # a lost lease is not ours to release; a lapsed vault's lapses
             release_claim(repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
                           now=_lease_now())
     except Exception:  # noqa: BLE001 - an unreleased claim simply expires
@@ -547,11 +673,14 @@ def _release(repository: Repository, claim: _Claim) -> None:
 
 
 @contextmanager
-def _claimed(repository: Repository, item_id: str, until: float | None) -> Iterator[_Claim | None]:
+def _claimed(repository: Repository, item_id: str, until: float | None, *,
+             fence: "BuildFence | None" = None) -> Iterator[_Claim | None]:
     """Hold the item's durable claim for the block, renewing its lease while
-    the block runs; yields None (and holds nothing) when another process has it."""
+    the block runs; yields None (and holds nothing) when another process has
+    it. The heartbeat sets ``claim.lost`` once the lease cannot be renewed
+    (taken over, expired or its vault switched away; fix round 2, M3)."""
 
-    claim = _claim(repository, item_id, until)
+    claim = _claim(repository, item_id, until, fence)
     if claim is None:
         yield None
         return
@@ -560,12 +689,14 @@ def _claimed(repository: Repository, item_id: str, until: float | None) -> Itera
     def beat() -> None:
         while not stop.wait(CLAIM_HEARTBEAT_SECONDS):
             try:
-                with repository.atomic():
-                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
-                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
-            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
+                with _write_gate(claim) as open_, repository.atomic():
+                    held = open_ and renew_claim(
+                        repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                        now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+            except Exception:  # noqa: BLE001 - the next beat retries; a lapsed lease fails the liveness check
                 continue
             if not held:
+                claim.lost.set()
                 return
 
     thread = threading.Thread(target=beat, name=f"learnloop-approach-map-claim-{item_id}", daemon=True)
@@ -581,11 +712,14 @@ def _claimed(repository: Repository, item_id: str, until: float | None) -> Itera
 def _two_rounds(caller: _Caller, *, purpose: str, first_prompt: str, reprompt: Callable[[Mapping[str, Any]], str],
                 result_model: type[BaseModel], check: Callable[[Any], tuple[Validation, list[str]]],
                 ledger: Callable[..., None], metadata: Mapping[str, Any]) -> tuple[Validation | None, str, int, list[str]]:
-    """Ask, validate, re-ask once with the reasons, validate; never a third time."""
+    """Ask, validate, re-ask once with the reasons, validate; never a third
+    time. No ask once the build's lease or vault is lost (fix round 2, M3)."""
 
     prompt = first_prompt
     reasons: list[str] = []
     for round_ in (1, 2):
+        if caller.claim is not None:
+            _require_live(caller.repository, caller.claim)
         answer = caller.ask(purpose=purpose, prompt=prompt, result_model=result_model,
                             metadata={**metadata, "round": round_})
         validation, extra = check(answer)
@@ -617,6 +751,8 @@ def _paid(outcome: MapOutcome, caller: _Caller, body: Callable[[], MapOutcome]) 
             outcome.status, outcome.reason = "unavailable", problem
             return outcome
         return body()
+    except _LeaseLost as exc:
+        outcome.status, outcome.reason = "stale", f"{exc}; nothing more was paid for or stored"
     except SpendLimitExceeded as exc:
         outcome.status, outcome.reason = "capped", str(exc)
     except AIInterrupted:
@@ -631,11 +767,13 @@ def _paid(outcome: MapOutcome, caller: _Caller, body: Callable[[], MapOutcome]) 
 
 def build_map(vault: LoadedVault, repository: Repository, practice_item_id: str, *, trigger: str,
               client: Any | None = None, clock: Clock | None = None, deadline: float | None = None,
-              wait_seconds: float | None = 0.0, find: Callable[..., Any] | None = None) -> MapOutcome:
+              wait_seconds: float | None = 0.0, find: Callable[..., Any] | None = None,
+              fence: "BuildFence | None" = None) -> MapOutcome:
     """Build and store the item's map unless its current revision has one.
 
     ``wait_seconds``: how long to wait for a build of the same item already in
-    flight in this process (0: do not wait, answer ``busy``; None: wait)."""
+    flight in this process (0: do not wait, answer ``busy``; None: wait).
+    ``fence``: a background build's ticket (its registry's vault generation)."""
 
     if trigger not in TRIGGERS or trigger == "merge":
         raise ValueError(f"trigger must be one of serve, inline, cli; got {trigger!r}")
@@ -657,8 +795,14 @@ def build_map(vault: LoadedVault, repository: Repository, practice_item_id: str,
             return outcome
         # Another process may be building the item: claim it durably first,
         # then read again (it may have stored the map while this one waited).
-        with _claimed(repository, item.id, until) as claim:
+        if fence is not None and not fence.live():
+            outcome.status, outcome.reason = "stale", "the vault was closed before the build started"
+            return outcome
+        with _claimed(repository, item.id, until, fence=fence) as claim:
             if claim is None:
+                if fence is not None and not fence.live():
+                    outcome.status, outcome.reason = "stale", "the vault was closed before the build started"
+                    return outcome
                 outcome.status = "busy"
                 outcome.reason = "another process is building or merging this item's map"
                 return outcome
@@ -696,17 +840,18 @@ def _build_claimed(vault: LoadedVault, repository: Repository, item: PracticeIte
     trigger = str(outcome.trigger)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         item_hash, structure = item_revision(vault, connection, item)
-    caller = _Caller(vault, repository, item, trigger, client, clock, deadline)
+    caller = _Caller(vault, repository, item, trigger, client, clock, deadline, claim)
     right_id = _revision_key(item_hash, structure)
     metadata = {"practice_item_id": item.id, "trigger": trigger, "prompt_version": PROMPT_VERSION}
 
     def ledger(**kwargs: Any) -> None:
         _ledger(repository, item_id=item.id, right_kind="approach_map_revision", right_id=right_id,
-                trigger=trigger, clock=clock, **kwargs)
+                trigger=trigger, clock=clock, claim=claim, **kwargs)
 
     def body() -> MapOutcome:
         # Seeds are assembled only once a call can be made (no retrieval for
-        # an unpriced, unavailable or capped route).
+        # an unpriced, unavailable or capped route) and the lease still holds.
+        _require_live(repository, claim)
         seeds = assemble_seeds(vault, repository, item, find=find)
         context = map_context(vault, seeds)
         validation, prompt, rounds, reasons = _two_rounds(
@@ -726,7 +871,7 @@ def _build_claimed(vault: LoadedVault, repository: Repository, item: PracticeIte
             return outcome
         if stored.status == "stale":
             outcome.status = "stale"
-            outcome.reason = "this build's claim was taken over by another process; nothing was stored"
+            outcome.reason = "this build's lease or vault was lost before it stored; nothing was stored"
             return outcome
         outcome.status, outcome.map_id, outcome.version = "built", stored.map_id, stored.version
         outcome.verified_goal = validation.verified_goal
@@ -760,18 +905,124 @@ def build_map_inline(vault: LoadedVault, repository: Repository, practice_item_i
 _INFLIGHT: set[tuple[str, str]] = set()
 _INFLIGHT_GUARD = threading.Lock()
 _THREADS: list[threading.Thread] = []
+#: How long a vault switch, ``shutdown`` or EOF waits for running builds
+#: (process liveness, not a judgment): a provider call cannot be interrupted,
+#: so a build still waiting on one is left to finish fenced, never waited for.
+DRAIN_SECONDS = 3.0
+
+
+class BuildFence:
+    """One background build's ticket: the registry's vault generation when it
+    was admitted. It is live while that generation is the registry's own and
+    the registry is open (fix round 2, M4)."""
+
+    def __init__(self, registry: "BackgroundBuilds", generation: str) -> None:
+        self._registry = registry
+        self.generation = generation
+
+    def live(self) -> bool:
+        return self._registry._live(self.generation)
+
+    def gate(self) -> Any:
+        return self._registry._gate
+
+
+class BackgroundBuilds:
+    """The lifecycle of build-on-serve workers, owned by the sidecar (fix
+    round 2, M4): a registry keyed to the loaded vault with a generation
+    token. :meth:`bind` keys it to a vault (a different vault closes the
+    previous one first); :meth:`close` stops admitting builds, cancels the
+    running ones and joins them for at most ``drain_seconds``. A cancelled
+    build's late writes are fenced by its generation (and its lease), and the
+    registry's gate makes a switch wait for a write already under way, so
+    nothing a build of vault A writes lands after the switch. An unbound
+    registry (the module default: tests and callers without a sidecar)
+    admits builds of any vault."""
+
+    def __init__(self, *, drain_seconds: float = DRAIN_SECONDS) -> None:
+        self.drain_seconds = drain_seconds
+        self._lock = threading.Lock()
+        self._gate = threading.RLock()
+        self._path: str | None = None
+        self._generation = "gen_" + new_ulid()
+        self._open = True
+        self._threads: list[threading.Thread] = []
+
+    @property
+    def generation(self) -> str:
+        return self._generation
+
+    def _live(self, generation: str) -> bool:
+        return self._open and generation == self._generation
+
+    def bind(self, sqlite_path: Any) -> None:
+        """Key the registry to the loaded vault; a different vault (or a closed
+        registry) drains the previous generation and opens a new one."""
+
+        key = str(Path(sqlite_path))
+        with self._lock:
+            if self._open and self._path == key:
+                return
+        self.close()
+        with self._lock:
+            self._path, self._generation, self._open = key, "gen_" + new_ulid(), True
+
+    def admit(self, sqlite_path: Any) -> BuildFence | None:
+        with self._lock:
+            if not self._open or (self._path is not None and self._path != str(Path(sqlite_path))):
+                return None
+            return BuildFence(self, self._generation)
+
+    def track(self, thread: threading.Thread) -> None:
+        with self._lock:
+            self._threads[:] = [existing for existing in self._threads if existing.is_alive()] + [thread]
+
+    def close(self, timeout: float | None = None) -> bool:
+        """Stop admitting, cancel, and join for at most ``timeout`` seconds
+        (default ``drain_seconds``; never hangs). True when every build ended."""
+
+        bound = self.drain_seconds if timeout is None else max(0.0, timeout)
+        end = time.monotonic() + bound
+        with self._lock:
+            self._open = False
+            threads = list(self._threads)
+        # A write already under way finishes first; every later one sees the new generation.
+        held = self._gate.acquire(timeout=bound)
+        try:
+            self._generation = "gen_" + new_ulid()
+        finally:
+            if held:
+                self._gate.release()
+        for thread in threads:
+            if thread is not threading.current_thread():
+                thread.join(max(0.0, end - time.monotonic()))
+        with self._lock:
+            self._threads[:] = [thread for thread in self._threads if thread.is_alive()]
+            return not self._threads
+
+    @property
+    def running(self) -> int:
+        with self._lock:
+            return sum(thread.is_alive() for thread in self._threads)
+
+
+_DEFAULT_BUILDS = BackgroundBuilds()
 
 
 def schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *,
                             client: Any | None = None, clock: Clock | None = None,
-                            find: Callable[..., Any] | None = None) -> threading.Thread | None:
+                            find: Callable[..., Any] | None = None,
+                            builds: BackgroundBuilds | None = None) -> threading.Thread | None:
     """Start a background build for a served item (``hints.maps.build_on_serve``).
 
     Called after the serve's response is built; returns at once and never
     raises. The thread runs in a fresh context (no envelope or observer of the
     serving request leaks into it), on its own connection; one build per item
-    is in flight per process, so concurrent serves start one build."""
+    is in flight per process, so concurrent serves start one build. ``builds``
+    is the sidecar's registry (fix round 2, M4): a build is admitted only for
+    its loaded vault and only while it is open."""
 
+    key: tuple[str, str] | None = None
     try:
         maps = vault.config.hints.maps
         if not (maps.enabled and maps.build_on_serve):
@@ -780,37 +1031,52 @@ def schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_
             return None
         if _active_item(vault, practice_item_id) is None:
             return None
-        key = (str(Path(sqlite_path)), practice_item_id)
+        registry = builds if builds is not None else _DEFAULT_BUILDS
+        fence = registry.admit(sqlite_path)
+        if fence is None:
+            return None
+        candidate = (str(Path(sqlite_path)), practice_item_id)
         with _INFLIGHT_GUARD:
-            if key in _INFLIGHT:
+            if candidate in _INFLIGHT:
                 return None
-            _INFLIGHT.add(key)
+            _INFLIGHT.add(candidate)
+            key = candidate
 
         def run() -> None:
             try:
+                if not fence.live():
+                    return
                 repository = Repository.attach(Path(sqlite_path))
                 outcome = build_map(vault, repository, practice_item_id, trigger="serve", client=client,
-                                    clock=clock, find=find)
+                                    clock=clock, find=find, fence=fence)
                 LOG.info("approach map on serve: %s", json.dumps(outcome.as_dict(), sort_keys=True, default=str))
             except Exception:  # noqa: BLE001 - a background build never reaches the serve
                 LOG.warning("approach map build on serve failed", exc_info=True)
             finally:
                 with _INFLIGHT_GUARD:
-                    _INFLIGHT.discard(key)
+                    _INFLIGHT.discard(candidate)
 
         thread = threading.Thread(target=contextvars.Context().run, args=(run,), daemon=True,
                                   name=f"learnloop-approach-map-{practice_item_id}")
+        thread.start()
+        key = None  # the thread owns the in-flight mark now
+        registry.track(thread)
         with _INFLIGHT_GUARD:
             _THREADS[:] = [existing for existing in _THREADS if existing.is_alive()] + [thread]
-        thread.start()
         return thread
     except Exception:  # noqa: BLE001 - scheduling never fails a serve
         LOG.warning("approach map scheduling failed", exc_info=True)
         return None
+    finally:
+        # Any failure before the thread started leaves no in-flight mark (fix round 2, L1).
+        if key is not None:
+            with _INFLIGHT_GUARD:
+                _INFLIGHT.discard(key)
 
 
 def wait_for_background_builds(timeout: float = 30.0) -> bool:
-    """Join the background builds started so far (tests and shutdown)."""
+    """Join the background builds started so far, of every registry (tests;
+    the sidecar's shutdown path closes its own registry, :meth:`BackgroundBuilds.close`)."""
 
     end = time.monotonic() + timeout
     with _INFLIGHT_GUARD:
@@ -926,14 +1192,14 @@ def _merge_claimed(vault: LoadedVault, repository: Repository, item: PracticeIte
         checkpoint_ids=side.checkpoint_ids, recipe_ids=side.recipe_ids,
         span_refs={key: key for key in known_spans},
         attempt_refs={**{attempt_id: attempt_id for attempt_id in known_attempts}, **refs}, public_text=item.prompt)
-    caller = _Caller(vault, repository, item, "merge", client, clock, deadline)
+    caller = _Caller(vault, repository, item, "merge", client, clock, deadline, claim)
     current_payload = current["map"]
     metadata = {"practice_item_id": item.id, "trigger": "merge", "prompt_version": MERGE_PROMPT_VERSION,
                 "base_map_id": current["id"]}
 
     def ledger(**kwargs: Any) -> None:
         _ledger(repository, item_id=item.id, right_kind="approach_map_merge", right_id=right_id, trigger="merge",
-                clock=clock, prompt_version=MERGE_PROMPT_VERSION, **kwargs)
+                clock=clock, prompt_version=MERGE_PROMPT_VERSION, claim=claim, **kwargs)
 
     def check(answer: LearnerRouteMergeV1) -> tuple[Validation, list[str]]:
         merged, merge_reasons, merge_details = apply_merge(base, answer, attempt_refs=refs)
@@ -966,7 +1232,7 @@ def _merge_claimed(vault: LoadedVault, repository: Repository, item: PracticeIte
                         structure=current["structure_hash"], seeds_hash=seeds_hash, seeds_record=seeds_record,
                         validated=validation.normalized, validation=validation, trigger="merge", model=caller.model,
                         prompt_version=MERGE_PROMPT_VERSION, prompt=prompt, clock=clock, claim=claim,
-                        base_map_id=str(current["id"]))
+                        base_map_id=str(current["id"]), vault=vault)
         if stored.status != "stored":
             # A newer map landed (or the claim was lost): this merge's base is
             # stale. Nothing is stored; the attempts the newer map lacks stay
@@ -1119,12 +1385,15 @@ def backfill(vault: LoadedVault, repository: Repository, items: Iterable[Practic
 
 __all__ = [
     "BUILDS_ENV",
+    "DRAIN_SECONDS",
     "ENVELOPE",
     "LEDGER_TASK",
     "MERGE_PROMPT_VERSION",
     "OWNER_KIND",
     "PROMPT_VERSION",
     "ROUTE_TASK",
+    "BackgroundBuilds",
+    "BuildFence",
     "MapOutcome",
     "backfill",
     "build_map",
