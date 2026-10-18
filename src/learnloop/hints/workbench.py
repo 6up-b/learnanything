@@ -245,8 +245,11 @@ class WorkbenchHintContext:
                 "(that a step's derivative, integral, value, solution or rewriting is or is not right), with "
                 "the step number and the transformation in sympy syntax (kind one of: equivalence, "
                 "differentiation, integration, substitution, solving, limit, sum, inequality, boundary, "
-                "normalization; the expression and the result it should equal). Code checks each claim before "
-                "the hint is shown; a claim that does not hold sends the hint back. [] when it claims nothing."
+                "normalization; the expression and the result it should equal). Write a claim's statement as the "
+                "one relation it asserts, in LaTeX (\\frac{d}{dx}\\left(x^3\\right) = 3x^2), with the kind's "
+                "fields matching it: code parses the statement itself and checks it before the hint is shown; a "
+                "claim that does not hold sends the hint back, and a statement in words stays unchecked. [] when "
+                "it claims nothing."
             ),
         }
         if self.error_kind_enabled and self.error_kind_guess:
@@ -768,7 +771,8 @@ class HintClaim(WireModel):
 
     #: The step number the claim is about.
     step: int
-    #: The claim in the hint's words ("your derivative in step 3 matches f").
+    #: The claim's statement: checked only when it is one relation in LaTeX
+    #: that code parses (fix round 3); words stay the model's reading.
     statement: str
     kind: str
     expression: str

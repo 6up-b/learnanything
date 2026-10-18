@@ -1,29 +1,65 @@
-"""Reader workbench RW2b: symbolic checks of declared step kinds (spec_reader_workbench_v1 §5.3, G9, G38).
+"""Reader workbench RW2b: symbolic checks of the learner's own written steps (spec_reader_workbench_v1 §5.3, G9, G38).
 
-The check writer declares, per step it can classify, ONE transformation kind
-with stated inputs (sympy-syntax expressions as data). The checks themselves
-are fixed code: :data:`HARNESS` below, never model-written, run in the PF-b
-sandbox (``learnloop.content.authoring.pf_sandbox``: bubblewrap, no network,
-rlimits, a wall-clock timeout), because parsing model text with sympy
-evaluates it. Without bubblewrap the sandbox fails closed and every verdict
-stays the model's reading.
+**"Checked" comes only from the learner's own written step, parsed by code**
+(fix round 3, the orchestrator's ruling on F3). The check writer (or a hint's
+claim) declares, per step it can classify, ONE transformation kind with its
+inputs in sympy syntax. That declaration only picks WHICH check to try. What
+is checked is the written text itself: :data:`HARNESS` parses its LaTeX with
+sympy's own LaTeX parser on the ``lark`` backend (grouping kept: ``x^{2+1}``
+is ``x**3``) into ONE relation, both of its sides, the operator on the left
+side and that operator's variable, bounds and evaluation point, and checks
+THAT relation. The declared expressions and parameters are never check
+inputs: they are compared with the parse, and any disagreement (another
+variable, other bounds, another point, another operand or result, another
+kind) leaves the step the model's reading.
+
+A name (``f``, ``g'``, ``F(x)``) resolves only to a definition
+``name(var) = expr`` that an earlier learner step, or a math segment of the
+problem statement, writes and that code parses (a name defined twice
+differently does not resolve). An unresolved name, an ambiguous parse (the
+parser's ``_ambig``: ``\\lim_{x \\to 2} x^2`` may be the limit of ``x^2`` or
+the square of a limit), prose (a run of letters that is neither a LaTeX
+command nor a differential), more than one relation, an operator nested inside
+a side, or a kind outside the supported ones keeps the honest label "model's
+reading, not checked". Nothing textual can produce "checked": the only regex
+here rejects prose before parsing.
+
+The checks are fixed code run in the PF-b sandbox
+(``learnloop.content.authoring.pf_sandbox``: bubblewrap, no network, rlimits,
+a wall-clock timeout), because sympy evaluates what it parses
+(``2^{10^{100}}``). Without bubblewrap the sandbox fails closed and every
+verdict stays the model's reading.
+
+Supported kinds (each can be *checked*), as the learner writes them:
+
+* ``equivalence``: ``lhs = rhs`` with no operator on either side, after
+  resolving defined names (``simplify(lhs - rhs) == 0``);
+* ``substitution``: ``f(a) = rhs`` for a defined ``f``;
+* ``differentiation``: ``\\frac{d}{dx}(...) = rhs``, or ``f'(x) = rhs`` for a
+  defined ``f``;
+* ``integration``: ``\\int_a^b ... \\, dx = rhs`` (definite) or
+  ``\\int ... \\, dx = rhs`` (an antiderivative, up to a constant);
+* ``normalization``: a definite integral equal to ``1``;
+* ``limit``: ``\\lim_{x \\to a} (...) = rhs``;
+* ``sum``: ``\\sum_{k=a}^{b} ... = rhs``;
+* ``solving``: ``x = value`` against the one equation the step before writes
+  (for a first step, the problem's only equation in ``x``).
+
+``inequality`` and ``boundary`` stay declared kinds in the prompt but are
+never checked (sampling can certify a false inequality; the parser reads no
+evaluation bar).
 
 Each check is trusted only when its **controls behave**: a negative control
-(the claimed result perturbed) must be rejected, and, where sympy can compute
-the true result, a positive control (that result) must be accepted. Then a
-claim sympy decides exactly is *checked* (``✓`` holds, ``≠`` doesn't follow):
-it simplifies to an identity, an exact number is not zero, or it fails at
-sampled points on both sides of zero. One that vanishes at every sampled
-point on both signs but that sympy cannot prove, or a decimal constant, is
+(the right side perturbed) must be rejected and, where sympy computes the
+true result, a positive control (that result) accepted. Then a relation sympy
+decides exactly is *checked* (``✓`` holds, ``≠`` doesn't follow): it
+simplifies to an identity, or the difference is an exact non-zero number. A
+difference that still has unknowns never gives ``≠`` (the step may be an
+equation to solve, not an identity): the model's reading. One that vanishes
+at every sampled point but that sympy cannot prove, or a decimal constant, is
 *checked numerically*; one that holds on part of the samples only (an
-identity on a domain the step does not state, ``Abs(x) = x``,
-``sqrt(x**2) = x``) is the model's reading (fix round 1, F2). Inequalities are
-sampled numerically and labelled "checked numerically".
-
-Declared kinds (§5.3): ``equivalence``, ``differentiation``, ``integration``
-(indefinite, or definite with stated bounds), ``substitution``, ``solving``,
-``limit``, ``sum``, ``inequality``, ``boundary``, ``normalization``. Any other
-kind is not attempted (the step stays the model's reading).
+identity on a domain the step does not state, ``|x| = x``,
+``\\sqrt{x^2} = x``) is the model's reading (fix round 1, F2).
 """
 
 from __future__ import annotations
@@ -32,20 +68,36 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Callable
 
+#: The kinds the writer may declare (the prompt's list).
 KINDS: tuple[str, ...] = (
     "equivalence", "differentiation", "integration", "substitution", "solving", "limit", "sum", "inequality",
     "boundary", "normalization",
+)
+#: The kinds a parsed written step can be checked as (module docstring).
+CHECKABLE_KINDS: tuple[str, ...] = (
+    "equivalence", "substitution", "differentiation", "integration", "normalization", "limit", "sum", "solving",
 )
 #: How a verdict was reached (the label beside the marker, W2).
 CHECKED, CHECKED_NUMERICALLY, MODEL = "checked", "checked_numerically", "model"
 #: Bounds (prompt-size and runtime only, never judgments).
 MAX_CHECKS = 12
 MAX_EXPRESSION_CHARS = 400
+MAX_TEXT_CHARS = 2_000
+MAX_EARLIER = 40
+MAX_PROBLEM_CHARS = 4_000
 
 
 @dataclass(frozen=True)
 class SymbolicClaim:
-    """One declared transformation of one step."""
+    """One declared transformation of one written text.
+
+    ``text`` is what is checked: the learner's step (or a hint claim's own
+    statement), parsed from its LaTeX in the sandbox. ``earlier`` are the
+    learner's steps before it, in order, and ``problem`` the problem
+    statement: only their parsed definitions ``name(var) = expr`` (and, for
+    solving, their equation) are read. The declared fields (``kind`` to
+    ``relation``) pick the check and are compared with the parse; they are
+    never its inputs."""
 
     index: int
     kind: str
@@ -56,38 +108,44 @@ class SymbolicClaim:
     lower: str = ""
     upper: str = ""
     relation: str = ""
-    #: Whether the claim's expressions are the learner's own (fix round 1,
-    #: F3: :func:`learnloop.workbench.check.claims_from`); an unbound claim is
-    #: checked and recorded but never decides the step's verdict.
-    bound: bool = True
+    text: str = ""
+    earlier: tuple[str, ...] = ()
+    problem: str = ""
 
     def payload(self) -> dict[str, Any]:
         return {"index": self.index, "kind": self.kind, "expression": self.expression[:MAX_EXPRESSION_CHARS],
                 "result": self.result[:MAX_EXPRESSION_CHARS], "variable": self.variable[:40],
                 "value": self.value[:MAX_EXPRESSION_CHARS], "lower": self.lower[:MAX_EXPRESSION_CHARS],
-                "upper": self.upper[:MAX_EXPRESSION_CHARS], "relation": self.relation[:4]}
+                "upper": self.upper[:MAX_EXPRESSION_CHARS], "relation": self.relation[:4],
+                "text": self.text[:MAX_TEXT_CHARS],
+                "earlier": [str(text)[:MAX_TEXT_CHARS] for text in self.earlier][-MAX_EARLIER:],
+                "problem": self.problem[:MAX_PROBLEM_CHARS]}
 
 
 @dataclass(frozen=True)
 class SymbolicOutcome:
     """What the sandbox found for one claim. ``method`` is ``checked``,
-    ``checked_numerically`` or ``model`` (the controls misbehaved, the parse
-    failed, the kind is not declared, or the sandbox did not run); ``holds``
-    is the claim's truth only when ``method`` is not ``model``."""
+    ``checked_numerically`` or ``model`` (the text did not parse to one
+    supported relation, the declaration disagreed with the parse, the
+    controls misbehaved, or the sandbox did not run); ``holds`` is the
+    relation's truth only when ``method`` is not ``model``. ``bound`` says
+    the written text parsed and the declaration agreed with it, so a verdict
+    is about what was written."""
 
     index: int
     method: str
     holds: bool | None
     reason: str = ""
+    bound: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {"index": self.index, "method": self.method, "holds": self.holds, "reason": self.reason}
 
 
-# The harness: fixed code. Model text arrives as JSON data and is parsed by
+# The harness: fixed code. Every text arrives as JSON data and is parsed by
 # sympy inside the sandbox only.
 HARNESS = r'''
-import json, random, signal, sys
+import json, random, re, signal, sys
 workdir = sys.argv[1]
 MARKER = "@@PF-SANDBOX-RESULT@@"
 
@@ -112,11 +170,30 @@ def bounded(seconds, function, *args):
 
 
 import sympy
+from sympy.core.function import AppliedUndef
 from sympy.parsing.sympy_parser import (convert_xor, implicit_multiplication_application, parse_expr,
                                         standard_transformations)
 
+try:
+    from lark.exceptions import VisitError
+    from sympy.parsing.latex.lark import LarkLaTeXParser
+    from sympy.parsing.latex.lark.transformer import TransformToSymPyExpr
+    LATEX = LarkLaTeXParser(transform=False)
+    LATEX_PROBLEM = ""
+except Exception as exc:  # the lark backend is unusable: nothing is checked
+    LATEX = None
+    LATEX_PROBLEM = type(exc).__name__
+    TransformToSymPyExpr = object
+    VisitError = Exception
+
 TRANSFORMS = standard_transformations + (implicit_multiplication_application, convert_xor)
 
+
+class NotChecked(Exception):
+    """The text cannot be checked as written (the reason is the message)."""
+
+
+# -- The declaration (sympy syntax; compared with the parse, never checked) --------------------
 
 def parse(text):
     text = str(text or "").strip().replace("$", "")
@@ -125,13 +202,396 @@ def parse(text):
     return parse_expr(text, transformations=TRANSFORMS, evaluate=True)
 
 
-def equation(text):
+def declared_equation(text):
     text = str(text or "")
     if "=" in text and "==" not in text and "<" not in text and ">" not in text:
         left, right = text.split("=", 1)
         return parse(left) - parse(right)
     return parse(text)
 
+
+def agree(declared, parsed, *, equation=False):
+    """Whether a declared field means the parsed value (False on any doubt)."""
+    try:
+        value = declared_equation(declared) if equation else parse(declared)
+        if sympy.simplify(value - parsed) == 0:
+            return True
+        return bool(equation and sympy.simplify(value + parsed) == 0)
+    except _Timeout:
+        raise
+    except Exception:
+        return False
+
+
+# -- The written LaTeX, parsed (sympy's lark backend) -------------------------------------------
+
+class Rel:
+    """One relation as written: ``op`` and both sides (never evaluated)."""
+
+    def __init__(self, op, lhs, rhs):
+        self.op, self.lhs, self.rhs = op, lhs, rhs
+
+    def same(self, other):
+        return isinstance(other, Rel) and (self.op, self.lhs, self.rhs) == (other.op, other.lhs, other.rhs)
+
+
+def base_of(name):
+    base = str(name).rstrip("'")
+    return base, len(str(name)) - len(base)
+
+
+def is_definition_head(value):
+    """``name(var)``: an undefined function of one plain symbol, no primes."""
+    return (isinstance(value, AppliedUndef) and len(value.args) == 1 and isinstance(value.args[0], sympy.Symbol)
+            and base_of(value.func.__name__)[1] == 0)
+
+
+def _sympy(value):
+    return isinstance(value, sympy.Expr)
+
+
+class Transform(TransformToSymPyExpr):
+    """sympy's LaTeX transformer, except that a relation stays a relation
+    (``Eq`` would evaluate ``\\int_0^2 2x\\,dx = 1`` to ``False``) and an
+    ambiguous parse is resolved only by the names in force, else refused."""
+
+    def __init__(self, known, definition=False):
+        super().__init__()
+        self.known = known
+        self.definition = definition
+
+    def SYMBOL(self, token):
+        return sympy.Symbol(str(token))
+
+    def eq(self, tokens):
+        return Rel("=", tokens[0], tokens[2])
+
+    def ne(self, tokens):
+        return Rel("!=", tokens[0], tokens[2])
+
+    def lt(self, tokens):
+        return Rel("<", tokens[0], tokens[2])
+
+    def lte(self, tokens):
+        return Rel("<=", tokens[0], tokens[2])
+
+    def gt(self, tokens):
+        return Rel(">", tokens[0], tokens[2])
+
+    def gte(self, tokens):
+        return Rel(">=", tokens[0], tokens[2])
+
+    def _ambig(self, options):
+        if self.definition:
+            # Reading a definition: only the reading whose left side is
+            # name(var) (f(x) = x^3, not f*x = x^3), and only if it is unique.
+            heads = [option for option in options
+                     if is_definition_head(option.lhs if isinstance(option, Rel) else option)]
+            if len(heads) != 1:
+                raise NotChecked("ambiguous")
+            return heads[0]
+        kept = []
+        for option in options:
+            parts = [option.lhs, option.rhs] if isinstance(option, Rel) else [option]
+            if not all(_sympy(part) for part in parts):
+                raise NotChecked("ambiguous")
+            names = set()
+            for part in parts:
+                for applied in part.atoms(AppliedUndef):
+                    if base_of(applied.func.__name__)[0] not in self.known:
+                        raise NotChecked("unresolved_name")
+                names |= {base_of(symbol.name)[0] for symbol in part.atoms(sympy.Symbol)}
+            if names & set(self.known):
+                # A defined name read as a variable (f*x for f(x)): not this reading.
+                continue
+            if not any((option.same(other) if isinstance(option, Rel) else option == other) for other in kept):
+                kept.append(option)
+        if len(kept) != 1:
+            raise NotChecked("ambiguous")
+        return kept[0]
+
+
+_COMMAND = re.compile(r"\\[A-Za-z]+")
+_LETTERS = re.compile(r"[A-Za-z]{2,}")
+_DELIMITERS = (("$$", "$$"), ("\\[", "\\]"), ("\\(", "\\)"), ("$", "$"))
+
+
+def math_of(text):
+    """``text`` as one math expression: one enclosing delimiter pair removed.
+    Refused, never guessed, when prose or a second segment is present."""
+    text = str(text or "").strip()
+    for opening, closing in _DELIMITERS:
+        if len(text) > len(opening) + len(closing) and text.startswith(opening) and text.endswith(closing):
+            text = text[len(opening):len(text) - len(closing)].strip()
+            break
+    if not text or "$" in text:
+        raise NotChecked("not_one_expression")
+    for run in _LETTERS.findall(_COMMAND.sub(" ", text)):
+        # A word is prose ("so", "on [0, 1]"): sympy would read it as a
+        # product of letters. Only a differential (dx) may stand so.
+        if not (len(run) == 2 and run[0] == "d"):
+            raise NotChecked("prose")
+    return text
+
+
+def segments(text):
+    """The problem statement's delimited math segments, in order."""
+    out = []
+    for match in re.finditer(r"\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]", str(text or ""), re.S):
+        out.append(next(group for group in match.groups() if group is not None))
+    return out
+
+
+def read(text, known, definition=False):
+    """The text's one relation (a :class:`Rel` of sympy sides)."""
+    if LATEX is None:
+        raise NotChecked("latex_parser_unavailable:" + LATEX_PROBLEM)
+    source = math_of(text)
+    try:
+        tree = LATEX.doparse(source)
+        value = Transform(known, definition=definition).transform(tree)
+    except VisitError as exc:
+        inner = getattr(exc, "orig_exc", None)
+        if isinstance(inner, (NotChecked, _Timeout)):
+            raise inner
+        raise NotChecked("unparsed")
+    except (NotChecked, _Timeout):
+        raise
+    except Exception:
+        raise NotChecked("unparsed")
+    if not isinstance(value, Rel):
+        raise NotChecked("no_relation")
+    if not (_sympy(value.lhs) and _sympy(value.rhs)):
+        raise NotChecked("not_one_relation")
+    return value
+
+
+DEFINITIONS = {}
+
+
+def definition(text):
+    """``(name, var, body)`` when ``text`` is a definition ``name(var) = expr``
+    (read once per run: every claim reads the same steps)."""
+    key = str(text or "")
+    if key not in DEFINITIONS:
+        DEFINITIONS[key] = _definition(key)
+    return DEFINITIONS[key]
+
+
+def _definition(text):
+    try:
+        relation = read(text, {}, definition=True)
+    except NotChecked:
+        return None
+    if relation.op != "=" or not is_definition_head(relation.lhs):
+        return None
+    name = relation.lhs.func.__name__
+    body = relation.rhs
+    if body.atoms(AppliedUndef) or name in {s.name for s in body.atoms(sympy.Symbol)}:
+        return None
+    return name, relation.lhs.args[0], body
+
+
+def definitions(problem, earlier):
+    """The names in force: each defined once (a name defined twice
+    differently is dropped, so it never resolves)."""
+    found, conflicted = {}, set()
+    for text in list(segments(problem)) + [problem] + list(earlier):
+        entry = definition(text)
+        if entry is None:
+            continue
+        name, var, body = entry
+        if name in found and (found[name][0] != var or sympy.simplify(found[name][1] - body) != 0):
+            conflicted.add(name)
+        found.setdefault(name, (var, body))
+    return {name: value for name, value in found.items() if name not in conflicted}
+
+
+def resolve(expression, known):
+    """``expression`` with every defined name applied (``f(2)``, ``g'(x)``);
+    an undefined name, or a defined one read as a variable, refuses."""
+    mapping = {}
+    for applied in expression.atoms(AppliedUndef):
+        base, primes = base_of(applied.func.__name__)
+        if base not in known or len(applied.args) != 1:
+            raise NotChecked("unresolved_name")
+        var, body = known[base]
+        value = sympy.diff(body, var, primes) if primes else body
+        mapping[applied] = value.subs(var, applied.args[0])
+    out = expression.xreplace(mapping)
+    for symbol in out.atoms(sympy.Symbol):
+        base, primes = base_of(symbol.name)
+        if primes or base in known:
+            raise NotChecked("unresolved_name")
+    return out
+
+
+OPERATORS = (sympy.Derivative, sympy.Integral, sympy.Limit, sympy.Sum)
+
+
+def has_operator(expression):
+    return any(expression.has(kind) for kind in OPERATORS)
+
+
+def _operand(expression, known):
+    operand = resolve(expression, known)
+    if has_operator(operand):
+        raise NotChecked("nested_operator")
+    return operand
+
+
+def classify(relation, known, declared_kind):
+    """The parsed relation as a check: its kind, the operand, the variable,
+    the bounds or point, and both sides with defined names applied."""
+    if relation.op != "=":
+        raise NotChecked("unsupported_relation")
+    lhs = relation.lhs
+    rhs = resolve(relation.rhs, known)
+    if has_operator(rhs):
+        raise NotChecked("operator_on_the_right")
+    out = {"rhs": rhs}
+    if isinstance(lhs, sympy.Derivative):
+        if len(lhs.variable_count) != 1 or lhs.variable_count[0][1] != 1:
+            raise NotChecked("unsupported_derivative")
+        out.update(kind="differentiation", operand=_operand(lhs.expr, known), variable=lhs.variable_count[0][0])
+        return out
+    if isinstance(lhs, sympy.Integral):
+        if len(lhs.limits) != 1:
+            raise NotChecked("unsupported_integral")
+        limit = lhs.limits[0]
+        out.update(operand=_operand(lhs.function, known), variable=limit[0])
+        if len(limit) == 3:
+            out.update(lower=_operand(limit[1], known), upper=_operand(limit[2], known), definite=True)
+            out["kind"] = "normalization" if declared_kind == "normalization" and rhs == 1 else "integration"
+        elif len(limit) == 1:
+            out.update(definite=False, kind="integration")
+        else:
+            raise NotChecked("unsupported_integral")
+        return out
+    if isinstance(lhs, sympy.Limit):
+        out.update(kind="limit", operand=_operand(lhs.args[0], known), variable=lhs.args[1],
+                   point=_operand(lhs.args[2], known), direction=str(lhs.args[3]))
+        return out
+    if isinstance(lhs, sympy.Sum):
+        if len(lhs.limits) != 1 or len(lhs.limits[0]) != 3:
+            raise NotChecked("unsupported_sum")
+        index, lower, upper = lhs.limits[0]
+        out.update(kind="sum", operand=_operand(lhs.function, known), variable=index,
+                   lower=_operand(lower, known), upper=_operand(upper, known))
+        return out
+    if isinstance(lhs, AppliedUndef):
+        base, primes = base_of(lhs.func.__name__)
+        if base not in known or len(lhs.args) != 1:
+            raise NotChecked("unresolved_name")
+        var, body = known[base]
+        argument = _operand(lhs.args[0], known)
+        if has_operator(body):
+            raise NotChecked("nested_operator")
+        if primes == 1 and argument == var:
+            out.update(kind="differentiation", operand=body, variable=var)
+            return out
+        if primes == 0 and argument != var:
+            out.update(kind="substitution", operand=body, variable=var, point=argument,
+                       lhs=body.subs(var, argument))
+            return out
+        if primes == 0:
+            out.update(kind="equivalence", lhs=body)
+            return out
+        raise NotChecked("unsupported_derivative")
+    resolved = _operand(lhs, known)
+    if declared_kind == "solving":
+        if not isinstance(resolved, sympy.Symbol) or rhs.has(resolved):
+            raise NotChecked("not_a_solution")
+        out.update(kind="solving", variable=resolved)
+        return out
+    out.update(kind="equivalence", lhs=resolved)
+    return out
+
+
+def solved_equation(claim, variable, known):
+    """For ``x = value``: the one equation in ``x`` it solves, as a residual:
+    the last earlier text's (that is not this same relation), else the
+    problem's only one. A definition or an identity is not an equation."""
+
+    def equation_of(text):
+        relation = read(text, known)
+        if relation.op != "=" or isinstance(relation.lhs, AppliedUndef):
+            raise NotChecked("no_equation")
+        lhs, rhs = resolve(relation.lhs, known), resolve(relation.rhs, known)
+        if has_operator(lhs) or has_operator(rhs):
+            raise NotChecked("no_equation")
+        residual = lhs - rhs
+        if not residual.has(variable) or sympy.simplify(residual) == 0:
+            raise NotChecked("no_equation")
+        return residual
+
+    own = read(claim.get("text"), known)
+    earlier = []
+    for text in claim.get("earlier") or []:
+        try:
+            if read(text, known).same(own):
+                continue
+        except NotChecked:
+            pass
+        earlier.append(text)
+    if earlier:
+        return equation_of(earlier[-1])
+    found = []
+    for text in segments(claim.get("problem")):
+        try:
+            found.append(equation_of(text))
+        except NotChecked:
+            continue
+    if len(found) != 1:
+        raise NotChecked("no_single_equation")
+    return found[0]
+
+
+def compare(claim, parsed):
+    """Every declared field that is set must mean what was written, and the
+    declared expression is required. Returns the disagreeing field, or ''."""
+    kind = parsed["kind"]
+    if claim.get("kind") != kind:
+        return "kind"
+    if not str(claim.get("expression") or "").strip():
+        return "expression"
+    relation = str(claim.get("relation") or "").strip()
+    if relation and relation not in ("=", "=="):
+        return "relation"
+    if kind == "solving":
+        if not agree(claim["expression"], parsed["equation"], equation=True):
+            return "expression"
+    elif kind == "equivalence":
+        if not agree(claim["expression"], parsed["lhs"]):
+            return "expression"
+    elif not agree(claim["expression"], parsed["operand"]):
+        return "expression"
+    result = str(claim.get("result") or "").strip()
+    if result and not agree(result, parsed["rhs"]):
+        return "result"
+    variable = str(claim.get("variable") or "").strip()
+    if variable and "variable" in parsed and variable != parsed["variable"].name:
+        return "variable"
+    value = str(claim.get("value") or "").strip()
+    if kind in ("limit", "substitution"):
+        if value and not agree(value, parsed["point"]):
+            return "value"
+    elif value:
+        return "value"
+    lower, upper = str(claim.get("lower") or "").strip(), str(claim.get("upper") or "").strip()
+    if kind == "integration" and bool(lower and upper) != parsed["definite"]:
+        return "bounds"
+    if parsed.get("lower") is not None:
+        if lower and not agree(lower, parsed["lower"]):
+            return "lower"
+        if upper and not agree(upper, parsed["upper"]):
+            return "upper"
+    elif lower or upper:
+        return "bounds"
+    return ""
+
+
+# -- Deciding zero (fix round 1, F2) ------------------------------------------------------------
 
 EXACT, NUMERIC = "exact", "numeric"
 
@@ -164,17 +624,17 @@ def zero(value):
     """Whether ``value`` is identically zero, and how that was decided:
     ``(True, EXACT)`` when sympy simplifies it to zero; ``(False, EXACT)`` when
     an exact number is not zero, or when it is non-zero at every sampled point
-    on BOTH sides of zero (so no sign or domain restriction rescues the
-    identity); ``(True, NUMERIC)`` when it vanishes at every sampled point on
-    both sides but sympy could not prove it; ``(False, NUMERIC)`` for a
-    decimal constant off zero; ``(None, None)`` when it cannot tell (zero on
-    part of the samples only: an identity that holds on a domain, such as
-    ``Abs(x) = x`` or ``sqrt(x**2) = x`` for x >= 0, which the step does not
-    state; or too few points evaluate). Fix round 1, F2: "checked" is never
-    given for a numerically small constant or a domain-dependent identity."""
+    on BOTH sides of zero; ``(True, NUMERIC)`` when it vanishes at every
+    sampled point on both sides but sympy could not prove it; ``(False,
+    NUMERIC)`` for a decimal constant off zero; ``(None, None)`` when it
+    cannot tell (zero on part of the samples only: an identity on a domain,
+    such as ``Abs(x) = x``, which the step does not state; an operator sympy
+    could not evaluate; or too few points evaluate). Fix round 1, F2."""
     simplified = sympy.simplify(value)
     if simplified == 0:
         return True, EXACT
+    if has_operator(simplified):
+        return None, None
     free = sorted(simplified.free_symbols, key=lambda s: s.name)
     if not free:
         if not _floats(simplified):
@@ -215,163 +675,125 @@ def zero(value):
     return None, None
 
 
-def symbol(claim, expression):
-    name = str(claim.get("variable") or "").strip()
-    if name:
-        return sympy.Symbol(name)
-    free = sorted(expression.free_symbols, key=lambda s: s.name)
-    if len(free) != 1:
-        raise ValueError("the variable is not stated")
-    return free[0]
+# -- The checks on the parsed relation ----------------------------------------------------------
 
-
-def truth(claim):
-    """The true result where sympy computes one (the positive control), or None."""
-    kind = claim["kind"]
-    expression = parse(claim["expression"]) if kind not in ("solving",) else equation(claim["expression"])
-    if kind == "equivalence":
-        return expression
-    variable = symbol(claim, expression)
+def residual(parsed, result):
+    """What must vanish for the parsed relation to hold with ``result`` as
+    its right side."""
+    kind = parsed["kind"]
+    if kind in ("equivalence", "substitution"):
+        return parsed["lhs"] - result
+    variable = parsed.get("variable")
     if kind == "differentiation":
-        return sympy.diff(expression, variable)
-    if kind == "integration":
-        if str(claim.get("lower") or "").strip() and str(claim.get("upper") or "").strip():
-            return sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-        return sympy.integrate(expression, variable)
-    if kind in ("substitution", "boundary"):
-        return expression.subs(variable, parse(claim["value"]))
-    if kind == "limit":
-        return sympy.limit(expression, variable, parse(claim["value"]))
-    if kind == "sum":
-        return sympy.summation(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-    if kind == "solving":
-        roots = sympy.solve(expression, variable)
-        return roots[0] if roots else None
-    if kind == "normalization":
-        return sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-    return None
-
-
-def holds(claim, result_text):
-    """Whether the step's claim holds with ``result_text`` as its result, and
-    how it was decided (:func:`zero`): ``(holds, how)``."""
-    kind = claim["kind"]
-    if kind == "normalization":
-        # The density's integral over the support equals the result (one).
-        expression = parse(claim["expression"])
-        variable = symbol(claim, expression)
-        total = sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-        return zero(total - parse(result_text))
-    if kind == "solving":
-        expression = equation(claim["expression"])
-        variable = symbol(claim, expression)
-        return zero(expression.subs(variable, parse(result_text)))
-    expression = parse(claim["expression"])
-    result = parse(result_text)
-    if kind == "equivalence":
-        return zero(expression - result)
-    variable = symbol(claim, expression)
-    if kind == "differentiation":
-        return zero(sympy.diff(expression, variable) - result)
-    if kind == "integration":
-        if str(claim.get("lower") or "").strip() and str(claim.get("upper") or "").strip():
-            value = sympy.integrate(expression, (variable, parse(claim["lower"]), parse(claim["upper"])))
-            return zero(value - result)
+        return sympy.diff(parsed["operand"], variable) - result
+    if kind in ("integration", "normalization"):
+        if parsed["definite"]:
+            return sympy.integrate(parsed["operand"], (variable, parsed["lower"], parsed["upper"])) - result
         # An antiderivative, up to a constant.
-        return zero(sympy.diff(result, variable) - expression)
-    if kind in ("substitution", "boundary"):
-        return zero(expression.subs(variable, parse(claim["value"])) - result)
+        return sympy.diff(result, variable) - parsed["operand"]
     if kind == "limit":
-        return zero(sympy.limit(expression, variable, parse(claim["value"])) - result)
+        return sympy.limit(parsed["operand"], variable, parsed["point"], parsed["direction"]) - result
     if kind == "sum":
-        return zero(sympy.summation(expression, (variable, parse(claim["lower"]), parse(claim["upper"]))) - result)
-    raise ValueError("not a declared kind")
+        return sympy.summation(parsed["operand"], (variable, parsed["lower"], parsed["upper"])) - result
+    if kind == "solving":
+        return parsed["equation"].subs(variable, result)
+    raise NotChecked("unsupported_kind")
 
 
-RELATIONS = {"<": lambda a, b: a < b, "<=": lambda a, b: a <= b, ">": lambda a, b: a > b,
-             ">=": lambda a, b: a >= b}
+def truth(parsed):
+    """The true right side where sympy computes one (the positive control)."""
+    kind = parsed["kind"]
+    if kind in ("equivalence", "substitution"):
+        return parsed["lhs"]
+    variable = parsed.get("variable")
+    if kind == "differentiation":
+        value = sympy.diff(parsed["operand"], variable)
+    elif kind in ("integration", "normalization"):
+        if parsed["definite"]:
+            value = sympy.integrate(parsed["operand"], (variable, parsed["lower"], parsed["upper"]))
+        else:
+            value = sympy.integrate(parsed["operand"], variable)
+    elif kind == "limit":
+        value = sympy.limit(parsed["operand"], variable, parsed["point"], parsed["direction"])
+    elif kind == "sum":
+        value = sympy.summation(parsed["operand"], (variable, parsed["lower"], parsed["upper"]))
+    elif kind == "solving":
+        roots = sympy.solve(parsed["equation"], variable)
+        value = roots[0] if roots else None
+    else:
+        value = None
+    return None if value is None or has_operator(value) else value
 
 
-def inequality(claim, relation):
-    """Whether the relation holds at every sampled point, and how many points
-    could be evaluated (real values only)."""
-    left = parse(claim["expression"])
-    right = parse(claim["result"])
-    compare = RELATIONS[relation]
-    free = sorted((left - right).free_symbols, key=lambda s: s.name)
-    lower = float(sympy.N(parse(claim["lower"]))) if str(claim.get("lower") or "").strip() else -10.0
-    upper = float(sympy.N(parse(claim["upper"]))) if str(claim.get("upper") or "").strip() else 10.0
-    rng = random.Random(7)
-    points = 0
-    every = True
-    for _ in range(200):
-        values = {s: rng.uniform(lower, upper) for s in free}
-        a = complex(sympy.N(left.subs(values)))
-        b = complex(sympy.N(right.subs(values)))
-        if abs(a.imag) > 1e-9 or abs(b.imag) > 1e-9:
-            continue
-        points += 1
-        if not compare(a.real, b.real):
-            every = False
-    return every, points
-
-
-def perturbed(claim, text):
-    """A wrong result the check must reject: one more, and for an
-    antiderivative (equal up to a constant) one more times the variable."""
-    out = "(" + str(text or "0") + ") + 1"
-    indefinite = claim["kind"] == "integration" and not (
-        str(claim.get("lower") or "").strip() and str(claim.get("upper") or "").strip())
-    if indefinite:
-        expression = parse(claim["expression"])
-        out += " + " + symbol(claim, expression).name
+def perturbed(parsed, value):
+    """A wrong right side the check must reject: one more, and for an
+    antiderivative (equal up to a constant) one more times the variable; for
+    solving, the first of one, two or three more that is not itself a root."""
+    if parsed["kind"] == "solving":
+        for offset in (1, 2, 3):
+            if sympy.simplify(parsed["equation"].subs(parsed["variable"], value + offset)) != 0:
+                return value + offset
+        return value + 1
+    out = value + 1
+    if parsed["kind"] == "integration" and not parsed["definite"]:
+        out = out + parsed["variable"]
     return out
 
 
-def run(claim):
-    kind = claim["kind"]
-    if kind == "inequality":
-        relation = str(claim.get("relation") or "").strip()
-        if relation not in RELATIONS:
-            return {"method": "model", "holds": None, "reason": "no relation stated"}
-        claimed, points = inequality(claim, relation)
-        flipped = {"<": ">=", "<=": ">", ">": "<=", ">=": "<"}[relation]
-        control, _ = inequality(claim, flipped)
-        if points < 20 or (claimed and control):
-            return {"method": "model", "holds": None, "reason": "the samples could not tell"}
-        return {"method": "checked_numerically", "holds": bool(claimed), "reason": "sampled %d points" % points}
-    if kind == "normalization":
-        claim = dict(claim, result="1")
-    true = truth(claim)
+def model(reason, bound=False):
+    return {"method": "model", "holds": None, "reason": reason, "bound": bound}
+
+
+def run(claim, checkable):
+    if claim.get("kind") not in checkable:
+        return model("kind_not_checked")
+    try:
+        known = definitions(claim.get("problem"), claim.get("earlier") or [])
+        relation = read(claim.get("text"), known)
+        parsed = classify(relation, known, claim.get("kind"))
+        if parsed["kind"] == "solving":
+            parsed["equation"] = solved_equation(claim, parsed["variable"], known)
+        disagreement = compare(claim, parsed)
+    except NotChecked as exc:
+        return model(str(exc)[:120])
+    if disagreement:
+        return model("declaration_disagrees:" + disagreement)
+    written = parsed["rhs"]
+    true = truth(parsed)
     if true is not None:
         # The controls are taken around the TRUE result (sympy's): it must be
-        # accepted, and a perturbed one rejected; only then does the claim's
-        # verdict mean anything.
-        if holds(claim, str(true))[0] is not True:
-            return {"method": "model", "holds": None, "reason": "the positive control was rejected"}
-        if holds(claim, perturbed(claim, str(true)))[0] is not False:
-            return {"method": "model", "holds": None, "reason": "the negative control was accepted"}
-    elif holds(claim, perturbed(claim, claim["result"]))[0] is not False:
-        return {"method": "model", "holds": None, "reason": "the negative control was accepted"}
-    verdict, how = holds(claim, claim["result"])
+        # accepted, and a perturbed one rejected; only then does the verdict
+        # on what was written mean anything.
+        if zero(residual(parsed, true))[0] is not True:
+            return model("the positive control was rejected", True)
+        if zero(residual(parsed, perturbed(parsed, true)))[0] is not False:
+            return model("the negative control was accepted", True)
+    elif zero(residual(parsed, perturbed(parsed, written)))[0] is not False:
+        return model("the negative control was accepted", True)
+    difference = residual(parsed, written)
+    verdict, how = zero(difference)
     if verdict is None:
-        # Fix round 1, F2: true on part of the samples only (a domain the
-        # step does not state) or too few points: the model's reading.
-        return {"method": "model", "holds": None, "reason": "holds only on part of the domain, or undecided"}
+        return model("holds only on part of the domain, or undecided", True)
+    if verdict is False and sympy.simplify(difference).free_symbols:
+        # Not an identity, but it still has unknowns: the step may be an
+        # equation to solve, so "doesn't follow" is not ours to say.
+        return model("not an identity; may be an equation", True)
     if how == EXACT:
-        return {"method": "checked", "holds": bool(verdict), "reason": ""}
-    return {"method": "checked_numerically", "holds": bool(verdict), "reason": "sampled points on both signs"}
+        return {"method": "checked", "holds": bool(verdict), "reason": "", "bound": True}
+    return {"method": "checked_numerically", "holds": bool(verdict), "reason": "sampled points on both signs",
+            "bound": True}
 
 
 with open(workdir + "/input.json", encoding="utf-8") as handle:
     payload = json.load(handle)
+checkable = set(payload.get("checkable") or [])
 results = []
 for claim in payload["claims"]:
     entry = {"index": claim["index"]}
     try:
-        entry.update(bounded(payload.get("per_check_seconds", 5), run, claim))
+        entry.update(bounded(payload.get("per_check_seconds", 5), run, claim, checkable))
     except BaseException as exc:
-        entry.update({"method": "model", "holds": None, "reason": type(exc).__name__})
+        entry.update(model(type(exc).__name__))
     results.append(entry)
 sys.stdout.write(MARKER + json.dumps({"results": results}, sort_keys=True, default=str))
 sys.stdout.flush()
@@ -388,7 +810,9 @@ def run_checks(claims: Sequence[SymbolicClaim], *, limits: Any = None,
                run: Callable[..., Any] | None = None) -> tuple[list[SymbolicOutcome], str | None]:
     """Run the declared claims in the sandbox; ``(outcomes, problem)``.
     ``problem`` names why nothing ran (``sandbox_unavailable``,
-    ``sandbox_failed``); every outcome is then the model's reading."""
+    ``sandbox_failed``); every outcome is then the model's reading. A
+    verdict counts only when the harness says the written text parsed and
+    the declaration agreed with it (``bound``)."""
 
     from learnloop.content.authoring.pf_sandbox import SandboxLimits, SandboxUnavailable, run_sandboxed_python
 
@@ -401,6 +825,7 @@ def run_checks(claims: Sequence[SymbolicClaim], *, limits: Any = None,
         kwargs["run"] = run
     try:
         result = run_sandboxed_python(HARNESS, {"claims": [claim.payload() for claim in declared],
+                                                "checkable": list(CHECKABLE_KINDS),
                                                 "per_check_seconds": 5}, **kwargs)
     except SandboxUnavailable:
         return fallback, "sandbox_unavailable"
@@ -412,16 +837,18 @@ def run_checks(claims: Sequence[SymbolicClaim], *, limits: Any = None,
             index = int(entry.get("index"))
         except (TypeError, ValueError):
             continue
+        bound = entry.get("bound") is True
         method = str(entry.get("method") or MODEL)
-        if method not in (CHECKED, CHECKED_NUMERICALLY):
+        if method not in (CHECKED, CHECKED_NUMERICALLY) or not bound:
             method = MODEL
         value = entry.get("holds")
         found[index] = SymbolicOutcome(index, method, bool(value) if method != MODEL and isinstance(value, bool)
-                                       else None, str(entry.get("reason") or "")[:200])
+                                       else None, str(entry.get("reason") or "")[:200], bound=bound)
     return [found.get(claim.index, SymbolicOutcome(claim.index, MODEL, None, "no result")) for claim in declared], None
 
 
 __all__ = [
+    "CHECKABLE_KINDS",
     "CHECKED",
     "CHECKED_NUMERICALLY",
     "HARNESS",

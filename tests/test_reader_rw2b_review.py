@@ -250,11 +250,12 @@ def test_f2_false_or_domain_dependent_identities_are_never_checked_as_holding():
     from learnloop.workbench.symbolic import CHECKED, MODEL, SymbolicClaim, run_checks
 
     _needs_bwrap()
+    # Fix round 3: each is the learner's own LaTeX, parsed by code.
     outcomes, problem = run_checks([
-        SymbolicClaim(1, "equivalence", "Abs(x)", "x"),
-        SymbolicClaim(2, "equivalence", "sqrt(x**2)", "x"),
-        SymbolicClaim(3, "equivalence", "1/10000000000", "0"),
-        SymbolicClaim(4, "equivalence", "log(x*y)", "log(x) + log(y)"),
+        SymbolicClaim(1, "equivalence", "Abs(x)", "x", text="|x| = x"),
+        SymbolicClaim(2, "equivalence", "sqrt(x**2)", "x", text=r"\sqrt{x^2} = x"),
+        SymbolicClaim(3, "equivalence", "1/10000000000", "0", text=r"\frac{1}{10000000000} = 0"),
+        SymbolicClaim(4, "equivalence", "log(x*y)", "log(x) + log(y)", text=r"\log(x \cdot y) = \log(x) + \log(y)"),
     ])
     assert problem is None
     found = [(o.method, o.holds) for o in outcomes]
@@ -268,10 +269,11 @@ def test_f2_exact_identities_and_decimals_keep_their_labels():
 
     _needs_bwrap()
     outcomes, _problem = run_checks([
-        SymbolicClaim(1, "equivalence", "sin(x)**2 + cos(x)**2", "1"),
-        SymbolicClaim(2, "equivalence", "0.1 + 0.2", "0.3"),
-        SymbolicClaim(3, "equivalence", "0.1 + 0.2", "0.31"),
-        SymbolicClaim(4, "differentiation", "x**3", "2*x**2", variable="x"),
+        SymbolicClaim(1, "equivalence", "sin(x)**2 + cos(x)**2", "1", text=r"(\sin x)^2 + (\cos x)^2 = 1"),
+        SymbolicClaim(2, "equivalence", "0.1 + 0.2", "0.3", text="0.1 + 0.2 = 0.3"),
+        SymbolicClaim(3, "equivalence", "0.1 + 0.2", "0.31", text="0.1 + 0.2 = 0.31"),
+        SymbolicClaim(4, "differentiation", "x**3", "3*x**2 + 1", variable="x",
+                      text=r"\frac{d}{dx}\left(x^3\right) = 3x^2 + 1"),
     ])
     assert [(o.method, o.holds) for o in outcomes] == [
         (CHECKED, True), (CHECKED_NUMERICALLY, True), (CHECKED_NUMERICALLY, False), (CHECKED, False)]
@@ -312,7 +314,8 @@ def test_f3_an_unrelated_checked_expression_never_validates_the_learners_step(tm
     [row] = [row for row in help_rows(paths, wb) if row["assist_kind"] == "check"]
     assert "transformation_not_in_step:1" in json.loads(row["contract_failures_json"])["dropped"]
     [recorded] = json.loads(row["placement_json"])["symbolic"]
-    assert recorded["bound"] is False and recorded["holds"] is True
+    # Fix round 3: a declaration that disagrees with the parse is never checked at all.
+    assert recorded["bound"] is False and recorded["holds"] is None
 
 
 def test_f3_the_learners_own_expression_is_checked_and_decides_the_step(tmp_path):
@@ -423,7 +426,9 @@ def test_f10_a_check_appends_the_models_and_the_verifiers_verdicts_with_the_row(
         return payload
 
     paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
-    wb, chains = open_problem(ctx, steps=(STEP_1, "so P(X <= 1/2) = F(1/2) + 1"))
+    # Fix round 3: the verifier checks the step as written, so step 1 is in LaTeX.
+    assert STEP_1.endswith("on [0, 1]")
+    wb, chains = open_problem(ctx, steps=(r"\int 2x \, dx = x^2", "so P(X <= 1/2) = F(1/2) + 1"))
     result = run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))
     rows = _rows(paths, "SELECT * FROM judgment_ledger WHERE left_kind = 'help_assist' AND left_id = ? "
                         "ORDER BY task, right_id", (result["assistId"],))
@@ -467,12 +472,11 @@ def _with_claims(*claims):
     return answer
 
 
-TRUE_CLAIM = _claim(1, "your step 1 is the antiderivative of the density", kind="integration", expression="2*x",
-                    result="x**2", variable="x")
-# Re-review F3: a claim binds to the learner's whole assertion, so the false
-# claim is about a step that writes it (``F'(x) = 2``; ``x^2`` is step 1's side).
-FALSE_CLAIM = _claim(2, "your step 2 differentiates x^2 to 2", kind="differentiation", expression="x^2",
-                     result="2", variable="x")
+# Fix round 3: a claim is checked only when its own statement parses (LaTeX,
+# one relation) and holds; its declaration must agree with that parse.
+TRUE_CLAIM = _claim(1, r"\int 2x \, dx = x^2", kind="integration", expression="2*x", result="x**2", variable="x")
+FALSE_CLAIM = _claim(2, r"\frac{d}{dx}\left(x^2\right) = 2x + 1", kind="differentiation", expression="x^2",
+                     result="2*x + 1", variable="x")
 FALSE_STEPS = ("F(x) = x^2 on [0, 1]", "F'(x) = 2")
 
 
@@ -545,13 +549,17 @@ def _wb_step(number, body):
     return WorkbenchStep(chain_id=f"c{number}", step_id=f"s{number}", number=number, kind="step", body_md=body)
 
 
-def _binds(steps, transformation, *, problem=""):
-    """Whether ``transformation`` (about the last of ``steps``) binds."""
+def _checks(steps, transformation, *, problem=""):
+    """How the last of ``steps`` is checked against ``transformation`` (fix
+    round 3: the step's own LaTeX parsed in the real sandbox)."""
 
-    from learnloop.workbench.check import Transformation, _bound
+    from learnloop.workbench.check import Transformation, _claim as claim_of
+    from learnloop.workbench.symbolic import run_checks
 
     *earlier, step = [_wb_step(index + 1, body) for index, body in enumerate(steps)]
-    return _bound(Transformation(**_transformation(**transformation)), step, earlier, problem)
+    [outcome], _problem = run_checks([claim_of(1, Transformation(**_transformation(**transformation)), step.body_md,
+                                               earlier, problem)])
+    return outcome.method, outcome.holds
 
 
 def test_f3r_a_transformation_of_part_of_the_learners_side_never_validates_the_step(tmp_path):
@@ -574,61 +582,52 @@ def test_f3r_a_transformation_of_part_of_the_learners_side_never_validates_the_s
     assert (verdict["verdict"], verdict["method"], verdict["mark"]) == ("questionable", "model", "?")
 
 
-def test_f3r_the_result_must_be_the_whole_side_and_the_input_the_whole_other_side():
+def test_f3r_the_whole_written_relation_is_what_is_checked():
+    _needs_bwrap()
     equivalence = {"kind": "equivalence", "expression": "x+x", "result": "2*x"}
-    assert _binds(["x + x = 2x"], equivalence)
-    assert _binds(["Combining like terms: $x + x = 2x$."], equivalence)
-    assert not _binds(["x + x = 2*x + 1"], equivalence)
-    assert not _binds(["y + x + x = 2x"], equivalence)
-    assert not _binds(["x + x = 2x^2"], equivalence)
-    # A chain continued from the step before binds to that step's last side.
-    assert _binds(["x + x", "= 2x"], equivalence)
-    assert not _binds(["3 + x + x", "= 2x"], equivalence)
+    assert _checks(["x + x = 2x"], equivalence) == ("checked", True)
+    assert _checks(["$x + x = 2x$"], equivalence) == ("checked", True)
+    # Words, another side, a chain, a continuation or a bare expression: not checked (fix round 3).
+    assert _checks(["Combining like terms: $x + x = 2x$."], equivalence) == ("model", None)
+    assert _checks(["x + x = 2*x + 1"], equivalence) == ("model", None)
+    assert _checks(["y + x + x = 2x"], equivalence) == ("model", None)
+    assert _checks(["x + x = 2x = 5"], equivalence) == ("model", None)
+    assert _checks(["x + x", "= 2x"], equivalence) == ("model", None)
+    assert _checks(["x + x", "2x"], equivalence) == ("model", None)
+    # Declared to match what is written, a wrong constant relation does not hold.
+    assert _checks(["x + x - 2x = 1"], {"kind": "equivalence", "expression": "x+x-2*x", "result": "1"}) == (
+        "checked", False)
 
 
-def test_f3r_every_relation_the_step_asserts_must_be_the_one_checked():
-    equivalence = {"kind": "equivalence", "expression": "x+x", "result": "2*x"}
-    # A second, unchecked assertion in the step keeps the model's reading.
-    assert not _binds(["x + x = 2x, and 2x = 3x"], equivalence)
-    assert not _binds(["x + x = 2x = 5"], equivalence)
-    # Restating an earlier step's relation is not a new assertion.
-    assert _binds(["y = 1", "y = 1, so x + x = 2x"], equivalence)
-    # An inequality binds only with its own relation.
-    inequality = {"kind": "inequality", "expression": "x^2+1", "result": "0", "relation": ">"}
-    assert _binds(["x^2 + 1 > 0"], inequality)
-    assert not _binds(["x^2 + 1 >= 0"], inequality)
-    assert not _binds(["x^2 + 1 = 0"], inequality)
-
-
-def test_f3r_an_operator_binds_to_its_whole_operand_or_to_a_named_whole_side():
+def test_f3r_an_operator_is_checked_on_its_written_operand_and_names_on_their_definitions():
+    _needs_bwrap()
     derivative = {"kind": "differentiation", "expression": "x^3", "result": "3x^2", "variable": "x"}
-    assert _binds([r"\frac{d}{dx}\left(x^3\right) = 3x^2"], derivative)
-    assert _binds(["d/dx (x^3) = 3x^2"], derivative)
-    assert not _binds(["d/dx (x^3 + x) = 3x^2"], derivative)
-    assert not _binds(["d/dx (x^3) = 3x^2 + 1"], derivative)
-    # A name (F(x), f'(x), P(...)) stands for a whole side written elsewhere.
-    assert _binds(["f(x) = x^3", "f'(x) = 3x^2"], derivative)
-    assert not _binds(["f(x) = x^3 + x", "f'(x) = 3x^2"], derivative)
+    assert _checks([r"\frac{d}{dx}\left(x^3\right) = 3x^2"], derivative) == ("checked", True)
+    assert _checks(["d/dx (x^3) = 3x^2"], derivative) == ("model", None)
+    assert _checks([r"\frac{d}{dx}\left(x^3 + x\right) = 3x^2"], derivative) == ("model", None)
+    assert _checks(["f(x) = x^3", "f'(x) = 3x^2"], derivative) == ("checked", True)
+    assert _checks(["f(x) = x^3 + x", "f'(x) = 3x^2"], derivative) == ("model", None)
     integral = {"kind": "integration", "expression": "2*x", "result": "x**2", "variable": "x"}
+    # The problem's prose is not a definition: F is not defined by it.
     problem = "X has density f(x) = 2x on [0, 1]. Find P(X ≤ 1/2)."
-    assert _binds(["F(x) = x^2 on [0, 1]"], integral, problem=problem)
-    assert _binds([r"\int 2x \, dx = x^2"], integral)
-    assert not _binds([r"\int 2x + 1 \, dx = x^2"], integral)
+    assert _checks(["F(x) = x^2 on [0, 1]"], integral, problem=problem) == ("model", None)
+    assert _checks([r"\int 2x \, dx = x^2"], integral) == ("checked", True)
+    assert _checks([r"\int 2x + 1 \, dx = x^2"], integral) == ("model", None)
     normalization = {"kind": "normalization", "expression": "2*x", "result": "", "variable": "x", "lower": "0",
                      "upper": "1"}
-    assert _binds([r"\int_0^1 2x \, dx = 1"], normalization)
-    assert not _binds([r"\int_0^1 2x \, dx = 2"], normalization)
+    assert _checks([r"\int_0^1 2x \, dx = 1"], normalization) == ("checked", True)
+    assert _checks([r"\int_0^1 2x \, dx = 2"], normalization) == ("model", None)
     solving = {"kind": "solving", "expression": "x^2 - 4 = 0", "result": "2", "variable": "x"}
-    assert _binds(["x^2 - 4 = 0", "x = 2"], solving)
-    assert not _binds(["x^2 - 4 = 5", "x = 2"], solving)
-    assert not _binds(["x^2 - 4 = 0", "x = 2 or x = -2"], solving)
-    # A bare expression asserts no relation: nothing binds.
-    assert not _binds(["x + x", "2x"], {"kind": "equivalence", "expression": "x+x", "result": "2*x"})
+    assert _checks(["x^2 - 4 = 0", "x = 2"], solving) == ("checked", True)
+    assert _checks(["x^2 - 4 = 5", "x = 2"], solving) == ("model", None)
+    assert _checks(["x^2 - 4 = 0", "x = 2 or x = -2"], solving) == ("model", None)
 
 
 def test_f3r_a_hints_claim_about_part_of_a_side_is_the_models_reading():
     from learnloop.hints.workbench import HintClaim
     from learnloop.workbench.check import hint_claim_verifier
+
+    _needs_bwrap()
 
     class _Config:
         class workbench:  # noqa: N801 - a config stand-in
@@ -640,12 +639,13 @@ def test_f3r_a_hints_claim_about_part_of_a_side_is_the_models_reading():
     class _Context:
         steps = [_wb_step(1, "x + x = 2*x + 1")]
 
-    claim = HintClaim(step=1, statement="x + x is 2x", **_transformation(kind="equivalence", expression="x+x",
+    verify = hint_claim_verifier(_Vault(), type("Item", (), {"prompt": ""})())
+    words = HintClaim(step=1, statement="x + x is 2x", **_transformation(kind="equivalence", expression="x+x",
                                                                            result="2*x"))
-    verify = hint_claim_verifier(_Vault(), type("Item", (), {"prompt": ""})(),
-                                 sandbox_run=lambda *a, **k: (_ for _ in ()).throw(AssertionError("ran")))
-    [outcome] = verify([claim], _Context())
-    assert (outcome["method"], outcome["holds"]) == ("model", None)
+    part = HintClaim(step=1, statement="x + x = 2*x + 1", **_transformation(kind="equivalence", expression="x+x",
+                                                                              result="2*x"))
+    assert [(outcome["method"], outcome["holds"]) for outcome in verify([words, part], _Context())] == [
+        ("model", None), ("model", None)]
 
 
 # -- F16: a hint's claims go through the level-aware leak checks --------------------------------

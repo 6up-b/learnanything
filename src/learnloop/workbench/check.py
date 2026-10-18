@@ -10,11 +10,13 @@ readings. Everything is validated in code before it is shown: step numbers
 must exist, a step depends only on earlier steps, a reason's quote must be
 the learner's, a reason that would state the answer is replaced, map claims
 are checked against the map by the hint service
-(:func:`learnloop.hints.workbench.place_steps`), and the declared
-transformations are checked by fixed sympy code in the PF-b sandbox
-(:mod:`learnloop.workbench.symbolic`): "checked" appears only when it
-ran and its controls behaved (G9). It never gives the correction, never a
-score, never a colour.
+(:func:`learnloop.hints.workbench.place_steps`), and the learner's steps are
+checked by fixed sympy code in the PF-b sandbox
+(:mod:`learnloop.workbench.symbolic`): "checked" appears only for the
+learner's own written step, parsed from its LaTeX by code, when the check
+ran and its controls behaved (G9; fix round 3, the orchestrator's ruling on
+F3: a declared transformation only picks which check to try). It never
+gives the correction, never a score, never a colour.
 
 **Every route, Codex included** (fix round 1, F12: the owner's decision of
 2026-10-12 lets Codex run every paid role on the subscription, its cost
@@ -61,13 +63,13 @@ from learnloop.practice_index.paid import (
     plan_route,
     resolve_client,
 )
-from learnloop.workbench import binding, symbolic
+from learnloop.workbench import symbolic
 from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
 from learnloop.vault.hashes import practice_item_hash
 
 ROUTE_TASK = "workbench_check"
 OWNER_KIND = "workbench_check"
-PROMPT_VERSION = "workbench_check.v1"
+PROMPT_VERSION = "workbench_check.v2"
 ENVELOPE = "workbench.max_daily_cost_usd"
 #: Owner kinds the workbench's daily envelope counts (its own calls).
 ENVELOPE_OWNER_KINDS = ("workbench_check",)
@@ -161,8 +163,10 @@ _INSTRUCTIONS = (
     "and the route it is on (route_id), using the nodes' recognizers; a valid step on no route of the map is "
     "route_id 'new_route'; otherwise both ''. Where a step is one checkable transformation, declare it "
     "(transformation.kind one of: equivalence, differentiation, integration, substitution, solving, limit, "
-    "sum, inequality, boundary, normalization) with its inputs in sympy syntax (x**2, exp(-x), oo); code "
-    "checks it. Otherwise transformation.kind ''. first_questionable_step is the first step marked "
+    "sum, inequality, boundary, normalization) with its inputs in sympy syntax (x**2, exp(-x), oo), exactly as "
+    "the step writes them (its variable, bounds and point too). Code parses the step itself and checks what it "
+    "writes; a declaration that does not match the step is not checked. Otherwise transformation.kind ''. "
+    "first_questionable_step is the first step marked "
     "questionable (0 when none). For it, guess the error kind (transcription, missing_prerequisite, "
     "invalid_algebra, wrong_method, conceptual, unclear) with a reason, and give two or three rival readings "
     "of what went wrong (error_readings: kind and a one-line statement of the misunderstanding or slip, "
@@ -326,7 +330,10 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
              map_record: Mapping[str, Any] | None, error_kind_enabled: bool,
              outcomes: Mapping[int, symbolic.SymbolicOutcome] | None = None,
              unbound: frozenset[int] | set[int] = frozenset()) -> CheckedSteps:
-    """The check as shown: every claim checked in code (module docstring)."""
+    """The check as shown: every claim checked in code (module docstring).
+    A sandbox outcome decides a step only when it is ``bound`` (the step's
+    own text parsed and the declaration agreed); ``unbound`` names the steps
+    whose text the sandbox ran on but could not check as declared."""
 
     by_number = {step.number: step for step in steps}
     dropped: list[str] = []
@@ -372,13 +379,13 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
         step = by_number.get(number)
         if step is None or step.chain_id not in rows:
             continue
-        symbolic_rows.append({"step": number, **outcome.as_dict(), "bound": number not in unbound})
-        if outcome.method == symbolic.MODEL or outcome.holds is None:
-            continue
+        symbolic_rows.append({"step": number, **outcome.as_dict(), "bound": outcome.bound})
         if number in unbound:
-            # F3: it checked an expression the learner did not write; the
-            # step keeps the model's reading.
+            # F3 (fix round 3): the step's own text did not parse to the
+            # declared check, so nothing was checked; it keeps the model's reading.
             dropped.append(f"transformation_not_in_step:{number}")
+            continue
+        if not outcome.bound or outcome.method == symbolic.MODEL or outcome.holds is None:
             continue
         row = rows[step.chain_id]
         row["method"] = outcome.method
@@ -440,26 +447,29 @@ def validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.Work
                         symbolic=symbolic_rows)
 
 
-def _bound(transformation: Any, step: hint_workbench.WorkbenchStep,
-           earlier: Sequence[hint_workbench.WorkbenchStep], problem_text: str) -> bool:
-    """Fix round 1, F3 (re-review F3): a declared transformation speaks for
-    the step only when it is the learner's whole assertion
-    (:func:`learnloop.workbench.binding.binds`): the step's one new relation,
-    its result the whole right side and its input the whole left side (or
-    the whole operand, or a name for a whole side written in the problem or
-    an earlier step). Otherwise it checks some other expression."""
+def _claim(index: int, transformation: Any, text: str, earlier: Sequence[hint_workbench.WorkbenchStep],
+           problem_text: str) -> symbolic.SymbolicClaim:
+    """Fix round 3 (the orchestrator's ruling on F3): what is checked is
+    ``text``, the learner's own writing, parsed from its LaTeX in the
+    sandbox (:mod:`learnloop.workbench.symbolic`). The declared
+    transformation only picks the kind of check; its expressions and
+    parameters are compared with the parse, never used as inputs. The
+    earlier steps and the problem are passed only for their parsed
+    definitions (``f(x) = x^3``) and, for solving, their equation."""
 
     ordered = sorted(earlier, key=lambda other: other.number)
-    return binding.binds(kind=str(transformation.kind), expression=str(transformation.expression or ""),
-                         result=str(transformation.result or ""), variable=str(transformation.variable or ""),
-                         relation=str(transformation.relation or ""), step=step.body_md,
-                         earlier=[other.body_md for other in ordered], problem=problem_text)
+    return symbolic.SymbolicClaim(
+        index=index, kind=str(transformation.kind), expression=str(transformation.expression or ""),
+        result=str(transformation.result or ""), variable=str(transformation.variable or ""),
+        value=str(transformation.value or ""), lower=str(transformation.lower or ""),
+        upper=str(transformation.upper or ""), relation=str(transformation.relation or ""), text=text,
+        earlier=tuple(other.body_md for other in ordered if other.kind == "step"), problem=problem_text)
 
 
 def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *,
                 problem_text: str = "") -> list[symbolic.SymbolicClaim]:
-    """The declared transformations, indexed by step number, each marked
-    whether it is bound to the learner's own expressions (:func:`_bound`)."""
+    """The declared transformations, indexed by step number, each carrying
+    the step's own text to be parsed and checked (:func:`_claim`)."""
 
     by_number = {step.number: step for step in steps if step.kind == "step"}
     claims = []
@@ -469,21 +479,20 @@ def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.W
         if step is None or transformation.kind not in symbolic.KINDS:
             continue
         earlier = [other for other in steps if other.number < step.number]
-        claims.append(symbolic.SymbolicClaim(
-            index=int(entry.step), kind=transformation.kind, expression=transformation.expression,
-            result=transformation.result, variable=transformation.variable, value=transformation.value,
-            lower=transformation.lower, upper=transformation.upper, relation=transformation.relation,
-            bound=_bound(transformation, step, earlier, problem_text)))
+        claims.append(_claim(int(entry.step), transformation, step.body_md, earlier, problem_text))
     return claims
 
 
 def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None = None
                         ) -> Callable[[Sequence[Any], Any], list[dict[str, Any]]]:
     """The check path for a hint's own claims (Reader §5.3 "hints are verified
-    separately"; fix round 1, F14), handed to the hint service: each claim
-    about step n is run through the same sandboxed harness as a check's
-    declared transformation when it is the learner's whole assertion in step
-    n (:func:`_bound`, the check's own binding); every other claim, every claim with
+    separately"; fix round 1, F14), handed to the hint service. Fix round 3:
+    the same rule as a check. A claim is checked only when its OWN statement
+    parses (from its LaTeX, by code) to one supported relation that its
+    declared kind and fields agree with, and is decided by the same
+    sandboxed harness and controls. Names resolve to definitions written in
+    the problem or in the learner's steps up to the claim's step. Every other
+    claim (a statement in words, an unknown step), every claim with
     ``workbench.symbolic_checks_enabled`` off and every claim without the
     sandbox stays the model's reading."""
 
@@ -499,18 +508,14 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
             step = by_number.get(int(claim.step))
             if step is None or claim.kind not in symbolic.KINDS:
                 continue
-            earlier = [other for other in context.steps if other.number < step.number]
-            if not _bound(claim, step, earlier, problem_text):
-                model[index] = {"method": symbolic.MODEL, "holds": None, "reason": "not the learner's expression"}
-                continue
-            runnable.append(symbolic.SymbolicClaim(
-                index=index, kind=claim.kind, expression=claim.expression, result=claim.result,
-                variable=claim.variable, value=claim.value, lower=claim.lower, upper=claim.upper,
-                relation=claim.relation))
+            upto = [other for other in context.steps if other.number <= step.number]
+            runnable.append(_claim(index, claim, str(claim.statement or ""), upto, problem_text))
         if runnable:
             results, problem = symbolic.run_checks(runnable, run=sandbox_run)
             for outcome in results:
-                model[outcome.index] = {"method": outcome.method, "holds": outcome.holds,
+                bound = outcome.bound and outcome.method != symbolic.MODEL
+                model[outcome.index] = {"method": outcome.method if bound else symbolic.MODEL,
+                                        "holds": outcome.holds if bound else None,
                                         "reason": problem or outcome.reason}
         return model
 
@@ -574,7 +579,7 @@ def ledger_rows(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.W
             rows.append({"task": LEDGER_TASK_SYMBOLIC, "judge": "verifier", "right_id": step.chain_id,
                          "verdict": verdict, "claim": claim.payload(),
                          "rationale": {"step": step.number, "kind": claim.kind, "method": outcome.method,
-                                       "bound": claim.bound, "reason": outcome.reason}})
+                                       "bound": outcome.bound, "reason": outcome.reason}})
     return rows
 
 
@@ -673,13 +678,14 @@ def run_check(
         return CheckResult("unavailable", reason="cancelled", message=None)
     outcomes: dict[int, symbolic.SymbolicOutcome] = {}
     sym_problem = None
-    unbound: set[int] = set()
     claims: list[symbolic.SymbolicClaim] = []
     if section.symbolic_checks_enabled:
         claims = claims_from(output, live, problem_text=str(getattr(item, "prompt", "") or ""))
-        unbound = {claim.index for claim in claims if not claim.bound}
         results, sym_problem = symbolic.run_checks(claims, run=sandbox_run) if claims else ([], None)
         outcomes = {outcome.index: outcome for outcome in results}
+    # Fix round 3 (F3): the steps the sandbox ran on but could not check as
+    # written and declared (recorded; they keep the model's reading).
+    unbound = {number for number, outcome in outcomes.items() if not outcome.bound} if sym_problem is None else set()
     checked = validate(output, live, item, map_record=map_record, error_kind_enabled=section.error_kind_enabled,
                        outcomes=outcomes, unbound=unbound)
     checked.symbolic_problem = sym_problem

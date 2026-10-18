@@ -116,8 +116,10 @@ def test_a_checked_step_says_checked_only_when_the_sandbox_ran_and_its_controls_
         # harness's answer for them (the controls behaved).
         payload = json.loads((__import__("pathlib").Path(command[-1]) / "input.json").read_text())
         calls.append(payload)
-        results = [{"index": 1, "method": "checked", "holds": True, "reason": ""},
-                   {"index": 2, "method": "checked", "holds": False, "reason": ""}]
+        # ``bound``: the harness parsed the learner's own step and the
+        # declaration agreed with it (fix round 3); nothing else is trusted.
+        results = [{"index": 1, "method": "checked", "holds": True, "reason": "", "bound": True},
+                   {"index": 2, "method": "checked", "holds": False, "reason": "", "bound": True}]
         out = ("@@PF-SANDBOX-RESULT@@" + json.dumps({"results": results})).encode()
         return type("Done", (), {"returncode": 0, "stdout": out, "stderr": b""})()
 
@@ -135,8 +137,37 @@ def test_a_checked_step_says_checked_only_when_the_sandbox_ran_and_its_controls_
     first, second = view["verdicts"]
     assert (first["method"], first["mark"], first["label"]) == ("checked", "✓", "checked")
     assert (second["method"], second["mark"], second["verdict"]) == ("checked", "≠", "questionable")
-    # Only the declared kinds went to the sandbox, as data.
+    # Only the declared kinds went to the sandbox, as data, each with the
+    # learner's own step to parse and check (fix round 3).
     assert [claim["kind"] for claim in calls[0]["claims"]] == ["integration", "substitution"]
+    assert [claim["text"] for claim in calls[0]["claims"]] == [STEP_1, "so F(1/2) = 1/4 + 1"]
+    assert calls[0]["claims"][1]["earlier"] == [STEP_1]
+
+
+def test_a_harness_verdict_without_the_learners_parse_is_never_shown_as_checked(tmp_path):
+    def answer(context):
+        payload = check_answer(context)
+        payload["steps"][0]["transformation"] = _transformation(kind="equivalence", expression="x**2", result="x*x")
+        return payload
+
+    def fake_run(command, **kwargs):
+        # A verdict the harness did not tie to the learner's parsed step.
+        results = [{"index": 1, "method": "checked", "holds": True, "reason": ""}]
+        out = ("@@PF-SANDBOX-RESULT@@" + json.dumps({"results": results})).encode()
+        return type("Done", (), {"returncode": 0, "stdout": out, "stderr": b""})()
+
+    _paths, ctx, _session = sidecar(tmp_path, check=CheckFake([answer]))
+    ctx.workbench_sandbox_run = fake_run
+    import learnloop.content.authoring.pf_sandbox as pf
+
+    original = pf.require_sandbox
+    pf.require_sandbox = lambda: "/usr/bin/bwrap"
+    try:
+        wb, _chains = open_problem(ctx)
+        view = _check(ctx, wb)["check"]
+    finally:
+        pf.require_sandbox = original
+    assert view["verdicts"][0]["method"] == "model"
 
 
 def test_without_bubblewrap_every_verdict_reads_as_the_models_reading(tmp_path, monkeypatch):
