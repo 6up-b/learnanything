@@ -385,12 +385,26 @@ export function EmptyPlaceholder({ title }: { title: string }) {
   );
 }
 
-export function KeyBar({ keys, right }: { keys: Array<{ key: string; label: string }>; right?: ReactNode }) {
+export function KeyBar({
+  keys,
+  right
+}: {
+  /** An entry with ``onClick`` is also a control (same label and key;
+   *  adaptive hints H2b, D13); every other entry is a label, as before. */
+  keys: Array<{ key: string; label: string; onClick?: () => void }>;
+  right?: ReactNode;
+}) {
   return (
     <div className="keybar">
-      {keys.map((item) => (
-        <span key={item.key}><b>{item.key}</b> {item.label}</span>
-      ))}
+      {keys.map((item) =>
+        item.onClick ? (
+          <button key={item.key} type="button" className="keybar-control" onClick={item.onClick}>
+            <b>{item.key}</b> {item.label}
+          </button>
+        ) : (
+          <span key={item.key}><b>{item.key}</b> {item.label}</span>
+        )
+      )}
       {right ? <span style={{ marginLeft: "auto" }}>{right}</span> : null}
     </div>
   );

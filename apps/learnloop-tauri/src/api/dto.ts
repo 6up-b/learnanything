@@ -8402,3 +8402,97 @@ export interface LibraryTutorDto {
   burnedSurfaceIds?: string[];
   learnerGap?: { status: string; kind?: string | null } | null;
 }
+
+// ── Adaptive hints H2a/H2b: the practice screen's hint panel ────────────────
+// (spec_adaptive_hints_v1 §4.1, §4.8; the sidecar's practice.request_hint,
+// practice.hint_job, practice.cancel_hint, practice.answer_discriminating and
+// practice.set_help_style). Keys arrive camel-cased; values do not.
+
+export type HintStatus = "ready" | "withheld" | "unavailable" | "disabled" | "refused" | "cancelled";
+export type HintRequestKind = "more" | "feedback" | "book_way" | "smaller_step";
+export type HintShortcut = "not_where_stuck" | "too_big" | "learner_route" | "notation";
+export type HelpStyle = "let_me_struggle" | "balanced" | "guide_me";
+
+export interface HintLabelsDto {
+  origin?: string | null;
+  kind?: string | null;
+  workedHelp?: string | null;
+  horizon?: string | null;
+}
+
+export interface HintPickDto {
+  level: number;
+  label: string;
+  workedHelp: string;
+  consequence: string;
+}
+
+export interface HintDiscriminatingDto {
+  rivals: Array<{ id: string; status: string }>;
+  predictedAnswers: Array<{ rivalId: string; answer: string }>;
+  eigNats: number | null;
+  weightsBasis: string;
+  answerBox: boolean;
+}
+
+export interface HintResultDto {
+  version?: string;
+  status: HintStatus;
+  assistId?: string | null;
+  hintMd?: string | null;
+  kind?: string | null;
+  level?: number | null;
+  horizon?: number | null;
+  horizonIndex?: number | null;
+  labels?: HintLabelsDto;
+  evidence?: { countsAsHint?: boolean; primed?: boolean; level?: number };
+  discriminating?: HintDiscriminatingDto | null;
+  authoredIndex?: number | null;
+  chooser?: string | null;
+  propensity?: number | null;
+  reason?: string | null;
+  message?: string | null;
+  replies?: string[];
+  picks?: HintPickDto[];
+  /** Set by the job read: true only on the read that delivered (showed) it. */
+  shown?: boolean;
+}
+
+export interface HintJobDto {
+  version: number;
+  jobId: string | null;
+  state: "pending" | "done" | "cancelled";
+  result: HintResultDto | null;
+}
+
+export interface HintCancelDto {
+  version: number;
+  jobId: string;
+  state: string;
+  cancelled: boolean;
+  reason: string | null;
+}
+
+export interface HintDiscriminateAnswerDto {
+  version: number;
+  recorded: boolean;
+  assistId: string | null;
+  settled?: boolean;
+  consistentRivals?: string[];
+  message?: string;
+  reason?: string | null;
+}
+
+export interface HintRequestInput {
+  sessionId: string;
+  practiceItemId: string;
+  submissionId: string;
+  answerMd?: string;
+  request: HintRequestKind;
+  answeredAssistId?: string;
+  feedbackShortcut?: HintShortcut;
+  feedbackText?: string;
+  feedbackSelection?: string;
+  takenLevel?: 4 | 5;
+  secondsOnItem?: number;
+}

@@ -370,4 +370,36 @@ def answer_discriminating(ctx: SidecarContext, params: DiscriminateAnswerInput) 
     return versioned(recorded)
 
 
-__all__ = ["HINT_SERVICE_RPCS", "HintJobs"]
+#: H2b: the hint panel's help-style editor (the "⋯" menu and Settings).
+HINT_PANEL_RPCS: tuple[str, ...] = ("practice.set_help_style",)
+HELP_STYLES = ("let_me_struggle", "balanced", "guide_me")
+
+
+class SetHelpStyleInput(ParamsModel):
+    help_style: Literal["let_me_struggle", "balanced", "guide_me"]
+
+
+@method("practice.set_help_style", SetHelpStyleInput)
+def set_help_style(ctx: SidecarContext, params: SetHelpStyleInput) -> dict[str, Any]:
+    """Write the one stored help-style preference every surface reads
+    (``[hints] help_style``, spec D5): from the hint panel's "⋯" menu and from
+    Settings. The narrowest write there is: no generic config write exists
+    (each Settings section has its own RPC), so this one key goes through the
+    comment-preserving settings store and the vault reloads, as
+    ``reader.set_cue_preferences`` does. A stated preference the chooser
+    weighs, never a block (§4.5). No change, no write."""
+
+    from learnloop.ops.settings_store import SettingsStoreError, apply_config_updates
+
+    vault, _repository = ctx.require_vault()
+    if vault.config.hints.help_style != params.help_style:
+        try:
+            apply_config_updates(vault.root / "learnloop.toml", {("hints", "help_style"): params.help_style})
+        except SettingsStoreError as exc:
+            raise SidecarError(exc.code, str(exc)) from exc
+        ctx.reload(maintenance=False)
+        vault, _repository = ctx.require_vault()
+    return versioned({"help_style": vault.config.hints.help_style})
+
+
+__all__ = ["HELP_STYLES", "HINT_PANEL_RPCS", "HINT_SERVICE_RPCS", "HintJobs"]

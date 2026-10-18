@@ -517,6 +517,14 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             **({"recap": {"enabled": config.recap.enabled, "wrap_up_enabled": config.recap.wrap_up_enabled}}
                if (config.recap.enabled or config.recap.wrap_up_enabled) and config.reader_inquiry.enabled
                else {}),
+            # Adaptive hints H2b: the practice screen's hint panel. Present only
+            # while adaptive hints are on (hints.adaptive_enabled, and the
+            # telemetry their rows need), so with them off the snapshot is
+            # exactly what it was and the screen is the base's (G-H1).
+            **({"hints": {"adaptive_enabled": True,
+                          "authored_offer_after_seconds": config.hints.authored_offer_after_seconds,
+                          "help_style": config.hints.help_style}}
+               if config.hints.adaptive_enabled and config.hints.telemetry_enabled else {}),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,

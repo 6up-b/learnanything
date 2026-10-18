@@ -27,6 +27,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("approach_map", "llm", "approach_maps"),
     ("hint_chooser", "decider", "hint_chooser"),
     ("hint_writer", "llm", "hint_writer"),
+    ("hint_outcome", "llm", "hint_outcome"),
 )
 
 _WHEN = {
@@ -101,6 +102,12 @@ _WHEN = {
         "answer draft, the earlier hints and your replies, and a short summary of your state, so "
         "LearnLoop's model can write the hint for your work. Never sent to Codex (hints fall back to the "
         "question's own hints there)."
+    ),
+    "hint_outcome": (
+        "While hints.adaptive_enabled and hints.outcome_placement_enabled are on, in the background after you "
+        "submit an answer you had hints on that was not fully right, on a question with an approach map: the "
+        "question, its approach map, your submitted answer and where each hint was aiming, so LearnLoop's model "
+        "can say how far along the route your answer got. Measurement only: it never changes your grade."
     ),
 }
 

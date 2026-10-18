@@ -1338,7 +1338,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # change and no successor; it acts at every version. Every snapshot moves
     # only because the effective config gains the keys; all of them were
     # recomputed from the composed defaults (defaults_fingerprint_for_version).
-    "mvp-0.9": "11874ae47693eb6adeca2ca8a7b7b98bda185508f7488c3e985e09687c99ecc9",
+    # Adaptive hints H2b (the practice screen's hint panel;
+    # docs/reviews/adaptive-hints-H2b.md) adds [hints]
+    # authored_offer_after_seconds = 4 (a display cap) and
+    # outcome_placement_enabled = true (modelled defaults, left out of the
+    # decision-only template) and the chat route ai.routing.hint_outcome
+    # (unset: the active provider): one background call after a hinted answer
+    # graded not fully correct places it on the item's approach map, stored
+    # as judgment_ledger rows the report reads. Measurement only: nothing in
+    # scoring, scheduling, projection, serving, grading or replay reads it, so
+    # no scoring, scheduling, projection or serving change and no successor;
+    # it acts at every version. Every snapshot moves only because the
+    # effective config gains the keys; all of them were recomputed from the
+    # composed defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "728a5c48521605e97c435b471db2f6d63ce4bb95ca0de26f0cadb3b15481ed7e",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1383,7 +1396,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "475df859394def2bb759437f6a5c94559728640c814fe044d92b8a3855897994",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "5dded8e87024f5b5040dd71de776d983e165e98cf68dc040d0afdadfcb0da588",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1436,7 +1450,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "1efc639feabfe814d5723459250466006866d30bdaeee14c91599fa3eadb0f0f",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "ac48f7c7b1dd8ffaec4eb957d1237013a6015d9c870779a0dbb0604d85285c2d",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1483,7 +1498,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "84a99a11f5790c7fcb6b5a427dc2f3d4ad9cf692b7490090b7ad2a1d30ef2f7a",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "a2827fd11fe07dc5a756c8c947a39cd472014a96b0afe163df0bdfab903ab883",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1525,7 +1541,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "e80f134223be91aa1906de7fa2d7bb489fd3f189b2fc87ddcce84aa8c40f6674",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.13": "28490a32c46d6fdea7622e5804ec119e12f2f493fc12ec16fe79fdfe68813f85",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1566,7 +1583,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "4d41522dd44050eec9587c590c2e40626ffd09ff6a76270e24af2f19f1f2de9a",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.14": "2651d57df7f08edccd56f671e92809678dea2613c8a754bebe7b1d4506bc416b",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1605,7 +1623,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "8550b12ba8a898e2370e6e8067cce4e6c1e074ca9fe912ddd581218ea32bb28b",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.15": "f3e005f524cc6251ed1067883e6cd024c22f8d0fbb2d1b8d08cbbcbc8c677193",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1651,7 +1670,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "764c5e72d356c5e2506d1cc80b5db8a2e1b0a87bb47b20cf95a2127a3e0e8fa4",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.16": "bdf77f2d8d9b2564ba4c1d01dd26f2c8f1136c9716cea5adc6a0f32e27036384",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1693,7 +1713,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.17": "80f9634db02b0e193429e9a9ec100e76ba80a5de80eb98e0ccd1ad734841fdec",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.17": "8630451e2553bc9ef7917aff99f7a631fdf94b1c5a0d1c3b9f555880cf6df9ff",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1728,7 +1749,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.18": "bfb34852929c145690cb61b9358cbc89dc4e5d72a4708b2f7cdbdece61d2690f",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.18": "58e57588291a85c437c1a5428cd3927df8a635f5db8fe4cc74eb8252ead9de62",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1763,7 +1785,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.19": "1511cd282c8a54d6ea619101db9303986679256a2d6a8903ebccdbaf20797ef3",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.19": "bfe4df395879ff51ceec999a9c9876abf87d26d99b7096f6b08157322c0d2992",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1794,7 +1817,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.20": "e35f4cf7221cb0906a8c0e6453fbe0f950b741e0d934a82070952e41f4519730",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.20": "9c82897d4b0130f21d2f6e668c8e8c4e010470885922ec22efc242a231687b32",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1834,7 +1858,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.21": "c7276b9dac3e92bb724a348e1b7b61681ba7911fae883ba5e80a516c3f7f98df",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.21": "01a79b6e0d3099d36387ec3f0f1a344715b310d132ac55b264e8871ccf7e3d32",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1866,7 +1891,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.22": "5aa8ef03c4e8fc26d82eb11a3bd549b6859e39209e50ef3174cd4cb0f084c741",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.22": "2c4cf045edf228f4cbc13d88c038e6336b020abc486cfbb3e9fe9c5ace3026cf",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1893,7 +1919,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.23": "e912c8b219bc54bf49c6978d6ec3eeadceef281d7f5beda6feceefe6d6f7476d",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.23": "043c9cf445c911c798e890e5166d0a1736d8b625f069f76642e681fc950b2622",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -1917,7 +1944,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.24": "778eab17d05843ceafc3db55a4c55f7afe5828c9d2dbd4bb906c328552e725d1",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.24": "68a85fee5e4a8b45990234877d53707e7389a6f04e1202aec20d969a7daf2f24",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -1939,7 +1967,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.25": "073d55dc434d93f65220f8948297df74d629f08a1a91847e1b7a3b0cdc336da7",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.25": "10ba26f05d5483a762033621c550870683aa0ebe909c64009a54d66e10c45dbe",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -1960,7 +1989,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.26": "f96689a4db3224cb7b76ac9c4ab4332e21f8ad48d206c53fbbd0099e46f62ba9",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.26": "245a19f885091a03aef6c7a005235ac33c37c4c74896bd71334dedcd20fda1f6",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -1981,7 +2011,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H0's [hints] telemetry_enabled moves it too (see mvp-0.9; no serving change).
     # Adaptive hints H1's [hints.maps], hints.price_per_million and route move it too (see mvp-0.9; no serving change).
     # Adaptive hints H2a's [hints] service keys and two routes move it too (see mvp-0.9; no serving change).
-    "mvp-0.27": "a8d5577e189d8650c4c25278e6b3b9a6df753199078c626c90be2cebeaf045e9",
+    # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
+    "mvp-0.27": "42a507110f4ca7f1e31cc54c3d395f4a9717e5add478e7373bb2698bf97017a5",
 }
 
 

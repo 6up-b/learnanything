@@ -23,7 +23,7 @@ import { Card, EntityLink, KeyBar, Pill, SectionHeader } from "../components/ui"
 import { CardControls } from "../components/CardControls";
 import { ItemPresentation } from "../components/ItemPresentation";
 import { BlockBar, COLOR, Faint, FONT_MONO, modePillColor, TermSelect } from "../components/term";
-import { algoConfig, masteryTone, STUCK_PROMPT_TEXT } from "../app/algoConfig";
+import { algoConfig, masteryTone, setAdaptiveHelpStyle, STUCK_PROMPT_TEXT } from "../app/algoConfig";
 import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
@@ -34,6 +34,8 @@ import { useAnswerExposure, type RecordDisplay } from "./feedback/answerExposure
 import { AnswerWaiting } from "./feedback/FeedbackSurface";
 import type { WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
 import { Workbench } from "./workbench/Workbench";
+import { HintPanel } from "./practice/HintPanel";
+import { useAdaptiveHints } from "./practice/useAdaptiveHints";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -422,6 +424,34 @@ export function PracticeScreen({
     await saveDraft();
   }, [saveDraft]);
 
+  // Adaptive hints H2b (spec_adaptive_hints_v1 §4.8): hints written for the
+  // learner's work, while the sidecar says they are on (`hints` in the app
+  // snapshot's config). Off, `adaptive` is null and every path below is the
+  // base's, byte for byte (G-H1).
+  const adaptive = algoConfig().adaptiveHints;
+  const [helpStyle, setHelpStyle] = useState(adaptive?.helpStyle ?? "balanced");
+  const answerRef = useRef(answer);
+  answerRef.current = answer;
+  const adaptiveHints = useAdaptiveHints({
+    enabled: adaptive !== null,
+    sessionId: session.sessionId,
+    practiceItemId,
+    submissionId: () => submissionId.current,
+    answer: () => answerRef.current,
+    flushDraft,
+    secondsOnItem: elapsedSeconds,
+    authoredHints: item?.hints ?? [],
+    hintsUsed,
+    authoredOfferAfterSeconds: adaptive?.authoredOfferAfterSeconds ?? 4,
+    onDisabled: () => revealAuthoredHint(),
+    onAuthoredReveal: (index) => revealAuthoredAt(index),
+    onHelpStyleSaved: (style) => {
+      setAdaptiveHelpStyle(style);
+      setHelpStyle(style);
+    },
+    onError
+  });
+
   useEffect(() => registerVaultDraft({
     freeze: () => {
       vaultFrozen.current = true;
@@ -796,11 +826,39 @@ export function PracticeScreen({
       onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
       return;
     }
+    if (adaptive) {
+      // Adaptive hints H2b: the press asks for a hint written for this work.
+      void adaptiveHints.press();
+      return;
+    }
+    revealAuthoredHint();
+  }
+
+  /** Today's authored path, exactly (with adaptive hints off, or when the
+   *  sidecar answers that they are). */
+  function revealAuthoredHint() {
     // Adaptive hints H0: the hint this press shows (none past the last one).
     if (item && session.sessionId && hintsUsed < item.hints.length) {
       recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
     }
     setHintsUsed((value) => Math.min(item?.hints.length ?? 0, value + 1));
+  }
+
+  /** Adaptive hints H2b: the item's hint `index`, taken instead of a hint
+   *  still being written (the request was cancelled first): the client's
+   *  own reveal, client-counted as before. Resolves to its telemetry row. */
+  async function revealAuthoredAt(index: number): Promise<string | null> {
+    if (!item || !session.sessionId) return null;
+    setHintsUsed((value) => value + 1);
+    try {
+      const recorded = await Promise.resolve(api.recordHintReveal?.({
+        sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current,
+        authoredIndex: index, answerMd: answer, revealedAt: new Date().toISOString()
+      }));
+      return recorded?.assistId ?? null;
+    } catch {
+      return null;
+    }
   }
 
   async function stopDiagnosing() {
@@ -1658,11 +1716,12 @@ export function PracticeScreen({
                 />
               </div>
             ) : null}
-            {item.hints.slice(0, hintsUsed).map((hint, index) => (
+            {item.hints.slice(0, hintsUsed - adaptiveHints.clientRevealCount).map((hint, index) => (
               <div className="hint-banner" key={hint}>
                 {simple ? <Pill tone="amber">hint</Pill> : <Pill tone="amber">hint {index + 1}/{item.hints.length}</Pill>} {hint}
               </div>
             ))}
+            {adaptive ? <HintPanel hints={adaptiveHints} answer={answer} helpStyle={helpStyle} /> : null}
             {hintsUsed > item.hints.length ? (
               // Hints seen in steps that the item no longer shows still count (final F2).
               <div className="hint-banner" data-testid="hints-carried">
@@ -1741,8 +1800,10 @@ export function PracticeScreen({
                 {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
                   <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting || assistPending}>Submit</PrimaryAction>
                 )}
-                {!probeActive && !onYourOwnCheck && hintsUsed < item.hints.length && !selfGradeVisible ? (
-                  <QuietAction onClick={revealHint} disabled={submitting}>{hintsUsed > 0 ? "Hint again" : "Hint"}</QuietAction>
+                {!probeActive && !onYourOwnCheck && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
+                  <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
+                    {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
+                  </QuietAction>
                 ) : null}
                 {stuckPrompt && !stuck && !selfGradeVisible ? (
                   <QuietAction onClick={pressStuck} disabled={submitting}>I'm stuck</QuietAction>
@@ -1803,7 +1864,8 @@ export function PracticeScreen({
       </div>
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
-        ...(probeActive || onYourOwnCheck || item.hints.length === 0 ? [] : [{ key: "^h", label: "hint" }]),
+        ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []
+          : [adaptive ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
@@ -1819,7 +1881,7 @@ export function PracticeScreen({
         { key: "esc", label: "today" }
       ] : [
         { key: "^enter", label: "submit" },
-        { key: "^h", label: "hint" },
+        adaptive ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" },
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         { key: "?", label: "ask tutor" },

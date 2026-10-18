@@ -792,6 +792,10 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
             "outcome": served.outcome, "reason": served.reason, "rounds": served.rounds,
             "chooser_reason": choice.reason if choice is not None else None,
             "state_unread": state.unread,
+            # H2b: the two state values the report's expertise-reversal split
+            # reads (§6.3), as the chooser saw them at request time.
+            "state_at_request": {"placement_intent": state.placement_intent,
+                                 "p_success": round(state.p_success, 4) if state.p_success is not None else None},
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
         }),

@@ -30,6 +30,19 @@ export interface AlgoDisplayConfig {
    *  and Today exactly as before RW6a. */
   recap: boolean;
   wrapUp: boolean;
+  /** Adaptive hints H2b's kill switch (`hints.adaptive_enabled`): the sidecar
+   *  sends a `hints` key only while adaptive hints are on, so null until it
+   *  says so, and null leaves the practice screen exactly as before H2b. */
+  adaptiveHints: AdaptiveHintsConfig | null;
+}
+
+export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
+
+export interface AdaptiveHintsConfig {
+  /** Seconds a hint is written before the panel offers the item's own hint. */
+  authoredOfferAfterSeconds: number;
+  /** The one stored help-style preference (`hints.help_style`). */
+  helpStyle: HelpStyleValue;
 }
 
 const DEFAULTS: AlgoDisplayConfig = {
@@ -41,7 +54,8 @@ const DEFAULTS: AlgoDisplayConfig = {
   practiceFeedback: "simple",
   workbench: false,
   recap: false,
-  wrapUp: false
+  wrapUp: false,
+  adaptiveHints: null
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -54,6 +68,7 @@ export function setAlgoConfig(config: unknown): void {
     ui?: { practiceFeedback?: unknown };
     workbench?: { enabled?: unknown };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
+    hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -65,8 +80,23 @@ export function setAlgoConfig(config: unknown): void {
     practiceFeedback: root.ui?.practiceFeedback === "classic" ? "classic" : "simple",
     workbench: root.workbench?.enabled === true,
     recap: root.recap?.enabled === true,
-    wrapUp: root.recap?.wrapUpEnabled === true
+    wrapUp: root.recap?.wrapUpEnabled === true,
+    adaptiveHints: root.hints?.adaptiveEnabled === true
+      ? {
+          authoredOfferAfterSeconds: asNumber(root.hints.authoredOfferAfterSeconds, 4),
+          helpStyle: asHelpStyle(root.hints.helpStyle)
+        }
+      : null
   };
+}
+
+function asHelpStyle(value: unknown): HelpStyleValue {
+  return value === "let_me_struggle" || value === "guide_me" ? value : "balanced";
+}
+
+/** The help style the sidecar saved (the panel's "⋯" menu or Settings). */
+export function setAdaptiveHelpStyle(style: HelpStyleValue): void {
+  if (current.adaptiveHints) current = { ...current, adaptiveHints: { ...current.adaptiveHints, helpStyle: style } };
 }
 
 /** The one prompt "I'm stuck" opens the answer box with (mirrors

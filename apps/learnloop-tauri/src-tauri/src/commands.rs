@@ -262,6 +262,15 @@ sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 // Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
 sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
 
+// Adaptive hints H2a/H2b: the practice screen's hint panel (a hint is a job:
+// request, read-and-deliver, cancel), a discriminating question's answer, and
+// the one stored help-style preference.
+sidecar_passthrough!(practice_request_hint, "practice.request_hint");
+sidecar_passthrough!(practice_hint_job, "practice.hint_job");
+sidecar_passthrough!(practice_cancel_hint, "practice.cancel_hint");
+sidecar_passthrough!(practice_answer_discriminating, "practice.answer_discriminating");
+sidecar_passthrough!(practice_set_help_style, "practice.set_help_style");
+
 sidecar_passthrough!(recover_practice_submission, "recover_practice_submission");
 
 sidecar_passthrough!(
