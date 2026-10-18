@@ -25,7 +25,8 @@ COLUMNS: tuple[str, ...] = (
     "drawn_option_json", "propensity", "seed", "policy_version", "question_set_version", "state_hash",
     "request", "feedback_text", "feedback_shortcut", "contract_failures_json", "leak_flags_json", "shown",
     "counted_by", "model", "prompt_version", "input_hash", "latency_ms", "requested_at", "shown_at",
-    "submitted_at", "step_snapshot_json", "step_verdicts_json", "first_questionable_step_id", "error_kind_guess",
+    "submitted_at", "submit_latency_seconds", "step_snapshot_json", "step_verdicts_json",
+    "first_questionable_step_id", "error_kind_guess",
     "about_step_id", "continue_from_step_id", "rivals_json", "predicted_answers_json", "eig_nats",
     "feedback_step_id", "cited_span_ids_json", "retrieval_manifest_json", "alternatives_json",
 )
@@ -51,16 +52,19 @@ def stamp_submitted(
     submission_id: str,
     practice_item_id: str,
     submitted_at: str,
+    latency_seconds: float | None = None,
 ) -> int:
-    """Record when a submission reached the sidecar, before grading, on its
-    still-unattached rows. The first stamp stays: a retry of the same
-    submission (a grading fallback answered by a self-grade) keeps the time
-    the learner first submitted."""
+    """Record when a submission reached the sidecar, before grading, and the
+    open-to-submit latency it sent, together, on its still-unattached rows.
+    The first stamp stays, both values: a retry of the same submission (a
+    grading fallback answered by a self-grade) keeps the time the learner
+    first submitted and that submit's latency (review round 2, V3), never the
+    retry's later one."""
 
     cursor = connection.execute(
-        "UPDATE help_assists SET submitted_at = ? "
+        "UPDATE help_assists SET submitted_at = ?, submit_latency_seconds = ? "
         "WHERE submission_id = ? AND practice_item_id = ? AND attempt_id IS NULL AND submitted_at IS NULL",
-        (submitted_at, submission_id, practice_item_id),
+        (submitted_at, _latency(latency_seconds), submission_id, practice_item_id),
     )
     return int(cursor.rowcount or 0)
 
@@ -72,21 +76,35 @@ def attach_submission(
     practice_item_id: str,
     attempt_id: str,
     submitted_at: str | None = None,
+    latency_seconds: float | None = None,
 ) -> int:
     """Fill ``attempt_id`` on the rows recorded under ``submission_id`` for the
-    item (and ``submitted_at`` where no stamp was made); returns how many it
-    attached. Matching on the submission key alone, never on the session and
+    item (and ``submitted_at`` with ``latency_seconds``, together, where no
+    stamp was made); returns how many it attached. Matching on the submission key alone, never on the session and
     item, means a row a failed attach left behind is never swept into a later
     submission's attempt, and the attach is idempotent: a retried submit or a
     recovery of the same submission repairs it. A row already attached keeps
     its attempt (the identity trigger refuses a move)."""
 
+    # Every SET expression reads the row as it was: the latency is written
+    # only where this update also writes the submit time.
     cursor = connection.execute(
-        "UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?) "
+        "UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?), "
+        "submit_latency_seconds = CASE WHEN submitted_at IS NULL AND ? IS NOT NULL THEN ? "
+        "ELSE submit_latency_seconds END "
         "WHERE submission_id = ? AND practice_item_id = ? AND attempt_id IS NULL",
-        (attempt_id, submitted_at, submission_id, practice_item_id),
+        (attempt_id, submitted_at, submitted_at, _latency(latency_seconds), submission_id, practice_item_id),
     )
     return int(cursor.rowcount or 0)
+
+
+def _latency(value: float | None) -> float | None:
+    """A latency the client sent, or None (a negative one is not believed)."""
+
+    if value is None:
+        return None
+    seconds = float(value)
+    return seconds if seconds >= 0 else None
 
 
 __all__ = ["COLUMNS", "TABLE", "attach_submission", "insert_assist", "stamp_submitted"]

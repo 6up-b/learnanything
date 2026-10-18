@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import sqlite3
+from collections import Counter
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -99,6 +101,16 @@ def _submit(
     return _call(ctx, "submit_attempt", params)
 
 
+def _report(paths, **options) -> dict:
+    """The report as the CLI builds it: with the vault's item caps."""
+
+    from learnloop.hints.report import build_hints_report, item_caps
+
+    return build_hints_report(
+        paths.sqlite_path, item_caps=item_caps(load_vault(paths.root).practice_items.values()), **options
+    )
+
+
 def _rows(database: Path) -> list[dict]:
     with closing(sqlite3.connect(database)) as connection:
         connection.row_factory = sqlite3.Row
@@ -174,6 +186,23 @@ def test_the_rpc_validates_the_item_and_the_index(tmp_path):
         _reveal(ctx, session_id, -1)
     with pytest.raises(ValueError):
         _reveal(ctx, session_id, 0, key="")  # a reveal always names its submission
+    assert _rows(paths.sqlite_path) == []
+
+
+def test_an_older_client_without_a_submission_key_is_refused_and_nothing_else_changes(tmp_path):
+    """Review round 2 (Codex job 20261018-000003-fesMOi): a reveal sent by a
+    client from before F1 has no ``submissionId``. It is refused and no row
+    is written (the screen's call is fire and forget, so its reveal is
+    unchanged), and the submit still records the client's count."""
+
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    with pytest.raises(ValueError, match="submissionId|submission_id"):
+        _call(ctx, "practice.record_hint_reveal", {"sessionId": session_id, "practiceItemId": ITEM, "authoredIndex": 0})
+    assert _rows(paths.sqlite_path) == []
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
+    assert (attempt["attempt_type"], attempt["hints_used"]) == ("hinted_attempt", 1)
     assert _rows(paths.sqlite_path) == []
 
 
@@ -713,12 +742,12 @@ def test_an_ungraded_next_attempt_is_reported_ungraded_never_fail(tmp_path, monk
 def test_an_ungraded_hinted_attempt_and_no_later_attempt(tmp_path):
     from learnloop.hints.report import build_hints_report
 
-    paths = _vault(tmp_path)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
     ctx, session_id = _sidecar(paths.root)
     _reveal(ctx, session_id, 0)
     payload = _submit(ctx, session_id, hints=1, key="k1")
     _set_correctness(paths.sqlite_path, payload["attemptId"], None)
-    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    [kind] = _report(paths)["kinds"]
     assert kind["attempt_outcome"]["ungraded"] == 1
     assert kind["attempt_correct"]["of"] == 0 and kind["attempt_correct"]["share"] is None
     assert kind["later_independent_success"]["item"]["pending"] == 1
@@ -749,15 +778,16 @@ def test_unaided_next_progress_is_settled_by_the_grade_where_it_can_be(tmp_path,
         return _call(ctx, "submit_attempt", params)
 
     attempt("reached", 1)                      # one hint, then a correct answer: reached
-    attempt("two", 2)                          # the first is followed by more help; the second reached
+    attempt("two", 2)                          # the first is followed by more help; the second is at the cap
     attempt("wrong", 1, points=0)              # not correct: needs H2's outcome placement
     attempt("tutor", 1, hints=2)               # help the rows cannot order (say, a tutor question)
     attempt("primed", 1, primed=True)          # worked help or a disclosed answer
-    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    [kind] = _report(paths)["kinds"]
     progress = kind["unaided_next_progress"]
-    assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 2, "of": 6}
+    assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 1, "of": 6}
     assert progress["unknown"] == {
-        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "ungraded": 0, "not_fully_correct": 1,
+        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "help_count_capped": 1,
+        "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 1,
     }
     assert progress["reached"]["interval"]["method"] == "wilson"
     assert "unaided_next_progress" not in build_hints_report(paths.sqlite_path)["not_yet_measured"]
@@ -794,3 +824,270 @@ def test_shares_and_summaries_carry_intervals_with_explicit_small_sample_behavio
     assert large["p50_interval"]["coverage"] >= 0.95
     assert large["p95_interval"]["low"] <= large["p95"] <= large["p95_interval"]["high"]
     assert large["p95_interval"]["coverage"] >= 0.95
+
+
+# -- review round 2 (orchestrator, after Codex job 20261018-000003-fesMOi) -------------
+
+
+def _exact_interval(ordered: list, q: float) -> dict:
+    """The interval as b4d87cbed computed it (exact coefficients; it overflows
+    from n = 1030): the reference the log-space terms must reproduce."""
+
+    import math
+
+    n = len(ordered)
+    if n == 0:
+        return {"method": "order_statistic", "level": 0.95, "low": None, "high": None, "coverage": None,
+                "reason": "empty"}
+    pmf = [math.comb(n, i) * q**i * (1.0 - q) ** (n - i) for i in range(n + 1)]
+    rank = max(1, math.ceil(q * n))
+    low, high, coverage = rank, rank, 0.0
+    while coverage < 0.95:
+        below = pmf[low - 1] if low > 1 else -1.0
+        above = pmf[high] if high < n else -1.0
+        if below < 0 and above < 0:
+            return {"method": "order_statistic", "level": 0.95, "low": None, "high": None,
+                    "coverage": round(coverage, 4), "reason": "too_few"}
+        if above >= below:
+            coverage += above
+            high += 1
+        else:
+            coverage += below
+            low -= 1
+    return {"method": "order_statistic", "level": 0.95, "low": ordered[low - 1], "high": ordered[high - 1],
+            "coverage": round(coverage, 4)}
+
+
+def _check_summary(summary: dict, ordered: list) -> None:
+    n = len(ordered)
+    assert summary["n"] == n
+    for q, key in ((0.50, "p50"), (0.95, "p95")):
+        interval = summary[f"{key}_interval"]
+        if n < 1030:
+            assert interval == _exact_interval(ordered, q)
+        else:
+            # The reference overflows here; the interval brackets the estimate
+            # at the level, as near the binomial's centre as it must be.
+            assert interval["low"] <= summary[key] <= interval["high"]
+            assert 0.95 <= interval["coverage"] < 0.96
+            half_width = 2.6 * math.sqrt(n * q * (1 - q))
+            assert ordered.index(interval["high"]) - ordered.index(interval["low"]) <= 2 * half_width
+
+
+@pytest.mark.parametrize("n", [1, 2, 5, 1030, 20000])
+def test_order_statistic_intervals_hold_at_any_sample_size(n):
+    """V1: the binomial terms are computed stably (log space), equal to the
+    exact ones wherever those can be computed, and never overflow."""
+
+    from learnloop.hints.report import _percentiles
+
+    values = [float(3 * index % 1009) for index in range(n)]  # not already sorted
+    summary = _percentiles(values)
+    _check_summary(summary, sorted(values))
+
+
+def test_the_stable_terms_reproduce_every_exact_interval_below_the_overflow():
+    from learnloop.hints.report import _quantile_interval
+
+    for n in range(0, 1030, 7):
+        ordered = list(range(1, n + 1))
+        for q in (0.50, 0.95):
+            assert _quantile_interval(ordered, q) == _exact_interval(ordered, q), (n, q)
+
+
+@pytest.mark.parametrize("n", [1, 2, 5, 1030, 20000])
+def test_the_report_summarises_any_number_of_rows(tmp_path, n):
+    """V1 through a full report: n rows, each its own item and session."""
+
+    from learnloop.db.copies import backup_database
+    from learnloop.hints.report import build_hints_report
+
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_210" / "state.sqlite"
+    database = tmp_path / "state.sqlite"
+    backup_database(head, database)
+    with closing(connect(database)) as connection:
+        for index in range(n):
+            store.insert_assist(connection, {
+                "id": f"ha_{index:06d}", "surface": "practice", "assist_kind": "hint", "hint_kind": "authored",
+                "level": 3, "practice_item_id": f"pi_{index % max(1, n // 2):06d}",
+                "practice_session_id": f"s_{index:06d}", "submission_id": f"k_{index:06d}", "authored_index": 0,
+                "chooser": "none", "shown": 1, "counted_by": "client",
+                "requested_at": f"2026-10-17T09:{index // 6000 % 60:02d}:{index // 100 % 60:02d}.{index % 100:03d}Z",
+            })
+        connection.commit()
+    report = build_hints_report(database, now=FROZEN + timedelta(days=1))
+    [kind] = report["kinds"]
+    assert kind["shown"] == report["totals"]["shown"] == n and kind["sessions"] == n
+    _check_summary(kind["per_session"], [1] * n)
+    per_item = sorted(Counter(f"pi_{index % max(1, n // 2):06d}" for index in range(n)).values())
+    _check_summary(kind["per_item"], per_item)
+
+
+def _question(paths, session_id: str, at: datetime, *, hint_equivalent: bool = True) -> None:
+    """A substantive tutor answer on the item, with no answer overlap (no
+    reveal event): what the fold counts as a hint equivalent."""
+
+    Repository(paths.sqlite_path).insert_question_event({
+        "context": "practice", "practice_item_id": ITEM, "session_id": session_id,
+        "question_md": "Why are the factors orthogonal?", "answer_md": "Think about the geometry.",
+        "question_type": "mechanism", "facets": [], "hint_equivalent": hint_equivalent,
+        "answer_status": "answered", "created_at": at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    })
+
+
+def test_capped_tutor_help_never_reads_as_unaided_progress(tmp_path, monkeypatch):
+    """V2, Codex's case: the item caps the combined count at 1; an authored
+    hint, then a substantive tutor answer (no answer overlap), then a correct
+    submit records hints_used == 1 == one recorded reveal. The tutor's help
+    is recorded, uncapped, in question_events: unknown, never "reached". The
+    attempt's count is the grading count, unchanged."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)  # one authored hint, max_useful_hints 1
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T09:00:10Z")
+    _question(paths, session_id, FROZEN + timedelta(seconds=20))
+    now["t"] = FROZEN + timedelta(seconds=30)
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
+    assert (attempt["hints_used"], attempt["correctness"]) == (1, 1.0)  # 1 + 1, capped at 1
+    progress = _report(paths)["kinds"][0]["unaided_next_progress"]
+    assert progress["reached"]["count"] == 0
+    assert progress["unknown"]["help_not_ordered"] == 1
+
+
+def test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_other_help(tmp_path, monkeypatch):
+    """V2: "reached" needs the submission's rows to be all the help the
+    attempt had, from records no cap applies to; each other case is unknown
+    with its reason."""
+
+    from learnloop.hints.report import build_hints_report
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])  # max_useful_hints 2
+    ctx, session_id = _sidecar(paths.root)
+
+    def attempt(key: str, before_submit=None, *, reveals: int = 1) -> str:
+        now["t"] += timedelta(minutes=5)
+        for index in range(reveals):
+            _reveal(ctx, session_id, index, key=key, at=(now["t"] - timedelta(seconds=30 - index)).isoformat())
+        if before_submit is not None:
+            before_submit(key)
+        return _submit(ctx, session_id, hints=reveals, key=key)["attemptId"]
+
+    attempt("clean")                                      # the reveal and nothing else: reached
+    attempt("capped", reveals=2)                          # more help followed the first; the second is at the cap
+    attempt("reveal", lambda key: Repository(paths.sqlite_path).insert_reveal_event({
+        "practice_item_id": ITEM, "source_kind": "tutor_answer", "amount": 0.2,
+        "created_at": (now["t"] - timedelta(seconds=10)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }))                                                   # a partial reveal (below auto-prime): other help
+    attempt("own_disclosure", lambda key: _call(ctx, "record_self_grade_disclosure", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": key, "answerMd": "A = U Sigma V^T.",
+    }))                                                   # the submission's own self-grade display: still reached
+    progress = _report(paths)["kinds"][0]["unaided_next_progress"]
+    assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 2, "of": 5}
+    assert progress["unknown"] == {
+        "more_help_followed": 1, "primed": 0, "help_not_ordered": 1, "help_count_capped": 1,
+        "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 0,
+    }
+    # Without the vault's caps (or for an item changed since the hint) no
+    # count can be shown complete.
+    unknown = build_hints_report(paths.sqlite_path)["kinds"][0]["unaided_next_progress"]
+    assert unknown["reached"]["count"] == 0 and unknown["unknown"]["help_cap_unknown"] == 3
+    item_path = paths.practice_item_path("linear-algebra", ITEM)
+    data = read_yaml(item_path)
+    data["hint_policy"] = {**data["hint_policy"], "max_useful_hints": 3}
+    write_yaml(item_path, data)
+    changed = _report(paths)["kinds"][0]["unaided_next_progress"]
+    assert changed["reached"]["count"] == 0 and changed["unknown"]["help_cap_unknown"] == 3
+
+
+def test_a_count_at_the_cap_with_nothing_else_recorded_is_still_unknown(tmp_path, monkeypatch):
+    """V2: one reveal, one hint counted, the item's cap 1, no other record: the
+    client's count may have been larger than the cap kept, so the rows cannot
+    be shown to be all the help."""
+
+    _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)  # one authored hint, max_useful_hints 1
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="k1")
+    _submit(ctx, session_id, hints=1, key="k1")
+    progress = _report(paths)["kinds"][0]["unaided_next_progress"]
+    assert progress["reached"]["count"] == 0 and progress["unknown"]["help_count_capped"] == 1
+
+
+def test_a_workbench_problem_holding_a_hint_is_other_help(tmp_path, monkeypatch):
+    """V2: an open workbench problem on the item that carried a hint is
+    folded into the count (the larger of it and the client's), so it can hide
+    behind the one recorded reveal; the report reads it from the session."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, origin, entry, carried_hints, "
+            "created_at, updated_at) VALUES ('wb_1', ?, 'Define the SVD.', 'practice', 'practice_screen', 1, ?, ?)",
+            (ITEM, "2026-10-17T08:59:00Z", "2026-10-17T08:59:00Z"),
+        )
+        connection.commit()
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T09:00:10Z")
+    now["t"] = FROZEN + timedelta(seconds=30)
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    assert Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])["hints_used"] == 1
+    progress = _report(paths)["kinds"][0]["unaided_next_progress"]
+    assert progress["reached"]["count"] == 0 and progress["unknown"]["help_not_ordered"] == 1
+
+
+def test_seconds_into_the_attempt_after_a_grading_fallback_is_the_first_submits(tmp_path, monkeypatch):
+    """V3, the exact scenario: opened 09:00:00, hint at 09:00:50, first submit
+    at 09:01:00 (latency 60) answered by the self-grade fallback, the retry at
+    09:02:00 sending latency 120. Reveal to submit is 10 s and the hint came
+    50 s into the attempt (not 110): the first submit's time and latency,
+    stamped together and kept."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, at="2026-10-17T09:00:50Z")
+    now["t"] = FROZEN + timedelta(seconds=60)
+    with pytest.raises(SidecarError) as fallback:
+        _submit(ctx, session_id, hints=1, key="k1", grade=None, latency=60)
+    assert fallback.value.code == "grading_fallback_required"
+    now["t"] = FROZEN + timedelta(seconds=120)
+    payload = _submit(ctx, session_id, hints=1, key="k1", latency=120)
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
+    assert attempt["latency_seconds"] == 120  # what submit stores is unchanged
+    [kind] = _report(paths, now=FROZEN + timedelta(hours=1))["kinds"]
+    assert (kind["seconds_reveal_to_submit"]["n"], kind["seconds_reveal_to_submit"]["p50"]) == (1, 10.0)
+    assert (kind["seconds_into_attempt"]["n"], kind["seconds_into_attempt"]["p50"]) == (1, 50.0)
+    assert kind["seconds_into_attempt_unknown"] == {"no_submit_time": 0, "no_submit_latency": 0}
+    [row] = _rows(paths.sqlite_path)
+    assert (row["attempt_id"], row["submitted_at"], row["submit_latency_seconds"]) == (
+        payload["attemptId"], "2026-10-17T09:01:00.000Z", 60.0)
+
+
+def test_seconds_into_the_attempt_is_unknown_without_the_submits_latency(tmp_path, monkeypatch):
+    """V3: a submission that sent no latency (or a row whose submit time is
+    unknown) is never timed from the attempt's own latency."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, at="2026-10-17T09:00:50Z", key="k1")
+    now["t"] = FROZEN + timedelta(seconds=60)
+    with pytest.raises(SidecarError):
+        _submit(ctx, session_id, hints=1, key="k1", grade=None)  # no latency sent
+    now["t"] = FROZEN + timedelta(seconds=120)
+    _submit(ctx, session_id, hints=1, key="k1", latency=120)
+    _reveal(ctx, session_id, 0, at="2026-10-17T09:02:30Z", key="k2")
+    with monkeypatch.context() as patch:
+        patch.setattr(practice, "stamp_submission", _broken)
+        patch.setattr(practice, "attach_reveals_to_attempt", _broken)
+        now["t"] = FROZEN + timedelta(seconds=180)
+        _submit(ctx, session_id, hints=1, key="k2", latency=30)
+    _call(ctx, "recover_practice_submission", {"sessionId": session_id, "practiceItemId": ITEM, "submissionId": "k2"})
+    [kind] = _report(paths, now=FROZEN + timedelta(hours=1))["kinds"]
+    assert kind["seconds_into_attempt"]["n"] == 0
+    assert kind["seconds_into_attempt_unknown"] == {"no_submit_time": 1, "no_submit_latency": 1}
+    assert kind["seconds_reveal_to_submit"]["n"] == 1 and kind["timing_unknown"] == 1

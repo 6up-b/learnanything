@@ -117,17 +117,25 @@ def record_authored_reveal(
 
 
 def stamp_submission(
-    repository: Any, *, submission_id: str, practice_item_id: str, now: datetime | None = None
+    repository: Any,
+    *,
+    submission_id: str,
+    practice_item_id: str,
+    latency_seconds: float | None = None,
+    now: datetime | None = None,
 ) -> str:
     """When the submission reached the sidecar, before any grading (the end of
     "hint shown -> submit"; ``practice_attempts.created_at`` is stamped after
-    the grader). Written on the submission's unattached rows at once, so a
-    grading fallback answered later keeps it; returned for the attach."""
+    the grader), with the open-to-submit latency the same submission sent.
+    Written together on the submission's unattached rows at once, so a grading
+    fallback answered later keeps both (its retry sends a later latency);
+    returned for the attach."""
 
     submitted_at = _iso_ms((now or SystemClock().now()))
     with repository.connection() as connection:
         store.stamp_submitted(
-            connection, submission_id=submission_id, practice_item_id=practice_item_id, submitted_at=submitted_at
+            connection, submission_id=submission_id, practice_item_id=practice_item_id, submitted_at=submitted_at,
+            latency_seconds=latency_seconds,
         )
     return submitted_at
 
@@ -139,8 +147,10 @@ def attach_reveals_to_attempt(
     practice_item_id: str,
     attempt_id: str,
     submitted_at: str | None = None,
+    latency_seconds: float | None = None,
 ) -> int:
-    """Fill ``attempt_id`` on the rows recorded under the submission key."""
+    """Fill ``attempt_id`` on the rows recorded under the submission key (and
+    the submit time with its latency where the stamp was not made)."""
 
     with repository.connection() as connection:
         return store.attach_submission(
@@ -149,6 +159,7 @@ def attach_reveals_to_attempt(
             practice_item_id=practice_item_id,
             attempt_id=attempt_id,
             submitted_at=submitted_at,
+            latency_seconds=latency_seconds,
         )
 
 

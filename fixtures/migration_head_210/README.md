@@ -193,7 +193,9 @@ fixed-identity triggers (a later binding may go from NULL to a value once).
 The table is empty here. Rebuilt for the H0 Codex review fixes
 (docs/reviews/hints-h0-codex-review.md: `submission_id`, `submitted_at`, the
 submission index and the once-set bindings) the same way, from the base's
-`migration_head_209` with only the edited 210 applied.
+`migration_head_209` with only the edited 210 applied, and rebuilt again the
+same way for the review's round 2 (`submit_latency_seconds`, stamped with
+`submitted_at` and fixed with it).
 
 Built as a backup-API copy of the base's `migration_head_209` (git
 `610e61dc0`) with only 210 applied, by the same chain as before:

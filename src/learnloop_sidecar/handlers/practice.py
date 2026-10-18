@@ -636,15 +636,20 @@ def _in_diagnostic_block(repository, item) -> bool:
     return presentation is not None and presentation.status == "served"
 
 
-def _stamp_hint_submission(vault, repository, submission_id: str | None, practice_item_id: str) -> str | None:
-    """Adaptive hints H0 (review F2): when this submission reached the
-    sidecar, before any grading, on its revealed hints' rows. Telemetry only;
-    a failure is logged, never raised."""
+def _stamp_hint_submission(
+    vault, repository, submission_id: str | None, practice_item_id: str, latency_seconds: float | None = None
+) -> str | None:
+    """Adaptive hints H0 (review F2, round 2 V3): when this submission reached
+    the sidecar, before any grading, and the latency it sent, on its revealed
+    hints' rows. Telemetry only; a failure is logged, never raised."""
 
     if submission_id is None or not telemetry_enabled(vault.config):
         return None
     try:
-        return stamp_submission(repository, submission_id=submission_id, practice_item_id=practice_item_id)
+        return stamp_submission(
+            repository, submission_id=submission_id, practice_item_id=practice_item_id,
+            latency_seconds=latency_seconds,
+        )
     except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
         log_event("hint_reveal_stamp_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
         return None
@@ -652,7 +657,7 @@ def _stamp_hint_submission(vault, repository, submission_id: str | None, practic
 
 def _attach_hint_reveals(
     vault, repository, submission_id: str | None, practice_item_id: str, attempt_id: str,
-    *, submitted_at: str | None = None,
+    *, submitted_at: str | None = None, latency_seconds: float | None = None,
 ) -> None:
     """Adaptive hints H0: the attempt the submission's revealed hints were
     part of, matched on the submission key alone (review F1), so it is
@@ -671,6 +676,7 @@ def _attach_hint_reveals(
             practice_item_id=practice_item_id,
             attempt_id=attempt_id,
             submitted_at=submitted_at,
+            latency_seconds=latency_seconds,
         )
     except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
         log_event("hint_reveal_attach_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
@@ -1020,7 +1026,9 @@ def submit_attempt_on(
         evidence_origin="human",
         declared_stuck=declared_stuck,
     )
-    hint_submitted_at = _stamp_hint_submission(vault, repository, submission_id, params.practice_item_id)
+    hint_submitted_at = _stamp_hint_submission(
+        vault, repository, submission_id, params.practice_item_id, params.latency_seconds
+    )
     if declared_stuck and not learner_answer_md.strip():
         # An empty stuck answer: nothing to grade, so no provider and no
         # self-grade; recorded at once as an ordinary attempt scored 0.
@@ -1110,7 +1118,8 @@ def submit_attempt_on(
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     _attach_hint_reveals(
-        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at
+        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
+        latency_seconds=params.latency_seconds,
     )
     return payload
 
@@ -1134,7 +1143,9 @@ def submit_dont_know_on(
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
     hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
-    hint_submitted_at = _stamp_hint_submission(vault, repository, submission_id, params.practice_item_id)
+    hint_submitted_at = _stamp_hint_submission(
+        vault, repository, submission_id, params.practice_item_id, params.latency_seconds
+    )
     if stuck_prompt_active(vault):
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:
@@ -1206,7 +1217,8 @@ def submit_dont_know_on(
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     _attach_hint_reveals(
-        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at
+        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
+        latency_seconds=params.latency_seconds,
     )
     return payload
 
@@ -1249,7 +1261,7 @@ def _record_empty_stuck(
     _store_submission_receipt(repository, draft.submission_id, result.attempt_id, result.practice_item_id, payload)
     _attach_hint_reveals(
         vault, repository, draft.submission_id, result.practice_item_id, result.attempt_id,
-        submitted_at=hint_submitted_at,
+        submitted_at=hint_submitted_at, latency_seconds=draft.latency_seconds,
     )
     return payload
 

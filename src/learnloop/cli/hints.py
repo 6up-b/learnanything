@@ -49,7 +49,7 @@ def hints_report(
     """Hints by surface, kind and level (authored hints are the baseline): shown, items,
     sessions, timing, more help, the attempt's outcome and later independent success."""
 
-    from learnloop.hints.report import build_hints_report
+    from learnloop.hints.report import build_hints_report, item_caps
 
     now = datetime.now(UTC)
     try:
@@ -59,7 +59,10 @@ def hints_report(
             raise ValueError("--vault must contain learnloop.toml")
         loaded = load_vault(vault, load_environment=False)
         path = VaultPaths(loaded.root, loaded.config).sqlite_path
-        report = build_hints_report(path, since=_since(since, now), surface=surface, now=now)
+        report = build_hints_report(
+            path, since=_since(since, now), surface=surface, now=now,
+            item_caps=item_caps(loaded.practice_items.values()),
+        )
         report["hints"] = loaded.config.hints.model_dump(mode="json")
         typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     except (ValueError, OSError, sqlite3.Error) as exc:

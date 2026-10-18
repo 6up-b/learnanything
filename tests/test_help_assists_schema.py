@@ -55,9 +55,10 @@ READER_COLUMNS = {
 #: from the served kind, and the question-set version and state hash.
 LOGGED_COLUMNS = {"drawn_option_json", "question_set_version", "state_hash"}
 #: What binds a row to its attempt and times it (docs/reviews/hints-h0-codex-review.md
-#: F1, F2): the client's submission key, and when the submission reached the
-#: sidecar before grading (§6.1's "hint shown -> submit").
-SUBMISSION_COLUMNS = {"submission_id", "submitted_at"}
+#: F1, F2, round 2 V3): the client's submission key, when the submission
+#: reached the sidecar before grading (§6.1's "hint shown -> submit"), and the
+#: open-to-submit latency that same submission sent (stamped with it).
+SUBMISSION_COLUMNS = {"submission_id", "submitted_at", "submit_latency_seconds"}
 
 CHECKED_VALUES = {
     "surface": ("practice", "workbench", "guided_redo", "tutor"),
@@ -93,6 +94,8 @@ REJECTED_VALUES = {
     "work_chars": (-1,),
     "propensity": (-0.1, 1.5),
     "latency_ms": (-1,),
+    # Only with its submit time (stamped together), and never negative.
+    "submit_latency_seconds": (12.5,),
 }
 NULLABLE_CHECKED = ("hint_kind", "request", "feedback_shortcut", "level_source", "counted_by", "level", "offered_level")
 
@@ -154,6 +157,10 @@ def _check_constraints(database: Path) -> None:
             for index, value in enumerate(values):
                 with pytest.raises(sqlite3.IntegrityError):
                     store.insert_assist(connection, _base(f"bad_{column}_{index}", **{column: value}))
+        for index, seconds in enumerate((0, 12.5)):
+            store.insert_assist(connection, _base(f"ok_latency_{index}", submitted_at=NOW, submit_latency_seconds=seconds))
+        with pytest.raises(sqlite3.IntegrityError):
+            store.insert_assist(connection, _base("bad_latency_negative", submitted_at=NOW, submit_latency_seconds=-1))
         for required in ("surface", "assist_kind", "chooser", "shown", "requested_at"):
             row = _base(f"missing_{required}")
             del row[required]
@@ -245,8 +252,8 @@ def test_the_workbench_lifecycle_binds_each_deferred_column_once(tmp_path):
         # The import binds the problem to an item; then Submit binds the rest.
         connection.execute("UPDATE help_assists SET practice_item_id = 'pi_1' WHERE id = 'ha_wb'")
         connection.execute(
-            "UPDATE help_assists SET practice_session_id = 's1', submission_id = 'sub-1', submitted_at = ? "
-            "WHERE id = 'ha_wb'", (NOW,))
+            "UPDATE help_assists SET practice_session_id = 's1', submission_id = 'sub-1', submitted_at = ?, "
+            "submit_latency_seconds = 42 WHERE id = 'ha_wb'", (NOW,))
         connection.execute("UPDATE help_assists SET attempt_id = 'att_1' WHERE id = 'ha_wb'")
         connection.commit()
         row = connection.execute("SELECT practice_session_id, submission_id, submitted_at, attempt_id "
@@ -256,11 +263,17 @@ def test_the_workbench_lifecycle_binds_each_deferred_column_once(tmp_path):
             "practice_session_id = 's2'", "practice_session_id = NULL",
             "submission_id = 'sub-2'", "submission_id = NULL",
             "submitted_at = '2026-10-17T11:00:00.000Z'", "submitted_at = NULL",
+            "submit_latency_seconds = 120", "submit_latency_seconds = NULL",
             "workbench_session_id = 'wb_2'", "workbench_session_id = NULL",
             "attempt_id = 'att_2'", "attempt_id = NULL",
         ):
             with pytest.raises(sqlite3.IntegrityError, match="fixed"):
                 connection.execute(f"UPDATE help_assists SET {change} WHERE id = 'ha_wb'")
+        # A submit time stamped without a latency never gains one later: the
+        # two are one submission's (round 2, V3).
+        store.insert_assist(connection, _base("ha_late", submission_id="sub-3", submitted_at=NOW))
+        with pytest.raises(sqlite3.IntegrityError, match="fixed"):
+            connection.execute("UPDATE help_assists SET submit_latency_seconds = 120 WHERE id = 'ha_late'")
         # The rest stays fillable (a later phase's columns).
         connection.execute("UPDATE help_assists SET shown_at = ?, step_verdicts_json = '[]' WHERE id = 'ha_wb'", (NOW,))
         connection.commit()
@@ -280,26 +293,41 @@ def test_the_store_attach_matches_the_submission_key_only(tmp_path):
         store.insert_assist(connection, _base("ha_a", submission_id="sub-a", **common))
         store.insert_assist(connection, _base("ha_b", submission_id="sub-b", **common))
         store.insert_assist(connection, _base("ha_none", **common))
-        assert store.stamp_submitted(connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at=NOW) == 1
         assert store.stamp_submitted(
-            connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at="2026-10-17T10:05:00.000Z"
-        ) == 0  # the first stamp stays
+            connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at=NOW, latency_seconds=60
+        ) == 1
+        assert store.stamp_submitted(
+            connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at="2026-10-17T10:05:00.000Z",
+            latency_seconds=120,
+        ) == 0  # the first stamp stays, time and latency
         assert store.attach_submission(
             connection, submission_id="sub-b", practice_item_id="pi_1", attempt_id="att_b",
-            submitted_at="2026-10-17T10:09:00.000Z",
+            submitted_at="2026-10-17T10:09:00.000Z", latency_seconds=180,
         ) == 1
         assert store.attach_submission(connection, submission_id="sub-b", practice_item_id="pi_1", attempt_id="att_b") == 0
         assert store.attach_submission(connection, submission_id="sub-a", practice_item_id="pi_2", attempt_id="att_x") == 0
         assert store.attach_submission(
             connection, submission_id="sub-a", practice_item_id="pi_1", attempt_id="att_a",
-            submitted_at="2026-10-17T10:01:00.000Z",
+            submitted_at="2026-10-17T10:01:00.000Z", latency_seconds=30,
+        ) == 1
+        # A recovery attach knows no submit time: it writes no latency either.
+        store.insert_assist(connection, _base("ha_c", submission_id="sub-c", **common))
+        assert store.attach_submission(
+            connection, submission_id="sub-c", practice_item_id="pi_1", attempt_id="att_c", latency_seconds=30
+        ) == 1
+        # A negative latency is not believed; the submit time is kept.
+        store.insert_assist(connection, _base("ha_d", submission_id="sub-d", **common))
+        assert store.stamp_submitted(
+            connection, submission_id="sub-d", practice_item_id="pi_1", submitted_at=NOW, latency_seconds=-5
         ) == 1
         rows = {row[0]: tuple(row[1:]) for row in connection.execute(
-            "SELECT id, attempt_id, submitted_at FROM help_assists ORDER BY id")}
+            "SELECT id, attempt_id, submitted_at, submit_latency_seconds FROM help_assists ORDER BY id")}
         assert rows == {
-            "ha_a": ("att_a", "2026-10-17T10:01:00.000Z"),
-            "ha_b": ("att_b", NOW),
-            "ha_none": (None, None),
+            "ha_a": ("att_a", "2026-10-17T10:01:00.000Z", 30.0),
+            "ha_b": ("att_b", NOW, 60.0),
+            "ha_c": ("att_c", None, None),
+            "ha_d": (None, NOW, None),
+            "ha_none": (None, None, None),
         }
 
 

@@ -20,8 +20,13 @@ when the submission reached it, before grading (``practice_attempts.
 created_at`` is stamped when the grade is applied, after the grader's
 latency). A row without a submit time (an attach repaired by a recovery that
 never saw the submit) is counted in ``timing_unknown`` and never timed from
-the grade's time. "Seconds into the attempt" is the attempt's client-measured
-latency (open to submit) minus that gap.
+the grade's time. "Seconds into the attempt" is the open-to-submit latency
+that same submission sent (``submit_latency_seconds``, stamped with
+``submitted_at`` and kept with it) minus that gap, never the attempt's
+``latency_seconds``: a grading fallback's retry records a later latency, and
+the two would not be on one basis. A row without either is counted in
+``seconds_into_attempt_unknown`` by reason (``no_submit_time``,
+``no_submit_latency``).
 
 **Outcomes are never imputed.** The next independent attempt (``hints_used =
 0``, not primed) on the item, and on its learning object, is the outcome:
@@ -31,22 +36,30 @@ searched for instead), ``pending`` while none has happened.
 
 **Unaided next progress** (§6.1). For an authored hint (no map, so its target
 is the next node) the grade settles one case: a fully correct submission with
-no further help after the hint reached the goal. Every other case is reported
-as unknown with its reason, never as a failure: more help followed (H2's next
-hint placement says whether the learner progressed first), the answer was not
-fully correct (H2's outcome placement, ``hint_outcome``), no grade, primed
-(worked help or a disclosed answer), or help the rows cannot order (the
-attempt counts more help than its recorded reveals: tutor questions, held
-workbench hints, a reveal the telemetry missed).
+no further help after the hint reached the goal. "No further help" is
+established only from records no cap applies to: the submission's own rows
+and, for the attempt (after the item's previous attempt, up to this one),
+the tutor's questions, reveal events (except this submission's own self-grade
+disclosure) and the workbench's held hints. ``hints_used`` is the client's
+count plus the tutor's, capped at the item's ``max_useful_hints``, so it can
+only confirm what those records say. Every other case is reported as unknown
+with its reason, never as a failure: more help followed (H2's next hint
+placement says whether the learner progressed first), primed (worked help or
+a disclosed answer), help the rows cannot order (``help_not_ordered``: other
+assistance recorded in the attempt, or a count above its recorded reveals),
+a count that reached the item's cap (``help_count_capped``: the client's
+count may have been larger), a cap that cannot be known (``help_cap_unknown``:
+the report was given no items, or the item changed since the hint), no grade,
+or an answer not fully correct (H2's outcome placement, ``hint_outcome``).
 
 **Uncertainty.** Every number carries its sample size. A share carries a 95%
 Wilson score interval (``None`` when its denominator is 0; at n = 1 it spans
 most of [0, 1], as it should). A timing or count summary's p50 and p95 carry a
 distribution-free 95% interval from the order statistics (the binomial
-coverage of [X(j), X(k)] for the quantile); when no pair of observations
-reaches 95% coverage (the median needs n >= 6, p95 needs n >= 59) the interval
-is ``None`` with ``reason: "too_few"``. Every number is a report, never a
-threshold (§6).
+coverage of [X(j), X(k)] for the quantile, its terms computed in log space so
+any n works); when no pair of observations reaches 95% coverage (the median
+needs n >= 6, p95 needs n >= 59) the interval is ``None`` with ``reason:
+"too_few"``. Every number is a report, never a threshold (§6).
 
 Pure read: the database is opened read-only and never migrated, no model is
 called, and no learner text is read (the rows carry a hash and a length of the
@@ -56,8 +69,10 @@ expertise-reversal split need H2-H5's rows and are not computed here.
 
 from __future__ import annotations
 
+import json
 import math
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
@@ -65,6 +80,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.vault.hashes import practice_item_hash
 
 REPORT_VERSION = "hints-report-v1"
 #: How many items the per-item list shows (a display cap).
@@ -73,7 +89,42 @@ TOP_ITEMS = 20
 INTERVAL_LEVEL = 0.95
 _Z = 1.959963984540054
 #: The unknown cases of unaided next progress, in the order they are checked.
-UNAIDED_UNKNOWN_REASONS = ("more_help_followed", "primed", "help_not_ordered", "ungraded", "not_fully_correct")
+UNAIDED_UNKNOWN_REASONS = (
+    "more_help_followed", "primed", "help_not_ordered", "help_count_capped", "help_cap_unknown", "ungraded",
+    "not_fully_correct",
+)
+#: Why "seconds into the attempt" is unknown for a row.
+INTO_ATTEMPT_UNKNOWN_REASONS = ("no_submit_time", "no_submit_latency")
+#: The basis prefix of a plain self-grade's disclosure row
+#: (``attempts.reveal_ledger.SELF_GRADE_DISCLOSURE_BASIS``; that package is
+#: closed to this one, G-H13): its JSON identity names the submission.
+_SELF_GRADE_DISCLOSURE = "self_grade_disclosure:"
+
+
+def item_caps(practice_items: Iterable[Any]) -> dict[str, tuple[str, int]]:
+    """Each item's content hash and ``max_useful_hints`` (0: no cap), for the
+    report's completeness check: a row's cap is known only when the item is
+    unchanged since the hint (the row's ``practice_item_hash``)."""
+
+    return {
+        item.id: (practice_item_hash(item), int(item.hint_policy.max_useful_hints or 0)) for item in practice_items
+    }
+
+
+def _own_disclosure(reveal: Mapping[str, Any], submission_id: str | None) -> bool:
+    """The submission's own plain self-grade disclosure (shown after its trace
+    was frozen; a trace changed after it makes the attempt primed)."""
+
+    basis = reveal["basis"]
+    if not submission_id or reveal["source_kind"] != "answer_display" or not isinstance(basis, str):
+        return False
+    if not basis.startswith(_SELF_GRADE_DISCLOSURE) or "{" not in basis:
+        return False
+    try:
+        identity = json.loads(basis[basis.index("{"):])
+    except ValueError:
+        return False
+    return isinstance(identity, dict) and identity.get("submission") == submission_id
 
 
 def _wilson(count: int, of: int) -> dict[str, Any] | None:
@@ -89,6 +140,20 @@ def _wilson(count: int, of: int) -> dict[str, Any] | None:
     }
 
 
+def _binomial_pmf(n: int, q: float) -> list[float]:
+    """P(B = i) for i = 0..n, B ~ Binomial(n, q), 0 < q < 1, in log space: the
+    exact coefficient times ``q**i`` overflows a float from n = 1030 (review
+    round 2, V1). The two log-factorials are added before they are subtracted
+    and the two powers are added together, so P(i) and P(n - i) are the same
+    float at q = 0.5 and the interval breaks a tie exactly as before."""
+
+    log_n, log_q, log_r = math.lgamma(n + 1), math.log(q), math.log(1.0 - q)
+    return [
+        math.exp(log_n - (math.lgamma(i + 1) + math.lgamma(n - i + 1)) + (i * log_q + (n - i) * log_r))
+        for i in range(n + 1)
+    ]
+
+
 def _quantile_interval(ordered: list[float], q: float) -> dict[str, Any]:
     """A distribution-free interval for the q-quantile: the order statistics
     [X(j), X(k)] (1-based) cover it with probability P(j <= B <= k - 1),
@@ -99,7 +164,7 @@ def _quantile_interval(ordered: list[float], q: float) -> dict[str, Any]:
     if n == 0:
         return {"method": "order_statistic", "level": INTERVAL_LEVEL, "low": None, "high": None,
                 "coverage": None, "reason": "empty"}
-    pmf = [math.comb(n, i) * q**i * (1.0 - q) ** (n - i) for i in range(n + 1)]
+    pmf = _binomial_pmf(n, q)
     rank = max(1, math.ceil(q * n))
     low, high, coverage = rank, rank, 0.0
     while coverage < INTERVAL_LEVEL:
@@ -166,8 +231,15 @@ def build_hints_report(
     since: str | None = None,
     surface: str | None = None,
     now: datetime | None = None,
+    item_caps: Mapping[str, tuple[str, int]] | None = None,
 ) -> dict[str, Any]:
-    """Compute the descriptive rows from ``help_assists`` and the attempts (pure read)."""
+    """Compute the descriptive rows from ``help_assists`` and the attempts (pure read).
+
+    ``item_caps`` (:func:`item_caps` of the vault's items) gives each item's
+    hint cap; without it no row's help count can be shown complete, so
+    unaided next progress is ``help_cap_unknown`` throughout."""
+
+    caps = dict(item_caps or {})
 
     now = (now or datetime.now(UTC)).astimezone(UTC)
     since_at = _when(since) if since else None
@@ -184,9 +256,10 @@ def build_hints_report(
         rows = [
             dict(row)
             for row in connection.execute(
-                "SELECT id, surface, assist_kind, hint_kind, level, practice_item_id, practice_session_id, "
-                "attempt_id, submission_id, authored_index, work_chars, counted_by, requested_at, shown_at, "
-                f"submitted_at FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
+                "SELECT id, surface, assist_kind, hint_kind, level, practice_item_id, practice_item_hash, "
+                "practice_session_id, attempt_id, submission_id, authored_index, work_chars, counted_by, "
+                "requested_at, shown_at, submitted_at, submit_latency_seconds "
+                f"FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
                 parameters,
             ).fetchall()
         ]
@@ -240,6 +313,12 @@ def build_hints_report(
                     independent_by_item[row["practice_item_id"]].append(dict(row))
                 if row["learning_object_id"] in los:
                     independent_by_lo[row["learning_object_id"]].append(dict(row))
+        # The assistance each hinted attempt recorded outside its own rows,
+        # uncapped (review round 2, V2).
+        other_help = {
+            attempt_id: _other_assistance(connection, attempts[attempt_id])
+            for attempt_id in sorted({row["resolved_attempt"] for row in rows if row["resolved_attempt"]})
+        }
 
     def later(attempt: dict[str, Any], pool: list[dict[str, Any]]) -> str:
         """The next independent attempt's outcome, never a later one's."""
@@ -277,8 +356,14 @@ def build_hints_report(
         if attempt["primed"]:
             return "primed"
         recorded = sum(1 for other in by_attempt[row["resolved_attempt"]] if other["counted_by"] == "client")
-        if int(attempt["hints_used"] or 0) > recorded:
+        hints_used = int(attempt["hints_used"] or 0)
+        if other_help[row["resolved_attempt"]] or hints_used > recorded:
             return "help_not_ordered"
+        cap = caps.get(attempt["practice_item_id"])
+        if cap is None or cap[0] != row["practice_item_hash"]:
+            return "help_cap_unknown"
+        if cap[1] > 0 and hints_used >= cap[1]:
+            return "help_count_capped"
         outcome = _outcome(attempt["correctness"])
         if outcome == "ungraded":
             return "ungraded"
@@ -294,6 +379,7 @@ def build_hints_report(
         to_submit: list[float] = []
         into_attempt: list[float] = []
         timing_unknown = 0
+        into_unknown: Counter = Counter()
         more_help = 0
         progress = Counter(unaided(row) for row in attached)
         for row in attached:
@@ -303,10 +389,15 @@ def build_hints_report(
             if shown is not None and submitted is not None:
                 gap = max(0.0, (submitted - shown).total_seconds())
                 to_submit.append(round(gap, 3))
-                if attempt["latency_seconds"] is not None:
-                    into_attempt.append(round(max(0.0, float(attempt["latency_seconds"]) - gap), 3))
+                # The latency the same submission sent, never the attempt's
+                # (a fallback's retry records a later one; review round 2, V3).
+                if row["submit_latency_seconds"] is not None:
+                    into_attempt.append(round(max(0.0, float(row["submit_latency_seconds"]) - gap), 3))
+                else:
+                    into_unknown["no_submit_latency"] += 1
             else:
                 timing_unknown += 1
+                into_unknown["no_submit_time"] += 1
             if any(
                 (other["requested_at"], other["id"]) > (row["requested_at"], row["id"])
                 for other in by_attempt[row["resolved_attempt"]]
@@ -344,6 +435,9 @@ def build_hints_report(
             "work_empty_at_request": _share(sum(1 for row in members if not row["work_chars"]), len(members)),
             "seconds_reveal_to_submit": _percentiles(to_submit),
             "seconds_into_attempt": _percentiles(into_attempt),
+            "seconds_into_attempt_unknown": {
+                reason: into_unknown.get(reason, 0) for reason in INTO_ATTEMPT_UNKNOWN_REASONS
+            },
             "timing_unknown": timing_unknown,
             "more_help_in_attempt": _share(more_help, len(attached)),
             "unaided_next_progress": {
@@ -398,4 +492,45 @@ def build_hints_report(
     }
 
 
-__all__ = ["REPORT_VERSION", "build_hints_report"]
+def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> bool:
+    """Whether the attempt recorded assistance outside its help rows, read
+    uncapped from the records themselves: over the attempt's window (after
+    the item's previous attempt, up to this one; ``tutor_qa.
+    hint_equivalents_for_attempt``'s), a tutor question that was answered or
+    counted as a hint, a reveal event (a post-attempt display of the previous
+    attempt included; this submission's own self-grade disclosure excluded),
+    or a workbench problem on the item, open at the attempt, holding a hint
+    (``reader.workbench.session_hints``: the book counted, carried hints)."""
+
+    item_id, until = attempt["practice_item_id"], attempt["created_at"]
+    previous = connection.execute(
+        "SELECT id, created_at FROM practice_attempts WHERE practice_item_id = ? "
+        "AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT 1",
+        (item_id, until, until, attempt["id"]),
+    ).fetchone()
+    since = previous["created_at"] if previous is not None else None
+    previous_id = previous["id"] if previous is not None else None
+    if connection.execute(
+        "SELECT 1 FROM question_events WHERE practice_item_id = ? AND created_at <= ? "
+        "AND (? IS NULL OR created_at > ?) AND (hint_equivalent = 1 OR answer_status = 'answered') LIMIT 1",
+        (item_id, until, since, since),
+    ).fetchone() is not None:
+        return True
+    for reveal in connection.execute(
+        "SELECT source_kind, basis FROM reveal_events WHERE practice_item_id = ? AND amount > 0 "
+        "AND ((created_at <= ? AND (? IS NULL OR created_at > ?)) OR (? IS NOT NULL AND attempt_id = ?))",
+        (item_id, until, since, since, previous_id, previous_id),
+    ).fetchall():
+        if not _own_disclosure(reveal, attempt["submission_id"]):
+            return True
+    return connection.execute(
+        "SELECT 1 FROM workbench_sessions WHERE practice_item_id = ? AND created_at <= ? "
+        "AND (closed_at IS NULL OR closed_at >= ?) "
+        "AND (source_shown_at IS NOT NULL OR carried_hints > 0 OR (origin = 'reader' AND source_visible = 1)) LIMIT 1",
+        (item_id, until, until),
+    ).fetchone() is not None
+
+
+__all__ = [
+    "INTO_ATTEMPT_UNKNOWN_REASONS", "REPORT_VERSION", "UNAIDED_UNKNOWN_REASONS", "build_hints_report", "item_caps",
+]

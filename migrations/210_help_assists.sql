@@ -111,6 +111,14 @@ CREATE TABLE help_assists (
   -- "hint shown -> submit" (practice_attempts.created_at is stamped when the
   -- grade is applied, after the grader's latency). NULL when unknown.
   submitted_at TEXT,
+  -- The client's open-to-submit seconds that same submission sent, stamped
+  -- with submitted_at and only with it, so "seconds into the attempt" is
+  -- measured on one basis: a grading fallback's retry sends a later latency
+  -- (practice_attempts.latency_seconds keeps the retry's) and replaces
+  -- neither. NULL when the submission sent none or its time is unknown.
+  submit_latency_seconds REAL CHECK (
+    submit_latency_seconds IS NULL OR (submit_latency_seconds >= 0 AND submitted_at IS NOT NULL)
+  ),
   -- The Reader workbench's columns (its §5.7).
   step_snapshot_json TEXT,
   step_verdicts_json TEXT,
@@ -137,7 +145,9 @@ CREATE INDEX idx_help_assists_requested ON help_assists(surface, requested_at);
 -- binding, once made, is never moved. The bindings a later surface learns
 -- only after the row is written (the workbench's practice session and
 -- submission, filled at Submit; the attempt; the submit time) may each go
--- from NULL to a value once, never to another value or back to NULL.
+-- from NULL to a value once, never to another value or back to NULL. The
+-- submission's latency is written in the same update as its time, never
+-- after it.
 CREATE TRIGGER help_assists_no_delete
 BEFORE DELETE ON help_assists
 BEGIN
@@ -154,6 +164,7 @@ WHEN NEW.id IS NOT OLD.id
   OR (OLD.workbench_session_id IS NOT NULL AND NEW.workbench_session_id IS NOT OLD.workbench_session_id)
   OR (OLD.submission_id IS NOT NULL AND NEW.submission_id IS NOT OLD.submission_id)
   OR (OLD.submitted_at IS NOT NULL AND NEW.submitted_at IS NOT OLD.submitted_at)
+  OR (OLD.submitted_at IS NOT NULL AND NEW.submit_latency_seconds IS NOT OLD.submit_latency_seconds)
   OR (OLD.attempt_id IS NOT NULL AND NEW.attempt_id IS NOT OLD.attempt_id)
 BEGIN
   SELECT RAISE(ABORT, 'help_assists: identity columns and a binding once set are fixed');

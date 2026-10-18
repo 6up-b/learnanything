@@ -82,11 +82,13 @@ carries a second widening for `hint_feedback`.
 
 ### 1.1 Migration 210 (`migrations/210_help_assists.sql`)
 
-`help_assists`, RAW_LEDGER (`db/table_roles.py`), 60 columns: every column of
+`help_assists`, RAW_LEDGER (`db/table_roles.py`), 61 columns: every column of
 the hints spec's §9 row (38), the Reader's §5.7 workbench columns (17,
 `assist_kind` included), three logged-but-unlisted columns (§3 below) and,
-after the Codex review (`docs/reviews/hints-h0-codex-review.md`), the two
-submission columns `submission_id` and `submitted_at` (F1, F2).
+after the Codex review (`docs/reviews/hints-h0-codex-review.md`), the three
+submission columns `submission_id`, `submitted_at` (F1, F2) and
+`submit_latency_seconds` (round 2, V3: the latency the same submission sent,
+stamped with `submitted_at`, allowed only beside it, and fixed with it).
 CHECKs, each holding every value either spec writes: `surface` (`practice`,
 `workbench`, `guided_redo`, `tutor`), `assist_kind` (`hint`, `check`,
 `discriminate_answer`, `bridge`, `example`, `compare_methods`, `feedback`),
@@ -201,9 +203,12 @@ flagged `baseline`): shown, items, sessions, attempts, unattached, reveals per
 item and per session (p50/p95 with n), which hint in the list
 (`by_authored_index`), empty work at request, seconds from reveal to submit
 (to `submitted_at`, before grading; rows without one in `timing_unknown`,
-review F2) and seconds into the attempt (from the attempt's latency), more
-help in the same attempt, unaided next progress where the grade settles it
-(reached, or unknown by reason; review F5), the attempt's recorded outcome
+review F2) and seconds into the attempt (from the latency that same submission
+sent, `submit_latency_seconds`, never the attempt's; unknown by reason
+otherwise; round 2, V3), more help in the same attempt, unaided next progress
+where the grade settles it (reached only when the uncapped records show the
+submission's rows were all its help; otherwise unknown by reason; review F5,
+round 2 V2), the attempt's recorded outcome
 (correct / partial / incorrect / ungraded from `practice_attempts.correctness`),
 attempt types, later independent success on the item and on its learning
 object (the next independent attempt: pass / fail / ungraded / pending, never
@@ -223,7 +228,7 @@ expertise-reversal split). The CLI adds the vault's `[hints]` section.
 | No evidence change (H1, §5): `hints_used`, `primed`, reveal events, evidence byte-identical on vs off | the same comparison, plus explicit `attempt_type, hints_used, primed` rows and `reveal_events` count 0; `::test_submit_attaches...` (the client's count kept with more rows than it counts) |
 | G-H10: rebuild and replay make zero model and embedding calls with `help_assists` populated, and never read it | `::test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it` (model/embedding client constructors forbidden; the derived state equals a rebuild of a copy with the table dropped; rows untouched; shadow rebuild too) |
 | G-H13: import-linter contract; RPC desktop-only; table classified | `lint-imports` (`hints-never-write-evidence`), `test_mobile_allowlist.py`, `test_help_assists_schema.py::test_help_assists_is_a_raw_ledger`, `test_table_roles.py` |
-| G-H17: one schema with every column and CHECK value of both specs | `test_help_assists_schema.py` (columns = §9 + §5.7 + the three logged columns + the two submission columns, in `COLUMNS` order; the workbench's deferred bindings set once (F3); every CHECK value admitted, NULL where optional, outside values and `different_approach` refused; the 209 -> 210 upgrade adds only the table, indexes and triggers; the durability lane) |
+| G-H17: one schema with every column and CHECK value of both specs | `test_help_assists_schema.py` (columns = §9 + §5.7 + the three logged columns + the three submission columns, in `COLUMNS` order; the workbench's deferred bindings set once (F3); every CHECK value admitted, NULL where optional, outside values and `different_approach` refused; the 209 -> 210 upgrade adds only the table, indexes and triggers; the durability lane) |
 | G-H14 (cold and probe parity) | the screen's existing refusals are untouched (vitest: no call on a refused reveal in a diagnostic check or a plain-card check on your own); the sidecar's served-probe check (`::test_no_row_during_a_diagnostic_block`, `::test_the_diagnostic_block_is_a_served_probe_of_this_item`) |
 
 ## 3. The two specs' column lists, cross-checked
