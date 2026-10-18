@@ -261,7 +261,7 @@ uv run learnloop gaps run --backlog --vault <path>                         # swe
 5. **An open problem's help is held by an answer-box submit, and again by the problem's own later submit** (two attempts, each assisted by it), RW2a's rule for the book. Default: as built.
 6. **A refused submit's stamp** makes a hint still pending at that moment undeliverable (deviation 3). Default: accepted; the learner asks again.
 7. **The rail's tabs in the header's `⋯`** (RW2a open question 5). Default: not yet; the ladder took the room.
-8. **The suggestion's ledger row names a reserved assist id** (deviation 9). Default: as built; H5 joins by the judgment id the take's row keeps in `policy`/`drawn_option_json`.
+8. **The suggestion's ledger row names a reserved assist id** (deviation 9). Default: as built; H5 links a take to its suggestion by the `seed` the take's row keeps (the ledger row's seed).
 9. **Rung 1 off the questionable step** (deviation 8). Default: an approach question.
 
 ## 9. Friction notes for RW2c, RW2d, H4 and H5
