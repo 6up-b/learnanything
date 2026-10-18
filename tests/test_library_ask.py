@@ -238,3 +238,18 @@ def test_a_failed_organizer_keeps_the_passages(library):
     notes = call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
     assert notes["status"] == "failed" and notes["notes"] == []
     assert asked["hits"]  # the excerpts were already shown, and stay
+
+
+def test_the_reader_report_counts_library_asks_without_their_words(library):
+    from learnloop.reader.reader_report import build_reader_report
+
+    _paths, ctx, _spans = library
+    _vault, repository = ctx.require_vault()
+    asked = _ask(ctx)
+    ctx.library_organizer_client = OrganizerFake(wrong_cite=("p2",))
+    call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
+    _ask(ctx, entry="what_do_i_need_first", query="what comes first")
+    report = build_reader_report(repository.sqlite_path)["library"]
+    assert report["asks"] == 2 and report["by_entry"] == {"reader": 1, "what_do_i_need_first": 1}
+    assert report["notes"] == {"judged": 1, "not_run": 1} and report["lines_dropped"] == 1
+    assert QUESTION not in json.dumps(report) and "what comes first" not in json.dumps(report)

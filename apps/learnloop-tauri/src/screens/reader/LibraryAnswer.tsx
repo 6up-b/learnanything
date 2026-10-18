@@ -8,7 +8,7 @@
 // to the tutor ("answers only from these N passages"). "Practice this
 // question" lists proposals; picking one is a learner pick the plan serves.
 // Nothing here takes focus, animates or opens a modal (G54).
-import { useState } from "react";
+import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { CompareTableDto, LibraryHitDto, LibraryNoteDto, ProposedItemDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { MarkdownMath } from "../../render/MarkdownMath";
@@ -58,7 +58,12 @@ function HitBlock({
 }) {
   const modelRole = note?.roles?.length && hit.role !== note.roles[0] ? note.roles[0].replace(/_/g, " ") : null;
   return (
-    <div data-library-hit={hit.key} style={{ display: "flex", flexDirection: "column", gap: 4, opacity: note?.verdict === "unrelated" ? 0.75 : 1 }}>
+    <div
+      data-library-hit={hit.key}
+      tabIndex={0}
+      aria-label={`${hit.sourceTitle ?? "a source"}, ${locator(hit)}${pinned ? ", pinned" : ""}`}
+      style={{ display: "flex", flexDirection: "column", gap: 4, opacity: note?.verdict === "unrelated" ? 0.75 : 1 }}
+    >
       <SourceVoice source={hit.sourceTitle} locator={locator(hit)}>
         <span style={{ fontSize: 12 }}>{clip(hit.text)}</span>
       </SourceVoice>
@@ -177,8 +182,55 @@ export function LibraryAnswer({
     );
   };
   const prerequisites = ask?.expansions.find((expansion) => expansion.expansion === "prerequisites");
+  // The comparing keys (UX §3.5), only while focus is inside the answer (never
+  // on the reading surface): ↑ ↓ move between passages · Space peek · p pin ·
+  // o open · c compare pinned · Ctrl+↵ ask the tutor about pinned.
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("input, textarea, select")) {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && state.pinned.length) {
+        event.preventDefault();
+        void ctl.askTutor(question);
+      }
+      return;
+    }
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("[data-library-hit]"));
+    const current = target.closest<HTMLElement>("[data-library-hit]");
+    const key = current?.getAttribute("data-library-hit") ?? null;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!items.length) return;
+      event.preventDefault();
+      const at = current ? items.indexOf(current) : -1;
+      const next = items[(at + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length];
+      next.focus({ preventScroll: false });
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      if (event.key === "Enter" && state.pinned.length) {
+        event.preventDefault();
+        void ctl.askTutor(question);
+      }
+      return;
+    }
+    if (key && event.key === " ") {
+      event.preventDefault();
+      void ctl.peek(key);
+    } else if (key && event.key === "p") {
+      event.preventDefault();
+      ctl.togglePin(key);
+    } else if (key && event.key === "o" && onOpenHit) {
+      const hit = hits.get(key);
+      if (hit) {
+        event.preventDefault();
+        onOpenHit(hit);
+      }
+    } else if (event.key === "c" && ctl.canCompare) {
+      event.preventDefault();
+      void ctl.compare();
+    }
+  };
   return (
-    <section aria-label="ask your library" data-library-answer="" style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
+    <section aria-label="ask your library" data-library-answer="" onKeyDown={onKeyDown} style={{ display: "flex", flexDirection: "column", gap: 12, padding: "16px 18px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <span style={headStyle}>{LIBRARY_COPY.title}</span>
         <span style={{ flex: 1 }} />
@@ -282,6 +334,7 @@ export function LibraryAnswer({
                   ) : null}
                   <button type="button" onClick={() => void ctl.practice()} style={linkStyle}>{LIBRARY_COPY.practice} ▸</button>
                 </div>
+                <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textDim }}>↑↓ move · space peek · p pin · o open · c compare pinned · ctrl+↵ ask the tutor about pinned</span>
                 {state.compare.phase !== "idle" ? (
                   <ModelActionState
                     phase={state.compare.phase}

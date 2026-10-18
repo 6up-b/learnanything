@@ -275,3 +275,25 @@ it("Shift+Enter in the library search asks your library instead of searching", a
   expect(await screen.findByText("A symmetric matrix equals its transpose.")).toBeTruthy();
   expect(api.readerSearchSources).not.toHaveBeenCalledWith(expect.objectContaining({ deep: true }));
 });
+
+it("the comparing keys work only inside the answer (UX §3.5)", async () => {
+  api.getSpanView.mockResolvedValue({ spanView: { extractionId: "ext_other", spanId: "o1", page: 3, text: "A symmetric matrix equals its transpose.",
+    previousSpans: [{ spanId: "o0", blockType: "Text", page: 3, ordinal: 1, text: "Before it.", truncated: false }], nextSpans: [] } });
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  await within(pane).findByText("gives the transpose definition");
+  const first = pane.querySelector<HTMLElement>("[data-library-hit]")!;
+  first.focus();
+  fireEvent.keyDown(first, { key: "p" });
+  expect(within(pane).getByRole("button", { name: "pinned ✓" })).toBeTruthy();
+  fireEvent.keyDown(first, { key: "ArrowDown" });
+  expect(document.activeElement).not.toBe(first);
+  fireEvent.keyDown(document.activeElement!, { key: "p" });
+  fireEvent.keyDown(document.activeElement!, { key: " " });
+  await waitFor(() => expect(api.getSpanView).toHaveBeenCalledWith(expect.objectContaining({ context: "library" })));
+  expect(await within(pane).findByText("Before it.")).toBeTruthy();
+  // Esc peels the peek first, then the posture.
+  fireEvent.keyDown(window, { key: "Escape" });
+  await waitFor(() => expect(within(pane).queryByText("Before it.")).toBeNull());
+  expect(screen.getByRole("region", { name: "ask your library" })).toBeTruthy();
+});
