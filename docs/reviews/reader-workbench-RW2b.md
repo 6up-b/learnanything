@@ -273,3 +273,9 @@ uv run learnloop gaps run --backlog --vault <path>                         # swe
 **H4 (guided redo and the tutor).** `service.SURFACES` is the one place to add a surface; `hints/workbench.py` is the pattern for a surface's context, options, rules and row columns. A surface whose submit can race its own deliveries can reuse the stamp-then-fold rule (`deliver_workbench`). A taken level 1-2 is never downgraded (`downgrade_allowed`). The writer's `build_prompt(workbench=…)` block is per surface.
 
 **H5 (off-policy report).** On workbench rows: the suggested rung's take logs the joint propensity (`level_source = offered`, `chooser = decider`); another rung the conditional (`learner_pick`, `chooser = decider`); a one-option rung `learner_pick` with 1; the fallback `fallback` with 1; `argmax` 1; the book's way and a smaller step `learner_pick` with none. The suggestion itself is a `hint_choice` ledger row (vectors, seed, draw) whose `left_id` names no row; the take that followed keeps `offered_level` and the drawn option.
+
+## 10. Fix round 1 (Codex review)
+
+`docs/reviews/reader-rw2b-h3-codex-review.md`: 15 findings (3 High), all fixed in `7ce123267`. That round supersedes
+deviation 5 and open question 1 (the check now runs on Codex, `estimated_only`, F12) and the first item of deviation
+13, which is open question 2 (a hint's own checkable claims are now verified before it is shown, F14).
