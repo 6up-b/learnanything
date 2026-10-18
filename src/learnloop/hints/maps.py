@@ -55,6 +55,8 @@ REASONS: tuple[str, ...] = (
     "unknown_checkpoint",
     "unknown_origin",
     "goal_mismatch",
+    # A seeded learner solution on no route, or on two (Codex review F4).
+    "unplaced_attempt",
     # A learner-route merge's own reasons.
     "merge_unknown_attempt",
     "merge_unplaced_attempt",
@@ -203,14 +205,35 @@ def leak_expressions(text: str) -> set[str]:
     return {expression.strip(".,;:") for expression in found if len(expression.strip(".,;:")) >= 2}
 
 
+#: An exact key the span-leak check cannot see: a lone digit, optionally
+#: signed (``span_leaks_expected`` deliberately ignores one-character tokens,
+#: and ``leak_expressions`` keeps two characters or more).
+_LONE_DIGIT_KEY = re.compile(r"-?\d")
+
+
+def _states_short_key(text: str, key: str | None) -> bool:
+    """Whether ``text`` states a lone-digit key as a number of its own (Codex
+    review F1): "4" in "The count is 4" or "$x = 4$", never inside "14",
+    "4.5", "3/4", "x_4" or "2^4"."""
+
+    value = (key or "").strip()
+    if not _LONE_DIGIT_KEY.fullmatch(value):
+        return False
+    pattern = rf"(?<![\w.,/^_]){re.escape(value)}(?![\w]|[.,/]\d)"
+    return re.search(pattern, str(text or "")) is not None
+
+
 def gives_away(text: str, expected_answer: str | dict[str, Any], key: str | None = None) -> bool:
     """Whether ``text`` contains or gives away the expected answer: the
     tutor's span-leak check against the whole answer and, where the answer
-    has an exact key (a worked solution's final value), against the key."""
+    has an exact key (a worked solution's final value), against the key; a
+    lone-digit key, which the span check ignores, by its own number token."""
 
     if span_leaks_expected(text, expected_answer):
         return True
-    return bool(key) and span_leaks_expected(text, str(key))
+    if not key:
+        return False
+    return span_leaks_expected(text, str(key)) or _states_short_key(text, key)
 
 
 def label_leaks(label: str, expressions: Collection[str], expected_answer: str | dict[str, Any]) -> bool:
@@ -254,22 +277,38 @@ def _differ(left: str, right: str) -> bool | None:
         return None
 
 
+def _state_conclusion(goal_state: str) -> str | None:
+    """The value the goal node's state concludes with, read as an exact key
+    is: the state itself when it is a short expression, else the numeric
+    conclusion of its last sentence ("Therefore P = 3/4" -> "3/4")."""
+
+    return exact_key(goal_state or "")
+
+
 def goal_agreement(goal_answer: str, goal_state: str, expected_answer: str | dict[str, Any]) -> tuple[str, str]:
     """``(verified | unverified | mismatch, basis)``: the goal against the
-    expected answer, by exact key where one exists (§4.3)."""
+    expected answer, by exact key where one exists (§4.3).
+
+    Both the builder's declaration (``goal_answer``) and the goal node's own
+    conclusion (the state routes reach) are checked, and a contradiction in
+    either is a mismatch before anything is verified (Codex review F2): a
+    correct declaration never verifies a goal node that concludes otherwise,
+    and an empty declaration never lets a wrong goal state through."""
 
     key = exact_key(expected_answer)
     if key is None:
         return "unverified", "no_exact_key"
     declared = (goal_answer or "").strip()
-    candidates = [value for value in (declared, asserted_conclusion(goal_state or "") or "") if value]
+    concluded = _state_conclusion(goal_state)
+    for value in dict.fromkeys(value for value in (declared, concluded) if value):
+        if _differ(value, key) is True:
+            return "mismatch", "exact_key" if value == declared else "goal_state"
+    candidates = [value for value in (declared, concluded, asserted_conclusion(goal_state or "") or "") if value]
     for candidate in dict.fromkeys(candidates):
         if _equal(candidate, key) is True:
             return "verified", "exact_key"
     if not declared:
         return "unverified", "no_goal_answer"
-    if _differ(declared, key) is True:
-        return "mismatch", "exact_key"
     return "unverified", "undecidable"
 
 
@@ -369,6 +408,20 @@ def validate_map(candidate: ApproachMapV1, context: MapContext) -> Validation:
                                                           "learner_attempt_ids": list(dict.fromkeys(attempts))}))
     if candidate.routes and not any(route.origin.strip() == "reference" for route in candidate.routes):
         fail("no_reference_route")
+    # Every seeded learner solution is on exactly one route (Codex review F4):
+    # the map's route assignments are what later merges treat as mined, so a
+    # solution left off every route would never be placed.
+    placements: dict[str, int] = {}
+    for route in normalized_routes:
+        for attempt in route.learner_attempt_ids:
+            placements[attempt] = placements.get(attempt, 0) + 1
+    seeded = list(dict.fromkeys(str(value) for value in context.attempt_refs.values()))
+    unplaced = [attempt for attempt in seeded if placements.get(attempt, 0) == 0]
+    twice = [attempt for attempt, count in placements.items() if count > 1]
+    if unplaced:
+        fail("unplaced_attempt", attempts=unplaced[:10])
+    if twice:
+        fail("unplaced_attempt", problem="an attempt on two routes", attempts=twice[:10])
     # Facets: every edge's facets belong to the item.
     for edge in edges:
         foreign = [facet for facet in edge.facet_ids if context.canonical_facet(facet) not in context.facet_ids]
@@ -403,7 +456,7 @@ def validate_map(candidate: ApproachMapV1, context: MapContext) -> Validation:
     # The goal agrees with the expected answer by exact key where one exists.
     agreement, basis = goal_agreement(candidate.goal_answer, goal.state if goal else "", context.expected_answer)
     if agreement == "mismatch":
-        fail("goal_mismatch", goal_answer=candidate.goal_answer)
+        fail("goal_mismatch", goal_answer=candidate.goal_answer, basis=basis)
     ordered = list(dict.fromkeys(reasons))
     normalized = candidate.model_copy(update={"nodes": normalized_nodes, "routes": normalized_routes})
     return Validation(valid=not ordered, reasons=ordered, details=details,

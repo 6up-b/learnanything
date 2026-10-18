@@ -35,9 +35,21 @@ the reasons, so the report counts failures by reason.
 
 **Revision keys.** A map is current for an item when it was built for the
 item's ``practice_item_hash`` and ``structure_hash`` (the trace contract, PF
-skeletons and authored hints); ``seeds_hash`` (every seed, the learner's
-attempts and source passages included) keys the row, so a revised item or
-changed seeds is a new row with ``supersedes_id``, never an update.
+skeletons, authored hints and the resolved rubric); ``seeds_hash`` (every
+seed, the learner's attempts and source passages included) keys the row, so a
+revised item or changed seeds is a new row with ``supersedes_id``, never an
+update.
+
+**One builder per item across processes** (Codex review F3). The in-process
+lock serializes a process's threads; a durable claim on the shared
+``judgment_work_claims`` machinery (key ``approach_map_build:<item id>``, a
+lease renewed by a heartbeat while the build or merge runs, released when it
+ends, expiring if its process dies) keeps a sidecar, a CLI backfill and a
+second sidecar from paying for the same item at once. The commit is fenced:
+it lands only while this worker's lease holds, a build only when no map of
+the revision was stored meanwhile, and a merge only onto the base map it
+read (a stale merge is not stored: its attempts stay unmined and the next
+merge takes them).
 
 ``hints.maps.enabled = false`` builds nothing and :func:`current_map` reads
 nothing. Maps are help, never evidence, and never reach the grader.
@@ -45,8 +57,8 @@ nothing. Maps are help, never evidence, and never reach the grader.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import closing
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager
 import contextvars
 from dataclasses import asdict, dataclass, field
 import json
@@ -68,6 +80,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import approach_maps as store
+from learnloop.db.stores.judgment_claims import CLAIMED, claim_work, holds_claim, release_claim, renew_claim
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.hints.map_seeds import (
     MAX_ATTEMPTS,
@@ -121,7 +134,7 @@ _CAPS = dict(max_candidates=0, max_pairs=0, max_retries=2, max_calls=4, max_tota
 class MapOutcome:
     """What one build or merge did. ``status``: built | merged | current |
     up_to_date | not_stored | failed_before | disabled | not_found | no_map |
-    busy | capped | unpriced | unavailable | failed | planned."""
+    busy | stale | capped | unpriced | unavailable | failed | planned."""
 
     status: str
     practice_item_id: str
@@ -400,17 +413,45 @@ def _ledger(repository: Repository, *, item_id: str, right_kind: str, right_id: 
                         created_at=utc_now_iso(clock))
 
 
+@dataclass(frozen=True)
+class _Stored:
+    """What :func:`_store` did: ``stored`` (a new row), ``current`` (a build
+    found its revision's map stored by another builder first) or ``stale``
+    (the claim was lost, or a merge's base is no longer the newest row)."""
+
+    status: str
+    map_id: str | None = None
+    version: int | None = None
+
+
 def _store(repository: Repository, *, item: PracticeItem, item_hash: str, structure: str, seeds_hash: str,
            seeds_record: Mapping[str, Any], validated: ApproachMapV1, validation: Validation, trigger: str,
-           model: str | None, prompt_version: str, prompt: str, clock: Clock | None) -> tuple[str, int] | None:
-    """Insert the new version (None when another builder stored the same
-    revision and seeds first: the race is de-duplicated by the UNIQUE keys)."""
+           model: str | None, prompt_version: str, prompt: str, clock: Clock | None,
+           claim: "_Claim | None", base_map_id: str | None = None) -> _Stored:
+    """Insert the new version, fenced in the same BEGIN IMMEDIATE transaction
+    (Codex review F3): only while ``claim`` is this worker's live lease; a
+    build (``base_map_id`` None) only when no map of its revision exists yet
+    (another process's seeds may differ, so the UNIQUE seeds key alone would
+    let both land); a merge only when ``base_map_id`` is still the item's
+    newest row, so a slower merge never supersedes a newer map with stale
+    content."""
 
     map_id = "am_" + new_ulid()
+    merge = base_map_id is not None
     try:
         with repository.atomic():
             connection = repository.connection()
+            if claim is not None and not holds_claim(connection, claim_key=claim.key, owner=claim.owner,
+                                                     epoch=claim.epoch):
+                return _Stored("stale")
             version, supersedes = store.next_version(connection, item.id)
+            if merge and supersedes != base_map_id:
+                return _Stored("stale")
+            if not merge:
+                existing = store.current_map(connection, item.id, practice_item_hash=item_hash,
+                                             structure_hash=structure)
+                if existing is not None:
+                    return _Stored("current", existing["id"], existing["version"])
             store.insert_map(connection, {
                 "id": map_id, "practice_item_id": item.id, "practice_item_hash": item_hash,
                 "family_id": item.family_id, "version": version,
@@ -423,8 +464,8 @@ def _store(repository: Repository, *, item: PracticeItem, item_hash: str, struct
                 "created_at": utc_now_iso(clock), "supersedes_id": supersedes,
             })
     except sqlite3.IntegrityError:
-        return None
-    return map_id, version
+        return _Stored("stale" if merge else "current")
+    return _Stored("stored", map_id, version)
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +480,102 @@ def _item_lock(sqlite_path: Any, item_id: str) -> threading.Lock:
     key = (str(Path(sqlite_path)), item_id)
     with _LOCKS_GUARD:
         return _LOCKS.setdefault(key, threading.Lock())
+
+
+# -- the durable claim (Codex review F3) ------------------------------------------------
+
+#: This process's token, in the owner of every map claim it takes.
+PROCESS_TOKEN = "proc_" + new_ulid()
+CLAIM_TASK = "approach_map_build"
+#: Process-liveness bounds, not judgments: a live builder renews its lease
+#: every heartbeat; a dead one's lease lapses and the next builder takes it.
+CLAIM_LEASE_SECONDS = 120
+CLAIM_HEARTBEAT_SECONDS = 30
+_CLAIM_POLL_SECONDS = 0.1
+
+
+@dataclass(frozen=True)
+class _Claim:
+    key: str
+    owner: str
+    epoch: int
+
+
+def _lease_now() -> str:
+    """Wall-clock time for leases: process liveness, never the vault's clock."""
+
+    return utc_now_iso()
+
+
+def claim_key(practice_item_id: str) -> str:
+    return f"{CLAIM_TASK}:{practice_item_id}"
+
+
+def _try_claim(repository: Repository, item_id: str) -> _Claim | None:
+    owner = f"{PROCESS_TOKEN}:{new_ulid()}"
+    with repository.atomic():
+        status, epoch = claim_work(
+            repository.connection(), claim_key=claim_key(item_id), task=CLAIM_TASK, producer=OWNER_KIND,
+            prompt_version=None, input_hash="", owner=owner, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+    if status == CLAIMED and epoch is not None:
+        return _Claim(claim_key(item_id), owner, int(epoch))
+    return None
+
+
+def _claim(repository: Repository, item_id: str, until: float | None) -> _Claim | None:
+    """Claim the item's builds across processes, waiting until ``until``
+    (``time.monotonic()``; None: until claimed; a dead holder's lease lapses
+    within ``CLAIM_LEASE_SECONDS``). None: another process holds it."""
+
+    while True:
+        claim = _try_claim(repository, item_id)
+        if claim is not None:
+            return claim
+        if until is not None and time.monotonic() >= until:
+            return None
+        time.sleep(_CLAIM_POLL_SECONDS if until is None else max(0.0, min(_CLAIM_POLL_SECONDS,
+                                                                            until - time.monotonic())))
+
+
+def _release(repository: Repository, claim: _Claim) -> None:
+    try:
+        with repository.atomic():
+            release_claim(repository.connection(), claim_key=claim.key, owner=claim.owner, epoch=claim.epoch,
+                          now=_lease_now())
+    except Exception:  # noqa: BLE001 - an unreleased claim simply expires
+        LOG.warning("approach map claim release failed", exc_info=True)
+
+
+@contextmanager
+def _claimed(repository: Repository, item_id: str, until: float | None) -> Iterator[_Claim | None]:
+    """Hold the item's durable claim for the block, renewing its lease while
+    the block runs; yields None (and holds nothing) when another process has it."""
+
+    claim = _claim(repository, item_id, until)
+    if claim is None:
+        yield None
+        return
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(CLAIM_HEARTBEAT_SECONDS):
+            try:
+                with repository.atomic():
+                    held = renew_claim(repository.connection(), claim_key=claim.key, owner=claim.owner,
+                                       epoch=claim.epoch, now=_lease_now(), lease_seconds=CLAIM_LEASE_SECONDS)
+            except Exception:  # noqa: BLE001 - the next beat retries; the lease may lapse
+                continue
+            if not held:
+                return
+
+    thread = threading.Thread(target=beat, name=f"learnloop-approach-map-claim-{item_id}", daemon=True)
+    thread.start()
+    try:
+        yield claim
+    finally:
+        stop.set()
+        thread.join(5)
+        _release(repository, claim)
 
 
 def _two_rounds(caller: _Caller, *, purpose: str, first_prompt: str, reprompt: Callable[[Mapping[str, Any]], str],
@@ -509,34 +646,56 @@ def build_map(vault: LoadedVault, repository: Repository, practice_item_id: str,
     if item is None:
         outcome.status = "not_found"
         return outcome
+    until = None if wait_seconds is None else time.monotonic() + max(0.0, wait_seconds)
     lock = _item_lock(repository.sqlite_path, item.id)
     acquired = lock.acquire(timeout=wait_seconds) if wait_seconds else lock.acquire(blocking=wait_seconds is None)
     if not acquired:
         outcome.status = "busy"
         return outcome
     try:
-        return _build_locked(vault, repository, item, outcome, client=client, clock=clock, deadline=deadline,
-                             find=find)
+        if _settled_build(vault, repository, item, outcome):
+            return outcome
+        # Another process may be building the item: claim it durably first,
+        # then read again (it may have stored the map while this one waited).
+        with _claimed(repository, item.id, until) as claim:
+            if claim is None:
+                outcome.status = "busy"
+                outcome.reason = "another process is building or merging this item's map"
+                return outcome
+            if _settled_build(vault, repository, item, outcome):
+                return outcome
+            return _build_claimed(vault, repository, item, outcome, claim, client=client, clock=clock,
+                                  deadline=deadline, find=find)
     finally:
         lock.release()
 
 
-def _build_locked(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome, *,
-                  client: Any | None, clock: Clock | None, deadline: float | None,
-                  find: Callable[..., Any] | None) -> MapOutcome:
-    trigger = str(outcome.trigger)
+def _settled_build(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome) -> bool:
+    """True (``outcome`` set) when no build is due: the revision has a map,
+    or a serve meets a revision whose build was not stored."""
+
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         item_hash, structure = item_revision(vault, connection, item)
         existing = store.current_map(connection, item.id, practice_item_hash=item_hash, structure_hash=structure)
-        failed = trigger == "serve" and _failed_before(connection, item.id, "approach_map_revision",
-                                                       _revision_key(item_hash, structure))
+        failed = outcome.trigger == "serve" and _failed_before(connection, item.id, "approach_map_revision",
+                                                               _revision_key(item_hash, structure))
     if existing is not None:
         outcome.status, outcome.map_id, outcome.version = "current", existing["id"], existing["version"]
-        return outcome
+        outcome.reason = None
+        return True
     if failed:
         outcome.status = "failed_before"
         outcome.reason = "this revision's build was not stored; `learnloop hints maps build` retries it"
-        return outcome
+        return True
+    return False
+
+
+def _build_claimed(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome,
+                   claim: _Claim, *, client: Any | None, clock: Clock | None, deadline: float | None,
+                   find: Callable[..., Any] | None) -> MapOutcome:
+    trigger = str(outcome.trigger)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        item_hash, structure = item_revision(vault, connection, item)
     caller = _Caller(vault, repository, item, trigger, client, clock, deadline)
     right_id = _revision_key(item_hash, structure)
     metadata = {"practice_item_id": item.id, "trigger": trigger, "prompt_version": PROMPT_VERSION}
@@ -561,11 +720,15 @@ def _build_locked(vault: LoadedVault, repository: Repository, item: PracticeItem
         stored = _store(repository, item=item, item_hash=item_hash, structure=structure,
                         seeds_hash=seeds.seeds_hash, seeds_record=seeds.record(), validated=validation.normalized,
                         validation=validation, trigger=trigger, model=caller.model, prompt_version=PROMPT_VERSION,
-                        prompt=prompt, clock=clock)
-        if stored is None:
-            outcome.status = "current"
+                        prompt=prompt, clock=clock, claim=claim)
+        if stored.status == "current":
+            outcome.status, outcome.map_id, outcome.version = "current", stored.map_id, stored.version
             return outcome
-        outcome.status, (outcome.map_id, outcome.version) = "built", stored
+        if stored.status == "stale":
+            outcome.status = "stale"
+            outcome.reason = "this build's claim was taken over by another process; nothing was stored"
+            return outcome
+        outcome.status, outcome.map_id, outcome.version = "built", stored.map_id, stored.version
         outcome.verified_goal = validation.verified_goal
         outcome.routes = _route_kinds(validation.normalized)
         return outcome
@@ -662,7 +825,10 @@ def wait_for_background_builds(timeout: float = 30.0) -> bool:
 # ---------------------------------------------------------------------------
 
 def _known_attempts(current: Mapping[str, Any]) -> set[str]:
-    known = {str(entry.get("id")) for entry in (current.get("seeds") or {}).get("attempts") or ()}
+    """The attempts the map has mined: those a route records (Codex review
+    F4). A seeded attempt no route took is not mined, so a later merge places it."""
+
+    known: set[str] = set()
     for route in (current.get("map") or {}).get("routes") or ():
         known.update(str(value) for value in route.get("learner_attempt_ids") or ())
     return known
@@ -705,21 +871,42 @@ def merge_learner_routes(vault: LoadedVault, repository: Repository, practice_it
         outcome.status = "busy"
         return outcome
     try:
-        return _merge_locked(vault, repository, item, outcome, client=client, clock=clock, deadline=deadline)
+        if _settled_merge(vault, repository, item, outcome) is None:
+            return outcome
+        with _claimed(repository, item.id, deadline) as claim:
+            if claim is None:
+                outcome.status = "busy"
+                outcome.reason = "another process is building or merging this item's map"
+                return outcome
+            return _merge_claimed(vault, repository, item, outcome, claim, client=client, clock=clock,
+                                  deadline=deadline)
     finally:
         lock.release()
 
 
-def _merge_locked(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome, *,
-                  client: Any | None, clock: Clock | None, deadline: float | None) -> MapOutcome:
+def _settled_merge(vault: LoadedVault, repository: Repository, item: PracticeItem,
+                   outcome: MapOutcome) -> tuple[dict[str, Any], list[SeedAttempt]] | None:
+    """``(current map, new attempts)`` when a merge is due, else None with
+    ``outcome`` set (no map, or nothing new)."""
+
     current = current_map(vault, repository, item.id)
     if current is None:
         outcome.status = "no_map"
-        return outcome
+        return None
     fresh = new_learner_attempts(vault, repository, item.id)
     if not fresh:
         outcome.status, outcome.map_id, outcome.version = "up_to_date", current["id"], current["version"]
+        return None
+    return current, fresh
+
+
+def _merge_claimed(vault: LoadedVault, repository: Repository, item: PracticeItem, outcome: MapOutcome,
+                   claim: _Claim, *, client: Any | None, clock: Clock | None, deadline: float | None) -> MapOutcome:
+    # Read again under the claim: another process may have merged meanwhile.
+    due = _settled_merge(vault, repository, item, outcome)
+    if due is None:
         return outcome
+    current, fresh = due
     right_id = f"{current['id']}:{content_key([attempt.attempt_id for attempt in fresh])[:16]}"
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if _failed_before(connection, item.id, "approach_map_merge", right_id):
@@ -766,7 +953,9 @@ def _merge_locked(vault: LoadedVault, repository: Repository, item: PracticeItem
         if validation is None or validation.normalized is None:
             outcome.status, outcome.reasons = "not_stored", reasons
             return outcome
-        seeds_record["attempts"] = [*(seeds_record.get("attempts") or ()),
+        fresh_ids = {attempt.attempt_id for attempt in fresh}
+        seeds_record["attempts"] = [*(entry for entry in seeds_record.get("attempts") or ()
+                                      if str(entry.get("id")) not in fresh_ids),
                                     *({"id": attempt.attempt_id, "practice_item_id": attempt.practice_item_id,
                                        "basis": attempt.basis} for attempt in fresh)]
         seeds_record["merged_from"] = current["id"]
@@ -776,11 +965,16 @@ def _merge_locked(vault: LoadedVault, repository: Repository, item: PracticeItem
         stored = _store(repository, item=item, item_hash=current["practice_item_hash"],
                         structure=current["structure_hash"], seeds_hash=seeds_hash, seeds_record=seeds_record,
                         validated=validation.normalized, validation=validation, trigger="merge", model=caller.model,
-                        prompt_version=MERGE_PROMPT_VERSION, prompt=prompt, clock=clock)
-        if stored is None:
-            outcome.status = "up_to_date"
+                        prompt_version=MERGE_PROMPT_VERSION, prompt=prompt, clock=clock, claim=claim,
+                        base_map_id=str(current["id"]))
+        if stored.status != "stored":
+            # A newer map landed (or the claim was lost): this merge's base is
+            # stale. Nothing is stored; the attempts the newer map lacks stay
+            # unmined, so the next merge places them on it.
+            outcome.status = "stale"
+            outcome.reason = "the map changed while this merge ran; nothing was stored"
             return outcome
-        outcome.status, (outcome.map_id, outcome.version) = "merged", stored
+        outcome.status, outcome.map_id, outcome.version = "merged", stored.map_id, stored.version
         outcome.verified_goal = validation.verified_goal
         outcome.routes = _route_kinds(validation.normalized)
         return outcome
@@ -936,6 +1130,7 @@ __all__ = [
     "build_map",
     "build_map_inline",
     "build_prompt",
+    "claim_key",
     "current_map",
     "map_context",
     "maps_enabled",

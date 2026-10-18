@@ -125,11 +125,13 @@ the owner's vaults; the CLI and report show the counts and spend.
 `input_hash`, `created_at`, `supersedes_id`) plus three H1 uses: the revision
 keys `seeds_hash` (every seed) and `structure_hash` (the item-side seeds
 `practice_item_hash` does not cover: the trace contract, the PF skeletons, the
-authored hints), and `trigger` (`serve` | `inline` | `cli` | `merge`).
+authored hints and, since review F5, the resolved rubric an item may inherit
+from its practice mode's default), and `trigger` (`serve` | `inline` | `cli` | `merge`).
 CHECKs: `version >= 1`, `verified_goal` 0/1, `trigger`, `supersedes_id != id`;
 `supersedes_id` -> `approach_maps(id)`; `UNIQUE(practice_item_id, version)` and
-`UNIQUE(practice_item_id, practice_item_hash, seeds_hash)` (a racing builder in
-another process loses cleanly). Two indexes (item+version, family+time), two
+`UNIQUE(practice_item_id, practice_item_hash, seeds_hash)` (a last line only:
+cross-process builds are claimed durably and their commits fenced; see
+`hints-h1-codex-review.md` F3). Two indexes (item+version, family+time), two
 triggers: no update (rows are immutable: a new version is a new row) and no
 delete (paid output). No replayer, no DERIVED table; nothing in replay,
 rebuild, scoring, scheduling, serving or grading reads it.
@@ -173,11 +175,14 @@ vault, which is never migrated).
   expected answer and against its exact key), and the goal always is; a label
   fails when it contains an expression (math segment, formula, multi-digit or
   fractional number) of any leak node's state or of `goal_answer`, unless the
-  question itself states it, or when it gives the answer away. The goal agrees
+  question itself states it, or when it gives the answer away (a lone-digit
+  exact key matched as a number token of its own: review F1). The goal agrees
   by exact key (`answer_check.parse_answer` / `reference_final_answer`) where
-  one exists: equal -> `verified_goal`, decidably different -> `goal_mismatch`,
-  otherwise (no key, no `goal_answer`, undecidable) stored unverified with the
-  basis named.
+  one exists: the declaration and the goal node's own conclusion are both
+  checked, a decidable difference in either -> `goal_mismatch` (review F2),
+  else equal -> `verified_goal`, otherwise (no key, no `goal_answer`,
+  undecidable) stored unverified with the basis named. Every seeded learner
+  solution must sit on exactly one route (`unplaced_attempt`, review F4).
 - `map_seeds.py`: `assemble_seeds` (item side: reference solution, rubric via
   `vault.rubric_for_item`, authored hints, the trace contract when it has
   recipes, PF skeletons from `item_skeletons` by `skeleton_content_hash`;

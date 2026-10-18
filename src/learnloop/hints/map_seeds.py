@@ -19,8 +19,10 @@
 A seed an item does not have is simply absent. Two revision keys
 (:mod:`learnloop.hints.map_builder`): ``structure_hash`` covers the item-side
 seeds ``practice_item_hash`` does not (trace contract, skeletons, authored
-hints) and is cheap enough for a serve to check; ``seeds_hash`` covers every
-seed. Reads only.
+hints, and the RESOLVED rubric: an item without its own ``grading_rubric``
+inherits its practice mode's default, which the item hash never sees; Codex
+review F5) and is cheap enough for a serve to check; ``seeds_hash`` covers
+every seed. Reads only.
 """
 
 from __future__ import annotations
@@ -93,7 +95,7 @@ class MapSeeds:
 
     @property
     def structure_hash(self) -> str:
-        return structure_hash(self.item, self.skeletons)
+        return structure_hash(self.item, self.skeletons, self.rubric)
 
     @property
     def checkpoint_ids(self) -> frozenset[str]:
@@ -170,22 +172,35 @@ def item_skeletons(connection: Any, item: PracticeItem) -> list[dict[str, Any]]:
             for records in found.values() for record in records]
 
 
-def structure_hash(item: PracticeItem, skeletons: Sequence[Mapping[str, Any]]) -> str:
+def rubric_seed(vault: LoadedVault, item: PracticeItem) -> list[dict[str, Any]]:
+    """The rubric the builder reads: the item's own, else its practice mode's
+    default (``vault.rubric_for_item``), as the criteria the prompt carries."""
+
+    rubric = vault.rubric_for_item(item)
+    return [{"id": criterion.id, "description": criterion.description, "points": criterion.points}
+            for criterion in (rubric.criteria if rubric is not None else [])]
+
+
+def structure_hash(item: PracticeItem, skeletons: Sequence[Mapping[str, Any]],
+                   rubric: Sequence[Mapping[str, Any]]) -> str:
     """The item-side seeds ``practice_item_hash`` does not cover: the trace
-    contract and the PF skeletons (and the authored hints, which it does)."""
+    contract, the PF skeletons and the resolved rubric (an inherited default
+    rubric changes without the item changing), and the authored hints, which
+    it does."""
 
     return content_key({
         "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract is not None else None,
         "skeletons": [[skeleton.get("id"), _sha(json.dumps(skeleton, sort_keys=True, default=str))]
                       for skeleton in skeletons],
         "hints": list(item.hints),
+        "rubric": [dict(criterion) for criterion in rubric],
     })
 
 
 def item_revision(vault: LoadedVault, connection: Any, item: PracticeItem) -> tuple[str, str]:
     """``(practice_item_hash, structure_hash)``: the cheap revision key a serve checks."""
 
-    return practice_item_hash(item), structure_hash(item, item_skeletons(connection, item))
+    return practice_item_hash(item), structure_hash(item, item_skeletons(connection, item), rubric_seed(vault, item))
 
 
 def family_items(vault: LoadedVault, item: PracticeItem) -> list[PracticeItem]:
@@ -259,12 +274,10 @@ def source_worked_examples(vault: LoadedVault, repository: Any, item: PracticeIt
 def item_side(vault: LoadedVault, connection: Any, item: PracticeItem) -> MapSeeds:
     """Seeds from the item alone (no retrieval, no attempts)."""
 
-    rubric = vault.rubric_for_item(item)
     lo = vault.learning_objects.get(item.learning_object_id)
     return MapSeeds(
         item=item, item_hash=practice_item_hash(item),
-        rubric=[{"id": criterion.id, "description": criterion.description, "points": criterion.points}
-                for criterion in (rubric.criteria if rubric is not None else [])],
+        rubric=rubric_seed(vault, item),
         authored_hints=list(item.hints),
         trace_contract=(item.trace_contract.model_dump(mode="json")
                         if item.trace_contract is not None and item.trace_contract.recipes else None),
@@ -308,6 +321,7 @@ __all__ = [
     "item_side",
     "item_skeletons",
     "qualifying_attempts",
+    "rubric_seed",
     "source_worked_examples",
     "structure_hash",
 ]

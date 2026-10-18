@@ -824,3 +824,342 @@ def test_the_hints_report_shows_maps_failures_routes_and_spend(paths):
     assert maps["model_calls"]["calls"] == 4
     assert maps["spend_today"]["envelope"] == MB.ENVELOPE
     assert maps["spend_today"]["estimated_only"]["requests"] == 4
+
+
+# -- Codex review of H1 (job 20261018-023953-U3XWgU) -----------------------------------------
+
+from learnloop.hints import maps as M  # noqa: E402
+from tests.approach_map_fakes import child_build, write_default_rubric  # noqa: E402
+
+COUNT_PROMPT = "A drawer holds two pairs of socks. How many socks are in the drawer?"
+
+
+def _count_map(*, step_state: str, step_label: str, goal_state: str = "There are 4 socks",
+               goal_answer: str = "4") -> dict:
+    return {
+        "nodes": [node("g", "given", "Read the drawer", "two pairs of socks"),
+                  node("count", "step", step_label, step_state),
+                  node("goal", "goal", "Report the total", goal_state)],
+        "edges": [edge("g", "count"), edge("count", "goal")],
+        "routes": [{"id": "r_ref", "name": "Count route", "path": ["g", "count", "goal"], "origin": "reference",
+                    "learner_attempt_ids": []}],
+        "goal_node_id": "goal", "goal_answer": goal_answer,
+    }
+
+
+def _count_context() -> MapContext:
+    return MapContext(expected_answer="4", facet_ids=frozenset(), public_text=COUNT_PROMPT)
+
+
+def test_f1_a_single_digit_answer_marks_its_node_and_fails_a_label_that_states_it():
+    """A lone-digit answer, independent of the fractional CDF fake: the span
+    check ignores one-character tokens, so the exact key is matched as a
+    number of its own."""
+
+    leaking_label = validate_map(ApproachMapV1.model_validate(
+        _count_map(step_state="4", step_label="The count is 4")), _count_context())
+    assert not leaking_label.valid and "label_leak" in leaking_label.reasons
+    marked = validate_map(ApproachMapV1.model_validate(
+        _count_map(step_state="4", step_label="Count the socks")), _count_context())
+    assert marked.valid, marked.details
+    assert {item.id: item.leak for item in marked.normalized.nodes} == {"g": False, "count": True, "goal": True}
+    assert "count" in marked.leak_marked_by_code
+    # The digit inside another number, a fraction, a decimal, a subscript or a power is not the answer.
+    for text in ("14 socks", "3/4 of them", "4.5 pairs", "x_4", "2^4", "four"):
+        assert not M.gives_away(text, "4", "4"), text
+    for text in ("4", "$x = 4$", "There are 4 socks.", "total: 4"):
+        assert M.gives_away(text, "4", "4"), text
+    # A multi-digit or fractional key keeps the span check's behaviour.
+    assert M.gives_away("so P = 1/4", "1/4", "1/4") and not M.gives_away("so P = 1/4", "1/8", "1/8")
+
+
+def test_f1_a_single_digit_vault_item_builds_with_its_leaks_marked(tmp_path):
+    paths = map_vault(tmp_path, prompt=COUNT_PROMPT, expected="4", trace_contract=None)
+    leaky = _count_map(step_state="4", step_label="The count is 4")
+    fixed = _count_map(step_state="4", step_label="Count the socks")
+    outcome = _build(paths, MapFake([leaky, fixed]))
+    assert outcome.status == "built" and outcome.rounds == 2 and outcome.verified_goal is True
+    stored = json.loads(rows(paths.sqlite_path)[0]["map_json"])
+    assert {item["id"]: item["leak"] for item in stored["nodes"]} == {"g": False, "count": True, "goal": True}
+    assert [json.loads(row["rationale"])["reasons"] for row in ledger(paths.sqlite_path)][0] == ["label_leak"]
+
+
+@pytest.mark.parametrize("goal_answer", ["1/4", ""])
+def test_f2_a_goal_state_that_contradicts_the_answer_is_a_mismatch(paths, goal_answer):
+    """Only the goal node's state is wrong: a correct declaration does not
+    verify it, and an empty one does not let it through unverified."""
+
+    payload = good_map(goal_answer=goal_answer)
+    payload["nodes"][2]["state"] = "Therefore P = 3/4"
+    result = _validate(paths, payload)
+    assert not result.valid and "goal_mismatch" in result.reasons and not result.verified_goal
+    assert any(detail.get("basis") == "goal_state" for detail in result.details if detail["reason"] == "goal_mismatch")
+
+
+def test_f2_the_goal_verifies_from_an_agreeing_state_or_declaration(paths):
+    for goal_answer, state in (("", "Therefore P = 1/4"), ("1/4", "P(X ≤ 1/2) = 1/4"),
+                               ("1/4", "The probability at the point")):
+        payload = good_map(goal_answer=goal_answer)
+        payload["nodes"][2]["state"] = state
+        result = _validate(paths, payload)
+        assert result.valid and result.verified_goal and result.goal_basis == "exact_key", (goal_answer, state)
+    # A wrong declaration with an agreeing state is still a mismatch.
+    payload = good_map(goal_answer="3/4")
+    assert "goal_mismatch" in _validate(paths, payload).reasons
+
+
+def test_f4_every_seeded_solution_needs_exactly_one_route(paths):
+    add_attempt(paths.sqlite_path, "a_one")
+    reference_only = good_map()  # no learner_attempt_ids: the seeded solution is on no route
+    result = _validate(paths, reference_only)
+    assert not result.valid and "unplaced_attempt" in result.reasons
+    twice = good_map(routes=[
+        {"id": "r_ref", "name": "CDF route", "path": ["g", "cdf", "goal"], "origin": "reference",
+         "learner_attempt_ids": ["a1"]},
+        {"id": "r_model", "name": "Same", "path": ["g", "cdf", "goal"], "origin": "model",
+         "learner_attempt_ids": ["a1"]}])
+    assert "unplaced_attempt" in _validate(paths, twice).reasons
+    # The builder that omits it is re-asked; the placed answer is stored.
+    fake = MapFake([reference_only])  # then the fake's default places every solution
+    outcome = _build(paths, fake)
+    assert outcome.status == "built" and outcome.rounds == 2
+    stored = json.loads(rows(paths.sqlite_path)[0]["map_json"])
+    assert stored["routes"][0]["learner_attempt_ids"] == ["a_one"]
+    assert MB.new_learner_attempts(load_vault(paths.root), _repo(paths), ITEM) == []
+
+
+def test_f4_only_a_route_assignment_counts_as_mined():
+    """A seeded attempt no route took (a row stored before the rule) is not
+    mined: the next merge places it."""
+
+    current = {"seeds": {"attempts": [{"id": "a_seeded"}, {"id": "a_placed"}]},
+               "map": {"routes": [{"learner_attempt_ids": ["a_placed"]}]}}
+    assert MB._known_attempts(current) == {"a_placed"}
+
+
+def test_f4_a_seeded_but_unrouted_attempt_is_merged_later(paths):
+    fake = MapFake()
+    first = _build(paths, fake)
+    add_attempt(paths.sqlite_path, "a_one")
+    row = rows(paths.sqlite_path)[0]
+    # A version whose seeds list a_one but whose routes do not (the shape F4 found accepted).
+    with closing(connect(paths.sqlite_path)) as connection:
+        seeds = {**json.loads(row["seeds_json"]), "attempts": [{"id": "a_one", "practice_item_id": ITEM,
+                                                                "basis": "correct"}]}
+        store.insert_map(connection, {**{key: row[key] for key in store.COLUMNS}, "id": "am_legacy", "version": 2,
+                                      "seeds_json": json.dumps(seeds), "seeds_hash": "legacy",
+                                      "supersedes_id": first.map_id})
+        connection.commit()
+    vault = load_vault(paths.root)
+    assert [attempt.attempt_id for attempt in MB.new_learner_attempts(vault, _repo(paths), ITEM)] == ["a_one"]
+    merged = MB.merge_learner_routes(vault, _repo(paths), ITEM, client=fake)
+    assert merged.status == "merged" and merged.version == 3
+    stored = rows(paths.sqlite_path)[2]
+    assert json.loads(stored["map_json"])["routes"][0]["learner_attempt_ids"] == ["a_one"]
+    assert [entry["id"] for entry in json.loads(stored["seeds_json"])["attempts"]] == ["a_one"]
+
+
+def test_f5_an_inherited_rubric_change_is_a_new_revision(tmp_path):
+    paths = map_vault(tmp_path, trace_contract=TRACE_CONTRACT, rubric=None)
+    write_default_rubric(paths, [{"id": "cdf", "points": 2, "description": "Finds the CDF on the support."},
+                                 {"id": "value", "points": 2, "description": "Evaluates the probability."}])
+    vault = load_vault(paths.root)
+    assert vault.practice_items[ITEM].grading_rubric is None
+    fake = MapFake()
+    first = _build(paths, fake)
+    assert first.status == "built"
+    assert [criterion["id"] for criterion in fake.requests[0][1]["rubric"]] == ["cdf", "value"]
+    _context_before, seeds_before = _context(paths)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        revision_before = MS.item_revision(vault, connection, vault.practice_items[ITEM])
+    # The default rubric changes; the item file does not.
+    write_default_rubric(paths, [{"id": "value", "points": 4, "description": "States the probability with its units."}])
+    vault = load_vault(paths.root)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        revision_after = MS.item_revision(vault, connection, vault.practice_items[ITEM])
+    _context_after, seeds_after = _context(paths)
+    assert revision_before[0] == revision_after[0]  # practice_item_hash cannot see it
+    assert revision_before[1] != revision_after[1] and seeds_before.seeds_hash != seeds_after.seeds_hash
+    assert seeds_after.structure_hash == revision_after[1]
+    assert MB.current_map(vault, _repo(paths), ITEM) is None
+    second = _build(paths, fake)
+    assert second.status == "built" and second.version == 2 and fake.calls == 2
+    assert [criterion["id"] for criterion in fake.requests[1][1]["rubric"]] == ["value"]
+    assert rows(paths.sqlite_path)[1]["supersedes_id"] == first.map_id
+    assert MB.backfill(vault, _repo(paths), MB.select_items(vault, item_id=ITEM), dry_run=True)["counts"] == {"current": 1}
+
+
+def _two_processes(monkeypatch, *, claims: bool) -> None:
+    """Simulate a second process in this one: each call gets its own
+    in-process lock; ``claims=False`` also takes the durable claim away, to
+    show the commit's own fence."""
+
+    monkeypatch.setattr(MB, "_item_lock", lambda _path, _item: threading.Lock())
+    if not claims:
+        from contextlib import contextmanager
+
+        @contextmanager
+        def no_claim(_repository, item_id, _until):
+            yield MB._Claim(MB.claim_key(item_id), "nobody", 0)
+
+        monkeypatch.setattr(MB, "_claimed", no_claim)
+        monkeypatch.setattr(MB, "holds_claim", lambda *_args, **_kwargs: True)
+
+
+def _gated_merge(paths, gate: threading.Event, results: list) -> tuple[MapFake, threading.Thread]:
+    slow = MapFake(gate=gate)
+    worker = threading.Thread(target=lambda: results.append(MB.merge_learner_routes(
+        load_vault(paths.root), _repo(paths), ITEM, client=slow)))
+    worker.start()
+    assert slow.started.wait(10)
+    return slow, worker
+
+
+def test_f3_a_stale_merge_never_supersedes_a_newer_map(paths, monkeypatch):
+    """Codex's completion order with the claim taken away: A merges a1 from
+    v1 and is slow; B merges a1 and a2 from v1 and commits v2; A's commit is
+    fenced out (its base is no longer the newest row), so v2 keeps a2."""
+
+    _two_processes(monkeypatch, claims=False)
+    first = _build(paths, MapFake())
+    add_attempt(paths.sqlite_path, "a1", created_at="2026-10-18T08:00:00+00:00")
+    gate, results = threading.Event(), []
+    slow, worker = _gated_merge(paths, gate, results)
+    add_attempt(paths.sqlite_path, "a2", created_at="2026-10-18T08:01:00+00:00")
+    fast = MB.merge_learner_routes(load_vault(paths.root), _repo(paths), ITEM, client=MapFake())
+    assert fast.status == "merged" and fast.version == 2
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "stale" and slow.calls == 1
+    stored = rows(paths.sqlite_path)
+    assert [row["version"] for row in stored] == [1, 2] and stored[1]["supersedes_id"] == first.map_id
+    current = MB.current_map(load_vault(paths.root), _repo(paths), ITEM)
+    assert current["id"] == fast.map_id
+    assert sorted(current["map"]["routes"][0]["learner_attempt_ids"]) == ["a1", "a2"]
+    assert MB.merge_learner_routes(load_vault(paths.root), _repo(paths), ITEM, client=MapFake()).status == "up_to_date"
+
+
+def test_f3_a_slower_initial_build_with_other_seeds_does_not_land_a_second_map(paths, monkeypatch):
+    """Two initial builds of one revision with different seeds (so the UNIQUE
+    seeds key cannot catch them): the slower one finds the map and stores
+    nothing."""
+
+    _two_processes(monkeypatch, claims=False)
+    gate, results = threading.Event(), []
+    slow = MapFake(gate=gate)
+    worker = threading.Thread(target=lambda: results.append(_build(paths, slow)))
+    worker.start()
+    assert slow.started.wait(10)
+    add_attempt(paths.sqlite_path, "a1")
+    fast = _build(paths, MapFake())
+    assert fast.status == "built"
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "current" and results[0].map_id == fast.map_id
+    assert len(rows(paths.sqlite_path)) == 1
+
+
+def test_f3_the_durable_claim_keeps_a_second_worker_from_paying(paths, monkeypatch):
+    """With only the durable claim between them (no shared in-process lock),
+    a second worker answers busy instead of paying for the same item, and
+    the claim is free again once the first worker ends."""
+
+    _two_processes(monkeypatch, claims=True)
+    gate, results = threading.Event(), []
+    slow = MapFake(gate=gate)
+    worker = threading.Thread(target=lambda: results.append(_build(paths, slow)))
+    worker.start()
+    assert slow.started.wait(10)
+    second = MapFake()
+    assert _build(paths, second, trigger="serve").status == "busy" and second.calls == 0
+    _build_one = _build(paths, MapFake())  # wait_seconds=0 by default
+    assert _build_one.status == "busy"
+    gate.set()
+    worker.join(30)
+    assert results[0].status == "built" and slow.calls == 1
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        state = connection.execute("SELECT state FROM judgment_work_claims WHERE claim_key = ?",
+                                   (MB.claim_key(ITEM),)).fetchone()[0]
+    assert state == "released"
+    # A merge takes the same claim.
+    add_attempt(paths.sqlite_path, "a1")
+    gate2, merges = threading.Event(), []
+    _slow_merge, merging = _gated_merge(paths, gate2, merges)
+    blocked = MB.merge_learner_routes(load_vault(paths.root), _repo(paths), ITEM, client=MapFake(),
+                                      deadline=time.monotonic() + 0.3)
+    assert blocked.status == "busy"
+    gate2.set()
+    merging.join(30)
+    assert merges[0].status == "merged"
+
+
+def test_f3_a_lapsed_claim_of_a_dead_process_is_taken_over_and_fences_its_commit(paths, monkeypatch):
+    from learnloop.db.stores.judgment_claims import claim_work
+
+    repository = _repo(paths)
+    # A dead process's lease, already lapsed.
+    with repository.atomic():
+        claim_work(repository.connection(), claim_key=MB.claim_key(ITEM), task=MB.CLAIM_TASK,
+                   producer=MB.OWNER_KIND, prompt_version=None, input_hash="", owner="proc_dead:1",
+                   now="2026-01-01T00:00:00+00:00", lease_seconds=1)
+    fake = MapFake()
+    assert _build(paths, fake, trigger="serve").status == "built" and fake.calls == 1
+    # A worker whose claim was taken over stores nothing.
+    stale = MB._Claim(MB.claim_key(ITEM), "proc_dead:1", 1)
+    vault = load_vault(paths.root)
+    context, seeds = _context(paths)
+    validation = validate_map(ApproachMapV1.model_validate(good_map()), context)
+    stored = MB._store(repository, item=vault.practice_items[ITEM], item_hash="other", structure="other",
+                       seeds_hash="other", seeds_record={}, validated=validation.normalized,
+                       validation=validation, trigger="cli", model=None, prompt_version=MB.PROMPT_VERSION,
+                       prompt="p", clock=None, claim=stale)
+    assert stored.status == "stale" and len(rows(paths.sqlite_path)) == 1
+
+
+@pytest.mark.durability
+def test_f3_a_second_os_process_never_pays_for_an_item_in_flight(tmp_path):
+    """Two OS processes: this one builds with a model still answering; a
+    child's serve build answers busy without a call, and a child's CLI build
+    waits on the claim, then finds the map and pays nothing."""
+
+    import multiprocessing
+
+    paths = map_vault(tmp_path, trace_contract=TRACE_CONTRACT)
+    gate, results = threading.Event(), []
+    slow = MapFake(gate=gate)
+    worker = threading.Thread(target=lambda: results.append(_build(paths, slow, wait_seconds=None)))
+    worker.start()
+    assert slow.started.wait(30)
+    context = multiprocessing.get_context("spawn")
+    queue = context.Queue()
+    children = []
+    try:
+        ready = context.Event()
+        serve = context.Process(target=child_build, args=(str(paths.root), str(paths.sqlite_path), "serve", 0.0,
+                                                          ready, queue))
+        children.append(serve)
+        serve.start()
+        assert queue.get(timeout=120) == ("busy", 0)
+        serve.join(60)
+        assert serve.exitcode == 0
+        ready = context.Event()
+        cli = context.Process(target=child_build, args=(str(paths.root), str(paths.sqlite_path), "cli", None,
+                                                        ready, queue))
+        children.append(cli)
+        cli.start()
+        assert ready.wait(120)
+        time.sleep(1.0)  # the child is now polling the claim
+        assert cli.is_alive() and queue.empty()
+        gate.set()
+        worker.join(60)
+        assert results[0].status == "built"
+        assert queue.get(timeout=120) == ("current", 0)
+        cli.join(60)
+        assert cli.exitcode == 0
+    finally:
+        gate.set()
+        for child in children:
+            if child.is_alive():
+                child.kill()
+                child.join(10)
+    assert len(rows(paths.sqlite_path)) == 1 and len(receipts(paths.sqlite_path)) == 1 and slow.calls == 1

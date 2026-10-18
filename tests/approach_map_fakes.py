@@ -42,24 +42,40 @@ RUBRIC = {"max_points": 4, "criteria": [
 ], "fatal_errors": []}
 
 
+_OWN_RUBRIC = object()
+
+
 def write_item(paths: Any, item_id: str = ITEM, *, prompt: str = PROMPT, expected: Any = EXPECTED,
                hints: list[str] | None = None, trace_contract: dict | None = None, family_id: str | None = None,
-               facets: tuple[str, ...] = ("recall",), status: str = "active") -> None:
+               facets: tuple[str, ...] = ("recall",), status: str = "active", rubric: Any = _OWN_RUBRIC) -> None:
+    """``rubric=None``: the item has no ``grading_rubric`` and inherits its
+    practice mode's default (:func:`write_default_rubric`)."""
+
     payload: dict[str, Any] = {
         "schema_version": 1, "id": item_id, "learning_object_id": LO, "subjects": None,
         "practice_mode": "short_answer", "attempt_types_allowed": ["independent_attempt", "hinted_attempt"],
         "evidence_facets": list(facets), "evidence_weights": {facet: 1.0 for facet in facets},
         "prompt": prompt, "expected_answer": expected, "difficulty": 0.5, "tags": [],
-        "hints": list(HINTS if hints is None else hints), "grading_rubric": RUBRIC,
+        "hints": list(HINTS if hints is None else hints),
         "provenance": {"origin": "human", "source_refs": []}, "status": status,
         "created_at": NOW_ISO, "updated_at": NOW_ISO,
     }
+    if rubric is not None:
+        payload["grading_rubric"] = RUBRIC if rubric is _OWN_RUBRIC else rubric
     if trace_contract is not None:
         payload["trace_contract"] = trace_contract
     if family_id is not None:
         payload["family_id"] = family_id
         payload["variant_relation"] = "isomorph"
     write_yaml(paths.practice_item_path(SUBJECT, item_id), payload)
+
+
+def write_default_rubric(paths: Any, criteria: list[dict[str, Any]], *, practice_mode: str = "short_answer") -> None:
+    """The vault's default rubric for a practice mode (``rubrics/<mode>.yaml``)."""
+
+    write_yaml(Path(paths.root) / "rubrics" / f"{practice_mode}.yaml", {
+        "schema_version": 1, "id": f"default_{practice_mode}", "applies_to": {"practice_mode": practice_mode},
+        "rubric": {"criteria": criteria, "fatal_errors": []}})
 
 
 def map_vault(tmp_path: Path, *, config: str = "", name: str = "vault", **item: Any):
@@ -167,6 +183,25 @@ def merge_as_new_route(context: dict[str, Any]) -> dict[str, Any]:
 Answer = dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]
 
 
+def child_build(vault_root: str, sqlite_path: str, trigger: str, wait_seconds: float | None, ready: Any,
+                results: Any) -> None:
+    """A separate OS process (``multiprocessing`` spawn) building the item's
+    map with its own fake: it reports ``ready`` once the vault is loaded, then
+    builds and puts ``(status, calls)``. Its locks are its own; only the
+    durable claim is shared with the parent."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.hints import map_builder
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(Path(vault_root))
+    repository = Repository.attach(Path(sqlite_path))
+    fake = MapFake()
+    ready.set()
+    outcome = map_builder.build_map(vault, repository, ITEM, trigger=trigger, client=fake, wait_seconds=wait_seconds)
+    results.put((outcome.status, fake.calls))
+
+
 class MapFake(StructuredClientFake):
     provider_name = "fake_maps"
     provider_type = "codex_sdk"
@@ -213,6 +248,6 @@ class MapFake(StructuredClientFake):
 
 __all__ = [
     "EXPECTED", "HINTS", "ITEM", "LO", "MapFake", "PROMPT", "RUBRIC", "SUBJECT", "TRACE_CONTRACT", "add_attempt",
-    "add_skeleton", "edge", "good_map", "ledger", "map_vault", "merge_as_new_route", "merge_onto_reference",
-    "node", "receipts", "rows", "write_item",
+    "add_skeleton", "child_build", "edge", "good_map", "ledger", "map_vault", "merge_as_new_route",
+    "merge_onto_reference", "node", "receipts", "rows", "write_default_rubric", "write_item",
 ]
