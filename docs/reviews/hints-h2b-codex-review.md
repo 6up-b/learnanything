@@ -249,10 +249,10 @@ new config key and no new RPC.
 
 | id | severity | title | verdict | commit | test or reason |
 |---|---|---|---|---|---|
-| F1 | High | Reopened: a second "Work in steps" after closing the problem loses the carried hints | fixed | see the commit recording this section | `tests/test_hint_h2b_rereview.py::test_f1_*` (5) |
-| F2 | High | Reopened: `hold()` does not wait for polls in flight and resolves when the cancel fails | fixed | same | `practice/useAdaptiveHints.hold.test.tsx` (3); `PracticeScreen.adaptiveHandoff.test.tsx` "F2 (re-review): ..." |
-| F8 | Medium | The vault-open placement pass can starve placeable attempts | fixed | same | `tests/test_hint_h2b_rereview.py::test_f8_*` (2) |
-| F9 | Medium | Carried hints lose their submission timing | fixed | same | `tests/test_hint_h2b_rereview.py::test_f9_*` (2) |
+| F1 | High | Reopened: a second "Work in steps" after closing the problem loses the carried hints | fixed | `ac7d5b2ab` | `tests/test_hint_h2b_rereview.py::test_f1_*` (5) |
+| F2 | High | Reopened: `hold()` does not wait for polls in flight and resolves when the cancel fails | fixed | `ac7d5b2ab` | `practice/useAdaptiveHints.hold.test.tsx` (3); `PracticeScreen.adaptiveHandoff.test.tsx` "F2 (re-review): ..." |
+| F8 | Medium | The vault-open placement pass can starve placeable attempts | fixed | `ac7d5b2ab` | `tests/test_hint_h2b_rereview.py::test_f8_*` (2) |
+| F9 | Medium | Carried hints lose their submission timing | fixed | `ac7d5b2ab` | `tests/test_hint_h2b_rereview.py::test_f9_*` (2) |
 
 **Reproduction.** The new tests were run on the unfixed tree (`9193ce661`)
 before any source change:
@@ -372,7 +372,7 @@ instead of a wrong figure. The test checks both report fields.
 | `npx vitest run` (10 files, list C) | 103 passed (78 + 25) |
 | `npm run frontend:build` | built |
 | `cargo check` | not needed (nothing under `src-tauri` changed) |
-| `db_validate_reference.py` | 0 errors (head 212; no schema change); `validate_vault.py` passes |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated in `9ad4cdc30` (commit labels, one source path); 0 errors (head 212; no schema change); `validate_vault.py` passes |
 
 Two validators fail for reasons outside this step:
 
