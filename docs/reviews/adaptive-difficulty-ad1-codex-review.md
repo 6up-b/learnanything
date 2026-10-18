@@ -1040,3 +1040,52 @@ case.
   `test_ux_phase1_review_fixes`, `test_architecture`.
 - `--durable-sqlite tests/test_ad1_fix_round8.py`: 10 passed.
 - References: regenerated in `51396816a`, 0 errors. Model calls: 0.
+
+## Fix round 9
+
+The round-8 verify (codex-job `20261018-191723-N7zC1m`) found no High and
+one Medium, at `feature_audit.py:370`. A `ReceiptWriteFailed` at the
+Decider's start receipt only set a local status. The audit then:
+
+- wrote five `failed` judgments;
+- ran the LLM fallback;
+- could return `audited`, which the queue then settled.
+
+**Ruling, under round 8's contract.** A `ReceiptWriteFailed` or a
+`ReceiptLeaseLost` (any `DispatchStopped` other than a protection refusal)
+at any audit request now returns from the audit at once (commit
+`9dbe585eb`):
+
+- no further judgment write and no fallback;
+- `decider_status` (or the fallback's `llm_status`) and the audit's status
+  are `failed`, or `stale` for a lost lease;
+- the remaining dimensions are left unanswered;
+- the queue keeps the revision and retries it at the back.
+
+A protection refusal keeps its existing handling.
+
+**Tests** (`tests/test_ad1_fix_round9.py`, 4, all failing on `2ad80dff7`):
+
+- the verify's case, through `audit_revision`, for a storage error and for
+  a lost lease;
+- the backfill path;
+- the queue's settle decision: the next trigger audits the revision.
+
+Each shows no fallback call, no judgment written after the failure, and the
+status `failed` or `stale`. On `2ad80dff7`:
+
+- the storage case sent the fallback and returned `audited`;
+- the lease case left `decider_status` unset;
+- the backfill reported `audited`;
+- the queue settled the revision.
+
+### Gate (fix round 9: the round-8 set)
+
+- `lint-imports --no-cache`: 27 kept, 0 broken.
+- `pytest -n auto`: **395 passed**. The files: every `tests/test_ad1_*.py`,
+  `test_adaptive_difficulty_ad1`, `test_decider_landing`,
+  `test_output_budget`, `test_tier1_decider`, `test_t6_followup_review`,
+  `test_model_call_receipt_owners`, `test_glm_ocr`,
+  `test_ux_phase1_review_fixes`, `test_architecture`.
+- `--durable-sqlite tests/test_ad1_fix_round9.py`: 4 passed.
+- References: regenerated in `116f7ebfa`, 0 errors. Model calls: 0.
