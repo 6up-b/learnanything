@@ -453,3 +453,114 @@ Run in the worktree with `TMPDIR=fixtures-local/tmp`; `/tmp/learnloop-fullsuite.
 
 - `308b13bd8` the stage (migration 210, head fixture, store, `learnloop.hints`, the RPC and attach, config and snapshots, the report, frontend and Tauri, tests, spec §15, this record).
 - `be34c4a73` the references regenerated on `308b13bd8` (commit labels only; `db_validate_reference` 0 errors; `validate_vault` passed).
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/h0-onto-main`. Main's tip was `610e61dc0` (the RW4a landing), which is the stage's base. The stage tip is `d8b858dd1`, unchanged. Codex's last verify round (job `20261018-005614-5UnN0s`) is clean. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `0729cfae0`: a real `--no-ff` merge of `hints/h0` onto `610e61dc0`. Main had not moved, so the merged tree is exactly the stage tip (`git diff d8b858dd1 0729cfae0` is empty).
+- `15c000691`: the references regenerated on the merged tree.
+- This record.
+
+### Merge
+
+- **No conflicts.** Migration 210 was still free (main's head was 209). `fixtures/migration_head_210` is in rollback mode: header bytes 18-19 are 1/1, `journal_mode` is `delete`, its last `schema_migrations` row is 210 and there is no `-wal` or `-shm`. `fixtures/migration_head_209` is gone. No tracked code or test names the old path; only earlier review records and the 210 fixture's README mention it, as history.
+- **No algorithm successor.** The vaults' labels and the Pipeline Map's `implementation_version` are unchanged.
+
+### Regenerated
+
+- **References.** Ran `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 210, 329 table notes. 392 notes changed, all of them `source_commit` / `source_commit_timestamp` labels, with no content changes. Committed as `15c000691`.
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change (it already holds `hints` and `hints report`).
+- **`validate_vault.py`**: passes (1,124 notes, 1,122/1,122 reachable).
+
+### Gate
+
+Run on `15c000691`, the final code tree; the only later commit adds this section. Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. No paid call was made: every test uses fakes. **This is the first full run over the stage's code**; every stage step and every review round had run targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **25 kept**, 0 broken (RW4a's 24 plus `hints-never-write-evidence`) |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **13,213 passed, 2 xfailed**, 0 failed (18 min 3 s; `fixtures-local/h0-landing-fullsuite.log`). RW4a's landing ran 13,135; the +78 are H0's new tests |
+| `pytest -m durability` | **109 passed**, 13,106 deselected (2 min 41 s); RW4a's was 108, plus `help_assists`' migration case |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **124 files, 1,001 tests passed** (RW4a's: 123 files, 994; the +1 file and +7 tests are `PracticeScreen.hintTelemetry.test.tsx`) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished, exit 0 (`src-tauri` gains the `practice_record_hint_reveal` passthrough) |
+| tracked fixtures | `git status` clean after both lanes and the frontend run |
+| the Reader workbench import flow (round 5's `mark_import` guard) | covered in the full suite by `tests/test_reader_workbench_rw2a.py` (`test_a_failed_import_keeps_the_steps_writes_no_attempt_and_tries_again`, `test_an_import_that_cannot_start_opens_the_session_failed_with_the_steps_writable`, `test_a_selected_problem_opens_at_once_and_steps_save_before_the_import_binds`, `test_a_multi_part_import_asks_which_part_and_binds_only_one_of_its_own`), `tests/test_sidecar_reader.py` (the import RPCs), `tests/test_hint_telemetry.py::test_a_problem_opened_on_another_item_leaves_the_attempt_reached` (`mark_import` leaves `none`), and vitest's `Workbench.test.tsx`, `ReaderScreen.workbench.test.tsx`, `PracticeScreen.workbench.test.tsx`. Quick check: the same merge2 test files run against main's code (`git archive 610e61dc0` first on `PYTHONPATH`) and the merge's give the same result: the 7 import cases pass on both, and the whole of `test_reader_workbench_rw2a.py` is 68 passed on both. The guard cannot change the flow: `workbench.refresh_import` calls `mark_import` only on a `pending` import and `workbench.retry_import` only on a `failed` one, so neither ever reaches the new `none` branch |
+
+Nothing failed, so nothing was rerun or fixed. None of the known flakes fired (`"8841"` in `test_mcp_c1a_review.py`, the vitest load-timing cases). The vitest run went after both pytest lanes; the only other process then was this landing's own I/O-bound `upgrade --to mvp-0.27` on a parity copy.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-h0/orig/`. Each original was read once. Every other copy came from `orig/` through the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive 610e61dc0` and the merge's is `git archive 15c000691`, each containing only `src`, `migrations` and `pyproject.toml`. Each was put first on `sys.path`, and every run printed the `learnloop` package it imported.
+- **Environment.** `LEARNLOOP_CONFIG_DIR`, `HOME` and `CODEX_HOME` were empty directories for every run, `LEARNLOOP_AI_PROVIDER` and the provider key variables were unset, and every process started in a directory holding no `.env`, so no Codex login, ChatGPT-plan token or OpenRouter key was reachable. The sidecar ran with a minimal environment (`PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`, `LANG`).
+- **Model routes, before anything ran.** Every copy's `learnloop.toml` was rewritten first: `ai.active_provider` and every chat route (grading, tutor, authoring, the source and learner-gap routes, the organizer) went to an `openai_chat` profile at `http://127.0.0.1:9/v1` with an unset key variable, the fallback provider was cleared, `[source_retrieval]` `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank` and `dense` were false, and `[embedding]` `enabled`, `backfill_enabled` and `backfill_sources_on_extract` were false. `config effective` confirmed it. The practice runs also set the sidecar's grading provider to `manual` (`set_grading_provider`), so the submit took the learner's self-grade with no provider at all.
+- **Starting state.** Both vaults were at schema 165, label `mvp-0.8`, with **0** `model_call_receipts`.
+- **Cleanup not done.** The brief allowed deleting `fixtures-local/landing-rw4a/` once these copies existed, behind fail-closed guards. The guarded delete was refused by this session's permission layer, so `landing-rw4a/` is still there (its scripts were reused here). The owner or orchestrator can delete it.
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 209 (44) / 165 → 210 (45) | 165 → 209 (44) / 165 → 210 (45) |
+| schema objects, main vs merge | the only difference is the merge's new `help_assists` table, its five indexes (`idx_help_assists_attempt`, `_requested`, `_session_item`, `_submission`, `_workbench`) and two triggers (`help_assists_identity_fixed`, `help_assists_no_delete`); every other table, index and trigger has identical SQL | same |
+| rows of every table (333), on main's columns | **identical** (16,535 rows); `schema_migrations` differs only by the 210 row; `help_assists` is empty | **identical** (7,633 rows); `help_assists` is empty |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live database unchanged on both) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** upgrade shadow: main's code migrates to 209, then the merge's code applies **210 only** | applied 1, head 210; `foreign_key_check` empty, `integrity_check` ok; all 333 tables' rows identical to the 209 copy; schema differs only by `help_assists` and its indexes and triggers | same |
+| `rebuild --shadow` and `doctor`: main's code on the 209 copy vs the merge's code on the upgraded copy | **0 differences** each | **0 differences** each |
+| **(c)** at `mvp-0.8`: every facet's `facet_evidence_timelines` (`as_dict` plus the eleven `TimelinePoint` fields), 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification` | **byte-identical JSON** (39 facets, 84 points, 2 corrections; 21 LOs, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the Today queue: `build_due_queue` at a frozen clock (2026-10-18 09:00 UTC), `persist_explanations=False`, with no session, a session and a greedy session; every `ScheduledItem` and the head | **byte-identical** (41 items each; head `pi_what_makes_function_axiom_strategy`) | **byte-identical** (67 items; head `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5`) |
+| the same, on a copy upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code (the merge's applies 210) | **byte-identical** certification and curves (82 points, 7 corrections, 1 attempt held `grade_contract_unrecorded`, as at RW4a; 1 LO certified) and Today queue (43 items) | **byte-identical** (29 facets, 2 points; 0 certified; Today queue 67 items) |
+
+**(d) Practice through the merge's real sidecar** (stdio: `initialize`, then the RPCs). Two copies of probability at 210, routes neutralized as above, one with `[hints] telemetry_enabled = false` appended and one with `= true`. The same sequence ran on each, on `pi_prob_derive_complement` (one authored hint, open text): `set_grading_provider manual`, `start_session`, `get_practice_item`, `get_probe_contract`, `practice.record_hint_reveal` (hint 0, a draft, a fixed `revealedAt`, submission key `landing-h0-k1`), `save_practice_draft`, `submit_attempt` (`hintsUsed: 1`, `latencySeconds: 42`, a self-grade), `acknowledge_practice_submission`, `get_session`.
+
+| Check | Result |
+|---|---|
+| every practice RPC response, off vs on | **identical** for all nine other calls: `set_grading_provider`, `get_probe_contract`, `save_practice_draft` and `acknowledge_practice_submission` byte for byte; `initialize`, `start_session`, `get_practice_item`, `submit_attempt` (7,825 bytes) and `get_session` after normalizing only (1) ULIDs (session, attempt and receipt ids: 12 strings), (2) ISO timestamps (36 strings), (3) the copy's own path in `initialize`'s `vault.root` (2 strings). In the database comparison, also `attempt_debug_payloads`' `dr_<hex>` diagnosis-record id, which is derived from the attempt. Nothing else was normalized |
+| `practice.record_hint_reveal` | off: `{recorded: false, reason: "telemetry_disabled", assistId: null}`; on: `{recorded: true, reason: null, assistId: "ha_…"}` (the one response that differs by design) |
+| `help_assists`, off | **empty** |
+| `help_assists`, on | **exactly one row**: `practice / hint / authored`, level 3, `authored_index` 0, `counted_by = client`, `shown = 1`, `work_hash` + `work_chars` 11 (no text), `submission_id = landing-h0-k1`, `submitted_at` stamped, `submit_latency_seconds` 42, and `attempt_id` = the attempt whose `submission_id` is `landing-h0-k1` |
+| evidence, `hints_used`, `primed`, reveal events, FSRS | the attempt is `open_text`, `hints_used` 1, `primed` 0, correctness 1.0 on both; `reveal_events` 0 added on both; the rows every run added or replaced (23 tables: `practice_attempts`, `grading_evidence`, `facet_capability_evidence`, `facet_recall_state`, `learning_object_mastery`, `practice_item_state` (the FSRS state), `measurement_events`, `raw_grade_events`, the submission receipt and intent, the activity ledgers, …) are **identical** off vs on after the normalization above; the only extra line on is the `help_assists` row |
+| a reveal during a diagnostic block | a third copy (switch on). No item in either vault is an eligible probe instrument today (every open episode is `pending_items` with an empty eligible slate), so the block was put in with the repository's own writers: `lo_derive_and_use_basic_probability_rules`' episode set `in_progress`, a presentation of `pi_prob_derive_complement` inserted and marked `served`. The sidecar's `practice.record_hint_reveal` then answered `{recorded: false, reason: "diagnostic_block"}` and **wrote nothing**: `help_assists` empty; the dump before and after differs only by `initialize` re-stamping three derived rows (`facet_recall_state` ×2, `facet_capability_evidence`, as at RW6a, RW1b and RW4a) and `start_session`'s session row |
+| `learnloop hints report --json` on the "on" copy | exit 0; `state.sqlite`'s sha256 identical before and after (the report opens it with `connect(read_only=True)`; it left an empty `-wal` and a `-shm` beside the WAL-mode copy); the report shows 1 shown, 1 attempt, 0 unattached, `by_authored_index {"0": 1}`, outcome `correct` 1, `baseline: true`, intervals `too_few`, `hints {telemetry_enabled: true}`; no draft text in the output |
+
+**`model_call_receipts` added during the parity runs: 0.** All 30 copies have 0, as the originals did. (Six of them belong to aborted first tries, kept and not used for any result: `u27/` and `u27b/`, where a shell quoting slip ran `rebuild-derived-state` at `mvp-0.8` instead of the upgrade, and `d/off` and `d/on`, where the first submit used an attempt type the item does not allow; `d/block_la` was only read, to look for an eligible instrument in linear_algebra.)
+
+### For the owner
+
+- **No upgrade command.** H0 has no successor; the vaults keep their label.
+- **Migration 210 applies on the next open** (the desktop app, the CLI, the MCP runtime or the mobile host, whichever opens the vault first). It only adds the empty `help_assists` table, its five indexes and two triggers. **Close the app, the MCP runtime and the mobile host, and back up first**, as for any migration.
+- **What it records.** Each authored hint the practice screen reveals writes one `help_assists` row: which hint (0-based `authored_index`), when, a hash and the length of the draft at that moment (never the text), the session and the screen's submission key. At submit the rows are stamped with the submit time and the latency the client sent, and attached to the attempt by that key. Nothing that grades, schedules, projects or replays reads them: `hints_used` is still the screen's count, and reveal events, evidence and FSRS are unchanged (checked above).
+- **Turning it off.** In the vault's `learnloop.toml`:
+
+  ```toml
+  [hints]
+  telemetry_enabled = false
+  ```
+
+  Off, `practice.record_hint_reveal` answers `recorded: false, reason: "telemetry_disabled"` before reading anything, nothing is stamped or attached, and the practice screen behaves exactly as before. Rows written while it was on stay (the table refuses deletes).
+- **Reading the report.** `uv run learnloop hints report --vault <path> [--since 7d] [--surface practice] [--json]`. It opens the database read-only (no migration, no model, no learner text). One row per surface, assist kind, hint kind and level; today that is only `practice / hint / authored / level 3`, marked `baseline`, the comparison point later adaptive kinds will be measured against. Per row:
+  - `shown`, `items`, `sessions`, `attempts`, `unattached` (revealed but never submitted, or submitted with the switch off), and the reveals per item and per session (p50/p95, with `n`);
+  - `by_authored_index`: how often each hint in the list was opened (a high share on the last one means the hints run out before the learner gets unstuck);
+  - `work_empty_at_request`: reveals asked for before writing anything;
+  - `seconds_reveal_to_submit` and seconds into the attempt; `timing_unknown` counts rows without a submit time;
+  - `more_help_in_attempt`, the attempt's recorded outcome (`correct` / `partial` / `incorrect` / `ungraded`), the attempt types, and `later_independent_success` on the item and on its learning object (`pass` / `fail` / `ungraded` / `pending`, never imputed);
+  - every share has a 95% Wilson interval and every p50/p95 an order-statistic interval, or `None` with a reason when there are too few;
+  - `top_items` (the 20 items with the most reveals) and `not_yet_measured`, which names what needs H2-H5.
+
+  On a fresh vault the report is empty until hints are revealed; with a handful of reveals most intervals say `too_few`.
+- **The `hint_feedback` widening H2 will carry.** Migration 208 (RW1b) widened `learner_text_gaps.source_kind` and `learner_text_gap_jobs.source_kind` with `workbench_text` and `reader_formative` but not `hint_feedback`, so G-H17's "one widening migration" cannot hold. When H2 adds the `hint_feedback` learner-text adapter ("doesn't connect" text and discriminating answers outside the workbench), it carries a second widening of both tables: temp-then-rename with `PRAGMA foreign_keys = OFF`, a `foreign_key_check` before commit, a durability-lane test, adding `hint_feedback` and nothing else. It is recorded in the spec's §15.
+- **Open questions (defaults taken):**
+  - stage record §8: 1, the classic card's cold-check reveal is recorded; 2, level 3 for every authored hint, the last one included; 3, no back-fill for rows left unattached; 4, no Settings toggle for the switch; 5, `submit_dont_know`'s fold asymmetry untouched;
+  - `hints-h0-codex-review.md` round 2: an item whose `max_useful_hints` equals its hint count is never `reached` when every hint was opened (`help_count_capped`); any tutor question on the item in the window counts as other help (round 5 extended this to every status); workbench held hints are judged by conservative overlap; the report needs the vault's caps (only the CLI calls it, and it passes them);
+  - round 5: the report reads the attempt's current grade (a regrade can move a case between `reached` and `not_fully_correct`); the static `help_assists` columns are fixed in code, not by trigger (left to RW2b/H3); a backdated historical attempt can narrow a later attempt's window (unchanged, noted).
+- **New at landing (small):**
+  - **No real diagnostic block can arise on these vaults today.** No item in either vault is an eligible probe instrument (every open episode is `pending_items` with an empty slate). Also, under a manual or self-grading provider `get_probe_contract` parks the episode (§5.8), so a self-graded session never has a block. The sidecar's refusal was therefore checked on repository-written block state (above). The unit tests cover the screen's refusal and the predicate.
+  - **The report leaves companion files on a WAL-mode vault.** Its read-only open leaves an empty `-wal` and a `-shm` beside the database. The database is unchanged. It is harmless on the owner's vaults, but on a tracked fixture it would show the usual harmless empty companions.
+  - **`fixtures-local/landing-rw4a/` was not deleted** (the session's permission layer refused the guarded delete); it can go.
+- **Not done:** no real-UI look (as in the stage); no live model was run.
