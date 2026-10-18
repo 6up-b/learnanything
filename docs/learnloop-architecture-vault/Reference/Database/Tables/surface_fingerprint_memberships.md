@@ -3,13 +3,13 @@ title: "surface_fingerprint_memberships"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "15789eb84e96d9c3185b408585b3aea5537634f1"
-source_commit_timestamp: "2026-10-17T22:04:32-04:00"
+source_commit: "610e61dc0bd493b301db93487e487ddaece00a66"
+source_commit_timestamp: "2026-10-17T22:37:37-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite surface_fingerprint_memberships"
   - "table surface_fingerprint_memberships"
-schema_head: 209
+schema_head: 210
 table_name: "surface_fingerprint_memberships"
 table_role: "raw_ledger"
 functionality_status: "active"

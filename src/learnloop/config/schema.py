@@ -1889,6 +1889,25 @@ class StuckPromptConfig(BaseModel):
     enabled: bool = True
 
 
+class HintsConfig(BaseModel):
+    """Adaptive hints (spec_adaptive_hints_v1 §9). H0 adds only the telemetry.
+
+    ``telemetry_enabled``: the practice screen records each authored hint it
+    reveals as a ``help_assists`` row (``practice.record_hint_reveal``: which
+    hint, when, and a hash and length of the draft it was revealed on), and
+    submit attaches the item's rows to the attempt. Telemetry only: the
+    attempt's ``hints_used`` is still the client's count, and ``primed``,
+    reveal events, evidence, FSRS, certification, scheduling and grading never
+    read these rows, so no scoring, scheduling, projection or serving change
+    and no successor. Off (the kill switch): no row is written, the RPC is a
+    no-op, and the practice RPCs and screen are exactly as before H0.
+    The phases after H0 add their own keys here (``adaptive_enabled``,
+    ``chooser_enabled``, ``help_style`` and the rest of §9's list).
+    """
+
+    telemetry_enabled: bool = True
+
+
 class ReaderInquiryConfig(BaseModel):
     """Reader workbench RW1a: inquiry (spec_reader_workbench_v1 §4.1).
 
@@ -2980,6 +2999,7 @@ class LearnLoopConfig(BaseModel):
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
     recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
     stuck_prompt: StuckPromptConfig = Field(default_factory=StuckPromptConfig)
+    hints: HintsConfig = Field(default_factory=HintsConfig)
     learner_text_gaps: LearnerTextGapsConfig = Field(default_factory=LearnerTextGapsConfig)
     evsi: EvsiConfig = Field(default_factory=EvsiConfig)
     reader_inquiry: ReaderInquiryConfig = Field(default_factory=ReaderInquiryConfig)

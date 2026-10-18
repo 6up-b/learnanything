@@ -37,6 +37,7 @@ from learnloop.cli.plan import plan_app
 from learnloop.cli.router import router_app
 from learnloop.cli.reader import reader_app
 from learnloop.cli.gaps import gaps_app
+from learnloop.cli.hints import hints_app
 from learnloop.cli.facets import facets_app
 from learnloop.cli.evsi import evsi_app
 from learnloop.cli.decider import decider_app
@@ -79,6 +80,7 @@ app.add_typer(ai_app, name="ai")
 app.add_typer(router_app, name="router")
 app.add_typer(reader_app, name="reader")
 app.add_typer(gaps_app, name="gaps")
+app.add_typer(hints_app, name="hints")
 app.add_typer(decider_app, name="decider")
 app.add_typer(facets_app, name="facets")
 app.add_typer(evsi_app, name="evsi")

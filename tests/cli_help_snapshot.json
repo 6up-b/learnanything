@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 24862,
-    "sha256": "d6118f4d6b98298394125dc2b6f69d8cff44836aca35672832db4728a3f1ce76"
+    "bytes": 24947,
+    "sha256": "bbde7ed831a298f0bb11d883ee6fa42cdd9bf73e887362133cb3c8ac374788ab"
   },
   "accept": {
     "bytes": 1593,
@@ -586,6 +586,14 @@
   "graph-identifiability": {
     "bytes": 1872,
     "sha256": "1ebb2acf1249f0575b759ebee807fb8e9933b197965430fce9ee55d06927dab2"
+  },
+  "hints": {
+    "bytes": 1757,
+    "sha256": "206e044fb6fcaad659b1d17e31c0a471cde2f12b6520eb80e33c793d16dda005"
+  },
+  "hints report": {
+    "bytes": 1627,
+    "sha256": "35aef480b3c0a1ee6842e6a6682f94d739f8221dc34960dcf7a7f829398a6b26"
   },
   "import": {
     "bytes": 2169,

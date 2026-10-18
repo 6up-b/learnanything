@@ -151,6 +151,33 @@ ignore_imports = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "hints-never-write-evidence"
+name = "Adaptive hints are help, never evidence: learnloop.hints imports no evidence writer (G-H13)"
+type = "forbidden"
+source_modules = ["learnloop.hints"]
+# The modules that record attempts, reveals, mastery, FSRS, certification,
+# placement, the learner field and replay. Hints reach evidence only through
+# the attempt's hints_used / primed and reveal_events with their existing
+# meaning (spec_adaptive_hints_v1 §5), which the submit path owns; a later
+# phase that needs a read from one of these names it here with its reason.
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.placement",
+    "learnloop.field",
+    "learnloop.router",
+    "learnloop.daily_plan",
+    "learnloop.cli",
+    "learnloop_sidecar",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "projects-stay-standalone"
 name = "Project understanding M1 stays off vault state, scheduling and adapters"
 type = "forbidden"

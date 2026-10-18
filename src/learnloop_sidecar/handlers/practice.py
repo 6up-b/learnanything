@@ -28,6 +28,11 @@ from learnloop.attempts.post_attempt import (
     run_post_attempt_pipeline,
 )
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop.hints.telemetry import (
+    attach_reveals_to_attempt,
+    record_authored_reveal,
+    telemetry_enabled,
+)
 from learnloop.diagnosis.probe_episodes import (
     PROBE_ITEM_ANSWER_SHOWN,
     RoutineDisplayCovered,
@@ -190,6 +195,23 @@ class DontKnowInput(ParamsModel):
 class SkipInput(ParamsModel):
     session_id: str
     practice_item_id: str
+
+
+class HintRevealInput(ParamsModel):
+    """Adaptive hints H0: one authored hint the practice screen revealed."""
+
+    session_id: str = Field(min_length=1)
+    practice_item_id: str = Field(min_length=1)
+    #: 0-based: the hint shown is ``item.hints[authored_index]``.
+    authored_index: int = Field(ge=0)
+    #: The draft the hint was revealed on; only its hash and length are kept.
+    answer_md: str = ""
+    #: The client's press time (ISO 8601); the sidecar's own when absent.
+    revealed_at: str | None = None
+
+
+#: Adaptive hints H0's RPCs (desktop only; pinned in tests/test_mobile_allowlist.py).
+HINT_TELEMETRY_RPCS = ("practice.record_hint_reveal",)
 
 
 class ServePracticeItemInput(ParamsModel):
@@ -552,6 +574,75 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
         plan_presentation_id=params.plan_presentation_id,
     )
     return {"ok": True}
+
+
+@method("practice.record_hint_reveal", HintRevealInput)
+def record_hint_reveal(ctx: SidecarContext, params: HintRevealInput) -> dict[str, Any]:
+    """Adaptive hints H0 (spec_adaptive_hints_v1 §9, §10 H0): record one
+    authored hint the practice screen revealed, as a ``help_assists`` row.
+
+    Fire and forget: the screen has already shown the hint and never waits on
+    this. Telemetry only: submit still takes ``hints_used`` from the client,
+    and nothing that grades, schedules or projects reads the row. A no-op
+    (``recorded: false``) with ``hints.telemetry_enabled`` off, and during a
+    diagnostic block on the item, where the screen refuses the reveal itself.
+    A failed write is logged and answered ``recorded: false``, never raised.
+    """
+
+    vault, repository = ctx.require_vault()
+    if not telemetry_enabled(vault.config):
+        return versioned({"recorded": False, "reason": "telemetry_disabled", "assist_id": None})
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    if params.authored_index >= len(item.hints):
+        raise SidecarError(
+            "validation_error",
+            f"Practice Item {item.id} has {len(item.hints)} authored hints; no hint {params.authored_index}.",
+            details={"field": "authoredIndex"},
+        )
+    if _in_diagnostic_block(repository, item):
+        return versioned({"recorded": False, "reason": "diagnostic_block", "assist_id": None})
+    try:
+        record = record_authored_reveal(
+            repository,
+            item=item,
+            session_id=params.session_id,
+            authored_index=params.authored_index,
+            work_md=params.answer_md,
+            revealed_at=params.revealed_at,
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails the reveal
+        log_event("hint_reveal_telemetry_failed", practice_item_id=item.id, error=type(exc).__name__)
+        return versioned({"recorded": False, "reason": "write_failed", "assist_id": None})
+    return versioned(record.as_dict())
+
+
+def _in_diagnostic_block(repository, item) -> bool:
+    """The item is being served as a diagnostic probe (an in-progress episode
+    with a served presentation of this item): the screen refuses hints then
+    (probe redesign §5.5), so no reveal is recorded either."""
+
+    episode = repository.open_probe_episode(item.learning_object_id)
+    if episode is None or episode.status != "in_progress":
+        return False
+    presentation = repository.active_probe_presentation(episode.id, practice_item_id=item.id)
+    return presentation is not None and presentation.status == "served"
+
+
+def _attach_hint_reveals(vault, repository, session_id: str, practice_item_id: str, attempt_id: str) -> None:
+    """Adaptive hints H0: the attempt the session's revealed hints were part of.
+    Telemetry only, after the attempt committed: never changes the attempt or
+    the response, and a failure is logged, never raised."""
+
+    if not telemetry_enabled(vault.config):
+        return
+    try:
+        attach_reveals_to_attempt(
+            repository, session_id=session_id, practice_item_id=practice_item_id, attempt_id=attempt_id
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
+        log_event("hint_reveal_attach_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
 
 
 @method("record_self_grade_disclosure", SelfGradeDisclosureInput)
@@ -984,6 +1075,7 @@ def submit_attempt_on(
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(vault, repository, params.session_id, result.practice_item_id, result.attempt_id)
     return payload
 
 
@@ -1074,6 +1166,7 @@ def submit_dont_know_on(
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(vault, repository, params.session_id, result.practice_item_id, result.attempt_id)
     return payload
 
 
@@ -1111,6 +1204,7 @@ def _record_empty_stuck(
     _log_state_update(vault, repository, "submit_stuck_empty", session_id, before, result)
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, draft.submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(vault, repository, session_id, result.practice_item_id, result.attempt_id)
     return payload
 
 

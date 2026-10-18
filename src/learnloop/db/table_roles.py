@@ -216,6 +216,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("grading_clarification_responses", TableRole.RAW_LEDGER),
     ("grading_clarifications", TableRole.RAW_LEDGER),
     ("grading_evidence", TableRole.RAW_LEDGER),
+    # Adaptive hints H0 (migration 210): every surface's assists (hints,
+    # checks, discriminating answers, bridges), shared with the Reader
+    # workbench. Never evidence; replay and rebuild never read it (G-H10).
+    ("help_assists", TableRole.RAW_LEDGER),
     ("hypothesis_events", TableRole.RAW_LEDGER),
     # Slice 2 T1 (M3): recurrence groups, their review cases and the build
     # state, rebuilt from raw ledgers by the recurrence_groups replayer.

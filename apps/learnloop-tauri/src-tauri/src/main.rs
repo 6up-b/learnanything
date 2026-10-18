@@ -261,6 +261,7 @@ fn main() {
             stop_probe_diagnosing,
             get_next_probe_item,
             save_practice_draft,
+            practice_record_hint_reveal,
             recover_practice_submission,
             acknowledge_practice_submission,
             submit_attempt,

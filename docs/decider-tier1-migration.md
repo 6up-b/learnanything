@@ -100,7 +100,7 @@ The tests (`tests/test_tier1_decider.py`, `tests/test_facet_span_support.py`,
 `tests/test_decider_agreement.py`, `tests/test_mvp022_upgrade.py`,
 `tests/test_decider_landing.py`) use
 in-process fakes; the upgrade test also uses a backup-API copy of
-`fixtures/migration_head_209`. They check raw-history preservation, foreign
+`fixtures/migration_head_210`. They check raw-history preservation, foreign
 keys, doctor, chained notes, defaults, and same-version rebuild equivalence.
 As in the predecessor fixture test, two initial rebuilds settle the parameter
 manifest before comparing the derived snapshots.

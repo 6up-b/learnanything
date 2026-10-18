@@ -1,0 +1,137 @@
+"""Adaptive hints H0: authored-hint reveals as ``help_assists`` rows.
+
+The practice screen reveals an item's authored hints itself and sends the
+count at submit (``hints_used``); before H0 nothing recorded when each hint
+was shown, or on what work (spec_adaptive_hints_v1 §3.2). H0 records each
+reveal (``practice.record_hint_reveal``) and attaches the item's rows to the
+attempt at submit, so the report can say how today's hints are used and what
+follows (§6, §10 H0): the baseline the adaptive kinds are compared with.
+
+Telemetry only (§9, H0's authored-reveal rows): nothing here changes
+``hints_used``, ``primed``, reveal events, evidence, FSRS, certification,
+scheduling or grading, and nothing that computes them reads these rows.
+``hints.telemetry_enabled = false`` writes nothing at all.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+import hashlib
+from typing import Any
+
+from learnloop.clock import SystemClock, parse_utc
+from learnloop.db.stores import help_assists as store
+from learnloop.ids import new_ulid
+from learnloop.vault.hashes import practice_item_hash
+
+#: The level an authored hint is recorded at: §4.2's table puts the kind
+#: ``authored`` at level 3 (the ladder's "a hint": help that is not worked).
+AUTHORED_LEVEL = 3
+#: How far ahead of the sidecar's clock a client's reveal time may be before
+#: it is not believed (a clock-skew allowance for display timing, not a rule).
+_CLIENT_CLOCK_AHEAD = timedelta(seconds=60)
+
+
+@dataclass(frozen=True)
+class RevealRecord:
+    recorded: bool
+    reason: str | None = None
+    assist_id: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"recorded": self.recorded, "reason": self.reason, "assist_id": self.assist_id}
+
+
+def telemetry_enabled(config: Any) -> bool:
+    return bool(config.hints.telemetry_enabled)
+
+
+def work_digest(work_md: str) -> tuple[str, int]:
+    """The draft's sha256 and length: the row keeps these, never the text."""
+
+    return hashlib.sha256(work_md.encode("utf-8")).hexdigest(), len(work_md)
+
+
+def _iso_ms(instant: datetime) -> str:
+    return instant.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def reveal_instant(client_value: str | None, *, now: datetime) -> str:
+    """When the hint was shown: the client's press time (the sidecar answers
+    one request at a time, so a reveal sent while another call runs would be
+    stamped late), unless it is missing, malformed or ahead of the sidecar's
+    clock; then the sidecar's own time."""
+
+    if client_value:
+        try:
+            parsed = parse_utc(client_value)
+        except ValueError:
+            parsed = None
+        if parsed is not None and parsed <= now + _CLIENT_CLOCK_AHEAD:
+            return _iso_ms(parsed)
+    return _iso_ms(now)
+
+
+def record_authored_reveal(
+    repository: Any,
+    *,
+    item: Any,
+    session_id: str,
+    authored_index: int,
+    work_md: str,
+    revealed_at: str | None = None,
+    now: datetime | None = None,
+) -> RevealRecord:
+    """One ``help_assists`` row for an authored hint the practice screen showed."""
+
+    current = now or SystemClock().now()
+    shown_at = reveal_instant(revealed_at, now=current)
+    work_hash, work_chars = work_digest(work_md)
+    assist_id = "ha_" + new_ulid()
+    row = {
+        "id": assist_id,
+        "surface": "practice",
+        "assist_kind": "hint",
+        "practice_item_id": item.id,
+        "practice_item_hash": practice_item_hash(item),
+        "practice_session_id": session_id,
+        "hint_kind": "authored",
+        "level": AUTHORED_LEVEL,
+        "authored_index": int(authored_index),
+        "work_hash": work_hash,
+        "work_chars": work_chars,
+        "chooser": "none",
+        "shown": 1,
+        "counted_by": "client",
+        "requested_at": shown_at,
+        "shown_at": shown_at,
+    }
+    with repository.connection() as connection:
+        store.insert_assist(connection, row)
+    return RevealRecord(recorded=True, assist_id=assist_id)
+
+
+def attach_reveals_to_attempt(
+    repository: Any, *, session_id: str, practice_item_id: str, attempt_id: str
+) -> int:
+    """Fill ``attempt_id`` on the session's unattached rows for the item."""
+
+    with repository.connection() as connection:
+        return store.attach_attempt(
+            connection,
+            practice_session_id=session_id,
+            practice_item_id=practice_item_id,
+            attempt_id=attempt_id,
+        )
+
+
+__all__ = [
+    "AUTHORED_LEVEL",
+    "RevealRecord",
+    "attach_reveals_to_attempt",
+    "record_authored_reveal",
+    "reveal_instant",
+    "telemetry_enabled",
+    "work_digest",
+]
