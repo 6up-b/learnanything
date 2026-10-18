@@ -583,6 +583,8 @@ fn main() {
             reader_library_ask_notes,
             reader_library_compare,
             reader_library_ask_tutor,
+            reader_library_job,
+            reader_library_job_cancel,
             reader_block_health,
             reader_block_original_region,
             reader_translate_selection,

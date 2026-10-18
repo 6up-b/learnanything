@@ -39,7 +39,7 @@ no request-count bound (Slice A §5 rule 6).
 """
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -75,6 +75,10 @@ PROCESS = "proc_" + new_ulid()
 #: admission recovers it. Process-liveness bounds, not money decisions.
 LEASE_SECONDS = 300
 HEARTBEAT_SECONDS = 60
+
+#: "The service's own rate" (``source_service.llm_price_per_million``), as
+#: distinct from an explicit None (no rate).
+_SERVICE_PRICE = object()
 
 _DAILY: dict[tuple[str, str, float, str], SpendEnvelope] = {}
 _DAILY_LOCK = threading.Lock()
@@ -153,8 +157,10 @@ class SharedDailyEnvelope(SpendEnvelope):
     """
 
     def __init__(self, vault: LoadedVault, repository: Repository, *, day: str, cap: float,
-                 clock: Clock | None = None) -> None:
-        super().__init__(DAILY_ENVELOPE, cap)
+                 clock: Clock | None = None, name: str = DAILY_ENVELOPE,
+                 owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
+                 price_per_million: float | None | object = _SERVICE_PRICE) -> None:
+        super().__init__(name, cap)
         self._vault = vault
         self._repository = repository
         self._since = day  # UTC midnight
@@ -162,12 +168,20 @@ class SharedDailyEnvelope(SpendEnvelope):
         #: The clock the envelope was opened with: every reservation, charge,
         #: settlement and total is stamped by it (the day it guards is its day).
         self._clock = clock
+        #: Another daily cap kept in the same ledger (reader workbench RW4a:
+        #: ``library_ask.max_daily_cost_usd``) names its own envelope, the
+        #: receipt kinds it counts and its owner's rate; the defaults are the
+        #: service's own cap, unchanged.
+        self._owner_kinds = owner_kinds
+        self._price = (vault.config.source_service.llm_price_per_million
+                       if price_per_million is _SERVICE_PRICE else price_per_million)
 
     def _now(self) -> str:
         return utc_now_iso(self._clock)
 
     def accounting(self, connection: sqlite3.Connection, now: str | None = None) -> dict[str, Any]:
-        return daily_accounting(connection, self._vault, self._since, envelope=self.name, now=now or self._now())
+        return daily_accounting(connection, self._vault, self._since, envelope=self.name, now=now or self._now(),
+                                owner_kinds=self._owner_kinds, price_per_million=self._price)
 
     def _total(self) -> Decimal:
         with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
@@ -182,9 +196,8 @@ class SharedDailyEnvelope(SpendEnvelope):
             admitted, total = reserve_service_spend(
                 self._repository.connection(), id=handle, envelope=self.name, day=self._day, since=self._since,
                 usd=float(usd), cap=float(self.max_usd), process=PROCESS, now=self._now(),
-                lease_seconds=LEASE_SECONDS,
-                price_per_million=self._vault.config.source_service.llm_price_per_million,
-                subscription_providers=subscription_providers(self._vault), owner_kinds=SERVICE_OWNER_KINDS)
+                lease_seconds=LEASE_SECONDS, price_per_million=self._price,
+                subscription_providers=subscription_providers(self._vault), owner_kinds=self._owner_kinds)
         if not admitted:
             with self._lock:
                 self._refused += 1
@@ -236,14 +249,18 @@ class SharedDailyEnvelope(SpendEnvelope):
 
 
 def daily_accounting(connection: sqlite3.Connection, vault: LoadedVault, since: str, *,
-                     envelope: str = DAILY_ENVELOPE, now: str | None = None) -> dict[str, Any]:
+                     envelope: str = DAILY_ENVELOPE, now: str | None = None,
+                     owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
+                     price_per_million: float | None | object = _SERVICE_PRICE) -> dict[str, Any]:
     """The daily cap's total since ``since`` (UTC midnight): the one function
     admission, recovery and every report read."""
 
+    price = vault.config.source_service.llm_price_per_million if price_per_million is _SERVICE_PRICE \
+        else price_per_million
     return service_spend_accounting(
         connection, envelope=envelope, day=since[:10], since=since, now=now or utc_now_iso(),
-        price_per_million=vault.config.source_service.llm_price_per_million,
-        subscription_providers=subscription_providers(vault), owner_kinds=SERVICE_OWNER_KINDS)
+        price_per_million=price,  # type: ignore[arg-type]
+        subscription_providers=subscription_providers(vault), owner_kinds=owner_kinds)
 
 
 def subscription_providers(vault: LoadedVault) -> frozenset[str]:

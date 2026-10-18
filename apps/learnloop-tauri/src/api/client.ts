@@ -6,6 +6,7 @@ import type {
   LibraryAskDto,
   LibraryAskEntry,
   LibraryExpansion,
+  LibraryJobDto,
   LibraryNotesDto,
   LibraryTutorDto,
   WorkbenchOpenInput,
@@ -1478,12 +1479,20 @@ export const api = {
   readerLibraryAsk: (input: {
     query: string; entry: LibraryAskEntry; extractionId?: string | null; spanIds?: string[];
     learningObjectIds?: string[]; personalized?: boolean | null; expand?: LibraryExpansion[] | null;
-  }) => call<LibraryAskDto>("reader_library_ask", { input }),
-  readerLibraryAskNotes: (input: { askId: string }) => call<LibraryNotesDto>("reader_library_ask_notes", { input }),
+  }) => call<LibraryJobDto<LibraryAskDto>>("reader_library_ask", { input }),
+  // Each answers at once with a job (the sidecar never waits on a model on
+  // the request path): read it with readerLibraryJob, cancel it with
+  // readerLibraryJobCancel (a cancelled job never answers).
+  readerLibraryAskNotes: (input: { askId: string }) =>
+    call<LibraryJobDto<LibraryNotesDto>>("reader_library_ask_notes", { input }),
   readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null }) =>
-    call<CompareTableDto>("reader_library_compare", { input }),
+    call<LibraryJobDto<CompareTableDto>>("reader_library_compare", { input }),
   readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
-    call<LibraryTutorDto>("reader_library_ask_tutor", { input }),
+    call<LibraryJobDto<LibraryTutorDto>>("reader_library_ask_tutor", { input }),
+  readerLibraryJob: <T>(input: { jobId: string; waitMs?: number }) =>
+    call<LibraryJobDto<T>>("reader_library_job", { input }),
+  readerLibraryJobCancel: (input: { jobId: string }) =>
+    call<LibraryJobDto<null>>("reader_library_job_cancel", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>

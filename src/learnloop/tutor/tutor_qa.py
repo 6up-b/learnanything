@@ -1302,14 +1302,20 @@ def _build_context(
     settings = vault.config.tutor_qa
     if context == "reader" and provided_source_spans is not None:
         # RW4a: a reader question grounded in the learner's pinned passages
-        # (the injected provider already applied the policy's filters); the
-        # same manifest rules as the selection's delivery below.
+        # (the injected provider already applied the policy's filters), held
+        # to ``tutor_qa.context_token_budget`` like every delivery (Codex
+        # review F7): in order, the first that does not fit trimmed, the rest
+        # dropped, the receipt on the question's ``source_context.delivery``.
+        pinned_spans, receipt = apply_budget([dict(span) for span in provided_source_spans],
+                                             settings.context_token_budget)
+        if delivery_receipt is not None and notable(receipt):
+            delivery_receipt.update(receipt)
         return TutorQAContext(
             context="reader",
             question_md=question_md,
             candidate_facets=[],
             thread=thread,
-            source_spans=list(provided_source_spans),
+            source_spans=pinned_spans,
             answer_mode=answer_mode or READER_ANSWER_MODE_DEFAULT,
         )
     if context == "reader":

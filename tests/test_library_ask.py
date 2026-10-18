@@ -223,9 +223,11 @@ def test_every_rw4a_event_is_salience_only_refused_as_evidence_and_never_client_
 def test_the_organizers_daily_cap_holds(library):
     paths, ctx, _spans = library
     set_config(paths, "library_ask", max_daily_cost_usd=0.0)
+    set_config(paths, "source_retrieval", llm_price_per_million=2.0)
     ctx = context(paths.root)
     asked = _ask(ctx)
-    ctx.library_organizer_client = fake = OrganizerFake()
+    # A metered route (a subscription one is never refused by money).
+    ctx.library_organizer_client = fake = OrganizerFake(provider_type="openai_chat")
     notes = call(ctx, "reader.library_ask_notes", {"askId": asked["askId"]})
     assert notes["status"] == "capped" and "library_ask.max_daily_cost_usd" in notes["reason"]
     assert fake.prompts == [] and notes["notes"] == []

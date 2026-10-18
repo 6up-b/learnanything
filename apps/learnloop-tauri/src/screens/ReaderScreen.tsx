@@ -1959,6 +1959,19 @@ export function ReaderScreen({
   );
 
   // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
+  // On the library page no book is open: the pick is the same learner pick,
+  // coming back to the answer's first passage (Codex review F10). With the
+  // workbench on, the check opens beside that passage, so its book opens too
+  // (a detour, as "open" is).
+  const pickLibraryPagePractice = (item: ProposedItemDto, proposalId: string | null) => {
+    const hit = libraryCtl.state?.ask.value?.hits[0];
+    const card = hit ? (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId) : undefined;
+    if (!hit || !card || !onCheckMe) return;
+    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: hit.spanId, card });
+    if (algoConfig().workbench && opening === null) {
+      void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+    }
+  };
   if (!render && preparingCard) {
     return (
       <PreparingView
@@ -2051,7 +2064,7 @@ export function ReaderScreen({
                       const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
                       if (card && opening === null) void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
                     }}
-                    onPracticePick={null}
+                    onPracticePick={onCheckMe ? pickLibraryPagePractice : null}
                     onClose={libraryCtl.close}
                   />
                 </Card>

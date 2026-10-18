@@ -27,7 +27,8 @@ from learnloop.ingest.locators import format_block_span
 from learnloop.source_retrieval.library_ask import OrganizerNote, OrganizerResult
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.pf_fakes import prompt_context
-from tests.recap_fixtures import call, context  # noqa: F401 - re-exported for the RW4a tests
+from tests.recap_fixtures import call as call_rpc
+from tests.recap_fixtures import context  # noqa: F401 - re-exported for the RW4a tests
 from tests.source_service_fakes import build_textbook_vault, loaded, set_config  # noqa: F401
 
 #: The passages each LO is linked to: (extraction, span).
@@ -45,6 +46,34 @@ def _set_lo(paths: Any, lo_id: str, **values: Any) -> None:
     payload = read_yaml(path)
     payload.update(values)
     write_yaml(path, payload)
+
+
+#: The RW4a RPCs that answer with a job (never on the request path).
+JOB_RPCS = frozenset({"reader.library_ask", "reader.library_ask_notes", "reader.library_compare",
+                      "reader.library_ask_tutor"})
+
+
+def finish_job(ctx: Any, job: dict[str, Any], *, timeout: float = 60.0) -> dict[str, Any]:
+    """Read a library job until it is done; its result (a failed job raises its error)."""
+
+    import time
+
+    deadline = time.monotonic() + timeout
+    while job["state"] == "pending":
+        assert time.monotonic() < deadline, f"library job {job['jobId']} did not finish"
+        job = call_rpc(ctx, "reader.library_job", {"jobId": job["jobId"], "waitMs": 1000})
+    assert job["state"] == "done", job
+    return job["result"]
+
+
+def call(ctx: Any, name: str, params: dict[str, Any]) -> dict[str, Any]:
+    """An RPC as the Reader sees it: a job RPC is read until its job is done."""
+
+    result = call_rpc(ctx, name, params)
+    # (tests/test_library_ask_review.py pins that every one answers with a job.)
+    if name in JOB_RPCS and set(result) >= {"jobId", "state"}:
+        return finish_job(ctx, result)
+    return result
 
 
 CONCEPTS = {"lo_matrices": "concept_matrices", "lo_vectors": "concept_vectors", "lo_inner": "concept_inner"}
@@ -82,7 +111,13 @@ class OrganizerFake:
     model = "fake-organizer-model"
 
     def __init__(self, *, wrong_cite: tuple[str, ...] = (), speak: str | None = None,
-                 unrelated: tuple[str, ...] = (), reverse: bool = False, fail: bool = False) -> None:
+                 unrelated: tuple[str, ...] = (), reverse: bool = False, fail: bool = False,
+                 provider_type: str = "codex_sdk", gate: Any = None) -> None:
+        #: ``provider_type``: "codex_sdk" bills the subscription; any other is metered.
+        self.provider_type = provider_type
+        #: ``gate``: a ``threading.Event`` the call waits on (a model still answering).
+        self.gate = gate
+        self.started = __import__("threading").Event()
         self.wrong_cite = set(wrong_cite)
         self.speak = speak
         self.unrelated = set(unrelated)
@@ -99,6 +134,9 @@ class OrganizerFake:
 
         assert request.result_model is OrganizerResult
         self.prompts.append(request.prompt)
+        self.started.set()
+        if self.gate is not None:
+            assert self.gate.wait(30), "the test never released the organizer"
         report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 80,
                            "resolved_model": self.model})
         if self.fail:
@@ -120,7 +158,8 @@ class OrganizerFake:
         return OrganizerResult(judgments=judgments, picks=picks)
 
 
-def tutor_with_citations(citations: list[tuple[str, str]]):
+def tutor_with_citations(citations: list[tuple[str, str]], *,
+                         answer_md: str = "From your passages: the determinant changes sign."):
     """A tutor fake whose answer cites ``citations`` (extraction, span) and records its prompts."""
 
     from tests.structured_ai import StructuredClientFake
@@ -141,7 +180,7 @@ def tutor_with_citations(citations: list[tuple[str, str]]):
             from learnloop.tutor.ai_contracts import TutorAnswer
 
             return TutorAnswer.model_validate({
-                "answer_md": "From your passages: the determinant changes sign.", "question_type": "mechanism",
+                "answer_md": answer_md, "question_type": "mechanism",
                 "facets": [], "citations": [{"extraction_id": e, "span_id": s, "label": "x"} for e, s in citations],
             })
 

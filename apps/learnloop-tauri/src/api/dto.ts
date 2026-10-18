@@ -8367,9 +8367,23 @@ export interface CompareTableDto {
     differs: CompareCellDto[];
   }>;
   alsoDiscussedIn: Array<Record<string, unknown>>;
-  unverifiedSources: Array<Record<string, unknown>>;
+  /** Sources whose passages could not be checked: possible matches, not compared. */
+  unverifiedSources: Array<{ sourceId?: string | null; sourceTitle?: string | null; extractionId?: string; spanId?: string; label?: string }>;
   droppedPins: Array<Record<string, unknown>>;
   droppedLineCount: number;
+  /** How the counterparts' verification went (capped, unreachable, timed out, …). */
+  verification?: { status: string | null; stopped: string | null; verifiedSources?: number | null };
+  exposureEventIds?: string[];
+}
+
+/** A library request running off the request path (reader.library_job). */
+export interface LibraryJobDto<T> {
+  version?: number;
+  jobId: string;
+  kind: "ask" | "notes" | "compare" | "tutor";
+  askId: string | null;
+  state: "pending" | "done" | "cancelled";
+  result: T | null;
 }
 
 export interface LibraryTutorDto {
@@ -8379,7 +8393,12 @@ export interface LibraryTutorDto {
   answerMd: string | null;
   citations: Array<{ extractionId: string; spanId: string; label: string }>;
   groundedKeys: string[];
+  /** Pinned passages the tutor's context budget trimmed (still given, in part). */
+  trimmedKeys?: string[];
   droppedPins: Array<Record<string, unknown>>;
   label: string;
   remaining?: number | null;
+  readerAnswerEventId?: string | null;
+  burnedSurfaceIds?: string[];
+  learnerGap?: { status: string; kind?: string | null } | null;
 }

@@ -102,13 +102,32 @@ function CompareCells({ cells }: { cells: CompareTableDto["rows"][number]["contr
   );
 }
 
-/** W10, display only (RW4d adds keep): one row per source; differences kept. */
+/** Why the counterparts' passages went unchecked, in plain words (null: not said). */
+function uncheckedBecause(verification: CompareTableDto["verification"]): string | null {
+  const status = `${verification?.status ?? ""} ${verification?.stopped ?? ""}`;
+  if (/over_budget|capped|budget|cap\b/.test(status)) return "today's checking budget is used";
+  if (/unavailable|skipped/.test(status)) return "LearnLoop's model couldn't be reached";
+  if (/timed_out|timeout/.test(status)) return "checking ran out of time";
+  return null;
+}
+
+/** W10, display only (RW4d adds keep): one row per source; differences kept. A
+ *  source whose passages could not be checked is a possible match, never read
+ *  as "one source" (Codex review F9). */
 export function CompareTable({ table }: { table: CompareTableDto }) {
+  const unverified = table.unverifiedSources ?? [];
+  const because = uncheckedBecause(table.verification);
   return (
     <div data-compare-table="" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <span style={headStyle}>compare · {table.rows.length} sources · {table.header}</span>
       {table.status === "too_few_sources" ? (
-        <MeaningLabel style={{ fontSize: 11 }}>These passages come from one source; pin one from another book to compare.</MeaningLabel>
+        unverified.length ? (
+          <MeaningLabel style={{ fontSize: 11 }}>
+            Not every book's passage could be checked{because ? ` (${because})` : ""}, so there is nothing to compare yet. Your pins are kept · try again.
+          </MeaningLabel>
+        ) : (
+          <MeaningLabel style={{ fontSize: 11 }}>Only one of your books has a checked passage on this; pin one from another book to compare.</MeaningLabel>
+        )
       ) : null}
       <div role="table" aria-label="how your sources treat this" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {table.rows.map((row) => (
@@ -125,6 +144,15 @@ export function CompareTable({ table }: { table: CompareTableDto }) {
           </div>
         ))}
       </div>
+      {unverified.length ? (
+        <div aria-label="possible matches, not checked" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {unverified.map((entry, index) => (
+            <MeaningLabel key={`${entry.sourceId ?? "source"}-${index}`} style={{ fontSize: 11 }}>
+              § {entry.sourceTitle ?? entry.sourceId ?? "a source"} · possible match, not checked{because && table.status !== "too_few_sources" ? ` (${because})` : ""}
+            </MeaningLabel>
+          ))}
+        </div>
+      ) : null}
       {table.alsoDiscussedIn.length ? (
         <MeaningLabel style={{ fontSize: 11 }}>
           also discussed in: {table.alsoDiscussedIn.map((entry) => String(entry.sourceTitle ?? entry.sourceId ?? "a source")).join(", ")}
@@ -259,6 +287,15 @@ export function LibraryAnswer({
             <MeaningLabel style={{ fontSize: 11 }}>
               {ask.sourceCount} source{ask.sourceCount === 1 ? "" : "s"} · {ask.passageCount} passage{ask.passageCount === 1 ? "" : "s"} · {LIBRARY_COPY.found(ask.basis)} · {LIBRARY_COPY.notesBy}
             </MeaningLabel>
+            {notesPhase === "pending" ? (
+              <ModelActionState phase="pending" verb={LIBRARY_COPY.noting} onCancel={ctl.cancelNotes} />
+            ) : null}
+            {notesPhase === "idle" && state.notes.cancelled && ask.hits.length > 0 ? (
+              <MeaningLabel style={{ fontSize: 11 }}>
+                Notes cancelled; the passages are here ·{" "}
+                <button type="button" onClick={ctl.retryNotes} style={linkStyle}>write the notes ↵</button>
+              </MeaningLabel>
+            ) : null}
             {notesPhase !== "landed" && notesPhase !== "pending" && notesPhase !== "idle" ? (
               <ModelActionState
                 phase={notesPhase}
@@ -343,6 +380,7 @@ export function LibraryAnswer({
                     kept="Your pins are kept."
                     capRoute="comparison"
                     fallback="Reading the passages"
+                    onCancel={ctl.cancelCompare}
                     onRetry={() => void ctl.compare()}
                   >
                     {state.compare.value ? <CompareTable table={state.compare.value} /> : null}
@@ -378,6 +416,7 @@ export function LibraryAnswer({
                     failure={state.tutor.failure ?? undefined}
                     kept="Your question is kept."
                     capRoute="tutor"
+                    onCancel={ctl.cancelTutor}
                     onRetry={() => void ctl.askTutor(question)}
                   >
                     {state.tutor.value ? (

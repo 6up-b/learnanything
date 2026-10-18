@@ -23,6 +23,7 @@ const { api, contract } = vi.hoisted(() => ({
     readerLogActivity: vi.fn(), readerRouteIntent: vi.fn(), readerIntentRouting: vi.fn(), readerIntentOutcome: vi.fn(),
     readerSetMode: vi.fn(), readerSearchSources: vi.fn(),
     readerLibraryAsk: vi.fn(), readerLibraryAskNotes: vi.fn(), readerLibraryCompare: vi.fn(), readerLibraryAskTutor: vi.fn(),
+    readerLibraryJob: vi.fn(), readerLibraryJobCancel: vi.fn(),
     findPractice: vi.fn(), recordProposalImpressions: vi.fn(), getSpanView: vi.fn(),
   },
   contract: { value: {} as Record<string, unknown> },
@@ -80,6 +81,16 @@ function notes(extra: Partial<LibraryNotesDto> = {}): LibraryNotesDto {
   };
 }
 
+/** A library RPC's job, already done with ``result`` (the sidecar runs each off the request path). */
+function done<T>(result: T, kind = "ask") {
+  return { jobId: `ljob_${kind}`, kind, askId: "la_1", state: "done" as const, result };
+}
+
+/** A job still running: the first read answers pending, then the deferred result lands. */
+function pendingJob(kind: string) {
+  return { jobId: `ljob_${kind}`, kind, askId: "la_1", state: "pending" as const, result: null };
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((r) => { resolve = r; });
@@ -122,15 +133,17 @@ beforeEach(() => {
   api.readerLogActivity.mockResolvedValue({ recorded: 0 });
   api.readerIntentOutcome.mockResolvedValue({ routingId: "r", recorded: true });
   api.readerSetMode.mockResolvedValue({ mode: "read" });
-  api.readerLibraryAsk.mockResolvedValue(ASK);
-  api.readerLibraryAskNotes.mockResolvedValue(notes());
+  api.readerLibraryAsk.mockResolvedValue(done(ASK));
+  api.readerLibraryAskNotes.mockResolvedValue(done(notes(), "notes"));
+  api.readerLibraryJobCancel.mockResolvedValue({ jobId: "ljob_x", kind: "notes", askId: "la_1", state: "cancelled", result: null });
   api.recordProposalImpressions.mockResolvedValue({ recorded: 1 });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); window.getSelection()?.removeAllRanges(); });
 
 it("where else is this explained? opens the comparing posture, passages first, notes when ready (G17)", async () => {
   const late = deferred<LibraryNotesDto>();
-  api.readerLibraryAskNotes.mockReturnValue(late.promise);
+  api.readerLibraryAskNotes.mockResolvedValue(pendingJob("notes"));
+  api.readerLibraryJob.mockReturnValue(late.promise.then((value) => done(value, "notes")));
   await askFromSelection();
   await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(1));
   const request = api.readerLibraryAsk.mock.calls[0][0];
@@ -161,7 +174,7 @@ it("where else is this explained? opens the comparing posture, passages first, n
 });
 
 it("pins two sources and compares them: one row per source, no consensus (G18)", async () => {
-  api.readerLibraryCompare.mockResolvedValue({
+  api.readerLibraryCompare.mockResolvedValue(done({
     askId: "la_1", status: "ok", comparisonId: "scmp_1", header: "differences kept · each line quotes its own source",
     rows: [
       { sourceId: view.sourceId, sourceTitle: "Matrices", key: "ext_symmetric:span_spectral_worked", page: 3, isOpenSource: true,
@@ -170,7 +183,7 @@ it("pins two sources and compares them: one row per source, no consensus (G18)",
         contributes: [{ line: "the definition", quote: "equals its transpose", authorship: "ai" }], assumes: [], differs: [] },
     ],
     alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [], droppedLineCount: 1,
-  });
+  }, "compare"));
   await askFromSelection();
   const pane = await screen.findByRole("region", { name: "ask your library" });
   await within(pane).findByText("gives the transpose definition");
@@ -191,10 +204,10 @@ it("pins two sources and compares them: one row per source, no consensus (G18)",
 });
 
 it("the tutor answers only from the pinned passages, when asked", async () => {
-  api.readerLibraryAskTutor.mockResolvedValue({
+  api.readerLibraryAskTutor.mockResolvedValue(done({
     askId: "la_1", eventId: "q1", answerMd: "From your passages: it equals its transpose.", citations: [{ extractionId: "ext_other", spanId: "o1", label: "Other Book" }],
     groundedKeys: ["ext_other:o1"], droppedPins: [], label: "answers only from this passage", remaining: 5,
-  });
+  }, "tutor"));
   await askFromSelection();
   const pane = await screen.findByRole("region", { name: "ask your library" });
   await within(pane).findByText("gives the transpose definition");
@@ -249,7 +262,7 @@ it("Ctrl+Shift+F asks about the passage, and Esc goes back to reading", async ()
 });
 
 it("a capped organizer keeps the passages and names the budget (G56)", async () => {
-  api.readerLibraryAskNotes.mockResolvedValue(notes({ status: "capped", reason: "library_ask.max_daily_cost_usd ($1.00)", notes: [], order: [] }));
+  api.readerLibraryAskNotes.mockResolvedValue(done(notes({ status: "capped", reason: "library_ask.max_daily_cost_usd ($1.00)", notes: [], order: [] }), "notes"));
   await askFromSelection();
   const pane = await screen.findByRole("region", { name: "ask your library" });
   expect(await within(pane).findByText(/Today's library notes budget \(\$1\.00\) is used\. Reading the passages still works\./)).toBeTruthy();
@@ -296,4 +309,101 @@ it("the comparing keys work only inside the answer (UX §3.5)", async () => {
   fireEvent.keyDown(window, { key: "Escape" });
   await waitFor(() => expect(within(pane).queryByText("Before it.")).toBeNull());
   expect(screen.getByRole("region", { name: "ask your library" })).toBeTruthy();
+});
+
+// -- Codex review (stage reader-rw4a) --------------------------------------------------------------
+
+it("each part runs as a sidecar job: a pending one is cancelled and its late result never lands (F6)", async () => {
+  const late = deferred<LibraryNotesDto>();
+  api.readerLibraryAskNotes.mockResolvedValue(pendingJob("notes"));
+  api.readerLibraryJob.mockReturnValue(late.promise.then((value) => done(value, "notes")));
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  await waitFor(() => expect(api.readerLibraryJob).toHaveBeenCalledWith({ jobId: "ljob_notes", waitMs: 1000 }));
+  // The passages are read while the notes are written; the pending line offers cancel.
+  expect(within(pane).getByText("A symmetric matrix equals its transpose.")).toBeTruthy();
+  fireEvent.click(within(pane).getByRole("button", { name: "cancel" }));
+  await waitFor(() => expect(api.readerLibraryJobCancel).toHaveBeenCalledWith({ jobId: "ljob_notes" }));
+  await act(async () => late.resolve(notes()));
+  expect(within(pane).queryByText("gives the transpose definition")).toBeNull();
+  expect(within(pane).getByText(/Notes cancelled; the passages are here/)).toBeTruthy();
+  // Asking for them again starts a new job.
+  api.readerLibraryAskNotes.mockResolvedValue(done(notes(), "notes"));
+  fireEvent.click(within(pane).getByRole("button", { name: /write the notes/ }));
+  expect(await within(pane).findByText("gives the transpose definition")).toBeTruthy();
+});
+
+it("a pending comparison or tutor answer can be cancelled (F6)", async () => {
+  api.readerLibraryCompare.mockResolvedValue(pendingJob("compare"));
+  api.readerLibraryJob.mockReturnValue(new Promise(() => undefined));
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  await within(pane).findByText("gives the transpose definition");
+  const pins = within(pane).getAllByRole("button", { name: "pin" });
+  fireEvent.click(pins[0]);
+  fireEvent.click(pins[1]);
+  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
+  expect(await within(pane).findByText(/comparing your sources/)).toBeTruthy();
+  fireEvent.click(within(pane).getByRole("button", { name: "cancel" }));
+  await waitFor(() => expect(api.readerLibraryJobCancel).toHaveBeenCalledWith({ jobId: "ljob_compare" }));
+  expect(within(pane).queryByText(/comparing your sources/)).toBeNull();
+  api.readerLibraryAskTutor.mockResolvedValue(pendingJob("tutor"));
+  const input = within(pane).getByRole("textbox", { name: "your question for the tutor" });
+  fireEvent.submit(input.closest("form")!);
+  expect(await within(pane).findByText(/writing an answer from the pinned passages/)).toBeTruthy();
+  fireEvent.click(within(pane).getByRole("button", { name: "cancel" }));
+  await waitFor(() => expect(api.readerLibraryJobCancel).toHaveBeenCalledWith({ jobId: "ljob_tutor" }));
+  // Closing the pane cancels whatever is still running.
+  fireEvent.keyDown(window, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("region", { name: "ask your library" })).toBeNull());
+});
+
+it("a verification failure is not called one source: the unchecked books show as possible matches (F9)", async () => {
+  api.readerLibraryCompare.mockResolvedValue(done({
+    askId: "la_1", status: "too_few_sources", comparisonId: null, header: "differences kept · each line quotes its own source",
+    rows: [], alsoDiscussedIn: [], droppedPins: [], droppedLineCount: 0,
+    unverifiedSources: [
+      { sourceId: view.sourceId, sourceTitle: "Matrices", extractionId: "ext_symmetric", spanId: "span_spectral_worked", label: "possible match, not checked" },
+      { sourceId: "src_other", sourceTitle: "Other Book", extractionId: "ext_other", spanId: "o1", label: "possible match, not checked" },
+    ],
+    verification: { status: "over_budget", stopped: "over_budget: source_service.max_daily_cost_usd", verifiedSources: 0 },
+  }, "compare"));
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  await within(pane).findByText("gives the transpose definition");
+  const pins = within(pane).getAllByRole("button", { name: "pin" });
+  fireEvent.click(pins[0]);
+  fireEvent.click(pins[1]);
+  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
+  expect(await within(pane).findByText(/Not every book's passage could be checked \(today's checking budget is used\)/)).toBeTruthy();
+  const unchecked = within(pane).getByLabelText("possible matches, not checked");
+  expect(unchecked.textContent).toContain("Matrices · possible match, not checked");
+  expect(unchecked.textContent).toContain("Other Book · possible match, not checked");
+  expect(pane.textContent).not.toContain("come from one source");
+});
+
+it("on the library page, a practice proposal can be picked (F10)", async () => {
+  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "pp_1", items: [
+    { rank: 1, practiceItemId: "pi_1", learningObjectId: "lo_spectral", learningObjectTitle: "Spectral theorem", practiceMode: "short_answer", prompt: "Show a real symmetric matrix has real eigenvalues.", facetIds: [], rationale: null },
+  ] });
+  const onCheckMe = vi.fn();
+  render(<ReaderScreen onError={vi.fn()} onCheckMe={onCheckMe} />);
+  const search = await screen.findByPlaceholderText("search all sources…");
+  fireEvent.change(search, { target: { value: "symmetric matrices" } });
+  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
+  const answer = await screen.findByRole("region", { name: "ask your library" });
+  await within(answer).findByText("A symmetric matrix equals its transpose.");
+  fireEvent.click(within(answer).getByRole("button", { name: /practice this question/ }));
+  fireEvent.click(await within(answer).findByRole("button", { name: /practice this ▸/ }));
+  // The learner pick, coming back to the answer's first passage.
+  expect(onCheckMe).toHaveBeenCalledWith(expect.objectContaining({
+    practiceItemId: "pi_1", proposalId: "pp_1", spanId: "o1", card: expect.objectContaining({ sourceId: "src_other" }),
+  }));
+});
+
+it("a held-out selection's ask says why it was refused (F1)", async () => {
+  api.readerLibraryAsk.mockRejectedValueOnce({ code: "exam_material", message: "This passage is held out of LearnLoop's models.", retryable: false });
+  await askFromSelection();
+  const pane = await screen.findByRole("region", { name: "ask your library" });
+  expect(await within(pane).findByText(/This passage is held out of LearnLoop's models\./)).toBeTruthy();
 });

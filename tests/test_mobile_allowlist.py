@@ -244,6 +244,9 @@ READER_RW4A_RPCS = (
     "reader.library_ask_notes",
     "reader.library_compare",
     "reader.library_ask_tutor",
+    # The jobs those four answer with (never on the request path; Codex review F6).
+    "reader.library_job",
+    "reader.library_job_cancel",
     "reader.prompt_contract",
     "find_practice",
 )

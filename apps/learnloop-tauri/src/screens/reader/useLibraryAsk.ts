@@ -10,6 +10,12 @@
 //
 // Off (no `libraryAsk` key in the prompt contract) the hook asks nothing and
 // `enabled` is false, so no entry point renders (G20, U13).
+//
+// The ask, the notes, compare and the tutor each run as a sidecar job (the
+// sidecar never waits on a model on its request path, so reading, peeking and
+// opening another source go on meanwhile): the hook reads the job until it is
+// done, and *cancel* (or closing the pane, or asking again) cancels it; a
+// cancelled or superseded job's result never lands (Codex review F6).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -17,12 +23,13 @@ import type {
   FindPracticeResultDto,
   LibraryAskDto,
   LibraryAskEntry,
+  LibraryJobDto,
   LibraryNotesDto,
   LibraryTutorDto,
   ReaderPromptContractDto,
   SpanViewDto,
 } from "../../api/dto";
-import { errorMessage } from "../../errors";
+import { errorMessage, getCommandError } from "../../errors";
 import { phaseForError, type ModelActionPhase } from "./ModelActionState";
 
 export const LIBRARY_COPY = {
@@ -66,9 +73,22 @@ interface Stage<T> {
   phase: ModelActionPhase;
   value: T | null;
   failure: string | null;
+  /** The learner cancelled it (idle, with a way to start it again). */
+  cancelled?: boolean;
 }
 
 const IDLE = { phase: "idle" as ModelActionPhase, value: null, failure: null };
+const CANCELLED = { phase: "idle" as ModelActionPhase, value: null, failure: null, cancelled: true };
+
+type JobStage = "ask" | "notes" | "compare" | "tutor";
+const JOB_STAGES: JobStage[] = ["ask", "notes", "compare", "tutor"];
+/** How long one read of a job waits for it (the sidecar caps it at a second). */
+const JOB_WAIT_MS = 1000;
+
+/** A refusal that says why (held-out material), else the stage's own line. */
+function failureLine(error: unknown, fallback: string): string {
+  return getCommandError(error)?.code === "exam_material" ? errorMessage(error) : fallback;
+}
 
 export interface LibraryAskState {
   key: number;
@@ -122,36 +142,69 @@ export function useLibraryAsk({
     setState((current) => (current && current.key === key ? { ...current, ...patch(current) } : current));
   }, []);
 
+  // Each stage's job in flight, and its epoch: a cancel (or a newer run of the
+  // stage) bumps the epoch, so the older job's result is dropped on arrival.
+  const jobsRef = useRef<Partial<Record<JobStage, string>>>({});
+  const epochsRef = useRef<Record<JobStage, number>>({ ask: 0, notes: 0, compare: 0, tutor: 0 });
+
+  const cancelStage = useCallback((stage: JobStage) => {
+    epochsRef.current[stage] += 1;
+    const jobId = jobsRef.current[stage];
+    delete jobsRef.current[stage];
+    if (jobId) void api.readerLibraryJobCancel({ jobId }).catch(() => undefined);
+  }, []);
+
+  /** Start a stage's job and read it until it is done; null once cancelled or superseded. */
+  const runJob = useCallback(async <T,>(stage: JobStage, start: () => Promise<LibraryJobDto<T>>): Promise<T | null> => {
+    cancelStage(stage);
+    const epoch = epochsRef.current[stage];
+    const live = () => epochsRef.current[stage] === epoch;
+    let job = await start();
+    if (!live()) {
+      if (job.state === "pending") void api.readerLibraryJobCancel({ jobId: job.jobId }).catch(() => undefined);
+      return null;
+    }
+    jobsRef.current[stage] = job.jobId;
+    while (job.state === "pending") {
+      job = await api.readerLibraryJob<T>({ jobId: job.jobId, waitMs: JOB_WAIT_MS });
+      if (!live()) return null;
+    }
+    if (jobsRef.current[stage] === job.jobId) delete jobsRef.current[stage];
+    return job.state === "done" ? job.result : null;
+  }, [cancelStage]);
+
   const loadNotes = useCallback(async (key: number, askId: string) => {
     update(key, () => ({ notes: { phase: "pending", value: null, failure: null } }));
     try {
-      const notes = await api.readerLibraryAskNotes({ askId });
+      const notes = await runJob("notes", () => api.readerLibraryAskNotes({ askId }));
+      if (notes === null) return;
       update(key, () => ({ notes: { phase: notesPhase(notes.status), value: notes, failure: null } }));
     } catch (error) {
       update(key, () => ({ notes: { phase: phaseForError(error), value: null, failure: "Couldn't write the notes." } }));
     }
-  }, [update]);
+  }, [runJob, update]);
 
   const run = useCallback(async (request: LibraryAskRequest, personalized: boolean) => {
     if (!enabled) return;
+    for (const stage of JOB_STAGES) cancelStage(stage);
     const key = ++keyRef.current;
     setState({
       key, request, personalized, ask: { phase: "pending", value: null, failure: null }, notes: IDLE, pinned: [],
       compare: IDLE, tutor: IDLE, practice: IDLE, peek: null,
     });
     try {
-      const ask = await api.readerLibraryAsk({
+      const ask = await runJob("ask", () => api.readerLibraryAsk({
         query: request.query, entry: request.entry, extractionId: request.extractionId,
         spanIds: request.spanIds, personalized,
-      });
-      if (keyRef.current !== key) return;
+      }));
+      if (keyRef.current !== key || ask === null) return;
       update(key, () => ({ ask: { phase: "landed", value: ask, failure: null } }));
       if (ask.hits.length > 0) void loadNotes(key, ask.askId);
     } catch (error) {
       if (keyRef.current !== key) return;
-      update(key, () => ({ ask: { phase: phaseForError(error), value: null, failure: "Couldn't look in your books." } }));
+      update(key, () => ({ ask: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't look in your books.") } }));
     }
-  }, [enabled, loadNotes, update]);
+  }, [enabled, cancelStage, loadNotes, runJob, update]);
 
   /** Ask (the learner's act). The personalized chip starts at the vault's default. */
   const ask = useCallback((request: LibraryAskRequest) => {
@@ -174,6 +227,23 @@ export function useLibraryAsk({
     if (current?.ask.value) void loadNotes(current.key, current.ask.value.askId);
   }, [loadNotes]);
 
+  /** Cancel a pending part: its job is cancelled and its result never lands. */
+  const cancelNotes = useCallback(() => {
+    const current = stateRef.current;
+    cancelStage("notes");
+    if (current) update(current.key, () => ({ notes: CANCELLED }));
+  }, [cancelStage, update]);
+  const cancelCompare = useCallback(() => {
+    const current = stateRef.current;
+    cancelStage("compare");
+    if (current) update(current.key, () => ({ compare: CANCELLED }));
+  }, [cancelStage, update]);
+  const cancelTutor = useCallback(() => {
+    const current = stateRef.current;
+    cancelStage("tutor");
+    if (current) update(current.key, () => ({ tutor: CANCELLED }));
+  }, [cancelStage, update]);
+
   const togglePin = useCallback((hitKey: string) => {
     const current = stateRef.current;
     if (!current) return;
@@ -194,31 +264,35 @@ export function useLibraryAsk({
     if (!current?.ask.value || !settings?.compare) return;
     const key = current.key;
     update(key, () => ({ compare: { phase: "pending", value: null, failure: null } }));
+    const askId = current.ask.value.askId;
+    const pinnedSpanKeys = current.pinned;
     try {
-      const table = await api.readerLibraryCompare({
-        askId: current.ask.value.askId, pinnedSpanKeys: current.pinned, openSourceId,
-      });
+      const table = await runJob("compare", () => api.readerLibraryCompare({ askId, pinnedSpanKeys, openSourceId }));
+      if (table === null) return;
       const phase = comparePhase(table.status);
       update(key, () => ({ compare: { phase, value: table, failure: phase === "failed" ? "Couldn't compare these passages." : null } }));
     } catch (error) {
-      update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: "Couldn't compare these passages." } }));
+      update(key, () => ({ compare: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't compare these passages.") } }));
     }
-  }, [settings, openSourceId, update]);
+  }, [settings, openSourceId, runJob, update]);
 
   const askTutor = useCallback(async (question: string) => {
     const current = stateRef.current;
     if (!current?.ask.value || current.pinned.length === 0) return;
     const key = current.key;
     update(key, () => ({ tutor: { phase: "pending", value: null, failure: null } }));
+    const askId = current.ask.value.askId;
+    const pinnedSpanKeys = current.pinned;
     try {
-      const answer = await api.readerLibraryAskTutor({
-        askId: current.ask.value.askId, pinnedSpanKeys: current.pinned, question: question.trim() || null,
-      });
+      const answer = await runJob("tutor", () => api.readerLibraryAskTutor({
+        askId, pinnedSpanKeys, question: question.trim() || null,
+      }));
+      if (answer === null) return;
       update(key, () => ({ tutor: { phase: "landed", value: answer, failure: null } }));
     } catch (error) {
-      update(key, () => ({ tutor: { phase: phaseForError(error), value: null, failure: "Couldn't write an answer." } }));
+      update(key, () => ({ tutor: { phase: phaseForError(error), value: null, failure: failureLine(error, "Couldn't write an answer.") } }));
     }
-  }, [update]);
+  }, [runJob, update]);
 
   /** "Practice this question": the same find_practice call as DL3's box (proposes only). */
   const practice = useCallback(async () => {
@@ -266,23 +340,25 @@ export function useLibraryAsk({
     if (current?.peek) update(current.key, () => ({ peek: null }));
   }, [update]);
 
-  /** Leave the comparing posture: a late result can't reopen it. */
+  /** Leave the comparing posture: its jobs are cancelled and a late result can't reopen it. */
   const close = useCallback(() => {
+    for (const stage of JOB_STAGES) cancelStage(stage);
     keyRef.current += 1;
     setState(null);
-  }, []);
+  }, [cancelStage]);
 
   // Switched off while open (a contract reload): nothing stays.
   useEffect(() => {
     if (!enabled) {
+      for (const stage of JOB_STAGES) cancelStage(stage);
       keyRef.current += 1;
       setState(null);
     }
-  }, [enabled]);
+  }, [enabled, cancelStage]);
 
   return {
     enabled, settings, state, open: state !== null, ask, retry, setPersonalized, retryNotes, togglePin, canCompare,
-    compare, askTutor, practice, peek, closePeek, close,
+    compare, askTutor, practice, peek, closePeek, close, cancelNotes, cancelCompare, cancelTutor,
   };
 }
 
