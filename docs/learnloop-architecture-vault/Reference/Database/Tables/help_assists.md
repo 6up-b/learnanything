@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50aa2ec9a49698dc2c08be71acbd0e109778f1a0"
-source_commit_timestamp: "2026-10-17T23:52:53-04:00"
+source_commit: "04d06282fa869bb214533f6f93a25c96ea13040e"
+source_commit_timestamp: "2026-10-18T00:22:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -105,6 +105,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `requested_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `shown_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `submitted_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `submit_latency_seconds` | `REAL` | no | — | — | Stored value |
 | `step_snapshot_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `step_verdicts_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `first_questionable_step_id` | `TEXT` | no | — | — | Application-validated soft reference |
@@ -275,6 +276,14 @@ CREATE TABLE help_assists (
   -- "hint shown -> submit" (practice_attempts.created_at is stamped when the
   -- grade is applied, after the grader's latency). NULL when unknown.
   submitted_at TEXT,
+  -- The client's open-to-submit seconds that same submission sent, stamped
+  -- with submitted_at and only with it, so "seconds into the attempt" is
+  -- measured on one basis: a grading fallback's retry sends a later latency
+  -- (practice_attempts.latency_seconds keeps the retry's) and replaces
+  -- neither. NULL when the submission sent none or its time is unknown.
+  submit_latency_seconds REAL CHECK (
+    submit_latency_seconds IS NULL OR (submit_latency_seconds >= 0 AND submitted_at IS NOT NULL)
+  ),
   -- The Reader workbench's columns (its §5.7).
   step_snapshot_json TEXT,
   step_verdicts_json TEXT,

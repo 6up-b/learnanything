@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50aa2ec9a49698dc2c08be71acbd0e109778f1a0"
-source_commit_timestamp: "2026-10-17T23:52:53-04:00"
+source_commit: "04d06282fa869bb214533f6f93a25c96ea13040e"
+source_commit_timestamp: "2026-10-18T00:22:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/207_workbench.sql"
   - "src/learnloop/db/stores/workbench.py"
+  - "src/learnloop/hints/report.py"
   - "src/learnloop/reader/recap.py"
 tags:
   - "learnloop/database/table"
@@ -103,6 +104,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/hints/report.py`
 - `src/learnloop/reader/recap.py`
 
 ### Direct SQL writers
@@ -119,6 +121,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_hint_telemetry.py`
 - `tests/test_library_ask_review.py`
 - `tests/test_reader_find_sources_callers.py`
 - `tests/test_reader_recap.py`
