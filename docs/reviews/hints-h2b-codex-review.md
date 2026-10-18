@@ -414,3 +414,185 @@ validator's checks are repo-wide and this step adds no module.
 
 The full suite, the whole durability lane and the whole vitest run are left
 to the landing gate (owner rule, 2026-10-17).
+
+## Fix round 3 (orchestrator rulings)
+
+The stage's last Codex verify (job `20261018-111555-vKSlFO`) reopened F1 and
+F2 (High), confirmed F8 and F9 fixed, and found F10 (Medium). Two rounds of
+patching the link and release design had not converged. So the orchestrator
+ruled a simpler design (R1 for F1 and F10, R2 for F2), and this round
+implements it. No live or paid model call was made, and every model-backed
+path is tested with fakes. There is no migration, no new config key and no
+new RPC. One RPC input got smaller: `workbench.open` lost two fields.
+
+### Findings
+
+| id | severity | title | verdict | test or reason |
+|---|---|---|---|---|
+| F1 | High | Reopened: reopening a closed problem took its released hint away from the problem being submitted | fixed (ruling R1) | `tests/test_hint_h2b_fix3.py` (verify sequence, level 5, 4 orders, answer box) |
+| F2 | High | Reopened: a failed poll read forgot a job that may have been delivered | fixed (ruling R2) | `practice/useAdaptiveHints.hold.test.tsx` "R2: ..." (3); `PracticeScreen.adaptiveHandoff.test.tsx` "R2: ..." |
+| F8 | Medium | The vault-open placement pass can starve placeable attempts | confirmed fixed by the verify | unchanged |
+| F9 | Medium | Carried hints lose their submission timing | confirmed fixed by the verify; the stamp moved to R1's window | `tests/test_hint_h2b_rereview.py::test_f9_*` (rewritten for the window) |
+| F10 | Medium | Released hints can be counted again after an answer-box commit | fixed (ruling R1) | `tests/test_hint_h2b_fix3.py::test_r1_f10_*` |
+
+### Ruling R1: the workbench folds by the keyless window
+
+A workbench submit folds the answer box's hints by the rule H2a already uses,
+and verified, for a keyless submit. It counts the practice session's shown,
+unattached, server-counted hint rows of the item that were requested after
+the item's last attempt in this practice session, whatever their submission
+key. It does so as follows:
+
+- `workbench.submit` calls `submit_attempt_on(..., hint_window_fold=True)`.
+- `_server_hint_fold` then builds the fold with `submission_id=None` and sets
+  `ServerHintFold.window_fold`. The attempt keeps its own submission key for
+  idempotency and receipts; only the fold uses the window.
+- `refolded_draft` takes the fold again inside the attempt's
+  `BEGIN IMMEDIATE`. `attach_keyless` attaches exactly those rows in the same
+  transaction. Both functions are H2a's own and unchanged.
+
+Whichever attempt of the session and item commits first takes the rows. A
+later attempt never counts them again, because `attempt_id` is set. H2a's
+`_CLOSED` already refuses to show a row once an attempt of its session and
+item has committed at or after the row was requested.
+
+The other R1 changes:
+
+- **Record line.** "N shown on the answer box" reads the same window,
+  read-only (`help_assists.fold_row_count`). It uses the open problem's
+  practice session (or the most recent open one, as the tutor-question count
+  does) and its item.
+- **F9 stamp.** At the workbench submit, `help_assists.stamp_window_submitted`
+  stamps `submitted_at` on the window's rows where it is NULL. The first
+  stamp stays and no latency is written, so the `no_submit_latency` report
+  bucket stays.
+- **F10.** The window closes it: the answer box's committed attempt starts
+  the next window. Rows requested before that attempt are never folded by a
+  later workbench submit, even when H0's keyed attach was interrupted. The
+  answer box's recovery (a retry of its key) then attaches them to its own
+  attempt.
+
+**Removed.** From `help_assists`: `link_to_workbench`, `carried_fold`,
+`attach_carried_fold`, `stamp_carried_submitted`, `_CARRIED_ROWS`,
+`_RELEASED` and `_carried_rows`. From `hint_fold`: `attach_carried`,
+`ServerHintFold.workbench_session_id` and `read_fold`'s
+`workbench_session_id` (`hint_fold.py` and `attempts.py` are back to
+`5b2efaf24` apart from the new flag). From `telemetry`:
+`stamp_carried_submission`. From the sidecar: `_link_carried_hints`, and
+`WorkbenchOpenInput.carried_submission_id` and `carried_session_id`. From
+the frontend: `carriedSubmissionId` and `carriedSessionId` (`dto.ts`,
+`PracticeScreen.tsx`). The only rows this stage's code wrote with
+`workbench_session_id` set were in tests, so no migration is needed.
+
+### Ruling R2: the hook never forgets a job whose outcome is unknown
+
+In `useAdaptiveHints`:
+
+- **Retained jobs.** A failed poll read or a failed cancel puts the job's id
+  in a retained set. The set is reset with the item, so an earlier item's
+  hint is never shown on this one; its count is the server's (R1). A
+  `not_found` answer drops the job, since the sidecar no longer keeps it.
+- **`hold()`.** It waits for the requests and reads in flight, as before. A
+  job still pending joins the retained set. The hold then stops every poll
+  and tries the cancel once for each retained job:
+  - `cancelled`: the job is dropped;
+  - `already_shown`: the job is read once and kept for the answer box;
+  - a failure: the job stays retained, and one error is reported.
+
+  The hold then **resolves true**, so the learner enters steps. Under R1 the
+  evidence no longer depends on the client knowing. Any row the server
+  marked shown is counted by whichever attempt of the session and item
+  commits first. Polls are stopped, so nothing is delivered while steps are
+  open.
+- **`resume()`.** It reads every retained job once:
+  - a delivered hint shows on the answer box;
+  - a read answering that an attempt closed the count shows nothing, not even
+    a notice;
+  - a job still being written is polled again;
+  - a failed read keeps the job.
+
+**Removed.** The "return false and restart polling" path (`release`, and
+with it the second poll chain) is gone. So is the practice screen's
+keep-the-answer-box-open branch: `handOff` now only awaits `hold()`.
+
+### Tests and fail-before counts
+
+The new tests were run against `f528311a5`. The backend ran with
+`git archive f528311a5 src migrations | tar -x -C <tmp>` and
+`-o pythonpath="<tmp>/src ."`. The frontend ran on `apps/learnloop-tauri`
+from the same archive with the new test files copied in. Nothing was
+stashed.
+
+- **Backend, `tests/test_hint_h2b_fix3.py`: 10 failed before, 10 pass now.**
+  - The verify's F1 sequence counts 1 (show, open W1, abandon W1, open W2,
+    leave W2, reopen W1, resume W2, submit). Both problems' record lines name
+    the hint.
+  - The level-5 variant stays primed.
+  - Reopen and resume in either order, then submit from W1 or W2
+    (4 parametrized cases). The hint counts once, and the other problem
+    then folds 0.
+  - Going back and submitting on the answer box counts once. A later
+    workbench submit of the item counts 0.
+  - F10: the answer-box attach is interrupted. The hint counts once, the
+    workbench attempt takes 0 rows, and the answer box's retry attaches the
+    row.
+  - A hint of another practice session is never folded.
+  - A hint requested before the item's last attempt in this session is never
+    folded.
+
+  The tree before R1 needed the answer box's key on every `workbench.open`.
+  The tests' `_open` helper sends it only where `WorkbenchOpenInput` still
+  has the field, so each test reproduces the verify's scenario there exactly
+  as that tree's screen sent it.
+- **Frontend: 5 new tests failed before, 5 pass now.**
+  - `useAdaptiveHints.hold.test.tsx`, 3 tests:
+    - a hold whose cancel fails keeps the job, stops polling, resolves true,
+      and `resume()` reads it;
+    - the verify's sequence: the cancel fails, the read rejects after
+      server-side delivery, then "Work in steps" again. The job stays
+      retained, the cancel is retried, steps open, and on return it is read
+      and shown;
+    - a retained job whose read answers closed shows nothing.
+  - `PracticeScreen.adaptiveHandoff.test.tsx`, 2 tests:
+    - `workbench.open` names no submission;
+    - when the cancel fails, the learner still enters steps, no poll reads
+      the job there, and the hint shows back on the answer box.
+
+  The unchanged test "F2: a delivered read whose response lands after the
+  request was settled is still kept" also failed in that run, but only after
+  the new tests failed before it. Run alone on the old tree, it passes.
+- **Rewritten existing tests** (they pinned the link mechanics):
+  - `test_hint_h2b_review.py`: `_into_steps` sends no hand-off. The row's
+    `workbench_session_id` is now NULL. The reproduction
+    `..._before_the_fix_...` became `test_f1_the_open_request_names_no_submission`,
+    and `..._only_the_servers_own_unclosed_rows_are_linked` became
+    `test_f1_only_the_windows_rows_fold`.
+  - `test_hint_h2b_rereview.py`: the F1 tests keep their behaviour (no link,
+    no hand-off). F9 uses `stamp_window_submitted`.
+  - The frontend F1 tests no longer expect `carriedSubmissionId` or
+    `carriedSessionId`. The re-review's "answer box stays open" test is
+    replaced by R2's.
+
+### Gate (fix round 3)
+
+| step | result |
+|---|---|
+| `uv run lint-imports --no-cache` | 26 kept, 0 broken |
+| targeted `uv run pytest -n auto` (every `test_hint_*`, test_help_assists_schema, test_reader_workbench_rw2a, test_reader_find_sources_callers, test_desktop_rpc_contract, test_sidecar_contract, test_mobile_allowlist, test_architecture, test_cli_help_snapshot, test_approach_map_replay, test_approach_maps, test_library_asks_migration, test_table_roles, test_coordinated_migrations, test_tracked_fixture_databases, test_learner_text_gaps_flow, test_sidecar_serializer_snapshot; `TMPDIR=fixtures-local/tmp`) | 886 passed |
+| targeted `uv run pytest -n auto` (practice and workbench handler callers: test_daily_plan_composition, test_daily_plan_review_regressions, test_daily_plan_rpc, test_learner_text_source_widening, test_reader_active_reading, test_router_r1_composition, test_rw4_kill_switches, test_sidecar_item_authoring, test_stuck_prompt, test_characterization_probe_submission, test_receipt_exactness) | 156 passed |
+| `uv run pytest --durable-sqlite` on test_hint_h2b_fix3, test_hint_h2b_rereview, test_hint_h2b_review, test_help_assists_schema | 43 passed |
+| `uv run pytest -m durability` on test_help_assists_schema, test_hint_feedback_widening, test_coordinated_migrations | 4 passed |
+| `npm run typecheck` | no errors |
+| `npx vitest run` (practice/useAdaptiveHints.hold, PracticeScreen.adaptiveHandoff, PracticeScreen.adaptiveHints, PracticeScreen.adaptiveOff, PracticeScreen.hintTelemetry, PracticeScreen.phase4, PracticeScreen.workbench, PracticeScreen, practice/HelpStyleSettings, practice/hintCopy, workbench/*) | 13 files, 151 passed |
+| `npm run frontend:build` | built |
+| `cargo check` | not needed (nothing under `src-tauri` changed) |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated (commit labels, line citations in `attempts.py`, the removed source paths); 0 errors (head 212, no schema change); `validate_vault.py` passes |
+
+Two validators fail for reasons outside this round. Both failures predate it:
+
+- `desktop_validate.py` stops on
+  `apps/learnloop-tauri/src/components/pdfSelection/testing/syntheticBook.ts`.
+- `module_validate.py` reports its 844 repo-wide missing-note issues.
+
+The full suite, the whole durability lane and the whole vitest run are left
+to the landing gate (owner rule, 2026-10-17).
