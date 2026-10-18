@@ -314,8 +314,10 @@ def _waypoint_target(state: HintState) -> str | None:
     aim at its target (spec §5.2 "waypoints, with care")."""
 
     here = [hint for hint in state.shown_hints if hint.work_hash == state.work_hash]
-    last = here[-1] if here else None
-    return last.target_node_id if last is not None and last.hint_kind == "waypoint" else None
+    # The goal stays the target on this step (its text unchanged) through a
+    # smaller step toward it and any later Help there (§5.2).
+    waypoint = next((hint for hint in reversed(here) if hint.hint_kind == "waypoint"), None)
+    return waypoint.target_node_id if waypoint is not None else None
 
 
 def _adjust(option_set: OptionSet, state: HintState, context: WorkbenchHintContext) -> OptionSet:

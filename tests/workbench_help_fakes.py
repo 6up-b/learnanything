@@ -125,6 +125,10 @@ def wb_answer(context: Mapping[str, Any]) -> dict[str, Any]:
     questionable_n = block.get("first_questionable_step")
     if not questionable_n and kind in ("localize", "error_specific") and about_n:
         questionable_n = about_n
+    if questionable_n and about_n and questionable_n != about_n:
+        # A hint about another step (e.g. "that's not where I'm stuck") does
+        # not localize the questionable one again.
+        questionable_n = None
     questionable = texts.get(questionable_n, "") if questionable_n else ""
     stands_n = block.get("continue_from_step")
     if questionable_n and stands_n is not None and stands_n >= questionable_n:
