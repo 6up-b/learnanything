@@ -14,7 +14,8 @@ A dry run opens the database read-only, calls nothing, writes nothing and
 prints the plan through the spend framework (Codex review F9): per resolved
 route its billing label (``estimated_only`` on the subscription, a metered
 estimate otherwise), the input tokens and the output allowance of every
-call, the Decider at its listed input price, the LLM judge's fallback
+call (every permitted retry included, at its enlarged output allowance:
+Codex re-review F13), the Decider at its listed input price, the LLM judge's fallback
 exposure when the Decider is on (worst case: every revision falls back), a
 refusal where a metered LLM route has no ``adaptive_difficulty.price_per_million``
 (the real run would refuse each call before sending), and the worst-case
@@ -109,11 +110,20 @@ def _never_attempted(vault: Any, connection: Any, protected: Protection) -> list
 # -- the dry run's spend plan (Codex review F9) -------------------------------------------------
 
 
-def _llm_plan(vault: Any, route_task: str, prompts: list[str], result_model: Any, *, role: str) -> dict[str, Any]:
+def _llm_plan(vault: Any, route_task: str, prompts: list[str], result_model: Any, *, role: str,
+              retries: int) -> dict[str, Any]:
     """The resolved LLM route's plan through the spend framework: tokens with the
     output allowance, the billing label, and a refusal when a metered route has
-    no ``adaptive_difficulty.price_per_million``."""
+    no ``adaptive_difficulty.price_per_million``.
 
+    Worst case (Codex re-review F13): each logical call may be retried
+    ``retries`` times (the execution path's ``max_retries``), and a truncation
+    retry asks for ``TRUNCATION_RETRY_FACTOR`` times the output allowance, so
+    every permitted attempt is planned, each retry at the enlarged allowance
+    (a transport ceiling can only lower it): the same estimate the execution
+    reserves attempt by attempt."""
+
+    from learnloop.ai.output_budget import TRUNCATION_RETRY_FACTOR
     from learnloop.ai.spend import SpendBudget, SpendCaps
     from learnloop.practice_index.paid import PaidCalls, estimated_call_tokens, plan_route
 
@@ -122,9 +132,13 @@ def _llm_plan(vault: Any, route_task: str, prompts: list[str], result_model: Any
     subscription = route.billing == "subscription"
     calls = PaidCalls(route=route, budget=SpendBudget(SpendCaps(max_estimated_usd=None), subscription=subscription),
                       price_per_million=price, repository=None, owner_kind="ad_backfill_plan", owner_id="dry_run")
-    tokens = [estimated_call_tokens(prompt, result_model, route.output_tokens) for prompt in prompts]
+    retry_output = route.output_tokens * TRUNCATION_RETRY_FACTOR
+    tokens = [estimated_call_tokens(prompt, result_model, route.output_tokens)
+              + retries * estimated_call_tokens(prompt, result_model, retry_output) for prompt in prompts]
     plan = {"role": role, "route": route.as_dict(), **calls.plan(tokens)}
     plan["output_tokens_per_call"] = route.output_tokens
+    plan["attempts_per_call"] = 1 + retries
+    plan["retry_output_tokens"] = retry_output if retries else None
     if not route.available:
         plan["refused"] = f"no provider is routed for ai.routing.{route_task}"
     elif not subscription and price is None and prompts:
@@ -195,7 +209,13 @@ def _cap(vault: Any, repository: Any, worst: float | None, clock: Clock | None) 
 def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[str, Any]:
     from learnloop import decider_judgments
 
-    from learnloop.adaptive_difficulty.feature_audit import DECIDER_ROUTE, LLM_ROUTE, FeatureAuditV1, llm_prompt
+    from learnloop.adaptive_difficulty.feature_audit import (
+        _CAPS,
+        DECIDER_ROUTE,
+        LLM_ROUTE,
+        FeatureAuditV1,
+        llm_prompt,
+    )
 
     decider_on = decider_judgments.enabled(vault.config, "ad_feature_audit")
     prompts = [llm_prompt(item, dims) for item, _hash, dims in pending]
@@ -206,11 +226,13 @@ def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[s
         plan["decider"] = _decider_plan(vault, DECIDER_ROUTE, bodies)
         # Fallback exposure: worst case, every dimension the Decider leaves
         # unanswered goes to the LLM judge (one call per revision).
-        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="fallback_worst_case")
+        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="fallback_worst_case",
+                                retries=int(_CAPS["max_retries"]))
     else:
         plan["decider"] = {"route": DECIDER_ROUTE, "requests": 0,
                            "disabled": "[decider_routes] ad_feature_audit is off: the LLM judges every dimension"}
-        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="primary")
+        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="primary",
+                                retries=int(_CAPS["max_retries"]))
     return plan
 
 
@@ -252,11 +274,11 @@ def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading:
         if LLM_V1 not in outside_forecasters(vault.config):
             result["llm_v1"] = {"status": "disabled", "reason": "llm_v1:item is not in adaptive_difficulty.outside_forecasters"}
         else:
-            from learnloop.adaptive_difficulty.outside import ItemForecastV1, LLM_ROUTE, item_prompt
+            from learnloop.adaptive_difficulty.outside import _CAPS, ItemForecastV1, LLM_ROUTE, item_prompt
 
             v1_plan = {"items": len(pending_v1),
                        "llm": _llm_plan(vault, LLM_ROUTE, [item_prompt(vault, item) for item in pending_v1],
-                                        ItemForecastV1, role="primary")}
+                                        ItemForecastV1, role="primary", retries=int(_CAPS["max_retries"]))}
             if dry_run:
                 result["llm_v1"] = {"status": "planned", **v1_plan}
             else:

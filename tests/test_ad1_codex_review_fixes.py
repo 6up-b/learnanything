@@ -638,4 +638,3 @@ def test_the_watchers_changed_items_are_prepared():
     a, b, c = object(), object(), object()
     assert changed_revisions(None, _Vault({"a": a})) == []
     assert changed_revisions(_Vault({"a": a, "b": b}), _Vault({"a": a, "b": c, "n": c})) == ["b", "n"]
-

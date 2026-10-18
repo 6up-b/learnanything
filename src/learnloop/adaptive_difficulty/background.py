@@ -11,7 +11,9 @@
 Both return at once and never raise. The work runs in the sidecar's
 :class:`~learnloop.hints.map_builder.BackgroundBuilds` registry (bound to the
 loaded vault: a vault switch, ``shutdown`` or EOF stops admitting jobs), on
-its own connection, one job per key in flight per process. Inside a job each
+its own connection, one job per key in flight per process (a preparation's
+key names its item revisions, so an edit mid-job is a new job; Codex
+re-review F12). Inside a job each
 unit of paid work holds a durable claim (``judgment_work_claims``, across
 processes) and writes fenced by the job's own registry fence: nothing more is
 asked, and no judgment, payload or receipt lands, once its vault is switched
@@ -187,14 +189,17 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
 
         path = str(Path(sqlite_path))
         ids = []
+        revisions: dict[str, str] = {}
         for value in item_ids:
             item = vault.practice_items.get(str(value))
             if item is None:
                 continue
+            content_hash = item_revision(item)[0]
             with _GUARD:
-                prepared = (path, str(value), item_revision(item)[0]) in _PREPARED
+                prepared = (path, str(value), content_hash) in _PREPARED
             if not prepared:
                 ids.append(str(value))
+                revisions[str(value)] = content_hash
         wants = feature_audit_enabled(vault.config) or LLM_V1 in outside_forecasters(vault.config)
         if not ids or not wants:
             return None
@@ -209,7 +214,14 @@ def schedule_item_preparation(vault: Any, sqlite_path: Any, item_ids: Iterable[s
 
         from learnloop.ai.execution import content_key
 
-        return _launch(sqlite_path, "prepare:" + content_key(sorted(ids)[:limit]), job, builds=builds,
+        # The job's identity names each revision, not only the item (Codex
+        # re-review F12): a reload that finds revision A2 while A1's job is
+        # still running starts A2's job instead of dropping it as in flight
+        # (the next unchanged reload would see nothing new). The same
+        # revisions twice are still one job; a revision two jobs share is
+        # paid for once under its durable claim.
+        identity = sorted((item_id, revisions[item_id]) for item_id in ids[:limit])
+        return _launch(sqlite_path, "prepare:" + content_key(identity), job, builds=builds,
                        name="learnloop-ad-prepare")
     except Exception:  # noqa: BLE001
         LOG.warning("AD item preparation not scheduled", exc_info=True)

@@ -12,7 +12,10 @@ The predicate is asked of each **revision**, not only of the vault's current
 items (Codex review F1): a revision held in ``practice_item_snapshots`` whose
 item was deleted, or whose own source references differ from the current
 revision's, is protected when its own canonical exercise or provenance lies
-in held-out material (:meth:`Protection.covers`).
+in held-out material (:meth:`Protection.covers`). Inputs frozen at a serve are
+revalidated when they are sent, by the identity and source references of
+each revision they quote (:meth:`Protection.covers_identity`; Codex re-review
+F11).
 """
 
 from __future__ import annotations
@@ -51,6 +54,27 @@ class Protection:
             return bool(held_out_item_ids([item], self.material))
         except Exception:  # noqa: BLE001 - an unreadable revision is protected
             LOG.warning("held-out check of a revision failed: treated as protected", exc_info=True)
+            return True
+
+    def covers_identity(self, identity: Any) -> bool:
+        """Whether a frozen revision identity (:func:`~learnloop.adaptive_difficulty.outside.source_identity`)
+        is protected now: its item id is, or its own source references as
+        frozen lie in held-out material (Codex re-review F11; the same rule
+        as ``held_out_item_ids``). An unreadable identity is protected."""
+
+        if self.material is None:
+            return True
+        try:
+            if str(identity["practice_item_id"]) in self.ids:
+                return True
+            keys = [(str(extraction), str(span)) for extraction, span in identity.get("keys") or ()]
+            whole = [str(extraction) for extraction in identity.get("whole") or ()]
+            if self.material.empty:
+                return False
+            return any(self.material.covers(*key) for key in keys) or any(
+                self.material.covers(extraction) for extraction in whole)
+        except Exception:  # noqa: BLE001 - an unreadable identity is protected
+            LOG.warning("held-out check of a frozen revision failed: treated as protected", exc_info=True)
             return True
 
 

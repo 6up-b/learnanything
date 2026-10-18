@@ -20,8 +20,13 @@
   the question asked; never an answer text). After the serve, in the
   background, they are sent exactly as frozen (``inputs_as_of`` = the
   serve, true whatever was regraded or edited since); a presentation
-  without frozen inputs is never forecast. The LLM is asked field's V3
-  question as structured output; the Decider a ``noul`` question.
+  without frozen inputs is never forecast. With them the serve freezes the
+  identity and own source references of every revision they quote (the
+  target and each history item), and the job revalidates those against
+  the held-out predicate as it stands when it sends: content marked held
+  out after the serve refuses the forecast (Codex re-review F11). The LLM
+  is asked field's V3 question as structured output; the Decider a
+  ``noul`` question.
 
 Every receipt is kind ``item_unassisted_success`` in the ``forecast_receipts``
 family, written once when the answer arrives (``created_at`` = when the
@@ -143,9 +148,32 @@ def _result(correctness: Any) -> str:
     return "partial"
 
 
+def source_identity(item: Any, practice_item_id: str | None = None) -> dict[str, Any]:
+    """A revision's protection identity: its item id and its own source references.
+
+    What :meth:`~learnloop.adaptive_difficulty.protection.Protection.covers_identity`
+    revalidates later (Codex re-review F11): the block keys and whole
+    extractions of the revision's canonical exercise and provenance refs, as
+    the revision quoted then had them. ``item`` None (an attempt's item no
+    longer in the vault, whose text is not quoted) has only its id."""
+
+    from learnloop.content.sources.exam_material import item_source_keys
+
+    if item is None:
+        return {"practice_item_id": str(practice_item_id), "keys": [], "whole": []}
+    keys, whole = item_source_keys(item)
+    return {"practice_item_id": str(practice_item_id or item.id),
+            "keys": sorted([str(extraction), str(span)] for extraction, span in keys),
+            "whole": sorted(str(extraction) for extraction in whole)}
+
+
 def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, protected: frozenset[str],
-                 incumbent: Mapping[str, Any] | None) -> dict[str, Any]:
-    """The learner's history on the item's LO and its prerequisites, as of the serve."""
+                 incumbent: Mapping[str, Any] | None,
+                 identities: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The learner's history on the item's LO and its prerequisites, as of the serve.
+
+    ``identities``, when given, receives the :func:`source_identity` of each
+    attempt's item the card includes (Codex re-review F11)."""
 
     lo = vault.learning_objects.get(item.learning_object_id)
     scope = [item.learning_object_id, *[str(prerequisite) for prerequisite in (getattr(lo, "prerequisites", None) or [])]]
@@ -163,6 +191,8 @@ def history_card(vault: Any, connection: Any, item: Any, *, served_at: str, prot
         if stamp is None or served is None or stamp >= served or str(row[1]) in protected:
             continue
         past = vault.practice_items.get(str(row[1]))
+        if identities is not None:
+            identities.append(source_identity(past, str(row[1])))
         attempts.append({
             "item": _excerpt(past.prompt, HISTORY_STEM_LIMIT) if past is not None else "(an item no longer in the vault)",
             "topic": (vault.learning_objects[str(row[2])].title if str(row[2]) in vault.learning_objects else str(row[2])),
@@ -462,20 +492,25 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
     from its receipt, just written in this transaction; each earlier
     attempt's grade as it stood). The background job sends exactly this and
     nothing else; a presentation without it (served while the forecasters
-    were off, or before AD1) is never forecast. Returns the owner key, or
-    None when no ``llm_v3`` forecaster is on."""
+    were off, or before AD1) is never forecast. Beside the state (never
+    sent) it keeps the :func:`source_identity` of the served revision and of
+    each history item the card quotes, which the job revalidates against
+    the held-out predicate as it stands when it sends (Codex re-review F11).
+    Returns the owner key, or None when no ``llm_v3`` forecaster is on."""
 
     if not ({LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))):
         return None
     content_hash, _json = item_revision(item)
+    history: list[dict[str, Any]] = []
     state = {"item": item_view(vault, item),
              "learner": history_card(vault, connection, item, served_at=served_at, protected=protected,
-                                     incumbent=_incumbent_inputs(connection, presentation_id))}
+                                     incumbent=_incumbent_inputs(connection, presentation_id), identities=history)}
     key = frozen_state_key(presentation_id)
     store.insert_payload(connection, owner_key=key, forecaster=FROZEN_STATE_FORECASTER, kind="request", content={
         "state": state, "state_version": STATE_VERSION, "state_hash": content_key(state),
         "practice_item_id": str(item.id), "learning_object_id": item.learning_object_id,
         "content_hash": content_hash, "inputs_as_of": served_at,
+        "protection_identities": {"target": source_identity(item), "history": history},
     }, created_at=served_at)
     return key
 
@@ -485,9 +520,29 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
     for row in rows:
         content = row.get("content")
         if row.get("kind") == "request" and isinstance(content, dict) and isinstance(content.get("state"), dict):
+            identities = content.get("protection_identities")
+            # Without the identities of what the state quotes, the frozen
+            # inputs cannot be revalidated, so they are never sent (F11).
+            if not (isinstance(identities, dict) and isinstance(identities.get("target"), dict)
+                    and isinstance(identities.get("history"), list)):
+                continue
             if content.get("state_hash") == content_key(content["state"]):
                 return content
     return None
+
+
+def _frozen_protected(protection: Any, frozen: Mapping[str, Any]) -> bool:
+    """Whether any revision the frozen state quotes is protected now (Codex re-review F11).
+
+    The frozen state was made under the predicate as it stood at the serve; a
+    unit marked held out (or an item reserved for an exam) since then must
+    not reach a model through it. Each quoted revision is judged by its id
+    and by its own source references as frozen, so a revision since replaced
+    by ordinary practice is still judged by what the state quotes."""
+
+    identities = frozen["protection_identities"]
+    return any(protection.covers_identity(identity)
+               for identity in [identities["target"], *identities["history"]])
 
 
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
@@ -518,9 +573,6 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
         return [ForecastOutcome(name, "no_frozen_inputs") for name in pending]
     item_id = str(presentation["practice_item_id"])
     item = vault.practice_items.get(item_id)
-    protection = guard(vault, repository)
-    if item_id in protection or (item is not None and protection.covers(item)):
-        return [ForecastOutcome(name, "protected") for name in pending]
     outcomes: list[ForecastOutcome] = []
     try:
         with claimed(repository, presentation_key(presentation_id), fence=fence) as worker:
@@ -529,6 +581,13 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 pending = [name for name in pending
                            if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
+            # Revalidated under the claim, just before sending (Codex
+            # re-review F11): the current item, and every revision the frozen
+            # state quotes, against the predicate as it stands now.
+            protection = guard(vault, repository)
+            if (item_id in protection or (item is not None and protection.covers(item))
+                    or _frozen_protected(protection, frozen)):
+                return [ForecastOutcome(name, "protected") for name in pending]
             for name in pending:
                 outcomes.append(_forecast_one(vault, worker, name, presentation, frozen, clients=clients,
                                               clock=clock))
@@ -620,4 +679,5 @@ __all__ = [
     "history_card",
     "item_prompt",
     "item_view",
+    "source_identity",
 ]
