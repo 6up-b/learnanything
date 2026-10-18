@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d03b6bba09389c9eb2b610b4500f5d31341ffa9e"
-source_commit_timestamp: "2026-10-18T17:30:53-04:00"
+source_commit: "be610ee66631e27a5c5f2dfdb8f165dd9669395e"
+source_commit_timestamp: "2026-10-18T18:01:34-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -112,8 +112,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `ingest.budgets.synthesis_span_char_cap` | `4000` | integer | modeled default or validator seed | Caps synthesis span char allowed by source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:830`; `src/learnloop/cli/data.py:66`; `src/learnloop_sidecar/handlers/settings.py:186` |
 | `ingest.budgets.quick_add_scope_input_tokens` | `40000` | integer | modeled default or validator seed | Controls quick add scope input tokens in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:834`; `src/learnloop/cli/data.py:66`; `src/learnloop_sidecar/handlers/settings.py:186` |
 | `ingest.runner.lease_ttl_seconds` | `120` | integer | modeled default or validator seed | Sets the lease time-to-live duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:856`; `src/learnloop/cli/app.py:488`; `src/learnloop/cli/runtime.py:435` |
-| `ingest.runner.heartbeat_interval_seconds` | `15` | integer | modeled default or validator seed | Sets the heartbeat interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:857`; `src/learnloop_sidecar/context.py:87` |
-| `ingest.runner.poll_interval_seconds` | `1.0` | number | modeled default or validator seed | Sets the poll interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:858`; `src/learnloop_sidecar/context.py:88` |
+| `ingest.runner.heartbeat_interval_seconds` | `15` | integer | modeled default or validator seed | Sets the heartbeat interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:857`; `src/learnloop_sidecar/context.py:115` |
+| `ingest.runner.poll_interval_seconds` | `1.0` | number | modeled default or validator seed | Sets the poll interval duration in seconds for source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:858`; `src/learnloop_sidecar/context.py:116` |
 
 ## Compatibility-only inputs
 
