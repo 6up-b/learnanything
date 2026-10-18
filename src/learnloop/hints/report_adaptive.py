@@ -163,8 +163,11 @@ def expertise_reversal(members: list[dict[str, Any]], *, summarize: Callable[[li
 
 def help_seeking(connection: Any, all_rows: list[dict[str, Any]], *, since: str | None,
                  percentiles: Callable[[Iterable[float | None]], dict[str, Any]],
-                 share: Callable[[int, int], dict[str, Any]], when: Callable[[Any], Any]) -> dict[str, Any]:
-    """Help abuse and avoidance, as counts with their distributions (§6.3; H4: nothing is gated on them)."""
+                 share: Callable[[int, int], dict[str, Any]], when: Callable[[Any], Any],
+                 surface: str | None = None) -> dict[str, Any]:
+    """Help abuse and avoidance, as counts with their distributions (§6.3; H4:
+    nothing is gated on them). ``all_rows`` is the selection's hint rows;
+    avoidance reads the attempts of the selected ``surface`` (review F7)."""
 
     by_submission: dict[tuple[Any, Any], list[dict[str, Any]]] = defaultdict(list)
     for row in all_rows:
@@ -182,6 +185,36 @@ def help_seeking(connection: Any, all_rows: list[dict[str, Any]], *, since: str 
                 start, end = when(earlier["shown_at"] or earlier["requested_at"]), when(later["requested_at"])
                 if start is not None and end is not None:
                     gaps.append(round(max(0.0, (end - start).total_seconds()), 3))
+    return {
+        "abuse": {
+            "requests_in_a_row_on_unchanged_work": share(unchanged, pairs),
+            "seconds_between_them": percentiles(gaps),
+            "basis": "two hint requests of one attempt in a row, the second a plain request with the work unchanged",
+        },
+        "avoidance": _avoidance(connection, all_rows, since=since, surface=surface, percentiles=percentiles),
+        "nothing_is_gated_on_these": True,
+    }
+
+
+#: The attempts each assist surface submits (``practice_attempts.entry_surface``),
+#: so ``--surface`` selects avoidance's attempts too (H2b review F7). The
+#: guided redo and the tutor submit no attempt of their own surface yet (H4).
+ATTEMPT_SURFACES: dict[str, tuple[str, ...]] = {
+    "practice": ("desktop_practice",),
+    "workbench": ("desktop_practice_workbench", "desktop_reader_workbench"),
+}
+
+
+def _avoidance(connection: Any, all_rows: list[dict[str, Any]], *, since: str | None, surface: str | None,
+               percentiles: Callable[[Iterable[float | None]], dict[str, Any]]) -> dict[str, Any]:
+    basis = "graded submissions not fully correct with no hint, no tutor hint and no worked help"
+    entry_surfaces: tuple[str, ...] | None = None
+    if surface is not None:
+        entry_surfaces = ATTEMPT_SURFACES.get(surface)
+        if entry_surfaces is None:
+            return {"unassisted_not_fully_correct": None, "of_graded_unassisted_not_fully_correct": None,
+                    "latency_seconds": percentiles(()), "surface": surface,
+                    "basis": f"no attempt is submitted from the {surface} surface yet: not measured"}
     hinted = {row["attempt_id"] for row in all_rows if row["attempt_id"]}
     query = ("SELECT id, latency_seconds, correctness FROM practice_attempts WHERE COALESCE(hints_used, 0) = 0 "
              "AND COALESCE(primed, 0) = 0 AND correctness IS NOT NULL")
@@ -189,30 +222,28 @@ def help_seeking(connection: Any, all_rows: list[dict[str, Any]], *, since: str 
     if since is not None:
         query += " AND created_at >= ?"
         parameters.append(since)
+    if entry_surfaces is not None:
+        query += f" AND entry_surface IN ({', '.join('?' for _ in entry_surfaces)})"
+        parameters.extend(entry_surfaces)
     wrong = [dict(row) for row in connection.execute(query, parameters).fetchall()
              if float(row["correctness"]) < 1.0 - 1e-9]
     avoided = [row for row in wrong if row["id"] not in hinted]
     return {
-        "abuse": {
-            "requests_in_a_row_on_unchanged_work": share(unchanged, pairs),
-            "seconds_between_them": percentiles(gaps),
-            "basis": "two hint requests of one attempt in a row, the second a plain request with the work unchanged",
-        },
-        "avoidance": {
-            "unassisted_not_fully_correct": len(avoided),
-            "of_graded_unassisted_not_fully_correct": len(wrong),
-            "latency_seconds": percentiles(row["latency_seconds"] for row in avoided),
-            "basis": "graded submissions not fully correct with no hint, no tutor hint and no worked help",
-        },
-        "nothing_is_gated_on_these": True,
+        "unassisted_not_fully_correct": len(avoided),
+        "of_graded_unassisted_not_fully_correct": len(wrong),
+        "latency_seconds": percentiles(row["latency_seconds"] for row in avoided),
+        **({"entry_surfaces": list(entry_surfaces)} if entry_surfaces is not None else {}),
+        "basis": basis,
     }
 
 
 def routes(connection: Any, all_rows: list[dict[str, Any]], *, since: str | None,
            percentiles: Callable[[Iterable[float | None]], dict[str, Any]], when: Callable[[Any], Any],
-           writer_prompt_version: str) -> dict[str, Any]:
+           writer_prompt_version: str, surface: str | None = None) -> dict[str, Any]:
     """Latency and cost per route (§6.3): the chooser, the writer, outcome
-    placement and the maps."""
+    placement and the maps. The chooser's judgments are those of the
+    selection's rows (``left_id`` is the assist, review F7); the receipts are
+    every surface's, and say so (``receipts_scope``)."""
 
     hint_rows = [row for row in all_rows if row["assist_kind"] == "hint" and row["chooser"] != "none"]
     written = [row for row in hint_rows if row["prompt_version"] == writer_prompt_version]
@@ -230,7 +261,10 @@ def routes(connection: Any, all_rows: list[dict[str, Any]], *, since: str | None
             reasks += 1
         if row["chooser"] == "fallback":
             chooser_reasons[str(record.get("chooser_reason") or "unknown")] += 1
-    choices = [entry for entry in ledger(connection, "hint_choice") if since is None or entry["created_at"] >= since]
+    selected = {str(row["id"]) for row in all_rows}
+    choices = [entry for entry in ledger(connection, "hint_choice")
+               if (since is None or entry["created_at"] >= since)
+               and (surface is None or str(entry["left_id"]) in selected)]
     choice_status: Counter = Counter()
     choice_latency: list[float] = []
     for entry in choices:
@@ -258,6 +292,7 @@ def routes(connection: Any, all_rows: list[dict[str, Any]], *, since: str | None
         },
         "hint_outcome": {"receipts": receipts.get("hint_outcome")},
         "approach_map": {"receipts": receipts.get("approach_map")},
+        "receipts_scope": "all_surfaces",
         "basis": ("the hint rows of the selection (shown or not), the chooser's hint_choice ledger rows and the "
                   "model receipts of each route since the start (receipts are not split by surface); cost is "
                   "the receipts' metered cost, subscription calls are estimated_only"),
@@ -297,6 +332,6 @@ def _receipts(connection: Any, *, since: str | None, percentiles: Callable[[Iter
 
 
 __all__ = [
-    "INTENTS", "ROUTE_OWNER_KINDS", "SHORTCUTS", "answered_id", "expertise_reversal", "help_seeking", "hint_target",
+    "ATTEMPT_SURFACES", "INTENTS", "ROUTE_OWNER_KINDS", "SHORTCUTS", "answered_id", "expertise_reversal", "help_seeking", "hint_target",
     "ledger", "map_paths", "progress_by_next_placement", "routes", "state_at_request",
 ]

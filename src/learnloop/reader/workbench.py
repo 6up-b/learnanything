@@ -969,10 +969,15 @@ def session_view(
     session_id: str,
     *,
     question_hints: int = 0,
+    server_hints: int = 0,
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Everything the workbench shows for one session (snake_case; the
-    adapter camel-cases it)."""
+    adapter camel-cases it). ``server_hints``: the answer box's hints the
+    hint service showed and the problem carries (H2b review F1), named in
+    the record line with the client's; ``carried_hints`` stays the client's
+    own count, which the answer box restores on the way back (the answer
+    box folds the service's rows itself, so neither is counted twice)."""
 
     with repository.connection() as connection:
         session = _require(connection, session_id)
@@ -1009,7 +1014,8 @@ def session_view(
         "last_edited_step_id": last["step_id"] if last else None,
         "record": record_line(
             counted=book_counted(session), visible=bool(session["source_visible"]),
-            question_hints=question_hints, composed=composed, carried=carried_hints(session),
+            question_hints=question_hints, composed=composed,
+            carried=carried_hints(session) + max(0, int(server_hints or 0)),
         ),
         "parts": None,
         **dict(extra or {}),

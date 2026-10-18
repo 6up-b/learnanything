@@ -8083,6 +8083,11 @@ export interface WorkbenchOpenInput {
   carriedHints?: number;
   /** A book a problem left for the answer box counted (review F2). */
   carriedBook?: boolean;
+  /** Adaptive hints H2b (review F1): the answer box's submission the work
+   *  moves from; the server carries the hints it showed for it into the
+   *  problem (its own rows, never a count sent from here). */
+  carriedSubmissionId?: string | null;
+  carriedSessionId?: string | null;
   /** The serve the problem answers, kept on it for a resume (review F13).
    *  One pair (review F15): send both (a null included) to replace the pair
    *  the problem holds, or neither to keep it. */

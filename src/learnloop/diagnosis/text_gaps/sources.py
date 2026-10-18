@@ -510,6 +510,25 @@ def hint_feedback_row(repository: Repository, assist_id: str) -> dict[str, Any] 
     return row
 
 
+def hint_feedback_ids(repository: Repository) -> list[str]:
+    """Every ``help_assists`` row whose text is a ``hint_feedback`` source
+    (:func:`hint_feedback_row`'s rule), oldest first: what the backlog sweep
+    and the sidecar's start-up reconciliation may queue (H2b review F4: a row
+    that committed while its job did not)."""
+
+    with repository.connection() as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                              ).fetchone() is None:
+            return []
+        rows = connection.execute(
+            "SELECT id FROM help_assists WHERE surface != 'workbench' "
+            "AND TRIM(COALESCE(feedback_text, '')) != '' "
+            "AND (assist_kind = 'discriminate_answer' OR (assist_kind = 'hint' AND request = 'feedback')) "
+            "ORDER BY requested_at, id"
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
 def _json_field(value: Any) -> dict[str, Any]:
     try:
         parsed = json.loads(value or "{}")
@@ -616,6 +635,7 @@ __all__ = [
     "StuckTextSource",
     "diagnosis_text",
     "formative_row",
+    "hint_feedback_ids",
     "hint_feedback_row",
     "hint_feedback_text",
     "learner_text",

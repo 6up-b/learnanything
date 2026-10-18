@@ -13,6 +13,14 @@
 //
 // Nothing here steals focus, animates or opens a modal; nothing is requested
 // unless the learner pressed Hint, replied to a hint or took a pick (G-H15).
+//
+// H2b review F2: a hint is shown only where the learner can see it. Before
+// the panel's surface is hidden ("Work in steps"), `hold()` refuses new
+// requests, waits for the ones in flight and cancels a hint still being
+// written (a job is only ever delivered by a read, so an unread job is never
+// shown); a hint delivered before the cancel stays shown and counted. The
+// authored offer is claimed synchronously, so a double click reveals one
+// hint (F3).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type {
@@ -85,6 +93,19 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
   // item's request never reaches this one.
   const generation = useRef(0);
   const timers = useRef<number[]>([]);
+  // H2b review F2: while held, nothing is requested and no job is read.
+  const suspended = useRef(false);
+  // Requests and authored offers still answering (what `hold()` waits for).
+  const inflight = useRef(new Set<Promise<unknown>>());
+  // H2b review F3: the authored offer, claimed before its cancel is awaited.
+  const offerClaim = useRef<string | null>(null);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const track = <T,>(work: Promise<T>): Promise<T> => {
+    inflight.current.add(work);
+    const done = () => { inflight.current.delete(work); };
+    work.then(done, done);
+    return work;
+  };
 
   const clearTimers = () => {
     for (const timer of timers.current) window.clearTimeout(timer);
@@ -95,6 +116,8 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     generation.current += 1;
     clearTimers();
     pendingRef.current = null;
+    offerClaim.current = null;
+    setOfferBusy(false);
     setPending(null);
     setEntries([]);
     setNotice(null);
@@ -143,6 +166,8 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     const delay = POLL_DELAYS_MS[Math.min(attempt, POLL_DELAYS_MS.length - 1)];
     const timer = window.setTimeout(async () => {
       if (generation.current !== mine || pendingRef.current?.jobId !== jobId) return;
+      // Held (the panel's surface is hidden): `hold()` settles the job.
+      if (suspended.current) return;
       let job: HintJobDto;
       try {
         job = await api.hintJob(jobId);
@@ -163,9 +188,14 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     timers.current.push(timer);
   }, [handleDone, settle]);
 
-  const request = useCallback(async (input: Omit<HintRequestInput, "sessionId" | "practiceItemId" | "submissionId">) => {
+  const request = useCallback((input: Omit<HintRequestInput, "sessionId" | "practiceItemId" | "submissionId">) => {
     const o = opts.current;
-    if (!o.enabled || pendingRef.current) return;
+    if (!o.enabled || pendingRef.current || suspended.current) return Promise.resolve();
+    return track(send(input));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const send = async (input: Omit<HintRequestInput, "sessionId" | "practiceItemId" | "submissionId">) => {
+    const o = opts.current;
     const mine = generation.current;
     const started: Pending = { jobId: null, startedAt: Date.now() };
     pendingRef.current = started;
@@ -193,6 +223,8 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
       const live: Pending = { jobId: job.jobId, startedAt: started.startedAt };
       pendingRef.current = live;
       setPending(live);
+      // Held meanwhile: `hold()` cancels it; it is never read here.
+      if (suspended.current) return;
       const offerTimer = window.setTimeout(() => {
         if (generation.current === mine && pendingRef.current?.jobId === live.jobId) setOfferReady(true);
       }, Math.max(0, o.authoredOfferAfterSeconds * 1000 - (Date.now() - started.startedAt)));
@@ -203,7 +235,7 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
       settle();
       o.onError(errorMessage(error));
     }
-  }, [handleDone, poll, settle]);
+  };
 
   // -- the authored hints, whoever showed them -------------------------------
 
@@ -219,14 +251,31 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     return null;
   }, [clientCount, entries, options.authoredHints.length, options.hintsUsed]);
 
-  const takeAuthoredInstead = useCallback(async () => {
+  const takeAuthoredInstead = useCallback(() => {
     const live = pendingRef.current;
     const index = nextAuthoredIndex;
-    if (!live?.jobId || index === null) return;
+    // H2b review F3: claimed synchronously, once per request: a second click
+    // while the cancel is answering does nothing.
+    if (!live?.jobId || index === null || suspended.current || offerClaim.current !== null) {
+      return Promise.resolve();
+    }
+    offerClaim.current = live.jobId;
+    setOfferBusy(true);
+    const release = () => {
+      if (offerClaim.current === live.jobId) {
+        offerClaim.current = null;
+        setOfferBusy(false);
+      }
+    };
+    return track(revealInstead(live, index).finally(release));
+  }, [nextAuthoredIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const revealInstead = async (live: Pending, index: number) => {
+    const jobId = live.jobId as string;
     const mine = generation.current;
     let cancelled = false;
     try {
-      const answer = await api.cancelHint(live.jobId);
+      const answer = await api.cancelHint(jobId);
       cancelled = answer.cancelled;
     } catch (error) {
       opts.current.onError(errorMessage(error));
@@ -239,6 +288,9 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
       setOfferReady(false);
       return;
     }
+    // The request this offer was for must still be the one pending (a poll
+    // or a hold may have settled it meanwhile): nothing is revealed twice.
+    if (pendingRef.current !== live) return;
     settle();
     const text = opts.current.authoredHints[index] ?? "";
     const key = `client-${index}`;
@@ -257,7 +309,47 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
         ? { ...entry, result: { ...entry.result, assistId, replies: ["doesnt_connect", "book_way"] } }
         : entry));
     }
-  }, [nextAuthoredIndex, settle]);
+  };
+
+  /** H2b review F2: before the panel's surface is hidden. Refuses new
+   *  requests, waits for the ones answering, and cancels a hint still being
+   *  written (never read, so never shown); one delivered first is read once
+   *  and kept. Resolves when nothing is pending. */
+  const hold = useCallback(async () => {
+    suspended.current = true;
+    while (inflight.current.size) {
+      await Promise.allSettled([...inflight.current]);
+    }
+    const live = pendingRef.current;
+    if (!live) return;
+    const mine = generation.current;
+    if (!live.jobId) {
+      settle();
+      return;
+    }
+    try {
+      const answer = await api.cancelHint(live.jobId);
+      if (generation.current !== mine) return;
+      if (answer.cancelled) {
+        settle();
+        return;
+      }
+      // already_shown: delivered before the cancel; its result is read once.
+      const job = await api.hintJob(live.jobId);
+      if (generation.current !== mine) return;
+      settle();
+      if (job.state === "done") handleDone(job.result);
+    } catch (error) {
+      if (generation.current !== mine) return;
+      settle();
+      opts.current.onError(errorMessage(error));
+    }
+  }, [handleDone, settle]);
+
+  /** The panel's surface is shown again: requests are accepted. */
+  const resume = useCallback(() => {
+    suspended.current = false;
+  }, []);
 
   // -- the learner's replies and picks ---------------------------------------
 
@@ -327,6 +419,7 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     pending: pending !== null,
     notice,
     offer: pending !== null && pending.jobId !== null && offerReady && nextAuthoredIndex !== null,
+    offerBusy,
     clientRevealCount: clientCount,
     picks,
     press,
@@ -336,7 +429,9 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     takeWorked,
     takeAuthoredInstead,
     answerDiscriminating,
-    saveHelpStyle
+    saveHelpStyle,
+    hold,
+    resume
   };
 }
 

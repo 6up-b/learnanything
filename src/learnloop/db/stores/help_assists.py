@@ -247,6 +247,70 @@ def attach_keyless_fold(
     return int(cursor.rowcount or 0)
 
 
+#: The server hint rows a practice-screen submission carried into a workbench
+#: problem (H2b review F1): linked by ``workbench_session_id`` (set once),
+#: still unattached, shown, server-counted hints. Their submission key stays
+#: the answer box's, so the answer box still folds them if the learner goes
+#: back and submits there; whichever attempt commits first takes them.
+_CARRIED = ("practice_item_id = ? AND workbench_session_id = ? AND attempt_id IS NULL AND shown = 1 "
+            "AND counted_by = 'server' AND assist_kind = 'hint' AND surface = 'practice'")
+
+
+def link_to_workbench(
+    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, submission_id: str,
+    workbench_session_id: str,
+) -> int:
+    """Link the answer box's shown server hints of one submission (its key,
+    its practice session, its item) to the workbench problem the work moves
+    into, so the problem's submit folds them (H2b review F1). Only rows the
+    server showed and no attempt took; a row already linked keeps its
+    problem (the identity trigger sets the link once), and a row whose count
+    an attempt already closed (:data:`_CLOSED`) is never linked. Returns how many it
+    linked. The client names the submission; what is linked is what the
+    server recorded as shown for it, never a count the client sent."""
+
+    cursor = connection.execute(
+        "UPDATE help_assists SET workbench_session_id = ? WHERE practice_item_id = ? AND practice_session_id = ? "
+        "AND submission_id = ? AND workbench_session_id IS NULL AND attempt_id IS NULL AND shown = 1 "
+        f"AND counted_by = 'server' AND assist_kind = 'hint' AND surface = 'practice' AND NOT ({_CLOSED})",
+        (workbench_session_id, practice_item_id, session_id, submission_id),
+    )
+    return int(cursor.rowcount or 0)
+
+
+def carried_fold(connection: sqlite3.Connection, *, practice_item_id: str, workbench_session_id: str,
+                 exclude_submission_id: str | None = None) -> tuple[int, bool, int]:
+    """The carried rows' fold (:func:`server_fold`'s rule: levels 1-3 count
+    one each, a level 4-5 row primes) and how many there are in all. Rows
+    under ``exclude_submission_id`` are the submit's own key's, folded there."""
+
+    where, values = _CARRIED, [practice_item_id, workbench_session_id]
+    if exclude_submission_id is not None:
+        where += " AND submission_id IS NOT ?"
+        values.append(exclude_submission_id)
+    row = connection.execute(
+        "SELECT COALESCE(SUM(CASE WHEN level BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(MAX(CASE WHEN level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0), COUNT(*) "
+        f"FROM help_assists WHERE {where}",
+        values,
+    ).fetchone()
+    return int(row[0] or 0), bool(row[1]), int(row[2] or 0)
+
+
+def attach_carried_fold(connection: sqlite3.Connection, *, practice_item_id: str, workbench_session_id: str,
+                        attempt_id: str, exclude_submission_id: str | None = None) -> int:
+    """The workbench attempt takes the carried rows its fold counted, in its
+    own write transaction (as :func:`attach_keyless_fold`), so the answer
+    box's key never counts them again."""
+
+    where, values = _CARRIED, [practice_item_id, workbench_session_id]
+    if exclude_submission_id is not None:
+        where += " AND submission_id IS NOT ?"
+        values.append(exclude_submission_id)
+    cursor = connection.execute(f"UPDATE help_assists SET attempt_id = ? WHERE {where}", (attempt_id, *values))
+    return int(cursor.rowcount or 0)
+
+
 def _latency(value: float | None) -> float | None:
     """A latency the client sent, or None (a negative one is not believed)."""
 
@@ -257,6 +321,7 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
-    "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "insert_assist", "keyless_window_start",
-    "mark_shown", "server_fold", "stamp_submitted", "submission_assists", "submission_committed",
+    "COLUMNS", "TABLE", "assist", "attach_carried_fold", "attach_keyless_fold", "attach_submission", "carried_fold",
+    "count_closed", "insert_assist", "keyless_window_start", "link_to_workbench", "mark_shown", "server_fold",
+    "stamp_submitted", "submission_assists", "submission_committed",
 ]

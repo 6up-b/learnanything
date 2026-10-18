@@ -376,10 +376,17 @@ _INFLIGHT_GUARD = threading.Lock()
 
 
 def _hinted(sqlite_path: Any, attempt_id: str) -> bool:
+    """The attempt has a shown hint and no placement yet (a cheap read before
+    any thread: a retry answered from its receipt asks again, review F5)."""
+
     with closing(connect(Path(sqlite_path), read_only=True)) as connection:
+        if connection.execute(
+                "SELECT 1 FROM help_assists WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 LIMIT 1",
+                (attempt_id,)).fetchone() is None:
+            return False
         return connection.execute(
-            "SELECT 1 FROM help_assists WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 LIMIT 1",
-            (attempt_id,)).fetchone() is not None
+            "SELECT 1 FROM judgment_ledger WHERE task = ? AND right_kind = 'practice_attempt' AND right_id = ? "
+            "LIMIT 1", (LEDGER_TASK, attempt_id)).fetchone() is None
 
 
 def schedule_outcome_placement(vault: LoadedVault, sqlite_path: Any, attempt_id: str, *, client: Any | None = None,
@@ -440,7 +447,120 @@ def schedule_outcome_placement(vault: LoadedVault, sqlite_path: Any, attempt_id:
                 _INFLIGHT.discard(key)
 
 
+# ---------------------------------------------------------------------------
+# Reconciliation (H2b review F5)
+# ---------------------------------------------------------------------------
+
+#: The hinted attempts a vault's open looks back over, and how many it
+#: places in one pass: runaway bounds on a backlog, not money (each placement
+#: still joins the maps' envelope, and a checkpointed answer is not paid again).
+RECONCILE_LOOKBACK_DAYS = 14
+RECONCILE_LIMIT = 20
+
+
+def unplaced_attempts(sqlite_path: Any, *, since: str, limit: int = RECONCILE_LIMIT) -> list[str]:
+    """Hinted attempts submitted since ``since``, graded not fully correct
+    with an answer, and never placed: the work a process that ended (or a
+    vault switch that fenced it) left undone. Oldest first; local reads only.
+    :func:`_due` decides each one again under its claim."""
+
+    with closing(connect(Path(sqlite_path), read_only=True)) as connection:
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if not {"help_assists", "judgment_ledger", "practice_attempts"} <= tables:
+            return []
+        rows = connection.execute(
+            "SELECT a.id FROM practice_attempts a WHERE a.created_at >= ? AND a.correctness IS NOT NULL "
+            "AND a.correctness < 1.0 - 1e-9 AND TRIM(COALESCE(a.learner_answer_md, '')) != '' "
+            "AND EXISTS (SELECT 1 FROM help_assists h WHERE h.attempt_id = a.id AND h.assist_kind = 'hint' "
+            "AND h.shown = 1) "
+            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger j WHERE j.task = ? AND j.right_kind = 'practice_attempt' "
+            "AND j.right_id = a.id) ORDER BY a.created_at, a.id LIMIT ?",
+            (since, LEDGER_TASK, int(limit))).fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client: Any | None = None,
+                                 clock: Clock | None = None, builds: "maps.BackgroundBuilds | None" = None,
+                                 limit: int = RECONCILE_LIMIT,
+                                 on_done: Callable[[OutcomeResult], None] | None = None) -> threading.Thread | None:
+    """At a vault's open: place, one after another in ONE background thread,
+    the hinted attempts of the last :data:`RECONCILE_LOOKBACK_DAYS` days that
+    were never placed (outcome work is launched in memory after a submit, so
+    a process that ended first, a vault switch that fenced it, or a receipt
+    recovery left it undone). Every placement goes through
+    :func:`place_outcome`: the same switches, claim, lease, fence and
+    envelope, and a paid answer checkpointed before the interruption is
+    recovered without paying again. Returns at once and never raises; None
+    when nothing was started."""
+
+    try:
+        if not placement_enabled(vault.config):
+            return None
+        if client is None and env_off():
+            return None
+        from datetime import timedelta
+
+        from learnloop.clock import parse_utc
+
+        since = (parse_utc(utc_now_iso(clock)) - timedelta(days=RECONCILE_LOOKBACK_DAYS)).isoformat().replace(
+            "+00:00", "Z")
+        pending = unplaced_attempts(sqlite_path, since=since, limit=limit)
+        if not pending:
+            return None
+        registry = builds if builds is not None else maps._DEFAULT_BUILDS
+        path = str(Path(sqlite_path))
+        with _INFLIGHT_GUARD:
+            claimed = [attempt_id for attempt_id in pending if (path, attempt_id) not in _INFLIGHT]
+            _INFLIGHT.update((path, attempt_id) for attempt_id in claimed)
+        if not claimed:
+            return None
+
+        def work(fence: "maps.BuildFence") -> Callable[[], None]:
+            def run() -> None:
+                try:
+                    repository = Repository.attach(Path(sqlite_path))
+                    for attempt_id in claimed:
+                        if not fence.live():
+                            return
+                        try:
+                            outcome = place_outcome(vault, repository, attempt_id, client=client, clock=clock,
+                                                    fence=fence)
+                        except Exception:  # noqa: BLE001 - one attempt never stops the pass
+                            LOG.warning("hint outcome reconciliation failed for %s", attempt_id, exc_info=True)
+                            continue
+                        LOG.info("hint outcome placement (reconciled): %s",
+                                 json.dumps(outcome.as_dict(), sort_keys=True, default=str))
+                        if on_done is not None:
+                            on_done(outcome)
+                        if outcome.status in ("capped", "unpriced", "unavailable", "stale"):
+                            return  # the rest waits for the next open (or the envelope's next day)
+                finally:
+                    with _INFLIGHT_GUARD:
+                        _INFLIGHT.difference_update((path, attempt_id) for attempt_id in claimed)
+
+            return run
+
+        try:
+            thread = registry.launch(sqlite_path, work, name="learnloop-hint-outcome-reconcile")
+        except BaseException:
+            thread = None
+            raise
+        finally:
+            if thread is None:
+                with _INFLIGHT_GUARD:
+                    _INFLIGHT.difference_update((path, attempt_id) for attempt_id in claimed)
+        if thread is None:
+            return None
+        with maps._INFLIGHT_GUARD:
+            maps._THREADS[:] = [existing for existing in maps._THREADS if existing.is_alive()] + [thread]
+        return thread
+    except Exception:  # noqa: BLE001 - reconciliation never blocks opening a vault
+        LOG.warning("hint outcome reconciliation failed", exc_info=True)
+        return None
+
+
 __all__ = [
-    "LEDGER_TASK", "OWNER_KIND", "OutcomePlacementV1", "OutcomeResult", "PROMPT_VERSION", "ROUTE_TASK", "VERDICTS",
-    "hint_verdict", "place_outcome", "placement_enabled", "schedule_outcome_placement", "validate_placement",
+    "LEDGER_TASK", "OWNER_KIND", "OutcomePlacementV1", "OutcomeResult", "PROMPT_VERSION", "RECONCILE_LIMIT",
+    "RECONCILE_LOOKBACK_DAYS", "ROUTE_TASK", "VERDICTS", "hint_verdict", "place_outcome", "placement_enabled",
+    "reconcile_outcome_placements", "schedule_outcome_placement", "unplaced_attempts", "validate_placement",
 ]

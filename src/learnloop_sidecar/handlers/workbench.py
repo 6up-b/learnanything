@@ -141,10 +141,55 @@ def _view(vault, repository, session_id: str, *, parts: list[dict[str, Any]] | N
     view = _run(
         WB.session_view, repository, session_id,
         question_hints=_question_hints(vault, repository, row),
+        server_hints=_carried_server_hints(repository, row),
         extra={"source_id": _source_id(repository, row.get("extraction_id")), "parts": parts,
                "presentation": _presentation(vault, repository, row)},
     )
     return to_camel(view)
+
+
+def _carried_server_hints(repository, session: dict[str, Any]) -> int:
+    """The answer box's shown server hints carried into the problem (H2b
+    review F1), every level: what the record line names before Submit."""
+
+    item_id = session.get("practice_item_id")
+    if not item_id or session.get("status") != "open":
+        return 0
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.help_assists import carried_fold
+
+    try:
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                                  ).fetchone() is None:
+                return 0
+            return carried_fold(connection, practice_item_id=str(item_id), workbench_session_id=str(session["id"]))[2]
+    except Exception:  # noqa: BLE001 - a display line never fails a read
+        return 0
+
+
+def _link_carried_hints(repository, session_id: str, params: "WorkbenchOpenInput") -> None:
+    """Link the answer box's shown server hints of the named submission to
+    the problem (H2b review F1). Only on the item the problem is bound to;
+    the rows are the server's own record of what it showed."""
+
+    if not params.carried_submission_id or not params.carried_session_id:
+        return
+    row = _run(WB.session_row, repository, session_id)
+    item_id = row.get("practice_item_id")
+    if not item_id or row.get("status") != "open":
+        return
+    from learnloop.db.stores.help_assists import link_to_workbench
+
+    with repository.atomic():
+        connection = repository.connection()
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                              ).fetchone() is None:
+            return
+        link_to_workbench(connection, practice_item_id=str(item_id), session_id=params.carried_session_id,
+                          submission_id=params.carried_submission_id.strip(), workbench_session_id=session_id)
 
 
 def _answer(payload: dict[str, Any]) -> dict[str, Any]:
@@ -218,6 +263,12 @@ class WorkbenchOpenInput(ParamsModel):
     carried_hints: int = 0
     #: A book a problem the learner left for the answer box counted (review F2).
     carried_book: bool = False
+    #: Adaptive hints H2b (review F1): the answer box's submission the work
+    #: moves from (its key and practice session). The hints the hint service
+    #: showed for it go with the work: the server links its own shown rows
+    #: (never a count the client sends) and the problem's submit folds them.
+    carried_submission_id: str | None = None
+    carried_session_id: str | None = None
     #: The serve the problem answers ("check me", the practice screen's
     #: serve), kept on the session so a resume still submits as it (F13).
     #: One pair: naming either replaces both, nulls included; naming neither
@@ -301,6 +352,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
             carried_book=params.carried_book, serve=serve,
         )
         _ensure_contract(vault, repository, row["id"])
+        _link_carried_hints(repository, row["id"], params)
         return _answer({"session": _view(vault, repository, row["id"]), "resumed": True})
     stem = (params.stem_md or "").strip()
     import_status, batch_id, error = "none", None, None
@@ -333,6 +385,7 @@ def workbench_open(ctx: SidecarContext, params: WorkbenchOpenInput) -> dict[str,
         carried_book=params.carried_book, serve=serve,
     )
     _ensure_contract(vault, repository, row["id"])
+    _link_carried_hints(repository, row["id"], params)
     return _answer({"session": _view(vault, repository, row["id"]), "resumed": resumed})
 
 
@@ -557,7 +610,10 @@ def workbench_submit(ctx: SidecarContext, params: WorkbenchSubmitInput) -> dict[
         plan_presentation_id=plan_presentation_id,
         declared_stuck=plan.composed.declared_stuck,
     )
-    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface)
+    # H2b review F1: the answer box's shown server hints carried into the
+    # problem fold into this attempt and attach to it.
+    attempt = submit_attempt_on(ctx, submission, entry_surface=plan.entry_surface,
+                                workbench_session_id=plan.session_id)
     vault, repository = ctx.require_vault()
     _run(WB.mark_submitted, repository, params.session_id, attempt_id=str(attempt["attemptId"]),
          practice_session_id=practice_session_id)

@@ -650,31 +650,55 @@ export function PracticeScreen({
   // still submits as it (review F13).
   const serveRef = useRef({ schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null });
   serveRef.current = { schedulerCandidateId: schedulerCandidateId ?? null, planPresentationId: planPresentationId ?? null };
+  // Adaptive hints H2b (review F1, F2): before the answer box is hidden, a
+  // hint still being written is settled (cancelled, or read once when it was
+  // shown first), so none is delivered where the learner cannot see it; then
+  // the answer box's submission goes with the work, and the server carries
+  // the hints it showed for it into the problem (its own rows, never a count
+  // sent from here). Off, the hold is a no-op and nothing more is sent.
+  const enteringSteps = useRef(false);
+  const handOff = useCallback(async () => {
+    enteringSteps.current = true;
+    await adaptiveHints.hold();
+    return adaptive && session.sessionId
+      ? { carriedSubmissionId: submissionId.current, carriedSessionId: session.sessionId }
+      : {};
+  }, [adaptive, adaptiveHints.hold, session.sessionId]);
+  const handOffFailed = useCallback(() => {
+    enteringSteps.current = false;
+    adaptiveHints.resume();
+  }, [adaptiveHints.resume]);
   const openWorkbench = useCallback(async () => {
     if (!item) return;
     try {
+      const carried = await handOff();
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        ...carried,
       });
       setWbSession(result.session);
     } catch (error) {
+      handOffFailed();
       onError(errorMessage(error, "Couldn't open the step workbench."));
     }
-  }, [item, onError, wbEntry, wbOrigin]);
+  }, [handOff, handOffFailed, item, onError, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
     try {
+      const carried = await handOff();
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
+        ...carried,
       });
       setWbSession(result.session);
     } catch (error) {
+      handOffFailed();
       onError(errorMessage(error, "Couldn't reopen your steps."));
     }
-  }, [onError, wbEntry, wbOrigin]);
+  }, [handOff, handOffFailed, onError, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
@@ -712,6 +736,14 @@ export function PracticeScreen({
   assistPendingRef.current = assistPending;
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
   const stepsMode = workbenchAvailable && wbSession !== null;
+  // H2b review F2: hints are asked for again once the answer box is back.
+  useEffect(() => {
+    if (stepsMode) {
+      enteringSteps.current = false;
+    } else if (!enteringSteps.current) {
+      adaptiveHints.resume();
+    }
+  }, [stepsMode, adaptiveHints.resume]);
   // A book counted on this problem, in steps left this visit or on its open
   // problem (after a restart too), counts on the answer box as one hint.
   const bookCarried = bookLeft || wbItemSessions.some((entry) => entry.status === "open" && entry.bookCounted === true);
@@ -827,7 +859,10 @@ export function PracticeScreen({
       return;
     }
     if (adaptive) {
-      // Adaptive hints H2b: the press asks for a hint written for this work.
+      // Adaptive hints H2b: the press asks for a hint written for this work,
+      // only where its panel is shown (review F2: never in steps, whichever
+      // control was pressed).
+      if (stepsMode || enteringSteps.current) return;
       void adaptiveHints.press();
       return;
     }
@@ -849,6 +884,9 @@ export function PracticeScreen({
    *  own reveal, client-counted as before. Resolves to its telemetry row. */
   async function revealAuthoredAt(index: number): Promise<string | null> {
     if (!item || !session.sessionId) return null;
+    // Counted at once for a hand-off into steps that reads it before the
+    // next render (review F1); the render sets the ref from the state.
+    carriedRef.current = { ...carriedRef.current, hints: carriedRef.current.hints + 1 };
     setHintsUsed((value) => value + 1);
     try {
       const recorded = await Promise.resolve(api.recordHintReveal?.({
@@ -1865,7 +1903,7 @@ export function PracticeScreen({
       <KeyBar keys={simple && !isTeachBack ? [
         { key: "^enter", label: "submit" },
         ...(probeActive || onYourOwnCheck || (item.hints.length === 0 && !adaptive) ? []
-          : [adaptive ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
+          : [adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" }]),
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         ...(probeActive ? [] : [{ key: "?", label: "ask" }]),
@@ -1881,7 +1919,7 @@ export function PracticeScreen({
         { key: "esc", label: "today" }
       ] : [
         { key: "^enter", label: "submit" },
-        adaptive ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" },
+        adaptive && !stepsMode ? { key: "^h", label: "hint", onClick: revealHint } : { key: "^h", label: "hint" },
         { key: "^d", label: stuckPrompt ? "I'm stuck" : "don't know" },
         { key: "^s", label: "skip" },
         { key: "?", label: "ask tutor" },

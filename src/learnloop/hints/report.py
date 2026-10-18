@@ -377,9 +377,9 @@ def build_hints_report(
         smaller_steps = Counter(A.answered_id(row) for row in rows if row["request"] == "smaller_step")
         since_iso = since_at.isoformat() if since_at else None
         seeking = A.help_seeking(connection, all_rows, since=since_iso, percentiles=_percentiles, share=_share,
-                                 when=_when)
+                                 when=_when, surface=surface)
         route_rows = A.routes(connection, all_rows, since=since_iso, percentiles=_percentiles, when=_when,
-                              writer_prompt_version=_WRITER_PROMPT_VERSION)
+                              writer_prompt_version=_WRITER_PROMPT_VERSION, surface=surface)
 
     def later(attempt: dict[str, Any], pool: list[dict[str, Any]]) -> str:
         """The next independent attempt's outcome, never a later one's."""
@@ -554,8 +554,12 @@ def build_hints_report(
             },
             "chooser": dict(sorted(Counter(str(row["chooser"]) for row in members).items())),
             **({"waypoint": {
+                # §6.1: the goal reached *before* further help. The next
+                # hint's placement says where the work stood when more help
+                # was asked, so a goal it shows reached counts (H2b review F6);
+                # unaided() answers "more_help_followed" when it cannot say.
                 "goals_reached_without_more_help": _share(
-                    sum(1 for row in attached if unaided(row) in _REACHED and not following(row)), len(attached)),
+                    sum(1 for row in attached if unaided(row) in _REACHED), len(attached)),
                 "smaller_steps_taken": _share(sum(1 for row in members if smaller_steps.get(str(row["id"]))),
                                               len(members)),
             }} if hint_kind == "waypoint" else {}),

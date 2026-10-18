@@ -656,7 +656,7 @@ def _in_diagnostic_block(repository, item) -> bool:
 def _server_hint_fold(
     repository, practice_item_id: str, session_id: str, submission_id: str | None, *,
     base_hints: int, base_primed: bool = False, max_useful_hints: int = 0, clamp_without_fold: bool = True,
-    stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False,
+    stuck_types: tuple[str, ...] | None = None, stuck_probe: bool = False, workbench_session_id: str | None = None,
 ) -> ServerHintFold:
     """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
     showed in this submission (its ``help_assists`` rows, shown, counted by
@@ -666,7 +666,9 @@ def _server_hint_fold(
     nothing, so every submit is exactly as before H2a. The draft carries the
     fold, and the attempt's write transaction takes it again before the
     attempt commits (review round 2, V1: a second sidecar may deliver a hint
-    of this submission in between)."""
+    of this submission in between). A workbench submit names its problem
+    (``workbench_session_id``): the answer box's shown hints carried into it
+    fold in by the same rule (H2b review F1)."""
 
     from contextlib import closing
 
@@ -675,12 +677,13 @@ def _server_hint_fold(
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         count, primed, since = read_fold(
             connection, practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id,
+            workbench_session_id=workbench_session_id,
         )
     return ServerHintFold(
         practice_item_id=practice_item_id, session_id=session_id, submission_id=submission_id, since=since,
         folded_hints=count, folded_primed=primed, base_hints=int(base_hints), base_primed=bool(base_primed),
         max_useful_hints=int(max_useful_hints or 0), clamp_without_fold=clamp_without_fold,
-        stuck_types=stuck_types, stuck_probe=stuck_probe,
+        stuck_types=stuck_types, stuck_probe=stuck_probe, workbench_session_id=workbench_session_id,
     )
 
 
@@ -990,7 +993,8 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 
 
 def submit_attempt_on(
-    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice"
+    ctx: SidecarContext, params: SubmitAttemptInput, *, entry_surface: str = "desktop_practice",
+    workbench_session_id: str | None = None,
 ) -> dict[str, Any]:
     """``submit_attempt``, recorded on ``entry_surface``. The one submit
     implementation: the Reader workbench (RW2a) composes its answer and calls
@@ -1026,6 +1030,7 @@ def submit_attempt_on(
                 plan_presentation_id=params.plan_presentation_id,
             ),
             entry_surface=entry_surface,
+            workbench_session_id=workbench_session_id,
         )
     _require_open_session(repository, params.session_id)
     item = _require_active_item(vault, params.practice_item_id)
@@ -1056,7 +1061,7 @@ def submit_attempt_on(
     hint_fold = _server_hint_fold(
         repository, params.practice_item_id, params.session_id, submission_id,
         base_hints=client_hints + question_hints, base_primed=bool(params.primed) or disclosure_primed,
-        max_useful_hints=item.hint_policy.max_useful_hints,
+        max_useful_hints=item.hint_policy.max_useful_hints, workbench_session_id=workbench_session_id,
     )
     hints_used = hint_fold.hints_used()
     primed = hint_fold.primed()
@@ -1204,7 +1209,8 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
 
 
 def submit_dont_know_on(
-    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice"
+    ctx: SidecarContext, params: DontKnowInput, *, entry_surface: str = "desktop_practice",
+    workbench_session_id: str | None = None,
 ) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     workbench_surface = None if entry_surface == "desktop_practice" else entry_surface
@@ -1227,7 +1233,7 @@ def submit_dont_know_on(
         repository, params.practice_item_id, params.session_id, submission_id,
         base_hints=hints_used, max_useful_hints=item.hint_policy.max_useful_hints, clamp_without_fold=False,
         stuck_types=tuple(item.attempt_types_allowed or ()) if stuck else None,
-        stuck_probe=params.probe_presentation_id is not None,
+        stuck_probe=params.probe_presentation_id is not None, workbench_session_id=workbench_session_id,
     )
     hints_used = hint_fold.hints_used()
     server_primed = hint_fold.primed()
@@ -1393,6 +1399,9 @@ def _cached_submission(
         # Adaptive hints H0 (review F1): repair an attach the original call
         # failed to make (idempotent; telemetry only).
         _attach_hint_reveals(vault, repository, submission_id, practice_item_id, receipt["attempt_id"])
+        # H2b (review F5): and the outcome placement a process that ended
+        # after the receipt never scheduled (no-op once placed).
+        _schedule_hint_outcome(ctx, vault, repository, str(receipt["attempt_id"]))
         return receipt["result"]
     attempt = repository.practice_attempt_by_submission_id(submission_id)
     if attempt is None:
@@ -1401,6 +1410,9 @@ def _cached_submission(
     # The attempt committed: its revealed hints are its own, whatever the
     # route answered below (adaptive hints H0, review F1).
     _attach_hint_reveals(vault, repository, submission_id, practice_item_id, attempt["id"])
+    # H2b (review F5): a committed attempt's outcome placement, whatever
+    # the route answers below (measurement only; no-op once placed).
+    _schedule_hint_outcome(ctx, vault, repository, str(attempt["id"]))
     work = repository.attempt_completion(attempt["id"])
     if work is None:
         raise _submission_committed(attempt)

@@ -40,7 +40,7 @@ from learnloop.scheduling.fsrs import (
     rating_from_score,
 )
 from learnloop.attempts.ability_transition import estimate_ability_transition
-from learnloop.attempts.hint_fold import ServerHintFold, attach_keyless, refolded_draft
+from learnloop.attempts.hint_fold import ServerHintFold, attach_carried, attach_keyless, refolded_draft
 from learnloop.diagnosis.causal_activity_policy import classify_attempt_activity
 from learnloop.attempts.grading import (
     GradingValidationError,
@@ -3038,6 +3038,9 @@ def apply_attempt(
             # Round 3b: a keyless attempt takes the hint rows it counted, so
             # no later fold counts them again (a keyed one's are H0's attach).
             attach_keyless(repository.connection(), attempt.draft, result.attempt_id)
+            # H2b review F1: a workbench attempt takes the answer box's rows
+            # carried into its problem, likewise.
+            attach_carried(repository.connection(), attempt.draft, result.attempt_id)
         if not attempt.replace_existing:
             _save_completion_work(vault, repository, attempt.draft, result, clock=clock)
         return result

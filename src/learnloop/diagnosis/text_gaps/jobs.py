@@ -37,6 +37,7 @@ from learnloop.diagnosis.text_gaps.sources import (
     StuckTextSource,
     attempt_grade_held,
     formative_row,
+    hint_feedback_ids,
     hint_feedback_row,
     learner_text,
     missed_formative_ids,
@@ -165,28 +166,49 @@ def enqueue_hint_feedback(
     text (:func:`~.sources.hint_feedback_row`); an empty reply queues
     nothing. Idempotent per row."""
 
-    if not pipeline_enabled(vault):
-        return None
-    if not bool(getattr(getattr(vault.config, "hints", None), "adaptive_enabled", False)):
+    if not hint_feedback_enabled(vault):
         return None
     if hint_feedback_row(repository, assist_id) is None:
         return None
     return enqueue(repository, source_kind="hint_feedback", source_id=assist_id, clock=clock)
 
 
+def hint_feedback_enabled(vault: LoadedVault) -> bool:
+    """Whether ``hint_feedback`` texts are queued: the pipeline and adaptive hints both on."""
+
+    return pipeline_enabled(vault) and bool(getattr(getattr(vault.config, "hints", None), "adaptive_enabled", False))
+
+
+def reconcile_hint_feedback(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None) -> int:
+    """Queue every ``hint_feedback`` text whose job was never written (H2b
+    review F4): the reply or discriminating answer committed, and the process
+    ended, or the enqueue failed, before its job did. Called when the sidecar
+    opens a vault; idempotent (a text with a job or a gap is left alone), and
+    it reads no text and calls no model. Returns how many it queued."""
+
+    return sweep_backlog(vault, repository, clock=clock, kinds=("hint_feedback",))["hint_feedback"]
+
+
+#: The kinds :func:`sweep_backlog` sweeps (all of them unless told).
+BACKLOG_KINDS = ("stuck_answer", "tutor_question", "diagnosis", "reader_formative", "hint_feedback")
+
+
 def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | None = None,
                   stuck_source: StuckTextSource | None = None, include_history: bool = False,
-                  dry_run: bool = False) -> dict[str, int]:
+                  dry_run: bool = False, kinds: tuple[str, ...] = BACKLOG_KINDS) -> dict[str, int]:
     """Queue unread learner texts (``learnloop gaps run --backlog``).
 
-    Stuck answers always, and missed active-reading answers while
+    Stuck answers always, missed active-reading answers while
     ``reader_formative.enabled`` is on (RW1b review F7: one whose job was never
-    written); with ``include_history`` also answered tutor questions that
-    carry a tutor reading and completed live diagnoses. ``dry_run`` counts
-    what would be queued and writes nothing.
+    written), and replies to hints and discriminating answers while adaptive
+    hints are on (``hint_feedback``, H2b review F4); with ``include_history``
+    also answered tutor questions that carry a tutor reading and completed
+    live diagnoses. ``kinds`` narrows the sweep (the sidecar's start-up
+    reconciliation sweeps ``hint_feedback`` only). ``dry_run`` counts what
+    would be queued and writes nothing.
     """
 
-    counts = {"stuck_answer": 0, "tutor_question": 0, "diagnosis": 0, "reader_formative": 0}
+    counts = {kind: 0 for kind in BACKLOG_KINDS}
     if not pipeline_enabled(vault):
         return counts
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
@@ -199,14 +221,20 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
         known.add((source_kind, source_id))
         return True if dry_run else bool(enqueue(repository, source_kind=source_kind, source_id=source_id, clock=clock))
 
-    for row in stuck_texts(repository, stuck_source):
-        if queue("stuck_answer", row.attempt_id):
-            counts["stuck_answer"] += 1
-    if bool(getattr(getattr(vault.config, "reader_formative", None), "enabled", False)):
+    if "stuck_answer" in kinds:
+        for row in stuck_texts(repository, stuck_source):
+            if queue("stuck_answer", row.attempt_id):
+                counts["stuck_answer"] += 1
+    if "reader_formative" in kinds and bool(getattr(getattr(vault.config, "reader_formative", None), "enabled",
+                                                    False)):
         for question_id in missed_formative_ids(repository):
             if queue("reader_formative", question_id):
                 counts["reader_formative"] += 1
-    if include_history:
+    if "hint_feedback" in kinds and hint_feedback_enabled(vault):
+        for assist_id in hint_feedback_ids(repository):
+            if queue("hint_feedback", assist_id):
+                counts["hint_feedback"] += 1
+    if include_history and {"tutor_question", "diagnosis"} & set(kinds):
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             questions = [str(row[0]) for row in connection.execute(
                 "SELECT id FROM question_events WHERE answer_status = 'answered' "
@@ -215,10 +243,10 @@ def sweep_backlog(vault: LoadedVault, repository: Repository, *, clock: Clock | 
             diagnoses = [str(row[0]) for row in connection.execute(
                 "SELECT id FROM attempt_diagnoses WHERE mode = 'live' AND status = 'completed' ORDER BY created_at, id"
             )]
-        for event_id in questions:
+        for event_id in questions if "tutor_question" in kinds else ():
             if queue("tutor_question", event_id):
                 counts["tutor_question"] += 1
-        for diagnosis_id in diagnoses:
+        for diagnosis_id in diagnoses if "diagnosis" in kinds else ():
             if queue("diagnosis", diagnosis_id):
                 counts["diagnosis"] += 1
     return counts
@@ -477,5 +505,6 @@ __all__ = [
     "plan",
     "process_next_gap_job",
     "run_pending",
+    "reconcile_hint_feedback",
     "sweep_backlog",
 ]

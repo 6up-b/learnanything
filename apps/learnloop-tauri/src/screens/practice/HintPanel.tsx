@@ -268,7 +268,8 @@ export function HintPanel({
           {hints.offer ? (
             <>
               {" · "}
-              <button type="button" style={quietLink} onClick={() => void hints.takeAuthoredInstead()}>
+              <button type="button" style={quietLink} disabled={hints.offerBusy}
+                onClick={() => void hints.takeAuthoredInstead()}>
                 {HINT_COPY.authoredInstead}
               </button>
             </>
