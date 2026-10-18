@@ -830,7 +830,11 @@ def mark_import(
     with repository.atomic():
         connection = repository.connection()
         session = _require(connection, session_id)
-        if session["import_status"] == "bound":
+        # A bound import keeps its binding, and a problem opened on an item
+        # ("none") never becomes an import: its item binding is fixed for
+        # good, which the hints report relies on (adaptive hints H0, review
+        # round 5).
+        if session["import_status"] in ("bound", "none"):
             return session
         changes: dict[str, Any] = {"import_status": status, "updated_at": now,
                                    "import_error": error if status == "failed" else None}

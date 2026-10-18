@@ -99,6 +99,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Reader workbench RW2a: workbench_sessions (lifecycle) and the
         # append-only workbench_steps (migration 207).
         "src/learnloop/db/stores/workbench.py",
+        # Adaptive hints H0: help_assists (migration 210), the authored-hint
+        # reveal rows and their attach to the attempt at submit.
+        "src/learnloop/db/stores/help_assists.py",
         # Reader workbench RW4a: library_asks (migration 209), one row per
         # library question with its manifests and organizer lines.
         "src/learnloop/db/stores/library_asks.py",

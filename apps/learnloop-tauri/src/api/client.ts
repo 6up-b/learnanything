@@ -528,6 +528,22 @@ export const api = {
     /** Router R2a (review F5): kept with the draft so a resumed draft binds. */
     planPresentationId?: string | null;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
+  /** Adaptive hints H0: telemetry for one authored hint the screen revealed
+   *  (fire and forget; never awaited by the screen, and never invalidates). */
+  recordHintReveal: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    /** The stable submission key the attempt in progress will submit with:
+     *  the row is attached to that submission's attempt and no other. */
+    submissionId: string;
+    /** 0-based index of the hint shown in the item's list. */
+    authoredIndex: number;
+    /** The draft it was revealed on (the sidecar keeps only a hash and length). */
+    answerMd: string;
+    revealedAt: string;
+  }) => call<{ version: number; recorded: boolean; reason: string | null; assistId: string | null }>(
+    "practice_record_hint_reveal", { input },
+  ),
   recoverPracticeSubmission: (input: {
     sessionId: string;
     practiceItemId: string;

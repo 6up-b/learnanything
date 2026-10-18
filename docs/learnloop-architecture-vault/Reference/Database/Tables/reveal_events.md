@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "15789eb84e96d9c3185b408585b3aea5537634f1"
-source_commit_timestamp: "2026-10-17T22:04:32-04:00"
+source_commit: "04d06282fa869bb214533f6f93a25c96ea13040e"
+source_commit_timestamp: "2026-10-18T00:22:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 209
+schema_head: 210
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/154_reveal_ledger.sql`.
-- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `179_answer_display_reveal.sql`, `181_router_decisions.sql`.
+- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `179_answer_display_reveal.sql`, `181_router_decisions.sql`, `210_help_assists.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -103,6 +103,7 @@ Database triggers:
 - `src/learnloop/db/stores/source_service.py`
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
+- `src/learnloop/hints/report.py`
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/practice_index/retrieval.py`
@@ -134,6 +135,7 @@ Database triggers:
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_find_sources_intents.py`
+- `tests/test_hint_telemetry.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
@@ -147,7 +149,6 @@ Database triggers:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_practice_index_admission.py`
-- `tests/test_quick_check.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

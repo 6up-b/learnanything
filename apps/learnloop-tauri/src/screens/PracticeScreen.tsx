@@ -796,6 +796,10 @@ export function PracticeScreen({
       onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
       return;
     }
+    // Adaptive hints H0: the hint this press shows (none past the last one).
+    if (item && session.sessionId && hintsUsed < item.hints.length) {
+      recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
+    }
     setHintsUsed((value) => Math.min(item?.hints.length ?? 0, value + 1));
   }
 
@@ -2392,6 +2396,17 @@ function composeRedoAnswer(prefix: string, redoText: string): string {
   if (!prefix.trim()) return redoText;
   if (/\n[ \t]*\n[ \t]*$/.test(prefix) || /^[ \t]*\n/.test(redoText)) return prefix + redoText;
   return `${prefix}\n\n${suffix}`;
+}
+
+// Adaptive hints H0: one telemetry row per authored hint revealed. Fire and
+// forget: never awaited, any failure (a sidecar without the RPC included)
+// ignored, and nothing rendered depends on it; submit still sends the count.
+function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): void {
+  try {
+    void Promise.resolve(api.recordHintReveal(input)).catch(() => undefined);
+  } catch {
+    // Telemetry never blocks or alters the reveal.
+  }
 }
 
 // Prefer hinted_attempt when hints were used and the item allows it; otherwise

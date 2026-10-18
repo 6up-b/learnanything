@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "15789eb84e96d9c3185b408585b3aea5537634f1"
-source_commit_timestamp: "2026-10-17T22:04:32-04:00"
+source_commit: "04d06282fa869bb214533f6f93a25c96ea13040e"
+source_commit_timestamp: "2026-10-18T00:22:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 209
+schema_head: 210
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,13 +21,14 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/ai/chatgpt_plan/oauth.py"
   - "src/learnloop/ai/isolation.py"
+  - "src/learnloop/cli/hints.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
 tags:
@@ -147,12 +148,12 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_forecast_receipts.py`
 - `tests/test_glm_ocr.py`
+- `tests/test_hint_telemetry.py`
 - `tests/test_init.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mobile_doctor.py`
 - `tests/test_plan_determinism.py`
 - `tests/test_plan_determinism_landing.py`
-- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

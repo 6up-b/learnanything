@@ -258,6 +258,19 @@ def test_the_pinned_rw4a_rpcs_are_all_of_them():
     assert set(READER_RW4A_RPCS) - {"reader.prompt_contract", "find_practice"} == set(LIBRARY_ASK_RPCS)
 
 
+# Adaptive hints H0 (spec_adaptive_hints_v1 §9, G-H13): the practice screen's
+# authored-hint reveal telemetry, and the two submits that attach the
+# session's reveal rows to the attempt. Desktop only.
+HINTS_H0_RPCS = ("practice.record_hint_reveal",)
+HINTS_H0_EXTENDED_RPCS = ("submit_attempt", "submit_dont_know")
+
+
+def test_the_pinned_hints_h0_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.practice import HINT_TELEMETRY_RPCS
+
+    assert set(HINTS_H0_RPCS) == set(HINT_TELEMETRY_RPCS)
+
+
 # Canonical sources (spec_source_practice_and_probes_v1, G16): the service's
 # own RPCs and the ones it extends (find_practice's caller and intents,
 # record_practice_usage's learner text, plan_learner_pick's proposal link,
@@ -428,7 +441,8 @@ def test_r2a_params_are_the_plan_presentation_on_the_three_answer_rpcs():
     + LEARNER_TEXT_GAP_RPCS + FACET_IDENTITY_RPCS + CHATGPT_PLAN_RPCS + READER_RW1A_RPCS + READER_RW3A_RPCS
     + READER_RW2A_RPCS + READER_RW6A_RPCS + READER_RW1B_RPCS + READER_RW4A_RPCS + SOURCE_SERVICE_RPCS + SOURCE_SERVICE_EXTENDED_RPCS + UX_PHASE1_RPCS + UX_PHASE1_EXTENDED_RPCS
     + ROUTER_R2A_RPCS + GLM_OCR_RPCS + GLM_OCR_EXTENDED_RPCS + REREAD_SAFETY_RPCS + REREAD_SAFETY_EXTENDED_RPCS
-    + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS,
+    + READER_PDF_SELECTION_RPCS + READER_PDF_SELECTION_EXTENDED_RPCS + UX_PHASE4_RPCS + UX_PHASE4_EXTENDED_RPCS
+    + HINTS_H0_RPCS + HINTS_H0_EXTENDED_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

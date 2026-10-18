@@ -259,6 +259,9 @@ pub async fn get_next_probe_item(
 
 sidecar_passthrough!(save_practice_draft, "save_practice_draft");
 
+// Adaptive hints H0: telemetry for an authored hint the practice screen revealed.
+sidecar_passthrough!(practice_record_hint_reveal, "practice.record_hint_reveal");
+
 sidecar_passthrough!(recover_practice_submission, "recover_practice_submission");
 
 sidecar_passthrough!(

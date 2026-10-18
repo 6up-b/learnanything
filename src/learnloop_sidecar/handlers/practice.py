@@ -28,6 +28,12 @@ from learnloop.attempts.post_attempt import (
     run_post_attempt_pipeline,
 )
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop.hints.telemetry import (
+    attach_reveals_to_attempt,
+    record_authored_reveal,
+    stamp_submission,
+    telemetry_enabled,
+)
 from learnloop.diagnosis.probe_episodes import (
     PROBE_ITEM_ANSWER_SHOWN,
     RoutineDisplayCovered,
@@ -190,6 +196,27 @@ class DontKnowInput(ParamsModel):
 class SkipInput(ParamsModel):
     session_id: str
     practice_item_id: str
+
+
+class HintRevealInput(ParamsModel):
+    """Adaptive hints H0: one authored hint the practice screen revealed."""
+
+    session_id: str = Field(min_length=1)
+    practice_item_id: str = Field(min_length=1)
+    #: The screen's stable submission key for the attempt in progress (the
+    #: one its submit will send): the row is attached to that submission's
+    #: attempt and to no other (review F1).
+    submission_id: str = Field(min_length=1)
+    #: 0-based: the hint shown is ``item.hints[authored_index]``.
+    authored_index: int = Field(ge=0)
+    #: The draft the hint was revealed on; only its hash and length are kept.
+    answer_md: str = ""
+    #: The client's press time (ISO 8601); the sidecar's own when absent.
+    revealed_at: str | None = None
+
+
+#: Adaptive hints H0's RPCs (desktop only; pinned in tests/test_mobile_allowlist.py).
+HINT_TELEMETRY_RPCS = ("practice.record_hint_reveal",)
 
 
 class ServePracticeItemInput(ParamsModel):
@@ -554,6 +581,107 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
     return {"ok": True}
 
 
+@method("practice.record_hint_reveal", HintRevealInput)
+def record_hint_reveal(ctx: SidecarContext, params: HintRevealInput) -> dict[str, Any]:
+    """Adaptive hints H0 (spec_adaptive_hints_v1 §9, §10 H0): record one
+    authored hint the practice screen revealed, as a ``help_assists`` row.
+
+    Fire and forget: the screen has already shown the hint and never waits on
+    this. Telemetry only: submit still takes ``hints_used`` from the client,
+    and nothing that grades, schedules or projects reads the row. A no-op
+    (``recorded: false``) with ``hints.telemetry_enabled`` off, and during a
+    diagnostic block on the item, where the screen refuses the reveal itself.
+    A failed write is logged and answered ``recorded: false``, never raised.
+    """
+
+    vault, repository = ctx.require_vault()
+    if not telemetry_enabled(vault.config):
+        return versioned({"recorded": False, "reason": "telemetry_disabled", "assist_id": None})
+    item = vault.practice_items.get(params.practice_item_id)
+    if item is None:
+        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    if params.authored_index >= len(item.hints):
+        raise SidecarError(
+            "validation_error",
+            f"Practice Item {item.id} has {len(item.hints)} authored hints; no hint {params.authored_index}.",
+            details={"field": "authoredIndex"},
+        )
+    if _in_diagnostic_block(repository, item):
+        return versioned({"recorded": False, "reason": "diagnostic_block", "assist_id": None})
+    try:
+        record = record_authored_reveal(
+            repository,
+            item=item,
+            session_id=params.session_id,
+            submission_id=params.submission_id.strip(),
+            authored_index=params.authored_index,
+            work_md=params.answer_md,
+            revealed_at=params.revealed_at,
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails the reveal
+        log_event("hint_reveal_telemetry_failed", practice_item_id=item.id, error=type(exc).__name__)
+        return versioned({"recorded": False, "reason": "write_failed", "assist_id": None})
+    return versioned(record.as_dict())
+
+
+def _in_diagnostic_block(repository, item) -> bool:
+    """The item is being served as a diagnostic probe (an in-progress episode
+    with a served presentation of this item): the screen refuses hints then
+    (probe redesign §5.5), so no reveal is recorded either."""
+
+    episode = repository.open_probe_episode(item.learning_object_id)
+    if episode is None or episode.status != "in_progress":
+        return False
+    presentation = repository.active_probe_presentation(episode.id, practice_item_id=item.id)
+    return presentation is not None and presentation.status == "served"
+
+
+def _stamp_hint_submission(
+    vault, repository, submission_id: str | None, practice_item_id: str, latency_seconds: float | None = None
+) -> str | None:
+    """Adaptive hints H0 (review F2, round 2 V3): when this submission reached
+    the sidecar, before any grading, and the latency it sent, on its revealed
+    hints' rows. Telemetry only; a failure is logged, never raised."""
+
+    if submission_id is None or not telemetry_enabled(vault.config):
+        return None
+    try:
+        return stamp_submission(
+            repository, submission_id=submission_id, practice_item_id=practice_item_id,
+            latency_seconds=latency_seconds,
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
+        log_event("hint_reveal_stamp_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
+        return None
+
+
+def _attach_hint_reveals(
+    vault, repository, submission_id: str | None, practice_item_id: str, attempt_id: str,
+    *, submitted_at: str | None = None, latency_seconds: float | None = None,
+) -> None:
+    """Adaptive hints H0: the attempt the submission's revealed hints were
+    part of, matched on the submission key alone (review F1), so it is
+    idempotent and every path that answers for a committed submission (the
+    submit, a retry from its receipt, a resumed completion, a recovery)
+    repairs an attach that failed, and no later submission takes the rows.
+    Telemetry only, after the attempt committed: never changes the attempt
+    or the response, and a failure is logged, never raised."""
+
+    if submission_id is None or not telemetry_enabled(vault.config):
+        return
+    try:
+        attach_reveals_to_attempt(
+            repository,
+            submission_id=submission_id,
+            practice_item_id=practice_item_id,
+            attempt_id=attempt_id,
+            submitted_at=submitted_at,
+            latency_seconds=latency_seconds,
+        )
+    except Exception as exc:  # noqa: BLE001 -- telemetry never fails a submit
+        log_event("hint_reveal_attach_failed", practice_item_id=practice_item_id, error=type(exc).__name__)
+
+
 @method("record_self_grade_disclosure", SelfGradeDisclosureInput)
 def record_self_grade_disclosure(ctx: SidecarContext, params: SelfGradeDisclosureInput) -> dict[str, Any]:
     """Freeze the learner's whole trace before the plain self-grade shows a
@@ -898,10 +1026,15 @@ def submit_attempt_on(
         evidence_origin="human",
         declared_stuck=declared_stuck,
     )
+    hint_submitted_at = _stamp_hint_submission(
+        vault, repository, submission_id, params.practice_item_id, params.latency_seconds
+    )
     if declared_stuck and not learner_answer_md.strip():
         # An empty stuck answer: nothing to grade, so no provider and no
         # self-grade; recorded at once as an ordinary attempt scored 0.
-        return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
+        return _record_empty_stuck(
+            ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
+        )
     self_grade = _self_grade(params.self_grade)
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
     unavailable_label = "AI grading"
@@ -984,6 +1117,10 @@ def submit_attempt_on(
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(
+        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
+        latency_seconds=params.latency_seconds,
+    )
     return payload
 
 
@@ -1006,6 +1143,9 @@ def submit_dont_know_on(
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
     hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
+    hint_submitted_at = _stamp_hint_submission(
+        vault, repository, submission_id, params.practice_item_id, params.latency_seconds
+    )
     if stuck_prompt_active(vault):
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:
@@ -1031,7 +1171,9 @@ def submit_dont_know_on(
             evidence_origin="human",
             declared_stuck=True,
         )
-        return _record_empty_stuck(ctx, vault, repository, draft, params.session_id, before)
+        return _record_empty_stuck(
+            ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
+        )
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
     scheduler_candidate_id = _bind_offer(repository, params, submission_id, entry_surface=workbench_surface)
     draft = AttemptDraft(
@@ -1074,6 +1216,10 @@ def submit_dont_know_on(
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
     payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(
+        vault, repository, submission_id, result.practice_item_id, result.attempt_id, submitted_at=hint_submitted_at,
+        latency_seconds=params.latency_seconds,
+    )
     return payload
 
 
@@ -1084,6 +1230,8 @@ def _record_empty_stuck(
     draft: AttemptDraft,
     session_id: str,
     before,
+    *,
+    hint_submitted_at: str | None = None,
 ) -> dict[str, Any]:
     """Commit an empty "I'm stuck" answer and answer like any submission.
 
@@ -1111,6 +1259,10 @@ def _record_empty_stuck(
     _log_state_update(vault, repository, "submit_stuck_empty", session_id, before, result)
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, draft.submission_id, result.attempt_id, result.practice_item_id, payload)
+    _attach_hint_reveals(
+        vault, repository, draft.submission_id, result.practice_item_id, result.attempt_id,
+        submitted_at=hint_submitted_at, latency_seconds=draft.latency_seconds,
+    )
     return payload
 
 
@@ -1150,11 +1302,17 @@ def _cached_submission(
     receipt = repository.attempt_submission_receipt(submission_id)
     if receipt is not None:
         _require_same_item(receipt["practice_item_id"], practice_item_id)
+        # Adaptive hints H0 (review F1): repair an attach the original call
+        # failed to make (idempotent; telemetry only).
+        _attach_hint_reveals(vault, repository, submission_id, practice_item_id, receipt["attempt_id"])
         return receipt["result"]
     attempt = repository.practice_attempt_by_submission_id(submission_id)
     if attempt is None:
         return None
     _require_same_item(attempt["practice_item_id"], practice_item_id)
+    # The attempt committed: its revealed hints are its own, whatever the
+    # route answered below (adaptive hints H0, review F1).
+    _attach_hint_reveals(vault, repository, submission_id, practice_item_id, attempt["id"])
     work = repository.attempt_completion(attempt["id"])
     if work is None:
         raise _submission_committed(attempt)
