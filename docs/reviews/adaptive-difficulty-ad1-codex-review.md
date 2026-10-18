@@ -975,3 +975,68 @@ the audit and its `decider_status`.
   - `test_architecture`.
 - `--durable-sqlite tests/test_ad1_fix_round7.py`: 2 passed.
 - References: regenerated in `2a978bb4c`, 0 errors. Model calls: 0.
+
+## Fix round 8
+
+The round-7 verify (codex-job `20261018-190233-RjEeLO`) confirmed round 7's
+normal path and its Low fix. It found two older holes at the same place,
+AD's start receipt:
+
+- **A cleanup error masked the refusal.** If closing the receipt after a
+  `StaleSnapshot` failed, the storage error replaced the refusal. The
+  Decider's `UsageCollector` then swallowed it, and the request was sent.
+- **A lost lease did not stop the request.** A `_LeaseLost` at the start
+  receipt carried no admission marker, so the collector swallowed it and the
+  old worker sent the request even though another worker now held the claim.
+
+**Binding ruling: AD's start receipt fails closed.** It is applied in
+`claims.FencedRepository._start` (commit `8120221bb`). Every exception
+stops the dispatch:
+
+- **Lease lost.** `_LeaseLost` from `_fenced_txn` becomes
+  `ReceiptLeaseLost`. It is both a `DispatchStopped` and a `LeaseLost`, so
+  every AD handler that stops a job on a lost lease reports it as `stale`
+  (retryable: the claim's new owner does the work).
+- **Storage error.** Any other error writing the receipt becomes
+  `ReceiptWriteFailed`. The forecasts and the audit report it as `failed`,
+  send nothing, write nothing more, and the preparation queue retries it at
+  the back.
+- **Refusal.** A refusal by `before_dispatch()` closes the receipt as
+  `interrupted` and is raised as itself, so it keeps its own status.
+- **Cleanup error.** If closing the receipt fails, that failure is logged
+  and the *original* refusal is raised. The cleanup error never replaces it.
+- **An error in the check itself** is a `ReceiptWriteFailed` too.
+
+Both new exceptions are AD-marked interruptions: subclasses of
+`DispatchStopped` (an `AIInterrupted`) that carry `admission_refused`, with
+the original error as `__cause__`. `UsageCollector` is unchanged from round
+7, and ordinary telemetry errors elsewhere are still swallowed.
+
+**Tests** (`tests/test_ad1_fix_round8.py`, 10). Each injection (a finish
+failure after `StaleSnapshot`, `_LeaseLost` at the start receipt, a storage
+error at the start receipt) is run on three paths: the presentation's
+Decider, the presentation's LLM, and the `llm_v1:item` path. Each gives zero
+transport calls and the right status (`stale`, `stale`, `failed`). One more
+test pins that the cleanup failure is logged and the refusal stands.
+
+6 of the 10 failed on `7ee922e29`:
+
+- the Decider path for all three injections: the request was sent;
+- the cleanup test;
+- the item path's finish-failure and storage cases: the storage error
+  escaped `forecast_item`.
+
+The other 4 pass on both trees and pin behaviour that already held: the
+presentation LLM path for all three injections, and the item path's lease
+case.
+
+### Gate (fix round 8, targeted: the round-7 set)
+
+- `lint-imports --no-cache`: 27 kept, 0 broken.
+- `pytest -n auto`: **391 passed**. The files: every `tests/test_ad1_*.py`,
+  `test_adaptive_difficulty_ad1`, `test_decider_landing`,
+  `test_output_budget`, `test_tier1_decider`, `test_t6_followup_review`,
+  `test_model_call_receipt_owners`, `test_glm_ocr`,
+  `test_ux_phase1_review_fixes`, `test_architecture`.
+- `--durable-sqlite tests/test_ad1_fix_round8.py`: 10 passed.
+- References: regenerated in `51396816a`, 0 errors. Model calls: 0.
