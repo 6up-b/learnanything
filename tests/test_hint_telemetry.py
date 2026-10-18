@@ -786,7 +786,7 @@ def test_unaided_next_progress_is_settled_by_the_grade_where_it_can_be(tmp_path,
     progress = kind["unaided_next_progress"]
     assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 1, "of": 6}
     assert progress["unknown"] == {
-        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "help_count_capped": 1,
+        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "help_order_ambiguous": 0, "help_count_capped": 1,
         "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 1,
     }
     assert progress["reached"]["interval"]["method"] == "wilson"
@@ -923,7 +923,9 @@ def test_the_report_summarises_any_number_of_rows(tmp_path, n):
     _check_summary(kind["per_item"], per_item)
 
 
-def _question(paths, session_id: str, at: datetime, *, hint_equivalent: bool = True) -> None:
+def _question(
+    paths, session_id: str, at: datetime, *, hint_equivalent: bool = True, attempt_id: str | None = None
+) -> None:
     """A substantive tutor answer on the item, with no answer overlap (no
     reveal event): what the fold counts as a hint equivalent."""
 
@@ -931,7 +933,7 @@ def _question(paths, session_id: str, at: datetime, *, hint_equivalent: bool = T
         "context": "practice", "practice_item_id": ITEM, "session_id": session_id,
         "question_md": "Why are the factors orthogonal?", "answer_md": "Think about the geometry.",
         "question_type": "mechanism", "facets": [], "hint_equivalent": hint_equivalent,
-        "answer_status": "answered", "created_at": at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "answer_status": "answered", "created_at": at.strftime("%Y-%m-%dT%H:%M:%SZ"), "attempt_id": attempt_id,
     })
 
 
@@ -987,7 +989,7 @@ def test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_othe
     progress = _report(paths)["kinds"][0]["unaided_next_progress"]
     assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 2, "of": 5}
     assert progress["unknown"] == {
-        "more_help_followed": 1, "primed": 0, "help_not_ordered": 1, "help_count_capped": 1,
+        "more_help_followed": 1, "primed": 0, "help_not_ordered": 1, "help_order_ambiguous": 0, "help_count_capped": 1,
         "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 0,
     }
     # Without the vault's caps (or for an item changed since the hint) no
@@ -1091,3 +1093,98 @@ def test_seconds_into_the_attempt_is_unknown_without_the_submits_latency(tmp_pat
     assert kind["seconds_into_attempt"]["n"] == 0
     assert kind["seconds_into_attempt_unknown"] == {"no_submit_time": 1, "no_submit_latency": 1}
     assert kind["seconds_reveal_to_submit"]["n"] == 1 and kind["timing_unknown"] == 1
+
+
+# -- review round 3 (after Codex job 20261018-002703-ixJaw2) ----------------------------
+
+
+def _stamp(at: datetime) -> str:
+    return at.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _reveal_event(paths, at: datetime, *, attempt_id: str | None = None, amount: float = 1.0,
+                  source_kind: str = "answer_display", basis: str | None = "feedback_full_answer:desktop:d") -> None:
+    Repository(paths.sqlite_path).insert_reveal_event({
+        "practice_item_id": ITEM, "source_kind": source_kind, "amount": amount, "basis": basis,
+        "attempt_id": attempt_id, "created_at": _stamp(at),
+    })
+
+
+def _progress(paths) -> dict:
+    progress = _report(paths)["kinds"][0]["unaided_next_progress"]
+    return {"reached": progress["reached"]["count"], **{key: n for key, n in progress["unknown"].items() if n}}
+
+
+def test_the_attempts_own_feedback_display_in_its_second_is_not_help_before_it(tmp_path, monkeypatch):
+    """W1: the attempt's own post-attempt feedback display, stored in the same
+    second as the attempt, is attributed to it: after the submit, not help."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T08:59:40Z")
+    attempt_id = _submit(ctx, session_id, hints=1, key="k1")["attemptId"]
+    assert Repository(paths.sqlite_path).fetch_practice_attempt(attempt_id)["created_at"] == _stamp(FROZEN)
+    _reveal_event(paths, FROZEN, attempt_id=attempt_id)  # its feedback, the same second
+    now["t"] = FROZEN + timedelta(minutes=1)
+    _reveal_event(paths, now["t"], attempt_id=attempt_id)  # and a revisit later
+    assert _progress(paths) == {"reached": 1}
+
+
+def test_a_later_revisit_of_the_previous_attempts_feedback_is_not_help(tmp_path, monkeypatch):
+    """W2: a display attributed to the previous attempt A counts for B only
+    before B (attribution relaxes the lower bound, never the upper): A's
+    feedback revisited after B leaves B reached; A's feedback before B does not."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    first = _submit(ctx, session_id, hints=0, key="kA")["attemptId"]
+    now["t"] = FROZEN + timedelta(minutes=5)
+    _reveal(ctx, session_id, 0, key="kB", at=(now["t"] - timedelta(seconds=20)).isoformat())
+    _submit(ctx, session_id, hints=1, key="kB")
+    _reveal_event(paths, FROZEN + timedelta(minutes=10), attempt_id=first)  # A revisited after B
+    assert _progress(paths) == {"reached": 1}
+    _reveal_event(paths, FROZEN, attempt_id=first)  # A's feedback in A's own second, before B
+    assert _progress(paths) == {"reached": 0, "help_not_ordered": 1}
+
+
+def test_help_in_a_boundarys_second_is_order_ambiguous_never_reached(tmp_path, monkeypatch):
+    """W3: attempts and tutor events are stamped to the second. A tutor answer
+    in the previous attempt's second, with no attribution, cannot be placed
+    before or after it: unknown (help_order_ambiguous), never reached. The
+    grading fold's count (``created_at > since``) is left as it is: it does
+    not count that answer, the same boundary, pre-existing."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    first = _submit(ctx, session_id, hints=0, key="kA")["attemptId"]
+    _question(paths, session_id, FROZEN)  # the same second as A
+    now["t"] = FROZEN + timedelta(minutes=5)
+    _reveal(ctx, session_id, 0, key="kB", at=(now["t"] - timedelta(seconds=20)).isoformat())
+    second = _submit(ctx, session_id, hints=1, key="kB")["attemptId"]
+    assert Repository(paths.sqlite_path).fetch_practice_attempt(second)["hints_used"] == 1  # grading unchanged
+    assert _progress(paths) == {"reached": 0, "help_order_ambiguous": 1}
+    # Attributed to A (a feedback question on A), the same second is after A: help.
+    _question(paths, session_id, FROZEN, attempt_id=first)
+    assert _progress(paths) == {"reached": 0, "help_not_ordered": 1}
+
+
+def test_help_in_the_attempts_own_second_is_order_ambiguous(tmp_path, monkeypatch):
+    """W3, the upper boundary: an unattributed reveal or tutor answer in the
+    evaluated attempt's own second may have come before its submit or after."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    for name, record in (
+        ("reveal", lambda paths, session_id: _reveal_event(paths, FROZEN, amount=0.2, source_kind="tutor_answer",
+                                                           basis=None)),
+        ("question", lambda paths, session_id: _question(paths, session_id, FROZEN)),
+    ):
+        now["t"] = FROZEN
+        paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."], name=name)
+        ctx, session_id = _sidecar(paths.root)
+        _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T08:59:40Z")
+        _submit(ctx, session_id, hints=1, key="k1")
+        record(paths, session_id)
+        assert _progress(paths) == {"reached": 0, "help_order_ambiguous": 1}, name

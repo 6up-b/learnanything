@@ -39,14 +39,21 @@ is the next node) the grade settles one case: a fully correct submission with
 no further help after the hint reached the goal. "No further help" is
 established only from records no cap applies to: the submission's own rows
 and, for the attempt (after the item's previous attempt, up to this one),
-the tutor's questions, reveal events (except this submission's own self-grade
-disclosure) and the workbench's held hints. ``hints_used`` is the client's
+the tutor's questions, reveal events (except the attempt's own post-attempt
+displays and this submission's own self-grade disclosure) and the
+workbench's held hints. An event attributed to an attempt was written after
+that attempt existed, so attribution orders it: one attributed to the
+previous attempt is after the window opened (but still must precede this
+attempt), one attributed to this attempt came after it. Otherwise the
+whole-second times decide, and an event in the same second as a boundary
+cannot be ordered (``help_order_ambiguous``). ``hints_used`` is the client's
 count plus the tutor's, capped at the item's ``max_useful_hints``, so it can
 only confirm what those records say. Every other case is reported as unknown
 with its reason, never as a failure: more help followed (H2's next hint
 placement says whether the learner progressed first), primed (worked help or
 a disclosed answer), help the rows cannot order (``help_not_ordered``: other
 assistance recorded in the attempt, or a count above its recorded reveals),
+help that cannot be placed in or out of the attempt (``help_order_ambiguous``),
 a count that reached the item's cap (``help_count_capped``: the client's
 count may have been larger), a cap that cannot be known (``help_cap_unknown``:
 the report was given no items, or the item changed since the hint), no grade,
@@ -90,8 +97,8 @@ INTERVAL_LEVEL = 0.95
 _Z = 1.959963984540054
 #: The unknown cases of unaided next progress, in the order they are checked.
 UNAIDED_UNKNOWN_REASONS = (
-    "more_help_followed", "primed", "help_not_ordered", "help_count_capped", "help_cap_unknown", "ungraded",
-    "not_fully_correct",
+    "more_help_followed", "primed", "help_not_ordered", "help_order_ambiguous", "help_count_capped",
+    "help_cap_unknown", "ungraded", "not_fully_correct",
 )
 #: Why "seconds into the attempt" is unknown for a row.
 INTO_ATTEMPT_UNKNOWN_REASONS = ("no_submit_time", "no_submit_latency")
@@ -357,8 +364,10 @@ def build_hints_report(
             return "primed"
         recorded = sum(1 for other in by_attempt[row["resolved_attempt"]] if other["counted_by"] == "client")
         hints_used = int(attempt["hints_used"] or 0)
-        if other_help[row["resolved_attempt"]] or hints_used > recorded:
+        if other_help[row["resolved_attempt"]] == "help" or hints_used > recorded:
             return "help_not_ordered"
+        if other_help[row["resolved_attempt"]] == "ambiguous":
+            return "help_order_ambiguous"
         cap = caps.get(attempt["practice_item_id"])
         if cap is None or cap[0] != row["practice_item_hash"]:
             return "help_cap_unknown"
@@ -492,43 +501,99 @@ def build_hints_report(
     }
 
 
-def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> bool:
-    """Whether the attempt recorded assistance outside its help rows, read
-    uncapped from the records themselves: over the attempt's window (after
-    the item's previous attempt, up to this one; ``tutor_qa.
-    hint_equivalents_for_attempt``'s), a tutor question that was answered or
-    counted as a hint, a reveal event (a post-attempt display of the previous
-    attempt included; this submission's own self-grade disclosure excluded),
-    or a workbench problem on the item, open at the attempt, holding a hint
+def _second(value: Any) -> datetime | None:
+    """A stored instant at whole-second resolution: attempts and tutor events
+    are stamped to the second, so two stamps in the same second cannot be
+    ordered by time."""
+
+    parsed = _when(value) if isinstance(value, str) else None
+    return parsed.replace(microsecond=0) if parsed is not None else None
+
+
+def _window_position(
+    event: Mapping[str, Any], *, attempt_id: str, previous_id: str | None,
+    since: datetime | None, until: datetime | None,
+) -> str:
+    """Where an event falls against the attempt's window (after the item's
+    previous attempt, up to this one): ``inside``, ``outside`` or
+    ``ambiguous``. Attribution settles a side where it can: an event
+    attributed to this attempt came after it (its own post-attempt feedback,
+    round 3 W1); one attributed to the previous attempt came after that one,
+    which relaxes only the lower bound, never the upper (W2). Both hold
+    because a row can name only an attempt that already exists. Otherwise the
+    whole-second time decides, and a tie with a boundary cannot be ordered
+    (W3)."""
+
+    if event["attempt_id"] is not None and event["attempt_id"] == attempt_id:
+        return "outside"
+    at = _second(event["created_at"])
+    if at is None:
+        return "ambiguous"
+    positions = []
+    if previous_id is not None and event["attempt_id"] == previous_id:
+        positions.append("inside")
+    elif since is None or at > since:
+        positions.append("inside")
+    elif at < since:
+        return "outside"
+    else:
+        positions.append("ambiguous")
+    if until is None:
+        positions.append("ambiguous")
+    elif at < until:
+        positions.append("inside")
+    elif at > until:
+        return "outside"
+    else:
+        positions.append("ambiguous")
+    return "ambiguous" if "ambiguous" in positions else "inside"
+
+
+def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None:
+    """Assistance the attempt recorded outside its help rows, read uncapped
+    from the records themselves: ``"help"``, ``"ambiguous"`` (an event whose
+    order against the window cannot be established) or None. Over the
+    attempt's window (after the item's previous attempt, up to this one;
+    ``tutor_qa.hint_equivalents_for_attempt``'s): a tutor question that was
+    answered or counted as a hint, a reveal event (a post-attempt display of
+    the previous attempt included; the attempt's own post-attempt displays
+    and this submission's own self-grade disclosure excluded), or a workbench
+    problem on the item, open at the attempt, holding a hint
     (``reader.workbench.session_hints``: the book counted, carried hints)."""
 
-    item_id, until = attempt["practice_item_id"], attempt["created_at"]
+    item_id = attempt["practice_item_id"]
     previous = connection.execute(
         "SELECT id, created_at FROM practice_attempts WHERE practice_item_id = ? "
         "AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT 1",
-        (item_id, until, until, attempt["id"]),
+        (item_id, attempt["created_at"], attempt["created_at"], attempt["id"]),
     ).fetchone()
-    since = previous["created_at"] if previous is not None else None
-    previous_id = previous["id"] if previous is not None else None
-    if connection.execute(
-        "SELECT 1 FROM question_events WHERE practice_item_id = ? AND created_at <= ? "
-        "AND (? IS NULL OR created_at > ?) AND (hint_equivalent = 1 OR answer_status = 'answered') LIMIT 1",
-        (item_id, until, since, since),
-    ).fetchone() is not None:
-        return True
+    window = {
+        "attempt_id": attempt["id"],
+        "previous_id": previous["id"] if previous is not None else None,
+        "since": _second(previous["created_at"]) if previous is not None else None,
+        "until": _second(attempt["created_at"]),
+    }
+    positions: set[str] = set()
+    for question in connection.execute(
+        "SELECT attempt_id, created_at FROM question_events WHERE practice_item_id = ? "
+        "AND (hint_equivalent = 1 OR answer_status = 'answered')",
+        (item_id,),
+    ).fetchall():
+        positions.add(_window_position(question, **window))
     for reveal in connection.execute(
-        "SELECT source_kind, basis FROM reveal_events WHERE practice_item_id = ? AND amount > 0 "
-        "AND ((created_at <= ? AND (? IS NULL OR created_at > ?)) OR (? IS NOT NULL AND attempt_id = ?))",
-        (item_id, until, since, since, previous_id, previous_id),
+        "SELECT source_kind, basis, attempt_id, created_at FROM reveal_events WHERE practice_item_id = ? AND amount > 0",
+        (item_id,),
     ).fetchall():
         if not _own_disclosure(reveal, attempt["submission_id"]):
-            return True
-    return connection.execute(
+            positions.add(_window_position(reveal, **window))
+    if "inside" in positions or connection.execute(
         "SELECT 1 FROM workbench_sessions WHERE practice_item_id = ? AND created_at <= ? "
         "AND (closed_at IS NULL OR closed_at >= ?) "
         "AND (source_shown_at IS NOT NULL OR carried_hints > 0 OR (origin = 'reader' AND source_visible = 1)) LIMIT 1",
-        (item_id, until, until),
-    ).fetchone() is not None
+        (item_id, attempt["created_at"], attempt["created_at"]),
+    ).fetchone() is not None:
+        return "help"
+    return "ambiguous" if "ambiguous" in positions else None
 
 
 __all__ = [
