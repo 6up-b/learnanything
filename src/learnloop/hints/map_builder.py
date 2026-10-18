@@ -578,31 +578,36 @@ def _require_live(repository: Repository, claim: _Claim) -> None:
 @contextmanager
 def _fenced_txn(repository: Repository, claim: _Claim | None, *, fence: "BuildFence | None" = None,
                 lease: bool = True) -> Iterator[sqlite3.Connection]:
-    """One fenced write transaction (fix round 3, R3). BEGIN IMMEDIATE is
-    acquired first; only then is the registry gate taken and the generation
-    token and the lease (owner, epoch, expiry) re-checked, and the gate is
-    held until the commit. A writer still waiting for the database lock
-    holds nothing a vault switch waits on; once it gets the lock it sees the
-    switch and rolls back (``_LeaseLost``), however long busy_timeout made
-    it wait. ``lease=False``: the generation only (taking a new claim)."""
+    """One fenced write transaction (fix rounds 3 and 4). BEGIN IMMEDIATE is
+    acquired first. Inside it the lease (owner, epoch, expiry) is re-checked,
+    then the registry's small generation lock is taken just long enough to
+    check the generation and register this writer as committing; the commit
+    follows outside that lock, and the writer deregisters after it.
+
+    The linearisation point is the registration: a writer that registered
+    before a close's generation bump is a pre-close write to its own vault
+    (it may finish committing after close returns); a writer that checks
+    after the bump rolls back (``_LeaseLost``), however long busy_timeout
+    kept it waiting. Nothing here ever makes close wait past its bound
+    (U2). ``lease=False``: the generation only (taking a new claim, renewing)."""
 
     fence = fence if fence is not None else (claim.fence if claim is not None else None)
-    gate = fence.gate() if fence is not None else None
-    held = False
+    registered = False
     try:
         with repository.atomic():
             connection = repository.connection()
-            if gate is not None:
-                gate.acquire()
-                held = True
-            if fence is not None and not fence.live():
-                raise _LeaseLost("the build's vault was closed before this write committed")
+            # The lease cannot change under this write lock (BEGIN IMMEDIATE),
+            # so checking it before the generation is the same linearisation.
             if claim is not None and lease and not _holds(connection, claim):
                 raise _LeaseLost("the build's lease was lost before this write committed")
+            if fence is not None:
+                if not fence.enter_commit():
+                    raise _LeaseLost("the build's vault was closed before this write committed")
+                registered = True
             yield connection
     finally:
-        if held:
-            gate.release()
+        if registered:
+            fence.leave_commit()
 
 
 class _FencedRepository:
@@ -701,10 +706,10 @@ def _claim(repository: Repository, item_id: str, until: float | None,
 
 def _release(repository: Repository, claim: _Claim) -> None:
     try:
-        # A lost lease is not ours to release, and a closed vault's claim lapses.
-        with _fenced_txn(repository, claim, lease=False) as connection:
-            if claim.lost.is_set():
-                return
+        # Lease-checked like every late write (fix round 4, U3): a lost or
+        # expired lease is never mutated to released, and a closed vault's
+        # claim lapses on its own.
+        with _fenced_txn(repository, claim) as connection:
             release_claim(connection, claim_key=claim.key, owner=claim.owner, epoch=claim.epoch, now=_lease_now())
     except _LeaseLost:
         return
@@ -965,8 +970,14 @@ class BuildFence:
     def live(self) -> bool:
         return self._registry._live(self.generation)
 
-    def gate(self) -> Any:
-        return self._registry._gate
+    def enter_commit(self) -> bool:
+        """Under the registry's generation lock: still this generation? Then
+        count this writer as committing (fix round 4, U2)."""
+
+        return self._registry._enter_commit(self.generation)
+
+    def leave_commit(self) -> None:
+        self._registry._leave_commit()
 
 
 class BackgroundBuilds:
@@ -975,16 +986,22 @@ class BackgroundBuilds:
     token. :meth:`bind` keys it to a vault (a different vault closes the
     previous one first); :meth:`close` stops admitting builds, cancels the
     running ones and joins them for at most ``drain_seconds``. A cancelled
-    build's late writes are fenced by its generation (and its lease), and the
-    registry's gate makes a switch wait for a write already under way, so
-    nothing a build of vault A writes lands after the switch. An unbound
+    build's late writes are fenced by its generation (and its lease): a write
+    that registered as committing before the switch's generation bump is a
+    pre-close write to its own vault, and no write that checks after the bump
+    lands. Close waits for registered commits only until its deadline (U2).
+    An unbound
     registry (the module default: tests and callers without a sidecar)
     admits builds of any vault."""
 
     def __init__(self, *, drain_seconds: float = DRAIN_SECONDS) -> None:
         self.drain_seconds = drain_seconds
         self._lock = threading.Lock()
-        self._gate = threading.RLock()
+        #: The small lock the generation lives under (fix round 4, U2):
+        #: held only to check or bump it, never across a commit.
+        self._generation_lock = threading.Lock()
+        self._commits_done = threading.Condition(self._generation_lock)
+        self._committing = 0
         self._path: str | None = None
         self._generation = "gen_" + new_ulid()
         self._open = True
@@ -997,6 +1014,24 @@ class BackgroundBuilds:
     def _live(self, generation: str) -> bool:
         return self._open and generation == self._generation
 
+    def _enter_commit(self, generation: str) -> bool:
+        with self._generation_lock:
+            if not (self._open and generation == self._generation):
+                return False
+            self._committing += 1
+            return True
+
+    def _leave_commit(self) -> None:
+        with self._generation_lock:
+            self._committing -= 1
+            if self._committing <= 0:
+                self._commits_done.notify_all()
+
+    @property
+    def committing(self) -> int:
+        with self._generation_lock:
+            return self._committing
+
     def bind(self, sqlite_path: Any) -> None:
         """Key the registry to the loaded vault; a different vault (or a closed
         registry) closes the previous generation (draining it only if no
@@ -1007,7 +1042,7 @@ class BackgroundBuilds:
             if self._open and self._path == key:
                 return
         self.close()
-        with self._lock:
+        with self._lock, self._generation_lock:
             self._path, self._generation, self._open = key, "gen_" + new_ulid(), True
 
     def admit(self, sqlite_path: Any) -> BuildFence | None:
@@ -1059,18 +1094,24 @@ class BackgroundBuilds:
             with self._lock:
                 self._threads[:] = [thread for thread in self._threads if thread.is_alive()]
                 return not self._threads
-        # The generation changes under the gate: a fenced write that holds the
-        # database lock commits first, every later one sees the new generation.
-        # The gate is only ever held after BEGIN IMMEDIATE was acquired, so the
-        # wait is bounded by that one commit.
-        with self._gate:
+        # The bump is the linearisation point (fix round 4, U2): no writer can
+        # pass its check after it. Writers registered before it may still be
+        # committing (a reader can hold a rollback-journal commit for up to
+        # busy_timeout): they are waited for only until the deadline, never past it.
+        with self._generation_lock:
             self._generation = "gen_" + new_ulid()
+            drained = self._commits_done.wait_for(lambda: self._committing <= 0,
+                                                  timeout=max(0.0, end - time.monotonic()))
+            pending = self._committing
+        if not drained:
+            LOG.warning("approach map builds: %d pre-close commit(s) still finishing after the %.2fs close "
+                        "bound; they write only to their own vault", pending, bound)
         for thread in threads:
             if thread is not threading.current_thread():
                 thread.join(max(0.0, end - time.monotonic()))
         with self._lock:
             self._threads[:] = [thread for thread in self._threads if thread.is_alive()]
-            return not self._threads
+            return drained and not self._threads
 
     @property
     def running(self) -> int:

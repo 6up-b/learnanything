@@ -1512,8 +1512,9 @@ def test_r1_a_quantity_carries_its_unit_in_its_own_field():
     assert with_unit.valid and with_unit.verified_goal
     declared = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m", unit="m"), "4")
     assert declared.valid and declared.verified_goal
+    # A unit written into the conclusion is read by the same quantity helper (fix round 4, U1).
     attached = _plain(_goal_map("4", goal_state="Distance = 4 m", conclusion="4 m"), "4")
-    assert attached.valid and not attached.verified_goal and attached.goal_basis == "conclusion_unparsed"
+    assert attached.valid and attached.verified_goal
 
 
 def test_r1_an_unparsed_conclusion_or_no_key_is_stored_unverified(paths, tmp_path):
@@ -1728,3 +1729,141 @@ def test_r4_a_dropped_receipt_logs_its_call_id(paths, caplog):
         fenced.record_model_event("finish", {"id": "call_r4_identity", "status": "completed", "input_tokens": 3},
                                   owner_kind=MB.OWNER_KIND, owner_id=ITEM)
     assert "call_r4_identity" in caplog.text
+
+
+# -- Fix round 4 (after Codex job 20261018-035041-4Y7U0m) -----------------------------------
+
+
+@pytest.mark.parametrize(("expected", "conclusion", "unit", "verdict", "basis"), [
+    ("4 m", "4", "m", "verified", "exact_key"),            # Codex: was goal_mismatch (4m != 4)
+    ("4 m", "4 m", "", "verified", "exact_key"),
+    ("$4\\,\\text{m}$", "4", "m", "verified", "exact_key"),
+    ("4 m^2", "4", "m^2", "verified", "exact_key"),
+    ("4 m", "5", "m", "mismatch", "conclusion"),           # equal units: the numbers decide
+    ("4 m", "4", "", "verified", "exact_key"),             # one side only, unambiguous reference
+    ("4", "4", "m", "verified", "exact_key"),
+    ("4 m", "4", "cm", "unverified", "unit_differs"),      # units differ: never a mismatch
+    ("4 m", "5", "cm", "unverified", "unit_differs"),
+    ("4m", "4", "m", "unverified", "unit_ambiguous"),      # ambiguous reference, unit on one side
+    ("4m", "4m", "", "verified", "exact_key"),
+    ("4", "4m", "", "unverified", "unit_ambiguous"),
+])
+def test_u1_a_reference_with_a_unit_is_read_by_the_same_quantity_helper(expected, conclusion, unit, verdict,
+                                                                        basis):
+    result = _plain(_goal_map(expected, goal_state="The distance is found", conclusion=conclusion, unit=unit),
+                    expected)
+    status = "mismatch" if "goal_mismatch" in result.reasons else ("verified" if result.verified_goal
+                                                                     else "unverified")
+    assert (status, result.goal_basis if status != "mismatch" else "conclusion") == (verdict, basis), result.details
+    assert status == "mismatch" or result.valid
+
+
+def test_u1_a_structured_value_with_its_unit_marks_its_node():
+    marked = _plain(_goal_map("4 m", goal_state="The distance is found", conclusion="4", unit="m",
+                              step_state="the distance", value="4", value_unit="m"), "4 m")
+    assert marked.valid and "count" in marked.leak_marked_by_code
+    other_unit = _plain(_goal_map("4 m", goal_state="The distance is found", conclusion="4", unit="m",
+                                  step_state="the distance", value="4", value_unit="cm"), "4 m")
+    assert other_unit.valid and "count" not in other_unit.leak_marked_by_code
+
+
+def test_u2_close_never_waits_past_its_bound_on_a_commit_held_by_a_reader(paths):
+    """Codex item 2: in rollback-journal mode a reader holds a writer's commit
+    for up to busy_timeout. close(0.02) returns within its bound; the commit
+    that registered before the bump is a pre-close write to its own vault;
+    a writer that checks after the bump never commits."""
+
+    registry = MB.BackgroundBuilds(drain_seconds=0.02)
+    registry.bind(paths.sqlite_path)
+    claim = _fenced_claim(paths, registry)
+    repository = _repo(paths)
+    context, _seeds = _context(paths)
+    validation = validate_map(ApproachMapV1.model_validate(good_map()), context)
+
+    def judge(right_id: str):
+        return MB._ledger(repository, item_id=ITEM, right_kind="approach_map_revision", right_id=right_id,
+                          prompt=right_id, verdict="valid", validation=validation, round_=1, trigger="serve",
+                          clock=None, claim=claim)
+
+    with closing(sqlite3.connect(paths.sqlite_path)) as probe:
+        rollback_journal = probe.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal"
+    reader = sqlite3.connect(paths.sqlite_path, timeout=30, isolation_level=None)
+    reader.execute("BEGIN")
+    reader.execute("SELECT COUNT(*) FROM judgment_ledger").fetchone()  # a shared lock held across the commit
+    results: dict = {}
+
+    def run(name: str) -> None:
+        try:
+            results[name] = judge(name)
+        except Exception as exc:  # noqa: BLE001
+            results[name] = exc
+
+    first = threading.Thread(target=run, args=("before_close",))
+    first.start()
+    deadline = time.monotonic() + 10
+    if not hasattr(registry, "committing"):  # (before fix round 4: no counter; give the writer time)
+        time.sleep(0.5)
+    while hasattr(registry, "committing") and not (
+            (rollback_journal and registry.committing == 1) or "before_close" in results):
+        assert time.monotonic() < deadline, "the first writer never reached its commit"
+        time.sleep(0.01)
+    closed: list = []
+    closer = threading.Thread(target=lambda: closed.append((registry.close(0.02), time.monotonic())))
+    started = time.monotonic()
+    closer.start()
+    closer.join(1.0)
+    finished = not closer.is_alive()
+    second = threading.Thread(target=run, args=("after_close",))
+    second.start()
+    time.sleep(0.1)
+    reader.rollback()
+    reader.close()
+    first.join(30)
+    second.join(30)
+    closer.join(30)
+    assert finished, "close waited past its bound on a commit held by a reader"
+    ok, ended = closed[0]
+    assert ended - started < 0.5
+    if rollback_journal:
+        assert ok is False  # it timed out on the pre-close commit and said so
+    assert results["before_close"] is None  # linearised before close: it lands in its own vault
+    assert isinstance(results["after_close"], MB._LeaseLost)
+    assert [row["right_id"] for row in ledger(paths.sqlite_path)] == ["before_close"]
+
+
+def test_u3_an_expired_lease_is_never_released(paths):
+    repository = _repo(paths)
+    claim = MB._try_claim(repository, ITEM)
+    assert claim is not None and not claim.lost.is_set()
+    _expire_lease(paths.sqlite_path, claim.key)
+    before = _claim_row(paths.sqlite_path, claim.key)
+    MB._release(repository, claim)
+    after = _claim_row(paths.sqlite_path, claim.key)
+    assert after == before and after["state"] == "leased"
+    # A live lease is still released.
+    fresh = MB._try_claim(repository, ITEM)
+    MB._release(repository, fresh)
+    assert _claim_row(paths.sqlite_path, fresh.key)["state"] == "released"
+
+
+@pytest.mark.parametrize("expected", ["3", "4"])
+def test_u4_a_spaced_fraction_is_one_token(expected):
+    for public_text in (PLAIN_PROMPT, "The ratio 3 / 4 is given."):
+        result = _plain(_count_map(step_state="two pairs", step_label="Use the ratio 3 / 4",
+                                   **_neutral_goal(expected)), expected, public_text=public_text)
+        assert result.valid and "label_leak" not in result.reasons, (expected, public_text, result.details)
+    for state in ("the ratio 3 / 4", "the ratio 3 /4", "a share of ( 3 ) / ( 4 )"):
+        marked = _plain(_count_map(step_state=state, step_label="Count the socks", **_neutral_goal(expected)),
+                        expected)
+        assert "count" not in marked.leak_marked_by_code, (expected, state)
+
+
+def test_u4_a_spaced_sign_stays_attached():
+    for text in ("- 4", "−  4", "a balance of - 4", "x / 4", "4 / x"):
+        assert not M.states_answer(text, "4"), text
+        assert not M._states_short_key(text, "4"), text
+    for text in ("- 4", "−  4", "a balance of - 4"):
+        assert M.states_answer(text, "-4"), text
+    for text in ("4", "+4", "Step 4", "$4$", "There are 4 socks."):
+        assert M.states_answer(text, "4"), text
+    assert M.number_tokens("Use the ratio 3 / 4 and - 2") == ["3/4", "-2"]
