@@ -148,3 +148,173 @@ no sidecar smoke run was made).
   `submissionId`, tests, the stage record and spec §15).
 - `0e6c57264` the references regenerated on `50aa2ec9a`.
 - this record.
+
+## Fix round 2 (orchestrator, after Codex job 20261018-000003-fesMOi)
+
+The orchestrator's Codex verify (job `20261018-000003-fesMOi`, on
+`b4d87cbed`) found that F1, F3 and F4 hold and reopened the stage on three
+Medium problems, V1-V3. All three are fixed in `04d06282f`; references are
+regenerated in `a107e9a13`. Migration 210 has not landed, so it was edited
+in place.
+
+**Fail first.** The round's tests were copied into a detached worktree at
+`b4d87cbed` (removed after) and run against its code. **11 failed**: V1 x4
+(`OverflowError: int too large to convert to float` at n = 1030 and 20000,
+in `_percentiles` and in a full report); V2 x5 (`reached` counted where it
+should not be: 2 vs 1, 4 vs 2, and 1 vs 0 in the capped-tutor, at-cap and
+workbench cases); V3 x2 (`(1, 110.0) == (1, 50.0)`, and an into-attempt time
+taken from the attempt's latency where the submission sent none). On the old
+code the small-n cases (n = 1, 2, 5) and the missing-`submissionId` pin
+already passed. That is expected: the first must match, and the second pins
+behaviour that already held.
+
+| ID | Severity | Title | Verdict | Commit | Tests |
+|---|---|---|---|---|---|
+| V1 | Medium | Order-statistic interval overflows from n = 1030 | fixed | `04d06282f` | `tests/test_hint_telemetry.py::test_order_statistic_intervals_hold_at_any_sample_size[1,2,5,1030,20000]`, `::test_the_report_summarises_any_number_of_rows[1,2,5,1030,20000]`, `::test_the_stable_terms_reproduce_every_exact_interval_below_the_overflow` |
+| V2 | Medium | "Reached" despite help hidden by the hint cap | fixed | `04d06282f` | `::test_capped_tutor_help_never_reads_as_unaided_progress` (Codex's case), `::test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_other_help`, `::test_a_count_at_the_cap_with_nothing_else_recorded_is_still_unknown`, `::test_a_workbench_problem_holding_a_hint_is_other_help`; `::test_unaided_next_progress_is_settled_by_the_grade_where_it_can_be` and `::test_an_ungraded_hinted_attempt_and_no_later_attempt` updated (their items now have two hints, and the report gets the caps) |
+| V3 | Medium | Time into the attempt mixes a retry's latency with the first submit's time | fixed | `04d06282f` | `::test_seconds_into_the_attempt_after_a_grading_fallback_is_the_first_submits` (the exact scenario), `::test_seconds_into_the_attempt_is_unknown_without_the_submits_latency`; `tests/test_help_assists_schema.py` (column set, CHECK, trigger, store stamp/attach) |
+
+### What changed
+
+- **V1.** `learnloop/hints/report.py` gains `_binomial_pmf`. It computes each
+  term as `exp(lgamma(n+1) - (lgamma(i+1) + lgamma(n-i+1)) + (i log q + (n-i)
+  log(1-q)))`. The two log-factorials are added before they are subtracted,
+  and the two powers are added to each other first. So at q = 0.5, P(i) and
+  P(n-i) are the same float, and the interval's tie-break (`above >= below`)
+  behaves exactly as it did with exact coefficients. The test compares the
+  result, dict for dict, with the `b4d87cbed` computation (copied into the
+  test as the reference) for n = 1, 2, 5 and for every 7th n below 1030, at
+  both quantiles. A scratch run checked every n from 0 to 1029: 0
+  mismatches. At n = 1030 and 20000 the interval brackets the estimate with
+  coverage in [0.95, 0.96) and a width within the binomial's spread. n =
+  20000 takes about 10 ms.
+- **V2.** `unaided` returns `reached` only when completeness is established
+  from records no cap applies to. `_other_assistance(connection, attempt)`
+  reads three things over the attempt's window. The window runs from the
+  item's previous attempt to this one, the same window as
+  `tutor_qa.hint_equivalents_for_attempt`. The three reads:
+  - a `question_events` row on the item that was answered or counted as a
+    hint;
+  - a `reveal_events` row with `amount > 0`, including a post-attempt display
+    linked to the previous attempt, and excluding only this submission's own
+    plain self-grade disclosure, matched by the disclosure identity's
+    submission key (a trace changed after it already makes the attempt
+    primed);
+  - a `workbench_sessions` problem on the item that was open at the attempt
+    and holding the book or carried hints (`reader.workbench.session_hints`'
+    terms).
+
+  Any of these gives `help_not_ordered`. Then the cap: `build_hints_report`
+  takes `item_caps` (new `item_caps(practice_items)`: each item's
+  `practice_item_hash` and `max_useful_hints`), and the CLI passes the
+  vault's. A count at or above a cap greater than 0 gives
+  `help_count_capped`, because the client's count may have been larger. A cap
+  that cannot be known gives `help_cap_unknown`: either no caps were given, or
+  the item's hash differs from the row's `practice_item_hash`, so the item
+  changed since the hint. `UNAIDED_UNKNOWN_REASONS` is now `more_help_followed,
+  primed, help_not_ordered, help_count_capped, help_cap_unknown, ungraded,
+  not_fully_correct`. `learnloop.attempts` is closed to `learnloop.hints`
+  (G-H13), so the disclosure basis prefix (`self_grade_disclosure:`) is named
+  in the report with its source cited. The grading count is unchanged, as is
+  everything submit stores in the attempt: Codex's test asserts
+  `hints_used == 1` (1 + 1 capped at 1) and correctness 1.0.
+- **V3.** `help_assists.submit_latency_seconds REAL` (nullable). It has a
+  CHECK of `>= 0` and is allowed only when `submitted_at` is set. The
+  identity trigger refuses any change to it once `submitted_at` is set, so it
+  is written in the same update as the submit time or never.
+  `store.stamp_submitted` writes both together, first stamp kept.
+  `store.attach_submission` fills the latency only where it also fills the
+  submit time; a recovery attach knows no submit time and writes neither. A
+  negative client latency is not believed (NULL), so the stamp still keeps
+  the time. `telemetry.stamp_submission` / `attach_reveals_to_attempt` and
+  the sidecar's `_stamp_hint_submission` / `_attach_hint_reveals` pass the
+  request's `latency_seconds` (submit, "I don't know", the empty stuck
+  answer). The report times "seconds into the attempt" as
+  `submit_latency_seconds - (submitted_at - shown_at)` and never from
+  `practice_attempts.latency_seconds`. Each kind gains
+  `seconds_into_attempt_unknown: {no_submit_time, no_submit_latency}`.
+  `timing_unknown` (reveal to submit) is unchanged. In the exact scenario
+  (open 09:00:00, reveal 09:00:50, first submit 09:01:00 with latency 60,
+  fallback, retry 09:02:00 with latency 120), the report gives 10 s reveal to
+  submit and 50 s into the attempt. The attempt keeps `latency_seconds = 120`
+  and the row keeps `09:01:00.000Z` and 60.
+- **Older clients without `submissionId`.** Pinned by
+  `test_an_older_client_without_a_submission_key_is_refused_and_nothing_else_changes`:
+  a `practice.record_hint_reveal` call with no `submissionId` is refused
+  (validation error), writes no row, and the following submit records the
+  client's count unchanged (`hinted_attempt`, `hints_used = 1`). The reveal
+  itself is client-side and fire-and-forget. The vitest
+  `PracticeScreen.hintTelemetry.test.tsx` "ignores a failed call, a no-op
+  answer and a sidecar without the RPC" and "never reports a telemetry
+  failure to the learner" pin that a rejected call changes nothing on
+  screen. This is acceptable, as the orchestrator ruled.
+
+### Head fixture and references
+
+- `fixtures/migration_head_210/state.sqlite` was rebuilt again the same way:
+  the base's `migration_head_209` (git `610e61dc0`) copied with the backup
+  API, only the edited 210 applied under `upgrade_allowance(UPGRADE_TEST_HELPER)`,
+  `wal_checkpoint(TRUNCATE)` -> `(0, 0, 0)`, `journal_mode=DELETE` (header
+  bytes 18-19 = 1/1), `integrity_check` ok, `foreign_key_check` empty, then
+  copied into place with the backup API, with no companion files. The
+  README says so.
+- `db_generate_reference.py` was rerun on `04d06282f`. It changed commit
+  labels, `help_assists`' new column and DDL, and the report as a direct SQL
+  reader of `workbench_sessions` (and of `question_events` and
+  `reveal_events`). `db_validate_reference.py` reports **0 errors**, and
+  `validate_vault.py` passed (1124 notes).
+- The stage record's §1.1 (61 columns, the three submission columns) and
+  §1.6 (timing and unaided progress) were updated, along with the G-H17 row
+  and spec §15's H0 note.
+
+### Gate (targeted, owner rule; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run pytest -n auto` over the same 72 files as the first fix round.
+  A `git grep` of `tests/` for `submit_attempt`, `submit_dont_know`,
+  `recover_practice_submission`, `handlers.practice`, `migration_head_210`,
+  `help_assists`, `hints.report`, `stamp_submission` and
+  `attach_reveals` found no test file outside them. Result: **1597 passed**
+  (290.6 s; 1579 before plus this round's 18 new tests). After the final
+  line wrapping, `tests/test_hint_telemetry.py` and
+  `tests/test_help_assists_schema.py` were rerun: **63 passed**.
+- Durability: `uv run pytest -m durability tests/test_help_assists_schema.py
+  tests/test_library_asks_migration.py tests/test_learner_text_source_widening.py
+  tests/test_migrations.py tests/test_tracked_fixture_databases.py
+  tests/test_daily_plan_replay.py` gave **5 passed** (62 deselected), and
+  `uv run pytest -n auto --durable-sqlite tests/test_help_assists_schema.py
+  tests/test_hint_telemetry.py` gave **63 passed**.
+- `uv run lint-imports --no-cache`: **25 kept, 0 broken**.
+- Frontend and `cargo check`: not run, because nothing under `apps/` changed.
+- Snapshots: the CLI help, serializer and RPC pins are unchanged (no option,
+  help text or RPC changed), and their tests are in the targeted run.
+
+**Model calls made in this round: 0** (fakes and self-grade only).
+
+### Open questions (defaults taken)
+
+1. **Items whose cap equals their hint count.** On such an item
+   (`max_useful_hints == len(hints)`, as in the tests' basic vault), an
+   attempt that reveals every authored hint is never `reached`: it is
+   `help_count_capped`, as the ruling says. *Default: the ruling.* A
+   successor could treat recorded distinct authored indexes == cap ==
+   `len(hints)` as complete once the client's count is known to hold only
+   authored reveals.
+2. **Which tutor questions count.** Any tutor question on the item in the
+   window that was answered (or counted as a hint) is other help, not only
+   the `hint_equivalent` ones. The window is not limited to the session.
+   *Default: the conservative one.*
+3. **Workbench held hints are judged after the fact.** They count from the
+   problem being open at the attempt's `created_at` and holding the book or
+   carried hints (the submit itself reads `held_hints` live). *Default:
+   conservative overlap.*
+4. **The report always needs the vault's caps.** `build_hints_report`
+   without `item_caps` reports every case as `help_cap_unknown`. Only the
+   CLI calls it, and it always passes them.
+
+### Commits
+
+- `04d06282f`: the fixes (migration 210 and the rebuilt head fixture, the
+  store, `learnloop.hints.telemetry` and `.report`, the CLI, the sidecar,
+  tests, the stage record and spec §15).
+- `a107e9a13`: the references regenerated on `04d06282f`.
+- this record.
