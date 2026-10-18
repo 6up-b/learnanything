@@ -494,3 +494,61 @@ This closes round 3's open question, which is removed above.
     `test_hint_evidence` and `test_hint_telemetry`: **136 passed**.
 - References: **0 errors** (head 211).
 - Model calls: **0**. No migration and no `apps/` change.
+
+## Fix round 4 (after Codex job 20261018-080807-oQb9Gj)
+
+The verify read `b9b2d740c`. It confirmed:
+
+- W1 and 3b, over 5,040 event orders;
+- the fold window;
+- hint-free byte-identity, replay and upgrades;
+- W2, W4 and W5.
+
+It found one Medium, fixed in `62897a63d`, with the references regenerated in
+`bb3dd248c`.
+
+**The finding.** An empty output `route_id` got past the from-givens route
+constraint. A walkthrough taken on unplaceable work, with empty `route_id`
+and `target_node_id`, passed both `AT_GIVENS` and the strict recheck.
+
+**The fix.** `contracts.check_output` changes when there is a map and the
+target requires the reference route (`book_way`, from the givens, the
+`AT_GIVENS` recheck):
+
+- The output must name the reference route. `output.route_id` must equal
+  the map's reference route id. An empty, missing or other route fails
+  `rule4_not_reference_route`. The check no longer depends on `route_id`
+  being non-empty.
+- The output must name a `target_node_id` on that route, for every kind,
+  worked kinds included. Otherwise it fails
+  `rule4_target_not_on_reference_route`.
+- A walkthrough's target is the goal. Otherwise it fails
+  `walkthrough_target_not_the_goal`.
+- Without a map, nothing changes.
+
+**Tests.** In `tests/test_hint_h2a_review_round4.py`. All 3 fail on
+`git archive b9b2d740c` and pass on the fix:
+
+- `test_r4_an_answer_at_the_givens_with_no_route_fails_the_strict_recheck`
+  covers `AT_GIVENS`. The strict recheck and the from-givens re-ask both
+  fail `rule4_not_reference_route`, and the third answer serves on `r_ref`
+  aimed at `goal`.
+- `test_r4_a_from_givens_re_ask_needs_the_route_and_a_target_on_it` covers
+  `FROM_GIVENS`. The re-ask that names the route but no target fails
+  `rule4_target_not_on_reference_route`.
+- `test_r4_the_reference_route_rule_for_every_kind_and_no_map_unchanged`
+  checks the rule directly: empty and `new_route` outputs fail, a
+  walkthrough aimed at a non-goal node fails, the named route and goal
+  pass, and without a map the rule does not apply.
+
+### Gate (fix round 4)
+
+- `uv run lint-imports --no-cache`: **26 kept, 0 broken**.
+- `uv run pytest -n 8` on 49 files (round 3's 48 plus the round-4 file):
+  **1283 passed**.
+- Durability:
+  - `-m durability` on the touched files: **2 passed**;
+  - `--durable-sqlite` (WAL) on the round-4, round-3, round-2 and review
+    files, `test_hint_evidence` and `test_hint_telemetry`: **139 passed**.
+- References: **0 errors** (head 211).
+- Model calls: **0**. No migration and no `apps/` change.
