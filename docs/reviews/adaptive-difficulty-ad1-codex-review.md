@@ -471,3 +471,186 @@ None failed on an import.
   `feature_audit.py`) were regenerated in `75b172c66`.
 - `git diff --check`: clean.
 - Model calls: 0.
+
+## Fix round 4 (orchestrator)
+
+The orchestrator's whole-stage Codex verify (codex-job
+`20261018-170901-bDctp7`) confirmed four things:
+
+- migration 213 keeps all 534 rows across 335 tables, and the FK check is
+  clean;
+- the head fixture;
+- the request-gate nesting and its thread isolation;
+- nothing changed in serving, scheduling, evidence or replay.
+
+It also accepted round 3's record check as the conservative reading of A8,
+and it reopened five items. The orchestrator's binding rulings are applied
+below. Each item has a test that failed on `de34b5d01`:
+
+- backend: `git archive de34b5d01` into `fixtures-local/tmp/before-de34`,
+  with `-o pythonpath=<tmp>/src`;
+- frontend: the new tests run against `de34b5d01`'s `apps/learnloop-tauri`,
+  extracted to the scratchpad.
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| V1 | High | Protection uses stale vault content | fixed | `d03b6bba0` | `test_a_same_vault_reload_adding_an_exam_scope_refuses_the_next_request_and_the_record`, `test_another_vault_or_none_loaded_refuses` |
+| V2 | Medium | Bulk preparation bypasses the workload bound | fixed | `d03b6bba0` | `test_an_import_of_1000_revisions_prepares_at_most_20_per_run`, `test_two_watcher_batches_share_one_worker` |
+| V3 | Medium | Model checkpoints bypass the lifecycle fence | fixed | `d03b6bba0` | `test_an_answer_after_a_vault_switch_writes_no_checkpoint_and_settles_its_spend` |
+| V4 | Medium | A restored draft can mislabel its second hint as its first | fixed | `d03b6bba0` | vitest: `a restored draft with an earlier hint and no marker records no marker at a later hint`; `useFirstHintProgress.test.tsx` |
+| V5 | Medium | Tutor receipts lose the required answer-mode subkind | fixed | `d03b6bba0` | `test_a_reader_tutor_exchange_is_recorded_under_its_answer_mode`; `test_reading_opportunities_frozen_and_ordered_by_source_time` corrected |
+
+**V1.** `SendGuard` now takes `live_vault`, a provider of the vault that is
+loaded at the time of the check.
+
+- The sidecar passes `SidecarContext.loaded_vault` from the reload, the
+  watcher and the plan-read hooks. It reaches every job through
+  `schedule_*`, `prepare_items`, `audit_revision`, `forecast_item` and
+  `forecast_presentation`.
+- Every check builds the held-out predicate from that vault: each attempt,
+  each physical request and each record. A same-vault reload's source-set
+  or exam-scope edit is therefore seen by jobs that are already running.
+- If the provider returns another vault (a different root), none, or an
+  error, the request is refused as `protected`. A vault switch is also
+  stopped by the job's fence.
+- The forecast inputs stay frozen; only protection is re-resolved.
+- A caller with no provider keeps its own vault as the current one. The CLI
+  backfill is such a caller: it never reloads.
+
+The test covers the real path through the sidecar:
+
+- `ctx.load`, then an edited item;
+- `ctx.reload`, which starts the preparation;
+- while the audit's Decider request runs, the owner adds an exam scope to
+  the vault's source-sets file and `ctx.reload` runs again;
+- the test's held-out predicate depends only on the source sets of the vault
+  object it is handed, as the real one does.
+
+Result: the audit records nothing, and the `llm_v1:item` request is never
+sent. On `de34b5d01` the request was sent with the held-out stem.
+`test_another_vault_or_none_loaded_refuses` fails there only because
+`live_vault` did not exist yet (`TypeError`).
+
+**V2.** Preparation now has one deduplicated queue per vault, keyed by its
+database, with one worker at a time.
+
+- Each queued entry is the revision as it was found, so F12's A1/A2 still
+  both get prepared.
+- A run takes at most `PREPARE_LIMIT` (20) revisions. A caller's `limit`
+  can only lower that, and reload no longer passes `limit=len(ids)`.
+- The rest wait for a later run. The next reload starts one, even with
+  nothing new, and so does a plan read. A run never chains into the next one.
+- Watcher batches feed the same queue. While the worker runs, a second batch
+  is only queued.
+- Revisions the run never reached, because its vault was switched or closed,
+  go back to the front of the queue.
+- No config key was added.
+
+The tests replace the audit and the forecast with recorders:
+
+- 1,000 imported revisions give runs of exactly 20: 20, 40, 60 after three
+  triggers, each revision once, in arrival order. On `de34b5d01` one run
+  prepared all 1,000.
+- Two watcher batches give one worker (at most one at a time), and the
+  second batch runs at the next trigger. On `de34b5d01` a second thread was
+  started.
+
+**V3.** `FencedRepository.save_model_checkpoint` and
+`discard_model_checkpoint` now write in `_fenced_txn`, as the approach-map
+repository does. A checkpoint that is fenced out is dropped (logged), and
+the job's next write reports `stale`. The finish receipt of a request
+already sent, and the spend settlement on the base repository, stay
+deliberately unfenced.
+
+The test sends a metered `llm_v1:item` request, and the vault's registry is
+closed mid-request:
+
+- no `model_work_checkpoints` row is written, and the outcome is `stale`;
+- the root model-call receipt is `completed`;
+- the `source_service_spend` reservation is `settled`.
+
+On `de34b5d01` the checkpoint row was written.
+
+**V4.** `useFirstHintProgress` now takes `hintsBefore`. `PracticeScreen`
+sets it from the restored draft's hints (`restoredHints > 0`). It also gets
+`noteUntimedHint()`, which `PracticeScreen` calls when a book is carried on
+the problem. Either one latches "the first hint has already happened" when
+no marker was saved. For that attempt the marker stays null (unknown), so
+the next reveal is never recorded as the first. A saved marker is always
+kept.
+
+The vitest scenario restores a draft with one hint and no marker, the
+learner types, then reveals another hint. Submit sends no
+`firstHintProgress`, and no draft save carries one. On `de34b5d01` it sent
+`draft_started`. A fresh draft still records `no_draft` or `draft_started`
+at its first hint (the existing tests, plus a hook-level control).
+
+**V5.** The answer mode was persisted only in the Reader dialogue's
+`reader_answer_submitted` interaction event, on its synchronous path. It was
+not on the question event, and not on the tutor's own path, which also
+serves other callers. So, per the ruling:
+
+- Migration 213, still unlanded, gains a nullable
+  `question_events.answer_mode`, CHECKed to `answer_directly`,
+  `help_me_reason` or `ask_me_first`.
+- `tutor_qa.ask_question` sets it once, when the question is asked, for a
+  reader question. `insert_question_event` writes it.
+- The sweep's subkind for a tutor exchange is that answer mode. It is
+  `unknown` where none was stored: every row from before 213, and every
+  library question, which has no answer mode.
+- `ad_reading_opportunities` has no context field, so the context is
+  dropped from the receipt.
+- The carve-out allowlist (`reading.SOURCES`) now names the three modes and
+  `unknown`.
+- `test_reading_opportunities_frozen_and_ordered_by_source_time`, which
+  asserted subkind `reader`, now asserts the answer mode.
+
+The new test asks through `reader_dialogue.ask` with `ask_me_first`, and
+records `ask_me_first`. A row inserted without a mode records `unknown`. On
+`de34b5d01` the subkind was `reader`. `test_ad1_migration` covers the new
+column: nullable, the three values accepted, any other value refused.
+
+- **A shared table changed.** `question_events.answer_mode` is a second
+  shared-table column inside migration 213, beside F4's `answered_at`.
+- **Head fixture.** `fixtures/migration_head_213` was rebuilt the same way
+  as before:
+  - a backup-API copy of git `16a0071f2`'s `migration_head_212`;
+  - only 213 applied, under `UPGRADE_SCRATCH_COPY`;
+  - `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE`, header
+    bytes 1/1, `integrity_check` ok, `foreign_key_check` empty;
+  - copied into place with the backup API, with no companion files;
+  - its README updated.
+- **Open point for the owner.** Library tutor exchanges have no answer mode,
+  so all of them are `unknown`. If the owner wants them told apart from
+  pre-213 rows, a separate subkind needs a ruling.
+
+### Gate (fix round 4, targeted)
+
+- `uv run lint-imports --no-cache`: 27 kept, 0 broken.
+- `uv run pytest -n auto` (`TMPDIR=fixtures-local/tmp`) over 124 files:
+  **2469 passed, 2 xfailed**. The files:
+  - every `tests/test_ad1_*.py`, and `test_adaptive_difficulty_ad1`;
+  - `test_architecture`, `test_registry_audit`, `test_judge_routes`;
+  - the request-gate and receipt files: `test_decider_landing`,
+    `test_model_call_receipt_owners`, `test_glm_ocr`,
+    `test_ux_phase1_review_fixes`;
+  - every file that touches `question_events` or the tutor (`tutor_qa`,
+    `insert_question_event`, `ask_question`);
+  - `test_table_roles`, `test_coordinated_migrations`,
+    `test_tracked_fixture_databases`;
+  - the 30 files that pin `migration_head_213`;
+  - `test_vault_watcher_refresh`, `test_daily_plan_rpc` (the sidecar hooks
+    changed).
+- `-m durability tests/test_ad1_migration.py`: 1 passed.
+- `--durable-sqlite` on `tests/test_ad1_fix_round4.py` and
+  `tests/test_ad1_send_guard.py`: 13 passed.
+- Frontend:
+  - `npm run typecheck`: clean;
+  - vitest on the 14 practice files (`src/screens/practice/*`, every
+    `PracticeScreen.*.test.tsx`, `src/app/practiceDraft.test.ts`): 128
+    passed;
+  - `npm run frontend:build`: built.
+- `db_generate_reference.py`, then `db_validate_reference.py`: 0 errors.
+  The references were regenerated in `d05aed3e5`
+  (`question_events.answer_mode`, commit labels, line citations).
+- Model calls: 0. Cargo was not run: nothing under `src-tauri` changed.
