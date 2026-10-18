@@ -25,6 +25,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
+from tests.test_ad1_migration import AD1_ADDED_OBJECTS, AD1_ALTERED_TABLES
 
 NOW = "2026-10-17T10:00:00Z"
 SECTION_7_5 = {
@@ -62,12 +63,15 @@ def _upgrade(tmp_path: Path) -> Path:
     # Later migrations (adaptive hints H0's 210, help_assists, and H1's 211,
     # approach_maps) follow 209 on the way to head.
     added = {name for name in set(after) - set(before)
-             if "help_assists" not in name and "approach_maps" not in name}
+             if "help_assists" not in name and "approach_maps" not in name and name not in AD1_ADDED_OBJECTS}
     assert added == {"library_asks", "idx_library_asks_created", "idx_library_asks_extraction"}
     # Adaptive hints H2b's 212 rebuilds the two learner-text tables on the way
     # (their source_kind CHECK only; tests/test_hint_feedback_widening.py).
-    assert {name: sql for name, sql in after.items() if name in before and not name.startswith("learner_text_gap")} \
-        == {name: sql for name, sql in before.items() if not name.startswith("learner_text_gap")}  # nothing else changed
+    # Adaptive difficulty AD1's 213 adds two practice_attempts columns on the way.
+    assert {name: sql for name, sql in after.items()
+            if name in before and not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES} \
+        == {name: sql for name, sql in before.items()
+            if not name.startswith("learner_text_gap") and name not in AD1_ALTERED_TABLES}  # nothing else changed
     return database
 
 
@@ -110,6 +114,6 @@ def test_library_asks_is_workflow():
 
 
 def test_the_head_fixture_is_at_head_in_rollback_mode():
-    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_212" / "state.sqlite"
+    head = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_213" / "state.sqlite"
     assert head.read_bytes()[18:20] == b"\x01\x01"
-    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 212
+    assert max(applied_versions(head)) == max(m.version for m in discover_migrations()) == 213

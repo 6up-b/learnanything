@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -105,6 +105,9 @@ class PracticeDraftCheckpoint(ParamsModel):
     #: Kept with the draft so a navigation or restart before the grade
     #: commits restores the stuck answer it was, not an ordinary one.
     declared_stuck: bool = False
+    #: Adaptive difficulty AD1 (§11.2): the first-hint progress marker, kept
+    #: with the draft's retry key so a restored draft keeps it.
+    first_hint_progress: Literal["no_draft", "draft_started"] | None = None
 
 
 class SelfGradeDisclosureInput(ParamsModel):
@@ -179,6 +182,13 @@ class SubmitAttemptInput(ParamsModel):
     #: attempt of ``attempt_type``: graded when it has text, a deterministic
     #: zero when empty.
     declared_stuck: bool = False
+    #: Adaptive difficulty AD1 (spec §12): the optional "Felt: easy / about
+    #: right / hard" tap, sent only when tapped; stored only with
+    #: ``adaptive_difficulty.rating_tap`` on. Logged only.
+    difficulty_rating: Literal["easy", "about_right", "hard"] | None = None
+    #: AD1 (§11.2): whether an answer had been started when the first hint of
+    #: this attempt was revealed; stored only with ``forecast_receipts`` on.
+    first_hint_progress: Literal["no_draft", "draft_started"] | None = None
 
 
 class DontKnowInput(ParamsModel):
@@ -194,6 +204,9 @@ class DontKnowInput(ParamsModel):
     scheduler_candidate_id: str | None = None
     #: Router R2a: the daily-plan presentation this answer is to.
     plan_presentation_id: str | None = None
+    #: Adaptive difficulty AD1 (§12, §11.2), as on ``SubmitAttemptInput``.
+    difficulty_rating: Literal["easy", "about_right", "hard"] | None = None
+    first_hint_progress: Literal["no_draft", "draft_started"] | None = None
 
 
 class SkipInput(ParamsModel):
@@ -595,8 +608,24 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             declared_stuck=params.declared_stuck,
         ),
         plan_presentation_id=params.plan_presentation_id,
+        first_hint_progress=_draft_marker(vault, params),
     )
     return {"ok": True}
+
+
+def _draft_marker(vault, params: PracticeDraftCheckpoint) -> Any:
+    """AD1 (§11.2): the draft's first-hint progress marker, kept with its retry
+    key; untouched by a client that does not send it, and never kept with
+    ``adaptive_difficulty.forecast_receipts`` off."""
+
+    from learnloop.adaptive_difficulty.switches import receipts_enabled
+    from learnloop_sidecar.handlers.sessions import KEEP_MARKER
+
+    if not receipts_enabled(vault.config):
+        return None
+    if "first_hint_progress" not in params.model_fields_set:
+        return KEEP_MARKER
+    return params.first_hint_progress
 
 
 @method("practice.record_hint_reveal", HintRevealInput)
@@ -1049,6 +1078,8 @@ def submit_attempt_on(
                 submission_id=params.submission_id,
                 scheduler_candidate_id=params.scheduler_candidate_id,
                 plan_presentation_id=params.plan_presentation_id,
+                difficulty_rating=params.difficulty_rating,
+                first_hint_progress=params.first_hint_progress,
             ),
             entry_surface=entry_surface,
             hint_window_fold=hint_window_fold,
@@ -1109,6 +1140,8 @@ def submit_attempt_on(
         evidence_origin="human",
         declared_stuck=declared_stuck,
         server_hint_fold=hint_fold,
+        difficulty_rating=params.difficulty_rating,
+        first_hint_progress=params.first_hint_progress,
     )
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
@@ -1285,6 +1318,8 @@ def submit_dont_know_on(
             evidence_origin="human",
             declared_stuck=True,
             server_hint_fold=hint_fold,
+            difficulty_rating=params.difficulty_rating,
+            first_hint_progress=params.first_hint_progress,
         )
         return _record_empty_stuck(
             ctx, vault, repository, draft, params.session_id, before, hint_submitted_at=hint_submitted_at
@@ -1309,6 +1344,8 @@ def submit_dont_know_on(
         evidence_origin="human",
         declared_dont_know=True,
         server_hint_fold=hint_fold,
+        difficulty_rating=params.difficulty_rating,
+        first_hint_progress=params.first_hint_progress,
     )
     try:
         result = complete_self_graded_attempt(vault, repository, draft, grade)

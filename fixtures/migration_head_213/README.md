@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-212. Migration 167 adds the learner-field F1 read model
+213. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -211,7 +211,24 @@ discriminating answers), rebuilding both tables temp-then-rename under
 `PRAGMA foreign_keys = OFF` exactly as 208 did (every row, index and
 append-only trigger kept). Both tables are empty here.
 
-Built as a backup-API copy of the base's `migration_head_211` (git
+Migration 213 comes from adaptive difficulty AD1 (`adaptive-difficulty/ad1`,
+measure and log, docs/reviews/adaptive-difficulty-ad1.md): it adds the
+nullable `practice_attempts.difficulty_rating` and
+`practice_attempts.first_hint_progress` (CHECKed vocabularies),
+`item_serve_inputs` and `ad_reading_opportunities` (RECEIPT, each with its
+indexes and no-update and no-delete triggers) and `item_forecast_payloads`
+(WORKFLOW). Item forecasts are kind `item_unassisted_success` rows in
+migration 206's `forecast_receipts`, no table of their own. The new tables
+are empty here.
+
+Built as a backup-API copy of the base's `migration_head_212` (git
+`16a0071f2`) with only 213 applied, through
+`learnloop.db.migrate.apply_migrations` under the scratch-copy upgrade
+allowance (`UPGRADE_SCRATCH_COPY`; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE`, header bytes 1/1, `integrity_check` ok,
+`foreign_key_check` empty), copied into place with the backup API, with no
+companion files; `migration_head_212` was renamed to this directory.
+`migration_head_212` was a backup-API copy of the base's `migration_head_211` (git
 `5b2efaf24`) with only 212 applied, by the same chain as before:
 `migration_head_211` was a backup-API copy of `migration_head_210` (git
 `cdcd70601`) with only 211 applied, `migration_head_210` was a backup-API copy of `migration_head_209` (git
@@ -229,7 +246,7 @@ applied, and that of `migration_head_186` with 187-195 applied), through
 upgrade allowance (`UPGRADE_TEST_HELPER`; checkpointed with
 `wal_checkpoint(TRUNCATE)`, rollback journal, `integrity_check` ok,
 `foreign_key_check` clean), then copied into place with the backup API, with
-no companion files; `migration_head_211` was renamed to this directory. It
+no companion files. It
 pins current-head schema coverage while the original populated fixture and
 the other vaults remain at historical versions for upgrade-path tests.
 

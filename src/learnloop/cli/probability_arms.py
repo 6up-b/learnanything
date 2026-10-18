@@ -307,6 +307,13 @@ def _consumer_status(config, consumer: str, *, field_on: bool) -> str:
         live = [task for task in (*SERVING_TASKS, *CONTENT_TASKS)
                 if not task.startswith("learner_gap_") and enabled(config, task)]
         return f"on ({', '.join(live)})" if live else "off (mvp-0.22 and its [decider_routes] switches)"
+    if consumer in ("adaptive_difficulty", "ad_feature_audit"):
+        from learnloop.adaptive_difficulty.switches import feature_audit_enabled, outside_forecasters
+
+        if consumer == "ad_feature_audit":
+            return "on" if feature_audit_enabled(config) else "off (adaptive_difficulty.feature_audit)"
+        chosen = outside_forecasters(config)
+        return f"on ({', '.join(chosen)})" if chosen else "off (adaptive_difficulty.outside_forecasters)"
     if consumer == "learner_text_gaps":
         gaps = config.learner_text_gaps
         return ("on" if gaps.enabled and gaps.decider_enabled

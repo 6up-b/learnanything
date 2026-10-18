@@ -2973,7 +2973,7 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
                 },
                 now,
             )
-        return _present(
+        presentation_id = _present(
             env,
             connection,
             block_id=block.id,
@@ -2986,6 +2986,18 @@ def _serve(env: PlanEnv, block: PlannedBlock, item: PlannedItem, *, candidate_id
             candidate_id=candidate_id,
             served_at=item.served_at or now,
         )
+        if presentation_id is not None:
+            # Adaptive difficulty AD1 (spec §7.5, §8.1, §5.11): the reading
+            # sweep, the frozen serve inputs and the in-process forecasts, in
+            # this transaction and after the presentation. Logging only: it
+            # rolls back alone on failure and never changes what is served.
+            from learnloop.adaptive_difficulty import serve as ad_serve
+
+            ad_serve.record_plan_serve(
+                env.vault, env.repository, presentation_id=presentation_id,
+                practice_item_id=item.practice_item_id, served_at=item.served_at or now,
+            )
+        return presentation_id
 
 
 def _skip(env: PlanEnv, record: PlanRecord, practice_item_id: str) -> PlanRecord:

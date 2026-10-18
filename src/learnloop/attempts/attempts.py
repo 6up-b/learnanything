@@ -235,6 +235,38 @@ class AttemptDraft:
     # another process delivered after the submit's read is counted, and the
     # values derived from the count are computed from the final one.
     server_hint_fold: ServerHintFold | None = None
+    # Adaptive difficulty AD1 (spec_adaptive_difficulty_v1 §12, §11.2): the
+    # optional "Felt: easy / about right / hard" tap, sent with the submit
+    # (so it is always before feedback), and the practice screen's marker of
+    # whether an answer had been started when the first hint was revealed
+    # (``no_draft`` / ``draft_started``). Logged only: grading, scheduling,
+    # evidence, FSRS and certification never read them. Stored only with
+    # ``adaptive_difficulty.rating_tap`` / ``forecast_receipts`` on (the
+    # marker only when a hint was used); None everywhere else.
+    difficulty_rating: str | None = None
+    first_hint_progress: str | None = None
+
+
+#: AD1's rating tap and first-hint progress vocabularies (migration 213 CHECKs).
+DIFFICULTY_RATINGS = frozenset({"easy", "about_right", "hard"})
+FIRST_HINT_PROGRESS = frozenset({"no_draft", "draft_started"})
+
+
+def _ad_logged_fields(vault: Any, draft: AttemptDraft) -> dict[str, str | None]:
+    """The AD1 columns this attempt records: each only with its switch on.
+
+    Read from config here (not from ``learnloop.adaptive_difficulty``): the
+    attempt path imports nothing of AD's, and AD reads nothing it writes."""
+
+    section = getattr(getattr(vault, "config", None), "adaptive_difficulty", None)
+    enabled = bool(section is not None and getattr(section, "enabled", False))
+    rating = draft.difficulty_rating if enabled and getattr(section, "rating_tap", False) else None
+    marker = (
+        draft.first_hint_progress
+        if enabled and getattr(section, "forecast_receipts", False) and int(draft.hints_used or 0) > 0
+        else None
+    )
+    return {"difficulty_rating": rating, "first_hint_progress": marker}
 
 
 @dataclass(frozen=True)
@@ -1378,6 +1410,9 @@ def replay_existing_attempt(
         # mvp-0.13: what the learner sent was a stuck answer (persisted, never
         # read from today's stuck_prompt switch).
         declared_stuck=bool(attempt.get("declared_stuck")),
+        # AD1: what was recorded (logged only; nothing replay derives reads it).
+        difficulty_rating=attempt.get("difficulty_rating"),
+        first_hint_progress=attempt.get("first_hint_progress"),
         # mvp-0.18: the answer-key status recorded at attempt time, never
         # re-derived from today's checks (a later verification is not
         # retroactive).
@@ -2797,6 +2832,10 @@ def _resolve_attempt_target(
         raise AttemptValidationError("latency_seconds must be non-negative")
     if draft.answer_confidence is not None and not 1 <= draft.answer_confidence <= 5:
         raise AttemptValidationError("answer_confidence must be between 1 and 5")
+    if draft.difficulty_rating is not None and draft.difficulty_rating not in DIFFICULTY_RATINGS:
+        raise AttemptValidationError("difficulty_rating must be easy, about_right or hard")
+    if draft.first_hint_progress is not None and draft.first_hint_progress not in FIRST_HINT_PROGRESS:
+        raise AttemptValidationError("first_hint_progress must be no_draft or draft_started")
     if draft.declared_stuck and (draft.attempt_type == "dont_know" or draft.declared_dont_know):
         raise AttemptValidationError("a stuck answer is an ordinary attempt, never dont_know")
     if draft.declared_stuck and not replay and not stuck_prompt_active(vault):
@@ -4558,6 +4597,7 @@ def _compute_resolved_grade_application(
         "declared_dont_know": draft.declared_dont_know,
         "declared_stuck": draft.declared_stuck,
         "reference_status": _attempt_reference_status(vault, repository, item, draft, replay=replay),
+        **_ad_logged_fields(vault, draft),
     }
     error_event_ids = [
         error_event_ids_override[index]

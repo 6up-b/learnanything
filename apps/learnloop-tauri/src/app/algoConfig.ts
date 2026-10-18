@@ -34,6 +34,14 @@ export interface AlgoDisplayConfig {
    *  sends a `hints` key only while adaptive hints are on, so null until it
    *  says so, and null leaves the practice screen exactly as before H2b. */
   adaptiveHints: AdaptiveHintsConfig | null;
+  /** Adaptive difficulty AD1 (§12): the optional "Felt" tap beside Submit
+   *  (`adaptive_difficulty.rating_tap`); the sidecar sends an
+   *  `adaptiveDifficulty` key only while a client switch is on, so false
+   *  until it says so, and off leaves the practice screen as before AD1. */
+  ratingTap: boolean;
+  /** AD1 (§11.2): keep and send the first-hint progress marker
+   *  (`adaptive_difficulty.forecast_receipts`); false until the sidecar says so. */
+  firstHintProgress: boolean;
 }
 
 export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
@@ -55,7 +63,9 @@ const DEFAULTS: AlgoDisplayConfig = {
   workbench: false,
   recap: false,
   wrapUp: false,
-  adaptiveHints: null
+  adaptiveHints: null,
+  ratingTap: false,
+  firstHintProgress: false
 };
 
 let current: AlgoDisplayConfig = { ...DEFAULTS };
@@ -69,6 +79,7 @@ export function setAlgoConfig(config: unknown): void {
     workbench?: { enabled?: unknown };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
+    adaptiveDifficulty?: { ratingTap?: unknown; firstHintProgress?: unknown };
   };
   current = {
     masteryStrongThreshold: asNumber(root.mastery?.displayStrongThreshold, DEFAULTS.masteryStrongThreshold),
@@ -86,7 +97,9 @@ export function setAlgoConfig(config: unknown): void {
           authoredOfferAfterSeconds: asNumber(root.hints.authoredOfferAfterSeconds, 4),
           helpStyle: asHelpStyle(root.hints.helpStyle)
         }
-      : null
+      : null,
+    ratingTap: root.adaptiveDifficulty?.ratingTap === true,
+    firstHintProgress: root.adaptiveDifficulty?.firstHintProgress === true
   };
 }
 

@@ -1004,6 +1004,14 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "display",
         "seconds a hint is being written before the panel offers the item's own hint instead; a display "
         "cap, no measurement authority (no constant decides which hint a learner gets, spec H3)."),
+    # Adaptive difficulty AD1: the outside forecasters' and the feature
+    # audit's metered spend a UTC day (receipts and judgments only: nothing
+    # serving, scoring, scheduling, evidence or certification reads them, A2).
+    _ConfigRule(_exact(
+        "adaptive_difficulty.daily_spend_cap_usd",
+    ), "structural", "operational",
+        "the outside forecasters' and feature audit's metered spend a UTC day; a money bound, no "
+        "measurement authority (AD1 logs forecasts and audits, it decides nothing served)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

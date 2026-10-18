@@ -1028,6 +1028,8 @@ The features and signals an AD decision or update reads are fixed when the item 
 
 ### 8.1 Receipts (AD1; switch `forecast_receipts`)
 
+*Amended at AD1 (2026-10-18; `docs/reviews/adaptive-difficulty-ad1.md`):* `item_forecasts` is not a table of its own. Item forecasts are rows of kind `item_unassisted_success` in the `forecast_receipts` receipt family (migration 206, built for this by the saved-diagnosis-forecasts stage; owner-confirmed item 3 of `docs/reviews/diagnosis-forecast-receipts.md`): `scope` `presentation` (binding `plan_presentation`) or `item` (binding `first_presentation`, with `item_content_hash`), `created_at` as `issued_at`, `p` and optional `p_categories` in `forecast_json`, `received_at`, `status` and `algorithm_version` as below. Below, `item_forecasts` names these rows.
+
 `item_forecasts` (RECEIPT, append-only), one row per (presentation, forecaster), or per (item revision, forecaster) for an item-only forecaster:
 - **`scope`:** `presentation` or `item`;
 - **presentation reference** (scope `presentation`): `plan_presentation_id`, `probe_presentation_id`, `scheduler_candidate_id`, or an exam session's pooled item (written when `start_exam` freezes its predictions, `goals/exam_session.py:1-12`);
@@ -1355,7 +1357,7 @@ A8, §9.5. A test plants a sentinel string in a held-out unit. It asserts the se
 |---|---|---|---|
 | `practice_attempts.difficulty_rating` | RAW_LEDGER column (nullable) | `easy` / `about_right` / `hard`, tapped before feedback | — |
 | `practice_attempts.first_hint_progress` | RAW_LEDGER column (nullable) | `no_draft` / `draft_started`: whether an answer had been started when the first ordinary hint was revealed (§5.3). The practice screen reads the same marker it already sends with tutor questions (`apps/learnloop-tauri/src/screens/PracticeScreen.tsx:284-285`) at the first hint reveal (`:619`), keeps it in the saved draft, and sends it on submit. Null on every earlier row, from clients that do not send it, and while `forecast_receipts` is off; null reads as `unknown` | — |
-| `item_forecasts` | RECEIPT (append-only) | §8.1, with `scope` (`presentation` / `item`) | never cleared |
+| `item_forecasts` | RECEIPT (append-only): rows of kind `item_unassisted_success` in `forecast_receipts` (migration 206), no table of its own (amended at AD1) | §8.1, with `scope` (`presentation` / `item`) | never cleared |
 | `item_forecast_payloads` | WORKFLOW | raw outside-forecaster responses; pruned after `router.payload_retention_days` | — |
 | `item_serve_inputs` | RECEIPT (append-only) | §7.5: per presentation of a never-attempted item, the served revision's hash, stamped and resolved features with audit ids, the signal vector with receipt ids, `pre_exposed`, the resolution version, and from the AD2/AD3 successor the loadings in force with their ledger ids and the coupling version | never cleared |
 | `ad_reading_opportunities` | RECEIPT (append-only) | §5.11: per (reading opportunity, LO), the kind (`reading`, `reader_tutor_exchange`, `worked_example`, `in_passage_question`) and subkind, the source row's id and write time, the facets and doses as resolved, the `ad_dose_offers` id when an offer produced it, the mapping version, and the authority class `salience_only`; plus one verdict row per judged in-passage question (D22: kind `in_passage_question`, subkind `self_check:matched` or `self_check:missed`, the `judgment_ledger` row's id and write time as its source, the question's facets and doses); written by the serve-time sweep and AD1's one-time backfill | never cleared |
@@ -1486,7 +1488,7 @@ Each test below is written first, and fails on today's code for the stated reaso
 **Needs:** the "diagnosis input provenance" stage landed (`spec_mcp_frontend_c1.md` §4.8; D18).
 
 **Builds:**
-- migration: `item_forecasts` (with `scope`), `item_forecast_payloads`, `item_serve_inputs`, `ad_reading_opportunities`, `practice_attempts.difficulty_rating`, `practice_attempts.first_hint_progress`;
+- migration: `item_forecasts` (with `scope`; *amended at AD1: kind `item_unassisted_success` rows of migration 206's `forecast_receipts`, so migration 213 adds no such table*), `item_forecast_payloads`, `item_serve_inputs`, `ad_reading_opportunities`, `practice_attempts.difficulty_rating`, `practice_attempts.first_hint_progress`;
 - table roles;
 - the serve-input receipt (§7.5) and the in-process forecasters `mastery_ekf` and `lo_general+composite`, written in the serve transaction;
 - outside forecasters behind `outside_forecasters`, spend-capped: `llm_v1:item` once per item revision when it is prepared for the pool, plus its one-time backfill; `llm_v3:*` asynchronously per presentation (§8.2);

@@ -96,6 +96,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/voi_forecasts.py",
         # Saved diagnosis forecasts: the append-only forecast_receipts family.
         "src/learnloop/db/stores/forecast_receipts.py",
+        # Adaptive difficulty AD1 (migration 213): the append-only
+        # item_serve_inputs and ad_reading_opportunities receipts, the
+        # item_forecast_payloads workflow rows, and the served revision's
+        # practice_item_snapshots row.
+        "src/learnloop/db/stores/ad_receipts.py",
         # Reader workbench RW2a: workbench_sessions (lifecycle) and the
         # append-only workbench_steps (migration 207).
         "src/learnloop/db/stores/workbench.py",

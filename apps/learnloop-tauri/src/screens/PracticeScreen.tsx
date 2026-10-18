@@ -36,6 +36,9 @@ import type { WorkbenchSessionDto, WorkbenchSummaryDto } from "../api/dto";
 import { Workbench } from "./workbench/Workbench";
 import { HintPanel } from "./practice/HintPanel";
 import { useAdaptiveHints } from "./practice/useAdaptiveHints";
+import { DifficultyRatingTap } from "./practice/DifficultyRatingTap";
+import { useFirstHintProgress } from "./practice/useFirstHintProgress";
+import type { DifficultyRating, FirstHintProgress } from "../api/dto";
 
 /** RW2a (D9): "Work in steps", remembered once chosen, on this device. */
 const WORK_IN_STEPS_KEY = "ll.workbench.workInSteps";
@@ -131,6 +134,7 @@ export function PracticeScreen({
   restoredStuck = false,
   restoredTeachBack,
   restoredDisclosure = null,
+  restoredFirstHintProgress = null,
   onFeedback,
   onBlockEnd,
   onContinueDiagnostic,
@@ -172,6 +176,8 @@ export function PracticeScreen({
   /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
    *  it showed a full answer. The draft reopens locked to it. */
   restoredDisclosure?: SelfGradeDisclosureDto | null;
+  /** Adaptive difficulty AD1 (§11.2): the restored draft's first-hint marker. */
+  restoredFirstHintProgress?: FirstHintProgress | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
    *  attempt in it, not just the one that closed it. */
@@ -193,6 +199,8 @@ export function PracticeScreen({
     planPresentationId: string | null;
     /** Codex review F1: the frozen trace, when a full answer was shown. */
     selfGradeDisclosure?: SelfGradeDisclosureDto | null;
+    /** Adaptive difficulty AD1 (§11.2): the first-hint progress marker. */
+    firstHintProgress?: FirstHintProgress | null;
   }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
@@ -245,6 +253,13 @@ export function PracticeScreen({
   // §7.1: the learner's committed answer confidence (1–5) during a diagnostic
   // block. Logged-only — it never changes grading or scheduling.
   const [answerConfidence, setAnswerConfidence] = useState<number | null>(null);
+  // Adaptive difficulty AD1 (§12): the optional "Felt" tap, sent only when tapped.
+  const ratingTap = algoConfig().ratingTap;
+  const [difficultyRating, setDifficultyRating] = useState<DifficultyRating | null>(null);
+  // AD1 (§11.2): the first-hint progress marker, kept with the draft.
+  const firstHint = useFirstHintProgress({ enabled: algoConfig().firstHintProgress, restored: restoredFirstHintProgress });
+  const firstHintRef = useRef(firstHint.value);
+  firstHintRef.current = firstHint.value;
   const [fallbackRequired, setFallbackRequired] = useState(!gradingReady);
   // The self-grade panel is only revealed once the learner clicks Submit (and
   // grading actually needs a self-grade), never while they are still answering.
@@ -293,7 +308,8 @@ export function PracticeScreen({
     declaredStuck: stuck,
     // Router R2a (review F5): saved with the draft so a draft resumed after a
     // restart still submits bound to its plan presentation.
-    planPresentationId
+    planPresentationId,
+    ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -336,6 +352,7 @@ export function PracticeScreen({
     openedAtMs.current = Date.now();
     submissionId.current = restoredSubmissionId?.trim() || crypto.randomUUID();
     setAnswerConfidence(null);
+    setDifficultyRating(null);
   }, [practiceItemId, restoredSubmissionId]);
   // The command-palette ask (App) reads the same state at the moment it opens.
   const attemptProgressRef = useRef<AttemptProgress>("no_draft");
@@ -388,10 +405,11 @@ export function PracticeScreen({
       submissionId: submissionId.current,
       schedulerCandidateId,
       declaredStuck: stuck,
-      planPresentationId
+      planPresentationId,
+      ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
+  }, [answer, hintsUsed, planPresentationId, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck, firstHint.value]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -451,6 +469,11 @@ export function PracticeScreen({
     },
     onError
   });
+  // Adaptive difficulty AD1: a hint the panel delivered is a first hint too.
+  const deliveredHints = adaptiveHints.entries.length;
+  useEffect(() => {
+    if (deliveredHints > 0) firstHint.mark(attemptProgressRef.current);
+  }, [deliveredHints, firstHint.mark]);
 
   useEffect(() => registerVaultDraft({
     freeze: () => {
@@ -610,7 +633,8 @@ export function PracticeScreen({
         const frozen = disclosedRef.current;
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck,
                        planPresentationId: presentation,
-                       selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null });
+                       selfGradeDisclosure: frozen ? { submissionId: retryKey, ...frozen } : null,
+                       firstHintProgress: firstHintRef.current });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -868,6 +892,8 @@ export function PracticeScreen({
   /** Today's authored path, exactly (with adaptive hints off, or when the
    *  sidecar answers that they are). */
   function revealAuthoredHint() {
+    // Adaptive difficulty AD1: the first hint seen sets the progress marker.
+    if (item && hintsUsed < item.hints.length) firstHint.mark(attemptProgressRef.current);
     // Adaptive hints H0: the hint this press shows (none past the last one).
     if (item && session.sessionId && hintsUsed < item.hints.length) {
       recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
@@ -880,6 +906,7 @@ export function PracticeScreen({
    *  own reveal, client-counted as before. Resolves to its telemetry row. */
   async function revealAuthoredAt(index: number): Promise<string | null> {
     if (!item || !session.sessionId) return null;
+    firstHint.mark(attemptProgressRef.current);
     // Counted at once for a hand-off into steps that reads it before the
     // next render (review F1); the render sets the ref from the state.
     carriedRef.current = { ...carriedRef.current, hints: carriedRef.current.hints + 1 };
@@ -1047,7 +1074,10 @@ export function PracticeScreen({
             ? { ...grade, errorAttributions: prunedAttributions(item, grade) }
             : null,
         // mvp-0.13: written after "I'm stuck" (it may be empty).
-        ...(stuck ? { declaredStuck: true } : {})
+        ...(stuck ? { declaredStuck: true } : {}),
+        // Adaptive difficulty AD1: only when tapped / set (logged only).
+        ...(difficultyRating ? { difficultyRating } : {}),
+        ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;
@@ -1100,7 +1130,9 @@ export function PracticeScreen({
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
         schedulerCandidateId,
-        planPresentationId
+        planPresentationId,
+        ...(difficultyRating ? { difficultyRating } : {}),
+        ...(firstHint.value ? { firstHintProgress: firstHint.value } : {})
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;
@@ -1834,6 +1866,10 @@ export function PracticeScreen({
                 {fallbackRequired && selfGradeVisible && !selfGradeDetailsOpen ? null : (
                   <PrimaryAction hotkey="^↵" onClick={() => void submit()} disabled={submitting || assistPending}>Submit</PrimaryAction>
                 )}
+                {ratingTap && !isTeachBack ? (
+                  <DifficultyRatingTap sessionId={session.sessionId} value={difficultyRating}
+                                       onChange={setDifficultyRating} locked={submitting || selfGradeVisible} />
+                ) : null}
                 {!probeActive && !onYourOwnCheck && (adaptive || hintsUsed < item.hints.length) && !selfGradeVisible ? (
                   <QuietAction onClick={revealHint} disabled={submitting || adaptiveHints.pending}>
                     {hintsUsed > 0 || adaptiveHints.entries.length > 0 ? "Hint again" : "Hint"}
@@ -1865,6 +1901,10 @@ export function PracticeScreen({
                   <span className="queue-hotkey">^d</span>
                   <span className="queue-title">I'm stuck</span>
                 </button>
+              ) : null}
+              {ratingTap && !isTeachBack ? (
+                <DifficultyRatingTap sessionId={session.sessionId} value={difficultyRating}
+                                     onChange={setDifficultyRating} locked={submitting || selfGradeVisible} />
               ) : null}
             </div>
             )}

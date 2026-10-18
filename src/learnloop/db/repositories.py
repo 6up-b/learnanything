@@ -18155,6 +18155,13 @@ class Repository(
             # says something, like declared_stuck.
             columns.append("reference_status")
             values.append(attempt["reference_status"])
+        for column in ("difficulty_rating", "first_hint_progress"):
+            if attempt.get(column) is not None:
+                # Adaptive difficulty AD1 (migration 213): written only when
+                # set, so a database attached below 213 still records every
+                # attempt without them.
+                columns.append(column)
+                values.append(attempt[column])
         presentation_id = _bindable_plan_presentation(connection, attempt)
         if presentation_id is not None:
             # Router R2a (migration 202): the plan presentation this attempt

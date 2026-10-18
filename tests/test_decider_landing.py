@@ -285,6 +285,8 @@ def test_with_every_decider_route_off_the_one_ok_is_unchanged(tmp_path, monkeypa
     set_config(root, {
         **{("decider_routes", task): False for task in SERVING_TASKS + CONTENT_TASKS},
         ("learner_text_gaps", "decider_enabled"): False,
+        # Adaptive difficulty AD1's llm_v3:decider is a Decider route too.
+        ("adaptive_difficulty", "outside_forecasters"): [],
     })
     payload = _connection(root, monkeypatch)
     assert payload["deciderNote"] is None
@@ -303,7 +305,8 @@ def test_below_mvp022_the_one_ok_names_only_the_routes_still_on(tmp_path, monkey
 
     root = fresh_library(tmp_path)
     _set_algorithm_version_at(root, "mvp-0.21")
-    set_config(root, {("learner_text_gaps", "decider_enabled"): False})
+    # Adaptive difficulty AD1 acts at every version; this pins the routes before it.
+    set_config(root, {("learner_text_gaps", "decider_enabled"): False, ("adaptive_difficulty", "enabled"): False})
     note = _connection(root, monkeypatch)["deciderNote"]
     assert note == ("With an OpenRouter key, LearnLoop also asks Perplexity, through OpenRouter, short questions "
                     "about the book passages behind a reworded skill.")
@@ -319,6 +322,7 @@ def test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perp
     config.ai.providers["pplx"] = DeciderProviderConfig(api="perplexity")
     config.ai.routing.tier1_decider = "pplx"
     config.ai.routing.learner_gap_decider = "pplx"
+    config.ai.routing.ad_forecast_decider = "pplx"
     assert connection_note(config).startswith("With a Perplexity key, LearnLoop also asks Perplexity,")
     settings = {entry["route"]: entry["disclosure"] for entry in judge_route_disclosures(config)}
     assert "Perplexity's Decisions API directly" in settings["tier1_decider"]

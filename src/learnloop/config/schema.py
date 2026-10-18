@@ -1350,6 +1350,20 @@ class AIRoutingConfig(BaseModel):
     # Metered routes join hints.maps.max_daily_cost_usd at
     # hints.price_per_million (unset: refused before sending).
     hint_outcome: str | None = None
+    # Adaptive difficulty AD1 (spec_adaptive_difficulty_v1 §8.2, §7.2, D4):
+    # the outside forecasters (background, never on a request path) and the
+    # feature audit's LLM fallback. ad_forecast_llm serves llm_v1:item and
+    # llm_v3:llm: empty = ai.active_provider (Codex on the subscription is
+    # estimated_only). ad_forecast_decider serves llm_v3:decider, a
+    # decider-only route: empty = the code-default openrouter_decider
+    # profile, never a chat fallback and never LEARNLOOP_AI_PROVIDER. The
+    # audit's Decider is tier1_decider's; ad_feature_audit is its LLM judge
+    # (empty = ai.active_provider). Metered calls are held to
+    # adaptive_difficulty.daily_spend_cap_usd (an LLM route at
+    # adaptive_difficulty.price_per_million; unset: refused before sending).
+    ad_forecast_llm: str | None = None
+    ad_forecast_decider: str | None = None
+    ad_feature_audit: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -3032,6 +3046,12 @@ class DeciderRoutesConfig(BaseModel):
     #: does a PF variant's stem contradict its parent's, at selection). Off:
     #: the LLM judge on ``ai.routing.rubric_phrasing_judge`` decides it.
     required_method_statement: bool = True
+    #: Adaptive difficulty AD1's feature audit (spec_adaptive_difficulty_v1
+    #: §7.2, §10.3; a content path, every version): one Decider choice per
+    #: audited task-feature dimension of an item revision. Off: the audit's
+    #: LLM judge on ``ai.routing.ad_feature_audit`` decides every dimension.
+    #: ``adaptive_difficulty.feature_audit`` off runs no audit at all.
+    ad_feature_audit: bool = True
 
 
 class UiConfig(BaseModel):
@@ -3068,6 +3088,75 @@ class EligibilityConfig(BaseModel):
     """
 
     enabled: bool = True
+
+
+#: Adaptive difficulty AD1's outside forecasters (spec_adaptive_difficulty_v1 §8.2, D4).
+AD_OUTSIDE_FORECASTERS = ("llm_v1:item", "llm_v3:llm", "llm_v3:decider")
+
+
+class AdaptiveDifficultyConfig(BaseModel):
+    """Adaptive difficulty (``docs/specs/spec_adaptive_difficulty_v1.md`` §11.4). AD1 adds only
+    the measuring and logging keys; the later phases add theirs.
+
+    AD1 is not an algorithm successor: it writes receipts (item forecasts as kind
+    ``item_unassisted_success`` in ``forecast_receipts``, ``item_serve_inputs``,
+    ``ad_reading_opportunities``), two nullable attempt columns and feature-audit
+    judgments, and nothing serving, scoring, scheduling, evidence, FSRS or
+    certification reads them (A2, A12). Each switch false restores its part's
+    predecessor exactly; all false (and ``enabled`` false) writes no row, sends
+    no extra model call and changes no prompt (G-AD1-5).
+
+    * ``enabled``: the master switch; false turns every AD behaviour off,
+      logging included (§11.1).
+    * ``forecast_receipts``: at every plan serve, in the serve transaction, the
+      reading-opportunity sweep, the frozen serve inputs of a never-attempted
+      item and the in-process forecasts (``mastery_ekf``,
+      ``lo_general+composite``); and the first-hint progress marker on the
+      attempt. No model call.
+    * ``outside_forecasters``: the paid forecasters that run (D4):
+      ``llm_v1:item`` once per item revision when it is prepared for the plan's
+      pool (background), ``llm_v3:llm`` and ``llm_v3:decider`` per
+      presentation (background, after the serve). Off the critical path; an
+      empty list (or false) runs none.
+    * ``rating_tap``: the practice screen's optional "Felt: easy / about right
+      / hard" beside Submit, stored on the attempt only when tapped (§12).
+    * ``feature_audit``: one Decider judgment per audited task-feature
+      dimension of each item revision prepared for the pool (§7.2), with
+      ``[decider_routes] ad_feature_audit`` choosing the Decider (off: its
+      LLM fallback on ``ai.routing.ad_feature_audit`` judges).
+    * ``daily_spend_cap_usd``: the metered dollars a UTC day for the outside
+      forecasters and the feature audit, shared by every process; Codex and
+      the ChatGPT plan are ``estimated_only`` and never counted.
+    * ``price_per_million``: the owner's price (USD per million tokens) for a
+      METERED LLM route of these roles; unset, a metered LLM call is refused
+      before it is sent. The Decider is priced at its profile's listed price.
+    """
+
+    enabled: bool = True
+    forecast_receipts: bool = True
+    outside_forecasters: list[Literal["llm_v1:item", "llm_v3:llm", "llm_v3:decider"]] = Field(
+        default_factory=lambda: list(AD_OUTSIDE_FORECASTERS)
+    )
+    rating_tap: bool = True
+    feature_audit: bool = True
+    daily_spend_cap_usd: float = Field(default=0.50, ge=0.0)
+    price_per_million: float | None = Field(default=None, gt=0)
+
+    @field_validator("outside_forecasters", mode="before")
+    @classmethod
+    def _forecasters_switch(cls, value: Any) -> Any:
+        # A boolean reads as the switch it is: true runs all three, false none.
+        if value is True:
+            return list(AD_OUTSIDE_FORECASTERS)
+        if value is False or value is None:
+            return []
+        return value
+
+    @field_validator("outside_forecasters")
+    @classmethod
+    def _canonical_forecasters(cls, value: list[str]) -> list[str]:
+        chosen = set(value)
+        return [name for name in AD_OUTSIDE_FORECASTERS if name in chosen]
 
 
 class LearnLoopConfig(BaseModel):
@@ -3132,6 +3221,7 @@ class LearnLoopConfig(BaseModel):
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
+    adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)
     decider_routes: DeciderRoutesConfig = Field(default_factory=DeciderRoutesConfig)
     required_method: RequiredMethodConfig = Field(default_factory=RequiredMethodConfig)
     ui: UiConfig = Field(default_factory=UiConfig)

@@ -740,6 +740,9 @@ export interface SessionCheckpoint {
   /** UX Phase 4 (Codex review F1): the trace a plain self-grade froze before
    *  it showed a full answer; the draft reopens locked to it. */
   selfGradeDisclosure?: SelfGradeDisclosureDto | null;
+  /** Adaptive difficulty AD1 (§11.2): the draft's first-hint progress marker,
+   *  present only when one was kept under this retry key. */
+  firstHintProgress?: FirstHintProgress | null;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;
@@ -1184,7 +1187,17 @@ export interface SubmitAttemptInput {
    *  confusing you"). May be empty. Still an ordinary attempt of
    *  `attemptType`: graded when it has text, scored 0 at once when empty. */
   declaredStuck?: boolean;
+  /** Adaptive difficulty AD1 (§12): the optional "Felt" tap, sent only when
+   *  tapped (logged only; stored with `adaptive_difficulty.rating_tap` on). */
+  difficultyRating?: DifficultyRating | null;
+  /** AD1 (§11.2): whether an answer had been started at the first hint. */
+  firstHintProgress?: FirstHintProgress | null;
 }
+
+/** Adaptive difficulty AD1's optional rating tap (spec §12). */
+export type DifficultyRating = "easy" | "about_right" | "hard";
+/** AD1's first-hint progress marker (spec §5.3, §11.2): the tutor-question marker at the first hint. */
+export type FirstHintProgress = "no_draft" | "draft_started";
 
 /** §5.7 block-end hook payload: withheld feedback released at the boundary,
  *  the completion/open-set outcome, and where the learner routes next. */

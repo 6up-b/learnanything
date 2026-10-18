@@ -521,6 +521,15 @@ def vault_summary(vault: LoadedVault) -> dict[str, Any]:
     )
 
 
+def _adaptive_difficulty_dto(config: Any) -> dict[str, Any]:
+    from learnloop.adaptive_difficulty.switches import rating_tap_enabled, receipts_enabled
+
+    rating, marker = rating_tap_enabled(config), receipts_enabled(config)
+    if not (rating or marker):
+        return {}
+    return {"adaptive_difficulty": {"rating_tap": rating, "first_hint_progress": marker}}
+
+
 def config_dto(vault: LoadedVault) -> dict[str, Any]:
     config = vault.config
     return versioned(
@@ -553,6 +562,11 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                           "authored_offer_after_seconds": config.hints.authored_offer_after_seconds,
                           "help_style": config.hints.help_style}}
                if config.hints.adaptive_enabled and config.hints.telemetry_enabled else {}),
+            # Adaptive difficulty AD1 (spec §12, §11.2): the practice screen's
+            # rating tap and first-hint progress marker. Present only while
+            # one of them is on, so with both off the snapshot is exactly
+            # what it was before AD1 and the screen sends neither.
+            **_adaptive_difficulty_dto(config),
             "scheduler": {
                 "forgetting_risk_weight": config.scheduler.forgetting_risk_weight,
                 "goal_frontier_weight": config.scheduler.goal_frontier_weight,
@@ -794,8 +808,16 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     from learnloop_sidecar.handlers.sessions import draft_self_grade_disclosure
 
     disclosure = draft_self_grade_disclosure(row)
+    from learnloop_sidecar.handlers.sessions import draft_first_hint_progress
+
+    marker = draft_first_hint_progress(
+        focus.get("practice") if isinstance(focus, dict) else None, submission_id
+    )
     return to_camel(
         {
+            # Adaptive difficulty AD1 (§11.2): the draft's first-hint progress
+            # marker, present only when one was kept for this retry key.
+            **({"first_hint_progress": marker} if marker is not None else {}),
             "current_practice_item_id": row.get("current_practice_item_id"),
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,
