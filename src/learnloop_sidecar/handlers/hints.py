@@ -269,8 +269,15 @@ def _deliver(ctx: SidecarContext, practice_item_id: str, assist_id: str) -> str:
     try:
         with repository.atomic():
             outcome, row = hint_service.deliver_hint(repository, assist_id, item=item)
+            # H2b, the authored-reveal ruling: an authored hint the service
+            # serves leaves the evidence the client's reveal of the same hint
+            # leaves, which writes no reveal row (spec §3.2; §10.1 successor
+            # 3 keeps authored reveals out of the ledger in v1). It still
+            # counts at level 3 as a server row. Every other kind keeps §5's
+            # tutor_answer reveal.
             if outcome == hint_service.SHOWN and row is not None and item is not None \
-                    and row.get("hint_kind") and row.get("level"):
+                    and row.get("hint_kind") and row.get("level") \
+                    and not hint_service.reveal_exempt(str(row["hint_kind"])):
                 try:
                     amount = hint_service.reveal_amount(item, hint_service.shown_text(item, row))
                     record_reveal_strict(
