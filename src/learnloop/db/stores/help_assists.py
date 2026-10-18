@@ -233,17 +233,23 @@ def _fold_rows(*, practice_item_id: str, session_id: str, submission_id: str | N
 
 
 def attach_keyless_fold(
-    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, since: str | None, attempt_id: str
+    connection: sqlite3.Connection, *, practice_item_id: str, session_id: str, since: str | None, attempt_id: str,
+    submitted_at: str | None = None,
 ) -> int:
     """A keyless attempt takes the server hint rows its fold counted (round
     3b): ``attempt_id`` set once (NULL to a value, as H0's attach writes and
     its identity trigger allows), in the attempt's own write transaction, so
     no later fold, keyed or keyless, counts them again. Only server-counted
-    hint rows: H0's authored-reveal telemetry is attached by key as before."""
+    hint rows: H0's authored-reveal telemetry is attached by key as before.
+    ``submitted_at`` (fix round 4, F12): the submit's admission time, written
+    where a row has none (the first stamp stays; no latency), so a hint
+    delivered during grading keeps its timing once an attempt takes it."""
 
     where, values = _fold_rows(practice_item_id=practice_item_id, session_id=session_id, submission_id=None,
                                since=since)
-    cursor = connection.execute(f"UPDATE help_assists SET attempt_id = ? WHERE {where}", (attempt_id, *values))
+    cursor = connection.execute(
+        f"UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?) WHERE {where}",
+        (attempt_id, submitted_at, *values))
     return int(cursor.rowcount or 0)
 
 

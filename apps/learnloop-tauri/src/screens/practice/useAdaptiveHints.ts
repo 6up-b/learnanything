@@ -117,6 +117,10 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
   // earlier item's hint is never shown on this one (its count is the
   // server's, ruling R1).
   const retained = useRef(new Set<string>());
+  // Fix round 4, F11: bumped by every hold. A resume names the hold it
+  // ends; one a later hold superseded is a no-op, and a read that answers
+  // after a later hold began shows nothing (the job stays retained).
+  const holdGen = useRef(0);
   // H2b review F3: the authored offer, claimed before its cancel is awaited.
   const offerClaim = useRef<string | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
@@ -355,6 +359,7 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
    *  the session and item to commit (ruling R1). */
   const hold = useCallback(async (): Promise<boolean> => {
     suspended.current = true;
+    holdGen.current += 1;
     while (inflight.current.size) {
       await Promise.allSettled([...inflight.current]);
     }
@@ -393,16 +398,24 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     return true;
   }, [handleDone, settle]);
 
+  /** The latest hold's generation (F11): what `resume(heldAt)` names. */
+  const holdGeneration = useCallback(() => holdGen.current, []);
+
   /** The panel's surface is shown again: requests are accepted, and every
    *  retained job is read once (ruling R2). A delivered hint shows here; a
    *  read answering that an attempt closed its count shows nothing; a job
    *  still being written is polled again; a read that fails keeps it. */
-  const resume = useCallback(() => {
+  const resume = useCallback((heldAt?: number) => {
+    // F11: a resume of a hold that a later hold superseded does nothing.
+    if (heldAt !== undefined && heldAt !== holdGen.current) return;
     suspended.current = false;
     const mine = generation.current;
+    const at = holdGen.current;
     for (const jobId of [...retained.current]) {
       void track(api.hintJob(jobId)).then((job) => {
         if (generation.current !== mine || !retained.current.has(jobId)) return;
+        // Held again while this read answered: it waits for that hold's resume.
+        if (holdGen.current !== at) return;
         if (job.state === "pending") {
           if (pendingRef.current || suspended.current) return;
           retained.current.delete(jobId);
@@ -502,6 +515,7 @@ export function useAdaptiveHints(options: AdaptiveHintsOptions) {
     answerDiscriminating,
     saveHelpStyle,
     hold,
+    holdGeneration,
     resume
   };
 }

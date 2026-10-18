@@ -160,3 +160,42 @@ it("F2: a delivered read whose response lands after the request was settled is s
   expect(held).toBe(true);
   expect(hook.result.current.entries).toHaveLength(1);
 });
+
+it("F11: a resume of a hold a later hold superseded reads nothing; the latest one reads the job", async () => {
+  api.hintJob.mockResolvedValue(pending);
+  const hook = renderHook(() => useAdaptiveHints(options()));
+  await act(async () => { await hook.result.current.press(); });
+  await waitFor(() => expect(api.hintJob).toHaveBeenCalledTimes(1));
+  failedCancel();
+  await act(async () => { await hook.result.current.hold(); });
+  const first = hook.result.current.holdGeneration();
+  await act(async () => { await hook.result.current.hold(); });
+  const reads = api.hintJob.mock.calls.length;
+  api.hintJob.mockResolvedValue(delivered);
+  await act(async () => { hook.result.current.resume(first); await wait(10); });
+  expect(api.hintJob.mock.calls.length).toBe(reads);
+  expect(hook.result.current.entries).toHaveLength(0);
+  act(() => { hook.result.current.resume(hook.result.current.holdGeneration()); });
+  await waitFor(() => expect(hook.result.current.entries).toHaveLength(1));
+});
+
+it("F11: a read that answers after a later hold began shows nothing and keeps the job", async () => {
+  api.hintJob.mockResolvedValue(pending);
+  const hook = renderHook(() => useAdaptiveHints(options()));
+  await act(async () => { await hook.result.current.press(); });
+  await waitFor(() => expect(api.hintJob).toHaveBeenCalledTimes(1));
+  failedCancel();
+  await act(async () => { await hook.result.current.hold(); });
+  const read = deferred<typeof delivered>();
+  api.hintJob.mockReturnValueOnce(read.promise);
+  act(() => { hook.result.current.resume(); });
+  // Held again before the read answers (steps opened again).
+  let holding!: Promise<boolean>;
+  act(() => { holding = hook.result.current.hold(); });
+  await act(async () => { read.resolve(delivered); await holding; });
+  expect(hook.result.current.entries).toHaveLength(0);
+  // Back on the answer box: the retained job is read and shown.
+  api.hintJob.mockResolvedValue(delivered);
+  act(() => { hook.result.current.resume(); });
+  await waitFor(() => expect(hook.result.current.entries).toHaveLength(1));
+});

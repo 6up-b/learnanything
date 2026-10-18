@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace as _dataclass_replace
 import sqlite3
 from typing import Any
 
@@ -1114,6 +1115,10 @@ def submit_attempt_on(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
     _stamp_window_hints(repository, hint_fold, hint_submitted_at)
+    # Fix round 4, F12: the admission time goes with the fold, so a row the
+    # attempt's transactional refold takes is stamped then (first stamp kept).
+    hint_fold = _dataclass_replace(hint_fold, submitted_at=hint_submitted_at)
+    draft = _dataclass_replace(draft, server_hint_fold=hint_fold)
     if declared_stuck and not learner_answer_md.strip():
         # An empty stuck answer: nothing to grade, so no provider and no
         # self-grade; recorded at once as an ordinary attempt scored 0.
@@ -1263,6 +1268,8 @@ def submit_dont_know_on(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
     _stamp_window_hints(repository, hint_fold, hint_submitted_at)
+    # Fix round 4, F12: the admission time goes with the fold (see above).
+    hint_fold = _dataclass_replace(hint_fold, submitted_at=hint_submitted_at)
     if stuck:
         # mvp-0.13: "I don't know" no longer records `dont_know`. A client
         # still sending it gets what "I'm stuck" with an empty box records:

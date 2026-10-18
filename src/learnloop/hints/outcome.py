@@ -101,8 +101,8 @@ class OutcomePlacementV1(WireModel):
 @dataclass
 class OutcomeResult:
     """What one placement did. ``status``: placed | not_due | disabled |
-    already_placed | no_map | busy | stale | capped | unpriced | unavailable |
-    failed | invalid."""
+    already_placed | no_map | map_changed | busy | stale | capped | unpriced |
+    unavailable | failed | invalid."""
 
     status: str
     attempt_id: str
@@ -140,7 +140,56 @@ def claim_key(attempt_id: str) -> str:
 class _Due:
     attempt: dict[str, Any]
     hints: list[dict[str, Any]]
-    map_record: dict[str, Any]
+    #: The map the answer is placed on: one recorded on the attempt's own
+    #: hint rows (fix round 4, F14), or None when none can be used.
+    map_record: dict[str, Any] | None
+    #: Shown hints judged against no map: their recorded map is not the
+    #: placement's, cannot be loaded, or is not the attempt's item revision.
+    #: They get a terminal ``unknown`` (reason :data:`MAP_CHANGED`), never a
+    #: verdict against another map.
+    unplaceable: frozenset[str] = frozenset()
+
+
+#: The reason of a hint's terminal ``unknown`` when the map it was written on
+#: cannot judge it now (fix round 4, F14).
+MAP_CHANGED = "map_changed"
+
+
+def _recorded_map(connection: Any, item: Any, hints: Sequence[Mapping[str, Any]]
+                  ) -> tuple[dict[str, Any] | None, frozenset[str]]:
+    """The map the hints were written on (fix round 4, F14): the newest
+    hint's recorded ``map_id`` that loads, is the item's, and was built for
+    the item revision both the hint and today's item are at (so the prompt's
+    question is the one the attempt answered). Hints recorded on any other
+    map, or on one that fails those checks, are returned as unplaceable.
+    Hints with no recorded map name no node, so they are judged as before
+    (``no_target``). Never today's map in place of a recorded one."""
+
+    from learnloop.db.stores import approach_maps as map_store
+    from learnloop.vault.hashes import practice_item_hash
+
+    current_hash = practice_item_hash(item)
+
+    def usable(hint: Mapping[str, Any]) -> dict[str, Any] | None:
+        record = map_store.map_row(connection, str(hint["map_id"]))
+        if record is None or str(record.get("practice_item_id")) != item.id:
+            return None
+        if str(record.get("practice_item_hash")) != current_hash:
+            return None
+        if hint.get("practice_item_hash") and str(hint["practice_item_hash"]) != current_hash:
+            return None
+        return record
+
+    chosen: dict[str, Any] | None = None
+    for hint in reversed(list(hints)):
+        if hint.get("map_id"):
+            chosen = usable(hint)
+            if chosen is not None:
+                break
+    unplaceable = frozenset(
+        str(hint["id"]) for hint in hints
+        if hint.get("map_id") and (chosen is None or str(hint["map_id"]) != str(chosen["id"])))
+    return chosen, unplaceable
 
 
 def _due(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[_Due | None, str]:
@@ -159,7 +208,8 @@ def _due(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[_
         if not str(attempt["learner_answer_md"] or "").strip():
             return None, "not_due"  # an empty answer is at the givens: nothing to place
         hints = [dict(row) for row in connection.execute(
-            "SELECT id, hint_kind, level, route_id, from_node_id, target_node_id, map_id FROM help_assists "
+            "SELECT id, hint_kind, level, route_id, from_node_id, target_node_id, map_id, practice_item_hash "
+            "FROM help_assists "
             "WHERE attempt_id = ? AND assist_kind = 'hint' AND shown = 1 ORDER BY requested_at, id",
             (attempt_id,)).fetchall()]
         if not hints:
@@ -169,13 +219,16 @@ def _due(vault: LoadedVault, repository: Repository, attempt_id: str) -> tuple[_
             "LIMIT 1", (LEDGER_TASK, attempt_id)).fetchone()
         if placed is not None:
             return None, "already_placed"
-    item = vault.practice_items.get(str(attempt["practice_item_id"]))
-    if item is None or item.status != "active":
-        return None, "not_due"
-    current = maps.current_map(vault, repository, item.id)
-    if current is None:
-        return None, "no_map"
-    return _Due(attempt, hints, current), "due"
+        item = vault.practice_items.get(str(attempt["practice_item_id"]))
+        if item is None or item.status != "active":
+            return None, "not_due"
+        if not maps.maps_enabled(vault.config):
+            return None, "no_map"
+        # F14: the map the hints were written on, never today's in its place.
+        recorded, unplaceable = _recorded_map(connection, item, hints)
+    if recorded is None and not unplaceable:
+        return None, "no_map"  # no hint names a map: nothing to judge against
+    return _Due(attempt, hints, recorded, unplaceable), "due"
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +327,11 @@ def place_outcome(vault: LoadedVault, repository: Repository, attempt_id: str, *
         if due is None:
             result.status = why
             return result
+        if due.map_record is None:
+            # F14: no hint's map can judge it now: terminal unknowns, no call.
+            _write(repository, due, None, "", model="", clock=clock, claim=claim, invalid=None, result=result)
+            result.status, result.reason = "map_changed", MAP_CHANGED
+            return result
         return _place_claimed(vault, repository, item, due, claim, result, client=client, clock=clock)
 
 
@@ -283,7 +341,7 @@ def _place_claimed(vault: LoadedVault, repository: Repository, item: Any, due: _
     subscription = route.billing == "subscription"
     price = vault.config.hints.price_per_million
     answer_md = str(due.attempt["learner_answer_md"] or "")
-    map_payload = due.map_record["map"]
+    map_payload = (due.map_record or {})["map"]
     try:
         resolved = client
         if resolved is None:
@@ -348,21 +406,28 @@ def _write(repository: Repository, due: _Due, answer: OutcomePlacementV1 | None,
     """One verdict per shown hint row, fenced like a map's writes."""
 
     placement = answer.model_dump(mode="json") if answer is not None else None
+    map_record = due.map_record or {}
+    # No call was made (F14: no usable map): the verdicts are code's alone.
+    called = due.map_record is not None
     with maps._fenced_txn(repository, claim) as connection:
         for hint in due.hints:
-            if answer is None:
+            if str(hint["id"]) in due.unplaceable:
+                verdict, reason, target = "unknown", MAP_CHANGED, hint.get("target_node_id")
+            elif answer is None:
                 verdict, reason, target = "unknown", "placement_invalid", hint.get("target_node_id")
             else:
-                verdict, reason, target = hint_verdict(hint, answer, due.map_record["map"])
+                verdict, reason, target = hint_verdict(hint, answer, map_record["map"])
             result.verdicts[str(hint["id"])] = verdict
             rationale = {"placement": placement, "reason": reason, "invalid": list(invalid or ()) or None,
                          "target_node_id": target, "hint_kind": hint.get("hint_kind"), "level": hint.get("level"),
-                         "hint_route_id": hint.get("route_id"), "map_id": due.map_record.get("id"),
-                         "map_version": due.map_record.get("version"), "rounds": result.rounds,
-                         "measurement_only": True}
+                         "hint_route_id": hint.get("route_id"), "map_id": map_record.get("id"),
+                         "map_version": map_record.get("version"), "hint_map_id": hint.get("map_id"),
+                         "rounds": result.rounds, "measurement_only": True}
             append_judgment(connection, task=LEDGER_TASK, left_kind="help_assist", left_id=str(hint["id"]),
-                            right_kind="practice_attempt", right_id=str(due.attempt["id"]), judge="llm",
-                            judge_model=model, prompt_version=PROMPT_VERSION, input_hash=content_key(prompt),
+                            right_kind="practice_attempt", right_id=str(due.attempt["id"]),
+                            judge="llm" if called else "verifier", judge_model=model if called else None,
+                            prompt_version=PROMPT_VERSION,
+                            input_hash=content_key(prompt or json.dumps(rationale, sort_keys=True, default=str)),
                             verdict=verdict, rationale=json.dumps(rationale, sort_keys=True, default=str),
                             created_at=utc_now_iso(clock))
 
@@ -462,9 +527,11 @@ RECONCILE_LIMIT = 20
 RECONCILE_PAGE = 50
 #: Outcomes that placed nothing and spent nothing: the pass moves on to the
 #: next candidate without counting them against :data:`RECONCILE_LIMIT`.
-_NOTHING_PLACED = frozenset({"not_due", "no_map", "already_placed", "busy", "disabled"})
+_NOTHING_PLACED = frozenset({"not_due", "no_map", "already_placed", "busy", "disabled", "map_changed"})
+#: An interrupted placement (fix round 4, F13): the pass stops at once.
+_INTERRUPTED = "interrupted"
 #: Outcomes after which the rest waits for the next open (or the envelope's next day).
-_STOP = frozenset({"capped", "unpriced", "unavailable", "stale"})
+_STOP = frozenset({"capped", "unpriced", "unavailable", "stale", _INTERRUPTED})
 
 
 def _unplaced_page(sqlite_path: Any, *, since: str, limit: int,
@@ -549,9 +616,18 @@ def reconcile_outcome_placements(vault: LoadedVault, sqlite_path: Any, *, client
                 _INFLIGHT.add(candidate)
             try:
                 return place_outcome(vault, repository, attempt_id, client=client, clock=clock, fence=fence)
-            except Exception:  # noqa: BLE001 - one attempt never stops the pass
+            except AIInterrupted as exc:
+                # Fix round 4, F13: an interrupted turn stops the pass at once
+                # (a shutdown or a cancel, never a reason to try the next).
+                return OutcomeResult(status=_INTERRUPTED, attempt_id=attempt_id, reason=str(exc)[:300])
+            except Exception as exc:  # noqa: BLE001 - one attempt never stops the pass
+                # F13: the skips decided before any call are statuses, never
+                # exceptions, so a failure here may follow a model call: it
+                # counts against the pass's bound (conservatively, also one
+                # raised before a call could start).
                 LOG.warning("hint outcome reconciliation failed for %s", attempt_id, exc_info=True)
-                return None
+                return OutcomeResult(status="failed", attempt_id=attempt_id,
+                                     reason=f"{type(exc).__name__}: {exc}"[:300])
             finally:
                 with _INFLIGHT_GUARD:
                     _INFLIGHT.discard(candidate)

@@ -658,43 +658,73 @@ export function PracticeScreen({
   // with the work: the problem's submit folds the hints the server showed on
   // the answer box itself (ruling R1). Off, the hold is a no-op.
   const enteringSteps = useRef(false);
-  const handOff = useCallback(async () => {
+  // Fix round 4, F11: one answer box -> steps transition at a time. A second
+  // open or resume while one is in flight is ignored, and a failed one
+  // gives the hints back only when it is still the latest transition and
+  // the answer box is the surface showing.
+  const transition = useRef({ token: 0, busy: false });
+  const stepsShown = useRef(false);
+  const beginTransition = useCallback((): number | null => {
+    if (transition.current.busy) return null;
+    transition.current = { token: transition.current.token + 1, busy: true };
+    return transition.current.token;
+  }, []);
+  const endTransition = useCallback((token: number) => {
+    if (transition.current.token === token) transition.current = { ...transition.current, busy: false };
+  }, []);
+  const handOff = useCallback(async (): Promise<number> => {
     enteringSteps.current = true;
     await adaptiveHints.hold();
-  }, [adaptiveHints.hold]);
-  const handOffFailed = useCallback(() => {
+    return adaptiveHints.holdGeneration();
+  }, [adaptiveHints.hold, adaptiveHints.holdGeneration]);
+  const handOffFailed = useCallback((token: number, heldAt: number | undefined) => {
+    if (token !== transition.current.token || stepsShown.current) return;
     enteringSteps.current = false;
-    adaptiveHints.resume();
+    adaptiveHints.resume(heldAt);
   }, [adaptiveHints.resume]);
+  const showSteps = useCallback((next: WorkbenchSessionDto) => {
+    stepsShown.current = true;
+    setWbSession(next);
+  }, []);
   const openWorkbench = useCallback(async () => {
     if (!item) return;
+    const token = beginTransition();
+    if (token === null) return;
+    let heldAt: number | undefined;
     try {
-      await handOff();
+      heldAt = await handOff();
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, practiceItemId: item.id, stemMd: item.prompt,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
-      setWbSession(result.session);
+      showSteps(result.session);
     } catch (error) {
-      handOffFailed();
+      handOffFailed(token, heldAt);
       onError(errorMessage(error, "Couldn't open the step workbench."));
+    } finally {
+      endTransition(token);
     }
-  }, [handOff, handOffFailed, item, onError, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, item, onError, showSteps, wbEntry, wbOrigin]);
   const resumeWorkbench = useCallback(async (entry: WorkbenchSummaryDto) => {
+    const token = beginTransition();
+    if (token === null) return;
+    let heldAt: number | undefined;
     try {
-      await handOff();
+      heldAt = await handOff();
       // One explicit resume: reopened when set aside, and moved here when it
       // was worked in the Reader (no book on this screen; review F4).
       const result = await api.workbenchOpen({
         origin: wbOrigin, entry: wbEntry, sessionId: entry.sessionId,
         carriedHints: carriedRef.current.hints, carriedBook: carriedRef.current.book, ...serveRef.current,
       });
-      setWbSession(result.session);
+      showSteps(result.session);
     } catch (error) {
-      handOffFailed();
+      handOffFailed(token, heldAt);
       onError(errorMessage(error, "Couldn't reopen your steps."));
+    } finally {
+      endTransition(token);
     }
-  }, [handOff, handOffFailed, onError, wbEntry, wbOrigin]);
+  }, [beginTransition, endTransition, handOff, handOffFailed, onError, showSteps, wbEntry, wbOrigin]);
   const backToAnswerBox = useCallback((closing: WorkbenchSessionDto | null) => {
     const carried = closing?.carriedHints ?? 0;
     // Hints seen count as seen, even when the item shows fewer today (the
@@ -732,6 +762,7 @@ export function PracticeScreen({
   assistPendingRef.current = assistPending;
   const wbOpenEntry = wbItemSessions.find((entry) => entry.status === "open") ?? wbItemSessions.find((entry) => entry.status === "abandoned") ?? null;
   const stepsMode = workbenchAvailable && wbSession !== null;
+  stepsShown.current = stepsMode;
   // H2b review F2: hints are asked for again once the answer box is back.
   useEffect(() => {
     if (stepsMode) {

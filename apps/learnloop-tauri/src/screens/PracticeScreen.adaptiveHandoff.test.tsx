@@ -311,3 +311,32 @@ it("R2: when the cancel cannot be established the learner still enters steps, an
   fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
   expect(await screen.findByText("Delivered on the answer box.")).toBeTruthy();
 });
+
+it("F11: a double click on Work in steps opens once, reads no job in steps, and the hint shows back on the answer box", async () => {
+  config(true);
+  api.requestHint.mockResolvedValue(pending());
+  let deliver = false;
+  api.hintJob.mockImplementation(async () => (deliver ? done(ready({ hintMd: "Delivered on the answer box." })) : pending()));
+  // The cancel fails, so the job is retained (ruling R2).
+  api.cancelHint.mockRejectedValue(new Error("sidecar busy"));
+  // The verify's sequence: the first open succeeds; an overlapping second one fails.
+  api.workbenchOpen
+    .mockImplementationOnce(async () => ({ session: wb(), resumed: false }))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => setTimeout(() => reject(new Error("busy")), 60)));
+  await open();
+  fireEvent.keyDown(window, { key: "h", ctrlKey: true });
+  await screen.findByText("Writing a hint for your work…");
+  const button = screen.getByRole("button", { name: /work in steps/i });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  await screen.findByRole("region", { name: "workbench" });
+  const reads = api.hintJob.mock.calls.length;
+  deliver = true;
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  // Steps are showing: nothing read the retained job here.
+  expect(screen.getByRole("region", { name: "workbench" })).toBeTruthy();
+  expect(api.hintJob.mock.calls.length).toBe(reads);
+  expect(api.workbenchOpen).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "answer box instead" }));
+  expect(await screen.findByText("Delivered on the answer box.")).toBeTruthy();
+});
