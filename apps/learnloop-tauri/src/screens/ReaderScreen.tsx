@@ -26,6 +26,9 @@ import type {
   ReaderGuideSectionDto,
   ReaderPdfViewDto,
   ReaderPromptContractDto,
+  LibraryAskEntry,
+  LibraryHitDto,
+  ProposedItemDto,
   ReaderRenderBlockDto,
   ReaderRenderViewDto,
   ReaderSourceSearchDto,
@@ -86,6 +89,9 @@ import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { useActiveReading } from "./reader/useActiveReading";
 import { ActiveReadingCard, NextStepFoldLine } from "./reader/ActiveReadingCard";
+import { useLibraryAsk } from "./reader/useLibraryAsk";
+import { LibraryPane } from "./reader/LibraryPane";
+import { LibraryAnswer } from "./reader/LibraryAnswer";
 import type { ReaderIntentActionDto } from "../api/dto";
 import { algoConfig } from "../app/algoConfig";
 import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReaderWorkbench";
@@ -1144,6 +1150,33 @@ export function ReaderScreen({
     onError,
     onOpenRail: openActiveRail,
   });
+  // RW4a: ask your library, in the comparing posture beside the open source
+  // (and in place on the library page). Off (no `libraryAsk` in the contract)
+  // nothing renders and no key does anything new.
+  const libraryCtl = useLibraryAsk({ contract, openSourceId: render?.sourceId ?? null, onError });
+  const [libraryCompose, setLibraryCompose] = useState<string | null>(null);
+  const comparing = Boolean(render) && !offline && !working && (libraryCtl.open || libraryCompose !== null);
+  const askLibraryHere = useCallback((query: string, entry: LibraryAskEntry, spanIds: string[]) => {
+    if (!render || offline) return;
+    setLibraryCompose(null);
+    libraryCtl.ask({ query, entry, extractionId: render.extractionId, spanIds });
+  }, [render, offline, libraryCtl]);
+  const closeLibrary = useCallback(() => {
+    setLibraryCompose(null);
+    libraryCtl.close();
+  }, [libraryCtl]);
+  // Ctrl+Shift+F: ask your library about the selection, else the passage in view.
+  useEffect(() => {
+    if (!libraryCtl.enabled || !render || offline || working) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== "f") return;
+      event.preventDefault();
+      libraryCtl.close();
+      setLibraryCompose(selection ? (selection.editedText ?? selection.quote).slice(0, 400) : "");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [libraryCtl, render, offline, working, selection]);
 
   const onMouseUp = useCallback(() => {
     const sel = window.getSelection();
@@ -1991,6 +2024,12 @@ export function ReaderScreen({
                       setLibrarySearch("");
                       setSearchDeep(false);
                     }
+                    // RW4a: Shift+Enter asks your library (sources first); off, it is Enter.
+                    if (e.key === "Enter" && e.shiftKey && libraryCtl.enabled && librarySearch.trim()) {
+                      e.preventDefault();
+                      libraryCtl.ask({ query: librarySearch.trim(), entry: "library_search", extractionId: null, spanIds: [] });
+                      return;
+                    }
                     if (e.key === "Enter") setSearchDeep(true);
                   }}
                   placeholder="search all sources…"
@@ -2003,6 +2042,20 @@ export function ReaderScreen({
                   </Faint>
                 ) : null}
               </div>
+              {libraryCtl.enabled ? <Faint style={{ fontSize: 10 }}>↵ search by meaning · ⇧↵ ask your library</Faint> : null}
+              {libraryCtl.open ? (
+                <Card style={{ padding: 0 }}>
+                  <LibraryAnswer
+                    ctl={libraryCtl}
+                    onOpenHit={(hit) => {
+                      const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
+                      if (card && opening === null) void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+                    }}
+                    onPracticePick={null}
+                    onClose={libraryCtl.close}
+                  />
+                </Card>
+              ) : null}
               {searchError ? (
                 <div role="alert" style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.red }}>
                   {searchError} Edit the search to retry.
@@ -2177,6 +2230,11 @@ export function ReaderScreen({
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "another_way", ...meta });
         void activeCtl.anotherWay(selection ? (selection.editedText ?? selection.quote) : "", selectionSpanIds);
         return;
+      case "library_ask":
+        // RW4a: Orient's and Transfer's library asks, in the comparing posture.
+        logReaderAction("action_invoked", { ...visitPayload(), action_kind: effect.entry, ...meta });
+        askLibraryHere(text || (selection ? (selection.editedText ?? selection.quote) : ""), effect.entry, selectionSpanIds);
+        return;
     }
   };
   // "change" cancels the routed action (spec §4.2; RW1b review F4): an Ask
@@ -2189,6 +2247,7 @@ export function ReaderScreen({
     if (kind === "ask" && askPhase === "pending") cancelAsk();
     if (kind === "active_reading") activeCtl.close();
     if (kind === "another_way") activeCtl.closeAnother();
+    if (kind === "library_ask") closeLibrary();
     void cancel.handle.then(async (handle) => {
       if (handle?.annotationId && cancel.routingId) {
         const annotationId = handle.annotationId;
@@ -2217,6 +2276,32 @@ export function ReaderScreen({
     const spanId = wbCtl.close(session, { abandoned: abandonedNow });
     // Collapse back into ordinary reading at the problem's passage.
     if (spanId) window.setTimeout(() => jumpToSpan(spanId), 0);
+  };
+  // RW4a: "open" a library hit: this book jumps to it (a peek crumb); another
+  // book opens in the left pane as a detour (Alt+← comes back here).
+  const openLibraryHit = (hit: LibraryHitDto) => {
+    if (render && hit.sourceId === render.sourceId) {
+      peekPassage(hit.spanId);
+      return;
+    }
+    const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
+    if (!card || opening !== null) return;
+    if (render && !offline) {
+      const spanId = readingSpan ?? activeSpan;
+      rememberLeftSource({
+        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
+        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
+        label: sourceTitle ?? "where I was", openedAt: Date.now(),
+      });
+    }
+    void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
+  };
+  // RW4a: "practice this ▸" is a learner pick the plan serves (the same path as
+  // a cue's check me), with the book out of view.
+  const pickLibraryPractice = (item: ProposedItemDto, proposalId: string | null) => {
+    const card = openCardRef.current;
+    if (!card || !onCheckMe || !render) return;
+    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: readingSpan ?? activeSpan ?? "", card });
   };
   const resumeMark = (spanId: string | null | undefined) => {
     const entry = spanId ? wbResumeBySpan.get(spanId) : undefined;
@@ -2641,8 +2726,19 @@ export function ReaderScreen({
             </div>
           </>
         ) : null}
+        {comparing && render ? (
+          <LibraryPane
+            ctl={libraryCtl}
+            compose={libraryCompose}
+            onCompose={setLibraryCompose}
+            onAsk={(query) => askLibraryHere(query, "reader", selectionSpanIds.length ? selectionSpanIds : [readingSpan ?? activeSpan].filter((span): span is string => Boolean(span)))}
+            onOpenHit={openLibraryHit}
+            onPracticePick={onCheckMe ? pickLibraryPractice : null}
+            onClose={closeLibrary}
+          />
+        ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {inquiry && railCollapsed && !working ? (
+        {inquiry && railCollapsed && !working && !comparing ? (
           <button
             type="button"
             onClick={() => setRailCollapsed(false)}
@@ -2668,7 +2764,7 @@ export function ReaderScreen({
             overflowY: "auto",
             overscrollBehaviorY: "contain",
             scrollbarGutter: "stable",
-            display: (inquiry && railCollapsed) || working ? "none" : undefined,
+            display: (inquiry && railCollapsed) || working || comparing ? "none" : undefined,
           }}
           className="ll-scroll"
         >

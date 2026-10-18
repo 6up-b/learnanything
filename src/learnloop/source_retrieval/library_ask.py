@@ -459,6 +459,7 @@ def ask_library(
     return {
         "ask_id": ask_id, "query": query, "entry": entry, "status": _status(main), "policy": policy,
         "personalized": personalized, "basis": _basis(main.manifest), "hits": shown,
+        "learning_object_ids": anchor_los, "extraction_id": extraction_id, "anchor_span_ids": anchor_spans,
         "groups": group_hits(shown), "expansions": expansions,
         "expand_graph": expand_graph, "source_count": len(sources), "passage_count": len(shown),
         "exposure_event_ids": exposure_ids,

@@ -2,6 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { invalidate, invalidateAll, setQueryData, type QueryTag } from "./queryCache";
 import { READER_PREFIX, TAG } from "./queryTags";
 import type {
+  CompareTableDto,
+  LibraryAskDto,
+  LibraryAskEntry,
+  LibraryExpansion,
+  LibraryNotesDto,
+  LibraryTutorDto,
   WorkbenchOpenInput,
   WorkbenchSaveStepDto,
   WorkbenchSaveStepInput,
@@ -1467,6 +1473,17 @@ export const api = {
     mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string; commitmentId: string; dueHint: string; question: ReaderActiveQuestionDto }>("reader_reconstruct", { input }))),
   readerReconstructUndo: (input: { questionId: string }) =>
     mutating([TAG.queue], mutatingReader(call<{ practiceItemId: string | null; commitmentId: string | null; question: ReaderActiveQuestionDto | null }>("reader_reconstruct_undo", { input }))),
+  // Reader workbench RW4a: ask your library (sources first), the organizer's
+  // notes, compare pinned passages (display only) and the tutor about them.
+  readerLibraryAsk: (input: {
+    query: string; entry: LibraryAskEntry; extractionId?: string | null; spanIds?: string[];
+    learningObjectIds?: string[]; personalized?: boolean | null; expand?: LibraryExpansion[] | null;
+  }) => call<LibraryAskDto>("reader_library_ask", { input }),
+  readerLibraryAskNotes: (input: { askId: string }) => call<LibraryNotesDto>("reader_library_ask_notes", { input }),
+  readerLibraryCompare: (input: { askId: string; pinnedSpanKeys: string[]; openSourceId?: string | null }) =>
+    call<CompareTableDto>("reader_library_compare", { input }),
+  readerLibraryAskTutor: (input: { askId: string; pinnedSpanKeys: string[]; question?: string | null }) =>
+    call<LibraryTutorDto>("reader_library_ask_tutor", { input }),
   // Reader workbench RW3a: a tap on a margin cue (open, check me, not relevant
   // and its undo) and the learner's cue preferences (density, a book off).
   readerCueAction: (input: { extractionId: string; cueId: string; action: ReaderCueAction; text?: string | null }) =>
