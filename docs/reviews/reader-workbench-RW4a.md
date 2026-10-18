@@ -350,3 +350,109 @@ test_tutor_practice_request test_tutor_promotion_w2 test_tutor_qa test_tutor_too
 test_ux_phase1_connect_ai test_ux_phase1_landing test_ux_phase1_usability_round1 test_ux_phase4_feedback 
 test_valuation_calibration_fields 
 ```
+
+## Landing onto main
+
+Landed in the `learnanything-merge2` worktree on branch `merge/rw4a-onto-main`. Main's tip was `8eb1ba5d2` (the RW1b landing), which is the stage's base. The stage tip is `07f77d497`, unchanged. Codex's final verify (job `20261017-215940-M3pFfC`) is clean. Main was neither fast-forwarded nor pushed here.
+
+**Commits:**
+- `15789eb84`: a real `--no-ff` merge of `reader/rw4a` onto `8eb1ba5d2`. Main had not moved, so the merged tree is exactly the stage tip (`git diff 07f77d497 15789eb84` is empty).
+- `27bad0c2f`: the references regenerated on the merged tree.
+- This record.
+
+### Merge
+
+- **No conflicts.** Migration 209 was still free (main's head was 208). `fixtures/migration_head_209` is in rollback mode: header bytes 18-19 are 1/1, `journal_mode` is `delete`, its last `schema_migrations` row is 209 and there is no `-wal` or `-shm`. `fixtures/migration_head_208` is gone. No tracked code or test names the old path; only earlier review records and the 209 fixture's README mention it, as history.
+- **No algorithm successor.** The vaults' labels and the Pipeline Map's `implementation_version` are unchanged.
+
+### Regenerated
+
+- **References.** Ran `db_generate_reference.py`, then `db_validate_reference.py`: **0 errors**, `schema_head` 209, 328 table notes. 390 notes changed, all of them `source_commit` / `source_commit_timestamp` labels, with no content changes. Committed as `27bad0c2f`.
+- **Defaults snapshots.** Deleted the template `.pyc` and touched `template.py`. All 19 `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries equal `defaults_fingerprint_for_version`: **0 mismatches**.
+- **CLI help snapshot.** Rewritten with `python tests/test_cli_help_snapshot.py --write`: no change.
+- **Pipeline Map.** The stage's RW4a bullet (the library ask, the organizer route, `library_asks`, the kill switches) is already there, so nothing was added. `validate_vault.py` passes (1,122 notes, 1,120/1,120 reachable).
+
+### Gate
+
+Run on `27bad0c2f`, the final code tree; the only later commit adds this section. Python 3.12.14, `TMPDIR` set to merge2's `fixtures-local/tmp`, `uv run --no-sync` after the install. Both suite lanes ran under `flock /tmp/learnloop-fullsuite.lock`. No paid call was made: every test uses fakes. **This is the first full run over the stage's code**; every stage step had run targeted tests only (owner rule 2026-10-17).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok (pypdfium2 5.14.0) |
+| `lint-imports --no-cache` | **24 kept**, 0 broken |
+| `pytest -n auto -q -p no:cacheprovider` (full suite) | **13,135 passed, 2 xfailed**, 0 failed (18 min 7 s; `fixtures-local/rw4a-landing-fullsuite.log`). RW1b's landing ran 13,063; the +72 are RW4a's new tests |
+| `pytest -m durability` | **108 passed**, 13,029 deselected (2 min 58 s); RW1b's was 107, plus the `library_asks` migration's durability case |
+| `npm install`, `npm run typecheck` | ok, clean |
+| `npm test` (vitest) | **123 files, 994 tests passed** (RW1b's: 120 files, 971) |
+| `npm run frontend:build` | built (the usual chunk-size warning) |
+| `cargo check --manifest-path src-tauri/Cargo.toml` | finished, exit 0 (`src-tauri` gains the six passthroughs) |
+| tracked fixtures | `git status` clean after both lanes and the frontend run |
+
+Nothing failed, so nothing was rerun or fixed. None of the known flakes fired (`"8841"` in `test_mcp_c1a_review.py`, the vitest load-timing cases). The vitest run went after both pytest lanes, with nothing else running.
+
+### Parity (backup-API copies; no model call)
+
+**Setup:**
+- **Copies.** The owner's `fixtures/linear_algebra` and `fixtures/probability` (with probability's `.learnloop/state.sqlite`) were copied with `copy_tree_with_databases` from the main checkout into `fixtures-local/landing-rw4a/orig/`. Each original was read once. Every other copy came from `orig/` or from another copy through the same helper. `arxiv_v2` was not opened.
+- **Code.** Main's code is `git archive 8eb1ba5d2` and the merge's is `git archive 27bad0c2f`, each containing only `src`, `migrations` and `pyproject.toml`. Each was put first on `sys.path`, and every run printed the `learnloop` package it imported.
+- **Environment.** `LEARNLOOP_CONFIG_DIR` was an empty directory and `LEARNLOOP_AI_PROVIDER` was unset. Every process started in a directory holding no `.env`. For the upgrade runs and the sidecar runs, `HOME` and `CODEX_HOME` were also empty directories, so no Codex login, ChatGPT-plan token or OpenRouter key was reachable. The sidecar ran with a minimal environment (`PATH`, `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`, `LANG`).
+- **Model routes, before any retrieval.** Every switch copy's `learnloop.toml` was rewritten first:
+  - `ai.active_provider` and every chat route the vault sets, plus `library_organizer`, `source_query_rewrite`, `source_rerank`, `source_compare`, `source_relevance_judge`, `source_query_writer` and the learner-gap routes, went to an `openai_chat` profile at `http://127.0.0.1:9/v1` with an unset key variable;
+  - `[source_retrieval]` `query_rewrite`, `tutor_query_rewrite`, `tutor_rerank` and `dense` were all false;
+  - `[embedding]` `enabled`, `backfill_enabled` and `backfill_sources_on_extract` were all false.
+
+  `config effective` confirmed the result. No call was attempted: no organizer, compare or tutor request was sent.
+- **Starting state.** Both vaults were at schema 165, label `mvp-0.8`, with **0** `model_call_receipts`.
+- **Cleanup.** Once these copies existed, `fixtures-local/landing-rw1b/` (1.4 GB) was deleted. The deletion was behind fail-closed guards: the name had to match exactly; the resolved path had to sit directly inside merge2's `fixtures-local`; the path had to be a real directory, ignored by git and holding no tracked file; nothing in it could have been modified in the last 30 minutes (`find -mmin -30`, where an error refuses); and no process could have a file open in it (`lsof +D`).
+
+| Check | linear_algebra | probability |
+|---|---|---|
+| **(a)** open (migrate), main's code / the merge's | 165 → 208 (43) / 165 → 209 (44) | 165 → 208 (43) / 165 → 209 (44) |
+| schema objects, main vs merge | the only difference is the merge's new `library_asks` table and its two indexes (`idx_library_asks_created`, `idx_library_asks_extraction`); every other table, index and trigger has identical SQL | same |
+| rows of every table (332), on main's columns | **identical** (16,534 rows); `schema_migrations` differs only by the 209 row; `library_asks` is empty | **identical** (7,632 rows); `library_asks` is empty |
+| `rebuild --shadow --json`, main vs merge | **0 differences** (facet 0, mastery 2, schedule 8; live database unchanged on both) | **0 differences** (facet 0, mastery 1, schedule 1) |
+| `doctor --json`, main vs merge | **0 differences** (57 issues, 1 error) | **0 differences** (101 issues, 48 errors) |
+| **(b)** upgrade shadow: main's code migrates to 208, then the merge's code applies **209 only** | applied 1, head 209; `foreign_key_check` empty, `integrity_check` ok; all 332 tables' rows identical to the 208 copy; schema differs only by `library_asks` and its indexes | same |
+| `rebuild --shadow` and `doctor`: main's code on the 208 copy vs the merge's code on the upgraded copy | **0 differences** each | **0 differences** each |
+| **(c)** at `mvp-0.8`: every facet's `facet_evidence_timelines` (`as_dict` plus the eleven `TimelinePoint` fields), 40 single-facet curves, every LO's `recipe_gaps` and `lo_certification` | **byte-identical JSON** (39 facets, 84 points, 2 corrections; 21 LOs, 1 certified) | **byte-identical** (29 facets, 2 points; 18 LOs, 0 certified) |
+| the Today queue: `build_due_queue` at a frozen clock (2026-10-18 09:00 UTC), `persist_explanations=False`, with no session, a session and a greedy session; every `ScheduledItem` and the head | **byte-identical** (41 items each; head `pi_what_makes_function_axiom_strategy`) | **byte-identical** (67 items; head `pi_exercise_01kyn2kdf7h2kba1fp7wv7t3w5`) |
+| the same, on a copy upgraded by main's code to `mvp-0.27` (`upgrade --to mvp-0.9`, `--to mvp-0.27`, `rebuild-derived-state` twice), then opened by each code (the merge's applies 209) | **byte-identical** certification and curves (82 points, 7 corrections, 1 attempt held `grade_contract_unrecorded`; 1 LO certified) and Today queue (43 items) | **byte-identical** (29 facets, 2 points; 0 certified; Today queue 67 items) |
+
+**(d) The switches, through the merge's real sidecar** (stdio: `initialize`, then the RPCs; a pending library job was read with `reader.library_job` until done). Each case used its own copy of probability at 209, with the routes neutralized as above and one section appended to `learnloop.toml`.
+
+| Case | Result |
+|---|---|
+| everything on | the contract carries `libraryAsk {compare: true, expandGraph: true, personalizedDefault: true}` and the palette's `orient` group with `where_else_explained`, `where_is_this_used` and `what_do_i_need_first`. A library-search ask returns 8 passages; *where else is this explained?* on `s14` of `ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY` returns 12 passages with prerequisite and application expansions (policy `reading`). Each ask writes one `library_asks` row, one exposure row per passage and one `library_ask` event. `model_call_receipts` stays at 0 and `judgment_ledger` is unchanged (no organizer call: the notes were not requested) |
+| `[library_ask] enabled = false` | all six RPCs (`reader.library_ask` ×2, `_ask_notes`, `_compare`, `_ask_tutor`, `reader.library_job`, `_job_cancel`) refuse `library_ask_disabled`. The contract has no `libraryAsk` key and no library palette rows; it equals the on-contract with those removed, byte for byte |
+| `[reader_compare] enabled = false` | the contract's `libraryAsk.compare` is `false` (the rest of the contract is unchanged). The ask works; `reader.library_compare` refuses `reader_compare_disabled` |
+| `[library_ask] expand_graph = false` | the contract's `libraryAsk.expandGraph` is `false`. An anchored ask with an LO gives 8 passages, no expansion hits, and a manifest of `expansions: []` and `expansions_skipped: "library_ask.expand_graph is off"` |
+| a held-out selection (unit `u3`, spans `s1`–`s11`, marked `held_out_evaluation` on the copy through `save_unit_selection`; `held_out_material` covers it) | three asks (`reader`, `where_else_explained` with `s2` + `s14`, `what_do_i_need_first`) are each refused `exam_material`. The refusal surfaces on the job read; the start answers with a job. Nothing is written: no `library_asks` row, exposure, event or receipt |
+| what the refusals write | nothing. In the `library_ask` off case and the held-out case, the dump before and after differs only by `initialize` re-stamping three derived rows (`facet_recall_state` ×2, `facet_capability_evidence`), as at RW6a and RW1b |
+
+**`model_call_receipts` added during the parity runs: 0.** Every one of the 23 copies has 0, as the originals did.
+
+### For the owner
+
+- **No upgrade command.** RW4a has no successor; the vaults keep their label.
+- **Migration 209 applies on the next open** (the desktop app, the CLI, the MCP runtime or the mobile host, whichever opens the vault first). It only adds the empty `library_asks` table and its two indexes. **Close the app, the MCP runtime and the mobile host, and back up first**, as for any migration.
+- **Turning it off.** All in the vault's `learnloop.toml`:
+  - `[library_ask]` / `enabled = false`: today's Reader and library search; every library RPC refuses.
+  - `expand_graph = false`: no prerequisite or application expansion calls.
+  - `personalized_default = false`: the chip starts off, and no learner state goes in the organizer prompt.
+  - `[reader_compare]` / `enabled = false`: no compare.
+
+  The library ask also needs `source_service.enabled` and `reader_inquiry.enabled` (both on by default).
+- **The organizer route.** `ai.routing.library_organizer` is one listwise call per ask, through the shared `judge_listwise` (ledger task `library_contribution`). It runs only when the notes are fetched. Unset, it is the active provider (Codex here, a ChatGPT subscription call, `estimated_only`). Its metered spend is capped by `[library_ask] max_daily_cost_usd = 1.00` a UTC day. The cap is reserved atomically per attempt and priced at `source_retrieval.llm_price_per_million`. Subscription routes are never refused by it. A metered route without a price skips the notes and labels them. A deep question may also use T6's `source_query_rewrite` route (turn it off with `[source_retrieval] query_rewrite = false`).
+- **Recorded at implement:**
+  - **The concept-id expansion fix.** Real vaults' `LearningObject.prerequisites` / `.confusables` name concepts, so the sources spec's `expansion_lists` read expanded to nothing. `expanded_learning_objects` now resolves concepts to their LOs and reads `prerequisite` / `confusable_with` edges, and this also changes the sources spec's `expand` (retrieval context only). The parity copy confirmed it on probability: prerequisite and application hits appeared.
+  - **Two accidental subscription calls.** The implementer's first smoke run on a copy made two `source_query_rewrite` calls on Codex (`gpt-5.6-sol`, ChatGPT subscription, about 17.8k input tokens each, $0 metered), with no dry run first. The landing made none.
+- **To look at it:** see §10.
+- **Open questions (defaults taken):**
+  - stage record §8: 1, no comparing crumb; 2, no in-session library-ask UI; 3, `unrelated` dims; 4, exposure at the ask; 5, `assumes` derived from relations; 6, `lo_certification` per prerequisite uncached;
+  - `reader-rw4a-codex-review.md`'s three: `reader.ask` stays synchronous; a cancelled tutor job's answer is still written; a library-page pick opens the first passage's book;
+  - noted for a successor: RW1b's `reader.intent_routing` still takes a bounded `wait_ms`.
+- **New at landing (small):**
+  - **The held-out refusal comes on the job read.** `reader.library_ask` answers with a job, and the job read raises `exam_material`. The refusal still comes before any retrieval or write. The frontend reads jobs, so it shows the refusal. A direct RPC client that ignores job errors would just see a job.
+  - **Each ask writes exposure rows at once.** One `source_exposure_events` row per passage shown (12 for one *where else* ask), as the sources spec's rule says. Over time this will grow the exposure table faster than other surfaces.
+- **Also pre-existing:** the sidecar's `initialize` re-stamps three derived rows on open. The `mvp-0.27` upgrade holds one linear_algebra attempt `grade_contract_unrecorded`.
+- **Not done:** no real-UI look (as in the stage). The organizer, compare and tutor were never run against a live model.
