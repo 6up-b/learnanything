@@ -3,8 +3,8 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1167b0e4e2503ab12f31fa9d49c1b233622ee444"
-source_commit_timestamp: "2026-10-18T09:34:56-04:00"
+source_commit: "7ede426ee3b25c992005b46a6cffa9171057de09"
+source_commit_timestamp: "2026-10-18T10:09:35-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
@@ -220,6 +220,7 @@ Indexes and uniqueness:
 - `src/learnloop/hints/map_seeds.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
+- `src/learnloop/hints/report_adaptive.py`
 - `src/learnloop/instructional/exposure.py`
 - `src/learnloop/instructional/interventions.py`
 - `src/learnloop/instructional/policy.py`
