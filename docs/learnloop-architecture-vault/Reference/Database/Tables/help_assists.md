@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d49d18ffc5b7ac0d4c5d476b70a323629bad9e0d"
-source_commit_timestamp: "2026-10-18T04:55:03-04:00"
+source_commit: "59d300e637a13c15a9ef137716dc860ed6bdcd55"
+source_commit_timestamp: "2026-10-18T05:23:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
+  - "src/learnloop/hints/discriminating.py"
+  - "src/learnloop/hints/kinds.py"
   - "src/learnloop/hints/report.py"
-  - "src/learnloop/hints/telemetry.py"
-  - "src/learnloop/reader/reader_observations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -149,6 +149,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/help_assists.py`
 - `src/learnloop/hints/report.py`
 
 ### Direct SQL writers
@@ -164,6 +165,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/hint_fakes.py`
 - `tests/test_approach_map_replay.py`
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`

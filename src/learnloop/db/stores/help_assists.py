@@ -1,7 +1,9 @@
 """Adaptive hints H0: ``help_assists`` (migration 210).
 
 Plain SQL over a caller's connection; the caller owns the transaction. The
-only writer is :mod:`learnloop.hints.telemetry`. One row per assist shown (or
+writers are :mod:`learnloop.hints.telemetry` (H0's authored reveals) and
+:mod:`learnloop.hints.service` (H2a's served hints and discriminating
+answers). One row per assist shown (or
 requested and never shown) on any surface; shared with the Reader workbench
 (spec_adaptive_hints_v1 §9, spec_reader_workbench_v1 §5.7). RAW_LEDGER and
 never evidence: replay and rebuild never read it.
@@ -98,6 +100,76 @@ def attach_submission(
     return int(cursor.rowcount or 0)
 
 
+def assist(connection: sqlite3.Connection, assist_id: str) -> dict[str, Any] | None:
+    """One row as a dict, or None."""
+
+    row = connection.execute(
+        f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE id = ?", (assist_id,)
+    ).fetchone()
+    return dict(zip(COLUMNS, tuple(row))) if row is not None else None
+
+
+def submission_assists(
+    connection: sqlite3.Connection, *, submission_id: str, practice_item_id: str
+) -> list[dict[str, Any]]:
+    """Every row recorded under a submission key for the item, in the order
+    requested (shown or not, attached or not): this attempt's hints."""
+
+    rows = connection.execute(
+        f"SELECT {', '.join(COLUMNS)} FROM help_assists WHERE submission_id = ? AND practice_item_id = ? "
+        "ORDER BY requested_at, rowid",
+        (submission_id, practice_item_id),
+    ).fetchall()
+    return [dict(zip(COLUMNS, tuple(row))) for row in rows]
+
+
+def mark_shown(connection: sqlite3.Connection, assist_id: str, *, shown_at: str) -> bool:
+    """A prepared server hint (``shown = 0``) delivered to the learner: shown
+    once, with its time. Never a row already attached to an attempt (its
+    count was taken) and never twice; True when this call showed it."""
+
+    cursor = connection.execute(
+        "UPDATE help_assists SET shown = 1, shown_at = ? "
+        "WHERE id = ? AND shown = 0 AND counted_by = 'server' AND attempt_id IS NULL",
+        (shown_at, assist_id),
+    )
+    return bool(cursor.rowcount)
+
+
+def server_fold(
+    connection: sqlite3.Connection,
+    *,
+    practice_item_id: str,
+    session_id: str,
+    submission_id: str | None,
+    since: str | None = None,
+) -> tuple[int, bool]:
+    """The server-counted hints a submission folds (hints spec §5): how many
+    shown rows at levels 1-3, and whether any shown row is at level 4-5
+    (``primed``). Only rows still unattached (an attempt already took its
+    own), of this session and item, under the submission's key when it has
+    one (H0 review F1: never another submission's rows); a client with no key
+    folds the session's unattached rows requested after ``since`` (the item's
+    last attempt)."""
+
+    clauses = ["practice_item_id = ?", "practice_session_id = ?", "attempt_id IS NULL", "shown = 1",
+               "counted_by = 'server'", "assist_kind = 'hint'"]
+    values: list[Any] = [practice_item_id, session_id]
+    if submission_id is not None:
+        clauses.append("submission_id = ?")
+        values.append(submission_id)
+    elif since is not None:
+        clauses.append("requested_at > ?")
+        values.append(since)
+    row = connection.execute(
+        "SELECT COALESCE(SUM(CASE WHEN level BETWEEN 1 AND 3 THEN 1 ELSE 0 END), 0), "
+        "COALESCE(MAX(CASE WHEN level BETWEEN 4 AND 5 THEN 1 ELSE 0 END), 0) "
+        f"FROM help_assists WHERE {' AND '.join(clauses)}",
+        tuple(values),
+    ).fetchone()
+    return int(row[0] or 0), bool(row[1])
+
+
 def _latency(value: float | None) -> float | None:
     """A latency the client sent, or None (a negative one is not believed)."""
 
@@ -107,4 +179,7 @@ def _latency(value: float | None) -> float | None:
     return seconds if seconds >= 0 else None
 
 
-__all__ = ["COLUMNS", "TABLE", "attach_submission", "insert_assist", "stamp_submitted"]
+__all__ = [
+    "COLUMNS", "TABLE", "assist", "attach_submission", "insert_assist", "mark_shown", "server_fold",
+    "stamp_submitted", "submission_assists",
+]

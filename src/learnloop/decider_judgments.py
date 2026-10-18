@@ -298,7 +298,7 @@ def _recorded(repository: Any, decision: Decision, question: ChoiceQuestion) -> 
 
 def _ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, questions: dict[str, Any],
          owner_id: str, spend: Any = None, candidates: int = 0, pairs: int = 0, admit: Admit | None = None,
-         route: str = ROUTE) -> Any:
+         route: str = ROUTE, question_set_version: str = VERSION, timeout_seconds: float | None = None) -> Any:
     from learnloop.ai.review_spend import ReviewSpend, RouteInfo
 
     price = getattr(getattr(client, "settings", None), "price_per_million_input", None)
@@ -322,21 +322,31 @@ def _ask(client: Any, *, config: Any, repository: Any, task: str, state: Any, qu
                      spend.request(route, task, input_tokens=tokens, output_tokens=0,
                                    candidates=candidates, pairs=pairs))
         with spend.collector.observing(), admission:
-            with call_labels(judge="decider", question_set_version=VERSION, state_hash=content_key(wire)):
-                return client.decide(state, questions, purpose=task)
+            with call_labels(judge="decider", question_set_version=question_set_version,
+                             state_hash=content_key(wire)):
+                if timeout_seconds is None:
+                    return client.decide(state, questions, purpose=task)
+                # A caller's time box (the hint chooser's, spec §4.5): the
+                # request's own timeout, never longer than what is left.
+                return client.decide(state, questions, purpose=task, timeout_seconds=timeout_seconds)
     finally:
         spend.collector.sink = previous
 
 
 def ask_decider(client: Any, *, config: Any, repository: Any, task: str, state: Any,
-                questions: dict[str, Any], owner_id: str, route: str, spend: Any = None) -> Any:
+                questions: dict[str, Any], owner_id: str, route: str, spend: Any = None,
+                question_set_version: str = VERSION, timeout_seconds: float | None = None) -> Any:
     """One admitted Decider request for a caller that keeps its own ledger rows
-    (the Reader's intent box, ``learnloop.reader.reader_intent``): the same
-    admission and receipts as :func:`decide` (owner kind ``task``), on
-    ``route``'s listed price; it raises what the request raised."""
+    (the Reader's intent box, ``learnloop.reader.reader_intent``; the hint
+    chooser, ``learnloop.hints.chooser``): the same admission and receipts as
+    :func:`decide` (owner kind ``task``), on ``route``'s listed price; it
+    raises what the request raised. ``question_set_version`` labels the
+    receipts with the caller's own question set (default: Tier 1's);
+    ``timeout_seconds`` is the caller's time box for the one request."""
 
     return _ask(client, config=config, repository=repository, task=task, state=state, questions=questions,
-                owner_id=owner_id, spend=spend, route=route)
+                owner_id=owner_id, spend=spend, route=route, question_set_version=question_set_version,
+                timeout_seconds=timeout_seconds)
 
 
 def decide_many(*, root: Any, config: Any, repository: Any, task: str, state: Any,

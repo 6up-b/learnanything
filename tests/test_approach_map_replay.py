@@ -1,5 +1,6 @@
-"""Adaptive hints H1, G-H10: rebuild and replay make zero model and embedding
-calls with ``approach_maps`` and ``help_assists`` populated, and never read
+"""Adaptive hints H1 and H2a, G-H10: rebuild and replay make zero model and
+embedding calls with ``approach_maps`` and ``help_assists`` populated (H2a:
+server-written hints folded into an attempt too), and never read
 ``approach_maps`` (spec_adaptive_hints_v1 standing constraint H6, §9 "No
 DERIVED table, so no replayer", §11 G-H10).
 
@@ -43,6 +44,19 @@ def _populate(tmp_path: Path):
     for index in (0, 1):
         _call(ctx, "practice.record_hint_reveal", {"sessionId": session_id, "practiceItemId": ITEM,
                                                    "submissionId": "k1", "authoredIndex": index, "answerMd": ""})
+    # Adaptive hints H2a (G-H10 extended): two server-written hints, one of
+    # them worked help, counted into the attempt by the submit's fold.
+    from tests.hint_fakes import ChooserFake, WriterFake, prefer
+
+    ctx.hints_inline = True
+    for option, level in (("next_step@L3", None), ("worked_chunk@L4", 4)):
+        ctx.hint_writer_client = WriterFake()
+        ctx.hint_chooser_client = ChooserFake(prefer(option, 0.99))
+        params = {"sessionId": session_id, "practiceItemId": ITEM, "submissionId": "k1",
+                  "answerMd": "F(x) = x^2 on [0, 1]\nso P(X <= 1/2) = F(1/2) + 1"}
+        if level is not None:
+            params["takenLevel"] = level
+        assert _call(ctx, "practice.request_hint", params)["result"]["status"] == "ready"
     _call(ctx, "submit_attempt", {
         "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "F(x) = x^2, so P(X ≤ 1/2) = 1/4.",
         "attemptType": "hinted_attempt", "hintsUsed": 2, "submissionId": "k1",
@@ -52,7 +66,11 @@ def _populate(tmp_path: Path):
                                      client=MapFake())
     assert merged.status == "merged", merged
     assert len(rows(paths.sqlite_path)) == 2
-    assert len(rows(paths.sqlite_path, "help_assists")) == 2
+    assists = rows(paths.sqlite_path, "help_assists")
+    assert len(assists) == 4 and sum(1 for row in assists if row["counted_by"] == "server" and row["shown"]) == 2
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        assert connection.execute("SELECT hints_used, primed FROM practice_attempts WHERE submission_id = 'k1'"
+                                  ).fetchone() == (3, 1)
     return paths
 
 
@@ -71,6 +89,14 @@ def _forbid_clients(monkeypatch) -> None:
     monkeypatch.setattr(MB, "_route_client", forbidden)
     monkeypatch.setattr(MB, "build_map", forbidden)
     monkeypatch.setattr(MB, "merge_learner_routes", forbidden)
+    # Adaptive hints H2a: neither hint route is ever asked by replay.
+    from learnloop.hints import chooser as hint_chooser
+    from learnloop.hints import service as hint_service
+    from learnloop.hints import writer as hint_writer
+
+    monkeypatch.setattr(hint_writer.WriterRoute, "ask", forbidden)
+    monkeypatch.setattr(hint_chooser, "ask", forbidden)
+    monkeypatch.setattr(hint_service, "request_hint", forbidden)
 
 
 def _refuse_map_reads(monkeypatch, reads: list[str]) -> None:

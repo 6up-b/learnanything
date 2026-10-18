@@ -179,9 +179,18 @@ forbidden_modules = [
 # the deterministic answer comparison the map validator checks a goal with
 # (the exact key, spec §4.3), and the PF-c valid-alternative read the map
 # seeds take the learner's own correct solutions from (§4.3 item 3).
+# Adaptive hints H2a's pure reads (H0 friction note 3): the hint state reads
+# the LO's placement intent and the live predictor's P(success) for the item
+# (spec §4.5's state; both read, neither records anything), and the
+# discriminating questions are ranked by the existing instrument EIG, a pure
+# function over the compiled candidates (§4.2; it moves no posterior and
+# writes no probe observation).
 ignore_imports = [
     "learnloop.hints.maps -> learnloop.attempts.answer_check",
     "learnloop.hints.map_seeds -> learnloop.placement.state",
+    "learnloop.hints.state -> learnloop.placement.state",
+    "learnloop.hints.state -> learnloop.placement.predictor",
+    "learnloop.hints.discriminating -> learnloop.diagnosis.probe_families",
 ]
 allow_indirect_imports = true
 

@@ -1330,6 +1330,19 @@ class AIRoutingConfig(BaseModel):
     # hints.maps.max_daily_cost_usd at hints.price_per_million (unset: a
     # metered build is refused before sending); Codex is estimated_only.
     approach_map: str | None = None
+    # Adaptive hints H2a (spec_adaptive_hints_v1 §4.5, §7.2): the hint
+    # chooser, one Decider request with two typed questions (kind and level;
+    # horizon). A decider-only route: empty = the code-default
+    # openrouter_decider profile, never a chat fallback and never
+    # LEARNLOOP_AI_PROVIDER.
+    hint_chooser: str | None = None
+    # Adaptive hints H2a (§4.6, §7.2, D9): the hint writer, one structured
+    # chat call per hint on the request path. Empty = ai.active_provider, but
+    # it never resolves to Codex (too slow for a hint): a Codex route falls
+    # back to the item's authored hints and says so. A ChatGPT-plan profile is
+    # recommended; a metered one is held to hints.max_daily_cost_usd at
+    # hints.price_per_million (unset: refused before sending).
+    hint_writer: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -1937,19 +1950,51 @@ class HintsConfig(BaseModel):
     read these rows, so no scoring, scheduling, projection or serving change
     and no successor. Off (the kill switch): no row is written, the RPC is a
     no-op, and the practice RPCs and screen are exactly as before H0.
-    The phases after H0 add their own keys here (``adaptive_enabled``,
-    ``chooser_enabled``, ``help_style`` and the rest of §9's list).
+    The phases after H0 add their own keys here (§9's list).
 
     H1 adds ``price_per_million``: the owner's price (USD per million tokens)
     for the hint routes on a METERED profile (OpenRouter, an API key); unset,
     a metered call is refused before it is sent (the spend rule). Codex and
     the ChatGPT plan need none: their cost is ``estimated_only``. And
     ``maps`` (:class:`HintsMapsConfig`).
+
+    H2a adds the hint service (``practice.request_hint``): ``adaptive_enabled``
+    (the kill switch), ``chooser_enabled``, ``choice_policy``,
+    ``chooser_timeout_seconds``, ``help_style`` and ``max_daily_cost_usd``,
+    with the routes ``ai.routing.hint_chooser`` (a decider-only route) and
+    ``ai.routing.hint_writer`` (a chat route that never resolves to Codex,
+    D9). A shown hint reaches the attempt only through ``hints_used`` (levels
+    1-3) and ``primed`` (levels 4-5) and a ``tutor_answer`` reveal on key
+    overlap, with their existing meaning (§5), so no scoring, scheduling,
+    projection or serving change and no successor.
     """
 
     telemetry_enabled: bool = True
     price_per_million: float | None = Field(default=None, gt=0)
     maps: HintsMapsConfig = Field(default_factory=HintsMapsConfig)
+    #: H2a: hints written for the learner's work (``practice.request_hint``).
+    #: Off (the kill switch), the RPC answers ``disabled`` and the practice
+    #: RPCs are byte-identical to the base. Needs ``telemetry_enabled`` (the
+    #: rows are how a shown hint is counted at submit).
+    adaptive_enabled: bool = True
+    #: H2a: the Decider chooses the kind, level and horizon (route
+    #: ``ai.routing.hint_chooser``); off, the fallback order serves.
+    chooser_enabled: bool = True
+    #: H2a: ``sample`` draws from the Decider's probabilities and logs the
+    #: drawn option's propensity (D4); ``argmax`` serves the top option and
+    #: logs 1 (no off-policy evaluation is then possible).
+    choice_policy: Literal["sample", "argmax"] = "sample"
+    #: H2a: the chooser's time box; past it the fallback serves (a latency
+    #: bound, not a judgment).
+    chooser_timeout_seconds: float = Field(default=3.0, gt=0)
+    #: H2a: the one stored help-style preference every surface reads (D5);
+    #: a stated preference the Decider weighs, never a block.
+    help_style: Literal["let_me_struggle", "balanced", "guide_me"] = "balanced"
+    #: H2a: the metered dollars a UTC day for the hint writer and chooser,
+    #: shared by every process (spec §7.3). A capped day falls back to the
+    #: item's authored hints and says so. Codex and the ChatGPT plan are
+    #: ``estimated_only`` and never counted against it.
+    max_daily_cost_usd: float = Field(default=1.00, ge=0.0)
 
 
 class ReaderInquiryConfig(BaseModel):

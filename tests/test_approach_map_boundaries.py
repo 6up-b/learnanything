@@ -60,6 +60,11 @@ def test_the_import_contracts_pin_both_boundaries():
     assert set(hints["ignore_imports"]) == {
         "learnloop.hints.maps -> learnloop.attempts.answer_check",
         "learnloop.hints.map_seeds -> learnloop.placement.state",
+        # Adaptive hints H2a's pure reads: the hint state's placement intent and
+        # predictor, and the discriminating questions' EIG ranking.
+        "learnloop.hints.state -> learnloop.placement.state",
+        "learnloop.hints.state -> learnloop.placement.predictor",
+        "learnloop.hints.discriminating -> learnloop.diagnosis.probe_families",
     }
 
 

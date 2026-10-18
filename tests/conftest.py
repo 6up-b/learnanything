@@ -37,6 +37,12 @@ os.environ["LEARNLOOP_ROUTER_MODELS"] = "off"
 # real model: with this set, a serve starts no build unless the test injected
 # a fake client (ctx.approach_map_client or the builder's client argument).
 os.environ["LEARNLOOP_APPROACH_MAP_BUILDS"] = "off"
+# Adaptive hints H2a: practice.request_hint asks the hint chooser (a Decider)
+# and the hint writer. No test reaches a real model: with this set, neither
+# route resolves a client unless the test injected a fake
+# (ctx.hint_writer_client / ctx.hint_chooser_client, or the service's
+# writer_client / chooser_client_factory arguments).
+os.environ["LEARNLOOP_HINT_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus

@@ -652,6 +652,36 @@ def _in_diagnostic_block(repository, item) -> bool:
     return presentation is not None and presentation.status == "served"
 
 
+def _server_hint_fold(
+    repository, practice_item_id: str, session_id: str, submission_id: str | None
+) -> tuple[int, bool]:
+    """Adaptive hints H2a (spec §5, G-H2, G-H3): the hints the hint service
+    showed in this submission (its ``help_assists`` rows, shown, counted by
+    the server, still unattached): how many at levels 1-3, and whether any
+    was worked help (levels 4-5, ``primed``). A read; a vault without such
+    rows folds nothing, so every submit is exactly as before H2a."""
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.help_assists import server_fold
+
+    since = None
+    if submission_id is None:
+        attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
+        since = attempts[0]["created_at"] if attempts else None
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        exists = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+        ).fetchone()
+        if exists is None:
+            return 0, False
+        return server_fold(
+            connection, practice_item_id=practice_item_id, session_id=session_id,
+            submission_id=submission_id, since=since,
+        )
+
+
 def _stamp_hint_submission(
     vault, repository, submission_id: str | None, practice_item_id: str, latency_seconds: float | None = None
 ) -> str | None:
@@ -1004,7 +1034,14 @@ def submit_attempt_on(
     question_hints = hint_equivalents_for_submission(
         repository, params.practice_item_id, params.session_id
     )
-    hints_used = client_hints + question_hints
+    # Adaptive hints H2a (spec §5): the service's shown hints of this
+    # submission, counted by the server beside the tutor questions (levels
+    # 1-3 add one each; levels 4-5 set primed). The client keeps counting
+    # only the authored hints it revealed itself, so nothing counts twice.
+    server_hints, server_primed = _server_hint_fold(
+        repository, params.practice_item_id, params.session_id, submission_id
+    )
+    hints_used = client_hints + question_hints + server_hints
     if item.hint_policy.max_useful_hints > 0:
         hints_used = min(hints_used, item.hint_policy.max_useful_hints)
     # A6: compose the one trace the grader reads, here and nowhere else. The
@@ -1013,7 +1050,7 @@ def submit_attempt_on(
     # client, a handler, or a detection site.
     explanation_md = (params.explanation_md or "").strip() or None
     learner_answer_md = compose_learner_trace(params.answer_md, explanation_md)
-    primed = params.primed
+    primed = params.primed or server_primed
     if not primed and _changed_after_disclosure(
         repository, params.session_id, params.practice_item_id, submission_id, learner_answer_md
     ):
@@ -1159,6 +1196,16 @@ def submit_dont_know_on(
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     # The item's open workbench problems' assistance counts here too (RW2a F2).
     hints_used, _type = _held_assistance(repository, item, params.hints_used, "independent_attempt")
+    # Adaptive hints H2a (spec §5): a shown hint is never lost, here too. The
+    # tutor-question fold's absence here predates H2a and is left as it was
+    # (spec §14 Q5); the clamp applies to the total the server's rows join.
+    server_hints, server_primed = _server_hint_fold(
+        repository, params.practice_item_id, params.session_id, submission_id
+    )
+    if server_hints:
+        hints_used += server_hints
+        if item.hint_policy.max_useful_hints > 0:
+            hints_used = min(hints_used, item.hint_policy.max_useful_hints)
     hint_submitted_at = _stamp_hint_submission(
         vault, repository, submission_id, params.practice_item_id, params.latency_seconds
     )
@@ -1177,6 +1224,7 @@ def submit_dont_know_on(
             hints_used=hints_used,
             latency_seconds=params.latency_seconds,
             session_id=params.session_id,
+            primed=server_primed,
             probe_presentation_id=params.probe_presentation_id,
             plan_presentation_id=_plan_presentation(repository, params),
             answer_confidence=params.answer_confidence,
@@ -1199,6 +1247,7 @@ def submit_dont_know_on(
         hints_used=hints_used,
         latency_seconds=params.latency_seconds,
         session_id=params.session_id,
+        primed=server_primed,
         probe_presentation_id=params.probe_presentation_id,
         plan_presentation_id=_plan_presentation(repository, params),
         answer_confidence=params.answer_confidence,

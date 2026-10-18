@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d49d18ffc5b7ac0d4c5d476b70a323629bad9e0d"
-source_commit_timestamp: "2026-10-18T04:55:03-04:00"
+source_commit: "59d300e637a13c15a9ef137716dc860ed6bdcd55"
+source_commit_timestamp: "2026-10-18T05:23:46-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/settings.py"
   - "tests/approach_map_fakes.py"
   - "tests/codex_cli_fakes.py"
+  - "tests/hint_fakes.py"
   - "tests/library_ask_fixtures.py"
   - "tests/marker_fakes.py"
   - "tests/pf_fakes.py"
@@ -32,7 +33,6 @@ source_paths:
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_compare.py"
-  - "tests/test_ai_config.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -79,6 +79,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/approach_map_fakes.py`
 - `tests/codex_cli_fakes.py`
+- `tests/hint_fakes.py`
 - `tests/library_ask_fixtures.py`
 - `tests/marker_fakes.py`
 - `tests/pf_fakes.py`
@@ -88,7 +89,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_compare.py`
-- `tests/test_ai_config.py`
 
 ## Extension and modification guidance
 
