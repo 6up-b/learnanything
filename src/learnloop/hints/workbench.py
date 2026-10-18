@@ -326,10 +326,16 @@ def _adjust(option_set: OptionSet, state: HintState, context: WorkbenchHintConte
 
     options = list(option_set.options)
     excluded = dict(option_set.excluded)
-    if not context.discriminate_enabled:
+    # A question that tells explanations apart is about a questionable step
+    # (§5.2, UX §5.8 "when"): only on the check's first questionable step,
+    # and never while the switch is off.
+    reason = None if context.discriminate_enabled else "switched_off"
+    if reason is None and not (context.first_questionable and context.about == context.first_questionable):
+        reason = "no_questionable_step"
+    if reason is not None:
         for option in [option for option in options if option.kind == "discriminating"]:
             options.remove(option)
-            excluded[option.id] = "switched_off"
+            excluded[option.id] = reason
     level_one = [option for option in options if option.level == 1]
     if any(option.kind == "discriminating" for option in level_one):
         for option in level_one:

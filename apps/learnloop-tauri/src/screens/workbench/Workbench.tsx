@@ -449,8 +449,12 @@ export function Workbench(props: WorkbenchProps) {
           const ladderHere = helpOn && help.ladder.open && chain !== null && (help.ladder.focusedStepId ?? focusedChain) === chain;
           const pendingHere = helpOn && help.hintPending && chain !== null && (help.hintPending.stepId ?? focusedChain) === chain;
           const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain;
+          // UX §5.2: focusing a step lightly outlines the steps it depends on (the last check's graph).
+          const focusedVerdict = helpOn && focusedKey ? verdictFor(help.check, stepChain(live.find((entry) => entry.key === focusedKey) ?? step) ?? "") : null;
+          const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain));
           return (
-            <li key={step.key} data-step-key={step.key} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}
+            <li key={step.key} data-step-key={step.key} data-depended-on={outlined ? "true" : undefined}
+              style={{ display: "flex", gap: 8, alignItems: "flex-start", ...(outlined ? { outline: `1px dotted ${COLOR.border}` } : {}) }}
               onFocusCapture={helpOn ? () => setFocusedKey(step.key) : undefined}>
               <span aria-hidden="true" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber, paddingTop: 4, minWidth: 28 }}>{number} ›</span>
               <div style={{ flex: 1, minWidth: 0, opacity: step.kind === "stuck" ? 0.8 : 1 }}>

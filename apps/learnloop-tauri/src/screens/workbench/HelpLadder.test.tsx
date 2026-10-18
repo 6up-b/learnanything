@@ -254,3 +254,24 @@ it("every fixed line is free of judgments of the learner (G-H12) and every box s
   for (const line of lines) for (const phrase of FORBIDDEN_WORDING) expect(line.toLowerCase()).not.toContain(phrase);
   for (const entry of Object.values(WHERE_THIS_GOES)) expect(entry.line.endsWith("never to grade you.")).toBe(true);
 });
+
+it("the optional confidence row before Submit is sent with the answer, and skipping it sends none", async () => {
+  api.workbenchSubmit.mockResolvedValue({ version: 1, attempt: { attemptId: "a1" }, session: session({ status: "submitted" }), practiceSession: null });
+  render(<Workbench {...props()} />);
+  const row = screen.getByTestId("workbench-confidence");
+  fireEvent.click(within(row).getByRole("radio", { name: "4" }));
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: /submit · ctrl\+↵/ })); });
+  await waitFor(() => expect(api.workbenchSubmit).toHaveBeenCalled());
+  expect(api.workbenchSubmit.mock.calls[0][0]).toMatchObject({ sessionId: "wb1", answerConfidence: 4 });
+  // Never counted: the submit sends no hint count of its own.
+  expect(api.workbenchSubmit.mock.calls[0][0]).not.toHaveProperty("hintsUsed");
+});
+
+it("focusing a checked step lightly outlines the steps it depends on", async () => {
+  api.workbenchHelpState.mockResolvedValue({ version: 1, check: CHECK, hints: [], helpStyle: null, storedHelpStyle: "balanced", hintsEnabled: true });
+  const { container } = render(<Workbench {...props()} />);
+  await waitFor(() => expect(screen.getAllByTestId("workbench-verdict")).toHaveLength(2));
+  fireEvent.focus(screen.getByRole("textbox", { name: "Step 2" }));
+  await waitFor(() => expect(container.querySelector('[data-step-key="c1"]')?.getAttribute("data-depended-on")).toBe("true"));
+  expect(container.querySelector('[data-step-key="c2"]')?.getAttribute("data-depended-on")).toBeNull();
+});

@@ -168,3 +168,16 @@ def test_with_the_switch_off_rung_one_is_an_ordinary_question(tmp_path):
     assert hint["kind"] == "approach_question"
     options = json.loads([row for row in help_rows(paths, wb) if row["assist_kind"] == "hint"][-1]["options_json"])
     assert options["excluded"].get("discriminating@L1") == "switched_off"
+
+
+def test_without_a_questionable_step_rung_one_asks_about_the_approach_even_with_rivals_open(tmp_path):
+    from tests.hint_fakes import add_hypothesis
+
+    paths, ctx, _session = sidecar(tmp_path)
+    add_hypothesis(paths.sqlite_path, "h1", "Adds one to a CDF value as if it were a density")
+    add_hypothesis(paths.sqlite_path, "h2", "Reads the CDF as the density")
+    wb, _chains = open_problem(ctx)
+    # No check yet: no questionable step to tell explanations of apart.
+    hint = run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 1}))
+    assert hint["kind"] == "approach_question"
+    assert json.loads(help_rows(paths, wb)[-1]["options_json"])["excluded"]["discriminating@L1"] == "no_questionable_step"

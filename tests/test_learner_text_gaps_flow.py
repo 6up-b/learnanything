@@ -249,7 +249,8 @@ def test_stuck_text_is_read_through_the_source_interface(tmp_path):
     assert [purpose for purpose, _ in llm.calls][0] == "learner_gap_reading"
     # The default adapter yields nothing until the stuck-prompt stage merges.
     assert sweep_backlog(load_vault(root), repository) == {"stuck_answer": 0, "tutor_question": 0, "diagnosis": 0,
-                                                         "reader_formative": 0, "hint_feedback": 0}
+                                                         "reader_formative": 0, "hint_feedback": 0,
+                                                         "workbench_text": 0}
     unread = StuckText(attempt_id="att_stuck_2", practice_item_id="pi_spec_easy", learning_object_id="lo_spectral",
                        subject_id="linear-algebra", text="no idea what spectral means", created_at=_iso(5))
     both = _FakeStuck([*source.rows, unread])

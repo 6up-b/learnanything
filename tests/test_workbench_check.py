@@ -284,3 +284,17 @@ def test_the_prompt_carries_the_steps_and_the_map_never_a_grader(tmp_path):
     assert [entry["text"] for entry in context["steps"]] == [STEP_1, STEP_2]
     assert {node["id"] for node in context["approach_map"]["nodes"]} == {"g", "cdf", "goal"}
     assert "declared_kinds" in context and check_module.PROMPT_VERSION in fake.prompts[0]
+
+
+def test_during_a_diagnostic_block_no_check_or_hint_reaches_a_model(tmp_path, monkeypatch):
+    import learnloop_sidecar.handlers.practice as practice
+
+    fake = CheckFake()
+    _paths, ctx, _session = sidecar(tmp_path, check=fake)
+    wb, _chains = open_problem(ctx)
+    monkeypatch.setattr(practice, "_in_diagnostic_block", lambda repository, item: True)
+    assert run_job(ctx, call(ctx, "workbench.check", {"sessionId": wb}))["reason"] == "diagnostic_block"
+    assert run_job(ctx, call(ctx, "workbench.suggest_help", {"sessionId": wb}))["reason"] == "diagnostic_block"
+    assert run_job(ctx, call(ctx, "workbench.request_help", {"sessionId": wb, "takenLevel": 3}))["reason"] == \
+        "diagnostic_block"
+    assert fake.calls == 0 and ctx.hint_writer_client.calls == 0
