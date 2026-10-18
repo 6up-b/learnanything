@@ -93,15 +93,34 @@ it("records each authored hint it reveals, with its index and the draft, and not
   const [first] = recordHintReveal.mock.calls[0];
   expect(first).toMatchObject({ sessionId: "s1", practiceItemId: ITEM_ID, authoredIndex: 0, answerMd: "expand along row 1" });
   expect(Number.isNaN(Date.parse(first.revealedAt))).toBe(false);
+  expect(typeof first.submissionId).toBe("string");
+  expect(first.submissionId.length).toBeGreaterThan(0);
   pressHint();
   expect(await screen.findByText("Watch the signs.")).toBeTruthy();
   expect(recordHintReveal).toHaveBeenCalledTimes(2);
-  expect(recordHintReveal.mock.calls[1][0]).toMatchObject({ authoredIndex: 1 });
+  // One attempt, one submission key (review F1).
+  expect(recordHintReveal.mock.calls[1][0]).toMatchObject({ authoredIndex: 1, submissionId: first.submissionId });
   // Past the last hint the press reveals nothing, so nothing is recorded.
   pressHint();
   expect(recordHintReveal).toHaveBeenCalledTimes(2);
   // Submit still sends the screen's own count.
   expect(api.savePracticeDraft).not.toHaveBeenCalledWith(expect.objectContaining({ hintsUsed: 3 }));
+});
+
+it("sends the submission key the attempt then submits with, so the row binds to that attempt only", async () => {
+  api.submitAttempt.mockResolvedValue({ attemptId: "att-1", learningObjectId: "lo_det", probeEpisode: { feedbackDeferred: false } });
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.change(answer, { target: { value: "det(A) = -3" } });
+  pressHint();
+  await screen.findByText("Start with the first row.");
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledOnce());
+  const [submitted] = api.submitAttempt.mock.calls[0];
+  expect(submitted.hintsUsed).toBe(1);
+  expect(recordHintReveal.mock.calls[0][0].submissionId).toBe(submitted.submissionId);
 });
 
 it("records nothing on a refused reveal: a diagnostic check", async () => {

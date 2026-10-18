@@ -82,9 +82,11 @@ carries a second widening for `hint_feedback`.
 
 ### 1.1 Migration 210 (`migrations/210_help_assists.sql`)
 
-`help_assists`, RAW_LEDGER (`db/table_roles.py`), 58 columns: every column of
+`help_assists`, RAW_LEDGER (`db/table_roles.py`), 60 columns: every column of
 the hints spec's §9 row (38), the Reader's §5.7 workbench columns (17,
-`assist_kind` included) and three logged-but-unlisted columns (§3 below).
+`assist_kind` included), three logged-but-unlisted columns (§3 below) and,
+after the Codex review (`docs/reviews/hints-h0-codex-review.md`), the two
+submission columns `submission_id` and `submitted_at` (F1, F2).
 CHECKs, each holding every value either spec writes: `surface` (`practice`,
 `workbench`, `guided_redo`, `tutor`), `assist_kind` (`hint`, `check`,
 `discriminate_answer`, `bridge`, `example`, `compare_methods`, `feedback`),
@@ -96,11 +98,14 @@ CHECKs, each holding every value either spec writes: `surface` (`practice`,
 `counted_by` (`client`, `server`), `level` and `offered_level` 1-5, `shown`
 0/1, plus sanity bounds (`horizon` >= 1, `authored_index` >= 0, `work_chars`
 >= 0, `latency_ms` >= 0, `propensity` in [0, 1]). Foreign keys: `attempt_id`
--> `practice_attempts`, `workbench_session_id` -> `workbench_sessions`. Four
-indexes (session+item, attempt, workbench session, surface+time). Two
-triggers: no delete; the identity columns (`id`, `surface`, `assist_kind`,
-`practice_session_id`, `requested_at`) and an attached `attempt_id` are fixed
-(later phases may still fill `shown_at`, a workbench problem's item binding,
+-> `practice_attempts`, `workbench_session_id` -> `workbench_sessions`. Five
+indexes (session+item, attempt, submission+item, workbench session,
+surface+time). Two triggers: no delete; the identity columns (`id`,
+`surface`, `assist_kind`, `requested_at`) are fixed, and each binding
+(`practice_session_id`, `workbench_session_id`, `submission_id`,
+`submitted_at`, `attempt_id`) may go from NULL to a value once and is then
+fixed (review F3: the workbench's practice session is filled at Submit;
+later phases may still fill `shown_at`, a workbench problem's item binding,
 and the rest). No DERIVED table, so no replayer; replay and rebuild never read
 it.
 
@@ -121,9 +126,11 @@ test reads the code's head.
 
 - `src/learnloop/db/stores/help_assists.py` (registered SQL owner in
   `tests/test_architecture.py`): `COLUMNS` (table order, pinned by the schema
-  test), `insert_assist` (refuses unknown columns), `attach_attempt` (fills
-  `attempt_id` on the session's unattached `surface = 'practice'` rows for the
-  item).
+  test), `insert_assist` (refuses unknown columns), `stamp_submitted` (the
+  submit time on a submission's unattached rows, first stamp kept) and
+  `attach_submission` (fills `attempt_id` on the rows recorded under the
+  submission key for the item, idempotent; review F1 replaced the first
+  draft's session-and-item sweep).
 - `src/learnloop/hints/` (minimal): `telemetry.py` (`record_authored_reveal`,
   `attach_reveals_to_attempt`, `reveal_instant`, `work_digest`,
   `telemetry_enabled`, `AUTHORED_LEVEL = 3`) and `report.py`
@@ -135,7 +142,8 @@ test reads the code's head.
 ### 1.3 The sidecar (`src/learnloop_sidecar/handlers/practice.py`)
 
 - `practice.record_hint_reveal` (`HintRevealInput`: `sessionId`,
-  `practiceItemId`, `authoredIndex` >= 0, `answerMd`, `revealedAt`): with the
+  `practiceItemId`, `submissionId` (required: the screen's stable key for the
+  attempt in progress), `authoredIndex` >= 0, `answerMd`, `revealedAt`): with the
   switch off it answers `{recorded: false, reason: "telemetry_disabled"}`
   before reading anything; an unknown item is `not_found`, an index past the
   item's hints `validation_error`; during a diagnostic block on the item (an
@@ -150,11 +158,15 @@ test reads the code's head.
   press time (ms precision, UTC), or the sidecar's clock when the client's is
   missing, malformed or more than 60 s ahead. A failed write is logged and
   answered `reason: "write_failed"`, never raised.
-- `submit_attempt`, `submit_dont_know` and the empty-stuck path call
-  `_attach_hint_reveals` after the attempt and its receipt commit: telemetry
-  only, skipped with the switch off, failures logged and swallowed, the
-  response unchanged. A retried submit answering from its receipt attaches
-  nothing new.
+- `submit_attempt`, `submit_dont_know` and the empty-stuck path stamp
+  `submitted_at` on the submission's rows before grading
+  (`_stamp_hint_submission`) and call `_attach_hint_reveals` after the
+  attempt and its receipt commit, matching on the submission key only:
+  telemetry only, skipped with the switch off, failures logged and
+  swallowed, the response unchanged. Every path that answers for a committed
+  submission (a retried submit from its receipt, a resumed completion,
+  `recover_practice_submission`) repeats the attach, so a failed attach is
+  repaired and no other submission takes the rows (review F1).
 - `HINT_TELEMETRY_RPCS`, pinned desktop-only in `tests/test_mobile_allowlist.py`
   (with `submit_attempt` and `submit_dont_know` as the extended RPCs).
 - Tauri: `sidecar_passthrough!(practice_record_hint_reveal,
@@ -188,14 +200,20 @@ no learner text. Per surface, assist kind, hint kind and level (authored hints
 flagged `baseline`): shown, items, sessions, attempts, unattached, reveals per
 item and per session (p50/p95 with n), which hint in the list
 (`by_authored_index`), empty work at request, seconds from reveal to submit
-and seconds into the attempt (from the attempt's latency), more help in the
-same attempt, the attempt's recorded outcome (correct / partial / incorrect /
-ungraded from `practice_attempts.correctness`), attempt types, later
-independent success on the item and on its learning object (pass / fail /
-pending, never imputed); totals; the top 20 items by reveals (a display cap);
-and `not_yet_measured` naming what needs H1-H5 (unaided next progress, "doesn't
-connect", off-policy estimates, the expertise-reversal split). The CLI adds
-the vault's `[hints]` section.
+(to `submitted_at`, before grading; rows without one in `timing_unknown`,
+review F2) and seconds into the attempt (from the attempt's latency), more
+help in the same attempt, unaided next progress where the grade settles it
+(reached, or unknown by reason; review F5), the attempt's recorded outcome
+(correct / partial / incorrect / ungraded from `practice_attempts.correctness`),
+attempt types, later independent success on the item and on its learning
+object (the next independent attempt: pass / fail / ungraded / pending, never
+imputed, review F4); every share with a 95% Wilson interval and every p50/p95
+with a distribution-free order-statistic interval (`None` with a reason when
+too few, review F6); a row the attach missed is resolved through its
+submission key; totals; the top 20 items by reveals (a display cap); and
+`not_yet_measured` naming what needs H2-H5 (the unaided-progress cases the
+grade cannot settle, "doesn't connect", off-policy estimates, the
+expertise-reversal split). The CLI adds the vault's `[hints]` section.
 
 ## 2. Gates and where they are tested
 
@@ -205,7 +223,7 @@ the vault's `[hints]` section.
 | No evidence change (H1, §5): `hints_used`, `primed`, reveal events, evidence byte-identical on vs off | the same comparison, plus explicit `attempt_type, hints_used, primed` rows and `reveal_events` count 0; `::test_submit_attaches...` (the client's count kept with more rows than it counts) |
 | G-H10: rebuild and replay make zero model and embedding calls with `help_assists` populated, and never read it | `::test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it` (model/embedding client constructors forbidden; the derived state equals a rebuild of a copy with the table dropped; rows untouched; shadow rebuild too) |
 | G-H13: import-linter contract; RPC desktop-only; table classified | `lint-imports` (`hints-never-write-evidence`), `test_mobile_allowlist.py`, `test_help_assists_schema.py::test_help_assists_is_a_raw_ledger`, `test_table_roles.py` |
-| G-H17: one schema with every column and CHECK value of both specs | `test_help_assists_schema.py` (columns = §9 + §5.7 + the three logged columns, in `COLUMNS` order; every CHECK value admitted, NULL where optional, outside values and `different_approach` refused; the 209 -> 210 upgrade adds only the table, indexes and triggers; the durability lane) |
+| G-H17: one schema with every column and CHECK value of both specs | `test_help_assists_schema.py` (columns = §9 + §5.7 + the three logged columns + the two submission columns, in `COLUMNS` order; the workbench's deferred bindings set once (F3); every CHECK value admitted, NULL where optional, outside values and `different_approach` refused; the 209 -> 210 upgrade adds only the table, indexes and triggers; the durability lane) |
 | G-H14 (cold and probe parity) | the screen's existing refusals are untouched (vitest: no call on a refused reveal in a diagnostic check or a plain-card check on your own); the sidecar's served-probe check (`::test_no_row_during_a_diagnostic_block`, `::test_the_diagnostic_block_is_a_served_probe_of_this_item`) |
 
 ## 3. The two specs' column lists, cross-checked
@@ -260,11 +278,19 @@ spec's later phase rebuilds the table:
   the screen's rendering and every pre-existing RPC response are identical to
   the base with the switch off; the only new traffic is the no-op call.
 - **The attach is after the commit, outside the attempt's transaction**, so
-  the submit path's transaction and response are untouched. If it fails (or
-  the process dies between the two), the rows stay unattached, and a later
-  attempt on the same item in the same session would take them. Recorded for
-  H2 (friction 2). Off, nothing is attached, so rows written while on stay
-  unattached if the switch is turned off before submit.
+  the submit path's transaction and response are untouched. It matches on the
+  submission key alone (review F1): if it fails (or the process dies between
+  the two), the rows wait under their key, the report already resolves them
+  to the attempt through `practice_attempts.submission_id`, the next retry or
+  recovery of that submission attaches them, and no later attempt can take
+  them. Off, nothing is stamped or attached, so rows written while on stay
+  unattached if the switch is turned off before submit (the report still
+  resolves them by key).
+- **The submit time** (review F2) is the sidecar's clock when the first
+  submit request for the submission reached it, before grading, stamped on
+  the rows at once so a grading fallback answered by a self-grade later keeps
+  it. A submit that fails validation inside the grader and is resent much
+  later with the same key keeps the first stamp too (rare; recorded).
 - **Level 3 for authored hints**, as §4.2's table says (the item's last,
   "near-give-away" hint included); `authored_index` is 0-based.
 - **Timing** is the client's press time (the sidecar answers one request at a
@@ -307,9 +333,9 @@ client's count; authored reveals still write no reveal row (§10.1 successor
 
 ## 6. Tests and counts
 
-New: `tests/test_hint_telemetry.py` (25), `tests/test_help_assists_schema.py`
-(9, one durability-marked),
-`apps/learnloop-tauri/src/screens/PracticeScreen.hintTelemetry.test.tsx` (6).
+New: `tests/test_hint_telemetry.py` (25; 35 after the Codex review fixes), `tests/test_help_assists_schema.py`
+(9, one durability-marked; 10 after the fixes),
+`apps/learnloop-tauri/src/screens/PracticeScreen.hintTelemetry.test.tsx` (6; 7 after the fixes).
 Changed: `tests/test_mobile_allowlist.py` (the pinned H0 RPCs),
 `tests/test_architecture.py` (the store), `tests/cli_help_snapshot.json`,
 `tests/test_library_asks_migration.py` and `tests/test_route_rules_in_grader.py`
@@ -343,9 +369,12 @@ Changed: `tests/test_mobile_allowlist.py` (the pinned H0 RPCs),
 2. **The last authored hint's level.** §4.2 puts `authored` at 3; the item's
    last hint is often a near-give-away. Default: 3 for every authored hint;
    the report's `by_authored_index` shows the last-hint share.
-3. **Rows left unattached** (switch turned off mid-attempt, an attach that
-   failed, an item never submitted) stay unattached and count as
-   `unattached` in the report. Default: no back-fill.
+3. **Rows left unattached.** An attach that failed is repaired by the
+   submission's next retry or recovery and is resolved by its key in the
+   report meanwhile (review F1). Rows of an item never submitted, or of a
+   submission sent while the switch was off, stay unattached and count as
+   `unattached` (the report still resolves the latter by key). Default: no
+   other back-fill.
 4. **Settings exposure** of `hints.telemetry_enabled`. Default: none (a
    modelled default in `learnloop.toml`, like the other kill switches).
 5. **`submit_dont_know`'s fold asymmetry** (spec §14 Q5) is untouched by H0.
@@ -358,10 +387,11 @@ Changed: `tests/test_mobile_allowlist.py` (the pinned H0 RPCs),
    rename (`migration_head_210` -> `_211`; 26 test files and both reference
    scripts name it).
 2. **H2's server fold.** Count shown level-1-3 rows with `counted_by =
-   'server'` since the item's last attempt in the session, bounded by time
-   (not only `attempt_id IS NULL`): a row H0 failed to attach would otherwise
-   be counted into a later attempt. `store.attach_attempt` attaches
-   `surface = 'practice'` only; guided redo and tutor rows need it widened.
+   'server'` recorded under the submission's key (`submission_id`), not by
+   session and item: a row of an earlier submission is then never counted
+   into a later attempt (review F1). `store.attach_submission` matches the key
+   on every surface; the hint service must write the screen's submission key
+   on each row it serves.
    When the service serves an `authored` hint itself, that row is
    server-counted while `record_hint_reveal`'s are client-counted: keep the
    two paths from counting one reveal twice (G-H3).
@@ -374,8 +404,9 @@ Changed: `tests/test_mobile_allowlist.py` (the pinned H0 RPCs),
 4. **H2's learner-text widening** is a second migration (§4), adding
    `hint_feedback` to both `source_kind` CHECKs.
 5. **RW2b.** Workbench rows carry `workbench_session_id`; the practice
-   session is known only at submit, so the workbench attach must key on the
-   workbench session (the H0 attach does not touch them). The workbench's
+   session is known only at Submit, when RW2b fills `practice_session_id`
+   and `submission_id` once (the trigger allows NULL to a value, review F3)
+   and `attach_submission` then attaches them. The workbench's
    held hints (`workbench.held_hints`, RW2a's `carried_hints`) and server-folded
    `help_assists` rows are two sources of one count: fold one rule (Reader
    §5.4). `counted_by` NULL for `feedback` and `discriminate_answer` rows.

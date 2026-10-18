@@ -7,6 +7,9 @@ twelve kinds, ``assist_kind``'s seven values, ``feedback_shortcut``'s four
 (no ``different_approach``), the four surfaces, the chooser's four values,
 the four requests, levels 1-5. The upgrade from 209 adds only this table, its
 indexes and its triggers; the durability lane runs it with production pragmas.
+A binding a surface learns after the row is written (the workbench's practice
+session and submission, filled at Submit; the attempt; the submit time) goes
+from NULL to a value once and is then fixed (review F3).
 """
 
 from __future__ import annotations
@@ -51,6 +54,10 @@ READER_COLUMNS = {
 #: names (docs/reviews/adaptive-hints-H0.md §3): the drawn option kept apart
 #: from the served kind, and the question-set version and state hash.
 LOGGED_COLUMNS = {"drawn_option_json", "question_set_version", "state_hash"}
+#: What binds a row to its attempt and times it (docs/reviews/hints-h0-codex-review.md
+#: F1, F2): the client's submission key, and when the submission reached the
+#: sidecar before grading (§6.1's "hint shown -> submit").
+SUBMISSION_COLUMNS = {"submission_id", "submitted_at"}
 
 CHECKED_VALUES = {
     "surface": ("practice", "workbench", "guided_redo", "tutor"),
@@ -121,7 +128,8 @@ def _upgrade(tmp_path: Path) -> Path:
     assert [migration.version for migration in applied][0] == 210
     after = _schema(database)
     assert set(after) - set(before) == {
-        "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_workbench",
+        "help_assists", "idx_help_assists_session_item", "idx_help_assists_attempt", "idx_help_assists_submission",
+        "idx_help_assists_workbench",
         "idx_help_assists_requested", "help_assists_no_delete", "help_assists_identity_fixed",
     }
     assert {name: sql for name, sql in after.items() if name in before} == before  # nothing else changed
@@ -162,7 +170,7 @@ def _check_constraints(database: Path) -> None:
 def test_every_column_both_specs_write_is_created_once():
     columns = _columns(HEAD)
     assert len(columns) == len(set(columns))
-    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS
+    assert set(columns) == HINTS_SPEC_COLUMNS | READER_COLUMNS | LOGGED_COLUMNS | SUBMISSION_COLUMNS
     assert tuple(columns) == store.COLUMNS
 
 
@@ -198,7 +206,7 @@ def test_the_ledger_keeps_rows_and_an_attached_attempt(tmp_path):
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
             connection.execute("DELETE FROM help_assists WHERE id = 'ha_1'")
         for change in ("surface = 'tutor'", "assist_kind = 'check'", "practice_session_id = 's2'",
-                       "requested_at = '2026-01-01T00:00:00Z'", "id = 'ha_2'"):
+                       "practice_session_id = NULL", "requested_at = '2026-01-01T00:00:00Z'", "id = 'ha_2'"):
             with pytest.raises(sqlite3.IntegrityError, match="fixed"):
                 connection.execute(f"UPDATE help_assists SET {change} WHERE id = 'ha_1'")
         # A later phase may fill in what it learns (a workbench binding, the
@@ -212,6 +220,87 @@ def test_the_ledger_keeps_rows_and_an_attached_attempt(tmp_path):
             connection.execute("UPDATE help_assists SET attempt_id = 'att_2' WHERE id = 'ha_1'")
         with pytest.raises(sqlite3.IntegrityError, match="fixed"):
             connection.execute("UPDATE help_assists SET attempt_id = NULL WHERE id = 'ha_1'")
+
+
+def test_the_workbench_lifecycle_binds_each_deferred_column_once(tmp_path):
+    """Review F3: a workbench hint is written before its practice session
+    exists (practice_session_id NULL; Reader §5.4, the session opened at
+    Submit), its problem may bind an item later, and Submit fills the practice
+    session, the submission key, the submit time and the attempt. Each goes
+    from NULL to a value once; replacing or clearing a binding is refused."""
+
+    from learnloop.db.copies import backup_database
+
+    database = tmp_path / "head.sqlite"
+    backup_database(HEAD, database)
+    with closing(connect(database)) as connection:
+        # No workbench or attempt rows in the head fixture: stand-in ids, keys off.
+        connection.execute("PRAGMA foreign_keys = OFF")
+        store.insert_assist(connection, _base(
+            "ha_wb", surface="workbench", assist_kind="check", workbench_session_id="wb_1", level=1,
+        ))
+        row = connection.execute("SELECT practice_item_id, practice_session_id, submission_id, attempt_id "
+                                 "FROM help_assists WHERE id = 'ha_wb'").fetchone()
+        assert tuple(row) == (None, None, None, None)
+        # The import binds the problem to an item; then Submit binds the rest.
+        connection.execute("UPDATE help_assists SET practice_item_id = 'pi_1' WHERE id = 'ha_wb'")
+        connection.execute(
+            "UPDATE help_assists SET practice_session_id = 's1', submission_id = 'sub-1', submitted_at = ? "
+            "WHERE id = 'ha_wb'", (NOW,))
+        connection.execute("UPDATE help_assists SET attempt_id = 'att_1' WHERE id = 'ha_wb'")
+        connection.commit()
+        row = connection.execute("SELECT practice_session_id, submission_id, submitted_at, attempt_id "
+                                 "FROM help_assists WHERE id = 'ha_wb'").fetchone()
+        assert tuple(row) == ("s1", "sub-1", NOW, "att_1")
+        for change in (
+            "practice_session_id = 's2'", "practice_session_id = NULL",
+            "submission_id = 'sub-2'", "submission_id = NULL",
+            "submitted_at = '2026-10-17T11:00:00.000Z'", "submitted_at = NULL",
+            "workbench_session_id = 'wb_2'", "workbench_session_id = NULL",
+            "attempt_id = 'att_2'", "attempt_id = NULL",
+        ):
+            with pytest.raises(sqlite3.IntegrityError, match="fixed"):
+                connection.execute(f"UPDATE help_assists SET {change} WHERE id = 'ha_wb'")
+        # The rest stays fillable (a later phase's columns).
+        connection.execute("UPDATE help_assists SET shown_at = ?, step_verdicts_json = '[]' WHERE id = 'ha_wb'", (NOW,))
+        connection.commit()
+
+
+def test_the_store_attach_matches_the_submission_key_only(tmp_path):
+    """Review F1: rows bind to the attempt of their own submission, never to a
+    later submission on the same item and session, and the attach is idempotent."""
+
+    from learnloop.db.copies import backup_database
+
+    database = tmp_path / "head.sqlite"
+    backup_database(HEAD, database)
+    with closing(connect(database)) as connection:
+        connection.execute("PRAGMA foreign_keys = OFF")
+        common = {"practice_session_id": "s1", "practice_item_id": "pi_1"}
+        store.insert_assist(connection, _base("ha_a", submission_id="sub-a", **common))
+        store.insert_assist(connection, _base("ha_b", submission_id="sub-b", **common))
+        store.insert_assist(connection, _base("ha_none", **common))
+        assert store.stamp_submitted(connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at=NOW) == 1
+        assert store.stamp_submitted(
+            connection, submission_id="sub-b", practice_item_id="pi_1", submitted_at="2026-10-17T10:05:00.000Z"
+        ) == 0  # the first stamp stays
+        assert store.attach_submission(
+            connection, submission_id="sub-b", practice_item_id="pi_1", attempt_id="att_b",
+            submitted_at="2026-10-17T10:09:00.000Z",
+        ) == 1
+        assert store.attach_submission(connection, submission_id="sub-b", practice_item_id="pi_1", attempt_id="att_b") == 0
+        assert store.attach_submission(connection, submission_id="sub-a", practice_item_id="pi_2", attempt_id="att_x") == 0
+        assert store.attach_submission(
+            connection, submission_id="sub-a", practice_item_id="pi_1", attempt_id="att_a",
+            submitted_at="2026-10-17T10:01:00.000Z",
+        ) == 1
+        rows = {row[0]: tuple(row[1:]) for row in connection.execute(
+            "SELECT id, attempt_id, submitted_at FROM help_assists ORDER BY id")}
+        assert rows == {
+            "ha_a": ("att_a", "2026-10-17T10:01:00.000Z"),
+            "ha_b": ("att_b", NOW),
+            "ha_none": (None, None),
+        }
 
 
 def test_the_store_refuses_unknown_columns(tmp_path):

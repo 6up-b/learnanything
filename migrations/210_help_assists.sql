@@ -8,8 +8,9 @@
 -- every column and every CHECK value either spec writes, so neither spec's
 -- later phase (H1-H5, RW2b, RW2c) rebuilds it. H0 writes only the practice
 -- screen's authored-hint reveals (assist_kind 'hint', hint_kind 'authored',
--- chooser 'none', counted_by 'client'); every other column is for later
--- phases and stays NULL until then.
+-- chooser 'none', counted_by 'client', with the submission key, attempt and
+-- submit time bound at submit); every other column is for later phases and
+-- stays NULL until then.
 --
 -- RAW_LEDGER: the record of what help was shown, when, on what work. It is
 -- never evidence. Evidence reaches an attempt only through
@@ -32,11 +33,18 @@ CREATE TABLE help_assists (
   -- workbench_sessions.practice_item_id, UX S2).
   practice_item_id TEXT,
   practice_item_hash TEXT,
+  -- The workbench's practice session is filled at Submit (NULL until then,
+  -- set once); every other surface writes it with the row.
   practice_session_id TEXT,
   workbench_session_id TEXT REFERENCES workbench_sessions(id),
   -- The attempt the assist was part of, filled at submit (submit_attempt,
   -- submit_dont_know); NULL while the attempt is open or if it never was.
   attempt_id TEXT REFERENCES practice_attempts(id),
+  -- The client's stable submission key for the attempt the assist belongs to
+  -- (practice_attempts.submission_id once it commits). The attach at submit,
+  -- and its repair on a retried submit or a recovery, match on this key
+  -- alone, so a row is never swept into another submission's attempt.
+  submission_id TEXT,
   -- The form the help took (hints spec §4.2's table: its eleven plus
   -- continuation). NULL on rows that are not hints (a check, a bridge).
   hint_kind TEXT CHECK (hint_kind IS NULL OR hint_kind IN (
@@ -99,6 +107,10 @@ CREATE TABLE help_assists (
   latency_ms INTEGER CHECK (latency_ms IS NULL OR latency_ms >= 0),
   requested_at TEXT NOT NULL,
   shown_at TEXT,
+  -- When the submission reached the sidecar, before any grading: the end of
+  -- "hint shown -> submit" (practice_attempts.created_at is stamped when the
+  -- grade is applied, after the grader's latency). NULL when unknown.
+  submitted_at TEXT,
   -- The Reader workbench's columns (its §5.7).
   step_snapshot_json TEXT,
   step_verdicts_json TEXT,
@@ -117,11 +129,15 @@ CREATE TABLE help_assists (
 -- The attach at submit and the per-attempt reads.
 CREATE INDEX idx_help_assists_session_item ON help_assists(practice_session_id, practice_item_id, requested_at);
 CREATE INDEX idx_help_assists_attempt ON help_assists(attempt_id);
+CREATE INDEX idx_help_assists_submission ON help_assists(submission_id, practice_item_id);
 CREATE INDEX idx_help_assists_workbench ON help_assists(workbench_session_id, requested_at);
 CREATE INDEX idx_help_assists_requested ON help_assists(surface, requested_at);
 
--- A ledger: nothing is deleted, an assist's identity never changes, and an
--- attached attempt is never moved to another.
+-- A ledger: nothing is deleted, an assist's identity never changes, and a
+-- binding, once made, is never moved. The bindings a later surface learns
+-- only after the row is written (the workbench's practice session and
+-- submission, filled at Submit; the attempt; the submit time) may each go
+-- from NULL to a value once, never to another value or back to NULL.
 CREATE TRIGGER help_assists_no_delete
 BEFORE DELETE ON help_assists
 BEGIN
@@ -133,9 +149,12 @@ BEFORE UPDATE ON help_assists
 WHEN NEW.id IS NOT OLD.id
   OR NEW.surface IS NOT OLD.surface
   OR NEW.assist_kind IS NOT OLD.assist_kind
-  OR NEW.practice_session_id IS NOT OLD.practice_session_id
   OR NEW.requested_at IS NOT OLD.requested_at
+  OR (OLD.practice_session_id IS NOT NULL AND NEW.practice_session_id IS NOT OLD.practice_session_id)
+  OR (OLD.workbench_session_id IS NOT NULL AND NEW.workbench_session_id IS NOT OLD.workbench_session_id)
+  OR (OLD.submission_id IS NOT NULL AND NEW.submission_id IS NOT OLD.submission_id)
+  OR (OLD.submitted_at IS NOT NULL AND NEW.submitted_at IS NOT OLD.submitted_at)
   OR (OLD.attempt_id IS NOT NULL AND NEW.attempt_id IS NOT OLD.attempt_id)
 BEGIN
-  SELECT RAISE(ABORT, 'help_assists: identity columns and an attached attempt are fixed');
+  SELECT RAISE(ABORT, 'help_assists: identity columns and a binding once set are fixed');
 END;

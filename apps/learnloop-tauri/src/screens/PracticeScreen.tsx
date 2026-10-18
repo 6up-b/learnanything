@@ -798,7 +798,7 @@ export function PracticeScreen({
     }
     // Adaptive hints H0: the hint this press shows (none past the last one).
     if (item && session.sessionId && hintsUsed < item.hints.length) {
-      recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
+      recordHintReveal({ sessionId: session.sessionId, practiceItemId: item.id, submissionId: submissionId.current, authoredIndex: hintsUsed, answerMd: answer, revealedAt: new Date().toISOString() });
     }
     setHintsUsed((value) => Math.min(item?.hints.length ?? 0, value + 1));
   }

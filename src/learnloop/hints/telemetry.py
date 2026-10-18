@@ -3,8 +3,10 @@
 The practice screen reveals an item's authored hints itself and sends the
 count at submit (``hints_used``); before H0 nothing recorded when each hint
 was shown, or on what work (spec_adaptive_hints_v1 §3.2). H0 records each
-reveal (``practice.record_hint_reveal``) and attaches the item's rows to the
-attempt at submit, so the report can say how today's hints are used and what
+reveal (``practice.record_hint_reveal``) under the client's stable submission
+key and attaches the rows to that submission's attempt at submit (repaired by
+a retried submit or a recovery, never swept into another submission), so the
+report can say how today's hints are used and what
 follows (§6, §10 H0): the baseline the adaptive kinds are compared with.
 
 Telemetry only (§9, H0's authored-reveal rows): nothing here changes
@@ -78,6 +80,7 @@ def record_authored_reveal(
     *,
     item: Any,
     session_id: str,
+    submission_id: str,
     authored_index: int,
     work_md: str,
     revealed_at: str | None = None,
@@ -96,6 +99,7 @@ def record_authored_reveal(
         "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item),
         "practice_session_id": session_id,
+        "submission_id": submission_id,
         "hint_kind": "authored",
         "level": AUTHORED_LEVEL,
         "authored_index": int(authored_index),
@@ -112,17 +116,39 @@ def record_authored_reveal(
     return RevealRecord(recorded=True, assist_id=assist_id)
 
 
+def stamp_submission(
+    repository: Any, *, submission_id: str, practice_item_id: str, now: datetime | None = None
+) -> str:
+    """When the submission reached the sidecar, before any grading (the end of
+    "hint shown -> submit"; ``practice_attempts.created_at`` is stamped after
+    the grader). Written on the submission's unattached rows at once, so a
+    grading fallback answered later keeps it; returned for the attach."""
+
+    submitted_at = _iso_ms((now or SystemClock().now()))
+    with repository.connection() as connection:
+        store.stamp_submitted(
+            connection, submission_id=submission_id, practice_item_id=practice_item_id, submitted_at=submitted_at
+        )
+    return submitted_at
+
+
 def attach_reveals_to_attempt(
-    repository: Any, *, session_id: str, practice_item_id: str, attempt_id: str
+    repository: Any,
+    *,
+    submission_id: str,
+    practice_item_id: str,
+    attempt_id: str,
+    submitted_at: str | None = None,
 ) -> int:
-    """Fill ``attempt_id`` on the session's unattached rows for the item."""
+    """Fill ``attempt_id`` on the rows recorded under the submission key."""
 
     with repository.connection() as connection:
-        return store.attach_attempt(
+        return store.attach_submission(
             connection,
-            practice_session_id=session_id,
+            submission_id=submission_id,
             practice_item_id=practice_item_id,
             attempt_id=attempt_id,
+            submitted_at=submitted_at,
         )
 
 
@@ -132,6 +158,7 @@ __all__ = [
     "attach_reveals_to_attempt",
     "record_authored_reveal",
     "reveal_instant",
+    "stamp_submission",
     "telemetry_enabled",
     "work_digest",
 ]

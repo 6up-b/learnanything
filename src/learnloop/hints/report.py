@@ -5,14 +5,53 @@ baseline kind (§10 H0, "Data it starts"): per surface, kind and level, how many
 were shown, on how many items, sessions and attempts, which hint in the item's
 list, when (reveal to submit, and how far into the attempt), and what followed
 (§6.1, as far as H0's rows can say it): more help in the same attempt, the
-attempt's recorded outcome, and later independent success on the item and on
-its learning object, with how many are still pending (never imputed).
+attempt's recorded outcome, unaided next progress where the grade settles it,
+and later independent success on the item and on its learning object.
 
-Every number is a report with its sample size, never a threshold (§6). Pure
-read: the database is opened read-only and never migrated, no model is
+**Rows and attempts.** A row belongs to the attempt it was attached to or,
+when the attach never happened (it failed, or the process stopped after the
+attempt committed), to the attempt committed under the row's submission key
+(``practice_attempts.submission_id``): the same binding the attach makes, so
+a failed attach loses nothing and no row is ever given to another
+submission's attempt.
+
+**Timing.** "Reveal to submit" ends at ``submitted_at``, the sidecar's clock
+when the submission reached it, before grading (``practice_attempts.
+created_at`` is stamped when the grade is applied, after the grader's
+latency). A row without a submit time (an attach repaired by a recovery that
+never saw the submit) is counted in ``timing_unknown`` and never timed from
+the grade's time. "Seconds into the attempt" is the attempt's client-measured
+latency (open to submit) minus that gap.
+
+**Outcomes are never imputed.** The next independent attempt (``hints_used =
+0``, not primed) on the item, and on its learning object, is the outcome:
+``pass`` when it is fully correct, ``fail`` when graded and not, ``ungraded``
+when it has no grade (it stays that attempt's outcome: a later attempt is not
+searched for instead), ``pending`` while none has happened.
+
+**Unaided next progress** (§6.1). For an authored hint (no map, so its target
+is the next node) the grade settles one case: a fully correct submission with
+no further help after the hint reached the goal. Every other case is reported
+as unknown with its reason, never as a failure: more help followed (H2's next
+hint placement says whether the learner progressed first), the answer was not
+fully correct (H2's outcome placement, ``hint_outcome``), no grade, primed
+(worked help or a disclosed answer), or help the rows cannot order (the
+attempt counts more help than its recorded reveals: tutor questions, held
+workbench hints, a reveal the telemetry missed).
+
+**Uncertainty.** Every number carries its sample size. A share carries a 95%
+Wilson score interval (``None`` when its denominator is 0; at n = 1 it spans
+most of [0, 1], as it should). A timing or count summary's p50 and p95 carry a
+distribution-free 95% interval from the order statistics (the binomial
+coverage of [X(j), X(k)] for the quantile); when no pair of observations
+reaches 95% coverage (the median needs n >= 6, p95 needs n >= 59) the interval
+is ``None`` with ``reason: "too_few"``. Every number is a report, never a
+threshold (§6).
+
+Pure read: the database is opened read-only and never migrated, no model is
 called, and no learner text is read (the rows carry a hash and a length of the
-draft, never the draft). Unaided next progress, "doesn't connect" and the
-off-policy estimates need H1-H5's rows and are not computed here.
+draft, never the draft). "Doesn't connect", the off-policy estimates and the
+expertise-reversal split need H2-H5's rows and are not computed here.
 """
 
 from __future__ import annotations
@@ -30,21 +69,72 @@ from learnloop.db.connection import connect
 REPORT_VERSION = "hints-report-v1"
 #: How many items the per-item list shows (a display cap).
 TOP_ITEMS = 20
+#: The intervals' nominal coverage, and the normal quantile Wilson uses for it.
+INTERVAL_LEVEL = 0.95
+_Z = 1.959963984540054
+#: The unknown cases of unaided next progress, in the order they are checked.
+UNAIDED_UNKNOWN_REASONS = ("more_help_followed", "primed", "help_not_ordered", "ungraded", "not_fully_correct")
+
+
+def _wilson(count: int, of: int) -> dict[str, Any] | None:
+    if of <= 0:
+        return None
+    share = count / of
+    denominator = 1.0 + _Z * _Z / of
+    centre = (share + _Z * _Z / (2 * of)) / denominator
+    half = _Z * math.sqrt(share * (1.0 - share) / of + _Z * _Z / (4 * of * of)) / denominator
+    return {
+        "method": "wilson", "level": INTERVAL_LEVEL,
+        "low": round(max(0.0, centre - half), 4), "high": round(min(1.0, centre + half), 4),
+    }
+
+
+def _quantile_interval(ordered: list[float], q: float) -> dict[str, Any]:
+    """A distribution-free interval for the q-quantile: the order statistics
+    [X(j), X(k)] (1-based) cover it with probability P(j <= B <= k - 1),
+    B ~ Binomial(n, q). Grown outward from the point estimate's rank, the
+    likelier side first, until the coverage reaches the level."""
+
+    n = len(ordered)
+    if n == 0:
+        return {"method": "order_statistic", "level": INTERVAL_LEVEL, "low": None, "high": None,
+                "coverage": None, "reason": "empty"}
+    pmf = [math.comb(n, i) * q**i * (1.0 - q) ** (n - i) for i in range(n + 1)]
+    rank = max(1, math.ceil(q * n))
+    low, high, coverage = rank, rank, 0.0
+    while coverage < INTERVAL_LEVEL:
+        below = pmf[low - 1] if low > 1 else -1.0
+        above = pmf[high] if high < n else -1.0
+        if below < 0 and above < 0:
+            return {"method": "order_statistic", "level": INTERVAL_LEVEL, "low": None, "high": None,
+                    "coverage": round(coverage, 4), "reason": "too_few"}
+        if above >= below:
+            coverage += above
+            high += 1
+        else:
+            coverage += below
+            low -= 1
+    return {"method": "order_statistic", "level": INTERVAL_LEVEL, "low": ordered[low - 1],
+            "high": ordered[high - 1], "coverage": round(coverage, 4)}
 
 
 def _percentiles(values: Iterable[float | None]) -> dict[str, Any]:
     ordered = sorted(v for v in values if v is not None)
     if not ordered:
-        return {"n": 0, "p50": None, "p95": None}
+        return {"n": 0, "p50": None, "p95": None,
+                "p50_interval": _quantile_interval([], 0.50), "p95_interval": _quantile_interval([], 0.95)}
 
     def rank(q: float) -> float:
         return ordered[max(0, math.ceil(q * len(ordered)) - 1)]
 
-    return {"n": len(ordered), "p50": rank(0.50), "p95": rank(0.95)}
+    return {
+        "n": len(ordered), "p50": rank(0.50), "p95": rank(0.95),
+        "p50_interval": _quantile_interval(ordered, 0.50), "p95_interval": _quantile_interval(ordered, 0.95),
+    }
 
 
 def _share(count: int, of: int) -> dict[str, Any]:
-    return {"count": count, "of": of, "share": (round(count / of, 4) if of else None)}
+    return {"count": count, "of": of, "share": (round(count / of, 4) if of else None), "interval": _wilson(count, of)}
 
 
 def _when(value: str | None) -> datetime | None:
@@ -95,8 +185,8 @@ def build_hints_report(
             dict(row)
             for row in connection.execute(
                 "SELECT id, surface, assist_kind, hint_kind, level, practice_item_id, practice_session_id, "
-                "attempt_id, authored_index, work_chars, requested_at, shown_at FROM help_assists "
-                f"WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
+                "attempt_id, submission_id, authored_index, work_chars, counted_by, requested_at, shown_at, "
+                f"submitted_at FROM help_assists WHERE {' AND '.join(clauses)} ORDER BY requested_at, id",
                 parameters,
             ).fetchall()
         ]
@@ -104,16 +194,37 @@ def build_hints_report(
             row for row in rows
             if since_at is None or ((_when(row["shown_at"] or row["requested_at"]) or now) >= since_at)
         ]
-        attempt_ids = sorted({row["attempt_id"] for row in rows if row["attempt_id"]})
+        columns = (
+            "id, practice_item_id, learning_object_id, attempt_type, correctness, latency_seconds, "
+            "hints_used, primed, submission_id, created_at"
+        )
         attempts: dict[str, dict[str, Any]] = {}
-        for start in range(0, len(attempt_ids), 500):
-            chunk = attempt_ids[start:start + 500]
-            for row in connection.execute(
-                "SELECT id, practice_item_id, learning_object_id, attempt_type, correctness, latency_seconds, "
-                f"hints_used, primed, created_at FROM practice_attempts WHERE id IN ({', '.join('?' for _ in chunk)})",
-                chunk,
-            ).fetchall():
-                attempts[row["id"]] = dict(row)
+
+        def fetch(column: str, keys: list[str]) -> None:
+            for start in range(0, len(keys), 500):
+                chunk = keys[start:start + 500]
+                for found in connection.execute(
+                    f"SELECT {columns} FROM practice_attempts WHERE {column} IN ({', '.join('?' for _ in chunk)})",
+                    chunk,
+                ).fetchall():
+                    attempts[found["id"]] = dict(found)
+
+        fetch("id", sorted({row["attempt_id"] for row in rows if row["attempt_id"]}))
+        fetch("submission_id", sorted({
+            row["submission_id"] for row in rows if not row["attempt_id"] and row["submission_id"]
+        }))
+        by_submission = {
+            (attempt["submission_id"], attempt["practice_item_id"]): attempt_id
+            for attempt_id, attempt in attempts.items() if attempt["submission_id"]
+        }
+        resolved_by_submission = 0
+        for row in rows:
+            if row["attempt_id"] in attempts:
+                row["resolved_attempt"] = row["attempt_id"]
+            else:
+                row["resolved_attempt"] = by_submission.get((row["submission_id"], row["practice_item_id"]))
+                if row["resolved_attempt"] is not None and not row["attempt_id"]:
+                    resolved_by_submission += 1
         # Later independent attempts (hints_used = 0, not primed) on each
         # touched item and learning object, in time order.
         items = sorted({a["practice_item_id"] for a in attempts.values()})
@@ -131,47 +242,79 @@ def build_hints_report(
                     independent_by_lo[row["learning_object_id"]].append(dict(row))
 
     def later(attempt: dict[str, Any], pool: list[dict[str, Any]]) -> str:
+        """The next independent attempt's outcome, never a later one's."""
+
         for candidate in pool:
             if candidate["id"] != attempt["id"] and (candidate["created_at"], candidate["id"]) > (
                 attempt["created_at"], attempt["id"]
             ):
-                return "pass" if _outcome(candidate["correctness"]) == "correct" else "fail"
+                outcome = _outcome(candidate["correctness"])
+                if outcome == "ungraded":
+                    return "ungraded"
+                return "pass" if outcome == "correct" else "fail"
         return "pending"
+
+    def later_block(counts: Counter) -> dict[str, Any]:
+        block: dict[str, Any] = {key: counts.get(key, 0) for key in ("pass", "fail", "ungraded", "pending")}
+        block["pass_rate"] = _share(block["pass"], block["pass"] + block["fail"])
+        return block
 
     groups: dict[tuple[str, str, str | None, int | None], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         groups[(row["surface"], row["assist_kind"], row["hint_kind"], row["level"])].append(row)
     by_attempt: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        if row["attempt_id"]:
-            by_attempt[row["attempt_id"]].append(row)
+        if row["resolved_attempt"]:
+            by_attempt[row["resolved_attempt"]].append(row)
+
+    def unaided(row: dict[str, Any]) -> str:
+        """``reached`` when the grade settles it (§6.1), else why it is unknown."""
+
+        attempt = attempts[row["resolved_attempt"]]
+        if any((other["requested_at"], other["id"]) > (row["requested_at"], row["id"])
+               for other in by_attempt[row["resolved_attempt"]]):
+            return "more_help_followed"
+        if attempt["primed"]:
+            return "primed"
+        recorded = sum(1 for other in by_attempt[row["resolved_attempt"]] if other["counted_by"] == "client")
+        if int(attempt["hints_used"] or 0) > recorded:
+            return "help_not_ordered"
+        outcome = _outcome(attempt["correctness"])
+        if outcome == "ungraded":
+            return "ungraded"
+        return "reached" if outcome == "correct" else "not_fully_correct"
 
     kinds: list[dict[str, Any]] = []
     for (row_surface, assist_kind, hint_kind, level), members in sorted(
         groups.items(), key=lambda entry: tuple("" if part is None else str(part) for part in entry[0])
     ):
-        attached = [row for row in members if row["attempt_id"] in attempts]
+        attached = [row for row in members if row["resolved_attempt"]]
         per_item = Counter(row["practice_item_id"] for row in members)
         per_session = Counter(row["practice_session_id"] for row in members if row["practice_session_id"])
         to_submit: list[float] = []
         into_attempt: list[float] = []
+        timing_unknown = 0
         more_help = 0
+        progress = Counter(unaided(row) for row in attached)
         for row in attached:
-            attempt = attempts[row["attempt_id"]]
+            attempt = attempts[row["resolved_attempt"]]
             shown = _when(row["shown_at"] or row["requested_at"])
-            submitted = _when(attempt["created_at"])
+            submitted = _when(row["submitted_at"])
             if shown is not None and submitted is not None:
                 gap = max(0.0, (submitted - shown).total_seconds())
                 to_submit.append(round(gap, 3))
                 if attempt["latency_seconds"] is not None:
                     into_attempt.append(round(max(0.0, float(attempt["latency_seconds"]) - gap), 3))
+            else:
+                timing_unknown += 1
             if any(
                 (other["requested_at"], other["id"]) > (row["requested_at"], row["id"])
-                for other in by_attempt[row["attempt_id"]]
+                for other in by_attempt[row["resolved_attempt"]]
             ):
                 more_help += 1
-        counted_attempts = {row["attempt_id"] for row in attached}
+        counted_attempts = {row["resolved_attempt"] for row in attached}
         outcomes = Counter(_outcome(attempts[a]["correctness"]) for a in counted_attempts)
+        graded = sum(outcomes.get(key, 0) for key in ("correct", "partial", "incorrect"))
         later_item = Counter(
             later(attempts[a], independent_by_item.get(attempts[a]["practice_item_id"], [])) for a in counted_attempts
         )
@@ -201,12 +344,18 @@ def build_hints_report(
             "work_empty_at_request": _share(sum(1 for row in members if not row["work_chars"]), len(members)),
             "seconds_reveal_to_submit": _percentiles(to_submit),
             "seconds_into_attempt": _percentiles(into_attempt),
+            "timing_unknown": timing_unknown,
             "more_help_in_attempt": _share(more_help, len(attached)),
+            "unaided_next_progress": {
+                "reached": _share(progress.get("reached", 0), len(attached)),
+                "unknown": {reason: progress.get(reason, 0) for reason in UNAIDED_UNKNOWN_REASONS},
+            },
             "attempt_outcome": {key: outcomes.get(key, 0) for key in ("correct", "partial", "incorrect", "ungraded")},
+            "attempt_correct": _share(outcomes.get("correct", 0), graded),
             "attempt_types": dict(sorted(Counter(attempts[a]["attempt_type"] for a in counted_attempts).items())),
             "later_independent_success": {
-                "item": {key: later_item.get(key, 0) for key in ("pass", "fail", "pending")},
-                "learning_object": {key: later_lo.get(key, 0) for key in ("pass", "fail", "pending")},
+                "item": later_block(later_item),
+                "learning_object": later_block(later_lo),
             },
         })
 
@@ -216,7 +365,9 @@ def build_hints_report(
             "practice_item_id": item_id,
             "shown": count,
             "sessions": len({row["practice_session_id"] for row in rows if row["practice_item_id"] == item_id}),
-            "attempts": len({row["attempt_id"] for row in rows if row["practice_item_id"] == item_id and row["attempt_id"]}),
+            "attempts": len({
+                row["resolved_attempt"] for row in rows if row["practice_item_id"] == item_id and row["resolved_attempt"]
+            }),
         }
         for item_id, count in sorted(per_item_all.items(), key=lambda entry: (-entry[1], entry[0] or ""))[:TOP_ITEMS]
     ]
@@ -230,13 +381,19 @@ def build_hints_report(
             "items": len(per_item_all),
             "sessions": len({row["practice_session_id"] for row in rows if row["practice_session_id"]}),
             "attempts": len(by_attempt),
-            "unattached": sum(1 for row in rows if not row["attempt_id"]),
-            "per_attempt": _percentiles(Counter(row["attempt_id"] for row in rows if row["attempt_id"]).values()),
+            "unattached": sum(1 for row in rows if not row["resolved_attempt"]),
+            "resolved_by_submission": resolved_by_submission,
+            "per_attempt": _percentiles(Counter(
+                row["resolved_attempt"] for row in rows if row["resolved_attempt"]
+            ).values()),
         },
         "kinds": kinds,
         "top_items": top_items,
         "not_yet_measured": [
-            "unaided_next_progress", "doesnt_connect", "off_policy_estimates", "expertise_reversal_split",
+            # The unaided-progress cases the grade cannot settle (H2's hint and
+            # outcome placements); the grade-settled ones are in each kind's row.
+            "unaided_next_progress_unknown_cases", "doesnt_connect", "off_policy_estimates",
+            "expertise_reversal_split",
         ],
     }
 

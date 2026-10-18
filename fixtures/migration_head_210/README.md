@@ -187,8 +187,13 @@ Migration 210 comes from adaptive hints H0 (`hints/h0`, hint telemetry,
 docs/reviews/adaptive-hints-H0.md): it adds `help_assists` (RAW_LEDGER: one
 row per assist shown on any surface, shared with the Reader workbench and
 created once with every column and CHECK value both specs write; H0 writes
-the practice screen's authored-hint reveals), with its four indexes and its
-no-delete and fixed-identity triggers. The table is empty here.
+the practice screen's authored-hint reveals, bound to the attempt by the
+client's submission key), with its five indexes and its no-delete and
+fixed-identity triggers (a later binding may go from NULL to a value once).
+The table is empty here. Rebuilt for the H0 Codex review fixes
+(docs/reviews/hints-h0-codex-review.md: `submission_id`, `submitted_at`, the
+submission index and the once-set bindings) the same way, from the base's
+`migration_head_209` with only the edited 210 applied.
 
 Built as a backup-API copy of the base's `migration_head_209` (git
 `610e61dc0`) with only 210 applied, by the same chain as before:

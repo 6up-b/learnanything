@@ -533,6 +533,9 @@ export const api = {
   recordHintReveal: (input: {
     sessionId: string;
     practiceItemId: string;
+    /** The stable submission key the attempt in progress will submit with:
+     *  the row is attached to that submission's attempt and no other. */
+    submissionId: string;
     /** 0-based index of the hint shown in the item's list. */
     authoredIndex: number;
     /** The draft it was revealed on (the sidecar keeps only a hash and length). */

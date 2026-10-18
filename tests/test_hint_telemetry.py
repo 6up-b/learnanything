@@ -3,8 +3,11 @@
 
 ``practice.record_hint_reveal`` writes one ``help_assists`` row per authored
 hint the practice screen reveals (which hint, when, a hash and length of the
-draft); ``submit_attempt`` and ``submit_dont_know`` attach the session's rows
-for the item to the attempt. Telemetry only: the attempt's ``hints_used``,
+draft), under the screen's stable submission key; ``submit_attempt`` and
+``submit_dont_know`` attach the rows recorded under their submission key to
+the attempt (and only those: review F1), a retried submit or a recovery
+repairs a failed attach, and the submit time is stamped before grading
+(review F2). Telemetry only: the attempt's ``hints_used``,
 ``primed``, reveal events and every evidence table are byte-identical with
 the telemetry on or off, and replay never reads the table. Fakes only: the
 vault is the tests' basic vault, graded by self-grade (no provider at all).
@@ -72,19 +75,28 @@ def _sidecar(root: Path):
     return ctx, session["sessionId"]
 
 
-def _reveal(ctx, session_id: str, index: int, *, answer: str = "", at: str | None = None, item: str = ITEM):
-    params = {"sessionId": session_id, "practiceItemId": item, "authoredIndex": index, "answerMd": answer}
+def _reveal(
+    ctx, session_id: str, index: int, *, answer: str = "", at: str | None = None, item: str = ITEM, key: str = "k1"
+):
+    params = {"sessionId": session_id, "practiceItemId": item, "submissionId": key, "authoredIndex": index,
+              "answerMd": answer}
     if at is not None:
         params["revealedAt"] = at
     return _call(ctx, "practice.record_hint_reveal", params)
 
 
-def _submit(ctx, session_id: str, *, hints: int, key: str, answer: str = "A = U Sigma V^T."):
-    return _call(ctx, "submit_attempt", {
+def _submit(
+    ctx, session_id: str, *, hints: int, key: str, answer: str = "A = U Sigma V^T.", grade: dict | None = SELF_GRADE,
+    latency: float | None = None,
+):
+    params = {
         "sessionId": session_id, "practiceItemId": ITEM, "answerMd": answer,
         "attemptType": "hinted_attempt" if hints else "independent_attempt", "hintsUsed": hints,
-        "selfGrade": SELF_GRADE, "submissionId": key,
-    })
+        "selfGrade": grade, "submissionId": key,
+    }
+    if latency is not None:
+        params["latencySeconds"] = latency
+    return _call(ctx, "submit_attempt", params)
 
 
 def _rows(database: Path) -> list[dict]:
@@ -113,12 +125,13 @@ def test_a_reveal_writes_one_authored_hint_row(tmp_path, frozen):
     assert row["id"] == result["assistId"]
     assert {key: row[key] for key in (
         "surface", "assist_kind", "hint_kind", "level", "chooser", "counted_by", "shown", "authored_index",
-        "practice_item_id", "practice_session_id", "attempt_id", "body_md", "requested_at", "shown_at",
+        "practice_item_id", "practice_session_id", "submission_id", "attempt_id", "body_md", "requested_at",
+        "shown_at", "submitted_at",
     )} == {
         "surface": "practice", "assist_kind": "hint", "hint_kind": "authored", "level": 3, "chooser": "none",
         "counted_by": "client", "shown": 1, "authored_index": 0, "practice_item_id": ITEM,
-        "practice_session_id": session_id, "attempt_id": None, "body_md": None,
-        "requested_at": "2026-10-17T08:59:58.250Z", "shown_at": "2026-10-17T08:59:58.250Z",
+        "practice_session_id": session_id, "submission_id": "k1", "attempt_id": None, "body_md": None,
+        "requested_at": "2026-10-17T08:59:58.250Z", "shown_at": "2026-10-17T08:59:58.250Z", "submitted_at": None,
     }
     assert row["practice_item_hash"] == practice_item_hash(item)
     assert row["work_hash"] == hashlib.sha256(answer.encode()).hexdigest() and row["work_chars"] == len(answer)
@@ -127,8 +140,8 @@ def test_a_reveal_writes_one_authored_hint_row(tmp_path, frozen):
     filled = {key for key, value in row.items() if value is not None}
     assert filled == {
         "id", "surface", "assist_kind", "practice_item_id", "practice_item_hash", "practice_session_id",
-        "hint_kind", "level", "authored_index", "work_hash", "work_chars", "chooser", "shown", "counted_by",
-        "requested_at", "shown_at",
+        "submission_id", "hint_kind", "level", "authored_index", "work_hash", "work_chars", "chooser", "shown",
+        "counted_by", "requested_at", "shown_at",
     }
 
 
@@ -159,13 +172,15 @@ def test_the_rpc_validates_the_item_and_the_index(tmp_path):
     assert past.value.code == "validation_error"
     with pytest.raises(ValueError):
         _reveal(ctx, session_id, -1)
+    with pytest.raises(ValueError):
+        _reveal(ctx, session_id, 0, key="")  # a reveal always names its submission
     assert _rows(paths.sqlite_path) == []
 
 
 # -- attempt_id at submit -------------------------------------------------------------
 
 
-def test_submit_attaches_the_sessions_rows_for_the_item_and_keeps_the_clients_count(tmp_path):
+def test_submit_attaches_its_submissions_rows_and_keeps_the_clients_count(tmp_path):
     paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
     ctx, session_id = _sidecar(paths.root)
     _reveal(ctx, session_id, 0)
@@ -179,8 +194,8 @@ def test_submit_attaches_the_sessions_rows_for_the_item_and_keeps_the_clients_co
     assert [row["attempt_id"] for row in rows] == [payload["attemptId"]] * 2
     # A retried submit answers from its receipt and moves nothing.
     assert _submit(ctx, session_id, hints=1, key="k1")["attemptId"] == payload["attemptId"]
-    # The next attempt in the session gets only the rows revealed since.
-    _reveal(ctx, session_id, 0)
+    # The next attempt in the session gets only the rows revealed under its key.
+    _reveal(ctx, session_id, 0, key="k2")
     second = _submit(ctx, session_id, hints=1, key="k2")
     assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [payload["attemptId"]] * 2 + [second["attemptId"]]
 
@@ -205,8 +220,9 @@ def test_submit_never_attaches_another_sessions_or_items_rows(tmp_path):
 def test_dont_know_attaches_the_rows_too(tmp_path):
     paths = _vault(tmp_path)
     ctx, session_id = _sidecar(paths.root)
-    _reveal(ctx, session_id, 0)
-    payload = _call(ctx, "submit_dont_know", {"sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1})
+    _reveal(ctx, session_id, 0, key="dk-1")
+    payload = _call(ctx, "submit_dont_know", {
+        "sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1, "submissionId": "dk-1"})
     attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
     assert attempt["attempt_type"] == "dont_know" and attempt["hints_used"] == 1
     assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [payload["attemptId"]]
@@ -218,7 +234,7 @@ def test_an_empty_stuck_answer_attaches_the_rows_too(tmp_path):
     paths = _vault(tmp_path)
     set_algorithm_version(paths, "mvp-0.13")
     ctx, session_id = _sidecar(paths.root)
-    _reveal(ctx, session_id, 0)
+    _reveal(ctx, session_id, 0, key="stuck-1")
     payload = _call(ctx, "submit_attempt", {
         "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "", "attemptType": "hinted_attempt",
         "hintsUsed": 1, "declaredStuck": True, "submissionId": "stuck-1",
@@ -272,11 +288,14 @@ def test_kill_switch_writes_nothing_and_the_rpc_is_a_no_op(tmp_path, monkeypatch
 
     monkeypatch.setattr(practice, "record_authored_reveal", forbidden)
     monkeypatch.setattr(practice, "attach_reveals_to_attempt", forbidden)
+    monkeypatch.setattr(practice, "stamp_submission", forbidden)
     result = _reveal(ctx, session_id, 0)
     assert result == {"version": 1, "recorded": False, "reason": "telemetry_disabled", "assistId": None}
     # Off, the RPC answers before it looks at its input at all.
     assert _reveal(ctx, session_id, 7, item="pi_missing")["recorded"] is False
     _submit(ctx, session_id, hints=1, key="k1")
+    _submit(ctx, session_id, hints=1, key="k1")  # a retry answered from its receipt
+    _call(ctx, "recover_practice_submission", {"sessionId": session_id, "practiceItemId": ITEM, "submissionId": "k1"})
     _call(ctx, "submit_dont_know", {"sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1})
     assert _rows(paths.sqlite_path) == []
 
@@ -292,6 +311,7 @@ def test_a_failed_write_never_fails_the_reveal_or_the_submit(tmp_path, monkeypat
     result = _reveal(ctx, session_id, 0)
     assert (result["recorded"], result["reason"]) == (False, "write_failed")
     monkeypatch.setattr(practice, "attach_reveals_to_attempt", broken)
+    monkeypatch.setattr(practice, "stamp_submission", broken)
     payload = _submit(ctx, session_id, hints=1, key="k1")
     assert Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])["hints_used"] == 1
 
@@ -356,7 +376,7 @@ def _scenario(root: Path, monkeypatch) -> list[str]:
     responses.append(_submit(ctx, session_id, hints=1, key="k1"))
     responses.append(_call(ctx, "acknowledge_practice_submission", {
         "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "k1"}))
-    _reveal(ctx, session_id, 0, at="2026-10-17T08:59:30Z")
+    _reveal(ctx, session_id, 0, at="2026-10-17T08:59:30Z", key="k2")
     responses.append(_call(ctx, "submit_dont_know", {
         "sessionId": session_id, "practiceItemId": ITEM, "hintsUsed": 1, "submissionId": "k2"}))
     responses.append(_call(ctx, "get_session", {"sessionId": session_id}))
@@ -403,7 +423,7 @@ def test_rebuild_with_help_assists_populated_calls_no_model_and_never_reads_it(t
     for index in (0, 1):
         _reveal(ctx, session_id, index)
     _submit(ctx, session_id, hints=2, key="k1")
-    _reveal(ctx, session_id, 0)  # an unattached row too
+    _reveal(ctx, session_id, 0, key="k2")  # an unattached row too
     assert len(_rows(paths.sqlite_path)) == 3
 
     def forbidden(*args, **kwargs):
@@ -454,24 +474,26 @@ def test_the_report_describes_authored_reveals_and_what_followed(tmp_path):
     # A later independent attempt on the item (no hint): the pending outcome resolves.
     _submit(ctx, session_id, hints=0, key="k2")
     other = _call(ctx, "start_session", {"energy": "medium"})["sessionId"]
-    _reveal(ctx, other, 0)  # never submitted: unattached
+    _reveal(ctx, other, 0, key="k3")  # never submitted: unattached
     report = build_hints_report(paths.sqlite_path)
     assert report["report_version"] == "hints-report-v1"
-    assert report["totals"] == {
-        "shown": 3, "items": 1, "sessions": 2, "attempts": 1, "unattached": 1,
-        "per_attempt": {"n": 1, "p50": 2, "p95": 2},
+    assert {key: value for key, value in report["totals"].items() if key != "per_attempt"} == {
+        "shown": 3, "items": 1, "sessions": 2, "attempts": 1, "unattached": 1, "resolved_by_submission": 0,
     }
+    assert {key: report["totals"]["per_attempt"][key] for key in ("n", "p50", "p95")} == {"n": 1, "p50": 2, "p95": 2}
     [row] = report["kinds"]
     assert (row["surface"], row["assist_kind"], row["hint_kind"], row["level"], row["baseline"]) == (
         "practice", "hint", "authored", 3, True)
     assert (row["shown"], row["items"], row["sessions"], row["attempts"], row["unattached"]) == (3, 1, 2, 1, 1)
     assert row["by_authored_index"] == {"0": 2, "1": 1}
-    assert row["work_empty_at_request"] == {"count": 2, "of": 3, "share": 0.6667}
-    assert row["more_help_in_attempt"] == {"count": 1, "of": 2, "share": 0.5}
+    assert {k: row["work_empty_at_request"][k] for k in ("count", "of", "share")} == {"count": 2, "of": 3, "share": 0.6667}
+    assert {k: row["more_help_in_attempt"][k] for k in ("count", "of", "share")} == {"count": 1, "of": 2, "share": 0.5}
     assert row["attempt_outcome"] == {"correct": 1, "partial": 0, "incorrect": 0, "ungraded": 0}
     assert row["attempt_types"] == {"hinted_attempt": 1}
-    assert row["later_independent_success"]["item"] == {"pass": 1, "fail": 0, "pending": 0}
-    assert row["seconds_reveal_to_submit"]["n"] == 2
+    later = row["later_independent_success"]["item"]
+    assert {key: later[key] for key in ("pass", "fail", "ungraded", "pending")} == {
+        "pass": 1, "fail": 0, "ungraded": 0, "pending": 0}
+    assert row["seconds_reveal_to_submit"]["n"] == 2 and row["timing_unknown"] == 0
     assert report["top_items"] == [{"practice_item_id": ITEM, "shown": 3, "sessions": 2, "attempts": 1}]
     # No learner text reaches the report.
     assert "Name the three factors" not in json.dumps(report)
@@ -501,3 +523,274 @@ def test_the_report_cli_reads_the_vault_read_only(tmp_path):
 def test_work_digest_keeps_only_a_hash_and_a_length():
     assert telemetry.work_digest("abc") == (hashlib.sha256(b"abc").hexdigest(), 3)
     assert telemetry.work_digest("") == (hashlib.sha256(b"").hexdigest(), 0)
+
+
+# -- review fixes (docs/reviews/hints-h0-codex-review.md) -----------------------------
+
+
+def _broken(*args, **kwargs):
+    raise sqlite3.OperationalError("disk I/O error")
+
+
+def test_a_failed_attach_is_repaired_by_recovery_and_never_given_to_the_next_attempt(tmp_path, monkeypatch):
+    """F1: attempt A commits but its attach fails (or the process stops before
+    it); B, on the same item in the same session, must not take A's reveal,
+    and recovering A (or retrying its submit) attaches it to A."""
+
+    from learnloop.hints.report import build_hints_report
+
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="kA")
+    with monkeypatch.context() as patch:
+        patch.setattr(practice, "attach_reveals_to_attempt", _broken)
+        first = _submit(ctx, session_id, hints=1, key="kA")
+    assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [None]
+    # The report already gives the row to A, through the submission key.
+    report = build_hints_report(paths.sqlite_path)
+    assert (report["totals"]["unattached"], report["totals"]["resolved_by_submission"]) == (0, 1)
+    # B: a later submission on the same item and session, with a reveal of its own.
+    _reveal(ctx, session_id, 1, key="kB")
+    second = _submit(ctx, session_id, hints=1, key="kB")
+    assert first["attemptId"] != second["attemptId"]
+    by_key = {row["submission_id"]: row["attempt_id"] for row in _rows(paths.sqlite_path)}
+    assert by_key == {"kA": None, "kB": second["attemptId"]}
+    # A's recovery answers from its receipt and repairs the attach.
+    recovered = _call(ctx, "recover_practice_submission", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "kA"})
+    assert recovered["status"] == "recovered" and recovered["result"]["attemptId"] == first["attemptId"]
+    by_key = {row["submission_id"]: row["attempt_id"] for row in _rows(paths.sqlite_path)}
+    assert by_key == {"kA": first["attemptId"], "kB": second["attemptId"]}
+    # Idempotent: recovering again, or retrying either submit, moves nothing.
+    _call(ctx, "recover_practice_submission", {"sessionId": session_id, "practiceItemId": ITEM, "submissionId": "kA"})
+    _submit(ctx, session_id, hints=1, key="kA")
+    _submit(ctx, session_id, hints=1, key="kB")
+    assert {row["submission_id"]: row["attempt_id"] for row in _rows(paths.sqlite_path)} == by_key
+    report = build_hints_report(paths.sqlite_path)
+    assert (report["totals"]["attempts"], report["totals"]["unattached"], report["totals"]["resolved_by_submission"]) == (
+        2, 0, 0)
+
+
+def test_a_retried_submit_repairs_a_failed_attach(tmp_path, monkeypatch):
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="kA")
+    with monkeypatch.context() as patch:
+        patch.setattr(practice, "attach_reveals_to_attempt", _broken)
+        first = _submit(ctx, session_id, hints=1, key="kA")
+    assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [None]
+    assert _submit(ctx, session_id, hints=1, key="kA")["attemptId"] == first["attemptId"]
+    assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [first["attemptId"]]
+
+
+def test_an_attempt_without_its_receipt_is_attached_when_its_completion_resumes(tmp_path, monkeypatch):
+    """F1: the process stops after the attempt commits and before the receipt
+    (and the attach): the resumed completion attaches the rows."""
+
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="kA")
+
+    def stop(*args, **kwargs):
+        raise RuntimeError("process stopped before the receipt")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(practice, "_store_submission_receipt", stop)
+        with pytest.raises(RuntimeError):
+            _submit(ctx, session_id, hints=1, key="kA")
+    attempt = Repository(paths.sqlite_path).practice_attempt_by_submission_id("kA")
+    assert attempt is not None and [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [None]
+    recovered = _call(ctx, "recover_practice_submission", {
+        "sessionId": session_id, "practiceItemId": ITEM, "submissionId": "kA"})
+    assert recovered["status"] == "recovered"
+    assert [row["attempt_id"] for row in _rows(paths.sqlite_path)] == [attempt["id"]]
+
+
+def _moving_clock(monkeypatch, start: datetime) -> dict:
+    now = {"t": start}
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: now["t"])
+    return now
+
+
+def test_reveal_to_submit_ends_at_the_submit_not_at_the_graded_attempt(tmp_path, monkeypatch):
+    """F2: opened 09:00:00, hint at 09:00:50, submit at 09:01:00, the grade
+    applied at 09:01:30: 10 s from reveal to submit and 50 s into the attempt."""
+
+    from learnloop.hints.report import build_hints_report
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, at="2026-10-17T09:00:50Z")
+    now["t"] = FROZEN + timedelta(seconds=60)
+    original = practice.complete_attempt_with_ai_fallback
+
+    def slow_grader(*args, **kwargs):
+        now["t"] = FROZEN + timedelta(seconds=90)  # the grader takes 30 s
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(practice, "complete_attempt_with_ai_fallback", slow_grader)
+    payload = _submit(ctx, session_id, hints=1, key="k1", latency=60)
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
+    assert attempt["created_at"] == "2026-10-17T09:01:30Z"
+    [row] = _rows(paths.sqlite_path)
+    assert (row["attempt_id"], row["submitted_at"]) == (payload["attemptId"], "2026-10-17T09:01:00.000Z")
+    [kind] = build_hints_report(paths.sqlite_path, now=FROZEN + timedelta(hours=1))["kinds"]
+    assert (kind["seconds_reveal_to_submit"]["n"], kind["seconds_reveal_to_submit"]["p50"]) == (1, 10.0)
+    assert (kind["seconds_into_attempt"]["n"], kind["seconds_into_attempt"]["p50"]) == (1, 50.0)
+    assert kind["timing_unknown"] == 0
+
+
+def test_a_grading_fallback_keeps_the_first_submit_time(tmp_path, monkeypatch):
+    """F2: the grader is unavailable at the first submit; the learner's
+    self-grade a minute later commits the attempt. The submit time is the
+    first submit's."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, at="2026-10-17T08:59:40Z")
+    with pytest.raises(SidecarError) as fallback:
+        _submit(ctx, session_id, hints=1, key="k1", grade=None)
+    assert fallback.value.code == "grading_fallback_required"
+    [row] = _rows(paths.sqlite_path)
+    assert (row["attempt_id"], row["submitted_at"]) == (None, "2026-10-17T09:00:00.000Z")
+    now["t"] = FROZEN + timedelta(minutes=1)
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    [row] = _rows(paths.sqlite_path)
+    assert (row["attempt_id"], row["submitted_at"]) == (payload["attemptId"], "2026-10-17T09:00:00.000Z")
+
+
+def test_a_row_without_a_submit_time_is_timed_unknown_not_from_the_grade(tmp_path, monkeypatch):
+    from learnloop.hints.report import build_hints_report
+
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0)
+    monkeypatch.setattr(practice, "stamp_submission", _broken)
+    _submit(ctx, session_id, hints=1, key="k1")
+    [row] = _rows(paths.sqlite_path)
+    assert row["attempt_id"] and row["submitted_at"] is None
+    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    assert kind["seconds_reveal_to_submit"]["n"] == 0 and kind["timing_unknown"] == 1
+
+
+def _set_correctness(database: Path, attempt_id: str, value) -> None:
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("UPDATE practice_attempts SET correctness = ? WHERE id = ?", (value, attempt_id))
+        connection.commit()
+
+
+def test_an_ungraded_next_attempt_is_reported_ungraded_never_fail(tmp_path, monkeypatch):
+    """F4: the next independent attempt has no grade. It stays that attempt's
+    outcome (``ungraded``), neither imputed a failure nor skipped for a later
+    attempt's pass."""
+
+    from learnloop.hints.report import build_hints_report
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0)
+    _submit(ctx, session_id, hints=1, key="k1")
+    now["t"] = FROZEN + timedelta(minutes=1)
+    ungraded = _submit(ctx, session_id, hints=0, key="k2")
+    _set_correctness(paths.sqlite_path, ungraded["attemptId"], None)
+    now["t"] = FROZEN + timedelta(minutes=2)
+    _submit(ctx, session_id, hints=0, key="k3")  # a later pass is not the outcome
+    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    for scope in ("item", "learning_object"):
+        later = kind["later_independent_success"][scope]
+        assert {key: later[key] for key in ("pass", "fail", "ungraded", "pending")} == {
+            "pass": 0, "fail": 0, "ungraded": 1, "pending": 0}
+        assert later["pass_rate"]["of"] == 0 and later["pass_rate"]["interval"] is None
+    # Graded and not correct is a fail; no later attempt at all is pending.
+    _set_correctness(paths.sqlite_path, ungraded["attemptId"], 0.0)
+    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    assert kind["later_independent_success"]["item"]["fail"] == 1
+
+
+def test_an_ungraded_hinted_attempt_and_no_later_attempt(tmp_path):
+    from learnloop.hints.report import build_hints_report
+
+    paths = _vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0)
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    _set_correctness(paths.sqlite_path, payload["attemptId"], None)
+    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    assert kind["attempt_outcome"]["ungraded"] == 1
+    assert kind["attempt_correct"]["of"] == 0 and kind["attempt_correct"]["share"] is None
+    assert kind["later_independent_success"]["item"]["pending"] == 1
+    assert kind["unaided_next_progress"]["unknown"]["ungraded"] == 1
+    assert kind["unaided_next_progress"]["reached"]["count"] == 0
+
+
+def test_unaided_next_progress_is_settled_by_the_grade_where_it_can_be(tmp_path, monkeypatch):
+    """F5 (§6.1): a fully correct submission with no further help after the
+    hint reached the goal; every other case is unknown with its reason."""
+
+    from learnloop.hints.report import build_hints_report
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+
+    def attempt(key: str, reveals: int, *, hints: int | None = None, points: int = 4, primed: bool = False):
+        now["t"] += timedelta(minutes=5)
+        for index in range(reveals):
+            _reveal(ctx, session_id, index, key=key, at=(now["t"] - timedelta(seconds=30 - index)).isoformat())
+        params = {
+            "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "A = U Sigma V^T.",
+            "attemptType": "hinted_attempt", "hintsUsed": reveals if hints is None else hints,
+            "selfGrade": {"criterionPoints": {"correctness": points}, "confidence": 4}, "submissionId": key,
+            "primed": primed,
+        }
+        return _call(ctx, "submit_attempt", params)
+
+    attempt("reached", 1)                      # one hint, then a correct answer: reached
+    attempt("two", 2)                          # the first is followed by more help; the second reached
+    attempt("wrong", 1, points=0)              # not correct: needs H2's outcome placement
+    attempt("tutor", 1, hints=2)               # help the rows cannot order (say, a tutor question)
+    attempt("primed", 1, primed=True)          # worked help or a disclosed answer
+    [kind] = build_hints_report(paths.sqlite_path)["kinds"]
+    progress = kind["unaided_next_progress"]
+    assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 2, "of": 6}
+    assert progress["unknown"] == {
+        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "ungraded": 0, "not_fully_correct": 1,
+    }
+    assert progress["reached"]["interval"]["method"] == "wilson"
+    assert "unaided_next_progress" not in build_hints_report(paths.sqlite_path)["not_yet_measured"]
+
+
+def test_shares_and_summaries_carry_intervals_with_explicit_small_sample_behaviour():
+    """F6 (§6: every number with its sample size and interval)."""
+
+    from learnloop.hints.report import _percentiles, _share
+
+    assert _share(0, 0) == {"count": 0, "of": 0, "share": None, "interval": None}
+    one = _share(1, 1)
+    assert one["share"] == 1.0
+    assert one["interval"] == {"method": "wilson", "level": 0.95, "low": 0.2065, "high": 1.0}
+    assert _share(0, 1)["interval"] == {"method": "wilson", "level": 0.95, "low": 0.0, "high": 0.7935}
+    half = _share(5, 10)["interval"]
+    assert (half["low"], half["high"]) == (0.2366, 0.7634)
+
+    empty = _percentiles([])
+    assert empty["n"] == 0 and empty["p50"] is None
+    assert empty["p50_interval"]["reason"] == "empty" and empty["p50_interval"]["low"] is None
+    # Five observations cannot bracket the median at 95% (coverage 1 - 2/32).
+    five = _percentiles([1, 2, 3, 4, 5])
+    assert five["p50"] == 3
+    assert five["p50_interval"] == {
+        "method": "order_statistic", "level": 0.95, "low": None, "high": None, "coverage": 0.9375,
+        "reason": "too_few",
+    }
+    six = _percentiles([6, 1, 5, 2, 4, 3])
+    assert six["p50_interval"] == {"method": "order_statistic", "level": 0.95, "low": 1, "high": 6, "coverage": 0.9688}
+    assert six["p95_interval"]["reason"] == "too_few"
+    large = _percentiles(range(1, 101))
+    assert large["p50_interval"]["low"] < large["p50"] < large["p50_interval"]["high"]
+    assert large["p50_interval"]["coverage"] >= 0.95
+    assert large["p95_interval"]["low"] <= large["p95"] <= large["p95_interval"]["high"]
+    assert large["p95_interval"]["coverage"] >= 0.95
