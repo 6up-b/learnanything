@@ -468,3 +468,146 @@ The two round-2 progress tests' expected reason dicts gain
 
 - `cce1f22c5`: the fix (`learnloop/hints/report.py`, tests).
 - this record.
+
+## Fix round 5 (after Codex job 20261018-004402-IAnAPx)
+
+The Codex verify of `f3fb4778d` confirmed the book-hiding fix and found no
+regressions. One Medium remained, pre-existing: the report filtered
+workbench problems by their *current* `practice_item_id`. `workbench.bind`
+(`reader/workbench.py:860`) can rebind an imported problem from item A to
+item B. That flipped A's past attempt from `workbench_state_unknown` to
+`reached`.
+
+The fix is in `85340fc26`. The ruling made this the last word on mutable
+workbench state, so this round also audits every read in the "unaided next
+progress" path (table below). No schema change, so no fixture or reference
+regeneration (`db_validate_reference.py`: 0 errors). Grading, `hints_used`
+and everything submit stores are unchanged.
+
+**Fail first.** The round's tests were run against `f3fb4778d`'s code in a
+detached worktree (removed after). **All 4 new tests failed:**
+
+| Test | Result on `f3fb4778d` |
+|---|---|
+| Codex's A→B rebind | `workbench_state_unknown` before the rebind, `reached` after |
+| An unbound overlapping problem | `reached` |
+| The control (a problem opened on another item) | its `reached` assertion held, but it failed on the binding invariant it relies on: `mark_import` turned the problem's `none` into `pending` |
+| A pending tutor question in the window | `reached` |
+
+### What changed
+
+- **The report** (`learnloop/hints/report.py`). The workbench check now reads
+  every problem, not only those whose current binding is this item. A problem
+  is excluded only when `_never_this_item` holds, or when `_could_overlap`
+  (round 4's timestamp rule) says it could not have been open in the window.
+  Every other problem that could overlap is `workbench_state_unknown`. That
+  includes an import bound elsewhere and an unbound one.
+- **Branch 1: a binding fixed by construction.** Exactly one kind qualifies:
+  a problem opened on an item (`import_status = 'none'`) and bound to a
+  different item. The code that holds it fixed:
+  - `open_session` writes `practice_item_id` with the row and requires one
+    when the status is `none` (`reader/workbench.py:544`, `:574-576`).
+  - `bind` refuses a `none` problem (`:871`).
+  - No writer sets the status back to `none`: `mark_import` writes
+    `pending`/`failed`, `bind` writes `bound`.
+  - `mark_import` used to accept a `none` problem and set `pending`/`failed`,
+    after which `bind` could rebind it. Its only callers act on `pending`
+    problems (`learnloop_sidecar/handlers/workbench.py:412`). It now returns a
+    `none` problem unchanged (`:837`), so the invariant holds in the module
+    itself. The control test pins both refusals. This is a one-line guard on
+    a path no caller takes.
+- **Branch 2: a different item and durable history.** Nothing qualifies.
+  `bind` records only an interaction event (`_log` →
+  `append_interaction_event`). That table has no append-only trigger and is
+  written outside any guarantee that every binding change is logged, so it
+  proves nothing. Imported problems (`pending`, `failed`, `bound`) and
+  unbound ones are unknown whenever they could overlap.
+- **The audit's one other change.** Tutor questions are now read whatever
+  their status (see the audit row).
+
+| Test | What it pins |
+|---|---|
+| `tests/test_hint_telemetry.py::test_rebinding_an_imported_problem_to_another_item_never_flips_the_attempt` | Codex's scenario, through `workbench.open_session` and `workbench.bind`: `workbench_state_unknown` before and after the A→B rebind. |
+| `::test_an_unbound_problem_open_in_the_window_is_workbench_state_unknown` | An import with no item yet is unknown. |
+| `::test_a_problem_opened_on_another_item_leaves_the_attempt_reached` | The control: still `reached`; `bind` to the item is refused; `mark_import` leaves `none`. |
+| `::test_a_pending_or_failed_tutor_question_counts_as_help` | A pending or failed question in the window is `help_not_ordered`. |
+
+### Audit: every read in the unaided-progress path
+
+Rows are in path order. The classes:
+
+- **immutable**: no code path changes it after insert; trigger or code cited.
+- **once-set**: it goes from NULL to a value once.
+- **conservative**: a later change can only widen the result to unknown, or
+  the read is now made that way.
+- **deliberate**: the current value is the intended one.
+
+| Read | Where | Class | Why (code) |
+|---|---|---|---|
+| `help_assists.id`, `surface`, `assist_kind`, `requested_at` | rows, grouping, order (`report.py:274`) | immutable | 210 trigger `help_assists_identity_fixed` (`migrations/210_help_assists.sql:157`); no delete (`:151`) |
+| `help_assists.attempt_id`, `submission_id` | resolution of a row to its attempt | once-set | the same trigger (`:165`, `:168`). Before the attach, the row resolves through its submission key to the same attempt the attach binds (F1), so filling it changes nothing. |
+| `help_assists.shown`, `counted_by`, `practice_item_id`, `practice_item_hash`, `hint_kind`, `level`, `authored_index` | the `shown = 1` filter (`:266`), the recorded count, resolution, the cap check | immutable (in code, not by trigger) | written once by H0's only writer (`hints/telemetry.record_authored_reveal` → `store.insert_assist`). The store's only UPDATEs (`db/stores/help_assists.py:65`, `:92`) set `submitted_at`, `submit_latency_seconds` and `attempt_id` only, and no other module writes the table. The trigger does not fix these: later phases (F3) may fill a workbench row's `practice_item_id` and `shown_at`. See open question 2. |
+| `help_assists` rows inserted later | `more_help_followed`, the recorded count | conservative | append-only (no delete). A late row for an attempt adds help to it. H0 writes rows only under the open attempt's submission key, and the screen moves to a new key at submit. |
+| `practice_attempts.id`, `practice_item_id`, `created_at`, `submission_id`, `primed` | the attempt, the window, the `primed` reason | immutable | no UPDATE in `src` sets them. The only UPDATEs are `update_attempt_grade` (`db/repositories.py:1948`), `record_deferred_regrade` (`:1988`), `replace_attempt_derived_outcome` (`:5724`), the scheduler-candidate bind and `reference_status` (`db/stores/source_service.py:705`). |
+| `practice_attempts.hints_used` | `hints_used > recorded`, the cap check | immutable in effect | only `replace_attempt_derived_outcome` rewrites it, on replay, with the attempt's own recorded value (`attempts/attempts.py:1362`) |
+| `practice_attempts.correctness` | `ungraded` / `not_fully_correct` / `reached` | deliberate (current) | a regrade, a clarification or a regrade-contract epoch replaces the verdict on the same frozen answer (`update_attempt_grade`, `replace_attempt_derived_outcome`). `learner_answer_md` is never updated. The report reads the current verdict, as `attempt_outcome` does. See open question 1. |
+| earlier `practice_attempts` rows on the item | the window start (the previous attempt) | append-only | no delete in `src`. A historical writer (Q33: exam seeding, kept-state sims) can append a backdated attempt, which would move the window start later. The grading fold has the same window. See open question 3. |
+| `question_events.practice_item_id`, `attempt_id`, `created_at` | the window position | immutable | no UPDATE sets them. The question UPDATEs are `update_question_event_answer` (`db/repositories.py:4314`), `set_question_event_rating` (`:4439`), `set_question_event_resolution` (`:4448`) and `saved_note_id` (`:4709`). |
+| `question_events.answer_status`, `hint_equivalent` | previously the filter | conservative (made so this round) | `update_question_event_answer` rewrites both, with no status guard, so a pending or failed turn can still be answered. Every question on the item now counts, whatever its status. |
+| `reveal_events.*` (`practice_item_id`, `amount`, `source_kind`, `basis`, `attempt_id`, `created_at`) | reveals, the W1/W2 attribution, the self-grade exemption | immutable | triggers `reveal_events_no_update` and `reveal_events_no_delete` (`migrations/154_reveal_ledger.sql:56`, `:62`) |
+| `workbench_sessions.created_at` | the overlap's start | immutable | not in `MUTABLE_SESSION_COLUMNS` (`db/stores/workbench.py:29`), and no direct SQL UPDATE elsewhere |
+| `workbench_sessions.closed_at` (and the status it stands for) | the overlap's end | conservative | set to the closing time by `abandon` (`reader/workbench.py:780`) and `mark_submitted` (`:940`), cleared by `reopen` (`:633`, `:799`). A current `closed_at` before the window start means the problem stayed closed through the window, given a forward clock. A reopen only widens to unknown, as already shown. |
+| `workbench_sessions.practice_item_id`, `import_status` | whether a problem can be excluded | conservative (made so this round) | `bind` (`:860`) rebinds any import. Only `none` with another item excludes (above). |
+| `workbench_sessions.source_visible`, `source_shown_at`, `carried_hints` | none | not read | removed in round 4 |
+| the vault's `max_useful_hints` (`item_caps`) | `help_count_capped` / `help_cap_unknown` (`report.py:381`) | conservative | used only when the item's current `practice_item_hash` equals the row's, which was fixed at insert. The hash covers `hint_policy` (`vault/hashes.py:57`), so a changed cap gives `help_cap_unknown`. |
+
+### Gate (targeted; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run pytest -n auto` over 26 files: **569 passed**. The files are the
+  two H0 files, `tests/test_cli_help_snapshot.py`, and every test file a
+  `git grep` finds using the Reader workbench (`reader.workbench`,
+  `mark_import`, `refresh_import`, `workbench.`), since
+  `reader/workbench.py` changed: `test_architecture`,
+  `test_learner_text_source_widening`, `test_library_ask`,
+  `test_library_ask_expand`, `test_library_asks_migration`,
+  `test_mobile_allowlist`, `test_reader_active_reading`,
+  `test_reader_compare_table`, `test_reader_cues`,
+  `test_reader_find_sources_callers`, `test_reader_formative_texts`,
+  `test_reader_guidance`, `test_reader_inquiry_status`, `test_reader_intent`,
+  `test_reader_intentions`, `test_reader_observation_records`,
+  `test_reader_recap`, `test_reader_recap_review`,
+  `test_reader_recap_review_r2`, `test_reader_reconstruct`,
+  `test_reader_workbench_rw2a`, `test_reader_wrap_up`,
+  `test_rw4_kill_switches`.
+- `tests/test_hint_telemetry.py` alone, after a docstring and comment
+  correction: **64 passed**.
+- `uv run pytest -n auto --durable-sqlite tests/test_hint_telemetry.py
+  tests/test_help_assists_schema.py`: **74 passed**.
+- `uv run lint-imports --no-cache`: **25 kept, 0 broken**.
+- `db_validate_reference.py`: **0 errors** (no schema change).
+
+**Model calls made in this round: 0.**
+
+### Open questions (defaults taken)
+
+1. **The current grade.** "Reached" uses the attempt's current
+   `correctness`, so a later regrade of the same frozen answer can move a
+   case between `reached` and `not_fully_correct`. *Default: deliberate.* The
+   verdict on the submitted answer is what §6.1 asks for; the alternative is
+   to report every regraded attempt as unknown.
+2. **Trigger enforcement for the static `help_assists` columns.** `shown`,
+   `counted_by`, `practice_item_hash`, `hint_kind`, `level` and
+   `authored_index` are immutable only in code. Migration 210 could fix them
+   by trigger (with `practice_item_id` and `practice_item_hash` once-set), but
+   that would constrain RW2b's workbench rows, for example a row on a problem
+   that is later rebound. *Default: left to RW2b/H3, which write those rows.*
+3. **Backdated attempts.** A historical writer can append an attempt with
+   past timestamps that narrows a later attempt's window. This is not a
+   mutation, and the grading fold shares the window. *Default: unchanged;
+   noted.*
+
+### Commits
+
+- `85340fc26`: the fix (`learnloop/hints/report.py`, the
+  `reader/workbench.py` `mark_import` guard, tests).
+- this record.
