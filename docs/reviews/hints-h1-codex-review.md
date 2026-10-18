@@ -145,3 +145,191 @@ No model calls were made, live or paid. Fakes only. No vault copy was used.
   - the frontend and cargo (no `apps/` change).
 - The full suite, the whole durability lane and the whole vitest run are
   left for the landing gate.
+
+## Fix round 2 (orchestrator, after Codex job 20261018-025919-tgE3aw)
+
+The orchestrator's Codex verify of `8fe376ba2` confirmed F4 and F5. It
+reopened the stage on five Mediums (M1-M5) and one Low (L1). All six are fixed
+in `257fc8899`, following the binding rulings. There is no schema change.
+
+### How the tests were checked against the old code
+
+The 30 new tests are in `tests/test_approach_maps.py`, in the section "Fix
+round 2". They were run against `8fe376ba2`'s `src/` and `migrations/`,
+exported with `git archive` into a scratch directory and put first with
+`-o pythonpath=`. No file in the worktree was swapped and no `git stash` was
+used. Results on the old code:
+
+- **Every new test function fails.** That is 24 failed and 1 error (L1's
+  in-flight mark left behind).
+- **Six parametrized cases pass on the old code.** The old lone-digit and span
+  checks already caught them, so they stay as regression cases:
+  - M1, with the expected answer `4` and the state `$4$`, `\(4\)` or `+4`;
+  - M1, with the expected answer `1/4` and the state `\frac{1}{4}` or
+    `P = \left(\frac{1}{4}\right)`;
+  - M2, with the state `So $P = 0.75$.`
+- **The M4 tests fail for the reason in the ruling.** After the switch or the
+  shutdown, vault A gets a judgment, a finished receipt, a checkpoint and a
+  released claim.
+
+No model calls were made, live or paid. Fakes only.
+
+| id | severity | title | verdict | test |
+|---|---|---|---|---|
+| M1 | Medium | Formatted and equivalent answers slip past leak detection | fixed | `test_m1_a_formatted_or_equivalent_answer_is_marked_and_fails_a_label[*]` (11 cases), `test_m1_a_single_symbol_answer_is_a_token_match_never_a_substring`, `test_m1_controls_and_the_questions_own_values_stay_as_ruled`, `test_m1_a_vault_item_with_a_formatted_answer_builds_with_its_leak_marked` |
+| M2 | Medium | A goal state with a wrong last assignment verifies | fixed | `test_m2_a_goal_state_whose_last_assignment_differs_is_a_mismatch[*]` (4 cases), `test_m2_only_a_checked_goal_state_verifies`, `test_m2_an_unchecked_goal_is_stored_unverified` |
+| M3 | Medium | Lease liveness: expiry is not checked, a lapsed lease is renewed, and the builder never learns of a lost lease | fixed | `test_m3_holds_claim_checks_expiry_and_renewal_never_revives_a_lapsed_lease`, `test_m3_an_expired_claim_writes_no_judgment_and_stores_nothing`, `test_m3_a_lost_heartbeat_stops_the_build_before_its_reask`, `test_m3_a_takeover_while_awaiting_a_response_pays_writes_and_stores_nothing_more`, `test_m3_a_lapsed_lease_is_never_renewed_by_the_heartbeat` |
+| M4 | Medium | Background builds outlive a vault switch and shutdown | fixed | `test_m4_a_vault_switch_while_the_provider_is_slow_writes_nothing_to_either_vault`, `test_m4_shutdown_and_eof_drain_within_their_bound` |
+| M5 | Medium | A revert to an earlier revision blocks merges forever | fixed | `test_m5_a_merge_after_a_revert_stores_a_new_version_of_that_revision`, `test_m5_a_merge_whose_revision_stopped_being_active_stores_nothing` |
+| L1 | Low | A thread-start failure leaves `_INFLIGHT` set | fixed | `test_l1_a_thread_start_failure_leaves_no_in_flight_mark` |
+
+### What changed
+
+- **M1** (`hints/maps.py`).
+  - One normalisation, `normalize_math` and `normalize_key`, is used for both
+    sides. It strips `$…$`, `$$…$$`, `\(…\)`, `\[…\]`, `\left` and `\right`.
+    It writes `\frac{a}{b}` (and `\dfrac`, `\tfrac`) as `(a)/(b)`. A key also
+    loses its whitespace and a leading `+`.
+  - `answer_candidates` lists what a text states, in that form:
+    - its standalone numbers, but never the `4` in `14`, `x_4`, `2^4`, `4.5`
+      or `3/4`;
+    - the value after each `=`, cut at the first prose word or clause break;
+    - the whole text, when it is a short expression.
+  - `states_answer` compares each candidate with the key through the existing
+    guarded checker (`answer_check.answers_equal`). `answer_check` is
+    unchanged.
+  - A single-symbol key is a word-boundary token match, never a substring:
+    `x` appears in "y = x" and "Solve for x", but not in "next", "max", `x_4`
+    or `\xi`.
+  - `gives_away` adds `states_answer`. So a non-goal node whose state holds an
+    equivalent of the answer is marked as a leak by code, and `label_leaks`
+    fails such a label with `label_leak`.
+  - The question's own values stay exempt for labels: the new equivalence
+    check is skipped when the question itself states the answer. Node marking
+    has no exemption, as before, so it leans toward marking.
+  - `exact_key` now also finds a key that only parses in the shared form, for
+    example `\frac{1}{4}` and a worked solution ending in `\frac{1}{4}`.
+    Before, such answers had no key.
+  - "Step 4" is still a label leak for the answer 4, as already ruled.
+- **M2** (`hints/maps.py`).
+  - `assignment_conclusion` reads the goal state's last `=` after the same
+    normalisation. "Therefore y = x^3" gives `x^3`, and "P = \frac{3}{4}"
+    gives `(3)/(4)`. It never reads `<=`, `>=`, `!=` or `==` as an
+    assignment.
+  - That value is compared with the guarded checker, and a decidable
+    difference is `goal_mismatch` (basis `goal_state`). A declaration that
+    differs is still `goal_mismatch` (basis `exact_key`).
+  - Only the goal state verifies. Either its conclusion equals the key, or it
+    assigns nothing and states the key ("There are 4 socks").
+  - A declaration that agrees with a state the checker cannot read is
+    `unverified` (basis `goal_state_unchecked`). It never becomes verified
+    through the declaration alone. Such a map is still stored, with
+    `verified_goal = 0`, when everything else validates. The spec allows this
+    in §4.3: "otherwise the builder's declaration, stored as unverified".
+  - One case of the F2 test (`"1/4"` with "The probability at the point")
+    expected `verified`. Under this ruling it is now `unverified`, and it
+    moved to `test_m2_*`.
+- **M3** (`db/stores/judgment_claims.py`, `hints/map_builder.py`).
+  - `holds_claim(..., now=...)` also requires the lease to be unexpired.
+    Without `now` it behaves as before for its other callers: the judge,
+    reader quick checks and source-exercise import.
+  - `renew_claim` refuses an expired lease, for every caller. A lapsed lease
+    is never revived, because another worker may already have judged it free.
+  - The heartbeat sets `claim.lost` when a renewal is refused, or when its
+    vault's generation has ended.
+  - The builder checks liveness (lost signal, fence, owner, epoch and expiry,
+    read in the database) at three points:
+    - before assembling seeds;
+    - before each ask, the re-ask included. Each physical request, provider
+      and truncation retries included, also goes through `PaidCalls.admit`;
+    - inside each `judgment_ledger` write's transaction.
+  - On a lost lease the builder raises `_LeaseLost`. `_paid` maps it to
+    `stale`, with no further paid work.
+  - `_store` re-checks owner, epoch and expiry inside BEGIN IMMEDIATE.
+- **M4** (`hints/map_builder.py`, `learnloop_sidecar/context.py`,
+  `handlers/app.py`, `handlers/practice.py`, `server.py`).
+  - **The registry.** `BackgroundBuilds` is a registry keyed to the loaded
+    vault (its sqlite path) with a generation token. `SidecarContext` owns one
+    (`map_builds`). `load` closes it when the vault changes and binds it to
+    the new one. The `shutdown` RPC and the end of `serve()` (shutdown or EOF)
+    call `close_background_builds()`.
+  - **Closing.** `close()` stops admitting builds and bumps the generation,
+    which cancels every admitted `BuildFence`. It then joins running builds
+    for at most `drain_seconds` (default `DRAIN_SECONDS` = 3 s). It never
+    hangs on a provider call.
+  - **Fenced writes.** Every late write of a background build is fenced by the
+    generation and the lease. That covers receipts and checkpoints (through
+    `_FencedRepository`, the repository its `PaidCalls` writes through),
+    judgments, the map row, the claim's renewal and release, and a new claim.
+    Each write holds the registry's gate. A switch waits for a write already
+    under way, then fences every later one.
+  - **Provider calls.** These are not interrupted. Their results are fenced.
+  - **Admission.** `schedule_build_on_serve(builds=...)` admits a build only
+    for the registry's vault and only while it is open. The module's default
+    registry is unbound: it is for tests and callers without a sidecar.
+    `wait_for_background_builds` still joins the builds of every registry.
+- **M5** (`hints/map_builder.py`). A merge is now fenced against the newest
+  row of its own revision: `current_map` for the base's `practice_item_hash`
+  and `structure_hash`. That revision must still be the item's active one:
+  `item_revision` is recomputed inside the transaction, so a new PF skeleton
+  that arrives mid-merge fences it out. A merge's `supersedes_id` is its base.
+  So A -> B -> revert to A -> merge stores version 3 of A, superseding A's
+  version 1.
+- **L1** (`hints/map_builder.py`). `schedule_build_on_serve` clears the
+  in-flight mark in a `finally` for any failure before the thread starts.
+  This includes a `Thread()` that raises and a `start()` that raises.
+
+### Limits, defaults taken, and notes
+
+- **Receipts of a fenced call are dropped (M4 ruling).** A paid call that
+  returns after its vault was switched away, or its lease lost, keeps its
+  "start" receipt, but its "finish" receipt and its checkpoint are not
+  written. The drop is logged (WARNING, with the call's id, tokens and cost).
+  The daily spend ledger (`source_service_spend`) is deliberately not fenced:
+  the reservation still settles with the actual amount, so money already
+  spent always counts against `hints.maps.max_daily_cost_usd`. This also
+  departs from `save_model_checkpoint`'s general "saved even after the job
+  lost ownership" rule, for map builds only, as the ruling asks.
+- **`renew_claim` change is store-wide.** The ruling names `renew_claim`, so
+  the expiry refusal applies to its other caller too: source-exercise import's
+  key-check heartbeat. That heartbeat now stops at a lapsed lease, so
+  recovery can take it over. Its tests pass (`test_source_exercise_import`,
+  `test_source_exercise_rpcs`). `holds_claim`'s expiry check stays opt-in
+  (`now=`).
+- **Retrieval while assembling seeds.** Seeds are assembled after a liveness
+  check, through the real repository. A retrieval that is slow across a switch
+  is not fenced inside `find_sources_for_caller`, which is outside H1's scope.
+- **M1 leans toward marking**, as F1 did. A lone letter key, for example a
+  multiple-choice answer `B` or a rare `a`, is a token match in prose too.
+  Node marking only restricts what H2 may reveal, and a flagged label is
+  re-asked.
+- **Migration comment.** The comment in `migrations/211_approach_maps.sql`
+  about what `structure_hash` covers is unchanged (it does not mention the
+  resolved rubric). This round needed no schema change, so the fixture was not
+  rebuilt, and the orchestrator's instruction was to make that edit only with
+  a rebuild.
+
+### Gate (targeted, per the owner rule of 2026-10-17; `TMPDIR` = the worktree's `fixtures-local/tmp`)
+
+- `uv run lint-imports --no-cache`: 26 kept, 0 broken.
+- `uv run pytest -n 8` over 25 files: **464 passed**. The files are:
+  - the 16 files of round 1;
+  - the sidecar lifecycle, initialize and shutdown files:
+    `test_sidecar_transport`, `test_sidecar_registry`,
+    `test_sidecar_contract`, `test_ux_phase1_first_run`,
+    `test_settings_sidecar`, `test_sidecar_golden_path`;
+  - the other `renew_claim` caller's files and the post-attempt worker:
+    `test_source_exercise_import`, `test_source_exercise_rpcs`,
+    `test_post_attempt_worker`.
+- `uv run pytest -m durability` over the four approach-map files: **2
+  passed**. These include the two-process F3 test.
+- `uv run pytest -n 8 --durable-sqlite tests/test_approach_maps.py`: **95
+  passed**.
+- The new timing and thread tests (`m3_`, `m4_`, `m5_`, `l1_` and the F3
+  tests) were rerun 3 times with `-n 4`: 15 passed each time. The `--durable-sqlite`
+  run was also repeated 3 times: 10 passed each time.
+- Not run, because nothing they cover changed: the schema, migration, head
+  fixture and DB references; `answer_check` and its callers (unmodified); the
+  CLI, config and serializer pins; the frontend and cargo.
+- The full suite, the whole durability lane and the whole vitest run are left
+  for the landing gate.
