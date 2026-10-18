@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "1167b0e4e2503ab12f31fa9d49c1b233622ee444"
+source_commit_timestamp: "2026-10-18T09:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 211
+schema_head: 212
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -136,8 +136,10 @@ Database triggers:
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_find_sources_intents.py`
+- `tests/test_hint_authored_reveal_ruling.py`
 - `tests/test_hint_discriminating.py`
 - `tests/test_hint_evidence.py`
+- `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
@@ -147,8 +149,6 @@ Database triggers:
 - `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_rereview.py`
 - `tests/test_stuck_prompt.py`
-- `tests/test_ux_phase4_feedback.py`
-- `tests/test_ux_phase4_landing.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

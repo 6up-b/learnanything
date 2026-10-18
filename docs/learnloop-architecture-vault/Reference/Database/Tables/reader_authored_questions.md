@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "1167b0e4e2503ab12f31fa9d49c1b233622ee444"
+source_commit_timestamp: "2026-10-18T09:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 211
+schema_head: 212
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -55,7 +55,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/105_reader_authored_questions.sql`.
-- **Schema touched by:** `105_reader_authored_questions.sql`, `185_reader_authored_question_scopes.sql`, `208_learner_text_source_kinds.sql`.
+- **Schema touched by:** `105_reader_authored_questions.sql`, `185_reader_authored_question_scopes.sql`, `208_learner_text_source_kinds.sql`, `212_hint_feedback_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

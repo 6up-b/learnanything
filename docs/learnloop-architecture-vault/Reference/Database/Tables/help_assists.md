@@ -3,13 +3,13 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7e9dbe4c16e0c350a3641dd47d249231079c37d5"
-source_commit_timestamp: "2026-10-18T08:27:19-04:00"
+source_commit: "1167b0e4e2503ab12f31fa9d49c1b233622ee444"
+source_commit_timestamp: "2026-10-18T09:34:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
   - "table help_assists"
-schema_head: 211
+schema_head: 212
 table_name: "help_assists"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
-  - "src/learnloop/hints/discriminating.py"
-  - "src/learnloop/hints/kinds.py"
+  - "src/learnloop/diagnosis/text_gaps/contract.py"
+  - "src/learnloop/diagnosis/text_gaps/jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/210_help_assists.sql`.
-- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`.
+- **Schema touched by:** `210_help_assists.sql`, `211_approach_maps.sql`, `212_hint_feedback_source_kind.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -150,6 +150,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/help_assists.py`
+- `src/learnloop/diagnosis/text_gaps/sources.py`
+- `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
 
 ### Direct SQL writers
@@ -170,6 +172,8 @@ None found by exact static reference scan.
 - `tests/test_approach_maps.py`
 - `tests/test_architecture.py`
 - `tests/test_help_assists_schema.py`
+- `tests/test_hint_feedback_texts.py`
+- `tests/test_hint_feedback_widening.py`
 - `tests/test_hint_h2a_review_round3.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_asks_migration.py`
