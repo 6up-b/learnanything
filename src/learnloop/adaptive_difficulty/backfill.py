@@ -22,6 +22,10 @@ refusal where a metered LLM route has no ``adaptive_difficulty.price_per_million
 metered dollars against what is left of today's ``daily_spend_cap_usd``.
 Protected revisions (held-out material, exam reservations) are never audited
 or forecast (A8), each judged on its own source references (Codex review F1).
+The predicate the backfill computes once selects the revisions; each audit
+and forecast then asks today's predicate again before every request and
+record it makes (Codex re-review F11), so a unit marked held out while the
+backfill runs refuses its revisions' later requests (``protected``).
 """
 
 from __future__ import annotations

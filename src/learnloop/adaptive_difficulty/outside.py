@@ -23,8 +23,11 @@
   without frozen inputs is never forecast. With them the serve freezes the
   identity and own source references of every revision they quote (the
   target and each history item), and the job revalidates those against
-  the held-out predicate as it stands when it sends: content marked held
-  out after the serve refuses the forecast (Codex re-review F11). The LLM
+  the held-out predicate as it stands immediately before each request it
+  sends (each forecaster, each retry; :mod:`learnloop.adaptive_difficulty.sending`):
+  content marked held out after the serve, or while an earlier request of
+  the pair ran, refuses that request and the rest of the pair (Codex
+  re-review F11, fix round 3). The LLM
   is asked field's V3 question as structured output; the Decider a
   ``noul`` question.
 
@@ -63,7 +66,7 @@ from learnloop.ai.decisions import NoulQuestion
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
@@ -76,10 +79,12 @@ from learnloop.scheduling.forecast_receipts import (
     record_receipts,
 )
 
+from learnloop.adaptive_difficulty import sending
 from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.feature_audit import item_revision
 from learnloop.adaptive_difficulty.forecasters import EVENT, INCUMBENT, receipt_key
 from learnloop.adaptive_difficulty.protection import guard
+from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard
 from learnloop.adaptive_difficulty.switches import LLM_V1, LLM_V3_DECIDER, LLM_V3_LLM, outside_forecasters
 
 LOG = logging.getLogger(__name__)
@@ -269,21 +274,18 @@ def _store_payloads(repository: Any, owner_key: str, forecaster: str, request: A
 
 
 def _ask_llm(vault: Any, repository: Any, client: Any, *, prompt: str, owner_id: str,
-             envelope: Any) -> tuple[float | None, dict[str, Any], str]:
-    from learnloop.practice_index.paid import PaidCalls, plan_route
+             envelope: Any, send: SendGuard) -> tuple[float | None, dict[str, Any], str]:
+    from learnloop.practice_index.paid import plan_route
 
     route = plan_route(vault, LLM_ROUTE, client)  # type: ignore[arg-type]
     subscription = route.billing == "subscription"
     price = vault.config.adaptive_difficulty.price_per_million
     if not subscription and price is None:
         raise SpendLimitExceeded("a metered ad_forecast_llm route needs adaptive_difficulty.price_per_million")
-    calls = PaidCalls(route=route, budget=SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS),
-                                                      subscription=subscription),
-                      price_per_million=price, repository=repository, owner_kind=ad_spend.FORECAST_OWNER_KIND,
-                      owner_id=owner_id)
-    with spend_envelopes(envelope):
-        answer = calls.call(client, purpose=PURPOSE, prompt=prompt, result_model=ItemForecastV1,
-                            output_tokens=route.output_tokens, metadata={"owner_id": owner_id})
+    answer, calls = sending.ask_llm(send, route, client, price=price, repository=repository, caps=_CAPS,
+                                    owner_kind=ad_spend.FORECAST_OWNER_KIND, owner_id=owner_id, purpose=PURPOSE,
+                                    prompt=prompt, result_model=ItemForecastV1, metadata={"owner_id": owner_id},
+                                    envelope=envelope)
     verdict = answer.model_dump(mode="json")
     value = verdict.get("p_correct")
     model = str(calls.last_resolved_model or getattr(client, "model", None) or route.model or "unknown")
@@ -293,13 +295,10 @@ def _ask_llm(vault: Any, repository: Any, client: Any, *, prompt: str, owner_id:
 
 
 def _ask_decider(vault: Any, repository: Any, client: Any, *, state: Any, owner_id: str,
-                 envelope: Any) -> tuple[float, dict[str, Any], str]:
-    from learnloop.decider_judgments import ask_decider
-
-    with spend_envelopes(envelope):
-        result = ask_decider(client, config=vault.config, repository=repository, task=PURPOSE, state=state,
-                             questions=DECIDER_QUESTIONS, owner_id=owner_id, route=DECIDER_ROUTE,
-                             question_set_version=DECIDER_QUESTION_SET)
+                 envelope: Any, send: SendGuard) -> tuple[float, dict[str, Any], str]:
+    result = sending.ask_decider(send, client, config=vault.config, repository=repository, task=PURPOSE,
+                                 state=state, questions=DECIDER_QUESTIONS, owner_id=owner_id, route=DECIDER_ROUTE,
+                                 question_set_version=DECIDER_QUESTION_SET, envelope=envelope)
     p = float(result.answers["will_pass"].p_yes)
     return p, {"noul": p, "model": result.model, "id": getattr(result, "response_id", None)}, str(
         result.model or getattr(client, "model", None) or "unknown")
@@ -328,6 +327,21 @@ def _existing(connection: Any, key: str) -> bool:
 
 def _verdict_text(p: float) -> str:
     return f"{float(p):.6f}"
+
+
+def _may_record(send: SendGuard, outcome: ForecastOutcome) -> bool:
+    """Whether the forecast may be recorded: its content is still not protected.
+
+    A request sent before its content was marked held out still returns; its
+    receipt and payloads (which quote that content) are then not written, and
+    its model-call receipt keeps the accounting (Codex re-review F11)."""
+
+    try:
+        send.check("record")
+    except ProtectedContent as exc:
+        outcome.status, outcome.p, outcome.receipt_id, outcome.reason = "protected", None, None, str(exc)[:200]
+        return False
+    return True
 
 
 def _write(repository: Any, vault: Any, receipt: ForecastReceipt, *, created_at: str, payload_key: str,
@@ -407,15 +421,19 @@ def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | 
                 if _existing(connection, key):
                     outcome.status = "current"
                     return outcome
+            # Today's predicate before each request and each record, never the
+            # caller's earlier one (Codex re-review F11: the backfill and a
+            # preparation compute theirs once for many items).
+            send = SendGuard(vault, repository, items=[item], protected=protected)
             _forecast_item(vault, worker, item, client, content_hash=content_hash, key=key, outcome=outcome,
-                           clock=clock)
+                           clock=clock, send=send)
     except LeaseLost:
         outcome.status, outcome.p, outcome.receipt_id = "stale", None, None
     return outcome
 
 
 def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_hash: str, key: str,
-                   outcome: ForecastOutcome, clock: Clock | None) -> None:
+                   outcome: ForecastOutcome, clock: Clock | None, send: SendGuard) -> None:
     from learnloop.adaptive_difficulty.claims import LeaseLost
 
     repository = worker.repository
@@ -430,13 +448,18 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
     try:
         worker.require_live()
         p, response, model = _ask_llm(vault, repository, client, prompt=prompt, owner_id=content_hash,
-                                      envelope=envelope)
+                                      envelope=envelope, send=send)
+    except ProtectedContent as exc:
+        outcome.status, outcome.reason = "protected", str(exc)[:200]
+        return
     except (AIInterrupted, LeaseLost):
         raise
     except SpendLimitExceeded as exc:
         status, outcome.reason = "refused_spend", str(exc)[:200]
     except (AIProviderUnavailable, AIInvalidOutput, TimeoutError, ValueError) as exc:
         status, outcome.reason = "failed", f"{type(exc).__name__}"
+    if not _may_record(send, outcome):
+        return
     received = utc_now_iso(clock)
     final_key = key if status == "ok" else f"{key}:{status}:{received}"
     outcome.receipt_id = _write(repository, vault, _receipt(
@@ -495,7 +518,8 @@ def freeze_presentation_inputs(vault: Any, connection: Any, item: Any, *, presen
     were off, or before AD1) is never forecast. Beside the state (never
     sent) it keeps the :func:`source_identity` of the served revision and of
     each history item the card quotes, which the job revalidates against
-    the held-out predicate as it stands when it sends (Codex re-review F11).
+    the held-out predicate as it stands before each request it sends (Codex
+    re-review F11).
     Returns the owner key, or None when no ``llm_v3`` forecaster is on."""
 
     if not ({LLM_V3_LLM, LLM_V3_DECIDER} & set(outside_forecasters(vault.config))):
@@ -529,20 +553,6 @@ def _frozen_inputs(connection: Any, presentation_id: str) -> dict[str, Any] | No
             if content.get("state_hash") == content_key(content["state"]):
                 return content
     return None
-
-
-def _frozen_protected(protection: Any, frozen: Mapping[str, Any]) -> bool:
-    """Whether any revision the frozen state quotes is protected now (Codex re-review F11).
-
-    The frozen state was made under the predicate as it stood at the serve; a
-    unit marked held out (or an item reserved for an exam) since then must
-    not reach a model through it. Each quoted revision is judged by its id
-    and by its own source references as frozen, so a revision since replaced
-    by ordinary practice is still judged by what the state quotes."""
-
-    identities = frozen["protection_identities"]
-    return any(protection.covers_identity(identity)
-               for identity in [identities["target"], *identities["history"]])
 
 
 def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, clients: Clients | None = None,
@@ -581,16 +591,24 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
             with closing(connect(repository.sqlite_path, read_only=True)) as connection:
                 pending = [name for name in pending
                            if not _existing(connection, receipt_key("plan_presentation", presentation_id, name))]
-            # Revalidated under the claim, just before sending (Codex
-            # re-review F11): the current item, and every revision the frozen
-            # state quotes, against the predicate as it stands now.
-            protection = guard(vault, repository)
-            if (item_id in protection or (item is not None and protection.covers(item))
-                    or _frozen_protected(protection, frozen)):
+            # The current item, and every revision the frozen state quotes,
+            # revalidated against the predicate as it stands immediately
+            # before EACH request of the pair (each forecaster, each retry)
+            # and before each record, not once for the pair (Codex re-review
+            # F11): a refusal refuses the rest of the job.
+            identities = frozen["protection_identities"]
+            send = SendGuard(vault, repository, items=[item], item_ids=[item_id],
+                             identities=[identities["target"], *identities["history"]])
+            try:
+                send.check("the presentation forecasts")
+            except ProtectedContent:
                 return [ForecastOutcome(name, "protected") for name in pending]
             for name in pending:
+                if send.refused is not None:
+                    outcomes.append(ForecastOutcome(name, "protected", reason=send.refused[:200]))
+                    continue
                 outcomes.append(_forecast_one(vault, worker, name, presentation, frozen, clients=clients,
-                                              clock=clock))
+                                              clock=clock, send=send))
     except LeaseLost:
         done = {outcome.forecaster for outcome in outcomes if outcome.status != "stale"}
         outcomes = [outcome for outcome in outcomes if outcome.forecaster in done]
@@ -599,7 +617,7 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
 
 
 def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str, Any], frozen: Mapping[str, Any], *,
-                  clients: Clients, clock: Clock | None) -> ForecastOutcome:
+                  clients: Clients, clock: Clock | None, send: SendGuard) -> ForecastOutcome:
     from learnloop.adaptive_difficulty.claims import LeaseLost
 
     repository = worker.repository
@@ -636,16 +654,20 @@ def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str,
         worker.require_live()
         if name == LLM_V3_LLM:
             p, response, model = _ask_llm(vault, repository, client, prompt=request["prompt"],
-                                          owner_id=presentation_id, envelope=envelope)
+                                          owner_id=presentation_id, envelope=envelope, send=send)
         else:
             p, response, model = _ask_decider(vault, repository, client, state=state, owner_id=presentation_id,
-                                              envelope=envelope)
+                                              envelope=envelope, send=send)
+    except ProtectedContent as exc:
+        return ForecastOutcome(name, "protected", reason=str(exc)[:200])
     except (AIInterrupted, LeaseLost):
         raise
     except SpendLimitExceeded as exc:
         status, outcome.reason = "refused_spend", str(exc)[:200]
     except Exception as exc:  # noqa: BLE001 - a failed forecaster is a failed receipt, never a crash
         status, outcome.reason = "failed", type(exc).__name__
+    if not _may_record(send, outcome):
+        return outcome
     received = utc_now_iso(clock)
     final_key = key if status == "ok" else f"{key}:{status}:{received}"
     version = V3_PROMPT_VERSION if name == LLM_V3_LLM else DECIDER_QUESTION_SET

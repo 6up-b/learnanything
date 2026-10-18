@@ -5,7 +5,9 @@ backfill), one Tier-1-style Decider judgment per audited dimension of the
 launch task-feature schema (``p1_launch@1``: ``complexity``, ``transfer``,
 ``scaffolding``, ``span``, ``response``) reads the item stem and reference
 answer only: never learner data, never held-out text (a protected item is
-not audited, A8). Each dimension is a typed choice over its vocabulary; the
+not audited, A8, and the predicate is read again before each request and
+each record: :mod:`learnloop.adaptive_difficulty.sending`, Codex re-review
+F11). Each dimension is a typed choice over its vocabulary; the
 argmax decides and a tie is no answer; the distribution is logged in
 ``judgment_ledger`` (task ``ad_feature_audit``, version
 ``ad-feature-audit-v1``), one row per dimension, left the revision's
@@ -40,15 +42,17 @@ from learnloop.ai.decisions import ChoiceQuestion, choice_probabilities
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded, spend_envelopes
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import ad_receipts as store
 from learnloop.db.stores.judgments import append_judgment
 
+from learnloop.adaptive_difficulty import sending
 from learnloop.adaptive_difficulty import spend as ad_spend
 from learnloop.adaptive_difficulty.protection import guard
+from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard
 from learnloop.adaptive_difficulty.switches import feature_audit_enabled
 
 LOG = logging.getLogger(__name__)
@@ -298,8 +302,17 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
             if not remaining:
                 outcome.status = "current"
                 return outcome
+            # Today's predicate before each request and each record, never the
+            # caller's earlier one (Codex re-review F11: the backfill and a
+            # preparation compute theirs once for many revisions).
+            send = SendGuard(vault, repository, items=[item], protected=protected)
             _audit(vault, worker, item, item_json, content_hash, remaining, outcome,
-                   decider_factory=decider_factory, llm_client=llm_client, clock=clock)
+                   decider_factory=decider_factory, llm_client=llm_client, clock=clock, send=send)
+    except ProtectedContent:
+        # Refused before a request or a record: what was already recorded
+        # stays (it was recorded while the revision was not protected).
+        outcome.status = "protected"
+        outcome.unanswered = [dimension for dimension in DIMENSIONS if dimension not in outcome.answered]
     except LeaseLost:
         outcome.status = "stale"
     return outcome
@@ -307,7 +320,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
 
 def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str, remaining: list[str],
            outcome: AuditOutcome, *, decider_factory: Callable[[], Any] | None, llm_client: Any | None,
-           clock: Clock | None) -> None:
+           clock: Clock | None, send: SendGuard) -> None:
     from learnloop.adaptive_difficulty.claims import LeaseLost
 
     item_id = outcome.practice_item_id
@@ -334,14 +347,17 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
             if client is None:
                 raise AIProviderUnavailable("Decider unavailable")
             model = str(getattr(client, "model", None) or "unknown")
-            with spend_envelopes(envelope):
-                result = decider_judgments.ask_decider(
-                    client, config=vault.config, repository=repository, task=TASK, state=state,
-                    questions=questions, owner_id=content_hash, route=DECIDER_ROUTE, question_set_version=VERSION,
-                )
+            result = sending.ask_decider(
+                send, client, config=vault.config, repository=repository, task=TASK, state=state,
+                questions=questions, owner_id=content_hash, route=DECIDER_ROUTE, question_set_version=VERSION,
+                envelope=envelope,
+            )
             model = str(result.model or model)
             distributions = {name: choice_probabilities(result.answers[name], question)
                              for name, question in questions.items()}
+        except ProtectedContent:
+            outcome.decider_status = "protected"
+            raise
         except (AIInterrupted, LeaseLost):
             raise
         except SpendLimitExceeded:
@@ -352,6 +368,12 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
             LOG.warning("feature audit: the Decider failed for %s", item_id, exc_info=True)
             status = "failed"
         outcome.decider_status = status
+        try:
+            # Nothing is recorded once the revision is protected (F11).
+            send.check("recording the Decider's audit")
+        except ProtectedContent:
+            outcome.decider_status = "protected"
+            raise
         for dimension in remaining:
             question = questions[dimension]
             probabilities = distributions.get(dimension, {})
@@ -376,7 +398,7 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
     if pending:
         worker.require_live()
         _llm_fallback(vault, repository, item, pending, decider_rows, outcome, envelope=envelope,
-                      client=llm_client, content_hash=content_hash, clock=clock)
+                      client=llm_client, content_hash=content_hash, clock=clock, send=send)
     outcome.unanswered = [dimension for dimension in remaining if dimension not in outcome.answered]
     outcome.status = "audited" if outcome.answered else "failed"
 
@@ -384,8 +406,8 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
 def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
                   decider_rows: Mapping[str, tuple[str, str]],
                   outcome: AuditOutcome, *, envelope: Any, client: Any | None, content_hash: str,
-                  clock: Clock | None) -> None:
-    from learnloop.practice_index.paid import PaidCalls, plan_route
+                  clock: Clock | None, send: SendGuard) -> None:
+    from learnloop.practice_index.paid import plan_route
 
     route = plan_route(vault, LLM_ROUTE, client)  # type: ignore[arg-type]
     subscription = route.billing == "subscription"
@@ -399,25 +421,35 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
         outcome.llm_status = "unpriced"
         return
     prompt = llm_prompt(item, dimensions)
-    calls = PaidCalls(route=route, budget=SpendBudget(SpendCaps(max_estimated_usd=None, **_CAPS),
-                                                      subscription=subscription),
-                      price_per_million=price, repository=repository, owner_kind=ad_spend.AUDIT_OWNER_KIND,
-                      owner_id=content_hash)
     try:
-        with spend_envelopes(envelope):
-            answer = calls.call(resolved, purpose=TASK, prompt=prompt, result_model=FeatureAuditV1,
-                                output_tokens=route.output_tokens,
-                                metadata={"practice_item_id": outcome.practice_item_id, "content_hash": content_hash,
-                                          "prompt_version": VERSION})
+        answer, calls = sending.ask_llm(
+            send, route, resolved, price=price, repository=repository, caps=_CAPS,
+            owner_kind=ad_spend.AUDIT_OWNER_KIND, owner_id=content_hash, purpose=TASK, prompt=prompt,
+            result_model=FeatureAuditV1, envelope=envelope,
+            metadata={"practice_item_id": outcome.practice_item_id, "content_hash": content_hash,
+                      "prompt_version": VERSION})
+    except ProtectedContent:
+        outcome.llm_status = "protected"
+        raise
     except AIInterrupted:
         raise
     except SpendLimitExceeded:
         outcome.llm_status = "refused"
         return
     except (AIProviderUnavailable, AIInvalidOutput, TimeoutError):
+        if send.refused is not None:
+            # A transport that reported the guard's refusal as its own failure.
+            outcome.llm_status = "protected"
+            raise ProtectedContent(send.refused) from None
         outcome.llm_status = "failed"
         return
     model = str(calls.last_resolved_model or getattr(resolved, "model", None) or route.model or "unknown")
+    try:
+        # Nothing is recorded once the revision is protected (F11).
+        send.check("recording the LLM's audit")
+    except ProtectedContent:
+        outcome.llm_status = "protected"
+        raise
     outcome.llm_status = "ok"
     values = answer.model_dump(mode="json")
     now = utc_now_iso(clock)

@@ -240,6 +240,13 @@ def gate_model_requests(gate: RequestGate):
         _request_gate.reset(token)
 
 
+def active_request_gate() -> RequestGate | None:
+    """The request gate installed in this context, if any: a caller adding a
+    check of its own composes with it instead of replacing it."""
+
+    return _request_gate.get()
+
+
 class ModelEventStore(Protocol):
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
         ...

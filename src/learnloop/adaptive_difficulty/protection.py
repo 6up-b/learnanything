@@ -13,9 +13,11 @@ items (Codex review F1): a revision held in ``practice_item_snapshots`` whose
 item was deleted, or whose own source references differ from the current
 revision's, is protected when its own canonical exercise or provenance lies
 in held-out material (:meth:`Protection.covers`). Inputs frozen at a serve are
-revalidated when they are sent, by the identity and source references of
-each revision they quote (:meth:`Protection.covers_identity`; Codex re-review
-F11).
+revalidated by the identity and source references of each revision they
+quote (:meth:`Protection.covers_identity`; Codex re-review F11). Every AD job
+asks a fresh predicate immediately before each model request it sends and
+before each record it writes (:class:`~learnloop.adaptive_difficulty.sending.SendGuard`,
+F11 fix round 3), never only the one it computed when it started.
 """
 
 from __future__ import annotations
