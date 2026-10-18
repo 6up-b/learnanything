@@ -3,8 +3,8 @@ title: "library_asks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ebca056c4d775754478881f707b9e000fd26e3e5"
-source_commit_timestamp: "2026-10-17T20:01:27-04:00"
+source_commit: "87658adafb0b8c06b09f6c3881c578a76644cce4"
+source_commit_timestamp: "2026-10-17T20:30:36-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite library_asks"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/209_library_asks.sql"
   - "src/learnloop/db/stores/library_asks.py"
+  - "src/learnloop/reader/reader_report.py"
   - "src/learnloop/source_retrieval/library_ask.py"
 tags:
   - "learnloop/database/table"
@@ -93,6 +94,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/library_asks.py`
+- `src/learnloop/reader/reader_report.py`
 
 ### Direct SQL writers
 
