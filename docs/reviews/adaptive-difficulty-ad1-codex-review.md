@@ -654,3 +654,153 @@ column: nullable, the three values accepted, any other value refused.
   The references were regenerated in `d05aed3e5`
   (`question_events.answer_mode`, commit labels, line citations).
 - Model calls: 0. Cargo was not run: nothing under `src-tauri` changed.
+
+## Fix round 5 (orchestrator)
+
+The round-4 verify (codex-job `20261018-174551-Zrw5DA`) confirmed three
+things:
+
+- V5 and migration 213: 534 rows kept, the FK and integrity checks clean;
+- the head fixture;
+- no other regression.
+
+It reopened V1 to V4 on narrower cases. The orchestrator's binding rulings
+are applied below, with the same methods as round 4: every test except the
+V3 pins failed on `7efda77fb` (`git archive 7efda77fb`, with
+`-o pythonpath=<tmp>/src`; the frontend tests ran against `7efda77fb`'s
+`apps/learnloop-tauri`, extracted to the scratchpad).
+
+| id | severity | title | verdict | commit | test |
+|----|----------|-------|---------|--------|------|
+| V1 | High | A reload can race the protection check | fixed | `be610ee66` | `test_a_reload_while_protection_is_built_is_never_judged_by_the_vault_it_replaced` (the verify's threaded reproduction), `test_an_admission_after_a_reload_since_its_check_is_refused` |
+| V2 | Medium | Unsettled and unvisited revisions disappear from the queue | fixed | `be610ee66` | `test_a_refused_spend_revision_is_retried_on_the_next_reload`, `test_busy_unavailable_and_incomplete_revisions_stay_queued`, `test_an_exception_keeps_the_current_and_every_unvisited_revision`, `test_an_exception_before_the_first_revision_keeps_the_whole_batch` |
+| V3 | Medium | Receipt recovery resurrects a fenced-out answer | **rejected as a defect** (orchestrator) | pinned in `be610ee66` | `test_a_recovered_answer_whose_content_is_protected_now_is_refused`, `test_a_recovered_answer_still_unprotected_is_recorded_without_a_second_request` |
+| V4 | Medium (two cases) | First-hint timing invented after a restore | fixed | `be610ee66` | vitest `PracticeScreen.firstHintRestore.test.tsx` (case 4, case 5, the fresh draft, the marker off); `test_the_draft_keeps_hint_seen_under_its_retry_key[on, off]` |
+| V4-residual | Low | A pre-AD1 draft whose only hint was delivered by the service cannot be detected | recorded | - | known residual: a one-time transition |
+
+**V1.** `SidecarContext` now has `vault_generation`. Its `__setattr__` bumps
+the generation every time the loaded vault object is replaced: a load, a
+reload, or a re-read after recovery or adoption. The bump comes after the
+new vault is in place. `loaded_vault` is now a provider object (it was a
+method): calling it returns the vault, and `generation()` returns the
+generation.
+
+`SendGuard` reads the generation before it reads the vault and builds the
+predicate, and again afterwards. If the generation moved, it rebuilds from
+the new vault, up to `RELOAD_RETRIES` (3) times, then refuses as
+`protected`.
+
+The two admissions bind to the generation their check returned:
+
+- **Each physical request.** The request gate and `PaidCalls`' per-attempt
+  hook run `confirm(check())`.
+- **Each record.** `SendGuard.confirm` runs inside the write transaction:
+  the forecast's `_write`, every feature-audit `_append`, and the fallback's
+  payload insert. A reload since the check refuses, the transaction rolls
+  back, and every later request of the job is refused.
+
+The CLI, which has no provider, keeps today's behaviour.
+
+The test is the verify's threaded reproduction. While `protection()` builds
+the predicate, another thread adds an exam scope and runs `ctx.reload`. On
+`7efda77fb` the guard allowed the request; now it refuses.
+
+**V2.** Only settled revisions leave the queue:
+
+- prepared;
+- already done (`current`);
+- terminal: protected, the switch off, no longer active, or no longer in the
+  vault.
+
+Everything else is retried:
+
+- **Unvisited revisions** go back to the front of the queue. That covers an
+  exception, including the revision that raised, and a vault switch or close.
+- **Visited but unsettled revisions** go to the back, so a revision that
+  keeps failing never starves new ones. That covers `refused_spend`,
+  `busy`, `unavailable`, `failed`, `stale` and an incomplete audit.
+
+Retries happen only at the next trigger (a reload or a plan read), still at
+most 20 a run. Runs never chain.
+
+On `7efda77fb` each test's retry trigger found an empty queue:
+
+- a `refused_spend` revision was not retried by the next reload;
+- busy, unavailable and incomplete revisions were dropped;
+- an exception mid-batch, or before the first revision, dropped the whole
+  batch.
+
+**V3: rejected as a defect, per the orchestrator's ruling.** Recovering an
+answer that was already paid for, within the same vault, is the designed
+pattern: H1 and H2b recover checkpointed or receipted answers so that
+nothing is paid twice. The fence exists to stop writes into a vault that is
+no longer the loaded one, not to throw away an answer that was legitimately
+bought.
+
+What must hold instead, and is now pinned: a recovered answer passes the
+`SendGuard` record check again, against the vault loaded at recovery time.
+The frozen inputs are also re-read and hash-checked by the job. In the test:
+
+- the LLM's answer lands after a vault switch, so the job is `stale`, writes
+  no checkpoint, and keeps its completed receipt;
+- the vault is reopened after its lease lapses;
+- the second run recovers the answer from the receipt, with no new request;
+- if the history source was held out at recovery time, the answer is
+  refused (`protected`) and nothing is recorded, and the Decider is refused
+  too;
+- without that, it is recorded `ok`.
+
+Both pins pass on `7efda77fb` and on this round, which is expected: they pin
+behaviour that already holds.
+
+**V4.** The saved draft gains `hintSeen`, kept with the draft's retry key in
+the practice envelope (`save_practice_draft`'s `hint_seen`;
+`get_session`'s `checkpoint.hintSeen`, present only when true):
+
+- The practice screen sets it at the first hint of any kind: an authored
+  reveal, a hint the H2b panel delivered, hints carried back from steps, or a
+  carried book.
+- It is saved whatever the switches. This is persistence only:
+  `hintsUsed`, the assistance count and grading are unchanged. As a
+  consequence, with the switches off a draft that saw a hint also carries
+  `hintSeen: true`. That is deliberate: a later switch-on then knows the
+  first hint's timing is unknown.
+
+On restore, the marker stays null (unknown) for the attempt in either case:
+
+- `hintSeen` is true and no marker was saved;
+- a legacy draft without the field has `restoredHints > 0`.
+
+Carried hints arriving from a workbench without a marker call
+`noteUntimedHint()` (the verify's case 4). On `7efda77fb` both cases sent
+`draft_started`. A fresh draft still records `no_draft` and saves
+`hintSeen: true` with `hintsUsed: 1`.
+
+**Known residual (Low).** A legacy draft, saved before AD1 or before
+`hintSeen` existed, whose only hint was a service delivery saved neither
+`hintSeen` nor a counted hint. The client cannot detect it, so its next
+hint can still supply the marker. This is a one-time transition for drafts
+in progress when this lands.
+
+### Gate (fix round 5, targeted)
+
+- `uv run lint-imports --no-cache`: 27 kept, 0 broken.
+- `uv run pytest -n auto` (`TMPDIR=fixtures-local/tmp`) over 208 files:
+  **4369 passed, 2 xfailed**. The files:
+  - round 4's 124 files;
+  - `tests/test_ad1_fix_round5.py`;
+  - `test_desktop_rpc_contract`, `test_sidecar_contract`,
+    `test_sidecar_serializer_snapshot`;
+  - every file that uses `SidecarContext`, `save_practice_draft`,
+    `patch_checkpoint` or `get_session`. The context's `__setattr__` and the
+    draft envelope changed.
+- `-m durability tests/test_ad1_migration.py`: 1 passed.
+- `--durable-sqlite tests/test_ad1_fix_round5.py`: 10 passed.
+- Frontend:
+  - `npm run typecheck`: clean;
+  - vitest on the 26 practice and app files: 188 passed;
+  - `npm run frontend:build`: built.
+- `db_generate_reference.py`, then `db_validate_reference.py`: 0 errors.
+  The commit labels and line citations were regenerated in `dcfbba20c`. No
+  schema change this round.
+- Model calls: 0.
