@@ -3,8 +3,8 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87658adafb0b8c06b09f6c3881c578a76644cce4"
-source_commit_timestamp: "2026-10-17T20:30:36-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_journey6.py`
 - `tests/test_kinship_feature.py`
 - `tests/test_laddered_stems.py`
+- `tests/test_library_ask_review.py`
 - `tests/test_p2_leakage_suite.py`
 - `tests/test_progression.py`
 - `tests/test_reader_dialogue.py`

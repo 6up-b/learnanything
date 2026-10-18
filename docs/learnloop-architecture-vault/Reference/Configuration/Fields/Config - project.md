@@ -3,8 +3,8 @@ title: "Config - project"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87658adafb0b8c06b09f6c3881c578a76644cce4"
-source_commit_timestamp: "2026-10-17T20:30:36-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml project"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/queue.py"
   - "src/learnloop/projects/ai_runtime.py"
   - "tests/test_ai_tool_isolation.py"
+  - "tests/test_library_ask_review.py"
   - "tests/test_project_capture.py"
   - "tests/test_project_cli.py"
   - "tests/test_project_hooks.py"
@@ -70,6 +71,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/test_ai_tool_isolation.py`
+- `tests/test_library_ask_review.py`
 - `tests/test_project_capture.py`
 - `tests/test_project_cli.py`
 - `tests/test_project_hooks.py`

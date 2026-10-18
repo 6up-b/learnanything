@@ -3,8 +3,8 @@ title: "Config - reader_compare"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87658adafb0b8c06b09f6c3881c578a76644cce4"
-source_commit_timestamp: "2026-10-17T20:30:36-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_compare"
@@ -50,7 +50,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2095`; `src/learnloop/source_retrieval/library_ask.py:150` |
+| `reader_compare.enabled` | `true` | boolean | modeled default or validator seed | Turns reader compare behavior on or off within reader workbench RW4a: the Reader's compare table over the sources service's compare_sources (one row per source, each line quoting its own source, no consensus; display only until RW4d's keep): the kill switch. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2095`; `src/learnloop/source_retrieval/library_ask.py:158` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

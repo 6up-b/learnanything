@@ -3,8 +3,8 @@ title: "Config - goals"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "87658adafb0b8c06b09f6c3881c578a76644cce4"
-source_commit_timestamp: "2026-10-17T20:30:36-04:00"
+source_commit: "b77dd14f9cd778b2c0905c686a91a499acf1901f"
+source_commit_timestamp: "2026-10-17T21:56:12-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml goals"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/goals/goal_projection.py"
   - "tests/test_exam_protection_identity.py"
   - "tests/test_exam_protection_review.py"
+  - "tests/test_library_ask_review.py"
   - "tests/test_router_r2a_landing.py"
 tags:
   - "learnloop/configuration/fields"
@@ -54,6 +55,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/test_exam_protection_identity.py`
 - `tests/test_exam_protection_review.py`
+- `tests/test_library_ask_review.py`
 - `tests/test_router_r2a_landing.py`
 
 ## Extension and modification guidance
