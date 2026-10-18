@@ -265,3 +265,80 @@ test_exam_protection_identity.py`.
 - **Presentation paths are plan-only (unchanged).** The review's conformance
   table noted that probe and scheduler-bound presentations are not covered.
   That is not a finding, and nothing changed here.
+
+## Re-review (Codex, `b85acc8a0..f9429d94e`)
+
+Codex confirmed F1 and F2 fixed and reopened the stage with three new
+findings. Each one was reproduced first. The tests in
+`tests/test_ad1_codex_rereview_fixes.py` failed on `f9429d94e` for the reason
+each docstring gives, and they pass on the fix. All of them use fakes only,
+and no model was called.
+
+| id | severity | title | verdict | commit | test or reason |
+|----|----------|-------|---------|--------|----------------|
+| F11 | High | Frozen history bypasses newly applied held-out protection | fixed | `bae5dcaf9` | `test_frozen_history_marked_held_out_after_the_serve_is_never_sent[still_current, revision_since_replaced]`, `test_a_target_revision_held_out_after_the_serve_is_never_sent`, `test_frozen_inputs_without_their_source_identities_are_never_sent`, `test_unprotected_frozen_inputs_are_still_sent_exactly` |
+| F12 | Medium | An edit during preparation loses the new revision's job | fixed | `bae5dcaf9` | `test_an_edit_during_a_preparation_prepares_the_new_revision_too` |
+| F13 | Medium | "Worst-case" spend omits permitted retries | fixed | `bae5dcaf9` | `test_the_worst_case_plans_the_permitted_truncation_retry` |
+| (note) | - | Extra blank line at EOF in `tests/test_ad1_codex_review_fixes.py` | fixed | `bae5dcaf9` | `git diff --check` is clean |
+
+**F11.** Before sending, the job now revalidates everything the frozen state
+quotes against the held-out predicate as it stands at send time.
+
+- *What the serve freezes.* `freeze_presentation_inputs` stores
+  `protection_identities` beside the state. These are kept in the payload and
+  are never sent. They hold the `source_identity` (item id, plus the block
+  keys and whole extractions of the item's own canonical exercise and
+  provenance refs) of the served revision and of each history item the card
+  quotes.
+- *The check before sending.* `forecast_presentation` builds a fresh
+  `Protection` under the presentation's claim, immediately before sending.
+  It refuses the whole forecast (`protected`) when any of these is protected:
+  - the current item;
+  - the frozen target revision;
+  - any frozen history identity (`Protection.covers_identity`: the id, or the
+    frozen source keys, using the same rule as `held_out_item_ids`).
+- *Why the frozen sources matter.* An item that has since been replaced by
+  ordinary practice is still judged by the revision the card quotes.
+- *Fail closed.* Frozen inputs without the identities do not validate
+  (`no_frozen_inputs`), and an identity that cannot be read counts as
+  protected.
+
+**F12.** A preparation job's in-flight key is now `content_key` of the
+sorted `(item_id, revision hash)` pairs instead of the item ids alone. A
+reload that finds A2 while A1's job is still running therefore starts A2's
+job. A revision that two jobs share is still paid for once, under its durable
+claim (F6).
+
+**F13.** `_llm_plan` now plans every attempt that execution permits:
+
+- the first attempt at the route's output allowance;
+- plus `max_retries` (the execution path's `_CAPS`, 1 for both the feature
+  audit and `llm_v1:item`) retries at `TRUNCATION_RETRY_FACTOR` x the
+  allowance.
+
+The test shows the planned worst case equals the sum of the estimates that a
+truncating metered fake reserved during execution. A remaining cap between
+the first-attempt cost and that sum now reports `fits_today: false`. The plan
+also reports `attempts_per_call` and `retry_output_tokens`. The doubled
+allowance is an upper bound: a transport ceiling can only lower it. The
+Decider has no retry path, so its plan is unchanged.
+
+### Gate (re-review fix step)
+
+- `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2`.
+- `uv run lint-imports --no-cache`: 27 kept, 0 broken.
+- `uv run pytest -n auto` (`TMPDIR=fixtures-local/tmp`) over
+  `tests/test_ad1_codex_rereview_fixes.py tests/test_ad1_codex_review_fixes.py
+  tests/test_ad1_attempt_columns.py tests/test_ad1_migration.py
+  tests/test_ad1_outside_and_cli.py tests/test_ad1_reading_opportunities.py
+  tests/test_adaptive_difficulty_ad1.py tests/test_decider_landing.py
+  tests/test_architecture.py tests/test_registry_audit.py`: **111 passed**.
+- The new file run alone, serially, three times: 7 passed each time. This
+  checks the threaded F12 test.
+- `db_generate_reference.py`, then `db_validate_reference.py`: 0 errors. The
+  regenerated commit labels and line citations are in `58d269b95`.
+- Not run, because nothing they cover changed:
+  - durability: there is no migration or DB/connection change this round;
+  - frontend and cargo: nothing under `apps/` changed;
+  - config keys: none added, so the parameter registry is unchanged.
+- Model calls: 0.
