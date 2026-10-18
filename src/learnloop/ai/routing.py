@@ -105,13 +105,18 @@ AITask = Literal[
     "library_organizer",
     # Adaptive hints H1: the approach-map builder and learner-route merge.
     "approach_map",
+    # Adaptive hints H2a: the hint chooser (a decider task) and the hint
+    # writer (a chat route that never resolves to Codex, spec D9).
+    "hint_chooser",
+    "hint_writer",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
 #: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
 #: overrides them, the same rule as ``ai.routing.embedding``.
 DECIDER_TASKS: frozenset[str] = frozenset(
-    {"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider", "reader_intent"}
+    {"router_decider", "llm_probability_decider", "learner_gap_decider", "tier1_decider", "reader_intent",
+     "hint_chooser"}
 )
 #: Routes a chat profile OR a ``decider`` profile may serve: the caller asks a
 #: structured question of a chat model, or typed questions of a decision model
@@ -202,6 +207,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # learner's new correct routes merged into it (background work).
     "approach_map": "approach_map",
     "approach_map_merge": "approach_map",
+    # Adaptive hints H2a: one hint written for the learner's current work
+    # (the downgrade and the re-ask are the same operation).
+    "hint_writer": "hint_writer",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

@@ -985,6 +985,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the approach-map builds' and merges' metered spend a UTC day; a money bound, no measurement "
         "authority (maps are help, never evidence)."),
+    # Adaptive hints H2a: the hint writer's and chooser's metered spend a UTC
+    # day, and the chooser's time box (a shown hint reaches the attempt only
+    # through hints_used / primed with their existing meaning; the choice and
+    # its propensity go to help_assists and judgment_ledger, never evidence).
+    _ConfigRule(_exact(
+        "hints.max_daily_cost_usd",
+        "hints.chooser_timeout_seconds",
+    ), "structural", "operational",
+        "the hint writer's and chooser's metered spend a UTC day / the chooser's time box before the "
+        "fallback serves; money and latency bounds, no measurement authority (no constant decides which "
+        "hint a learner gets, spec H3)."),
     # Tutor delivery fixes (2026-10-13): the source text one tutor turn reads
     # (a context-size bound) and one automatic source-block backfill's spend.
     _ConfigRule(_exact(

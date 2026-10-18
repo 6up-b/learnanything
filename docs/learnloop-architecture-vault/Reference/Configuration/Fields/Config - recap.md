@@ -3,8 +3,8 @@ title: "Config - recap"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d49d18ffc5b7ac0d4c5d476b70a323629bad9e0d"
-source_commit_timestamp: "2026-10-18T04:55:03-04:00"
+source_commit: "62897a63d196c1aeb828fb9c30b3e2306943789a"
+source_commit_timestamp: "2026-10-18T08:20:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recap"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `recap.enabled` | `true` | boolean | modeled default or validator seed | Turns recap behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2045`; `src/learnloop/reader/recap.py:87`; `src/learnloop_sidecar/context.py:517` |
-| `recap.wrap_up_enabled` | `true` | boolean | modeled default or validator seed | Turns wrap up behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2046`; `src/learnloop/reader/recap.py:93`; `src/learnloop_sidecar/context.py:517` |
+| `recap.enabled` | `true` | boolean | modeled default or validator seed | Turns recap behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2093`; `src/learnloop/reader/recap.py:87`; `src/learnloop_sidecar/context.py:517` |
+| `recap.wrap_up_enabled` | `true` | boolean | modeled default or validator seed | Turns wrap up behavior on or off within reader workbench RW6a: "Last time here" (the returning card at the head of the Guide) and Wrap up (offered in the rail after activity and once where the learner lands after leaving a source): two kill switches over pure reads of existing ledgers (salience-only events only; no model call, nothing stored). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2094`; `src/learnloop/reader/recap.py:93`; `src/learnloop_sidecar/context.py:517` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

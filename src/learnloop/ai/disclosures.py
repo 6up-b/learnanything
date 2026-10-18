@@ -25,6 +25,8 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("reader_intent", "decider", "reader_intent"),
     ("library_organizer", "llm", "library_ask"),
     ("approach_map", "llm", "approach_maps"),
+    ("hint_chooser", "decider", "hint_chooser"),
+    ("hint_writer", "llm", "hint_writer"),
 )
 
 _WHEN = {
@@ -85,6 +87,20 @@ _WHEN = {
         "rubric and authored hints, its solution recipes, passages from your own books, and your own "
         "correct answers to it and its sibling questions, so LearnLoop's model can sketch the routes to "
         "the answer. Nothing in it is shown to you or to the grader."
+    ),
+    "hint_chooser": (
+        "While hints.adaptive_enabled and hints.chooser_enabled are on, each time you ask for a hint on the "
+        "practice screen: a short typed summary of where you stand on the question (its placement, your "
+        "recent results on it and its topic, the kinds of hint you were shown and how you replied, how much "
+        "you have written, your help style) and the kinds of hint on offer, so the Decider can choose one. "
+        "Never your answer text, the reference answer or the question's solution."
+    ),
+    "hint_writer": (
+        "While hints.adaptive_enabled is on, each time you ask for a hint on the practice screen: the "
+        "question, its reference solution, rubric and authored hints, its approach map, your current "
+        "answer draft, the earlier hints and your replies, and a short summary of your state, so "
+        "LearnLoop's model can write the hint for your work. Never sent to Codex (hints fall back to the "
+        "question's own hints there)."
     ),
 }
 

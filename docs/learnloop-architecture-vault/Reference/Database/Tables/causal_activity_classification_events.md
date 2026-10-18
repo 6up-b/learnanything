@@ -3,8 +3,8 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d49d18ffc5b7ac0d4c5d476b70a323629bad9e0d"
-source_commit_timestamp: "2026-10-18T04:55:03-04:00"
+source_commit: "62897a63d196c1aeb828fb9c30b3e2306943789a"
+source_commit_timestamp: "2026-10-18T08:20:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
@@ -125,6 +125,7 @@ Database triggers:
 
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_repair_mapping_p2.py`
+- `tests/test_hint_h2a_review_round2.py`
 - `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_observation_ledger_bulk.py`

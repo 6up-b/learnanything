@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d49d18ffc5b7ac0d4c5d476b70a323629bad9e0d"
-source_commit_timestamp: "2026-10-18T04:55:03-04:00"
+source_commit: "62897a63d196c1aeb828fb9c30b3e2306943789a"
+source_commit_timestamp: "2026-10-18T08:20:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -161,6 +161,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/approach_map_fakes.py`
+- `tests/hint_fakes.py`
 - `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_ai_compare.py`
@@ -179,7 +180,6 @@ None found by exact static reference scan.
 - `tests/test_exam_protection_identity.py`
 - `tests/test_facet_authority.py`
 - `tests/test_facet_authority_review.py`
-- `tests/test_facet_identity.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

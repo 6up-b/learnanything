@@ -25,6 +25,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     golden_path_assessment,
     graph,
     graph_edit,
+    hints,
     ingest,
     inspector,
     item_authoring,

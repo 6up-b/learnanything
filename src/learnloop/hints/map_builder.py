@@ -1186,6 +1186,73 @@ def schedule_build_on_serve(vault: LoadedVault, sqlite_path: Any, practice_item_
                 _INFLIGHT.discard(key)
 
 
+def schedule_merge_after_hint(vault: LoadedVault, sqlite_path: Any, practice_item_id: str, *,
+                              client: Any | None = None, clock: Clock | None = None,
+                              builds: BackgroundBuilds | None = None) -> threading.Thread | None:
+    """Start the lazy learner-route merge after a hint is shown (§4.3.1 row 3;
+    H2a review F9): background, never on the request path, so it may use the
+    map route's Codex. Called after delivery; returns at once and never raises.
+
+    Its switches are the background map work's: ``hints.maps.enabled`` (the
+    kill switch) and ``hints.maps.build_on_serve`` (map work in the background
+    of the practice screen), and ``LEARNLOOP_APPROACH_MAP_BUILDS=off`` without
+    an injected client. It runs :func:`merge_learner_routes` with H1's item
+    lock, durable claim, lease, spend envelope and fence, admitted only by the
+    sidecar's registry for its loaded vault; one map job per item is in flight
+    per process (a build or a merge). Nothing new to merge, or no map, asks
+    no model."""
+
+    key: tuple[str, str] | None = None
+    try:
+        maps = vault.config.hints.maps
+        if not (maps.enabled and maps.build_on_serve):
+            return None
+        if client is None and os.environ.get(BUILDS_ENV, "").strip().lower() == "off":
+            return None
+        if _active_item(vault, practice_item_id) is None:
+            return None
+        registry = builds if builds is not None else _DEFAULT_BUILDS
+        candidate = (str(Path(sqlite_path)), practice_item_id)
+        with _INFLIGHT_GUARD:
+            if candidate in _INFLIGHT:
+                return None
+            _INFLIGHT.add(candidate)
+            key = candidate
+
+        def work(fence: BuildFence) -> Callable[[], None]:
+            def run() -> None:
+                try:
+                    if not fence.live():
+                        return
+                    repository = Repository.attach(Path(sqlite_path))
+                    outcome = merge_learner_routes(vault, repository, practice_item_id, client=client, clock=clock,
+                                                   fence=fence)
+                    LOG.info("approach map merge after a hint: %s",
+                             json.dumps(outcome.as_dict(), sort_keys=True, default=str))
+                except Exception:  # noqa: BLE001 - a background merge never reaches the hint
+                    LOG.warning("approach map merge after a hint failed", exc_info=True)
+                finally:
+                    with _INFLIGHT_GUARD:
+                        _INFLIGHT.discard(candidate)
+
+            return run
+
+        thread = registry.launch(sqlite_path, work, name=f"learnloop-approach-map-merge-{practice_item_id}")
+        if thread is None:
+            return None
+        key = None
+        with _INFLIGHT_GUARD:
+            _THREADS[:] = [existing for existing in _THREADS if existing.is_alive()] + [thread]
+        return thread
+    except Exception:  # noqa: BLE001 - scheduling never fails a delivery
+        LOG.warning("approach map merge scheduling failed", exc_info=True)
+        return None
+    finally:
+        if key is not None:
+            with _INFLIGHT_GUARD:
+                _INFLIGHT.discard(key)
+
+
 def wait_for_background_builds(timeout: float = 30.0) -> bool:
     """Join the background builds started so far, of every registry (tests;
     the sidecar's shutdown path closes its own registry, :meth:`BackgroundBuilds.close`)."""
@@ -1232,9 +1299,11 @@ def new_learner_attempts(vault: LoadedVault, repository: Repository, practice_it
 
 def merge_learner_routes(vault: LoadedVault, repository: Repository, practice_item_id: str, *,
                          client: Any | None = None, clock: Clock | None = None,
-                         deadline: float | None = None) -> MapOutcome:
+                         deadline: float | None = None, fence: "BuildFence | None" = None) -> MapOutcome:
     """Merge the learner's new correct routes into the item's map (lazy: H2
-    calls it after a hint is shown on an item whose map predates them)."""
+    calls it after a hint is shown on an item whose map predates them,
+    :func:`schedule_merge_after_hint`). ``fence``: a background merge's
+    ticket (its registry's vault generation), as a background build's."""
 
     outcome = MapOutcome(status="disabled", practice_item_id=practice_item_id, trigger="merge")
     if not maps_enabled(vault.config):
@@ -1251,7 +1320,10 @@ def merge_learner_routes(vault: LoadedVault, repository: Repository, practice_it
     try:
         if _settled_merge(vault, repository, item, outcome) is None:
             return outcome
-        with _claimed(repository, item.id, deadline) as claim:
+        if fence is not None and not fence.live():
+            outcome.status, outcome.reason = "stale", "the vault was closed before the merge started"
+            return outcome
+        with _claimed(repository, item.id, deadline, fence=fence) as claim:
             if claim is None:
                 outcome.status = "busy"
                 outcome.reason = "another process is building or merging this item's map"
@@ -1522,6 +1594,7 @@ __all__ = [
     "new_learner_attempts",
     "plan_item",
     "schedule_build_on_serve",
+    "schedule_merge_after_hint",
     "select_items",
     "wait_for_background_builds",
 ]

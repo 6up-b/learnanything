@@ -476,9 +476,10 @@ def test_no_rpc_reaches_the_inline_build_or_the_merge():
                 imported.update(alias.name for alias in node_.names)
             if isinstance(node_, ast.Attribute) and node_.attr in ("build_map_inline", "merge_learner_routes"):
                 raise AssertionError(f"{path} reaches {node_.attr} (H2 wires it)")
-    # The serve's background build is the only map entry any RPC reaches; the
-    # sidecar also owns the builds' lifecycle registry (fix round 2, M4).
-    assert imported == {"schedule_build_on_serve", "BackgroundBuilds"}
+    # The serve's background build and, after a hint is shown, the background
+    # learner-route merge (H2a review F9) are the only map entries any RPC
+    # reaches; the sidecar also owns their lifecycle registry (fix round 2, M4).
+    assert imported == {"schedule_build_on_serve", "schedule_merge_after_hint", "BackgroundBuilds"}
 
 
 # -- build on serve (§4.3.1 row 1) --------------------------------------------------------
