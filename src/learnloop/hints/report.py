@@ -40,8 +40,11 @@ no further help after the hint reached the goal. "No further help" is
 established only from records no cap applies to: the submission's own rows
 and, for the attempt (after the item's previous attempt, up to this one),
 the tutor's questions, reveal events (except the attempt's own post-attempt
-displays and this submission's own self-grade disclosure) and the
-workbench's held hints. An event attributed to an attempt was written after
+displays and this submission's own self-grade disclosure). A workbench
+problem's help cannot be reconstructed from its current state (the book can
+be hidden, or first shown, after the submit; RW2b/H3 write it to
+``help_assists``), so a workbench problem on the item that could have been
+open during the window makes the case ``workbench_state_unknown``. An event attributed to an attempt was written after
 that attempt existed, so attribution orders it: one attributed to the
 previous attempt is after the window opened (but still must precede this
 attempt), one attributed to this attempt came after it. Otherwise the
@@ -54,6 +57,7 @@ placement says whether the learner progressed first), primed (worked help or
 a disclosed answer), help the rows cannot order (``help_not_ordered``: other
 assistance recorded in the attempt, or a count above its recorded reveals),
 help that cannot be placed in or out of the attempt (``help_order_ambiguous``),
+a workbench problem that may have helped (``workbench_state_unknown``),
 a count that reached the item's cap (``help_count_capped``: the client's
 count may have been larger), a cap that cannot be known (``help_cap_unknown``:
 the report was given no items, or the item changed since the hint), no grade,
@@ -97,7 +101,8 @@ INTERVAL_LEVEL = 0.95
 _Z = 1.959963984540054
 #: The unknown cases of unaided next progress, in the order they are checked.
 UNAIDED_UNKNOWN_REASONS = (
-    "more_help_followed", "primed", "help_not_ordered", "help_order_ambiguous", "help_count_capped",
+    "more_help_followed", "primed", "help_not_ordered", "help_order_ambiguous", "workbench_state_unknown",
+    "help_count_capped",
     "help_cap_unknown", "ungraded", "not_fully_correct",
 )
 #: Why "seconds into the attempt" is unknown for a row.
@@ -368,6 +373,8 @@ def build_hints_report(
             return "help_not_ordered"
         if other_help[row["resolved_attempt"]] == "ambiguous":
             return "help_order_ambiguous"
+        if other_help[row["resolved_attempt"]] == "workbench":
+            return "workbench_state_unknown"
         cap = caps.get(attempt["practice_item_id"])
         if cap is None or cap[0] != row["practice_item_hash"]:
             return "help_cap_unknown"
@@ -552,14 +559,13 @@ def _window_position(
 def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None:
     """Assistance the attempt recorded outside its help rows, read uncapped
     from the records themselves: ``"help"``, ``"ambiguous"`` (an event whose
-    order against the window cannot be established) or None. Over the
-    attempt's window (after the item's previous attempt, up to this one;
+    order against the window cannot be established), ``"workbench"`` (a
+    workbench problem that could have been open in the window) or None. Over
+    the attempt's window (after the item's previous attempt, up to this one;
     ``tutor_qa.hint_equivalents_for_attempt``'s): a tutor question that was
-    answered or counted as a hint, a reveal event (a post-attempt display of
-    the previous attempt included; the attempt's own post-attempt displays
-    and this submission's own self-grade disclosure excluded), or a workbench
-    problem on the item, open at the attempt, holding a hint
-    (``reader.workbench.session_hints``: the book counted, carried hints)."""
+    answered or counted as a hint, or a reveal event (a post-attempt display
+    of the previous attempt included; the attempt's own post-attempt displays
+    and this submission's own self-grade disclosure excluded)."""
 
     item_id = attempt["practice_item_id"]
     previous = connection.execute(
@@ -586,14 +592,32 @@ def _other_assistance(connection: Any, attempt: Mapping[str, Any]) -> str | None
     ).fetchall():
         if not _own_disclosure(reveal, attempt["submission_id"]):
             positions.add(_window_position(reveal, **window))
-    if "inside" in positions or connection.execute(
-        "SELECT 1 FROM workbench_sessions WHERE practice_item_id = ? AND created_at <= ? "
-        "AND (closed_at IS NULL OR closed_at >= ?) "
-        "AND (source_shown_at IS NOT NULL OR carried_hints > 0 OR (origin = 'reader' AND source_visible = 1)) LIMIT 1",
-        (item_id, attempt["created_at"], attempt["created_at"]),
-    ).fetchone() is not None:
+    if "inside" in positions:
         return "help"
-    return "ambiguous" if "ambiguous" in positions else None
+    if "ambiguous" in positions:
+        return "ambiguous"
+    problems = connection.execute(
+        "SELECT created_at, closed_at FROM workbench_sessions WHERE practice_item_id = ?", (item_id,)
+    ).fetchall()
+    if any(_could_overlap(problem, since=window["since"], until=window["until"]) for problem in problems):
+        return "workbench"
+    return None
+
+
+def _could_overlap(problem: Mapping[str, Any], *, since: datetime | None, until: datetime | None) -> bool:
+    """Whether a workbench problem could have been open during the window,
+    from its timestamps alone (round 4): opened at or before the evaluated
+    attempt and not closed before the window opened. Its book and hint state
+    are never read: they are current, not as of the attempt. A tie, or a
+    missing or unreadable time, could have been open."""
+
+    opened = _second(problem["created_at"])
+    if opened is not None and until is not None and opened > until:
+        return False
+    if problem["closed_at"] is None or since is None:
+        return True
+    closed = _second(problem["closed_at"])
+    return closed is None or closed >= since
 
 
 __all__ = [

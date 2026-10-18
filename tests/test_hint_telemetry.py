@@ -786,7 +786,8 @@ def test_unaided_next_progress_is_settled_by_the_grade_where_it_can_be(tmp_path,
     progress = kind["unaided_next_progress"]
     assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 1, "of": 6}
     assert progress["unknown"] == {
-        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "help_order_ambiguous": 0, "help_count_capped": 1,
+        "more_help_followed": 1, "primed": 1, "help_not_ordered": 1, "help_order_ambiguous": 0, "workbench_state_unknown": 0,
+        "help_count_capped": 1,
         "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 1,
     }
     assert progress["reached"]["interval"]["method"] == "wilson"
@@ -989,7 +990,8 @@ def test_unaided_progress_is_reached_only_when_the_uncapped_records_show_no_othe
     progress = _report(paths)["kinds"][0]["unaided_next_progress"]
     assert {key: progress["reached"][key] for key in ("count", "of")} == {"count": 2, "of": 5}
     assert progress["unknown"] == {
-        "more_help_followed": 1, "primed": 0, "help_not_ordered": 1, "help_order_ambiguous": 0, "help_count_capped": 1,
+        "more_help_followed": 1, "primed": 0, "help_not_ordered": 1, "help_order_ambiguous": 0, "workbench_state_unknown": 0,
+        "help_count_capped": 1,
         "help_cap_unknown": 0, "ungraded": 0, "not_fully_correct": 0,
     }
     # Without the vault's caps (or for an item changed since the hint) no
@@ -1018,10 +1020,11 @@ def test_a_count_at_the_cap_with_nothing_else_recorded_is_still_unknown(tmp_path
     assert progress["reached"]["count"] == 0 and progress["unknown"]["help_count_capped"] == 1
 
 
-def test_a_workbench_problem_holding_a_hint_is_other_help(tmp_path, monkeypatch):
-    """V2: an open workbench problem on the item that carried a hint is
-    folded into the count (the larger of it and the client's), so it can hide
-    behind the one recorded reveal; the report reads it from the session."""
+def test_a_workbench_problem_holding_a_hint_is_workbench_state_unknown(tmp_path, monkeypatch):
+    """V2, round 4: an open workbench problem on the item that carried a hint
+    is folded into the count (the larger of it and the client's), so it can
+    hide behind the one recorded reveal. Its help as of the attempt cannot be
+    read from its current state, so the case is unknown."""
 
     now = _moving_clock(monkeypatch, FROZEN)
     paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
@@ -1038,7 +1041,7 @@ def test_a_workbench_problem_holding_a_hint_is_other_help(tmp_path, monkeypatch)
     payload = _submit(ctx, session_id, hints=1, key="k1")
     assert Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])["hints_used"] == 1
     progress = _report(paths)["kinds"][0]["unaided_next_progress"]
-    assert progress["reached"]["count"] == 0 and progress["unknown"]["help_not_ordered"] == 1
+    assert progress["reached"]["count"] == 0 and progress["unknown"]["workbench_state_unknown"] == 1
 
 
 def test_seconds_into_the_attempt_after_a_grading_fallback_is_the_first_submits(tmp_path, monkeypatch):
@@ -1188,3 +1191,72 @@ def test_help_in_the_attempts_own_second_is_order_ambiguous(tmp_path, monkeypatc
         _submit(ctx, session_id, hints=1, key="k1")
         record(paths, session_id)
         assert _progress(paths) == {"reached": 0, "help_order_ambiguous": 1}, name
+
+
+# -- review round 4 (after Codex job 20261018-003635-bF1uGX) ----------------------------
+
+
+def _workbench(paths, problem_id: str, *, created_at: str, closed_at: str | None = None, origin: str = "reader",
+               source_visible: int = 1) -> None:
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO workbench_sessions (id, practice_item_id, stem_md, origin, entry, source_visible, status, "
+            "created_at, updated_at, closed_at) VALUES (?, ?, 'Define the SVD.', ?, 'work_through', ?, ?, ?, ?, ?)",
+            (problem_id, ITEM, origin, source_visible, "open" if closed_at is None else "abandoned", created_at,
+             created_at, closed_at),
+        )
+        connection.commit()
+
+
+def test_hiding_the_book_after_the_submit_never_flips_the_attempt(tmp_path, monkeypatch):
+    """Round 4, Codex's scenario: a Reader problem on the item with the book
+    shown and no steps (it counts one hint-equivalent at submit), a correct
+    submit, then the book hidden. The report must not change with that later
+    state: the workbench help as of the attempt is unknown, before and after."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    _workbench(paths, "wb_book", created_at="2026-10-17T08:59:00Z")
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T09:00:10Z")
+    now["t"] = FROZEN + timedelta(seconds=30)
+    payload = _submit(ctx, session_id, hints=1, key="k1")
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(payload["attemptId"])
+    assert (attempt["hints_used"], attempt["correctness"]) == (1, 1.0)  # max(1 client, 1 book), unchanged
+    before = _progress(paths)
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "UPDATE workbench_sessions SET source_visible = 0, source_hidden_at = ? WHERE id = 'wb_book'",
+            ("2026-10-17T09:05:00Z",),
+        )
+        connection.commit()
+    assert before == _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
+
+
+def test_a_workbench_problem_opened_only_after_the_submit_plays_no_part(tmp_path, monkeypatch):
+    """Round 4: a problem opened after the attempt (and one closed before the
+    window opened) could not have been open in it; the case is decided
+    without it. A tie with a boundary, or an unreadable time, could have been."""
+
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    _workbench(paths, "wb_old", created_at="2026-10-17T08:00:00Z", closed_at="2026-10-17T08:30:00Z")
+    _submit(ctx, session_id, hints=0, key="kA")  # the previous attempt, 09:00:00
+    now["t"] = FROZEN + timedelta(minutes=5)
+    _reveal(ctx, session_id, 0, key="kB", at=(now["t"] - timedelta(seconds=20)).isoformat())
+    _submit(ctx, session_id, hints=1, key="kB")  # 09:05:00
+    _workbench(paths, "wb_after", created_at="2026-10-17T09:05:01Z")
+    assert _progress(paths) == {"reached": 1}
+    _workbench(paths, "wb_tie", created_at="2026-10-17T08:50:00Z", closed_at="2026-10-17T09:00:00Z")
+    assert _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
+
+
+def test_a_workbench_problem_with_an_unreadable_time_could_have_been_open(tmp_path, monkeypatch):
+    now = _moving_clock(monkeypatch, FROZEN)
+    paths = _vault(tmp_path, hints=["Name the three factors.", "U Sigma V^T."])
+    ctx, session_id = _sidecar(paths.root)
+    _reveal(ctx, session_id, 0, key="k1", at="2026-10-17T08:59:40Z")
+    _submit(ctx, session_id, hints=1, key="k1")
+    _workbench(paths, "wb_unreadable", created_at="not a time", closed_at="2026-10-17T08:00:00Z")
+    assert _progress(paths) == {"reached": 0, "workbench_state_unknown": 1}
