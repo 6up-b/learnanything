@@ -285,7 +285,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
     ``live_vault``: the provider of the vault loaded now, whose held-out
     predicate each request and record is checked against (fix round 4, V1)."""
 
-    from learnloop.adaptive_difficulty.claims import LeaseLost, audit_key, claimed
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed, audit_key, claimed
 
     item_id = str(getattr(item, "id", ""))
     outcome = AuditOutcome(status="disabled", practice_item_id=item_id)
@@ -322,8 +322,15 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
         # work; ``protected`` is held-out content (fix round 6, V3).
         outcome.status = refusal_status(exc)
         outcome.unanswered = [dimension for dimension in DIMENSIONS if dimension not in outcome.answered]
+    except ReceiptWriteFailed:
+        # Fix round 9 (round 8's contract): a request whose start receipt
+        # could not be written stops the audit at once: no further judgment,
+        # no fallback; failed, kept queued for a retry at the back.
+        outcome.status = "failed"
+        outcome.unanswered = [dimension for dimension in DIMENSIONS if dimension not in outcome.answered]
     except LeaseLost:
         outcome.status = "stale"
+        outcome.unanswered = [dimension for dimension in DIMENSIONS if dimension not in outcome.answered]
     return outcome
 
 
@@ -368,9 +375,17 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
             outcome.decider_status = refusal_status(exc)
             raise
         except ReceiptWriteFailed:
-            # Its start receipt could not be written, so nothing was sent (fix round 8).
-            status = "failed"
-        except (AIInterrupted, LeaseLost):
+            # Its start receipt could not be written, so nothing was sent (fix
+            # round 8). Fix round 9: the audit stops here: no judgment, no
+            # fallback; the revision stays queued (failed, retried later).
+            outcome.decider_status = "failed"
+            raise
+        except LeaseLost:
+            # The claim was lost (at the start receipt or before): the claim's
+            # new owner does the work; nothing more is written (stale).
+            outcome.decider_status = "stale"
+            raise
+        except AIInterrupted:
             raise
         except SpendLimitExceeded:
             status = "refused"
@@ -427,7 +442,7 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
                   decider_rows: Mapping[str, tuple[str, str]],
                   outcome: AuditOutcome, *, envelope: Any, client: Any | None, content_hash: str,
                   clock: Clock | None, send: SendGuard) -> None:
-    from learnloop.adaptive_difficulty.claims import ReceiptWriteFailed
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed
     from learnloop.practice_index.paid import plan_route
 
     route = plan_route(vault, LLM_ROUTE, client)  # type: ignore[arg-type]
@@ -453,9 +468,13 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
         outcome.llm_status = refusal_status(exc)
         raise
     except ReceiptWriteFailed:
-        # Its start receipt could not be written, so nothing was sent (fix round 8).
+        # Its start receipt could not be written, so nothing was sent (fix
+        # round 8); the audit stops here (fix round 9).
         outcome.llm_status = "failed"
-        return
+        raise
+    except LeaseLost:
+        outcome.llm_status = "stale"
+        raise
     except AIInterrupted:
         raise
     except SpendLimitExceeded:
