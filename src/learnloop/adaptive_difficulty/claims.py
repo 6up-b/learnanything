@@ -36,6 +36,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.hints import map_builder as _builds
 
 LOG = logging.getLogger(__name__)
@@ -46,6 +47,29 @@ PRODUCER = "adaptive_difficulty"
 
 #: Raised by a fenced write (or a fenced start) once the lease or the vault is lost.
 LeaseLost = _builds._LeaseLost
+
+
+class DispatchStopped(AIInterrupted):
+    """AD's start receipt could not be written: the request is never dispatched.
+
+    Fix round 8: AD's start receipt fails closed. ``admission_refused`` makes
+    a receipt sink that swallows its own failures (``review_spend``'s
+    ``UsageCollector``) re-raise it, and as an ``AIInterrupted`` no retry
+    loop or transport relabels it. The original error is its ``__cause__``.
+    This class is a storage error writing the receipt (status ``failed``,
+    retryable at the back of the preparation queue)."""
+
+    admission_refused = True
+
+
+class ReceiptWriteFailed(DispatchStopped):
+    """A storage error while writing AD's start receipt (``failed``)."""
+
+
+class ReceiptLeaseLost(DispatchStopped, LeaseLost):
+    """The claim's lease (or the vault) was lost at the start receipt (``stale``:
+    the claim's new owner does the work). A ``LeaseLost`` too, so every AD
+    handler that stops a job on a lost lease stops this one."""
 
 
 def audit_key(content_hash: str) -> str:
@@ -84,27 +108,60 @@ class FencedRepository:
 
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
         if action == "start":
-            # Before the request is sent: fenced out, it raises and nothing is sent.
-            with _builds._fenced_txn(self._repository, self._claim):
-                self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
-            # The last confirmation before dispatch (fix round 6, V1-b): after
-            # the outer gate and this receipt, the last work before the
-            # transport sends. A refusal closes the receipt as interrupted
-            # (never sent, no usage) and raises.
-            from learnloop.adaptive_difficulty.sending import ProtectedContent, before_dispatch
-
-            try:
-                before_dispatch()
-            except ProtectedContent as exc:
-                from learnloop.clock import utc_now_iso
-
-                self._repository.record_model_event("finish", {
-                    "id": event.get("id"), "finished_at": utc_now_iso(), "status": "interrupted",
-                    "error_type": type(exc).__name__}, owner_kind=owner_kind, owner_id=owner_id)
-                raise
+            self._start(event, owner_kind=owner_kind, owner_id=owner_id)
             return
         # A request already sent keeps its accounting, whatever happened since.
         self._repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+
+    def _start(self, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
+        """AD's start receipt, which fails closed (fix round 8).
+
+        Why: every exception here must stop the dispatch, and a receipt sink
+        that treats receipts as telemetry (the Decider's ``UsageCollector``)
+        swallows unmarked ones, so a lease lost at this write (another worker
+        then paid for the same work), a storage error, or a cleanup error
+        that replaced the refusal let the request go out anyway. So:
+
+        * fenced out (the lease or the vault lost): :class:`ReceiptLeaseLost`
+          (``stale``); any other error writing it: :class:`ReceiptWriteFailed`
+          (``failed``); both marked, the original as ``__cause__``;
+        * then the last confirmation before dispatch (fix round 6, V1-b:
+          after the outer gate and this receipt, the last work before the
+          transport sends); a refusal closes the receipt as interrupted
+          (never sent, no usage) and is raised as it is, keeping its own
+          status; if closing the receipt fails, that failure is logged and
+          the original refusal is raised, never the cleanup error."""
+
+        from learnloop.adaptive_difficulty.sending import ProtectedContent, before_dispatch
+
+        try:
+            with _builds._fenced_txn(self._repository, self._claim):
+                self._repository.record_model_event("start", event, owner_kind=owner_kind, owner_id=owner_id)
+        except LeaseLost as exc:
+            raise ReceiptLeaseLost("the AD job's claim or vault was lost at its start receipt") from exc
+        except Exception as exc:  # noqa: BLE001 - fail closed: nothing is sent without its receipt
+            raise ReceiptWriteFailed(f"AD's start receipt could not be written: {type(exc).__name__}") from exc
+        try:
+            before_dispatch()
+        except ProtectedContent as refusal:
+            self._close_refused(event, refusal, owner_kind=owner_kind, owner_id=owner_id)
+            raise refusal
+        except Exception as exc:  # noqa: BLE001 - an error in the check itself stops the dispatch too
+            failure = ReceiptWriteFailed(f"AD's dispatch check failed: {type(exc).__name__}")
+            failure.__cause__ = exc
+            self._close_refused(event, failure, owner_kind=owner_kind, owner_id=owner_id)
+            raise failure from exc
+
+    def _close_refused(self, event: dict[str, Any], refusal: BaseException, *, owner_kind: str,
+                       owner_id: str) -> None:
+        from learnloop.clock import utc_now_iso
+
+        try:
+            self._repository.record_model_event("finish", {
+                "id": event.get("id"), "finished_at": utc_now_iso(), "status": "interrupted",
+                "error_type": type(refusal).__name__}, owner_kind=owner_kind, owner_id=owner_id)
+        except Exception:  # noqa: BLE001 - logged; the refusal, not this, is what the caller sees
+            LOG.warning("AD: could not close the refused request's receipt %s", event.get("id"), exc_info=True)
 
     # A model checkpoint is domain output, not accounting (fix round 4, V3):
     # the base repository writes it on a separate connection that allows late
@@ -163,5 +220,5 @@ def claimed(repository: Any, key: str, *, fence: Any = None) -> Iterator[Worker 
         yield None if claim is None else Worker(base, claim)
 
 
-__all__ = ["CLAIM_TASK", "FencedRepository", "LeaseLost", "PRODUCER", "Worker", "audit_key", "claimed",
-           "item_forecast_key", "presentation_key"]
+__all__ = ["CLAIM_TASK", "DispatchStopped", "FencedRepository", "LeaseLost", "PRODUCER", "ReceiptLeaseLost",
+           "ReceiptWriteFailed", "Worker", "audit_key", "claimed", "item_forecast_key", "presentation_key"]

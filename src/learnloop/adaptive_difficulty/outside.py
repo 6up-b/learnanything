@@ -450,7 +450,7 @@ def forecast_item(vault: Any, repository: Any, item: Any, *, clients: Clients | 
 
 def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_hash: str, key: str,
                    outcome: ForecastOutcome, clock: Clock | None, send: SendGuard) -> None:
-    from learnloop.adaptive_difficulty.claims import LeaseLost
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed
 
     repository = worker.repository
     issued = utc_now_iso(clock)
@@ -467,6 +467,11 @@ def _forecast_item(vault: Any, worker: Any, item: Any, client: Any, *, content_h
                                       envelope=envelope, send=send)
     except ProtectedContent as exc:
         outcome.status, outcome.reason = refusal_status(exc), str(exc)[:200]
+        return
+    except ReceiptWriteFailed as exc:
+        # Its start receipt could not be written, so nothing was sent (fix
+        # round 8): failed, retried later; nothing more is written now.
+        outcome.status, outcome.reason = "failed", str(exc)[:200]
         return
     except (AIInterrupted, LeaseLost):
         raise
@@ -643,7 +648,7 @@ def forecast_presentation(vault: Any, repository: Any, presentation_id: str, *, 
 
 def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str, Any], frozen: Mapping[str, Any], *,
                   clients: Clients, clock: Clock | None, send: SendGuard) -> ForecastOutcome:
-    from learnloop.adaptive_difficulty.claims import LeaseLost
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed
 
     repository = worker.repository
     presentation_id = str(presentation["id"])
@@ -685,6 +690,9 @@ def _forecast_one(vault: Any, worker: Any, name: str, presentation: Mapping[str,
                                               envelope=envelope, send=send)
     except ProtectedContent as exc:
         return ForecastOutcome(name, refusal_status(exc), reason=str(exc)[:200])
+    except ReceiptWriteFailed as exc:
+        # Its start receipt could not be written, so nothing was sent (fix round 8).
+        return ForecastOutcome(name, "failed", reason=str(exc)[:200])
     except (AIInterrupted, LeaseLost):
         raise
     except SpendLimitExceeded as exc:

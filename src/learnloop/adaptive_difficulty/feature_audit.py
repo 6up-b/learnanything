@@ -330,7 +330,7 @@ def audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: C
 def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str, remaining: list[str],
            outcome: AuditOutcome, *, decider_factory: Callable[[], Any] | None, llm_client: Any | None,
            clock: Clock | None, send: SendGuard) -> None:
-    from learnloop.adaptive_difficulty.claims import LeaseLost
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed
 
     item_id = outcome.practice_item_id
     repository = worker.repository
@@ -367,6 +367,9 @@ def _audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str
         except ProtectedContent as exc:
             outcome.decider_status = refusal_status(exc)
             raise
+        except ReceiptWriteFailed:
+            # Its start receipt could not be written, so nothing was sent (fix round 8).
+            status = "failed"
         except (AIInterrupted, LeaseLost):
             raise
         except SpendLimitExceeded:
@@ -424,6 +427,7 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
                   decider_rows: Mapping[str, tuple[str, str]],
                   outcome: AuditOutcome, *, envelope: Any, client: Any | None, content_hash: str,
                   clock: Clock | None, send: SendGuard) -> None:
+    from learnloop.adaptive_difficulty.claims import ReceiptWriteFailed
     from learnloop.practice_index.paid import plan_route
 
     route = plan_route(vault, LLM_ROUTE, client)  # type: ignore[arg-type]
@@ -448,6 +452,10 @@ def _llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str],
     except ProtectedContent as exc:
         outcome.llm_status = refusal_status(exc)
         raise
+    except ReceiptWriteFailed:
+        # Its start receipt could not be written, so nothing was sent (fix round 8).
+        outcome.llm_status = "failed"
+        return
     except AIInterrupted:
         raise
     except SpendLimitExceeded:
