@@ -1005,6 +1005,19 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "the library answer's organizer's metered spend a UTC day; a money bound, no measurement "
         "authority (its notes are display only)."),
+    # Reader workbench RW1c: the Reader tutor's kill switches (booleans, so
+    # Inventory A's numeric walk never reaches them; classified here so every
+    # new key has a rule). Retrieval is context and display, the offers are
+    # learner picks; off restores today's selection-and-neighbours tutor and
+    # no buttons. A shown answer reaches an attempt only through a
+    # tutor_answer reveal on key overlap, exactly as before.
+    _ConfigRule(_exact(
+        "reader_tutor.retrieval_enabled",
+        "reader_tutor.offers_enabled",
+    ), "structural", "operational",
+        "kill switches for the Reader tutor's retrieval, answer modes, abstention, another way and that "
+        "didn't help / the offer buttons under its answers; context and display, no measurement, scheduling "
+        "or serving authority."),
     # Adaptive hints H1: the approach-map builds' (and merges') metered spend a
     # UTC day (maps are stored help, read by no grading, scheduling, serving or
     # replay path; validation verdicts go to judgment_ledger, never evidence).

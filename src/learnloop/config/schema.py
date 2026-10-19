@@ -2270,6 +2270,31 @@ class LibraryAskConfig(BaseModel):
     max_daily_cost_usd: float = Field(default=1.0, ge=0.0)
 
 
+class ReaderTutorConfig(BaseModel):
+    """Reader workbench RW1c: a tutor that looks things up (spec_reader_workbench_v1 §4.6).
+
+    ``retrieval_enabled``: Ask in the Reader retrieves from the learner's
+    books on its own (the sources service's ``find_sources`` with verification
+    under the Reader caller's derived policy, after the selection and its
+    neighbours), answers in three labelled modes (a quote-verified "From your
+    books" excerpt, a grounded explanation, a bridge to the learner's work),
+    says so when the books don't cover the question, and offers "another
+    way" (intent ``alternative``) and "that didn't help" (intent
+    ``remediate``). Off: today's selection-and-neighbours tutor, byte for byte.
+    ``offers_enabled``: the buttons under an answer (the sources service's
+    practice request and tool requests, fetched when the answer lands and
+    shown only when pressed, and "Try the next step first" on a cited
+    derivation or worked example). Off: no buttons under answers in the
+    Reader. Retrieval is context and display, buttons are learner picks (T6's
+    ruling): nothing in scoring, scheduling, projection or serving reads
+    either, so no algorithm successor. The sources service's
+    ``source_service.tutor_tools`` gates the tutor's requests themselves.
+    """
+
+    retrieval_enabled: bool = True
+    offers_enabled: bool = True
+
+
 class ReaderCompareConfig(BaseModel):
     """Reader workbench RW4a: compare pinned passages (spec_reader_workbench_v1 §7.3).
 
@@ -3256,6 +3281,7 @@ class LearnLoopConfig(BaseModel):
     reader_formative: ReaderFormativeConfig = Field(default_factory=ReaderFormativeConfig)
     library_ask: LibraryAskConfig = Field(default_factory=LibraryAskConfig)
     reader_compare: ReaderCompareConfig = Field(default_factory=ReaderCompareConfig)
+    reader_tutor: ReaderTutorConfig = Field(default_factory=ReaderTutorConfig)
     proof_check: ProofCheckConfig = Field(default_factory=ProofCheckConfig)
     voi_stopping: VoiStoppingConfig = Field(default_factory=VoiStoppingConfig)
     adaptive_difficulty: AdaptiveDifficultyConfig = Field(default_factory=AdaptiveDifficultyConfig)

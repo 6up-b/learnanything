@@ -1385,7 +1385,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # until the renderer-equivalent checker lands. Display-only labels; no
     # scoring, scheduling, projection or serving change and no successor.
     # Every snapshot moves with the default and was recomputed.
-    "mvp-0.9": "c757a7ef80e40f25791bf5add21ba93532a65838583b207e8ad3a4ac94f9c36a",
+    # Reader workbench RW1c (a tutor that looks things up; docs/reviews/
+    # reader-workbench-RW1c.md) adds [reader_tutor] retrieval_enabled and
+    # offers_enabled (true; modelled defaults, left out of the decision-only
+    # template): the Reader tutor's retrieval, three answer modes,
+    # abstention, another way and that didn't help, and the offer buttons
+    # under its answers. Retrieval is context and display and the buttons are
+    # learner picks (T6's ruling); a shown answer reaches an attempt only
+    # through a tutor_answer reveal with its existing meaning, so no scoring,
+    # scheduling, projection or serving change and no successor; it adds no
+    # route (the tutor's own; the sources service's for its functions) and
+    # acts at every version. Every snapshot moves only because the effective
+    # config gains the keys; all of them were recomputed from the composed
+    # defaults (defaults_fingerprint_for_version).
+    "mvp-0.9": "15a70868e44962a5ce9fd24794f715a5df6028c8bca95484d99969f52c89e7a7",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -1433,7 +1446,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "eff484586f8e7e9f7887b3c0f4024e85b9f8d0a80f40add33773634b070af0ac",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "dc0a14a7c686eb92073772b542d17b9da90970af6b885f9606b12404809738f0",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -1489,7 +1503,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "8a5cc954d9359b80dae3e4ffe650f34949cd870e0234bffa6df9346e0205abc9",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "56d9f3ba970efa0e417e498fb754e2dfa90afb2d5e3b3bf355a8e9b16733020c",
     # mvp-0.12 (Slice 2 T1 / M3): mvp-0.11's split and placement plus
     # recurrence groups live (recurrence.enabled, the live same-cause judge
     # with top_k 3 and no blocking cutoff until B3 sets one, the escalation
@@ -1539,7 +1554,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.12": "a63f3107c275e2385663f55383c2c279863b1c042972318fe3f53620fd64de1e",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.12": "8e75e9e61597afd4849a7fdaa3f36858d6f58b47f6cacb8a52bb93819a638c86",
     # mvp-0.13 ("Write what you can" replaces "I don't know"): mvp-0.12's
     # split, placement and recurrence groups plus "I'm stuck" live
     # (stuck_prompt.enabled = true): a stuck answer with text is an ordinary
@@ -1584,7 +1600,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.13": "fecac8134e60052e6150f81c85e658320b6f3e3250ab756147e85846bad88642",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.13": "42d7d0be3ad55b88ece1a40c8430dd31b4dc5755ad6542c4ebbefde92a765429",
     # mvp-0.14 (daily-loop DL1, daily_plan_v1): mvp-0.13's split, placement,
     # recurrence groups and stuck prompt plus the finite daily plan ([plan],
     # modelled defaults only): the system-set split, load-based new-material
@@ -1628,7 +1645,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.14": "a8c558708de491463a98291a136b9416caa34936693354a15d8e852fc57c27df",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.14": "b640833943ec39379f7e6ca088fb6dcfc41116ac5e37af51859051a99a991a3b",
     # mvp-0.15 (router R1): mvp-0.14's split, placement, recurrence groups,
     # stuck prompt and plan plus probe near-ties (teach-back items included,
     # owner decision D11) admitted to the Today queue's seeded exploration
@@ -1670,7 +1688,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.15": "2a7c9abd53d28e3c4477ee0e6fec50ace642e8a67adf29913a1b7aa5dc28faa3",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.15": "b5610395644e4c6c4ee035ee2ebd40e5c970e7accb5faac69593ed16341494fd",
     # mvp-0.16 (learner-text gaps, implementation_handoffs §4): mvp-0.15's
     # split, placement, recurrence groups, stuck prompt, plan and probe ties
     # plus the sooner check: a matched prerequisite gap on an LO assumed known
@@ -1719,7 +1738,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.16": "eb1d12000a757e4a3278c3a498d66700f8f709aaa0ff18aeb41d06dbaa9beb3e",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.16": "bbc3d1653526de4954276211299274d542a63fbdf84b271090fbde930f17b4c6",
     # mvp-0.17 (the proofs-and-explanations route check; built as mvp-0.15, a
     # placeholder tag, and relabelled at its merge): mvp-0.16's split,
     # placement, recurrence groups, stuck prompt, plan, probe ties and sooner
@@ -1764,7 +1784,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.17": "3fc8570c1a490793cf0f90294205482323ec25bef8c931a08015cfa57e7a4123",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.17": "c8e83a0e76a5fd82b6d08b0b60fad488f742a5e0ebac9cf6ae74082c33f68146",
     # mvp-0.18 (canonical sources S1, the certification gate C3; built as
     # mvp-0.15, a placeholder tag, and relabelled at its merge): mvp-0.17
     # plus practice_attempts.reference_status. An attempt on an imported
@@ -1802,7 +1823,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.18": "d0de2f9362604346e77cf175264a6efe094cfa0355556ea4e3a2b67855612b05",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.18": "e7f6cfd8565d81d9dd997e4117d6cd7da6b10373061f2cbfb9e56d5945cec335",
     # mvp-0.19 (canonical sources S2b; built as mvp-0.16, a placeholder tag,
     # and relabelled at its merge): mvp-0.18 plus source-first fulfilment of
     # intervention needs: the primed-retry handler and `learnloop
@@ -1840,7 +1862,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.19": "56011be879e0b7d673606f4c78097240755aab059051f3d1f362219a7367f88c",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.19": "7f38cb91f1e8b3bf47fe6ec5263fd6f536e9402259663ebd752a7e5187fe5580",
     # mvp-0.20 (route rules in the grader, route-check-in-grader; built as
     # mvp-0.18, a placeholder tag, and relabelled at its merge after the
     # sources track): mvp-0.19 plus the own-route rules in the blind grader's
@@ -1874,7 +1897,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.20": "76f698e76ebe844f87deff60bd9c409b2a66a64708e170f0345cd985e8833f25",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.20": "aa6dad7d8d89b154bab46f2c3bf4e843b3027caf33e1e661a2f843903973a023",
     # mvp-0.21 (value-of-information stopping, owner-directed 2026-10-12/13;
     # built as mvp-0.17, a placeholder tag, and relabelled at its merge after
     # the route rules): mvp-0.20 plus Part 1, four count caps lifted onto
@@ -1917,7 +1941,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.21": "c2b3cf878119679fa4f9dece1db35ef8821d7e023ca9ca86a08042156439192e",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.21": "51bbb43c703163089d8808b0046932a84e84b1a01662345faa00112254a0495e",
     # mvp-0.22 (Tier 1, the Decider migration, owner decision 2026-10-13;
     # built as mvp-0.20, a placeholder tag, and relabelled at its merge after
     # the route rules and value-of-information stopping): mvp-0.21 plus the
@@ -1952,7 +1977,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.22": "353f85ca863e4cf710ac9b44928e740fcf0cde38109275d95ec418782a62af07",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.22": "434a2cb24c73f319fd1f41a71e2aea81da2b0664d18782715828cb3e80b14d3c",
     # mvp-0.23 (router R2a, owner-directed 2026-10-13; a placeholder tag that
     # kept its label at its merge, nothing on main having taken it): mvp-0.22
     # plus Today composed by the staged frame (DL1's lanes and lane_quota_v1
@@ -1982,7 +2008,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.23": "c7b8b043dd135efcf1235824463ac19ea55c8712ce04a01486647ee089352616",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.23": "2f5429dc09966fa83948517c003b034882f51168e99d5b85eb3315bbc9bf1f0e",
     # mvp-0.24 (router R2b + R2c, owner decisions 2026-10-13; a placeholder
     # tag that kept its label at its merge, nothing on main having taken it):
     # mvp-0.23 plus Today's next block drawn from the logged model mixture
@@ -2009,7 +2036,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.24": "8aec337eeb448ca203be2336ba8af94065f860e2943dedd3c0e93ead7542a9fc",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.24": "7a0655043337004459d3a82b31f3a43f52f7d59e4e6f45642f5d0c81674ba8d9",
     # mvp-0.25 (method-explicit items, owner rule 2026-10-13; built as
     # mvp-0.22-placeholder, a placeholder tag, and relabelled at its merge
     # after router R2b + R2c): mvp-0.24 plus required-method grading
@@ -2034,7 +2062,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.25": "8ccaa04c18ee921a1ea7cc7797f0ae29ab77bd2aa715af6b31d77f75e14604fc",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.25": "20f58bb4f8f57548c7ff841129aca5118bb233ae30f62eadc99a5215496a65ca",
     # mvp-0.26 (regrade contracts, queued 2026-10-16;
     # docs/reviews/regrade-contract-replay.md): mvp-0.25 plus every regrade
     # citing the assessment contract it graded against (a snapshot of the item
@@ -2058,7 +2087,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.26": "7b98499747b5888ac6d5b152b474740d1ff1fe143a7988efa9f6bb62f8a1a83c",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.26": "55cf573e2df3be157f976ec74cbb11ba8f09bd2b5e227c6ce442424ded083629",
     # mvp-0.27 (one serve/administration eligibility decision, queued
     # 2026-10-16; docs/reviews/serve-eligibility-decision.md and its Codex
     # review F4): mvp-0.26 plus every serve path asking the decision submit
@@ -2082,7 +2112,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Adaptive hints H2b's [hints] panel and outcome-placement keys and route move it too (see mvp-0.9; no serving change).
     # Adaptive difficulty AD1's [adaptive_difficulty], its Decider switch and three routes move it too (see mvp-0.9; no serving change).
     # Reader workbench RW2b + adaptive hints H3's [workbench] help keys and route move it too (see mvp-0.9; no serving change).
-    "mvp-0.27": "4b273136fd72f0fba8d62440b43610f610383db66f25cd8c6dc599e03b0fb56e",
+    # Reader workbench RW1c's [reader_tutor] moves it too (see mvp-0.9; no serving change).
+    "mvp-0.27": "4cd6a809f9e5ac82abb0cd932a09c681df7f888e7b4eea8b7a0c4937f081f0ca",
 }
 
 

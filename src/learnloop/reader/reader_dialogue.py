@@ -48,7 +48,7 @@ from learnloop.substrate import administration_adapters
 from learnloop.curriculum import commitments
 from learnloop.learner import familiarity
 from learnloop.tutor import tutor_qa
-from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation, TutorQAContext
+from learnloop.tutor.ai_contracts import ReaderTutorQAContext, TutorAnswer, TutorCitation, TutorQAContext
 from learnloop.substrate.activities import (
     append_exposure,
     log_interaction_event,
@@ -510,9 +510,18 @@ def ask(
     learning_object_suggester: Any | None = None,
     tool_request_handler: Any | None = None,
     source_span_provider: Any | None = None,
+    reader_tutor: Any | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``reader_tutor`` (reader workbench RW1c, a
+    ``tutor.reader_modes.ReaderTutorRequest`` the adapter builds): the tutor
+    looks things up. Its retrieved passages join the selection and its
+    neighbours, the answer comes in the three modes with abstention, the
+    manifest records the spans the tutor was given and the retrieval's
+    receipt, and the exchange keeps the answer's modes (``tutor``) for its
+    history. None (the switch off) changes nothing.
 
     ``source_span_provider`` (reader workbench RW4a, "ask the tutor about
     these"): the passages the learner pinned replace the selection's
@@ -656,9 +665,10 @@ def ask(
         learning_object_suggester=learning_object_suggester,
         tool_request_handler=tool_request_handler,
         source_span_provider=source_span_provider,
+        reader_tutor=reader_tutor,
         clock=clock,
     )
-    if source_span_provider is not None:
+    if source_span_provider is not None or "reader_tutor" in result:
         # The manifest's spans are exactly the ones the tutor was given: the
         # pins as delivered (after the context budget), not the anchor's
         # neighbours.
@@ -714,6 +724,9 @@ def ask(
         burned.append(surface_id)
 
     submitted_payload: dict[str, Any] = {"question_event_id": result["event_id"]}
+    if "reader_tutor" in result:
+        # RW1c: the answer's modes, kept with the exchange for its history.
+        submitted_payload["tutor"] = result["reader_tutor"]
     if branches:
         submitted_payload["parent_exchange_id"] = parent_exchange_id
         if selection_source_quote_md:
@@ -786,6 +799,8 @@ def ask(
         response["suggested_learning_objects"] = result["suggested_learning_objects"]
     if "tool_requests" in result:
         response["tool_requests"] = result["tool_requests"]
+    if "reader_tutor" in result:
+        response["tutor"] = result["reader_tutor"]
     return response
 
 
@@ -833,6 +848,9 @@ def ask_history(
             "citations": list(payload.get("citations") or []),
             "created_at": event.get("created_at"),
         }
+        if payload.get("tutor"):
+            # RW1c: the answer's modes (absent on every exchange before RW1c).
+            exchange["tutor"] = dict(payload["tutor"])
         if branches:
             selection = manifest.get("selection") or {}
             question_event_id = payload.get("question_event_id")
@@ -1260,7 +1278,9 @@ class StubReaderClient:
         if request.purpose != "tutor_qa":
             raise ValueError(f"unsupported stub reader operation {request.purpose!r}")
         payload = json.loads(request.prompt.rsplit("\n\n", 1)[-1])
-        context = TutorQAContext(**payload["context"])
+        # RW1c: a Reader tutor that looks things up carries ``reader_tutor``.
+        context_type = ReaderTutorQAContext if "reader_tutor" in payload["context"] else TutorQAContext
+        context = context_type(**payload["context"])
         self.contexts.append(context)
         citations = [
             TutorCitation(

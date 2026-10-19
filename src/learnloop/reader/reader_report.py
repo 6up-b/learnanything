@@ -298,6 +298,34 @@ def build_reader_report(
     intent_jobs = [c for c in completions if c["payload"].get("job_kind") == "intent_routing"]
     styles = ("next_step", "why_step", "assumptions", "reconstruct")
 
+    # -- the tutor that looks things up (RW1c; spec §15's Tutor and sources row)
+    by_answer = {a["id"]: a for a in answers}
+
+    def root_of(exchange_id: str) -> str:
+        seen: set[str] = set()
+        current = exchange_id
+        while parent_of.get(current) in parent_of and current not in seen:
+            seen.add(current)
+            current = str(parent_of[current])
+        return current
+
+    looked = [a for a in windowed if isinstance(a["payload"].get("tutor"), dict)]
+    follow_ons: dict[str, list[dict[str, Any]]] = {"alternative": [], "remediate": []}
+    for a in looked:
+        intent = a["payload"]["tutor"].get("intent")
+        if intent in follow_ons:
+            follow_ons[intent].append(a)
+
+    def resolved_after(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        roots_of = [by_answer.get(root_of(a["id"])) for a in rows]
+        done = sum(1 for root in roots_of if root is not None and resolutions.get(
+            str(root["payload"].get("question_event_id")), "open") == "resolved")
+        return _share(done, len(rows))
+
+    offers_shown = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_shown"))
+    offers_pressed = Counter(str(e["payload"].get("offer_kind") or "unknown") for e in actions("tutor_offer_pressed"))
+    press_results = Counter(str(e["payload"].get("offer_result") or "unknown") for e in actions("tutor_offer_pressed"))
+
     return {
         "version": REPORT_VERSION,
         "window": {"since": since_at.isoformat() if since_at else None, "until": now.isoformat()},
@@ -407,6 +435,25 @@ def build_reader_report(
             "lines_dropped": sum(len(a["organizer"].get("dropped_lines") or []) for a in library_asks),
             "compared": _share(sum(1 for a in library_asks if a["compared"]), len(library_asks)),
             "tutor_asked": _share(sum(1 for a in library_asks if a["tutor"]), len(library_asks)),
+        },
+        # RW1c: answers by mode, abstentions and excerpts dropped by quote
+        # verification (a proxy for unsupported content), "another way" and
+        # "that didn't help" rates with whether the inquiry was resolved after,
+        # and the buttons shown and pressed by kind. Counts only.
+        "tutor": {
+            "answers": len(looked),
+            "by_mode": {mode: sum(1 for a in looked if mode in (a["payload"]["tutor"].get("modes") or []))
+                        for mode in ("excerpt", "grounded", "bridge")},
+            "abstained": sum(1 for a in looked if a["payload"]["tutor"].get("abstained") is True),
+            "excerpts_dropped": sum(1 for a in looked if a["payload"]["tutor"].get("dropped_excerpt")),
+            "retrieval": dict(Counter(
+                str((a["payload"]["tutor"].get("retrieval") or {}).get("status") or "unknown") for a in looked)),
+            "another_way": _share(len(follow_ons["alternative"]), len(looked)),
+            "didnt_help": _share(len(follow_ons["remediate"]), len(looked)),
+            "resolved_after": {"another_way": resolved_after(follow_ons["alternative"]),
+                               "didnt_help": resolved_after(follow_ons["remediate"])},
+            "offers": {"shown": dict(offers_shown), "pressed": dict(offers_pressed),
+                       "press_results": dict(press_results)},
         },
         "routes": [
             {"job_kind": job_kind, "model": model, "prompt_version": version, "n": len(rows),

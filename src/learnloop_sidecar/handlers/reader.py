@@ -23,7 +23,7 @@ authority; the handler enforces it rather than trusting the caller.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.content.sources.exam_material import HELD_BACK_REFUSAL, HELD_OUT_REFUSAL, reading_held_back
@@ -104,6 +104,13 @@ class ReaderAskInput(ParamsModel):
     selection_source_quote: str | None = None
     cold_active: bool = False
     cold_attempt_id: str | None = None
+    # RW1c (reader_tutor.retrieval_enabled): "another way" (alternative) and
+    # "that didn't help" (remediate) follow the answer they are under; the
+    # personalized toggle (None: library_ask.personalized_default); the
+    # workbench session the Ask comes from (its item gives assisted_practice).
+    retrieval_intent: Literal["explain", "alternative", "remediate"] = "explain"
+    personalized: bool | None = None
+    workbench_session_id: str | None = None
 
 
 @method("reader.ask", ReaderAskInput)
@@ -119,6 +126,14 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             f"{provider_label(provider_name)} is unavailable for reader Ask.",
             retryable=True,
         )
+    from learnloop_sidecar.handlers import reader_tutor as RTU
+
+    # RW1c: the tutor that looks things up (None while the switch is off).
+    lookup = RTU.build_request(ctx, vault, repository, params)
+    # A question a workbench session binds to an item reads under
+    # assisted_practice; the tutor's tools would be rebuilt from the reader
+    # question under reading, so it writes none there (never wider).
+    tools_allowed = not params.cold_active and not RTU.item_bound(lookup)
     try:
         result = RD.ask(
             vault,
@@ -140,7 +155,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             learning_object_suggester=suggested_learning_objects,
             # Canonical sources S4: typed tool requests (the Reader spec renders them).
             # None during a cold administration: every tool is refused then (G2).
-            tool_request_handler=None if params.cold_active else _reader_tool_handler(vault),
+            tool_request_handler=_reader_tool_handler(vault) if tools_allowed else None,
+            **({"reader_tutor": lookup} if lookup is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -187,11 +203,23 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
     # request; the Reader spec renders it (absent when the offer is off).
     from learnloop_sidecar.handlers.tutor_qa import tutor_practice_request
 
-    practice_request = tutor_practice_request(vault, repository, result["event_id"])
+    practice_request = tutor_practice_request(vault, repository, result["event_id"]) if tools_allowed or \
+        params.cold_active else None
     if result.get("tool_requests"):
         response["tool_requests"] = result["tool_requests"]
         if any(entry.get("tool") == "find_practice" for entry in result["tool_requests"]):
             practice_request = None
+    if "tutor" in result:
+        # RW1c: the answer's modes (absent while reader_tutor.retrieval_enabled is off).
+        response["tutor"] = result["tutor"]
+        RTU.record_excerpt_exposure(repository, result)
+    offers = RTU.offers(vault, repository, result, extraction_id=params.extraction_id)
+    if offers is not None:
+        # RW1c: the Reader's own buttons; and, without the sources service, a
+        # plain "Practice this" on the learner's question (§4.6).
+        if practice_request is None and tools_allowed:
+            practice_request = RTU.fallback_practice_request(vault, params.question, result["event_id"])
+        response["tutor_offers"] = offers
     if practice_request is not None:
         response["practice_request"] = practice_request
     return versioned(response)
@@ -399,6 +427,10 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
     from learnloop_sidecar.handlers.library_ask import prompt_contract_fields as library_ask_fields
 
     contract.update(library_ask_fields(vault))
+    # RW1c's tutor that looks things up (absent while both its switches are off).
+    from learnloop_sidecar.handlers.reader_tutor import prompt_contract_fields as reader_tutor_fields
+
+    contract.update(reader_tutor_fields(vault))
     return versioned(contract)
 
 
