@@ -339,7 +339,7 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
   The default is the honest label. A learner who writes `(\sin x)^2`, `x \cdot (x+1)` or brackets a limit's body
   gets a check. *Updated in fix round 6:* the list of notations that stay the model's reading is now longer, and
-  the full list is in "Fix round 6 (orchestrator)" below, as widened by "Fix round 7 (orchestrator)".
+  the full list is in "Fix round 6 (orchestrator)" below, as widened by "Fix round 7 (orchestrator)" and "Fix round 8 (orchestrator)".
 
 ## Fix round 4 (orchestrator)
 
@@ -686,6 +686,92 @@ the gate then passed on it unchanged.
 | `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
 | `uv run pytest -n auto` over round 6's files plus `test_reader_rw2b_fix7.py` | **1127 passed** (52.7 s) |
 | `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix7.py`, `test_reader_rw2b_fix6.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **59 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+| vitest | not run: no rendering changed |
+
+There is no migration, no config key and no RPC or serializer change.
+
+## Fix round 8 (orchestrator)
+
+The verify (Codex job `20261018-201040-6YibdJ`, at `367d43ac5`) confirmed:
+
+* counting, fingerprints, parameter binding and grouping;
+* the immediately-preceding selection;
+* no other regression.
+
+**Two Highs remained:**
+
+1. **Spellings defeated the name scan.**
+   * Spacing commands, a brace group, `\left.`: `f\!(x)`, `f\,(x)`, `f\;(x)`, `{f}(x)`, `f\left.(x)`.
+   * Unicode and prose names: `α(x)=x`, and `Let alpha(x)=x.`.
+
+   In each case `\frac{d}{dx}(f)=0` came back `✓`.
+2. **The first-step solve against the problem dropped restricted equations.**
+   * With `Solve $2x=0$ and $\frac{x^2}{x}=0$.` the first step `x=0` came back `✓`.
+   * So did `Solve $2x=0$ subject to $x>0$.`.
+
+**Ruling: cut both at the root.** Fixed in `b113e76b0`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (`tests/test_reader_rw2b_fix8.py`) |
+|---|---|---|---|---|
+| 1 | High | Spellings defeat the name scan | fixed | `test_a_spaced_grouped_or_left_dotted_definition_disables_the_problem` (×5), `test_a_unicode_or_prose_function_disables_the_problem`, `test_a_step_with_a_spacing_command_or_non_ascii_text_is_never_checked`, `test_a_hints_claim_after_a_spaced_definition_is_never_checked`, `test_a_hints_claim_on_a_problem_with_function_notation_is_never_checked`: all fail on `367d43ac5` |
+| 2 | High | The first-step solve drops restricted problem equations | fixed | `test_a_first_step_that_solves_is_never_checked_against_the_problem` (the two-equation problem, `subject to x>0`, and a plain one), `test_a_hints_first_step_solve_claim_is_never_checked`: all fail on `367d43ac5`. The two positive controls (`..._on_a_function_free_problem_still_check`, `..._name_free_claim_on_a_function_free_problem_still_checks`) pass before and after. |
+
+**Rule 1: function notation disables the whole problem** (`normalised`, `function_notation` in the harness).
+
+* **Normalisation.** The problem's FULL text (prose included), every earlier step, and a hint claim's own step
+  are normalised:
+  * spacing commands (`\!`, `\,`, `\;`, `\:`, `\>`, `\ `, `\quad`, `\qquad`) and `~` are deleted;
+  * all whitespace is deleted;
+  * formatting commands (`\mathrm`, `\operatorname`, `\text`, `\mathbf`, `\mathit`, `\mathbb`, `\bm`, ...)
+    are deleted, their argument kept;
+  * every `{` and `}` is deleted;
+  * `\left.` and `\right.` (and the `\big`/`\Big` sizes) are deleted.
+* **One deviation from the ruling's wording:** before any other delimiter, `\left`/`\right` is deleted but **the
+  delimiter is kept**. Deleting it as well would turn `f\left(x\right)` into `fx)` and hide it.
+* **Detection.** If any letter (Unicode `str.isalpha`) or `\command` (other than the parser's built-ins) is then
+  immediately followed by `(`, `[`, `'`, `\prime` or `^\prime`, the problem uses function notation. **Every step
+  and hint claim on it is then the model's reading** (`function_notation`).
+* **Over-matching is intended.** The CDF test item's own problem (`density f(x) = 2x on [0, 1]`,
+  `P(X ≤ 1/2)`) disables every check on it. So does prose such as `on [0, 1]` or `g (x)`, and so does an earlier
+  step written `\frac{d}{dx}(x^3)` (braces deleted, `x(` follows).
+* This replaces round 7's per-name collection as the primary guard. Round 7's own-text rules stay on top.
+
+**Rule 2: the current step's text is strict** (`name_rule`). The text must be ASCII only, must write no spacing
+or symbol command (`\,`, `\!`, `\;`, `\ `, ...) and no `~`, and may use allow-listed commands only. Anything else
+is the model's reading. Integrals are therefore written `\int_0^1 2x dx`, not `\int_0^1 2x \, dx`.
+
+**Rule 3: solve.** A solve step is checked only against the immediately preceding LEARNER step. The first-step
+path against the problem's equations is removed, so a first step that solves is the model's reading
+(`first_step_solve`). On the hint path, a solve claim about step 1 is the model's reading.
+
+**Tests updated.**
+
+* `tests/workbench_help_fakes.py` gains `sidecar(..., prompt=...)` and `FUNCTION_FREE_PROMPT`.
+* The rounds 3-7 tests whose steps must come back checked through the sidecar now use that prompt
+  (`test_reader_rw2b_fix3.py` to `fix7.py`, and `test_reader_rw2b_review.py` F3, F10, F14 and F3r). The F14
+  steps are written without function notation.
+* `\, d` became ` d` in the positive controls.
+* Round 7's first-step-against-the-problem expectation is now the model's reading.
+
+**Notations that stay the model's reading** (adding to rounds 6 and 7):
+
+* **every** check on a problem whose text, prose included, or any earlier step uses function notation in any
+  spelling. This includes a letter or command before `(` or `[`, and so `f(x)`, `P(X ...)`, `on [0, 1]`,
+  `x(x+1)`, `\frac{d}{dx}(x^3)` and `\left(` after an identifier;
+* any spacing command or `~`, and any non-ASCII character, in the checked text;
+* a first step that solves.
+
+### Gate (fix round 8)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 7's files plus `test_reader_rw2b_fix8.py` | **1142 passed** (52.7 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix8.py`, `test_reader_rw2b_fix7.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **65 passed** |
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 | vitest | not run: no rendering changed |
 
