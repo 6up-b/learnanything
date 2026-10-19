@@ -66,7 +66,7 @@ X5, W5 = _gauss_hermite(5)
 
 def sigmoid(x: np.ndarray | float) -> np.ndarray:
     x = np.asarray(x, dtype=np.float64)
-    return np.where(x >= 0, 1.0 / (1.0 + np.exp(-np.abs(x))), np.exp(-np.abs(x)) / (1.0 + np.exp(-np.abs(x))))
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -700.0, 700.0)))
 
 
 def category_likelihood(eta: np.ndarray, guess: np.ndarray, category: np.ndarray) -> np.ndarray:
@@ -680,29 +680,46 @@ def rating_probabilities(eta: float, rho_t: float, c1: float, d_t: float) -> dic
 # -- psi-marginal information about one cell (§5.7) ----------------------------------------
 
 def cell_information(m: np.ndarray, v_e: np.ndarray, cov_c: np.ndarray, var_c: np.ndarray,
-                     guess: float = 0.0) -> np.ndarray:
-    """``I(θ_c; Y | x)`` per row: outer quadrature over ``θ_c``, inner over the rest plus ``ε``."""
+                     guess: float = 0.0, *, chunk: int = 4096) -> np.ndarray:
+    """``I(θ_c; Y | x)`` per row: 24 outer nodes over ``θ_c``, 24 inner over the rest plus ``ε``
+    (the pre-registered rule, ``docs/reviews/adaptive-difficulty-ad23.md`` §1.1)."""
 
-    m = np.asarray(m, dtype=np.float64)
-    var_c = np.maximum(np.asarray(var_c, dtype=np.float64), 1e-300)
-    slope = np.asarray(cov_c) / var_c
-    cond_var = np.maximum(np.asarray(v_e) - np.asarray(cov_c) ** 2 / var_c, 0.0) + (P.A * P.TAU0) ** 2
-    # θ_c - μ_c = sqrt(var_c) * z
-    shift = slope[:, None] * np.sqrt(var_c)[:, None] * X24[None, :]
-    cond_mean = m[:, None] + shift
-    probs = category_probabilities(cond_mean, np.broadcast_to(cond_var[:, None], cond_mean.shape),
-                                   np.full(cond_mean.shape, guess))
-    probs = np.clip(probs, 1e-15, 1.0)
-    marginal = (W24[None, :, None] * probs).sum(1)
-    h_marginal = -(marginal * np.log(marginal)).sum(-1)
-    h_cond = -(W24[None, :] * (probs * np.log(probs)).sum(-1)).sum(1)
-    return np.maximum(h_marginal - h_cond, 0.0)
+    m = np.asarray(m, dtype=np.float64).ravel()
+    out = np.empty(m.shape)
+    v_e = np.broadcast_to(np.asarray(v_e, dtype=np.float64).ravel(), m.shape)
+    cov_c = np.broadcast_to(np.asarray(cov_c, dtype=np.float64).ravel(), m.shape)
+    var_c = np.broadcast_to(np.maximum(np.asarray(var_c, dtype=np.float64).ravel(), 1e-300), m.shape)
+    scale = 1.0 - guess - P.LAPSE
+    for start in range(0, len(m), chunk):
+        sl = slice(start, start + chunk)
+        slope = cov_c[sl] / var_c[sl]
+        cond_sd = np.sqrt(np.maximum(v_e[sl] - cov_c[sl] ** 2 / var_c[sl], 0.0) + (P.A * P.TAU0) ** 2)
+        # θ_c - μ_c = sqrt(var_c) * z: the outer node shifts η's conditional mean by slope·sqrt(var_c)·z.
+        cond_mean = m[sl, None] + (slope * np.sqrt(var_c[sl]))[:, None] * X24[None, :]
+        eta = cond_mean[:, :, None] + cond_sd[:, None, None] * X24[None, None, :]
+        p2 = guess + scale * (W24 * sigmoid(eta)).sum(-1)
+        p1 = guess + scale * (W24 * sigmoid(eta + P.KAPPA)).sum(-1)
+        probs = np.clip(np.stack([1.0 - p1, p1 - p2, p2], axis=-1), 1e-15, 1.0)
+        marginal = (W24[None, :, None] * probs).sum(1)
+        h_marginal = -(marginal * np.log(marginal)).sum(-1)
+        h_cond = -(W24[None, :] * (probs * np.log(probs)).sum(-1)).sum(1)
+        out[sl] = np.maximum(h_marginal - h_cond, 0.0)
+    return out
 
 
 # -- reading dose curves (§5.11) ----------------------------------------------------------
 
 def dose_basis(n: float) -> tuple[float, float]:
     return tuple(1.0 - math.exp(-float(n) / h) for h in P.DOSE_SCALES)  # type: ignore[return-value]
+
+
+def dose_increments(n: np.ndarray, dose: np.ndarray) -> np.ndarray:
+    """:func:`dose_increment` per row, vectorized: ``(B, 2)``."""
+
+    n = np.asarray(n, dtype=np.float64)
+    after = n + np.asarray(dose, dtype=np.float64)
+    scales = np.asarray(P.DOSE_SCALES, dtype=np.float64)
+    return np.exp(-n[:, None] / scales[None, :]) - np.exp(-after[:, None] / scales[None, :])
 
 
 def dose_increment(n: float, dose: float) -> tuple[float, float]:
@@ -726,6 +743,7 @@ __all__ = [
     "cell_name",
     "dose_basis",
     "dose_increment",
+    "dose_increments",
     "expected_success",
     "facet_name",
     "normal_cdf",

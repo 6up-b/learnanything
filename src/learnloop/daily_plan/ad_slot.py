@@ -247,11 +247,13 @@ def deferrals_to_clear(env: Any, deferrals: Mapping[str, Mapping[str, Any]], *, 
     return cleared
 
 
-def router_propensity(record: Any, block: Any) -> float | None:
-    """The block's logged router propensity (``π_router``; 1 for DL1's deterministic chooser)."""
+def router_propensity(record: Any, block: Any) -> float:
+    """The block's logged router propensity ``π_router`` (spec §10.1): the mixture's exact
+    propensity where the router drew the block, else 1 (DL1's chooser or the staged rule is
+    deterministic)."""
 
     value = (block.chosen or {}).get("propensity")
-    return float(value) if value is not None else None
+    return float(value) if value is not None else 1.0
 
 
 __all__ = ["admission_failures", "build_request", "deferrals_to_clear", "eligibility_failures", "router_propensity"]

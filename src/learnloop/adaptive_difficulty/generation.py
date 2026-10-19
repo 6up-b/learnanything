@@ -59,6 +59,11 @@ def lo_cell_facet(vault: Any, learning_object_id: str) -> str | None:
         return None
     facets = lo_facets(vault, lo)
     if not facets:
+        # An LO whose every item is retired still has its items' facets: the cell whose pool is
+        # empty, and so has no slot, is exactly the one generation must commission (§6.1).
+        facets = sorted({facet for item in vault.practice_items.values() if item.learning_object_id == learning_object_id
+                         for facet in PR.facet_weights(vault, item)})
+    if not facets:
         return None
     weight = {facet: 0.0 for facet in facets}
     for item in vault.practice_items.values():

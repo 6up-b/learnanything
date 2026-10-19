@@ -253,6 +253,12 @@ def _value(dimension: str, level: int, template: Mapping[str, Any]) -> Any:
     raise ValueError(dimension)
 
 
+def feature_level(dimension: str, value: Any) -> int:
+    """The ordinal level of a feature value on a ladder dimension (§9.1's order)."""
+
+    return _level(dimension, value)
+
+
 _LEVELS = {"scaffolding": 4, "transfer": 4, "complexity": 5, "span": 4, "response": 3, "tools": 2}
 
 
@@ -392,6 +398,7 @@ __all__ = [
     "draw",
     "entry_point",
     "envelope_max",
+    "feature_level",
     "ladder",
     "ladder_id",
     "point_key",

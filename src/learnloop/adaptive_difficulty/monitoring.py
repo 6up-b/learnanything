@@ -65,23 +65,35 @@ def bootstrap_interval(values: Sequence[float], *, samples: int = BOOTSTRAP_SAMP
             "ci": [float(np.quantile(means, tail)), float(np.quantile(means, 1.0 - tail))]}
 
 
-def confidence_sequence(differences: Sequence[float], *, bound: float = LOG_LOSS_BOUND, alpha: float = ALPHA,
-                        n0: int = CS_N0) -> dict[str, Any]:
-    """An anytime-valid confidence sequence for the mean of bounded differences ``[choe2023]``.
+def confidence_sequence(differences: Sequence[float], *, ranges: Sequence[tuple[float, float]] | None = None,
+                        bound: float = LOG_LOSS_BOUND, alpha: float = ALPHA, n0: int = CS_N0) -> dict[str, Any]:
+    """An anytime-valid confidence sequence for the running mean of differences ``[choe2023]``.
 
-    The two-sided normal-mixture (Robbins) boundary for increments in ``[-c, c]``
-    (sub-Gaussian with ``σ = c``): ``half(n) = c·sqrt(2(nρ² + 1)/(n²ρ²) · log(sqrt(nρ² + 1)/α))``,
-    ``ρ²`` tuned to ``n0``. Watching it continuously is honest."""
+    The two-sided normal-mixture boundary (Howard et al. 2021) on the sum of the increments,
+    sub-Gaussian with the variance process ``V_n = Σ ((b_i - a_i)/2)²`` (Hoeffding's lemma on each
+    increment's predictable range ``[a_i, b_i]``): ``|S_n - nμ| <= sqrt(2(V_n + ρ) log(sqrt((V_n + ρ)/ρ)/α))``
+    for every ``n`` at once, ``ρ = V_0/(L + log(1 + L))``, ``L = -2 log α``, tuned at ``V_0``, the
+    variance process of ``n0`` increments of the realized mean range. A log-loss difference's range
+    is the two values it can take given both forecasts, known before the outcome (amendment A7);
+    without ``ranges`` every increment's is ``[-bound, bound]``. Watching it continuously is honest."""
 
-    values = np.clip(np.asarray(list(differences), dtype=float), -bound, bound)
+    values = np.asarray(list(differences), dtype=float)
     n = len(values)
     if n == 0:
         return {"n": 0, "mean": None, "lower": None, "upper": None}
-    log_term = -2.0 * math.log(alpha / 2.0)
-    rho2 = (log_term + math.log(log_term + 1.0)) / n0
-    half = bound * math.sqrt(2.0 * (n * rho2 + 1.0) / (n * n * rho2) * math.log(math.sqrt(n * rho2 + 1.0) / (alpha / 2.0)))
+    if ranges is None:
+        values = np.clip(values, -bound, bound)
+        half_ranges = np.full(n, float(bound))
+    else:
+        bounds = np.asarray(list(ranges), dtype=float).reshape(n, 2)
+        half_ranges = np.maximum(np.abs(bounds[:, 1] - bounds[:, 0]) / 2.0, 1e-12)
+    variance = float(np.sum(half_ranges ** 2))
+    log_term = -2.0 * math.log(alpha)
+    rho = n0 * float(np.mean(half_ranges ** 2)) / (log_term + math.log(1.0 + log_term))
+    half = math.sqrt(2.0 * (variance + rho) * math.log(math.sqrt((variance + rho) / rho) / alpha)) / n
     mean = float(values.mean())
-    return {"n": n, "mean": mean, "lower": mean - half, "upper": mean + half, "half_width": half}
+    return {"n": n, "mean": mean, "lower": mean - half, "upper": mean + half, "half_width": half,
+            "variance_process": variance}
 
 
 def verdict(sequence: Mapping[str, Any]) -> str:
@@ -161,10 +173,11 @@ FLAG_SWITCHES = {
 }
 
 
-def comparison_flag(name: str, differences: Sequence[float]) -> Flag:
+def comparison_flag(name: str, differences: Sequence[float],
+                    ranges: Sequence[tuple[float, float]] | None = None) -> Flag:
     """Fires when the live model is worse (its loss minus the comparator's), the sequence excluding 0."""
 
-    sequence = confidence_sequence(differences)
+    sequence = confidence_sequence(differences, ranges=ranges)
     return Flag(name, verdict(sequence) == HURTING, FLAG_SWITCHES[name], sequence)
 
 
@@ -207,20 +220,40 @@ def dose_burden_flag(delivered: Sequence[Mapping[str, Any]], density_lowerings: 
                 {"delivered": len(last), "dismissed_share": share, "density_lowerings_14d": len(recent)})
 
 
-def differences(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *,
-                split: str | None = None) -> list[float]:
-    """Per scored record, the challenger's log loss minus the comparator's (the split's records only)."""
+def log_loss_difference(p_challenger: float, p_comparator: float, y: float) -> tuple[float, tuple[float, float]]:
+    """The challenger's log loss minus the comparator's, and the two values it could take (its
+    predictable range: both forecasts are fixed before the outcome)."""
 
-    out = []
+    def at(outcome: float) -> float:
+        return log_loss(p_challenger, outcome) - log_loss(p_comparator, outcome)
+
+    low, high = sorted((at(0.0), at(1.0)))
+    return at(float(y)), (low, high)
+
+
+def difference_terms(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *,
+                     split: str | None = None) -> tuple[list[float], list[tuple[float, float]]]:
+    """Per scored record, the log-loss difference and its predictable range (the split's records)."""
+
+    values: list[float] = []
+    ranges: list[tuple[float, float]] = []
     for record in records:
         if split is not None and not record.get(split):
             continue
         p = record["p"]
         if challenger not in p or comparator not in p or p[challenger] is None or p[comparator] is None:
             continue
-        y = float(record["y"])
-        out.append(log_loss(p[challenger], y) - log_loss(p[comparator], y))
-    return out
+        value, bounds = log_loss_difference(p[challenger], p[comparator], float(record["y"]))
+        values.append(value)
+        ranges.append(bounds)
+    return values, ranges
+
+
+def differences(records: Iterable[Mapping[str, Any]], challenger: str, comparator: str, *,
+                split: str | None = None) -> list[float]:
+    """Per scored record, the challenger's log loss minus the comparator's (the split's records only)."""
+
+    return difference_terms(records, challenger, comparator, split=split)[0]
 
 
 __all__ = [
@@ -239,10 +272,12 @@ __all__ = [
     "brier",
     "comparison_flag",
     "confidence_sequence",
+    "difference_terms",
     "differences",
     "dose_burden_flag",
     "honest_line",
     "log_loss",
+    "log_loss_difference",
     "readiness_flag",
     "reliability",
     "verdict",

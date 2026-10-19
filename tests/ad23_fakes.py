@@ -41,8 +41,11 @@ HARD = {"complexity": 2, "transfer": "near", "scaffolding": "none", "span": "sin
 
 def ad23_vault(tmp_path: Path, *, config: str = "", version: str = SUCCESSOR, items: Sequence[str] = ITEMS,
                features: Mapping[str, Mapping[str, Any]] | None = None,
-               learning_objects: Mapping[str, Sequence[str]] | None = None) -> Any:
-    """The plan vault at ``version`` with AD's background work off and every item's features stamped."""
+               learning_objects: Mapping[str, Sequence[str]] | None = None, ad: str = "") -> Any:
+    """The plan vault at ``version`` with AD's background work off and every item's features stamped.
+
+    ``ad``: more ``[adaptive_difficulty]`` keys; ``config``: TOML appended after that section
+    (keys before any header still land in ``[adaptive_difficulty]``)."""
 
     los = {LO: [(item, 2.0) for item in items]}
     for lo, lo_items in (learning_objects or {}).items():
@@ -51,7 +54,7 @@ def ad23_vault(tmp_path: Path, *, config: str = "", version: str = SUCCESSOR, it
     for lo, lo_items in los.items():
         for item, _minutes in lo_items:
             stamp_task_features(paths, item, (features or {}).get(item, TASK_FEATURES), difficulty_source="llm_estimate")
-    append_config_toml(paths.root, QUIET + (config or ""))
+    append_config_toml(paths.root, QUIET + (ad or "") + (config or ""))
     return paths
 
 
@@ -94,6 +97,49 @@ def answer(paths: Any, item_id: str, *, correct: bool = True, presentation_id: s
     return str(result.attempt_id)
 
 
+def set_item(paths: Any, item_id: str, **fields: Any) -> None:
+    """Rewrite fields of an item's YAML (expected minutes, status, capability, facets...)."""
+
+    path = paths.practice_item_path("linear-algebra", item_id)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    payload.update(fields)
+    path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+
+def reveal(paths: Any, item_id: str, *, amount: float, at: str, lo: str = LO, reveal_id: str | None = None) -> None:
+    """A ``reveal_events`` row (a tutor answer overlapping the item's answer)."""
+
+    import sqlite3
+    from contextlib import closing as _closing
+
+    with _closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute(
+            "INSERT INTO reveal_events(id, practice_item_id, learning_object_id, source_kind, amount, basis, created_at) "
+            "VALUES (?, ?, ?, 'tutor_answer', ?, 'overlap', ?)",
+            (reveal_id or f"rv_{item_id}_{at}", item_id, lo, amount, at))
+        connection.commit()
+
+
+def selections(paths: Any, kind: str | None = None) -> list[dict[str, Any]]:
+    import sqlite3
+    from contextlib import closing as _closing
+
+    from learnloop.db.stores import ad_serving
+
+    with _closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        return ad_serving.selections(connection, kind=kind)
+
+
+def block_events(paths: Any, kind: str) -> list[dict[str, Any]]:
+    import json as _json
+
+    found = rows(paths.sqlite_path, "SELECT * FROM attention_block_events WHERE kind = ? ORDER BY created_at, rowid",
+                 (kind,))
+    for row in found:
+        row["detail"] = _json.loads(row.get("detail_json") or "{}")
+    return found
+
+
 class ProposalLLM:
     """A structured client answering the relatedness proposal, recording every prompt."""
 
@@ -119,4 +165,4 @@ class ProposalLLM:
 
 
 __all__ = ["EASY", "HARD", "ITEMS", "LO", "ProposalLLM", "QUIET", "SUCCESSOR", "TASK_FEATURES", "ad23_vault",
-           "answer", "env_for", "rows"]
+           "answer", "block_events", "env_for", "reveal", "rows", "selections", "set_item"]

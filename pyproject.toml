@@ -624,6 +624,15 @@ ignore_imports = [
     # DERIVED-table owners (function-local imports in the orchestrator).
     "learnloop.substrate.rebuild_orchestrator -> learnloop.adaptive_difficulty.replay",
     "learnloop.substrate.rebuild_orchestrator -> learnloop.adaptive_difficulty.scoring",
+    # AD2+AD3's simulation gates (spec §14: synthetic learners in sim/): leaf modules
+    # nothing in the runtime imports (only the tests and their own __main__); they
+    # drive the real model and selection rule, the incumbent's ladder and EKF and
+    # the dose arm's design, and write nothing.
+    "learnloop.sim.ad_synthetic -> learnloop.adaptive_difficulty.*",
+    "learnloop.sim.ad_gates -> learnloop.adaptive_difficulty.*",
+    "learnloop.sim.ad_synthetic -> learnloop.curriculum.depth_rungs",
+    "learnloop.sim.ad_synthetic -> learnloop.learner.mastery",
+    "learnloop.sim.ad_synthetic -> learnloop.scheduling.randomization_layer",
     # AD2+AD3's pure reads of the firewall's carve-out and the default trajectory.
     "learnloop.adaptive_difficulty.reading -> learnloop.attempts.salience_firewall",
     "learnloop.adaptive_difficulty.replay -> learnloop.attempts.salience_firewall",

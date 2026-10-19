@@ -63,7 +63,7 @@ COMPARISONS = (("sharing", A.SUBJECT, A.LO, "first_attempt_lo", "sharing_worse_t
 FAST_TRACK_Q = 0.9
 
 
-def _scores(records: Sequence[A.Record], arm: str, split: str | None) -> dict[str, Any]:
+def arm_scores(records: Sequence[A.Record], arm: str, split: str | None) -> dict[str, Any]:
     rows = [r for r in records if (split is None or getattr(r, split)) and r.p.get(arm) is not None]
     if not rows:
         return {"n": 0}
@@ -88,11 +88,11 @@ def _arm_names(records: Sequence[A.Record]) -> list[str]:
 def _field_rule(records: Sequence[A.Record], challenger: str, comparator: str) -> dict[str, Any]:
     out = {}
     for split in ("all", "first_attempt_lo"):
-        diffs = MON.differences([r.__dict__ | {"p": r.p, "y": r.y} for r in records], challenger, comparator,
-                                split=None if split == "all" else split)
+        diffs, ranges = MON.difference_terms([r.__dict__ | {"p": r.p, "y": r.y} for r in records], challenger,
+                                             comparator, split=None if split == "all" else split)
         boot = MON.bootstrap_interval([-d for d in diffs])  # improvement = comparator - challenger
         out[split] = {"improvement": boot, "beats": bool(boot["ci"] and boot["ci"][0] > 0.0),
-                      "sequence": MON.confidence_sequence(diffs)}
+                      "sequence": MON.confidence_sequence(diffs, ranges=ranges)}
     first = [r for r in records if r.first_attempt_lo and r.p.get(challenger) is not None]
     fast = [r for r in first if r.p[challenger] >= FAST_TRACK_Q]
     misses = sum(1 for r in fast if r.y < 1.0)
@@ -107,15 +107,15 @@ def _flags_and_lines(records: Sequence[A.Record], previous_errors: Sequence[floa
     dicts = [r.__dict__ | {"p": r.p, "y": r.y} for r in records]
     flags, lines = [], []
     for subject, challenger, comparator, split, flag in COMPARISONS:
-        diffs = MON.differences(dicts, challenger, comparator, split=split)
-        result = MON.comparison_flag(flag, diffs)
+        diffs, ranges = MON.difference_terms(dicts, challenger, comparator, split=split)
+        result = MON.comparison_flag(flag, diffs, ranges)
         flags.append(result.as_dict())
         lines.append(MON.honest_line({"sharing": "Sharing across topics against topic-only",
                                       "coupling": "The learned coupling against uniform sharing",
                                       "reading": "Reading against no reading",
                                       "verdicts": "Self-check verdicts against none"}[subject],
                                      MON.verdict(result.detail), result.detail.get("n", 0)))
-    subject_scores = _scores(records, A.SUBJECT, None)
+    subject_scores = arm_scores(records, A.SUBJECT, None)
     errors = list(previous_errors) + [subject_scores.get("band_region_error")]
     flags.append(MON.readiness_flag(errors).as_dict())
     flags.append(MON.band_missed_flag(selected_outcomes).as_dict())
@@ -123,38 +123,62 @@ def _flags_and_lines(records: Sequence[A.Record], previous_errors: Sequence[floa
     return flags, lines
 
 
+CONFOUNDED_R = 0.6
+ALIASED_SHARE = 0.05
+
+
+def feature_time_correlation(points: Sequence[Mapping[str, Any] | None]) -> dict[str, dict[str, Any]]:
+    """§5.8's first diagnostic: per dimension, the correlation between the served feature level and
+    time (the order served); ``confounded`` when ``|r| > 0.6``."""
+
+    correlations: dict[str, dict[str, Any]] = {}
+    for dimension in ("complexity", "transfer", "scaffolding", "span", "response", "tools"):
+        levels = []
+        for features in points:
+            features = features or {}
+            if features.get(dimension) is None:
+                continue
+            levels.append(S.feature_level(dimension, features.get(dimension)))
+        if len(levels) >= 3 and len(set(levels)) > 1:
+            r = float(np.corrcoef(np.arange(len(levels)), levels)[0, 1])
+            correlations[dimension] = {"r": r, "confounded": abs(r) > CONFOUNDED_R, "n": len(levels)}
+        else:
+            correlations[dimension] = {"r": None, "confounded": False, "n": len(levels), "constant": True}
+    return correlations
+
+
+def aliased_coordinates(posterior: np.ndarray, prior_variances: Sequence[float], names: Sequence[str]
+                        ) -> set[str]:
+    """§5.8's aliased directions: eigenvectors of the data's contribution to the posterior precision
+    of ``(β, α)``, in prior-sd units, with eigenvalue below 5% of the prior precision; the
+    coordinates loading on them (``|v| > 0.5``) are "prior-dependent"."""
+
+    prior = np.asarray(prior_variances, dtype=float)
+    try:
+        precision_post = np.linalg.inv(np.asarray(posterior, dtype=float) + 1e-12 * np.eye(len(names)))
+    except np.linalg.LinAlgError:
+        return set(names)
+    D = np.diag(np.sqrt(prior))
+    data = D @ (precision_post - np.diag(1.0 / prior)) @ D
+    values, vectors = np.linalg.eigh(0.5 * (data + data.T))
+    aliased = [i for i, value in enumerate(values) if value < ALIASED_SHARE]
+    return {names[j] for i in aliased for j in range(len(names)) if abs(vectors[j, i]) > 0.5}
+
+
 def _identifiability(snapshot: RP.Snapshot, records: Sequence[A.Record]) -> dict[str, Any]:
     bank = snapshot.subject.bank
     weights = bank.weights()[0]
     top = int(np.argmax(weights))
     events = [e for e in snapshot.events.attempts if e.eligible and e.spec is not None]
-    correlations = {}
-    for dimension in ("complexity", "transfer", "scaffolding", "span", "response", "tools"):
-        levels = []
-        for event in events:
-            features = event.spec.features or {}
-            if features.get(dimension) is None:
-                continue
-            levels.append(S._level(dimension, features.get(dimension)))
-        if len(levels) >= 3 and len(set(levels)) > 1:
-            r = float(np.corrcoef(np.arange(len(levels)), levels)[0, 1])
-            correlations[dimension] = {"r": r, "confounded": abs(r) > 0.6, "n": len(levels)}
-        else:
-            correlations[dimension] = {"r": None, "confounded": False, "n": len(levels), "constant": True}
+    correlations = feature_time_correlation([event.spec.features for event in events])
     names = list(P.BETA_NAMES) + [name for name, _m, _v in P.ALPHA_PRIORS]
     prior_var = {name: var for name, _m, var in list(P.BETA_PRIORS) + list(P.ALPHA_PRIORS)}
     idx = [bank.index[name] for name in names]
     posterior = bank.S[top][np.ix_(idx, idx)]
     contraction = {name: float(1.0 - posterior[i, i] / prior_var[name]) for i, name in enumerate(names)}
-    try:
-        precision_post = np.linalg.inv(posterior + 1e-12 * np.eye(len(idx)))
-        D = np.diag([math.sqrt(prior_var[name]) for name in names])
-        data = D @ (precision_post - np.diag([1.0 / prior_var[name] for name in names])) @ D
-        values, vectors = np.linalg.eigh(0.5 * (data + data.T))
-        aliased = [i for i, value in enumerate(values) if value < 0.05]
-        prior_dependent = sorted({names[j] for i in aliased for j in range(len(names)) if abs(vectors[j, i]) > 0.5})
-    except np.linalg.LinAlgError:
-        aliased, prior_dependent = [], names
+    dependent = aliased_coordinates(posterior, [prior_var[name] for name in names], names)
+    aliased = sorted(dependent)
+    prior_dependent = sorted(dependent)
     grid = []
     for i, point in enumerate(bank.points):
         grid.append({**point.as_dict(), "weight": float(weights[i])})
@@ -346,10 +370,13 @@ def _offer_outcomes(connection: Any, snapshot: RP.Snapshot) -> dict[str, list[DR
         forecast = draw.get("forecast_p")
         band = None if forecast is None else ("below_50" if forecast < 0.5 else "50_80" if forecast <= 0.8 else "above_80")
         propensities = draw.get("propensities") or {}
-        result = DR.OfferOutcome(str(draw.get("chosen_variant")), propensities, outcome, 0, band, draw["id"] in taken)
+        taken_doses = (draw.get("detail") or {}).get("dose_taken") or {}
         for variant in propensities:
             if variant != "none":
-                by_variant[variant].append(result)
+                kind = {"extra_worked_example": "worked_example", "extra_question": "in_passage_question"}.get(variant)
+                by_variant[variant].append(DR.OfferOutcome(str(draw.get("chosen_variant")), propensities, outcome,
+                                                           int(taken_doses.get(kind, 0) or 0), band,
+                                                           draw["id"] in taken))
     return by_variant
 
 
@@ -411,7 +438,7 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
     settings = RP.ReplaySettings(coupling=True, reading=True, verdicts=True)
     snapshot = RP.run(log["events"], settings, trace=False)
     names = _arm_names(records)
-    scores = {name: {("all" if split is None else split): _scores(records, name, split) for split in SPLITS}
+    scores = {name: {("all" if split is None else split): arm_scores(records, name, split) for split in SPLITS}
               for name in names}
     rule = {comparator: _field_rule(records, A.SUBJECT, comparator)
             for comparator in ("mastery_ekf", A.LO, A.UNIFORM) if comparator in names}
@@ -421,7 +448,8 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
                                     delivered=dose_arm["delivered"], lowerings=(), now=now)
     selections = store.selections(connection)
     dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot), answer_minutes=_answer_minutes(connection),
-                      median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot))
+                      median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot),
+                      records=[{"y": r.y, "p": r.p.get(A.SUBJECT), "doses": r.doses} for r in records])
     report = {
         "version": REPORT_VERSION,
         "generated_at": now,
@@ -470,4 +498,5 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["HONEST_STATEMENT", "REPORT_VERSION", "build", "render_markdown"]
+__all__ = ["HONEST_STATEMENT", "REPORT_VERSION", "SPLITS", "aliased_coordinates", "arm_scores", "build",
+           "feature_time_correlation", "render_markdown"]

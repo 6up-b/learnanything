@@ -114,7 +114,7 @@ def _never_attempted(vault: Any, connection: Any, protected: Protection) -> list
 # -- the dry run's spend plan (Codex review F9) -------------------------------------------------
 
 
-def _llm_plan(vault: Any, route_task: str, prompts: list[str], result_model: Any, *, role: str,
+def llm_plan(vault: Any, route_task: str, prompts: list[str], result_model: Any, *, role: str,
               retries: int) -> dict[str, Any]:
     """The resolved LLM route's plan through the spend framework: tokens with the
     output allowance, the billing label, and a refusal when a metered route has
@@ -230,12 +230,12 @@ def _audit_plan(vault: Any, pending: list[tuple[Any, str, list[str]]]) -> dict[s
         plan["decider"] = _decider_plan(vault, DECIDER_ROUTE, bodies)
         # Fallback exposure: worst case, every dimension the Decider leaves
         # unanswered goes to the LLM judge (one call per revision).
-        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="fallback_worst_case",
+        plan["llm"] = llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="fallback_worst_case",
                                 retries=int(_CAPS["max_retries"]))
     else:
         plan["decider"] = {"route": DECIDER_ROUTE, "requests": 0,
                            "disabled": "[decider_routes] ad_feature_audit is off: the LLM judges every dimension"}
-        plan["llm"] = _llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="primary",
+        plan["llm"] = llm_plan(vault, LLM_ROUTE, prompts, FeatureAuditV1, role="primary",
                                 retries=int(_CAPS["max_retries"]))
     return plan
 
@@ -281,7 +281,7 @@ def backfill(vault: Any, repository: Any, *, audit: bool, llm_v1: bool, reading:
             from learnloop.adaptive_difficulty.outside import _CAPS, ItemForecastV1, LLM_ROUTE, item_prompt
 
             v1_plan = {"items": len(pending_v1),
-                       "llm": _llm_plan(vault, LLM_ROUTE, [item_prompt(vault, item) for item in pending_v1],
+                       "llm": llm_plan(vault, LLM_ROUTE, [item_prompt(vault, item) for item in pending_v1],
                                         ItemForecastV1, role="primary", retries=int(_CAPS["max_retries"]))}
             if dry_run:
                 result["llm_v1"] = {"status": "planned", **v1_plan}
@@ -313,4 +313,4 @@ def _count(values: Any) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-__all__ = ["backfill"]
+__all__ = ["backfill", "llm_plan"]

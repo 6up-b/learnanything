@@ -35,19 +35,18 @@ SUBJECTS_PER_TRIGGER = 2
 
 
 def stale_subjects(vault: Any, repository: Any) -> list[str]:
-    """Subjects with an adopted coupling version whose input hash has changed since their latest run."""
+    """Subjects with an adopted coupling version and a unit (an LO or an item revision) whose
+    fingerprint changed, or that is new, since its latest run."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         adopted = {row["subject_id"] for row in store.coupling_versions(connection)}
-        latest: dict[str, str] = {}
-        for run in store.relatedness_runs(connection):
-            if run["status"] == "ok":
-                latest[run["subject_id"]] = run["input_hash"]
+        runs = store.relatedness_runs(connection)
     stale = []
     for subject in R.subjects(vault):
         if subject not in adopted:
             continue
-        if R.subject_inputs(vault, repository, subject)["input_hash"] != latest.get(subject):
+        own = [run for run in runs if run["subject_id"] == subject]
+        if R.touched_units(R.subject_inputs(vault, repository, subject), own):
             stale.append(subject)
     return stale
 

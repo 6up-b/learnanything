@@ -176,23 +176,28 @@ def offer_effect(outcomes: Sequence[OfferOutcome], variant: str) -> dict[str, An
 
     def contrast(rows: Sequence[OfferOutcome]) -> dict[str, Any]:
         terms = []
+        ranges = []
         for row in rows:
             if row.outcome is None or variant not in row.propensities or "none" not in row.propensities:
                 continue
             term = 0.0
+            # The term's predictable range: fixed by the draw, before the outcome.
             if row.variant == variant:
                 term += row.outcome / row.propensities[variant]
+                ranges.append((0.0, 1.0 / row.propensities[variant]))
             elif row.variant == "none":
                 term -= row.outcome / row.propensities["none"]
+                ranges.append((-1.0 / row.propensities["none"], 0.0))
+            else:
+                ranges.append((0.0, 0.0))
             terms.append(term)
         if len(terms) < 2:
             return {"n": len(terms), "effect": None, "ci95": None, "sequence": None}
         values = np.array(terms)
         mean = float(values.mean())
         se = float(values.std(ddof=1) / math.sqrt(len(values)))
-        bound = max(1.0 / min(r.propensities.get(variant, 1.0) for r in rows if variant in r.propensities), 1.0)
         return {"n": len(terms), "effect": mean, "ci95": [mean - 1.96 * se, mean + 1.96 * se],
-                "sequence": MON.confidence_sequence(values, bound=bound)}
+                "sequence": MON.confidence_sequence(values, ranges=ranges)}
 
     result = contrast(outcomes)
     result["by_dose_taken"] = {str(d): contrast([o for o in outcomes if min(o.dose_taken, 2) == d]) for d in (0, 1, 2)}
@@ -213,6 +218,90 @@ def label(curve_sign: float | None, randomized: Mapping[str, Any] | None) -> str
     return OBSERVATIONAL
 
 
+LEVEL_BANDS = ("below_50", "50_80", "above_80")
+BAND_TEXT = {"below_50": "below 50%", "50_80": "between 50% and 80%", "above_80": "above 80%"}
+#: The "helps when" moderators fixed in advance (§10.4): the predicted level band at the event
+#: (every kind), a tutor exchange's answer mode and an in-passage question's style.
+SUBKIND_MODERATORS = {
+    "reader_tutor_exchange": ("answer_directly", "help_me_reason", "ask_me_first"),
+    "in_passage_question": ("recall", "next_step", "why_step", "assumptions", "owner_placed"),
+}
+SUBKIND_TEXT = {"answer_directly": "the tutor answered directly", "help_me_reason": "the tutor helped you reason",
+                "ask_me_first": "the tutor asked you first", "recall": "they were recall questions",
+                "next_step": "they asked for the next step", "why_step": "they asked why a step works",
+                "assumptions": "they asked for the assumptions", "owner_placed": "they were placed questions"}
+
+
+def level_band(p: float | None) -> str | None:
+    if p is None:
+        return None
+    return "below_50" if p < 0.5 else "50_80" if p <= 0.8 else "above_80"
+
+
+def _difference(with_rows: Sequence[float], without_rows: Sequence[float]) -> dict[str, Any]:
+    if len(with_rows) < 2 or len(without_rows) < 2:
+        return {"n_with": len(with_rows), "n_without": len(without_rows), "difference": None, "ci95": None}
+    a, b = np.asarray(with_rows, dtype=float), np.asarray(without_rows, dtype=float)
+    difference = float(a.mean() - b.mean())
+    se = math.sqrt(a.var(ddof=1) / len(a) + b.var(ddof=1) / len(b))
+    return {"n_with": len(a), "n_without": len(b), "difference": difference,
+            "ci95": [difference - 1.96 * se, difference + 1.96 * se]}
+
+
+def moderated_contrasts(records: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Observational "helps when" contrasts (§10.4): per kind, the realized cold success of first
+    attempts after at least one event of the kind against those after none, within each predicted
+    level band (the forecast fixed before the attempt), and per subkind moderator (answer mode,
+    question style) against none. ``records``: ``{"y", "p", "doses"}``. Confounded by struggle:
+    the lines they produce are labelled "what preceded better recall for you"."""
+
+    out: dict[str, dict[str, Any]] = {}
+    for kind in P.READING_KINDS:
+        entry: dict[str, Any] = {"by_level_band": {}, "by_subkind": {}}
+        for band in LEVEL_BANDS:
+            rows = [r for r in records if level_band(r.get("p")) == band]
+            entry["by_level_band"][band] = _difference(
+                [r["y"] for r in rows if (r.get("doses") or {}).get(kind, 0.0) > 0],
+                [r["y"] for r in rows if (r.get("doses") or {}).get(kind, 0.0) <= 0])
+        for subkind in SUBKIND_MODERATORS.get(kind, ()):
+            key = f"{kind}:{subkind}"
+            entry["by_subkind"][subkind] = _difference(
+                [r["y"] for r in records if (r.get("doses") or {}).get(key, 0.0) > 0],
+                [r["y"] for r in records if (r.get("doses") or {}).get(kind, 0.0) <= 0])
+        out[kind] = entry
+    return out
+
+
+def _excludes_zero(interval: Sequence[float] | None) -> bool:
+    return bool(interval) and (interval[0] > 0 or interval[1] < 0)
+
+
+def helps_when_lines(contrasts: Mapping[str, Mapping[str, Any]],
+                     randomized: Mapping[str, Mapping[str, Any] | None]) -> list[str]:
+    """A "helps when" line appears only when its moderated contrast's interval excludes 0 (and the
+    contrast is a help); "tested by randomized offers" when the offers' moderated estimate agrees
+    in sign with an interval excluding 0, else "what preceded better recall for you"."""
+
+    lines = []
+    for kind in P.READING_KINDS:
+        name = KIND_NAMES.get(kind, kind)
+        entry = contrasts.get(kind) or {}
+        for band in LEVEL_BANDS:
+            contrast = (entry.get("by_level_band") or {}).get(band) or {}
+            if not (_excludes_zero(contrast.get("ci95")) and (contrast.get("difference") or 0) > 0):
+                continue
+            offer = ((randomized.get(kind) or {}).get("by_level_band") or {}).get(band) or {}
+            sequence = offer.get("sequence") or {}
+            tested = bool(sequence.get("n")) and sequence.get("lower") is not None and sequence["lower"] > 0
+            lines.append(f"{name} helped when your predicted chance on the topic was {BAND_TEXT[band]} "
+                         f"({TESTED if tested else OBSERVATIONAL}).")
+        for subkind in SUBKIND_MODERATORS.get(kind, ()):
+            contrast = (entry.get("by_subkind") or {}).get(subkind) or {}
+            if _excludes_zero(contrast.get("ci95")) and (contrast.get("difference") or 0) > 0:
+                lines.append(f"{name} helped when {SUBKIND_TEXT[subkind]} ({OBSERVATIONAL}).")
+    return lines
+
+
 def recommendation(kind: str, n_star: Mapping[str, Any], tag: str) -> str:
     name = KIND_NAMES.get(kind, kind)
     if n_star.get("cant_tell") or n_star.get("n_star") is None:
@@ -225,8 +314,8 @@ def recommendation(kind: str, n_star: Mapping[str, Any], tag: str) -> str:
 
 
 def analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: float | None,
-            median_doses: Mapping[str, float], offers: Mapping[str, Sequence[OfferOutcome]] | None = None
-            ) -> dict[str, Any]:
+            median_doses: Mapping[str, float], offers: Mapping[str, Sequence[OfferOutcome]] | None = None,
+            records: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """The whole section (``ad_dose_report_v1``): curves, gains, minutes, useful doses, offers, lines."""
 
     draws = coefficient_draws(view)
@@ -266,6 +355,12 @@ def analyse(view: Any, *, visits: Sequence[Mapping[str, Any]], answer_minutes: f
             "randomized": randomized, "label": tag,
         }
         out["lines"].append(recommendation(kind, n_star, tag))
+    contrasts = moderated_contrasts(records)
+    out["moderated"] = contrasts
+    out["helps_when"] = helps_when_lines(contrasts, {kind: entry.get("randomized")
+                                                     for kind, entry in out["kinds"].items()})
+    out["lines"].extend(out["helps_when"])
+    out["burden"] = {kind: {"minutes_per_event": out["kinds"][kind]["minutes_per_event"]} for kind in P.READING_KINDS}
     return out
 
 
@@ -279,8 +374,11 @@ __all__ = [
     "analyse",
     "coefficient_draws",
     "curve",
+    "helps_when_lines",
     "label",
+    "level_band",
     "minutes_per_event",
+    "moderated_contrasts",
     "nnls",
     "offer_effect",
     "points_gain",

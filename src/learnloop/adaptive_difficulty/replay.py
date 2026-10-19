@@ -700,7 +700,10 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
                 subject.verdict(event.subject, event.subkind, event.facet_doses, event.at)
             else:
                 bucket = dose_since.setdefault(event.learning_object_id, {})
-                bucket[event.kind] = bucket.get(event.kind, 0.0) + sum(event.facet_doses.values())
+                dose = sum(event.facet_doses.values())
+                # The kind, and kind:subkind (the report's "helps when" moderators, §10.4).
+                for key in (event.kind, f"{event.kind}:{event.subkind}"):
+                    bucket[key] = bucket.get(key, 0.0) + dose
                 subject.reading(event.subject, event.kind, event.facet_doses, event.at)
             continue
         attempt: AttemptEvent = event

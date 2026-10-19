@@ -3178,7 +3178,7 @@ class AdaptiveDifficultyConfig(BaseModel):
     reading_opportunities: bool = True
     reading_self_check: bool = True
     reading_dose_offers: bool = True
-    dose_floor: float = Field(default=0.10, gt=0.0, le=0.5)
+    dose_floor: float = Field(default=0.10, gt=0.0, le=1.0 / 3.0)
     dose_daily_offers: int = Field(default=3, ge=0)
     practice_band: tuple[float, float] = (0.70, 0.80)
     overlap_band: tuple[float, float] = (0.55, 0.90)

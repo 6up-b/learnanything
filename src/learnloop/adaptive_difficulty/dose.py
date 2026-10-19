@@ -166,6 +166,27 @@ def feasible_variants(vault: Any, repository: Any, connection: Any, boundary: Bo
     return feasible, infeasible, content
 
 
+def dose_taken(connection: Any, learning_object_ids: Sequence[str]) -> dict[str, int]:
+    """The dose of each offered kind already taken in the window at the decision (the moderator of
+    the randomized dose-response, §5.12): recorded opportunities on the section's LOs since their
+    last graded attempt. A count of facts, never a magnitude."""
+
+    out = {"worked_example": 0, "in_passage_question": 0}
+    if not learning_object_ids or not store.has_table(connection, "ad_reading_opportunities"):
+        return out
+    marks = ",".join("?" for _ in learning_object_ids)
+    (last,) = connection.execute(
+        f"SELECT MAX(created_at) FROM practice_attempts WHERE learning_object_id IN ({marks})",
+        tuple(learning_object_ids)).fetchone()
+    for kind in out:
+        (count,) = connection.execute(
+            f"SELECT COUNT(DISTINCT source_id) FROM ad_reading_opportunities WHERE kind = ? AND learning_object_id IN "
+            f"({marks}) AND subkind NOT LIKE 'self_check:%' AND source_written_at > ?",
+            (kind, *learning_object_ids, str(last or ""))).fetchone()
+        out[kind] = int(count or 0)
+    return out
+
+
 def _forecast(vault: Any, repository: Any, connection: Any, learning_object_id: str) -> float | None:
     """The AD forecast fixed before the draw (a precision covariate, never an input of the draw)."""
 
@@ -240,7 +261,7 @@ def decide(vault: Any, repository: Any, boundary: Boundary, *, clock: Clock | No
             "chosen_variant": chosen, "content": content.get(chosen),
             "forecast_p": _forecast(vault, repository, connection, los[0]),
             "detail": {"design": READING_DOSE, "version": DOSE_VERSION, "showing_question_id":
-                       boundary.showing_question_id}, "created_at": now,
+                       boundary.showing_question_id, "dose_taken": dose_taken(connection, los)}, "created_at": now,
         })
     return DoseDecision(True, None, draw_id, chosen, pi, content.get(chosen))
 
@@ -293,6 +314,7 @@ __all__ = [
     "WHY_TEXT",
     "budget",
     "decide",
+    "dose_taken",
     "feasible_variants",
     "record_uptake",
     "taken_offers",

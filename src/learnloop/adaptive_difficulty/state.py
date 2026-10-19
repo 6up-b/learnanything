@@ -198,6 +198,61 @@ class View:
         var_c = np.einsum("i,bij,j->b", a_c, self.bank.S, a_c)
         return m, v, cov, var_c
 
+    # -- feature points per row (the simulations: each learner's own draw) -------------
+
+    def point_moments(self, spec: ItemSpec, codings: np.ndarray, names: Sequence[str], *,
+                      warmth: float | np.ndarray = 0.0) -> tuple[np.ndarray, np.ndarray]:
+        """``(m, v_e)`` of ``K`` feature points at the spec's cell, shape ``(B, K)``.
+
+        ``codings`` is ``(K, len(names))``: each point's ``φ(x)`` on the β coordinates
+        ``names``; the spec carries the reference tuple (``φ = 0``), so a point's projection is
+        the spec's minus its coding (§5.4). The spec's coordinates must exist."""
+
+        bank = self.bank
+        u, extra_mean, extra_var = self.projection(spec, warmth)
+        if np.any(extra_var) or np.any(extra_mean):
+            raise ValueError("create the cell's coordinates before scoring points")
+        idx = [bank.index[name] for name in names]
+        m_ref = np.einsum("bi,bi->b", u, bank.mu)
+        s = np.einsum("bij,bj->bi", bank.S, u)
+        v_ref = np.einsum("bi,bi->b", u, s)
+        codings = np.asarray(codings, dtype=np.float64)
+        m = m_ref[:, None] - bank.mu[:, idx] @ codings.T
+        S_bb = bank.S[:, idx][:, :, idx]
+        quad = np.einsum("kj,bjl,kl->bk", codings, S_bb, codings)
+        v = v_ref[:, None] - 2.0 * s[:, idx] @ codings.T + quad
+        return m, np.maximum(v, 0.0)
+
+    def point_cell_covariance(self, spec: ItemSpec, codings: np.ndarray, names: Sequence[str]
+                              ) -> tuple[np.ndarray, np.ndarray]:
+        """``(Cov(η_e, θ_c), Var(θ_c))`` per row and point (the calibrate rule's ``I_c``, §5.7)."""
+
+        bank = self.bank
+        facet, capability = spec.cell()
+        a_c = self.cell_vector(spec.subject, facet, capability)
+        u, _m, _v = self.projection(spec, 0.0)
+        sc = np.einsum("bij,j->bi", bank.S, a_c)
+        var_c = sc @ a_c
+        idx = [bank.index[name] for name in names]
+        cov = np.einsum("bi,bi->b", u, sc)[:, None] - sc[:, idx] @ np.asarray(codings, dtype=np.float64).T
+        return cov, var_c
+
+    def observe_points(self, spec: ItemSpec, coding_rows: np.ndarray, names: Sequence[str],
+                       category: np.ndarray, at: float, *, rows: np.ndarray | None = None,
+                       learn: bool = True) -> M.UpdateRecord:
+        """:meth:`observe` with each row's own feature point (``coding_rows``: ``(B, len(names))``)."""
+
+        self.ensure(spec, at)
+        for facet in sorted(self._extended_weights(spec)):
+            self.bank.drift(M.cell_name(facet, spec.capability), at)
+        u, _m, _v = self.projection(spec, 0.0)
+        idx = [self.bank.index[name] for name in names]
+        u[:, idx] -= np.asarray(coding_rows, dtype=np.float64)
+        record = self.bank.update(u, category, spec.guess, rows=rows)
+        if learn:
+            self.learn(spec, rows=rows)
+        return record
+
     # -- coordinates ------------------------------------------------------------------
 
     def ensure(self, spec: ItemSpec, at: float) -> None:
@@ -264,7 +319,7 @@ class View:
             if not np.any(dose > 0):
                 continue
             n = self.windows.get((kind, facet), np.zeros(bank.B))
-            increments = np.array([M.dose_increment(float(n_b), float(d_b)) for n_b, d_b in zip(n, dose)])
+            increments = M.dose_increments(n, dose)
             coefficients = {}
             for m_index, scale in ((1, increments[:, 0]), (2, increments[:, 1])):
                 coefficients[f"gbar:{m_index}"] = scale

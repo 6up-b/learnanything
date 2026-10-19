@@ -139,7 +139,7 @@ def eval_command(
     """The §10.4 harness arms, scored prequentially (first-attempt split first). Read-only; no model call."""
 
     from learnloop.adaptive_difficulty import arms as A
-    from learnloop.adaptive_difficulty.report import _scores, SPLITS
+    from learnloop.adaptive_difficulty.report import SPLITS, arm_scores
 
     try:
         loaded, repository, connection = _read_only(vault)
@@ -149,7 +149,7 @@ def eval_command(
         finally:
             connection.close()
         names = sorted({name for record in log["records"] for name in record.p})
-        result = {"arms": {name: {("all" if s is None else s): _scores(log["records"], name, s) for s in SPLITS}
+        result = {"arms": {name: {("all" if s is None else s): arm_scores(log["records"], name, s) for s in SPLITS}
                            for name in names}, "records": len(log["records"]), "field_coverage": log["field_coverage"]}
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
@@ -163,13 +163,17 @@ def relatedness_command(
     subject: Annotated[str | None, typer.Option("--subject", help="One subject (default: every subject).")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the plan and the estimate; call and write nothing.")] = False,
     adopt: Annotated[bool, typer.Option("--adopt", help="Adopt the proposals in force as the next coupling version.")] = False,
+    shadow: Annotated[bool, typer.Option("--shadow", help="Print what adopting a later version would change; write nothing.")] = False,
+    confirm_reinterpretation: Annotated[bool, typer.Option(
+        "--confirm-reinterpretation", help="Adopt a later coupling version after reading its --shadow report.")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """The relatedness proposal's backfill per subject (spec §5.10): one LLM call per subject on
     ai.routing.llm_probability_llm, reading only the subject's LO and facet text, the concept graph and
-    item stems (never learner data or held-out text), inside adaptive_difficulty.daily_spend_cap_usd.
-    --adopt then adopts the proposals in force as the subject's next coupling version (the first applies
-    to the whole history by one rebuild; a later one is a reinterpretation: shadow-rebuild first)."""
+    item stems (never learner data or held-out text), inside adaptive_difficulty.daily_spend_cap_usd;
+    later calls re-propose only the units that changed. --adopt then adopts the proposals in force as the
+    subject's next coupling version: the first applies to the whole history by one rebuild; a later one is a
+    reinterpretation, adopted only with --confirm-reinterpretation after its --shadow report."""
 
     from learnloop.adaptive_difficulty import relatedness as R
     from learnloop.practice_index.paid import planning_repository
@@ -177,24 +181,37 @@ def relatedness_command(
     try:
         _vault_root(vault)
         loaded = load_vault(vault)
-        repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=dry_run)
+        repository = planning_repository(VaultPaths(loaded.root, loaded.config), dry_run=dry_run or shadow)
         chosen = [subject] if subject else R.subjects(loaded)
-        if dry_run:
-            from learnloop.adaptive_difficulty.backfill import _llm_plan
+        if shadow:
+            result = {"status": "shadow", "reports": [R.shadow_report(loaded, repository, name) for name in chosen],
+                      "model_calls": 0, "writes": 0}
+        elif dry_run:
+            from contextlib import closing
+
+            from learnloop.adaptive_difficulty.backfill import llm_plan
+            from learnloop.db.connection import connect
+            from learnloop.db.stores import ad_serving
 
             prompts = []
             units = {}
             for name in chosen:
                 inputs = R.subject_inputs(loaded, repository, name)
-                prompts.append(R.prompt(inputs))
+                with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                    runs = ad_serving.relatedness_runs(connection, subject_id=name)
+                touched = R.touched_units(inputs, runs)
+                if touched and inputs["payload"]["learning_objects"]:
+                    prompts.append(R.prompt(R.focus(inputs, touched)))
                 units[name] = {"learning_objects": len(inputs["payload"]["learning_objects"]),
-                               "items": len(inputs["item_ids"]), "input_hash": inputs["input_hash"]}
-            plan = _llm_plan(loaded, R.ROUTE, prompts, R.RelatednessV1, role="ad_relatedness", retries=1)
+                               "items": len(inputs["item_ids"]), "units_to_propose": len(touched),
+                               "input_hash": inputs["input_hash"]}
+            plan = llm_plan(loaded, R.ROUTE, prompts, R.RelatednessV1, role="ad_relatedness", retries=1)
             result = {"status": "dry_run", "subjects": units, "plan": plan, "model_calls": 0, "writes": 0,
                       "learned_coupling": R.coupling_on(loaded.config)}
         else:
             outcomes = [R.propose_subject(loaded, repository, name).as_dict() for name in chosen]
-            adopted = [R.adopt(repository, name, adopted_by="owner_backfill") for name in chosen] if adopt else []
+            adopted = [R.adopt(repository, name, adopted_by="owner_backfill",
+                               confirm_reinterpretation=confirm_reinterpretation) for name in chosen] if adopt else []
             result = {"status": "ran", "proposals": outcomes, "adopted": adopted}
         typer.echo(json.dumps(result, sort_keys=True, indent=None if json_output else 2, default=str))
     except (ValueError, OSError, sqlite3.Error) as exc:
