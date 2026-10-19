@@ -279,3 +279,101 @@ test file that names `hint_equivalents_for`, `count_hint_equivalent_question_eve
 Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Those belong to the
 landing gate. Nothing triggered the other steps: no migration, no DB or connection change, no frontend change, nothing
 under `src-tauri` and no configuration key change.
+
+## Fix round 4 (orchestrator)
+
+Codex's whole-stage verify of `fab576ac1..eaaad1e51` (job `20261019-100708-x0kXEm`, read-only) confirmed several things:
+
+* the five session cases from round 3;
+* the reveal split and the RW2b fold integration;
+* held-out filtering, offers, routes, caps and configuration;
+* both golden prompts, which were byte-identical.
+
+It found **2 High and 2 Medium** defects. The orchestrator ruled on each, and this round applies the rulings. The fixes
+are in `823242a36`. The references regenerated on top of it are committed with this record. **None were rejected.**
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 (round 4) | High | A bound hint is lost when the practice session changes or does not yet exist | fixed | `823242a36` | `test_reader_rw1c_review.py::test_a_bound_hint_asked_before_any_practice_session_counts_once`, `::test_a_bound_hint_asked_in_an_ended_session_counts_in_the_next`, `::test_a_cold_bound_hint_survives_a_session_change_once`. Old code: C's submission counted **0**. Controls: `::test_an_unbound_reader_question_still_counts_nowhere`, and the later attempt counts 0 inside the ended-session case |
+| F2 (round 4) | High | A cold-bound request turns the item's guards off | fixed | `823242a36` | `::test_a_cold_bound_question_keeps_the_items_guards[client]` and `[server]`. Old code: the solution "The required probability is 2/13." reached the tutor and was shown as the excerpt. The unbound control in the same test shows it |
+| F3 (round 4) | Medium | The desktop drops the binding when only offers are on | fixed | `823242a36` | `apps/learnloop-tauri/src/screens/reader/tutorBoundAsk.test.tsx` (old screen: no `workbenchSessionId`). Its backend half replays the shared fixture's request through the handler: `::test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold` |
+| F4 (round 4) | Medium | "Another way" repeats passages in the sources-service fallback | fixed | `823242a36` | `::test_another_way_in_the_fallback_repeats_nothing`. Old code: with verification unavailable, the shown selection was quoted and cited again |
+
+### What each fix does
+
+* **F1.** Accounting is no longer keyed on practice sessions. A bound Reader question counts in the item's window,
+  as the ruling requires:
+  * The window holds every question on the item asked after the item's last attempt, in any practice session or in
+    none.
+  * Whichever attempt of the item commits next counts it once. After that the window moves past it, so nothing new is
+    stored and no migration is needed.
+  * The rule lives in `Repository.count_hint_equivalent_question_events`. A hint-equivalent row whose context is in
+    `ITEM_WINDOW_QUESTION_CONTEXTS` (`("reader",)`) counts whatever its `session_id`.
+  * Only RW1c's server-derived binding writes a Reader row with an item. An unbound Reader question has no item, so it
+    still counts nowhere, as before.
+  * Every consumer reads this one query: the submit's `hint_equivalents_for_submission`, the post-hoc
+    `hint_equivalents_for_attempt` and the workbench's "help used" line. With no practice session open, the line now
+    counts the item-window rows (`item_window_only`), because the submit opens its own session. Before, the line
+    returned 0 there.
+* **F1, the cold row.** Round 3's dedup made the cold path's practice row the one that counts. That row counts only in
+  its attempt's session, so under the item window it would lose the hint after a session change, or count it twice in
+  that session. The ruling's "no double count" is kept by moving the count onto the bound question:
+  * When the client's cold path names an attempt on the bound item, `_accounting_binding` sets
+    `ReaderTutorRequest.carries_cold_hint`. The session is no longer compared.
+  * `tutor_qa.ask_question` then marks the bound row hint-equivalent whatever its type. Under L6 a cold Ask is a hint.
+  * `reader_dialogue._record_cold_hint_equivalent` still writes the cold row as the link to the cold attempt, but with
+    its flag off, because the question row already counts on the same item.
+  * Exactly one row counts in every arrangement. The same-session control is still 1, and the other-session case
+    never reaches 2 in A.
+  * One side effect: the learner field's `practice_assistance` signal read the cold row's flag, so a cold Ask on a bound
+    item no longer emits that signal. This happens only on that RW1c path, which exists only on this branch.
+* **F2.** In `build_request` the guarded item is the bound item whatever the policy. That gives the `ItemBoundGuard`
+  over the whole delivered context and the excerpt's expected-answer check (`ReaderTutorRequest.item`). During a cold
+  administration retrieval still adds nothing (`ReaderLookup`: `cold_attempt`). Tools, the practice request and the
+  offers are still refused, separately, by `tools_refused`.
+* **F3.** `ReaderScreen` sets `askWorkbenchSessionRef` whenever `readerTutor` is in the contract, which is while
+  either switch is on. Before, it was set only while retrieval was on. A shared fixture,
+  `apps/learnloop-tauri/src/fixtures/readerBoundOffersOnlyAsk.json`, links the two halves of the regression. The
+  vitest checks that the desktop's request has exactly the fixture's keys, binding included, and that nothing eager
+  runs. The pytest replays those keys through `reader.ask` under a server-derived cold administration. It asserts that
+  the answer carries no tool requests, no practice request and no offers, and that no tool call is written. Its
+  control, the old desktop's unbound request, runs tools.
+* **F4.** The request keeps the requested intent, which is the presentation's. `finalize` therefore drops a shown
+  excerpt or citation in the fallback too. Only the lookup's retrieval intent falls back to `explain`
+  (`ReaderLookup.__call__`, unchanged). With the service off, the wire's `tutor.intent` for "another way" is now
+  `alternative`, while `tutor.retrieval.intent` stays `explain`. `test_reader_tutor_retrieval.py::
+  test_with_the_service_absent_the_base_find_sources_serves_explain` pinned the old presentation value and was updated.
+
+### Gate (fix round 4)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17).
+
+| step | result |
+|---|---|
+| backend fail-before on `eaaad1e51` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r4-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r4-base/src`) | `test_reader_rw1c_review.py`: **9 failed, 20 passed** (detail below the table) |
+| frontend fail-before (`eaaad1e51`'s `apps/learnloop-tauri` extracted to the scratchpad, with the new test and fixture copied in and `node_modules` linked) | `tutorBoundAsk.test.tsx`: **1 failed, 1 passed**. The offers-only case failed (`workbenchSessionId` undefined); the switch-off control passed |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over the round-3 17-file list | **325 passed** |
+| `uv run pytest -n auto tests/test_workbench*.py` (14 files) | **124 passed** |
+| vitest, `src/screens/reader/` and the `ReaderScreen.*.test.tsx` files | **398 passed** (53 files, including the 6 reader tutor files) |
+| `npm run typecheck` | clean |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 2 configuration line citations into the changed files were stale |
+| `module_validate.py`; `validate_vault.py` | 508/508 notes; links resolved; vault validation passed (1130 notes) |
+| `git diff --check` | clean |
+
+The backend fail-before covers 11 cases:
+
+* **6 new cases failed:** the before-any-session, ended-session and cold-survives cases (each 0 against 1), both guard
+  cases and the fallback case.
+* **3 updated round-3 cases failed:** they now assert the new carrier, which is the bound row's flag on and the cold
+  row's off. Their counts were 1 on both trees.
+* **2 new cases passed:** the unbound control, and the desktop replay. The server already refused tools once the
+  binding was sent; the defect was on the desktop.
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Those belong to the
+landing gate. `desktop_validate.py` stops on `components/pdfSelection/testing/syntheticBook.ts`, which needs an
+activation classification. That file predates this stage: its last change is `b1087be0a`. Nothing triggered the
+other steps: no migration, no DB or connection change, nothing under `src-tauri` and no configuration key change.
