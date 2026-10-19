@@ -38,7 +38,9 @@ from learnloop.adaptive_difficulty.forecasters import in_process_receipts
 from learnloop.adaptive_difficulty.outside import freeze_presentation_inputs
 from learnloop.adaptive_difficulty.protection import protection
 from learnloop.adaptive_difficulty.reading import sweep
+from learnloop.adaptive_difficulty.generation import record_landed_commissions
 from learnloop.adaptive_difficulty.serve_inputs import build_row, never_attempted
+from learnloop.adaptive_difficulty.serving import frozen_loadings, threshold_receipts
 from learnloop.adaptive_difficulty.switches import receipts_enabled
 
 LOG = logging.getLogger(__name__)
@@ -83,13 +85,26 @@ def record_plan_serve(vault: Any, repository: Any, *, presentation_id: str, prac
             if protected.covers(item):
                 record.skipped = "protected"
                 return record
-            if never_attempted(connection, practice_item_id, served_at):
-                record.serve_inputs_id = store.insert_serve_inputs(connection, build_row(
-                    repository, connection, item, presentation_kind=PLAN_PRESENTATION,
-                    presentation_id=presentation_id, served_at=served_at, created_at=served_at,
-                ))
+            fresh_item = never_attempted(connection, practice_item_id, served_at)
+            if fresh_item:
+                row = build_row(repository, connection, item, presentation_kind=PLAN_PRESENTATION,
+                                presentation_id=presentation_id, served_at=served_at, created_at=served_at)
+                # AD2+AD3 (§7.5, §5.10): the revision's loadings in force and the
+                # coupling version, from the successor's tag on.
+                loadings, coupling_version = frozen_loadings(vault, repository, connection, row["content_hash"],
+                                                             served_at)
+                if loadings is not None:
+                    row["loadings"], row["coupling_version"] = loadings, coupling_version
+                record.serve_inputs_id = store.insert_serve_inputs(connection, row)
             receipts = in_process_receipts(vault, repository, connection, item, presentation_kind=PLAN_PRESENTATION,
                                            presentation_id=presentation_id, served_at=served_at)
+            if fresh_item:
+                # AD2+AD3 (§8.2): ad_threshold@subject, @subject_uniform and @lo.
+                receipts += threshold_receipts(vault, repository, connection, item,
+                                               presentation_kind=PLAN_PRESENTATION, presentation_id=presentation_id,
+                                               served_at=served_at)
+                # §7.4: landed commissions' re-forecasts.
+                record_landed_commissions(vault, repository, connection, now=served_at)
             algorithm_version = vault.config.algorithms.algorithm_version
             receipts = [_with_version(receipt, algorithm_version) for receipt in receipts]
             record.receipt_ids = record_receipts(repository, receipts, created_at=served_at)

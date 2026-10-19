@@ -26,6 +26,9 @@ ORIGIN_LEARNER_PICK = "learner_pick"
 #: split; learner picks are deducted from the lanes when picked).
 LANE_ORIGINS = frozenset({ORIGIN_CHOOSER, ORIGIN_FOLLOWUP})
 
+#: The ``item_displaced`` reason of adaptive difficulty's empty support (spec §6.1 step 0).
+AD_INELIGIBLE = "ad_ineligible"
+
 #: Plan-level receipt rows (``attention_blocks`` rows with a NULL
 #: ``plan_ordinal``): decisions that are not blocks (review F6, F10).
 RECEIPT_STOP = "stop_for_today"
@@ -60,6 +63,12 @@ class PlannedItem:
     #: (its ``item_planned`` event's ``decision_ref``); its presentation names it
     #: (Codex review F1). None for an item its block's own decision planned.
     decision_ref: str | None = None
+    #: Adaptive difficulty AD2+AD3 (spec §6.1 step 5): the slot's planned item
+    #: when AD's draw substituted another (``item_substituted``), and the draw.
+    substituted_from: str | None = None
+    ad_selection_id: str | None = None
+    #: ``item_displaced``'s detail (an AD displacement names its failed checks).
+    displaced_detail: dict[str, Any] | None = None
 
     @property
     def displaced(self) -> bool:
@@ -249,6 +258,30 @@ class PlanRecord:
 
         return {item.practice_item_id for item in self.items() if not item.displaced}
 
+    def ad_deferrals(self) -> dict[str, dict[str, Any]]:
+        """Adaptive difficulty's active deferrals (spec §6.1 step 0), folded from the plan's own
+        events: an item displaced with ``ad_ineligible`` joins, a later boundary that re-read
+        its checks and cleared it (``block_chosen`` detail ``ad_deferrals.cleared``) releases it."""
+
+        active: dict[str, dict[str, Any]] = {}
+        for block in sorted(self.blocks, key=lambda b: b.ordinal):
+            for item_id in ((block.chosen or {}).get("ad_deferrals") or {}).get("cleared") or ():
+                active.pop(str(item_id), None)
+            for item in block.items:
+                if item.displaced and item.displaced_reason == AD_INELIGIBLE and item.displaced_at:
+                    detail = item.displaced_detail or {}
+                    active.setdefault(item.practice_item_id, {
+                        "since": item.displaced_at, "failed": list(detail.get("failed") or []),
+                        "block_id": block.id, "selection_id": detail.get("selection_id"),
+                    })
+        return active
+
+    def exclusion_ids(self) -> set[str]:
+        """What a pool source never offers this plan: planned and skipped items and AD deferrals."""
+
+        return (self.planned_ids() | {item.practice_item_id for item in self.items() if item.skipped}
+                | set(self.ad_deferrals()))
+
     def item_count(self) -> int:
         return len(self.active_items())
 
@@ -394,6 +427,17 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
     elif kind == "item_displaced" and item_id in by_item:
         by_item[item_id].displaced_at = created_at
         by_item[item_id].displaced_reason = detail.get("reason")
+        if detail.get("reason") == AD_INELIGIBLE:
+            by_item[item_id].displaced_detail = detail
+    elif kind == "item_substituted" and detail.get("slot_item_id") in by_item and item_id:
+        # Adaptive difficulty (spec §6.1 step 5): the slot now holds the drawn
+        # item and its estimate; the slot's planned item returns to the pool.
+        slot = by_item.pop(str(detail["slot_item_id"]))
+        slot.substituted_from = slot.substituted_from or slot.practice_item_id
+        slot.practice_item_id = str(item_id)
+        slot.est_minutes = float(detail.get("est_minutes") or slot.est_minutes)
+        slot.ad_selection_id = detail.get("selection_id")
+        by_item[str(item_id)] = slot
     elif kind == "block_started":
         block.started_at = block.started_at or created_at
     elif kind == "block_ended":
@@ -414,6 +458,7 @@ def day_items(records: Iterable[PlanRecord]) -> list[PlannedItem]:
 
 
 __all__ = [
+    "AD_INELIGIBLE",
     "LANE_ORIGINS",
     "ORIGIN_CHOOSER",
     "ORIGIN_FOLLOWUP",

@@ -8,8 +8,9 @@ sweeps the whole history once. Rows go to ``ad_reading_opportunities``
 the source row's id and write time, the facets and doses the mapping resolved
 at the sweep, the mapping version and the authority class ``salience_only``.
 
-**Only the listed sources** (:data:`SOURCES`, the carve-out's allowlist the
-AD2+AD3 stage moves into ``attempts/salience_firewall.py``):
+**Only the listed sources** (:data:`SOURCES`: the reading-signal firewall's
+carve-out allowlist, ``attempts.salience_firewall.LEARNING_OPPORTUNITY_SOURCES``,
+moved there by the AD2+AD3 stage so the sweep and the carve-out read one list):
 
 * ``reading``: a section completed in the Reader
   (``reader_section_progress.completed_at``, stamped once: ``section_read``),
@@ -45,7 +46,8 @@ times only, and the receipt has no column that could hold one. No model call.
 serve's sweep; replay orders opportunities by their source write time, so it
 rebuilds the state each serve saw. A later deletion of the source (its
 extraction removed with ``delete_source_artifact``) leaves the receipts.
-Nothing reads them until the AD2+AD3 firewall carve-out (A12).
+The AD replayer reads them only through the firewall's carve-out
+(``salience_firewall.learning_opportunity_events``, A12).
 """
 
 from __future__ import annotations
@@ -58,6 +60,13 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Protocol
 
+from learnloop.attempts.salience_firewall import (
+    IN_PASSAGE_STYLES,
+    LEARNING_OPPORTUNITY_KINDS,
+    LEARNING_OPPORTUNITY_SOURCES,
+    TUTOR_ANSWER_MODES,
+    UNKNOWN_ANSWER_MODE,
+)
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.stores import ad_receipts as store
 
@@ -66,8 +75,7 @@ from learnloop.adaptive_difficulty.switches import receipts_enabled
 LOG = logging.getLogger(__name__)
 
 MAPPING_VERSION = "ad_reading_map_v1"
-KINDS = ("reading", "reader_tutor_exchange", "worked_example", "in_passage_question")
-IN_PASSAGE_STYLES = ("recall", "next_step", "why_step", "assumptions")
+KINDS = LEARNING_OPPORTUNITY_KINDS
 SELF_CHECK_TASK = "reader_quick_check_self_check"
 SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:missed", "no": "self_check:missed"}
 #: The span-view contexts that are the learner reading (the Guide, the Reader,
@@ -77,10 +85,6 @@ SELF_CHECK_CLASSES = {"matches": "self_check:matched", "partly": "self_check:mis
 EXPOSURE_CONTEXTS = ("reader", "reader_restoration", "library", "tutor_citation", "provenance", "provenance_panel",
                      "remediation", "remediation_delivery", "other")
 TUTOR_CONTEXTS = ("reader", "library")
-#: A reader tutor question's answer modes (``tutor.tutor_qa.READER_ANSWER_MODES``),
-#: each a tutor exchange's subkind; a question with none stored is ``unknown``.
-TUTOR_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
-UNKNOWN_ANSWER_MODE = "unknown"
 PASSAGES_PER_LO_PER_DAY = 1
 TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: A serve's sweep re-reads this far behind the newest recorded source time,
@@ -88,21 +92,9 @@ TUTOR_EXCHANGES_PER_LO_PER_DAY = 3
 #: after it (a tutor answer completing, a clock skew) is still recorded once.
 SWEEP_OVERLAP = timedelta(hours=1)
 
-#: The carve-out's allowlist: (kind, subkind, source table). One list.
-SOURCES: tuple[tuple[str, str, str], ...] = (
-    ("reading", "section_read", "reader_section_progress"),
-    ("reading", "passage_viewed", "source_exposure_events"),
-    # §5.11: a tutor exchange's subkind is its answer mode (fix round 4, V5);
-    # ``unknown`` where none was stored (outside the Reader, or before 213).
-    *(("reader_tutor_exchange", mode, "question_events") for mode in TUTOR_ANSWER_MODES),
-    ("reader_tutor_exchange", UNKNOWN_ANSWER_MODE, "question_events"),
-    ("worked_example", "shown", "source_exposure_events"),
-    ("worked_example", "in_completed_section", "reader_section_progress"),
-    *(("in_passage_question", style, "reader_authored_questions") for style in IN_PASSAGE_STYLES),
-    ("in_passage_question", "owner_placed", "interaction_events"),
-    ("in_passage_question", "self_check:matched", "judgment_ledger"),
-    ("in_passage_question", "self_check:missed", "judgment_ledger"),
-)
+#: The carve-out's allowlist: (kind, subkind, source table). One list, the
+#: firewall's (AD2+AD3 moved it there; G-AD3-13).
+SOURCES: tuple[tuple[str, str, str], ...] = LEARNING_OPPORTUNITY_SOURCES
 
 
 def _stamp(value: Any) -> str | None:

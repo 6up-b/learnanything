@@ -3130,6 +3130,36 @@ class AdaptiveDifficultyConfig(BaseModel):
     * ``price_per_million``: the owner's price (USD per million tokens) for a
       METERED LLM route of these roles; unset, a metered LLM call is refused
       before it is sent. The Decider is priced at its profile's listed price.
+
+    AD2+AD3 (``mvp-0.28``, one successor; §11.1; dormant below the tag), each
+    switch false restoring its part of ``mvp-0.27`` exactly:
+
+    * ``selection``: a planned new-material slot is served by AD's draw over its
+      support (practice in the band, calibration within acceptable difficulty,
+      exact logged propensities); an empty support displaces the slot and defers
+      its item until its blocking condition clears (§6.1). Off: no draw, no
+      substitution, no deferral.
+    * ``generation_contract``: generation asks for an item AT a commissioned
+      feature point, with no difficulty band (§7.1). Off: today's prompt and band
+      check.
+    * ``promoted_predictor``: live decisions and the readiness numbers read the
+      subject view (§6.1, §9.5, §10.1). Off: each LO's own view, and no AD
+      readiness numbers.
+    * ``learned_coupling``: the subject view's learned loadings and couplings and
+      their proposal (§5.10). Off: uniform sharing, no proposal call.
+    * ``reading_opportunities``: reading raises the subject view's predicted level
+      (§5.11). Off: no reading transitions.
+    * ``reading_self_check``: the self-check verdict term (D22). Off: removed.
+
+    Outside the successor, at every version: ``reading_dose_offers`` (D21, live by
+    owner decision): at an eligible section boundary the Reader may offer one
+    extra worked example or question with probability ``dose_floor`` each
+    (exact, logged propensities), at most one per section and
+    ``dose_daily_offers`` a day (§5.12). Off: today's Reader exactly.
+
+    The selection constants (§6.1, D6) and the versioned priors, grid and ladder
+    (§5.5, §5.10, §9.1) are recorded so a snapshot names them; the
+    pre-registration is ``docs/reviews/adaptive-difficulty-ad23.md`` §1.
     """
 
     enabled: bool = True
@@ -3141,6 +3171,32 @@ class AdaptiveDifficultyConfig(BaseModel):
     feature_audit: bool = True
     daily_spend_cap_usd: float = Field(default=0.50, ge=0.0)
     price_per_million: float | None = Field(default=None, gt=0)
+    selection: bool = True
+    generation_contract: bool = True
+    promoted_predictor: bool = True
+    learned_coupling: bool = True
+    reading_opportunities: bool = True
+    reading_self_check: bool = True
+    reading_dose_offers: bool = True
+    dose_floor: float = Field(default=0.10, gt=0.0, le=0.5)
+    dose_daily_offers: int = Field(default=3, ge=0)
+    practice_band: tuple[float, float] = (0.70, 0.80)
+    overlap_band: tuple[float, float] = (0.55, 0.90)
+    overlap_share: float = Field(default=0.10, ge=0.0, le=1.0)
+    near_tie_margin: float = Field(default=0.05, ge=0.0, le=1.0)
+    calibrate_below: float = Field(default=0.35, ge=0.0, le=1.0)
+    ready_threshold: float = Field(default=0.8, gt=0.0, lt=1.0)
+    priors: Literal["ad_priors_v1"] = "ad_priors_v1"
+    hyper: Literal["ad_hyper_v1"] = "ad_hyper_v1"
+    ladder: Literal["ad_ladder_v1"] = "ad_ladder_v1"
+
+    @field_validator("practice_band", "overlap_band")
+    @classmethod
+    def _ordered_band(cls, value: tuple[float, float]) -> tuple[float, float]:
+        low, high = float(value[0]), float(value[1])
+        if not 0.0 < low < high < 1.0:
+            raise ValueError("a band is (low, high) with 0 < low < high < 1")
+        return (low, high)
 
     @field_validator("outside_forecasters", mode="before")
     @classmethod

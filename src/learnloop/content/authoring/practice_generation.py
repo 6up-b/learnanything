@@ -90,6 +90,10 @@ class PracticeExpansionTarget:
     # authoring model as targets, exactly as `commissioned_cells` does, rather
     # than sitting in a report a human might one day read.
     contrast_pair_requests: list[dict[str, Any]] = field(default_factory=list)
+    # Adaptive difficulty AD2+AD3 (spec §7.1, switch generation_contract): the
+    # commission draw that named this target's feature point. Set, the payload
+    # carries no difficulty band: difficulty is measured from the answers.
+    ad_commission_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -107,6 +111,9 @@ class PracticeExpansionTarget:
             "blueprint_components": self.blueprint_components,
             "existing_surface_families": self.existing_surface_families,
         }
+        if self.ad_commission_id is not None:
+            payload.pop("recommended_difficulty_band")
+            payload["ad_commission_id"] = self.ad_commission_id
         if self.commissioned_cells:
             payload["commissioned_cells"] = self.commissioned_cells
         if self.contract_capabilities:
@@ -389,6 +396,10 @@ def build_practice_expansion_plan(
                 evidence_count=(mastery.evidence_count if mastery is not None else 0),
                 claimed_level=claimed_level,
             )
+        # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
+        # dormant below mvp-0.28): AD's commission draw names the feature point at
+        # the waypoint's capability; the target carries no difficulty band.
+        rung, ad_commission_id = _ad_commissioned_rung(vault, repository, learning_object.id, rung)
         ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
             PracticeExpansionTarget(
@@ -419,6 +430,7 @@ def build_practice_expansion_plan(
                 contrast_pair_requests=_contrast_pair_requests_for(
                     pair_requests_by_facet, learning_object
                 ),
+                ad_commission_id=ad_commission_id,
             )
         )
     # Target order follows the commissioning queue: an LO whose best unreachable
@@ -437,6 +449,37 @@ def build_practice_expansion_plan(
     if max_los is not None:
         targets = targets[:max_los]
     return PracticeExpansionPlan(targets=targets)
+
+
+def _ad_commissioned_rung(
+    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None
+) -> tuple[RungTarget | None, str | None]:
+    """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
+    or nothing commissioned, the incumbent's rung exactly."""
+
+    import learnloop.adaptive_difficulty.generation as ad_generation
+
+    if rung is None or not ad_generation.contract_on(vault.config):
+        return rung, None
+    from learnloop.clock import utc_now_iso
+
+    commissioned = ad_generation.commission_point(
+        vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso()
+    )
+    if commissioned is None:
+        return rung, None
+    features, capability, selection_id = commissioned
+    return (
+        RungTarget(
+            waypoint_slug=ad_generation.SOURCE,
+            capability=capability,
+            task_features=dict(features),
+            task_feature_bounds={dim: {"target": value, "max": value} for dim, value in features.items()},
+            task_feature_schema_version_id=rung.task_feature_schema_version_id,
+            source=ad_generation.SOURCE,
+        ),
+        selection_id,
+    )
 
 
 def build_diagnostic_practice_plan(
@@ -1036,6 +1079,27 @@ def _blueprint_shaping(vault: LoadedVault, learning_object) -> list[dict[str, An
     return families
 
 
+def _cross_source_difficulty_lines(plan: Any) -> tuple[str, ...]:
+    contract, _banded = _contract(plan)
+    if not contract:
+        return (
+            "Calibrate difficulty to each target's recommended_difficulty_band (~70-85% expected success). "
+            "For each target, create exactly requested_new_items Practice Items.",
+            "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
+            "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
+            "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
+            "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
+            "the waypoint - never change the waypoint to change difficulty.",
+        )
+    return (
+        _ad_contract_lines()[0] + " For each target, create exactly requested_new_items Practice Items.",
+        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
+        "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
+        "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
+        "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. " + _ad_waypoint_line(),
+    )
+
+
 def _cross_source_instructions(
     plan: PracticeExpansionPlan,
     context_by_lo: dict[str, list[dict[str, Any]]],
@@ -1060,13 +1124,7 @@ def _cross_source_instructions(
         "surface. An item that echoes held-out material is blocked and cannot be applied.",
         "Reuse existing facet ids from each target's existing_evidence_facets; mint a new facet id only "
         "when no existing facet covers the item.",
-        "Calibrate difficulty to each target's recommended_difficulty_band (~70-85% expected success). "
-        "For each target, create exactly requested_new_items Practice Items.",
-        "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). "
-        "Author every item AT that waypoint: set `capability` to the target capability exactly and every "
-        "task_features dimension to the target value (a deterministic gate rejects overshoot). Keep "
-        "retrieval_demand/transfer_distance/scaffold_level inside float_proxy_bands. Difficulty varies WITHIN "
-        "the waypoint - never change the waypoint to change difficulty.",
+        *_cross_source_difficulty_lines(plan),
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
         _CONJUNCTIVE_ITEM_RULE,
@@ -1384,6 +1442,8 @@ class _RungGate:
         self._band_by_lo: dict[str, tuple[float, float]] = {
             target.learning_object_id: target.recommended_difficulty_band
             for target in plan.targets
+            # Adaptive difficulty §7.1: no band check under the generation contract.
+            if target.ad_commission_id is None
         }
         self.violations: list[str] = []
         self.warnings: list[str] = []
@@ -1902,6 +1962,55 @@ def _ladder_capabilities(target: "PracticeExpansionTarget") -> int:
     return len(capabilities)
 
 
+_BAND_LINES = (
+    "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
+    "Estimate each item's expected_minutes: the minutes a learner at the target band needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+)
+_BAND_WAYPOINT_LINE = "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty."
+
+
+def _ad_contract_lines() -> tuple[str, ...]:
+    from learnloop.adaptive_difficulty.generation import CONTRACT_TEXT
+
+    return (
+        CONTRACT_TEXT + " Set difficulty_source='llm_estimate'.",
+        "Estimate each item's expected_minutes: the minutes a learner studying this topic needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+    )
+
+
+def _ad_waypoint_line() -> str:
+    from learnloop.adaptive_difficulty.generation import WAYPOINT_CLAUSE
+
+    return WAYPOINT_CLAUSE
+
+
+def _contract(plan: Any) -> tuple[bool, bool]:
+    """Adaptive difficulty §7.1: ``(some target is written to the contract, some carries a band)``.
+    With the contract off no target is commissioned, and the prompt is today's exactly."""
+
+    targets = list(getattr(plan, "targets", ()) or ())
+    commissioned = [getattr(target, "ad_commission_id", None) is not None for target in targets]
+    return any(commissioned), (not targets) or not all(commissioned)
+
+
+def _difficulty_lines(plan: Any) -> tuple[str, ...]:
+    contract, banded = _contract(plan)
+    if not contract:
+        return _BAND_LINES
+    lines = _ad_contract_lines()
+    if banded:
+        lines = (lines[0], "For a target that carries a recommended_difficulty_band instead: " + _BAND_LINES[0],
+                 lines[1])
+    return lines
+
+
+def _waypoint_line(plan: Any) -> str:
+    contract, banded = _contract(plan)
+    if not contract:
+        return _BAND_WAYPOINT_LINE
+    return _ad_waypoint_line()
+
+
 def _practice_expansion_instructions(
     plan: PracticeExpansionPlan,
     *,
@@ -1917,10 +2026,9 @@ def _practice_expansion_instructions(
         "Use review_route='review_required' unless a direct note or canonical source reference in the supplied context supports auto_apply.",
         "Avoid duplicating existing prompts in context; vary prompt surface and expected answer shape.",
         "Facet vocabulary: each target lists existing_evidence_facets, the facet ids already established for that Learning Object. When an item probes knowledge one of those facets names, reuse that exact facet id in evidence_facets/evidence_weights/criterion_facet_weights. Mint a new facet id only when the item probes knowledge no existing facet covers; never restate an existing facet under a new name.",
-        "Calibrate each item's difficulty to its target's recommended_difficulty_band (~70-85% expected success - effortful but usually successful, the desirable-difficulty band), and set difficulty and difficulty_source='llm_estimate' accordingly. At most one item per target may be a harder transfer item above the band, and only when corrective feedback makes the challenge productive.",
-        "Estimate each item's expected_minutes: the minutes a learner at the target band needs to read the prompt and write the answer, not counting reading feedback (about 1 for a one-line recall, 3 for a short explanation or calculation, 8 or more for a multi-step derivation). It only sizes the daily plan; it is never evidence.",
+        *_difficulty_lines(plan),
         "Depth waypoint: each target names a depth waypoint (waypoint_slug, capability, target_task_features). Author every item AT that waypoint: set the item's `capability` to the target capability exactly, and set every dimension in `task_features` to the target's value (a deterministic gate rejects items that overshoot the waypoint). Keep retrieval_demand/transfer_distance/scaffold_level inside the target's float_proxy_bands.",
-        "Difficulty varies WITHIN the waypoint - use surface, content, and specificity to hit the difficulty band. NEVER change the waypoint (capability, response form, transfer, span, scaffolding) to change difficulty.",
+        _waypoint_line(plan),
         _CONSTRUCTED_RESPONSE_RULE,
         _BLUEPRINT_SPREAD_RULE,
         _CONJUNCTIVE_ITEM_RULE,

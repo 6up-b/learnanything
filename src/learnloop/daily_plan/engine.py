@@ -61,6 +61,7 @@ from learnloop.daily_plan.lanes import (
 )
 from learnloop.daily_plan.reading import next_reading_target, section_start_span
 from learnloop.daily_plan.records import (
+    AD_INELIGIBLE,
     ORIGIN_CHOOSER,
     ORIGIN_FOLLOWUP,
     ORIGIN_LEARNER_PICK,
@@ -232,6 +233,9 @@ class PoolContext:
     #: The pool with those items still in it, in pool order (round 8: what
     #: the boundary could choose from once a hold lifts).
     pool_with_held: tuple[PoolItem, ...] = ()
+    #: Adaptive difficulty AD2+AD3: the day's active AD deferrals this view
+    #: excluded (spec §6.1 step 0); the projection holds them fixed.
+    ad_deferred: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -1221,7 +1225,9 @@ def simulate_blocks(
     reading_used = any(block.is_reading for block in sim.blocks)
     pending = list(forced)
     for _ in range(max_blocks):
-        taken = sim.planned_ids() | {item.practice_item_id for item in sim.items() if item.skipped}
+        # Adaptive difficulty AD2+AD3 (spec §6.1 step 0): the plan's exclusion
+        # set (planned, skipped and AD deferrals), held fixed by the projection.
+        taken = sim.exclusion_ids() | set(context.ad_deferred)
         taken |= {item.practice_item_id for item in pending}  # forced: never packed again (re-review F11)
         view = replace(
             context,
@@ -1360,7 +1366,36 @@ def _context_from_build(env: PlanEnv, record: PlanRecord, built: _Pool) -> PoolC
     return _context(env, record, built, day=day_records(env))
 
 
-def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[PlanRecord]) -> PoolContext:
+def _ad_selection(env: PlanEnv) -> bool:
+    from learnloop.adaptive_difficulty.successor import selection_on
+
+    return selection_on(env.vault.config)
+
+
+def day_ad_deferrals(env: PlanEnv, record: PlanRecord | None = None) -> dict[str, dict[str, Any]]:
+    """The day's active AD deferrals (spec §6.1 step 0): every plan of the day, its blocks in
+    creation order (a later plan of the same day starts with them)."""
+
+    plans = list(day_records(env))
+    if record is not None and all(plan.id != record.id for plan in plans):
+        plans.append(record)
+    plans = [record if record is not None and plan.id == record.id else plan for plan in plans]
+    blocks = sorted(((block.created_at, block.ordinal, block) for plan in plans for block in plan.blocks),
+                    key=lambda entry: (entry[0], entry[1]))
+    active: dict[str, dict[str, Any]] = {}
+    for _created, _ordinal, block in blocks:
+        for item_id in ((block.chosen or {}).get("ad_deferrals") or {}).get("cleared") or ():
+            active.pop(str(item_id), None)
+        for item in block.items:
+            if item.displaced and item.displaced_reason == AD_INELIGIBLE and item.displaced_at:
+                detail = item.displaced_detail or {}
+                active.setdefault(item.practice_item_id, {"since": item.displaced_at,
+                                                          "failed": list(detail.get("failed") or [])})
+    return active
+
+
+def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[PlanRecord],
+             released: Iterable[str] = ()) -> PoolContext:
     """The source's view at one boundary: the plan's universe minus what it took."""
 
     split = record.split
@@ -1368,6 +1403,11 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
     taken = record.planned_ids()
     # Skipped items stay out of this plan (the learner skipped them).
     taken |= {item.practice_item_id for item in record.items() if item.skipped}
+    # Adaptive difficulty AD2+AD3 (spec §6.1 step 0): an item AD displaced as
+    # ineligible stays out of every pool of the day's plans until a boundary
+    # re-reads its checks and clears it (none exist with ``selection`` off).
+    deferred = frozenset(day_ad_deferrals(env, record) if _ad_selection(env) else ()) - frozenset(released)
+    taken |= deferred
     pool = tuple(
         item
         for item in built.pool
@@ -1410,6 +1450,7 @@ def _context(env: PlanEnv, record: PlanRecord, built: _Pool, *, day: Sequence[Pl
         deadlines=built.deadlines,
         held_until=held_until,
         pool_with_held=pool_with_held if held_until else (),
+        ad_deferred=deferred,
     )
 
 
@@ -1870,6 +1911,7 @@ def _boundary(
     *,
     forced: Sequence[PoolItem] = (),
     forced_origin: str = ORIGIN_REQUESTED,
+    ad_deferrals: Mapping[str, Any] | None = None,
 ) -> str | None:
     """Choose and persist the next block, or close the plan. Returns the block id."""
 
@@ -1934,6 +1976,11 @@ def _boundary(
             for item in forced
         ],
     }
+    if ad_deferrals:
+        # Adaptive difficulty (spec §6.1 step 0): the AD deferrals this boundary
+        # applied and the ones it cleared, so each decision's pool rebuilds.
+        detail["ad_deferrals"] = {"applied": list(ad_deferrals.get("applied") or []),
+                                  "cleared": list(ad_deferrals.get("cleared") or [])}
     voi_decisions = [dict(item.voi) for item in context.pool if item.voi is not None]
     if voi_decisions:
         # mvp-0.21: the value-of-information decisions on today's due project
@@ -2797,8 +2844,21 @@ def advance_with_context(
                 if row.get("practice_item_id") in by_id
             ]
             forced_origin = ORIGIN_REQUESTED
+        ad_deferrals = None
+        if _ad_selection(env):
+            # Adaptive difficulty (spec §6.1 step 0): at each boundary the day's
+            # AD deferrals are re-read with the draw's own checks; those that
+            # pass rejoin the pool here, and the decision records both.
+            active = day_ad_deferrals(env, record)
+            if active:
+                from learnloop.daily_plan import ad_slot
+
+                cleared = ad_slot.deferrals_to_clear(env, active, built=built)
+                ad_deferrals = {"applied": sorted(set(active) - set(cleared)), "cleared": sorted(cleared)}
+                context = _context(env, record, built, day=(), released=cleared)
         try:
-            block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin)
+            block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin,
+                                 ad_deferrals=ad_deferrals)
         except DecisionPending:
             # Router R2b: the decision's models are still out on a read. No
             # step yet: the view says the next block is being chosen.
@@ -2823,6 +2883,15 @@ def advance_with_context(
     item = block.next_item()
     if item is None:  # pragma: no cover - an unfinished item block has an open item
         return record, _done_step(record), context
+    if serve and item.served_at is None and _ad_selection(env):
+        from learnloop.adaptive_difficulty.serving import slot_applies
+
+        if slot_applies(env.vault.config, item):
+            served = _ad_slot_serve(env, record, block, item, built, context, boundary=boundary)
+            if served is None:
+                # Displaced as ineligible (spec §6.1 step 0): the plan's rules pick the next step.
+                return advance_with_context(env, serve=serve)
+            return served
     eligibility = None
     if serve and item.served_at is None:
         held, eligibility = _held_cold_check(env, block, item)
@@ -2846,6 +2915,55 @@ def advance_with_context(
     if serve:
         step["presentation_id"] = _serve(env, block, item, candidate_id=candidate_id)
         record = _reload(env, record.id)
+    return record, step, context
+
+
+def _ad_slot_serve(
+    env: PlanEnv, record: PlanRecord, block: PlannedBlock, item: PlannedItem, built: _Pool, context: PoolContext,
+    *, boundary: bool,
+) -> tuple[PlanRecord, dict[str, Any], PoolContext] | None:
+    """Adaptive difficulty AD2+AD3 (spec §6.1): the slot's support, AD's draw, its
+    ``ad_selections`` row, any ``item_substituted`` event and ``item_served``, in one
+    transaction (a propensity is never recomputed after the draw). None when the slot
+    was displaced as ineligible."""
+
+    from learnloop.adaptive_difficulty.serving import decide_slot
+    from learnloop.daily_plan import ad_slot
+
+    with env.repository.atomic():
+        request = ad_slot.build_request(env, record, block, item, built, day=day_records(env),
+                                        router_propensity=ad_slot.router_propensity(record, block))
+        decision = decide_slot(env.vault, env.repository, request)
+        now = env.now_iso()
+        with env.repository.connection() as connection:
+            if decision.action == "displace":
+                _event(connection, block.id, "item_displaced", {
+                    "practice_item_id": item.practice_item_id, "reason": AD_INELIGIBLE,
+                    "failed": list(decision.slot_failed), "selection_id": decision.selection_id,
+                }, now)
+                return None
+            if decision.action == "substitute" and decision.chosen_item_id:
+                drawn = next((c for c in request.candidates if c.practice_item_id == decision.chosen_item_id), None)
+                _event(connection, block.id, "item_substituted", {
+                    "practice_item_id": decision.chosen_item_id, "slot_item_id": item.practice_item_id,
+                    "learning_object_id": item.learning_object_id,
+                    "est_minutes": round(float(drawn.est_minutes if drawn else item.est_minutes), 4),
+                    "slot_est_minutes": round(float(item.est_minutes), 4),
+                    "selection_id": decision.selection_id,
+                }, now)
+        record = _reload(env, record.id)
+        block = next(b for b in record.blocks if b.id == block.id)
+        served = next((planned for planned in block.items
+                       if planned.position == item.position and not planned.resolved), None)
+        if served is None:  # pragma: no cover - the slot always holds the drawn item
+            return None
+        candidate_id = context.candidate_ids.get(served.practice_item_id)
+        step = _item_step(env, record, block, served, boundary=boundary, candidate_id=candidate_id)
+        detail = decision.step_detail()
+        if detail is not None:
+            step["adaptive_difficulty"] = detail
+        step["presentation_id"] = _serve(env, block, served, candidate_id=candidate_id)
+    record = _reload(env, record.id)
     return record, step, context
 
 

@@ -367,6 +367,27 @@ REGRADE_CONTRACT_ALGORITHM_VERSION = "mvp-0.26"
 # without a tag; the Codex review (F4) required this one.
 ELIGIBILITY_DECISION_ALGORITHM_VERSION = "mvp-0.27"
 
+# mvp-0.28 (adaptive difficulty AD2+AD3, owner 2026-10-18;
+# docs/specs/spec_adaptive_difficulty_v1.md §14, §11.1;
+# docs/reviews/adaptive-difficulty-ad23.md), on top of mvp-0.27 (the chain
+# stays linear: mvp-0.28 means everything mvp-0.27 means PLUS this). AD's own
+# posterior in two views (the subject view, with learned relatedness and
+# reading, and each LO's view) steers what is served: a planned new-material
+# slot is served by AD's draw over its support (practice in the 70-80% band,
+# calibration within acceptable difficulty, exact logged propensities), a slot
+# whose support is empty is displaced and its item deferred until its blocking
+# condition clears, commissions name a feature point, and the generation
+# contract asks for an item AT that point (no difficulty band). Readiness
+# numbers and the router card's AD fields read the subject view. Six kill
+# switches under [adaptive_difficulty], each restoring its part of mvp-0.27
+# exactly: selection, generation_contract, promoted_predictor,
+# learned_coupling, reading_opportunities, reading_self_check. It changes what
+# is SERVED, never the authority-propagation projection, evidence, mastery,
+# FSRS or certification (A2, A11, A12), so it is another successor tag on the
+# mvp-0.8 namespace. The Reader's randomized dose offers ship beside it with
+# their own switch (reading_dose_offers) and no tag (spec §5.12).
+ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION = "mvp-0.28"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor merge appends
@@ -394,6 +415,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     METHOD_EXPLICIT_ALGORITHM_VERSION,
     REGRADE_CONTRACT_ALGORITHM_VERSION,
     ELIGIBILITY_DECISION_ALGORITHM_VERSION,
+    ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION,
 )
 
 
@@ -511,6 +533,12 @@ REGRADE_CONTRACT_VERSIONS: frozenset[str] = successors_from(REGRADE_CONTRACT_ALG
 # auto-prime window at their own instant. Every later successor keeps them;
 # gates must use this set, never equality.
 ELIGIBILITY_DECISION_VERSIONS: frozenset[str] = successors_from(ELIGIBILITY_DECISION_ALGORITHM_VERSION)
+
+# Versions whose new-material slots AD's draw serves, whose generation names a
+# feature point, and whose readiness numbers read AD's subject view (behind the
+# six [adaptive_difficulty] switches). Every later successor keeps them; gates
+# must use this set, never equality.
+ADAPTIVE_DIFFICULTY_VERSIONS: frozenset[str] = successors_from(ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION)
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

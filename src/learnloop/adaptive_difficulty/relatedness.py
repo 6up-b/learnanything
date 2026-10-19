@@ -1,0 +1,640 @@
+"""Learned relatedness and implication: the proposal and its structure (spec_adaptive_difficulty_v1 §5.10, D19).
+
+**The proposal** (``ad-relatedness-v1``): per subject, a frontier LLM on the
+field harness's route ``ai.routing.llm_probability_llm`` (empty: the active
+provider; Codex on the subscription is ``estimated_only``) proposes the prior
+means of two sparse sets of shared terms:
+
+* **soft loadings**: for each item, at most 3 facets of its subject outside
+  its own that answering it implies knowledge of, each ``weak`` (0.25),
+  ``moderate`` (0.5) or ``strong`` (1.0), their sum capped at 1;
+* **couplings**: for each LO, at most 3 related LOs of its subject, with
+  strengths in the same vocabulary. A pair is coupled when either side names
+  it, at the mean of the two sides' strengths.
+
+It reads exactly the subject's LO titles and summaries, the facets' titles and
+descriptions, the concept graph (``relations.yaml`` edges) and prerequisites,
+and the stems of the subject's items (:func:`subject_inputs`). It never reads
+learner data of any kind, any held-out or exam unit's text, an item derived
+from one, or any reference answer (A8): protected items are left out, and the
+job's :class:`~learnloop.adaptive_difficulty.sending.SendGuard` re-checks
+every item it quotes before each request and each record. Invalid outputs (an
+unknown id, a facet of another subject, a self-loading, more than three per
+unit) are dropped; a unit left with no valid proposal has none.
+
+Each proposed loading and coupling appends one ``judgment_ledger`` row (task
+``ad_relatedness``, judge ``llm``, the strength as ``score``, the rationale,
+the run's ``input_hash``), and the run appends one ``ad_relatedness_runs``
+receipt naming the units it covered, in one fenced transaction under the
+subject's durable claim. An unchanged input hash is never re-asked. Spend:
+``adaptive_difficulty.daily_spend_cap_usd`` (owner kind ``ad_relatedness``).
+
+**As of** (§5.10): the subject view is built under one adopted coupling version
+(``ad_coupling_versions``). The proposals in force at adoption apply to the
+whole history; a later run reaches only what did not exist yet: the loadings of
+a new item revision (frozen in its serve-input receipt) and the couplings of a
+facet whose coordinates are created after the run. Changing what already
+exists is a new coupling version, adopted through the playbook with a shadow
+rebuild (:func:`adopt`).
+
+**Never evidence**: nothing here writes evidence, mastery, FSRS or
+certification, and nothing is written to the relations registry (KM §8.1).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import closing
+from dataclasses import dataclass, field
+from typing import Any, Literal
+
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.schemas import WireModel
+from learnloop.ai.spend import SpendLimitExceeded
+from learnloop.ai.transport import render_structured_prompt
+from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.db.connection import connect
+from learnloop.db.stores import ad_serving as serving_store
+
+from learnloop.adaptive_difficulty import model as M
+from learnloop.adaptive_difficulty import priors as P
+
+LOG = logging.getLogger(__name__)
+
+TASK = "ad_relatedness"
+PROMPT_VERSION = "ad-relatedness-v1"
+ROUTE = "llm_probability_llm"
+OWNER_KIND = "ad_relatedness"
+STRENGTHS = {"weak": 0.25, "moderate": 0.5, "strong": 1.0}
+STEM_LIMIT = 400
+SUMMARY_LIMIT = 600
+_CAPS = dict(max_candidates=0, max_pairs=0, max_retries=1, max_calls=2, max_total_tokens=400_000)
+
+
+# -- the wire models ------------------------------------------------------------------------
+
+class LoadingV1(WireModel):
+    facet_id: str
+    strength: Literal["weak", "moderate", "strong"]
+    why: str
+
+
+class ItemLoadingsV1(WireModel):
+    item_id: str
+    loadings: list[LoadingV1]
+
+
+class RelatedV1(WireModel):
+    learning_object_id: str
+    strength: Literal["weak", "moderate", "strong"]
+    why: str
+
+
+class LearningObjectCouplingsV1(WireModel):
+    learning_object_id: str
+    related: list[RelatedV1]
+
+
+class RelatednessV1(WireModel):
+    """The proposal: per item, its loadings; per LO, its related LOs."""
+
+    items: list[ItemLoadingsV1]
+    learning_objects: list[LearningObjectCouplingsV1]
+
+
+# -- the inputs (exactly what the job reads) -----------------------------------------------------
+
+def _excerpt(text: Any, limit: int) -> str:
+    value = " ".join(str(text or "").split())
+    return value if len(value) <= limit else value[: limit - 1] + "…"
+
+
+def lo_subject(vault: Any, lo: Any) -> str:
+    subjects = list(getattr(lo, "subjects", None) or [])
+    return str(subjects[0]) if subjects else "default"
+
+
+def lo_facets(vault: Any, lo: Any) -> list[str]:
+    from learnloop.vault.models import learning_object_facet_union
+
+    facets = [vault.canonical_facet_id(str(f)) for f in learning_object_facet_union(lo)]
+    if not facets:
+        facets = [vault.canonical_facet_id(str(f)) for item in vault.practice_items.values()
+                  if item.learning_object_id == lo.id and getattr(item, "status", "active") == "active"
+                  for f in item.evidence_facets]
+    return sorted(dict.fromkeys(facets))
+
+
+def subjects(vault: Any) -> list[str]:
+    return sorted({lo_subject(vault, lo) for lo in vault.learning_objects.values()
+                   if getattr(lo, "status", "active") == "active"})
+
+
+def subject_inputs(vault: Any, repository: Any, subject: str, *, protected: Any = None) -> dict[str, Any]:
+    """Exactly what the proposal reads for one subject: LO and facet text, the concept graph and
+    prerequisites, and the stems of the subject's unprotected items. Never learner data, a
+    reference answer, or held-out / exam material (A8)."""
+
+    from learnloop.adaptive_difficulty.protection import guard
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+
+    protection = guard(vault, repository, protected)
+    los = sorted((lo for lo in vault.learning_objects.values()
+                  if getattr(lo, "status", "active") == "active" and lo_subject(vault, lo) == subject),
+                 key=lambda lo: lo.id)
+    lo_ids = {lo.id for lo in los}
+    concepts = {lo.concept for lo in los}
+    facets: dict[str, dict[str, Any]] = {}
+    lo_rows = []
+    for lo in los:
+        owned = lo_facets(vault, lo)
+        for facet_id in owned:
+            facet = vault.evidence_facets.get(facet_id)
+            facets[facet_id] = {"facet_id": facet_id, "title": _excerpt(getattr(facet, "title", None) or facet_id, 200),
+                                "description": _excerpt(getattr(facet, "description", None) or "", 300)}
+        lo_rows.append({
+            "learning_object_id": lo.id, "title": _excerpt(lo.title, 200), "summary": _excerpt(lo.summary, SUMMARY_LIMIT),
+            "concept": lo.concept, "facets": owned,
+            "prerequisites": sorted(p for p in (lo.prerequisites or []) if p in lo_ids),
+        })
+    edges = sorted(
+        ({"relation": edge.relation_type, "source": edge.source, "target": edge.target}
+         for edge in getattr(vault, "edges", []) or []
+         if edge.source in concepts | lo_ids and edge.target in concepts | lo_ids),
+        key=lambda e: (e["source"], e["target"], e["relation"]),
+    )
+    items = []
+    revisions: dict[str, str] = {}
+    for item in sorted(vault.practice_items.values(), key=lambda i: str(i.id)):
+        if item.learning_object_id not in lo_ids or getattr(item, "status", "active") != "active":
+            continue
+        if protection.covers(item):
+            continue
+        content_hash, _json = item_revision(item)
+        revisions[str(item.id)] = content_hash
+        items.append({
+            "item_id": str(item.id), "learning_object_id": item.learning_object_id,
+            "facets": sorted({vault.canonical_facet_id(str(f)) for f in item.evidence_facets}),
+            "stem": _excerpt(item.prompt, STEM_LIMIT),
+        })
+    payload = {"subject": subject, "learning_objects": lo_rows, "facets": [facets[f] for f in sorted(facets)],
+               "concept_graph": edges, "items": items}
+    return {"payload": payload, "revisions": revisions,
+            "input_hash": hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest(),
+            "item_ids": [row["item_id"] for row in items]}
+
+
+def prompt(inputs: Mapping[str, Any]) -> str:
+    return render_structured_prompt("Propose which topics are related and what answering each item implies",
+                                    PROMPT_VERSION, {
+        "instructions": (
+            "You are given one subject's topics (learning objects), their facets, the concept graph and the "
+            "stems of the subject's practice items. For each item, name at most 3 facets of this subject OUTSIDE "
+            "the item's own facets that answering the item correctly implies knowledge of (for example a "
+            "prerequisite's facets), each weak, moderate or strong; name none when nothing beyond its own facets "
+            "is implied. For each learning object, name at most 3 other learning objects of this subject most "
+            "related to it, each weak, moderate or strong. Use only the ids given. Give a one-line reason for each."
+        ),
+        "state": dict(inputs["payload"]),
+    })
+
+
+# -- validation --------------------------------------------------------------------------
+
+@dataclass
+class Proposal:
+    loadings: dict[str, dict[str, tuple[float, str]]] = field(default_factory=dict)  # item id -> facet -> (Q, why)
+    couplings: dict[str, dict[str, tuple[float, str]]] = field(default_factory=dict)  # LO -> M -> (C, why)
+    dropped: list[dict[str, Any]] = field(default_factory=list)
+
+
+def validate(answer: RelatednessV1 | Mapping[str, Any], inputs: Mapping[str, Any]) -> Proposal:
+    """Drop what fails validation: unknown ids, another subject's facet, self-loadings or
+    self-couplings, more than three per unit; the loadings' sum capped at 1."""
+
+    if isinstance(answer, Mapping):
+        answer = RelatednessV1.model_validate(dict(answer))
+    payload = inputs["payload"]
+    facets = {row["facet_id"] for row in payload["facets"]}
+    los = {row["learning_object_id"] for row in payload["learning_objects"]}
+    own = {row["item_id"]: set(row["facets"]) for row in payload["items"]}
+    proposal = Proposal()
+    for entry in answer.items:
+        if entry.item_id not in own:
+            proposal.dropped.append({"unit": entry.item_id, "why": "unknown_item"})
+            continue
+        kept: dict[str, tuple[float, str]] = {}
+        for loading in entry.loadings:
+            if loading.facet_id not in facets:
+                proposal.dropped.append({"unit": entry.item_id, "facet": loading.facet_id, "why": "unknown_facet"})
+            elif loading.facet_id in own[entry.item_id]:
+                proposal.dropped.append({"unit": entry.item_id, "facet": loading.facet_id, "why": "self_loading"})
+            elif loading.facet_id in kept:
+                proposal.dropped.append({"unit": entry.item_id, "facet": loading.facet_id, "why": "duplicate"})
+            elif len(kept) >= P.MAX_LOADINGS:
+                proposal.dropped.append({"unit": entry.item_id, "facet": loading.facet_id, "why": "over_cap"})
+            else:
+                kept[loading.facet_id] = (STRENGTHS[loading.strength], _excerpt(loading.why, 300))
+        total = sum(q for q, _why in kept.values())
+        if total > 1.0:
+            kept = {f: (q / total, why) for f, (q, why) in kept.items()}
+        if kept:
+            proposal.loadings[entry.item_id] = kept
+    for entry in answer.learning_objects:
+        if entry.learning_object_id not in los:
+            proposal.dropped.append({"unit": entry.learning_object_id, "why": "unknown_learning_object"})
+            continue
+        kept = {}
+        for related in entry.related:
+            if related.learning_object_id not in los:
+                proposal.dropped.append({"unit": entry.learning_object_id, "lo": related.learning_object_id,
+                                         "why": "unknown_learning_object"})
+            elif related.learning_object_id == entry.learning_object_id:
+                proposal.dropped.append({"unit": entry.learning_object_id, "why": "self_coupling"})
+            elif related.learning_object_id in kept:
+                proposal.dropped.append({"unit": entry.learning_object_id, "lo": related.learning_object_id,
+                                         "why": "duplicate"})
+            elif len(kept) >= P.MAX_COUPLED:
+                proposal.dropped.append({"unit": entry.learning_object_id, "lo": related.learning_object_id,
+                                         "why": "over_cap"})
+            else:
+                kept[related.learning_object_id] = (STRENGTHS[related.strength], _excerpt(related.why, 300))
+        if kept:
+            proposal.couplings[entry.learning_object_id] = kept
+    return proposal
+
+
+# -- the job --------------------------------------------------------------------------------
+
+@dataclass
+class ProposalOutcome:
+    subject: str
+    status: str
+    run_id: str | None = None
+    judgments: int = 0
+    reason: str | None = None
+    input_hash: str | None = None
+    dropped: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"subject": self.subject, "status": self.status, "run_id": self.run_id, "judgments": self.judgments,
+                "reason": self.reason, "input_hash": self.input_hash, "dropped": self.dropped}
+
+
+def run_key(subject: str, input_hash: str) -> str:
+    return f"{subject}:{input_hash}"
+
+
+def claim_key(subject: str, input_hash: str) -> str:
+    return f"ad_relatedness:{subject}:{input_hash}"
+
+
+def _client(vault: Any, injected: Any | None) -> tuple[Any | None, str | None]:
+    from learnloop.adaptive_difficulty import spend as ad_spend
+    from learnloop.practice_index.paid import plan_route, resolve_client
+
+    if injected is not None:
+        return injected, None
+    if ad_spend.models_off():
+        return None, "models_off"
+    return resolve_client(vault, plan_route(vault, ROUTE))  # type: ignore[arg-type]
+
+
+def coupling_on(config: Any) -> bool:
+    from learnloop.adaptive_difficulty.successor import switch_on
+
+    return switch_on(config, "learned_coupling")
+
+
+def propose_subject(vault: Any, repository: Any, subject: str, *, client: Any = None, clock: Clock | None = None,
+                    fence: Any = None, live_vault: Callable[[], Any] | None = None,
+                    protected: Any = None) -> ProposalOutcome:
+    """One subject's proposal, under its durable claim; never with ``learned_coupling`` off."""
+
+    from learnloop.adaptive_difficulty import spend as ad_spend
+    from learnloop.adaptive_difficulty.claims import LeaseLost, ReceiptWriteFailed, claimed
+    from learnloop.adaptive_difficulty.sending import ProtectedContent, SendGuard, ask_llm, refusal_status
+    from learnloop.practice_index.paid import plan_route
+
+    outcome = ProposalOutcome(subject, "disabled")
+    if not coupling_on(vault.config):
+        return outcome
+    inputs = subject_inputs(vault, repository, subject, protected=protected)
+    outcome.input_hash = inputs["input_hash"]
+    key = run_key(subject, inputs["input_hash"])
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if any(run["run_key"] == key and run["status"] == "ok"
+               for run in serving_store.relatedness_runs(connection, subject_id=subject)):
+            outcome.status = "current"
+            return outcome
+    if not inputs["payload"]["learning_objects"]:
+        outcome.status = "empty"
+        return outcome
+    llm, why = _client(vault, client)
+    if llm is None:
+        outcome.status, outcome.reason = "unavailable", why
+        return outcome
+    items = [vault.practice_items[item_id] for item_id in inputs["item_ids"] if item_id in vault.practice_items]
+    try:
+        with claimed(repository, claim_key(subject, inputs["input_hash"]), fence=fence) as worker:
+            if worker is None:
+                outcome.status = "busy"
+                return outcome
+            send = SendGuard(vault, repository, items=items, protected=protected, live_vault=live_vault)
+            route = plan_route(vault, ROUTE, llm)  # type: ignore[arg-type]
+            price = vault.config.adaptive_difficulty.price_per_million
+            if route.billing != "subscription" and price is None:
+                outcome.status, outcome.reason = "refused_spend", (
+                    "a metered llm_probability_llm route needs adaptive_difficulty.price_per_million")
+                return outcome
+            envelope = ad_spend.ad_envelope(vault, worker.base, clock=clock)
+            text = prompt(inputs)
+            try:
+                worker.require_live()
+                answer, calls = ask_llm(send, route, llm, price=price, repository=worker.repository, caps=_CAPS,
+                                        owner_kind=OWNER_KIND, owner_id=key, purpose=TASK, prompt=text,
+                                        result_model=RelatednessV1, metadata={"owner_id": key}, envelope=envelope)
+            except ProtectedContent as exc:
+                outcome.status, outcome.reason = refusal_status(exc), str(exc)[:200]
+                return outcome
+            except ReceiptWriteFailed as exc:
+                outcome.status, outcome.reason = "failed", str(exc)[:200]
+                return outcome
+            except (AIInterrupted, LeaseLost):
+                raise
+            except SpendLimitExceeded as exc:
+                outcome.status, outcome.reason = "refused_spend", str(exc)[:200]
+                return outcome
+            except (AIProviderUnavailable, AIInvalidOutput, TimeoutError, ValueError) as exc:
+                outcome.status, outcome.reason = "failed", type(exc).__name__
+                return outcome
+            proposal = validate(answer, inputs)
+            model = str(calls.last_resolved_model or getattr(llm, "model", None) or route.model or "unknown")
+            try:
+                generation = send.check("record")
+            except ProtectedContent as exc:
+                outcome.status, outcome.reason = refusal_status(exc), str(exc)[:200]
+                return outcome
+            try:
+                run_id, written = _record(worker.repository, subject, inputs, proposal, model=model,
+                                          created_at=utc_now_iso(clock),
+                                          admit=lambda: send.confirm(generation, "record"))
+            except ProtectedContent as exc:
+                outcome.status, outcome.reason = refusal_status(exc), str(exc)[:200]
+                return outcome
+            outcome.status, outcome.run_id, outcome.judgments = "ok", run_id, written
+            outcome.dropped = len(proposal.dropped)
+    except LeaseLost:
+        outcome.status = "stale"
+    return outcome
+
+
+def _record(repository: Any, subject: str, inputs: Mapping[str, Any], proposal: Proposal, *, model: str,
+            created_at: str, admit: Callable[[], None]) -> tuple[str | None, int]:
+    from learnloop.db.stores.judgments import append_judgment
+
+    key = run_key(subject, inputs["input_hash"])
+    units: list[str] = []
+    ids: list[str] = []
+    with repository.atomic():
+        admit()
+        connection = repository.connection()
+        for row in inputs["payload"]["learning_objects"]:
+            lo = row["learning_object_id"]
+            units.append(f"lo:{lo}")
+            for other, (strength, why) in sorted(proposal.couplings.get(lo, {}).items()):
+                ids.append(append_judgment(
+                    connection, task=TASK, left_kind="learning_object", left_id=lo, right_kind="learning_object",
+                    right_id=other, judge="llm", judge_model=model, prompt_version=PROMPT_VERSION,
+                    input_hash=str(inputs["input_hash"]), verdict=f"{strength:g}", score=float(strength),
+                    rationale=json.dumps({"run_key": key, "subject": subject, "why": why}, sort_keys=True),
+                    created_at=created_at))
+        for item_id in inputs["item_ids"]:
+            content_hash = inputs["revisions"][item_id]
+            units.append(f"rev:{content_hash}")
+            for facet, (strength, why) in sorted(proposal.loadings.get(item_id, {}).items()):
+                ids.append(append_judgment(
+                    connection, task=TASK, left_kind="practice_item_revision", left_id=content_hash,
+                    right_kind="facet", right_id=facet, judge="llm", judge_model=model,
+                    prompt_version=PROMPT_VERSION, input_hash=str(inputs["input_hash"]),
+                    verdict=f"{strength:g}", score=float(strength),
+                    rationale=json.dumps({"run_key": key, "subject": subject, "item_id": item_id, "why": why},
+                                         sort_keys=True),
+                    created_at=created_at))
+        run_id = serving_store.insert_relatedness_run(connection, {
+            "run_key": key, "subject_id": subject, "input_hash": str(inputs["input_hash"]), "units": units,
+            "judgment_ids": ids, "status": "ok", "prompt_version": PROMPT_VERSION, "judge_model": model,
+            "created_at": created_at,
+        })
+    return run_id, len(ids)
+
+
+def adopt(repository: Any, subject: str, *, adopted_by: str, note: str | None = None,
+          clock: Clock | None = None) -> dict[str, Any] | None:
+    """Adopt the proposals now in force for ``subject`` as its next coupling version.
+
+    The first version (at the successor's tag) applies to the whole history by
+    one rebuild; a later one reinterprets what exists and goes through the
+    playbook's shadow rebuild first (§5.10, §11.1)."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        runs = [run for run in serving_store.relatedness_runs(connection, subject_id=subject) if run["status"] == "ok"]
+        if not runs:
+            return None
+        latest: dict[str, str] = {}
+        for run in runs:
+            for unit in run["units"]:
+                latest[unit] = run["id"]
+        run_ids = sorted(set(latest.values()))
+        versions = [row for row in serving_store.coupling_versions(connection) if row["subject_id"] == subject]
+        number = 1 + max((int(row["version"]) for row in versions), default=0)
+        digest = hashlib.sha256(json.dumps({"subject": subject, "runs": run_ids}, sort_keys=True).encode()).hexdigest()
+        row = {"subject_id": subject, "version": number, "coupling_version": f"{subject}:v{number}:{digest[:16]}",
+               "run_ids": run_ids, "adopted_by": adopted_by, "note": note, "adopted_at": utc_now_iso(clock)}
+        row["id"] = serving_store.insert_coupling_version(connection, row)
+    return row
+
+
+# -- the structure the replayer reads ----------------------------------------------------------
+
+def _stamp(value: Any) -> float:
+    parsed = parse_utc(str(value)) if value else None
+    return parsed.timestamp() / 86400.0 if parsed is not None else float("-inf")
+
+
+@dataclass
+class _UnitProposal:
+    at: float  # -inf: in force from the start (the adopted version)
+    values: dict[str, float]
+
+
+class VaultStructure(M.Structure):
+    """The relatedness in force, as of the replay's current time (``now``, in days).
+
+    The adopted version's proposals hold from the start; a later run's hold from its
+    write time, so they reach only coordinates created after it (§5.10 "As of")."""
+
+    def __init__(self, *, facet_los: Mapping[str, Sequence[str]], lo_facets: Mapping[str, Sequence[str]],
+                 couplings: Mapping[str, Sequence[_UnitProposal]] | None = None,
+                 loadings: Mapping[str, Sequence[_UnitProposal]] | None = None,
+                 versions: Mapping[str, str] | None = None) -> None:
+        self.facet_los = {f: tuple(sorted(set(los))) for f, los in facet_los.items()}
+        self.lo_facets = {lo: tuple(fs) for lo, fs in lo_facets.items()}
+        self._couplings = {lo: sorted(props, key=lambda p: p.at) for lo, props in (couplings or {}).items()}
+        self._loadings = {rev: sorted(props, key=lambda p: p.at) for rev, props in (loadings or {}).items()}
+        self.versions = dict(versions or {})
+        self.now = float("inf")
+
+    @staticmethod
+    def _in_force(props: Sequence[_UnitProposal], at: float) -> dict[str, float]:
+        chosen: dict[str, float] = {}
+        for prop in props:
+            if prop.at <= at:
+                chosen = prop.values
+        return chosen
+
+    def named(self, lo: str, at: float | None = None) -> dict[str, float]:
+        return self._in_force(self._couplings.get(lo, ()), self.now if at is None else at)
+
+    def coupling(self, lo: str, at: float | None = None) -> dict[str, float]:
+        """Symmetrized strengths ``C_{LM}``: the mean of the two sides (0 for a side that names none)."""
+
+        at = self.now if at is None else at
+        own = self.named(lo, at)
+        partners = set(own)
+        for other in self._couplings:
+            if other != lo and lo in self.named(other, at):
+                partners.add(other)
+        out = {}
+        for other in sorted(partners):
+            value = 0.5 * (own.get(other, 0.0) + self.named(other, at).get(lo, 0.0))
+            if value > 0:
+                out[other] = value
+        return out
+
+    def loadings(self, content_hash: str | None, at: float | None = None) -> dict[str, float]:
+        if not content_hash:
+            return {}
+        return dict(self._in_force(self._loadings.get(content_hash, ()), self.now if at is None else at))
+
+    def _partners(self, facet: str) -> dict[str, float]:
+        los = self.facet_los.get(facet, ())
+        partners: dict[str, float] = {}
+        for lo in los:
+            for other, strength in self.coupling(lo).items():
+                if other in los:
+                    continue
+                partners[other] = max(partners.get(other, 0.0), strength)
+        return partners
+
+    def _regression(self, facet: str, name_for: Callable[[str], str], existing: Callable[[str], bool]) -> M.Regression:
+        regressors: list[str] = []
+        raw: list[float] = []
+        total = 0.0
+        for other, strength in sorted(self._partners(facet).items()):
+            present = [g for g in self.lo_facets.get(other, ()) if g != facet and existing(name_for(g))]
+            if not present:
+                continue
+            total += strength
+            for g in present:
+                regressors.append(name_for(g))
+                raw.append(strength / len(present))
+        return M.Regression(tuple(regressors), tuple(raw), total)
+
+    def facet_regression(self, facet: str, existing: Callable[[str], bool]) -> M.Regression:
+        return self._regression(facet, M.facet_name, existing)
+
+    def cell_regression(self, facet: str, capability: str, existing: Callable[[str], bool]) -> M.Regression:
+        return self._regression(facet, lambda g: M.cell_name(g, capability), existing)
+
+    def coupled_facets(self, facet: str) -> tuple[str, ...]:
+        out: list[str] = []
+        for other in sorted(self._partners(facet)):
+            out.extend(g for g in self.lo_facets.get(other, ()) if g != facet)
+        return tuple(dict.fromkeys(out))
+
+
+def facet_maps(vault: Any) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    lo_to_facets: dict[str, list[str]] = {}
+    facet_to_los: dict[str, list[str]] = {}
+    for lo in vault.learning_objects.values():
+        facets = lo_facets(vault, lo)
+        lo_to_facets[lo.id] = facets
+        for facet in facets:
+            facet_to_los.setdefault(facet, []).append(lo.id)
+    return facet_to_los, lo_to_facets
+
+
+def load_structure(connection: Any, vault: Any, *, coupled: bool = True) -> VaultStructure:
+    """The relatedness in force for the replay: the adopted versions' runs from the start,
+    later runs from their write time. With ``coupled`` false (``learned_coupling`` off) none."""
+
+    facet_to_los, lo_to_facets = facet_maps(vault)
+    if not coupled or not serving_store.has_table(connection, serving_store.COUPLING_VERSIONS):
+        return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
+    adopted: dict[str, dict[str, Any]] = {}
+    for row in serving_store.coupling_versions(connection):
+        current = adopted.get(row["subject_id"])
+        if current is None or int(row["version"]) > int(current["version"]):
+            adopted[row["subject_id"]] = row
+    if not adopted:
+        return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets)
+    judgments = {str(row[0]): row for row in connection.execute(
+        "SELECT id, left_kind, left_id, right_kind, right_id, score FROM judgment_ledger WHERE task = ?", (TASK,))}
+    couplings: dict[str, list[_UnitProposal]] = {}
+    loadings: dict[str, list[_UnitProposal]] = {}
+    versions: dict[str, str] = {}
+    for subject, version in adopted.items():
+        versions[subject] = str(version["coupling_version"])
+        base_runs = set(version["run_ids"])
+        adopted_at = _stamp(version["adopted_at"])
+        for run in serving_store.relatedness_runs(connection, subject_id=subject):
+            if run["status"] != "ok":
+                continue
+            if run["id"] in base_runs:
+                at = float("-inf")
+            elif _stamp(run["created_at"]) > adopted_at:
+                at = _stamp(run["created_at"])
+            else:
+                continue  # an older run superseded at adoption
+            per_unit: dict[str, dict[str, float]] = {unit: {} for unit in run["units"]}
+            for judgment_id in run["judgment_ids"]:
+                row = judgments.get(str(judgment_id))
+                if row is None:
+                    continue
+                _id, left_kind, left_id, _right_kind, right_id, score = row
+                unit = f"lo:{left_id}" if left_kind == "learning_object" else f"rev:{left_id}"
+                per_unit.setdefault(unit, {})[str(right_id)] = float(score or 0.0)
+            for unit, values in per_unit.items():
+                kind, ident = unit.split(":", 1)
+                target = couplings if kind == "lo" else loadings
+                target.setdefault(ident, []).append(_UnitProposal(at, values))
+    return VaultStructure(facet_los=facet_to_los, lo_facets=lo_to_facets, couplings=couplings, loadings=loadings,
+                          versions=versions)
+
+
+__all__ = [
+    "OWNER_KIND",
+    "PROMPT_VERSION",
+    "Proposal",
+    "ProposalOutcome",
+    "ROUTE",
+    "RelatednessV1",
+    "STRENGTHS",
+    "TASK",
+    "VaultStructure",
+    "adopt",
+    "facet_maps",
+    "load_structure",
+    "lo_facets",
+    "lo_subject",
+    "prompt",
+    "propose_subject",
+    "subject_inputs",
+    "subjects",
+    "validate",
+]
