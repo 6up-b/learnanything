@@ -23,7 +23,11 @@ from learnloop.diagnosis.split.context import (
     RegistryRetriever,
     assemble_diagnosis_context,
 )
-from learnloop.diagnosis.split.contract import diagnosis_prompt, request_diagnosis_proposal
+from learnloop.diagnosis.split.contract import (
+    diagnosis_prompt,
+    diagnosis_prompt_version,
+    request_diagnosis_proposal,
+)
 from learnloop.diagnosis.split.history import HistoryStore
 from learnloop.diagnosis.split.settings import (
     DIAGNOSIS_PROMPT_VERSION,
@@ -138,6 +142,7 @@ def run_diagnosis(
                 )
                 outcome.receipt = dict(assembled.receipt)
                 outcome.context_hash = assembled.context_hash
+                outcome.prompt_version = diagnosis_prompt_version(assembled)
                 from learnloop.diagnosis.split.provenance import frozen_record, snapshot_reads, snapshot_record
 
                 # What the context shows, frozen before the diagnoser runs (F3).
@@ -188,6 +193,7 @@ def run_diagnosis(
             )
             outcome.receipt = dict(assembled.receipt)
             outcome.context_hash = assembled.context_hash
+            outcome.prompt_version = diagnosis_prompt_version(assembled)
             outcome.reads = assembled.reads
             from learnloop.diagnosis.split.provenance import frozen_record
 

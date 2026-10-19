@@ -14,6 +14,7 @@ either to :class:`DiagnosisProposal`.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import json
 from pathlib import Path
 from typing import Literal
@@ -29,6 +30,7 @@ from learnloop.attempts.ai_contracts import (
 )
 from learnloop.diagnosis.split.context import AssembledContext
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
+from learnloop.diagnosis.split.workbench_trace import SUFFIX as WORKBENCH_TRACE_SUFFIX
 
 CAUSAL_CLASSES = ("learner_state", "transient_execution", "unknown")
 PATTERN_RELATIONS = ("same_mechanism", "same_prerequisite_gap", "disconfirming")
@@ -261,12 +263,21 @@ def diagnosis_task(mode: str) -> str:
     return " ".join(rules)
 
 
+def diagnosis_prompt_version(assembled: AssembledContext) -> str:
+    """The prompt version; ``+workbench-v1`` only when the current attempt
+    carries a workbench step trace (RW2b, spec §5.4)."""
+
+    if isinstance(assembled.current, Mapping) and assembled.current.get("workbench_trace"):
+        return f"{DIAGNOSIS_PROMPT_VERSION}{WORKBENCH_TRACE_SUFFIX}"
+    return DIAGNOSIS_PROMPT_VERSION
+
+
 def diagnosis_prompt(assembled: AssembledContext) -> str:
     """The stable instructions first, then the cache-ordered context (§5.2)."""
 
     header = (
         "learnloop diagnosis proposal\n"
-        f"prompt_version: {DIAGNOSIS_PROMPT_VERSION}\n"
+        f"prompt_version: {diagnosis_prompt_version(assembled)}\n"
         f"history_mode: {assembled.mode}\n\n"
         "Return only JSON that matches the provided output schema. Do not include "
         "Markdown fences or explanatory prose.\n\n"

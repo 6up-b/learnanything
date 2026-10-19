@@ -37,7 +37,11 @@ SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative
 #: Adaptive hints H2b (migration 212) adds ``hint_feedback``: the practice
 #: screen's "doesn't connect" text and discriminating answers, read from
 #: ``help_assists`` (:func:`~.sources.hint_feedback_text`).
-READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback")
+#: Reader workbench RW2b reads ``workbench_text`` (its adapter,
+#: :func:`~.sources.workbench_text`): stuck steps, replies and discriminating
+#: answers written while working in steps.
+READABLE_SOURCE_KINDS = ("tutor_question", "stuck_answer", "diagnosis", "reader_formative", "hint_feedback",
+                         "workbench_text")
 #: The kinds whose named gaps stay content and display (spec W1 tier 2, RW1b
 #: §4.5 "no successor"): a gap read from them names a prerequisite or a belief
 #: (and may create one), but never brings a check forward and is never a weak

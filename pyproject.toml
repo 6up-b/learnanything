@@ -25,6 +25,7 @@ dependencies = [
   "manim>=0.19.1",
   "pyyaml>=6.0",
   "Pillow>=10.4",
+  "lark>=1.3.1",
 ]
 
 [project.optional-dependencies]
@@ -495,8 +496,31 @@ source_modules = [
     "learnloop.field",
     "learnloop.router",
 ]
-forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbench"]
+# RW2b: the workbench's help package too (checks, the ladder's Reader side).
+forbidden_modules = ["learnloop.reader.workbench", "learnloop.db.stores.workbench", "learnloop.workbench"]
 allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "workbench-calls-the-one-hint-service"
+name = "The Reader defines no hint writer, chooser or map builder: it calls learnloop.hints (RW2b, G64)"
+type = "forbidden"
+# Every workbench hint, its kind and the suggested rung come from the one
+# hint service (adaptive hints H3): the Reader's packages reach it only
+# through learnloop.hints.workbench (the surface's extension), .service and
+# .kinds/.state, never the writer, the chooser, the options, the contracts or
+# the map builder they would need to make a second one.
+source_modules = ["learnloop.reader", "learnloop.workbench"]
+forbidden_modules = [
+    "learnloop.hints.writer",
+    "learnloop.hints.chooser",
+    "learnloop.hints.map_builder",
+    "learnloop.hints.map_seeds",
+    "learnloop.hints.options",
+    "learnloop.hints.contracts",
+    "learnloop.hints.discriminating",
+    "learnloop.hints.maps",
+]
+allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 id = "evidence-never-reads-reader-observations"

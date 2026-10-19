@@ -570,3 +570,194 @@ def test_runtime_constructed_module_references_resolve() -> None:
         if spec.source_of_value != "module_constant":
             continue
         parameter_registry._resolve_module_constant(spec.path)
+
+
+# -- RW2b fix rounds 11-12: one accessor for stored symbolic results ------------------------------
+
+#: The raw stored symbolic fields: a check's verdict records, the placement's
+#: ``symbolic`` outcomes, a hint's ``claims``, a decided method, the record
+#: decoder. A READ is a load (a dict key or an assignment target writes).
+_SYMBOLIC_CONSTANTS = {"step_verdicts_json": "step_verdicts_json", "checked_numerically": "checked_numerically"}
+_SYMBOLIC_KEYS = {"symbolic": "symbolic_key", "claims": "claims_key"}
+#: Exemptions by FUNCTION (fix round 12): (module, qualified function) ->
+#: tokens; "<module>" is module level, "*" a whole module. The accessor, the
+#: writer operations (they decide and store the methods), and modules whose
+#: "claims" belong to another domain.
+_SYMBOLIC_FIELD_ALLOWED: dict[tuple[str, str], set[str]] = {
+    ("src/learnloop/symbolic_view.py", "*"): set(_SYMBOLIC_CONSTANTS.values()) | set(_SYMBOLIC_KEYS.values())
+    | {"verdict_from_record"},
+    ("src/learnloop/workbench/symbolic.py", "<module>"): {"checked_numerically"},  # CHECKED_NUMERICALLY
+    ("src/learnloop/workbench/check.py", "<module>"): {"checked_numerically"},  # MARKS, METHOD_LABELS
+    ("src/learnloop/workbench/check.py", "check_view"): {"verdict_from_record"},  # decodes verdict_records()
+    ("src/learnloop/workbench/ladder.py", "_verdicts"): {"verdict_from_record"},  # decodes verdict_records()
+    ("src/learnloop/hints/workbench.py", "verify_claims"): {"checked_numerically"},  # decides a claim's status
+    ("src/learnloop/db/stores/help_assists.py", "<module>"): {"step_verdicts_json"},  # the store's COLUMNS
+    # Another domain's "claims" (source inventories, EVSI comparisons, the offline judge):
+    ("src/learnloop/cli/evsi.py", "*"): {"claims_key"},
+    ("src/learnloop/evsi_calibration/compare.py", "*"): {"claims_key"},
+    ("src/learnloop/diagnosis/offline_review/judge.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/source_set_synthesis.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/vault_epigraphs.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/append_neighborhood.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/graph_nomination.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/source_coverage.py", "*"): {"claims_key"},
+    ("src/learnloop/content/synthesis/source_unit_inventory.py", "*"): {"claims_key"},
+    ("src/learnloop/db/repositories.py", "*"): {"claims_key"},
+}
+#: The readers, each CALLING the accessor (checked by AST).
+_SYMBOLIC_READERS = (
+    "src/learnloop/workbench/check.py",
+    "src/learnloop/workbench/ladder.py",
+    "src/learnloop/hints/report_workbench.py",
+    "src/learnloop/diagnosis/split/workbench_trace.py",
+    "src/learnloop/diagnosis/split/live.py",
+    "src/learnloop_sidecar/handlers/workbench_help.py",
+    "src/learnloop/hints/workbench.py",
+)
+
+
+def _symbolic_field_uses(source: str) -> list[tuple[str, str]]:
+    """``(qualified function, token)`` for every raw read in ``source``."""
+
+    tree = ast.parse(source)
+    dict_keys = {id(key) for node in ast.walk(tree) if isinstance(node, ast.Dict) for key in node.keys if key}
+    out: list[tuple[str, str]] = []
+
+    def visit(node: ast.AST, scope: str) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scope = node.name if scope == "<module>" else f"{scope}.{node.name}"
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in dict_keys \
+                and node.value in _SYMBOLIC_CONSTANTS:
+            out.append((scope, _SYMBOLIC_CONSTANTS[node.value]))
+        elif isinstance(node, ast.Name) and node.id == "verdict_from_record":
+            out.append((scope, "verdict_from_record"))
+        elif isinstance(node, ast.Attribute) and node.attr == "verdict_from_record":
+            out.append((scope, "verdict_from_record"))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" \
+                and node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in _SYMBOLIC_KEYS:
+            out.append((scope, _SYMBOLIC_KEYS[node.args[0].value]))
+        elif isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load) \
+                and isinstance(node.slice, ast.Constant) and node.slice.value in _SYMBOLIC_KEYS:
+            out.append((scope, _SYMBOLIC_KEYS[node.slice.value]))
+        for child in ast.iter_child_nodes(node):
+            visit(child, scope)
+
+    visit(tree, "<module>")
+    return out
+
+
+def _symbolic_field_violations(files: dict[str, str]) -> list[str]:
+    out = []
+    for relative, text in files.items():
+        for scope, token in _symbolic_field_uses(text):
+            top = scope.split(".", 1)[0] if scope != "<module>" else scope
+            allowed = (_SYMBOLIC_FIELD_ALLOWED.get((relative, "*"), set())
+                       | _SYMBOLIC_FIELD_ALLOWED.get((relative, scope), set())
+                       | _SYMBOLIC_FIELD_ALLOWED.get((relative, top), set()))
+            if token not in allowed:
+                out.append(f"{relative}:{scope}: {token}")
+    return sorted(set(out))
+
+
+def _calls_the_accessor(source: str) -> bool:
+    """Whether ``source`` imports from ``learnloop.symbolic_view`` and CALLS
+    one of the names it imports (by AST, not a substring)."""
+
+    tree = ast.parse(source)
+    names = {alias.asname or alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+             and node.module == "learnloop.symbolic_view" for alias in node.names}
+    return any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
+               for node in ast.walk(tree))
+
+
+def test_symbolic_field_detector_rejects_a_synthetic_reader() -> None:
+    assert _symbolic_field_violations({"src/learnloop/new_reader.py": 'def f(row):\n    return row.get("step_verdicts_json")\n'}) == [
+        "src/learnloop/new_reader.py:f: step_verdicts_json"]
+    # The verify's case (round 12): a raw read added to a writer module, outside its writer operations.
+    workbench = (REPOSITORY_ROOT / "src/learnloop/hints/workbench.py").read_text(encoding="utf-8")
+    injected = workbench + '\n\ndef sneaky(row):\n    return row.get("step_verdicts_json")\n'
+    assert _symbolic_field_violations({"src/learnloop/hints/workbench.py": injected}) == [
+        "src/learnloop/hints/workbench.py:sneaky: step_verdicts_json"]
+    # Writing a stored field (a dict key, an assignment target) is not a read.
+    assert _symbolic_field_violations({"src/learnloop/w.py": 'def w(p):\n    p["claims"] = []\n'
+                                                             '    return {"step_verdicts_json": "[]"}\n'}) == []
+    # A reader must CALL the accessor; naming it is not enough.
+    assert not _calls_the_accessor('# learnloop.symbolic_view\nimport json\n')
+    assert _calls_the_accessor('from learnloop.symbolic_view import switch\nswitch(None)\n')
+
+
+def test_stored_symbolic_results_are_read_only_through_the_one_accessor() -> None:
+    files = {}
+    for path in sorted((REPOSITORY_ROOT / "src").rglob("*.py")):
+        files[path.relative_to(REPOSITORY_ROOT).as_posix()] = path.read_text(encoding="utf-8")
+    assert _symbolic_field_violations(files) == []
+    for relative in _SYMBOLIC_READERS:
+        assert _calls_the_accessor(files[relative]), relative
+
+
+#: The TypeScript side (fix round 12): only helpModel's verdictMark and
+#: claimLine render a symbolic mark; nobody else reads a verdict's mark or
+#: writes "✓"/"≠" on the workbench, and the unused CheckMarker stays unused.
+_TS_ROOT = REPOSITORY_ROOT / "apps" / "learnloop-tauri" / "src"
+
+
+def _ts_function_body(source: str, name: str) -> str:
+    start = source.index(f"export function {name}(")
+    end = source.index("\n}\n", start)
+    return source[start:end]
+
+
+def _ts_symbolic_mark_violations(files: dict[str, str]) -> list[str]:
+    out = []
+    for relative, text in files.items():
+        allowed = ""
+        if relative.endswith("screens/workbench/helpModel.ts"):
+            allowed = _ts_function_body(text, "verdictMark") + _ts_function_body(text, "claimLine")
+        for number, line in enumerate(text.splitlines(), 1):
+            code = line.strip()
+            if code.startswith(("//", "*", "/*")):
+                continue
+            if "workbench" in relative and ("✓" in code or "≠" in code) and code not in allowed:
+                out.append(f"{relative}:{number}: a symbolic mark outside verdictMark/claimLine")
+            if re.search(r"\bverdict\.mark\b", code) and code not in allowed:
+                out.append(f"{relative}:{number}: verdict.mark read outside verdictMark")
+            if re.search(r"import\s*\{[^}]*\bCheckMarker\b", code):
+                out.append(f"{relative}:{number}: CheckMarker imported")
+    return out
+
+
+def test_only_verdict_mark_and_claim_line_render_symbolic_marks() -> None:
+    files = {path.relative_to(_TS_ROOT).as_posix(): path.read_text(encoding="utf-8")
+             for path in sorted(_TS_ROOT.rglob("*.ts*")) if ".test." not in path.name}
+    assert _ts_symbolic_mark_violations(files) == []
+    assert _ts_symbolic_mark_violations({"screens/workbench/Rogue.tsx": "const x = `${verdict.mark} ok`;"}) == [
+        "screens/workbench/Rogue.tsx:1: verdict.mark read outside verdictMark"]
+
+
+def _raw_verdict_reads(source: str) -> list[str]:
+    """Scopes that read ``._raw_verdicts`` outside ``WorkbenchHintContext``
+    (RW2b fix round 15: only the context's own ``current()`` reads them)."""
+
+    out: list[str] = []
+
+    def visit(node: ast.AST, scope: str) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scope = node.name if scope == "<module>" else f"{scope}.{node.name}"
+        if isinstance(node, ast.Attribute) and node.attr == "_raw_verdicts" \
+                and not scope.startswith("WorkbenchHintContext"):
+            out.append(scope)
+        for child in ast.iter_child_nodes(node):
+            visit(child, scope)
+
+    visit(ast.parse(source), "<module>")
+    return out
+
+
+def test_only_the_hint_context_reads_its_raw_verdicts() -> None:
+    assert _raw_verdict_reads("def f(context):\n    return context._raw_verdicts\n") == ["f"]
+    found = {}
+    for path in sorted((REPOSITORY_ROOT / "src").rglob("*.py")):
+        reads = _raw_verdict_reads(path.read_text(encoding="utf-8"))
+        if reads:
+            found[path.relative_to(REPOSITORY_ROOT).as_posix()] = reads
+    assert found == {}

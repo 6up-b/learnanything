@@ -53,6 +53,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores import help_assists as store
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.hints import chooser as chooser_module
+from learnloop.hints import workbench as workbench_module
 from learnloop.hints.chooser import Choice
 from learnloop.hints.contracts import (
     Check,
@@ -109,6 +110,9 @@ OWNER_KINDS = ("hint_chooser", "hint_writer")
 FIT_TASK = "hint_fit"
 FIT_VERSION = "hint-fit-v1"
 SURFACE = "practice"
+#: The surfaces the service serves: the practice screen (H2) and the Reader
+#: workbench (H3, through :mod:`learnloop.hints.workbench`).
+SURFACES = (SURFACE, workbench_module.SURFACE)
 
 #: Result statuses. ``ready``: a hint is prepared for delivery. ``withheld``:
 #: it would give the answer away (shown never). ``unavailable``: nothing could
@@ -149,6 +153,10 @@ class HintRequestV1:
     taken_level: int | None = None
     seconds_on_item: float | None = None
     version: str = REQUEST_VERSION
+    #: H3: the workbench's steps, check and placement
+    #: (:class:`~learnloop.hints.workbench.WorkbenchHintContext`); required
+    #: with ``surface = 'workbench'``, absent on the practice screen.
+    workbench: Any = None
 
 
 @dataclass
@@ -260,8 +268,15 @@ def _answered(state: HintState, request: HintRequestV1) -> EarlierHint | None:
 
 
 def _validate(request: HintRequestV1) -> None:
-    if request.surface != SURFACE:
-        raise HintRequestError("validation_error", "H2a serves the practice screen only.", field="surface")
+    if request.surface not in SURFACES:
+        raise HintRequestError("validation_error", f"Unknown surface {request.surface!r}.", field="surface")
+    workbench = request.surface == workbench_module.SURFACE
+    if workbench != (request.workbench is not None):
+        raise HintRequestError("validation_error", "A workbench request carries its steps (and only it does).",
+                               field="surface")
+    if workbench:
+        _validate_workbench(request)
+        return
     if request.request not in REQUESTS:
         raise HintRequestError("validation_error", f"Unknown request {request.request!r}.", field="request")
     if request.feedback_shortcut is not None and request.feedback_shortcut not in SHORTCUTS:
@@ -279,6 +294,29 @@ def _validate(request: HintRequestV1) -> None:
             raise HintRequestError("validation_error", "A worked-help pick is its own request.", field="takenLevel")
     if not request.submission_id.strip():
         raise HintRequestError("validation_error", "A hint request needs the attempt's submission key.",
+                               field="submissionId")
+
+
+def _validate_workbench(request: HintRequestV1) -> None:
+    """H3: the ladder takes a rung (1-5) on every "More" request; a reply or
+    a pick answers a shown hint at its own level (§5.2, G63)."""
+
+    if request.request not in REQUESTS:
+        raise HintRequestError("validation_error", f"Unknown request {request.request!r}.", field="request")
+    if request.feedback_shortcut is not None and request.feedback_shortcut not in SHORTCUTS:
+        raise HintRequestError("validation_error", f"Unknown shortcut {request.feedback_shortcut!r}.",
+                               field="feedbackShortcut")
+    if request.feedback_shortcut is not None and request.request != "feedback":
+        raise HintRequestError("validation_error", "A shortcut belongs to a feedback reply.",
+                               field="feedbackShortcut")
+    if request.request == "more":
+        if request.taken_level not in workbench_module.RUNGS:
+            raise HintRequestError("validation_error", "The ladder takes a rung, 1 to 5.", field="takenLevel")
+    elif request.taken_level is not None:
+        raise HintRequestError("validation_error", "A reply or a pick keeps the level of the hint it answers.",
+                               field="takenLevel")
+    if not request.submission_id.strip():
+        raise HintRequestError("validation_error", "A hint request needs the problem's submission key.",
                                field="submissionId")
 
 
@@ -305,6 +343,8 @@ class _Served:
     model: str | None = None
     prompt: str | None = None
     latency_ms: int | None = None
+    #: H3 (fix round 1, F14): the served hint's claims, as checked.
+    claims: list[dict[str, Any]] | None = None
 
 
 def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, item: PracticeItem
@@ -361,7 +401,7 @@ def _check_round(output: HintWriterOutputV1, target: Target, state: HintState, i
 
 def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state: HintState, target: Target,
            writer: WriterRoute, *, request: HintRequestV1, assist_id: str,
-           cancelled: Callable[[], bool]) -> _Served:
+           cancelled: Callable[[], bool], claim_verifier: Any | None = None) -> _Served:
     """Ask, check, re-ask once naming the failure; then the level-3
     ``next_step`` downgrade (§4.6), except where it would raise a fixed level
     (:func:`downgrade_allowed`: then nothing is served); a leak re-asked
@@ -395,13 +435,28 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             downgraded = True
             feedback = None
         prompt = build_prompt(vault, item, state, current, request_text=request.feedback_text,
-                              selection=request.feedback_selection, feedback=feedback, request_id=assist_id)
+                              selection=request.feedback_selection, feedback=feedback, request_id=assist_id,
+                              workbench=request.workbench.prompt_block() if request.workbench is not None
+                              else None)
         served.prompt = prompt
+        ask_kwargs: dict[str, Any] = {}
+        if request.workbench is not None:
+            # H3 (fix round 1, F14): the workbench's answer adds the hint's claims.
+            ask_kwargs["result_model"] = workbench_module.WorkbenchHintWriterOutputV1
         with call_labels(judge="llm", question_set_version=WRITER_PROMPT_VERSION, state_hash=state.state_hash()):
-            output = writer.ask(prompt, owner_id=assist_id, metadata={**metadata, "round": round_})
+            output = writer.ask(prompt, owner_id=assist_id, metadata={**metadata, "round": round_}, **ask_kwargs)
         check, as_served, served_kind, record = _check_round(output, current, state, item)
+        claims: list[dict[str, Any]] = []
+        if request.workbench is not None:
+            # H3: the rules a step list makes exact (the Reader's rules 1-3, 7).
+            workbench_module.check_steps(check, as_served, target=current, context=request.workbench)
+            # Reader §5.3: the hint's own claims, verified before it is shown.
+            claims = workbench_module.verify_claims(check, as_served, target=current, context=request.workbench,
+                                                    verifier=claim_verifier, item=item, current=state.map)
         served.rounds.append({"round": round_, "kind": current.kind, "level": current.level,
                               "failures": list(check.failures), "leaks": list(check.leaks)})
+        if claims:
+            served.rounds[-1]["claims"] = claims
         if record is not None:
             served.discriminating = record
         placement_rule = unplaced_work(as_served, served_kind, current, state, request) \
@@ -429,6 +484,9 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
             # contract (round 3, W3), else re-asked from the givens.
             strict = replace(current, from_givens=True, reference_route=True, downgrade=False)
             strict_round = _check_round(output, strict, state, item)
+            if request.workbench is not None:
+                workbench_module.check_steps(strict_round[0], strict_round[1], target=strict,
+                                             context=request.workbench)
             served.rounds[-1]["from_givens_failures"] = list(strict_round[0].failures)
             if strict_round[0].ok:
                 check, as_served, served_kind, record = strict_round
@@ -453,6 +511,7 @@ def _write(vault: LoadedVault, repository: Repository, item: PracticeItem, state
         if check.ok:
             served.outcome = "downgraded" if downgraded else "served"
             served.kind, served.level, served.output = served_kind, current.level, as_served
+            served.claims = claims or None
             served.text = as_served.hint_md
             served.horizon_index = current.horizon_index
             if (current.level == 3 and served_kind in ("next_step", "waypoint", "subgoal_plan", "error_specific")
@@ -508,7 +567,10 @@ def downgrade_allowed(target: Target, request: HintRequestV1) -> bool:
     already have raised the target)."""
 
     if request.request == "more":
-        return True
+        # H3: a rung 1 or 2 the learner took on the workbench's ladder is a
+        # fixed level too (the learner's choice of how much help; Reader §5.2
+        # "no rung raises the help untaken"): the downgrade would raise it.
+        return request.taken_level is None or request.taken_level >= 3
     answered = target.answered
     level = int(getattr(answered, "level", None) or 3) if answered is not None else target.level
     return level >= 3
@@ -562,7 +624,7 @@ def _append_fit(repository: Repository, answered: EarlierHint, request: HintRequ
     surface). Its text stays on the next hint's row (learner text, §9)."""
 
     rationale = {"shortcut": request.feedback_shortcut, "has_text": bool((request.feedback_text or "").strip()),
-                 "surface": SURFACE, "answered_kind": answered.hint_kind, "answered_level": answered.level}
+                 "surface": request.surface, "answered_kind": answered.hint_kind, "answered_level": answered.level}
     with repository.atomic():
         return append_judgment(
             repository.connection(), task=FIT_TASK, left_kind="help_assist", left_id=answered.assist_id,
@@ -583,10 +645,13 @@ def request_hint(
     seed: str | None = None,
     clock: Clock | None = None,
     cancelled: Callable[[], bool] | None = None,
+    claim_verifier: Any | None = None,
 ) -> HintResultV1:
     """One hint request (§4.1). The row is written prepared (``shown = 0``);
     :func:`deliver` shows it. Raises :class:`HintRequestError` on a malformed
-    request; a model failure never raises (the fallback serves)."""
+    request; a model failure never raises (the fallback serves).
+    ``claim_verifier``: the workbench's check path for a hint's own claims
+    (H3, :func:`learnloop.hints.workbench.verify_claims`); unused elsewhere."""
 
     if not adaptive_enabled(vault.config):
         return HintResultV1(status=DISABLED, reason="adaptive_disabled",
@@ -607,6 +672,8 @@ def request_hint(
                            submission_id=request.submission_id.strip(), work_md=request.work_md,
                            seconds_on_item=request.seconds_on_item, now_iso=requested_at,
                            map_record=map_record, map_loaded=True)
+    if request.workbench is not None:
+        workbench_module.apply_context(state, request.workbench)
     answered = _answered(state, request)
     if request.request == "smaller_step" and (answered is None or answered.hint_kind != "waypoint"):
         raise HintRequestError("validation_error", "A smaller step answers a goal to aim for (a waypoint).",
@@ -614,8 +681,13 @@ def request_hint(
     fit_id = None
     if request.request == "feedback" and answered is not None:
         fit_id = _append_fit(repository, answered, request, clock=clock)
-    option_set = build_options(state, request=request.request, answered=answered,
-                               shortcut=request.feedback_shortcut, taken_level=request.taken_level)
+    if request.workbench is not None:
+        option_set = workbench_module.taken_options(state, request.workbench, request=request.request,
+                                                    answered=answered, shortcut=request.feedback_shortcut,
+                                                    taken_level=request.taken_level)
+    else:
+        option_set = build_options(state, request=request.request, answered=answered,
+                                   shortcut=request.feedback_shortcut, taken_level=request.taken_level)
     envelope = hints_envelope(vault, repository, clock=clock)
     writer = WriterRoute(vault, repository, client=writer_client, envelope=envelope)
     problem = writer.problem()
@@ -631,8 +703,9 @@ def request_hint(
         choice = None
         served = _writer_down(item, state, option_set, request, problem.reason, problem.message)
     else:
-        choice = _choose(vault, repository, state, option_set, request, assist_id=assist_id, seed=seed,
-                         client_factory=chooser_client_factory, envelope=envelope, clock=clock)
+        chooser_call = _choose_workbench if request.workbench is not None and request.request == "more" else _choose
+        choice = chooser_call(vault, repository, state, option_set, request, assist_id=assist_id, seed=seed,
+                              client_factory=chooser_client_factory, envelope=envelope, clock=clock)
         if choice is None:
             served = _Served(outcome="failed", reason="no_option")
         elif choice.kind == "authored":
@@ -644,7 +717,7 @@ def request_hint(
                             shortcut=request.feedback_shortcut, answered=answered)
             try:
                 served = _write(vault, repository, item, state, target, writer, request=request,
-                                assist_id=assist_id, cancelled=is_cancelled)
+                                assist_id=assist_id, cancelled=is_cancelled, claim_verifier=claim_verifier)
             except AIInterrupted:
                 raise
             except WriterUnavailable as exc:
@@ -689,7 +762,10 @@ def authored_fallback_allowed(option_set: OptionSet, request: HintRequestV1) -> 
     an authored hint (deviation 9)."""
 
     if option_set.taken_level is not None:
-        return False
+        # H3: the workbench's rung 3 keeps the item's own hints while the
+        # writer cannot run (Reader §5.2 "authored hints are seeds and the
+        # fallback"); every other taken rung gets nothing written.
+        return request.surface == workbench_module.SURFACE and option_set.taken_level == 3
     if request.request == "more":
         return True
     if request.request != "feedback" or option_set.answered is None:
@@ -731,6 +807,40 @@ def _choose(vault: LoadedVault, repository: Repository, state: HintState, option
     return fallback
 
 
+def _choose_workbench(vault: LoadedVault, repository: Repository, state: HintState, option_set: OptionSet,
+                      request: HintRequestV1, *, assist_id: str, seed: str | None,
+                      client_factory: Callable[[], Any] | None, envelope: SharedDailyEnvelope,
+                      clock: Clock | None) -> Choice | None:
+    """H3: the kind on a rung the learner took (Reader §5.5, G63). The
+    suggestion's draw when Help suggested one (the suggested rung serves it;
+    another rung draws from the same vector, conditional on its level); with
+    no suggestion yet and the chooser on, one Decider request over the rung's
+    options (H2a's conditional draw); else the rung's fixed kind."""
+
+    item = vault.practice_items[state.practice_item_id]
+    context = request.workbench
+    taken = int(request.taken_level or 0)
+    suggestion = workbench_module.suggestion_record(repository, context.suggestion_id)
+    if suggestion is not None or not vault.config.hints.chooser_enabled or len(option_set.options) <= 1:
+        return workbench_module.taken_choice(state, option_set, context, item, taken_level=taken,
+                                             suggestion=suggestion)
+    factory = client_factory or (lambda: default_chooser_client(vault))
+    with spend_envelopes(envelope):
+        choice = chooser_module.ask(config=vault.config, repository=repository, state=state, option_set=option_set,
+                                    request=request.request, shortcut=None, assist_id=assist_id,
+                                    client_factory=factory, seed=seed, clock=clock,
+                                    where="the Reader workbench (the learner works in numbered steps beside the book)",
+                                    extra_state=workbench_module.decider_extra(context))
+    if choice.chooser != "fallback":
+        return choice
+    fallback = workbench_module.taken_choice(state, option_set, context, item, taken_level=taken, suggestion=None)
+    if fallback is not None:
+        fallback.reason = str(choice.reason)
+        fallback.judgment_id, fallback.model, fallback.latency_ms = choice.judgment_id, choice.model, choice.latency_ms
+        fallback.probabilities, fallback.seed = choice.probabilities, choice.seed
+    return fallback
+
+
 def _horizon(state: HintState, served: _Served) -> int | None:
     output = served.output
     if served.kind != "waypoint" or output is None or state.map is None:
@@ -756,8 +866,18 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
     placement = output.placement.model_dump(mode="json") if output is not None else None
     discriminating = served.discriminating
     map_id = map_record.get("id") if map_record else None
+    served_claims, rounds = served.claims, served.rounds
+    if request.workbench is not None:
+        # RW2b fix round 13: the symbolic switch read right before the row is
+        # serialized (a job may outlive a switch change): off, no claim is
+        # stored as checked.
+        from learnloop.symbolic_view import claims_view, live_switch, rounds_view
+
+        if live_switch(request.workbench.symbolic_now) is False:
+            served_claims = claims_view(served.claims, enabled=False) if served.claims else served.claims
+            rounds = rounds_view(served.rounds, enabled=False)
     row: dict[str, Any] = {
-        "id": assist_id, "surface": SURFACE, "assist_kind": "hint", "practice_item_id": item.id,
+        "id": assist_id, "surface": request.surface, "assist_kind": "hint", "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item), "practice_session_id": request.session_id,
         "submission_id": request.submission_id.strip(),
         "hint_kind": served.kind if served.kind in KINDS else None,
@@ -789,7 +909,7 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "feedback_text": (request.feedback_text or None) if request.request == "feedback" else None,
         "feedback_shortcut": request.feedback_shortcut if request.request == "feedback" else None,
         "contract_failures_json": _json({
-            "outcome": served.outcome, "reason": served.reason, "rounds": served.rounds,
+            "outcome": served.outcome, "reason": served.reason, "rounds": rounds,
             "chooser_reason": choice.reason if choice is not None else None,
             "state_unread": state.unread,
             # H2b: the two state values the report's expertise-reversal split
@@ -798,6 +918,8 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
                                  "p_success": round(state.p_success, 4) if state.p_success is not None else None},
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
+            # H3 (F14): the served hint's claims as checked (workbench only).
+            **({"claims": served_claims} if served_claims else {}),
         }),
         "leak_flags_json": _json(served.leaks) if served.leaks else None,
         "shown": 0,
@@ -814,6 +936,10 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         row["predicted_answers_json"] = _json({"candidates": discriminating.get("candidates"),
                                                "chosen_index": discriminating.get("chosen_index")})
         row["eig_nats"] = discriminating.get("eig_nats")
+    if request.workbench is not None:
+        # H3: the workbench's columns (Reader §5.7).
+        row.update(workbench_module.row_columns(request.workbench, level=served.level,
+                                                taken_level=request.taken_level, request=request.request))
     return row
 
 
@@ -983,6 +1109,8 @@ def record_discriminate_answer(
     question_assist_id: str,
     answer_md: str,
     clock: Clock | None = None,
+    surface: str = SURFACE,
+    workbench_session_id: str | None = None,
 ) -> dict[str, Any]:
     """The learner's answer to a discriminating question (§4.2, §5): one
     ``help_assists`` row (``assist_kind = 'discriminate_answer'``, counted by
@@ -1016,9 +1144,15 @@ def record_discriminate_answer(
                else "Both readings still stand; the next hint uses your answer.")
     assist_id = "ha_" + new_ulid()
     now = utc_now_iso(clock)
+    if surface not in SURFACES:
+        raise HintRequestError("validation_error", f"Unknown surface {surface!r}.", field="surface")
+    if question.get("surface") != surface:
+        raise HintRequestError("validation_error", "The answered question was asked on another surface.",
+                               field="questionAssistId")
+    workbench = surface == workbench_module.SURFACE
     row = {
-        "id": assist_id, "surface": SURFACE, "assist_kind": "discriminate_answer", "practice_item_id": item.id,
-        "practice_item_hash": practice_item_hash(item), "practice_session_id": session_id,
+        "id": assist_id, "surface": surface, "assist_kind": "discriminate_answer", "practice_item_id": item.id,
+        "practice_item_hash": practice_item_hash(item), "practice_session_id": None if workbench else session_id,
         "submission_id": submission_id.strip(), "work_hash": question.get("work_hash"),
         "work_chars": question.get("work_chars"),
         "placement_json": _json({"question_assist_id": question_assist_id, "consistent_rivals": consistent,
@@ -1027,6 +1161,11 @@ def record_discriminate_answer(
         "predicted_answers_json": question.get("predicted_answers_json"), "eig_nats": question.get("eig_nats"),
         "shown": 1, "counted_by": None, "requested_at": now, "shown_at": now,
     }
+    if workbench:
+        # H3: the answer sits on the question's step (Reader §5.2, G37).
+        row.update({"workbench_session_id": workbench_session_id or question.get("workbench_session_id"),
+                    "about_step_id": question.get("about_step_id"),
+                    "first_questionable_step_id": question.get("first_questionable_step_id")})
     with repository.atomic():
         store.insert_assist(repository.connection(), row)
     return {"recorded": True, "assist_id": assist_id, "settled": settled, "consistent_rivals": consistent,

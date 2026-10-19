@@ -31,6 +31,7 @@ JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
     ("ad_forecast_llm", "llm", "adaptive_difficulty"),
     ("ad_forecast_decider", "decider", "adaptive_difficulty"),
     ("ad_feature_audit", "llm", "ad_feature_audit"),
+    ("workbench_check", "llm", "workbench_check"),
 )
 
 _WHEN = {
@@ -130,6 +131,11 @@ _WHEN = {
         "submit an answer you had hints on that was not fully right, on a question with an approach map: the "
         "question, its approach map, your submitted answer and where each hint was aiming, so LearnLoop's model "
         "can say how far along the route your answer got. Measurement only: it never changes your grade."
+    ),
+    "workbench_check": (
+        "While workbench.help_enabled is on, each time you press \"Check my work\" in the workbench: the "
+        "problem, its reference solution and rubric, your steps, and the question's approach map when it has "
+        "one, so LearnLoop's model can say which steps hold. Never sent to Codex. It never grades you."
     ),
 }
 

@@ -191,10 +191,22 @@ def horizon_question() -> ScoreQuestion:
     return ScoreQuestion(instructions=_HORIZON_INSTRUCTIONS, levels=HORIZON_LEVELS)
 
 
-def decider_state(state: HintState, option_set: OptionSet, *, request: str, shortcut: str | None) -> dict[str, Any]:
-    return {**state.decider_state(), "request": request, "reply_shortcut": shortcut,
-            "level_taken_by_learner": option_set.taken_level, "options_offered": option_set.ids,
-            "where": "the practice screen (the learner's answer box)"}
+#: Where a request comes from, as the Decider reads it (the practice screen
+#: unless a surface says otherwise: H3's workbench names itself).
+PRACTICE_WHERE = "the practice screen (the learner's answer box)"
+
+
+def decider_state(state: HintState, option_set: OptionSet, *, request: str, shortcut: str | None,
+                  where: str | None = None, extra_state: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    payload = {**state.decider_state(), "request": request, "reply_shortcut": shortcut,
+               "level_taken_by_learner": option_set.taken_level, "options_offered": option_set.ids,
+               "where": where or PRACTICE_WHERE}
+    if extra_state:
+        # Adaptive hints H3: the workbench's typed additions (its check's
+        # summary and map placement); absent on the practice screen, whose
+        # state is unchanged.
+        payload["workbench"] = dict(extra_state)
+    return payload
 
 
 def fallback_choice(option_set: OptionSet, state: HintState, item: Any, *, request: str,
@@ -267,9 +279,13 @@ def ask(
     client_factory: Callable[[], Any] | None,
     seed: str | None = None,
     clock: Any = None,
+    where: str | None = None,
+    extra_state: Mapping[str, Any] | None = None,
 ) -> Choice:
     """Ask the Decider and draw; a failure falls back (the caller serves the
-    fallback when this answers ``chooser = 'fallback'`` with no kind)."""
+    fallback when this answers ``chooser = 'fallback'`` with no kind).
+    ``where`` and ``extra_state`` (adaptive hints H3) name the surface and its
+    typed additions; left out, the practice screen's state is unchanged."""
 
     from learnloop.decider_judgments import ask_decider
 
@@ -280,7 +296,8 @@ def ask(
     waypoint_offered = option_set.has("waypoint") and bool(_allowed_horizons(option_set))
     if waypoint_offered:
         questions[HORIZON_QUESTION] = horizon_question()
-    state_payload = decider_state(state, option_set, request=request, shortcut=shortcut)
+    state_payload = decider_state(state, option_set, request=request, shortcut=shortcut, where=where,
+                                  extra_state=extra_state)
     input_hash = content_key({"state": state_payload, "questions": {k: q.wire() for k, q in questions.items()},
                               "version": QUESTION_SET_VERSION})
     timeout = float(settings.chooser_timeout_seconds)

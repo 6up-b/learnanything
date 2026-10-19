@@ -635,7 +635,17 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             "ui": {"practice_feedback": config.ui.practice_feedback},
             # Reader workbench RW2a's kill switch: present only while on, so
             # with it off the snapshot is exactly what it was before RW2a.
-            **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days}}
+            # Reader workbench RW2b's kill switch rides inside it: "Check my
+            # work" and the help ladder, ``help`` present only while
+            # workbench.help_enabled is on (absent, RW2a's workbench renders
+            # exactly as before); ``bridge``: "compare with the book". The
+            # ladder's hints need the hint service (the ``hints`` key below).
+            **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days,
+                              **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled),
+                                           # RW2b fix round 13: the symbolic switch, so a
+                                           # mounted workbench gates marks already shown.
+                                           "symbolic": bool(config.workbench.symbolic_checks_enabled)}}
+                                 if config.workbench.help_enabled else {})}}
                if config.workbench.enabled else {}),
             # Reader workbench RW6a's two kill switches: present only while one
             # of them is on, so with both off the snapshot is what it was. They

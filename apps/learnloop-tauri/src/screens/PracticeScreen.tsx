@@ -1128,6 +1128,11 @@ export function PracticeScreen({
         attemptType: probeActive ? "diagnostic_probe" : chooseAttemptType(item.attemptTypesAllowed, answerHints),
         // The answer box's hints and a book counted in steps (review F2).
         hintsUsed: answerHints,
+        // RW2b fix round 5: the authored reveals on their own; the server
+        // adds the book and the workbench's help from its own records, once.
+        authoredHints: hintsUsed,
+        // Fix round 12: whether that count holds a book (its own component).
+        bookCounted: bookCarried,
         latencySeconds: elapsedSeconds(),
         primed,
         probePresentationId: probeActive ? probe?.presentationId : null,
@@ -1193,6 +1198,8 @@ export function PracticeScreen({
         sessionId: session.sessionId,
         practiceItemId: submittedItemId,
         hintsUsed: answerHints,
+        authoredHints: hintsUsed,
+        bookCounted: bookCarried,
         latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,

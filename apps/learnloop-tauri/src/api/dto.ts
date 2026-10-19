@@ -1170,6 +1170,11 @@ export interface SubmitAttemptInput {
   explanationMd?: string | null;
   attemptType: AttemptType;
   hintsUsed: number;
+  /** RW2b fix round 5: the answer box's authored reveals alone (the server
+   *  adds a counted book and the workbench's help itself, each once). */
+  authoredHints?: number | null;
+  /** RW2b fix round 12: the count holds a book the answer box carried (its own component). */
+  bookCounted?: boolean | null;
   latencySeconds?: number | null;
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
@@ -8021,6 +8026,8 @@ export interface WorkbenchRecordDto {
   line: string;
   footer: string;
   stuckNote: string | null;
+  /** RW2b: the problem's own shown checks and hints (only when it has any). */
+  help?: { checks: number; byLevel: number[]; worked: number; primed: boolean };
 }
 
 export interface WorkbenchPartDto {
@@ -8510,5 +8517,174 @@ export interface HintRequestInput {
   feedbackText?: string;
   feedbackSelection?: string;
   takenLevel?: 4 | 5;
+  secondsOnItem?: number;
+}
+
+
+// ── Reader workbench RW2b + adaptive hints H3: checks and the help ladder ──
+// (spec_reader_workbench_v1 §5.2-5.6; the sidecar's workbench.check,
+// workbench.suggest_help, workbench.request_help, workbench.help_job,
+// workbench.cancel_help, workbench.answer_discriminating,
+// workbench.set_help_style and workbench.help_state). Desktop only.
+
+export type CheckVerdict = "valid" | "questionable" | "unchecked";
+export type CheckMethod = "checked" | "checked_numerically" | "model";
+
+export interface CheckStepVerdictDto {
+  chainId: string;
+  number: number | null;
+  verdict: CheckVerdict;
+  method: CheckMethod;
+  /** ✓ ≠ ≈ ? · (UX §3.4): never a colour, never a score. */
+  mark: string;
+  /** "checked", "checked numerically" or "model's reading, not checked". */
+  label: string;
+  reason: string;
+  dependsOn: string[];
+  assumption: string;
+  first: boolean;
+  editedSinceCheck: boolean;
+  deletedSinceCheck: boolean;
+  /** The step's text the verdict was about (bounded at 2,000 characters): a
+   *  local edit away from it dims the marker at once (review F6). */
+  checkedText?: string;
+  /** Fix round 5: a fingerprint of the FULL checked text (`fnv1a64:<hex>`,
+   *  helpModel's textFingerprint); any edit to the text changes it. */
+  checkedFingerprint?: string | null;
+}
+
+export interface CheckViewDto {
+  assistId: string;
+  checkedAt: string | null;
+  verdicts: CheckStepVerdictDto[];
+  firstQuestionableStepId: string | null;
+  errorKind: { kind: string; label: string; reason: string } | null;
+  assumptions: string[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, nothing shows as checked. */
+  symbolicEnabled?: boolean;
+  symbolicAvailable: boolean;
+  stale: boolean;
+  changedSteps: number[];
+}
+
+export interface WorkbenchStepLabelsDto {
+  aboutStepId: string | null;
+  aboutStep: number | null;
+  continueFromStepId: string | null;
+  continueFromStep: number | null;
+  firstQuestionableStep: number | null;
+}
+
+export interface LadderRungDto {
+  level: 1 | 2 | 3 | 4 | 5;
+  label: string;
+  consequence: string;
+  workedHelp: boolean;
+  discriminating: boolean;
+}
+
+export interface HelpSuggestionDto {
+  level: number;
+  kind: string;
+  chooser: "decider" | "fallback";
+  horizonIndex: number | null;
+  propensity: number | null;
+  suggestionId: string | null;
+  reason: string | null;
+  why: string;
+  split: string | null;
+  rungs: LadderRungDto[];
+  kindLabel: string | null;
+  horizonLabel: string | null;
+}
+
+export interface WorkbenchHelpResultDto {
+  status: string;
+  assistId?: string | null;
+  reason?: string | null;
+  message?: string | null;
+  shown?: boolean | null;
+  /** A check's view, on the read that delivered it (or an unchanged re-check). */
+  check?: CheckViewDto | null;
+  /** The ladder's suggestion (suggest jobs). */
+  suggestion?: HelpSuggestionDto;
+  steps?: WorkbenchStepLabelsDto;
+  /** A hint (hint jobs): the H2a result fields. */
+  hintMd?: string | null;
+  kind?: string | null;
+  level?: number | null;
+  labels?: HintLabelsDto;
+  discriminating?: HintDiscriminatingDto | null;
+  replies?: string[];
+  stepLine?: string;
+  claims?: HintClaimDto[];
+  /** Fix round 11: workbench.symbolic_checks_enabled at read time. */
+  symbolicEnabled?: boolean;
+  bridgeJobId?: string | null;
+  /** A bridge (bridge jobs). */
+  line?: string;
+  spanId?: string | null;
+  extractionId?: string | null;
+  label?: string | null;
+  /** The record line and footer after a delivered check or hint (G62). */
+  record?: WorkbenchRecordDto;
+}
+
+export interface WorkbenchHelpJobDto {
+  version: number;
+  jobId: string | null;
+  kind?: "check" | "suggest" | "hint" | "bridge";
+  state: "pending" | "done" | "cancelled";
+  result: WorkbenchHelpResultDto | null;
+}
+
+export interface WorkbenchHintViewDto {
+  assistId: string;
+  kind: string;
+  level: number;
+  hintMd: string;
+  labels: HintLabelsDto;
+  aboutStepId: string | null;
+  continueFromStepId: string | null;
+  stepLine: string;
+  replies: string[];
+  discriminatingAnswer: { answerMd: string; message: string } | null;
+  bridge: { assistId: string; line: string; spanId: string | null; extractionId: string | null; label: string | null } | null;
+  /** The hint's own checkable claims as verified (Reader §5.3, review F14). */
+  claims?: HintClaimDto[];
+  /** Fix round 10: workbench.symbolic_checks_enabled now; off, no claim shows ✓. */
+  symbolicEnabled?: boolean;
+}
+
+export interface HintClaimDto {
+  step: number;
+  statement: string;
+  /** checked | checked_numerically | model (failed claims are never shown). */
+  status: string;
+  label: string;
+  kind: string;
+  reason: string;
+}
+
+export interface WorkbenchHelpStateDto {
+  version: number;
+  check: CheckViewDto | null;
+  hints: WorkbenchHintViewDto[];
+  helpStyle: HelpStyle | null;
+  storedHelpStyle: HelpStyle;
+  hintsEnabled: boolean;
+}
+
+export interface WorkbenchRequestHelpInput {
+  sessionId: string;
+  request?: HintRequestKind;
+  takenLevel?: number;
+  offeredLevel?: number | null;
+  suggestionId?: string | null;
+  focusedStepId?: string | null;
+  answeredAssistId?: string;
+  feedbackShortcut?: HintShortcut;
+  feedbackText?: string;
+  feedbackStepId?: string | null;
   secondsOnItem?: number;
 }

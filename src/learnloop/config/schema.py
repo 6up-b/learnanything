@@ -1364,6 +1364,15 @@ class AIRoutingConfig(BaseModel):
     ad_forecast_llm: str | None = None
     ad_forecast_decider: str | None = None
     ad_feature_audit: str | None = None
+    # Reader workbench RW2b (spec_reader_workbench_v1 §5.2, §5.8): "Check my
+    # work", one structured chat call on the request path (step verdicts,
+    # the step graph, the map node each valid step reaches, the error-kind
+    # guess, the declared symbolic checks). Empty = ai.active_provider.
+    # Codex runs it on the owner's subscription (estimated_only, fix round 1,
+    # F12; the spec's D7 recommends a ChatGPT-plan or fast OpenRouter profile
+    # for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
+    # workbench.price_per_million (unset: refused before sending).
+    workbench_check: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2112,6 +2121,34 @@ class WorkbenchConfig(BaseModel):
 
     enabled: bool = True
     open_session_days: int = Field(default=30, ge=1)
+    #: RW2b (spec §5.2-5.5, §5.9): "Check my work", the help ladder and its
+    #: hints through the one hint service (adaptive hints H3). Off: RW2a only
+    #: (no check, no ladder; every RW2a RPC byte-identical).
+    help_enabled: bool = True
+    #: Declared symbolic checks run in the PF-b sandbox (§5.3); off, every
+    #: verdict is the model's reading and the sandbox is never invoked.
+    #: Off by default (RW2b fix round 9, the orchestrator's decision): a
+    #: LaTeX-text checker could not be made to agree with what KaTeX displays;
+    #: on again once the renderer-equivalent (MathML) checker lands, or by the
+    #: owner knowing the limits recorded in the RW2b review.
+    symbolic_checks_enabled: bool = False
+    #: Off: ``discriminating`` is never among the workbench's options and
+    #: rung 1 is an ordinary question (§5.9).
+    discriminate_enabled: bool = True
+    #: Off: no error-kind guess is shown or traced (§5.9).
+    error_kind_enabled: bool = True
+    #: "Compare with the book" under a hint in the Reader (§5.2 bridging): a
+    #: background passage lookup through T6's practice context.
+    bridge_enabled: bool = True
+    #: The workbench's own calls (checks, bridges) per problem: a money cap
+    #: counted in calls (§5.8). Hint calls are the hint service's (C8).
+    max_calls_per_session: int = Field(default=24, ge=1)
+    #: The workbench's own metered spend a UTC day (§5.8).
+    max_daily_cost_usd: float = Field(default=1.0, ge=0)
+    #: The owner's price (USD per million tokens) for a METERED
+    #: ``ai.routing.workbench_check`` profile; unset, a metered check is
+    #: refused before it is sent. Codex needs none (estimated_only).
+    price_per_million: float | None = Field(default=None, gt=0)
 
 
 class RecapConfig(BaseModel):

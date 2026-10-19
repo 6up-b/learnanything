@@ -126,6 +126,8 @@ export interface WorkbenchSessionControls {
   retryImport: () => Promise<void>;
   bind: (practiceItemId: string) => Promise<void>;
   submit: (input: Omit<WorkbenchSubmitInput, "sessionId">) => Promise<WorkbenchSubmitDto>;
+  /** RW2b: the record line after a check or a hint was shown (G62). */
+  applyRecord: (record: WorkbenchRecordDto) => void;
 }
 
 export function useWorkbenchSession(
@@ -261,7 +263,7 @@ export function useWorkbenchSession(
         const result = await api.workbenchSaveStep(op.payload!);
         dequeue(op);
         rejected.current.delete(op.key);
-        commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId }));
+        commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId, chainId: result.step.chainId }));
         setRecord(result.record);
         // "Saved" means the stored text is the text in the window: anything
         // typed since this write was sent goes in a new write of its own.
@@ -589,8 +591,10 @@ export function useWorkbenchSession(
     editTimers.current.clear();
   }, [queueEdit]);
 
+  const applyRecord = useCallback((next: WorkbenchRecordDto) => setRecord(next), []);
+
   return {
     session, steps, record, save, started, frozen, leaving, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
-    setBook, leave, abandon, reopen, retryImport, bind, submit,
+    setBook, leave, abandon, reopen, retryImport, bind, submit, applyRecord,
   };
 }

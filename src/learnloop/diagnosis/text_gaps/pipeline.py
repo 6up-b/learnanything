@@ -915,9 +915,10 @@ def _record_written_texts(connection: Any, vault: LoadedVault, text: LearnerText
             record=formative_record(connection, str(text.source_id), topics=text.anchor_learning_object_ids),
             clock=clock,
         )
-    elif text.source_kind == "hint_feedback":
+    elif text.source_kind in ("hint_feedback", "workbench_text"):
         # Adaptive hints H2b: a reply to a hint comes from no committed
-        # answer either: it carries what it was written beside.
+        # answer either: it carries what it was written beside (and RW2b's
+        # workbench texts, written beside an open problem and its hints).
         record_text_write(
             connection, kind="learner_text_gap", record_id=gap_id, text=learner_words, writer="gap_reader",
             record=hint_feedback_record(connection, text), clock=clock,

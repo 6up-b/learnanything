@@ -957,6 +957,34 @@ _CONFIG_RULES: list[_ConfigRule] = [
     ), "structural", "operational",
         "days before an untouched open workbench problem shows as unfinished; a display limit, no "
         "measurement, scheduling or serving authority (nothing is closed automatically)."),
+    # Reader workbench RW2b: the workbench's own calls ("Check my work", the
+    # bridge to the book) per problem, their metered spend a UTC day and the
+    # owner's price for a metered check route (verdicts are help, recorded in
+    # help_assists; a shown check reaches the attempt only through hints_used
+    # with its existing meaning).
+    _ConfigRule(_exact(
+        "workbench.max_calls_per_session",
+        "workbench.max_daily_cost_usd",
+        "workbench.price_per_million",
+    ), "structural", "operational",
+        "the workbench's own model calls per problem / their metered spend a UTC day / the owner's price "
+        "for a metered check route; money bounds, no measurement authority (a check never grades)."),
+    # Reader workbench RW2b: the kill switches of "Check my work" and the help
+    # ladder and its parts (fix round 1, F11: booleans, so Inventory A's
+    # numeric walk never reaches them; classified here so every new key has
+    # a rule). Off restores RW2a or drops the part; a shown check or hint
+    # reaches the attempt only through hints_used / primed with their
+    # existing meaning, so none changes a measurement.
+    _ConfigRule(_exact(
+        "workbench.help_enabled",
+        "workbench.symbolic_checks_enabled",
+        "workbench.discriminate_enabled",
+        "workbench.error_kind_enabled",
+        "workbench.bridge_enabled",
+    ), "structural", "operational",
+        "kill switches for the workbench's checks and help ladder / the sandboxed symbolic checks / the "
+        "discriminating question / the error-kind guess / the bridge to the book; on-off availability of "
+        "help, no measurement, scheduling or serving authority."),
     # Reader workbench RW1b: the intent box's router (one Decider choice per
     # routing; verdicts go to judgment_ledger, never evidence): the typing
     # pause before a speculative routing, the routing's deadline and the

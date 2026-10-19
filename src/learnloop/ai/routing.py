@@ -116,6 +116,9 @@ AITask = Literal[
     "ad_forecast_llm",
     "ad_forecast_decider",
     "ad_feature_audit",
+    # Reader workbench RW2b: "Check my work" (a chat route that never
+    # resolves to Codex, as hint_writer).
+    "workbench_check",
 ]
 
 #: Routes served only by a ``decider`` profile. They never fall back to a chat
@@ -224,6 +227,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # and one feature-audit dimension judged by the LLM (background work).
     "ad_item_forecast": "ad_forecast_llm",
     "ad_feature_audit": "ad_feature_audit",
+    # Reader workbench RW2b: one check of the learner's steps.
+    "workbench_check": "workbench_check",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

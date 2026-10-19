@@ -48,6 +48,9 @@ os.environ["LEARNLOOP_HINT_MODELS"] = "off"
 # test reaches a real model: with this set, no AD job resolves a client unless
 # the test injected a fake (ctx.ad_clients, or the job's own client arguments).
 os.environ["LEARNLOOP_AD_MODELS"] = "off"
+# Reader workbench RW2b: no workbench route ("Check my work") resolves a real
+# client unless the test injected a fake (ctx.workbench_check_client).
+os.environ["LEARNLOOP_WORKBENCH_MODELS"] = "off"
 
 # Disable sqlite durability for every test connection. Each durable commit
 # pays a journal write plus an fsync, and on Windows on-access antivirus
