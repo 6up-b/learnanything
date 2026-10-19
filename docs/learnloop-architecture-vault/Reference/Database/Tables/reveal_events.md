@@ -3,8 +3,8 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3da2da5b00f680568bdbc2021273b7e1b8b2d94e"
-source_commit_timestamp: "2026-10-19T02:08:13-04:00"
+source_commit: "015e0270653ead506e571b2c26fd88b8254ac1ce"
+source_commit_timestamp: "2026-10-19T03:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
@@ -142,13 +142,13 @@ Database triggers:
 - `tests/test_hint_feedback_texts.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_recurrence_live.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_router_outcomes.py`
-- `tests/test_source_retrieval_guards.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

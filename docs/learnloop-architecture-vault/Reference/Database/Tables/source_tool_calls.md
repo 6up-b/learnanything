@@ -3,8 +3,8 @@ title: "source_tool_calls"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3da2da5b00f680568bdbc2021273b7e1b8b2d94e"
-source_commit_timestamp: "2026-10-19T02:08:13-04:00"
+source_commit: "015e0270653ead506e571b2c26fd88b8254ac1ce"
+source_commit_timestamp: "2026-10-19T03:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_tool_calls"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/tools.py"
   - "src/learnloop/reader/reader_inquiry.py"
+  - "src/learnloop/source_retrieval/reader_tutor.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/source_service.py`
+- `src/learnloop/source_retrieval/reader_tutor.py`
 
 ### Direct SQL writers
 
@@ -118,6 +120,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_offers.py`
 - `tests/test_reader_tutor_retrieval.py`
 

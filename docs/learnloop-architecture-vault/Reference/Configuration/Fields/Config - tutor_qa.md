@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "3da2da5b00f680568bdbc2021273b7e1b8b2d94e"
-source_commit_timestamp: "2026-10-19T02:08:13-04:00"
+source_commit: "015e0270653ead506e571b2c26fd88b8254ac1ce"
+source_commit_timestamp: "2026-10-19T03:10:43-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -70,7 +70,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `tutor_qa.question_solid_likelihood_ratio` | `0.45` | number | modeled default or validator seed | Sets the question solid likelihood ratio used by tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:589`; `src/learnloop/tutor/question_signal.py:144` |
 | `tutor_qa.question_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls question likelihood min samples in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:590`; `src/learnloop/tutor/question_signal.py:156` |
 | `tutor_qa.preference_channel_damping` | `0.4` | number | modeled default or validator seed | Controls preference channel damping in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:597`; `src/learnloop/tutor/question_signal.py:423` |
-| `tutor_qa.context_token_budget` | `24000` | integer | modeled default or validator seed | Controls context token budget in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:604`; `src/learnloop/reader/reader_dialogue.py:610`; `src/learnloop/tutor/tutor_qa.py:1371` |
+| `tutor_qa.context_token_budget` | `24000` | integer | modeled default or validator seed | Controls context token budget in tutor question budgets and question-derived diagnostic signals, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:604`; `src/learnloop/reader/reader_dialogue.py:610`; `src/learnloop/tutor/tutor_qa.py:1413` |
 | `tutor_qa.resolve_references` | `true` | boolean | modeled default or validator seed | Turns resolve references behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:609`; `src/learnloop/reader/reader_dialogue.py:611`; `src/learnloop/source_retrieval/tutor.py:199` |
 | `tutor_qa.expanded_delivery` | `true` | boolean | modeled default or validator seed | Turns expanded delivery behavior on or off within tutor question budgets and question-derived diagnostic signals. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:617`; `src/learnloop/reader/reader_dialogue.py:612`; `src/learnloop/source_retrieval/tutor.py:210` |
 
