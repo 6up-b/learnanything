@@ -147,6 +147,10 @@ Test files run: test_active_errors_overlay.py test_ai_compare.py test_approach_m
 4. **Owner note (fix round 9).** Symbolic checks are off by default until the renderer-equivalent checker lands. The
    owner can turn them on (`[workbench] symbolic_checks_enabled = true`) knowing the limits recorded in "Fix round 9
    (orchestrator decision)".
+5. **The two-attempt rule (fix round 10).** The transactional refold keeps every server assist id it observed,
+   before grading and in its transaction. An id that another problem's attempt also took while this one was
+   grading is then counted on both attempts. This is accepted: help shown during two submissions counts on both,
+   and an id is never lost.
 
 ## Re-review (Codex job `20261018-172852-5htI4v`, `ca196c450..reader/rw2b`)
 
@@ -904,3 +908,80 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
 There is no migration and no RPC or serializer change. The one config change is the default of
 `workbench.symbolic_checks_enabled`.
+
+## Fix round 10 (orchestrator)
+
+The final verify (Codex job `20261018-204415-a6csgq`, at `b5664a24f`) confirmed:
+
+* the defaults and fingerprints;
+* the registry and the references;
+* the sandbox bypass at the default;
+* the eight RPC refusals;
+* the stamped-delivery refusal;
+* ordinary counting.
+
+It found four Highs. Fixed in `4ae737c4f`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (`tests/test_reader_rw2b_fix10.py`; all fail on `b5664a24f`) |
+|---|---|---|---|---|
+| 1 | High | Stored symbolic results bypass the default-off switch | fixed | `test_item1_enable_check_disable_then_resume_recheck_hint_and_report_never_read_checked`; `symbolicOff.test.tsx` "with the switch off, ..." |
+| 2 | High | An older client loses assists across two open problems | fixed | `test_item2_an_older_client_counts_the_union_of_assists_over_two_open_problems` |
+| 3 | High | The refold can drop an assist it already counted | fixed | `test_item3_the_refold_never_drops_an_assist_it_already_counted` (A1 and B1 before grading, B2 in the transaction: 3) |
+| 4 | High | Help disabled does not restore RW2a's counts | fixed | `test_item4_with_help_off_and_no_rw2b_assist_the_counts_equal_the_base_codes` |
+
+**Item 4's base-versus-tip test.** It runs the same help-disabled sequence, in a subprocess, against `git archive
+7d4c5f4ce` (`src`, `tests`, `migrations`) and against the code under test (`tests/rw2b_fix10_base_sequence.py`,
+which uses only APIs present at the base). It requires the stored counts to be equal: 1 for the workbench submit,
+and the same for an answer-box submit afterwards.
+
+**Item 1: the switch on every read path.** The stored rows stay unchanged; they are history.
+
+* `hints.workbench.unchecked_verdict` and `unchecked_claim` map a stored `checked` or `checked_numerically` method
+  or status to `model` while `workbench.symbolic_checks_enabled` is off. They are applied by:
+  * `check_view` (help_state, the check job, and a recheck that reuses the unchanged steps' row);
+  * `ladder._verdicts` (the hint context, so the writer is never told, and a new hint row never copies, a checked
+    verdict);
+  * `row_claims` and `served_claims` (the hint views and the hint job's claims).
+* `build_workbench_report(..., symbolic_enabled=)`, which `learnloop hints report` passes from the vault, reports
+  historical symbolic counts only while the switch is on, and otherwise folds them into `model`.
+* The check view carries `symbolic_enabled` and each hint view `symbolic_enabled`. The frontend's
+  `verdictMark(verdict, symbolicEnabled)` and `claimLine(claim, symbolicEnabled)` refuse `✓` and `≠` when it is off.
+
+**Item 2: one counting rule** (`attempts.hint_fold.combine_held`, `held_components`).
+
+* **(a) The base path.** When the UNION of RW2b server assist ids (checks and level 1-3 hints, shown, unattached,
+  on any open problem of the item) is empty, the count is RW2a's `_held_assistance` exactly, as at `7d4c5f4ce`: the
+  larger of the client's `hintsUsed` and each problem's book plus carried hints. H2b's window fold is added on top.
+  `authoredHints` is ignored. This covers help disabled and every submit with no RW2b assistance.
+* **(b) The component path.** When the union is non-empty, the count is:
+  * the client part: `max(authoredHints, carried)` when sent, else the legacy `max(hintsUsed, carried + book)`;
+  * plus the book once, when it is not already inside the client part. With `authoredHints`, round 5's floor at
+    the client's `hintsUsed` stays;
+  * plus the size of the UNION of server assist ids over ALL open problems, never a per-problem maximum, for new
+    and old clients alike;
+  * plus the window fold.
+* **(c) The refold.** `ServerHintFold` carries the components observed so far (`held_union`, `held_book`,
+  `held_carried`). The transactional refold takes the union of the ids seen before grading and those seen in its
+  transaction, ORs the book and keeps the larger carried count. It never drops an id it already counted. Counting
+  an id that another problem's attempt also took is the accepted two-attempt rule (open question 5).
+* **(d)** `primed` is the OR across every part.
+* **Superseded test.** Round 5's `test_items_4_5_a_book_on_another_surface_and_an_authored_hint_record_two` had no
+  server assist. Under ruling (a) it is RW2a's count, so it now records **1** (the larger of the client's 1 and the
+  book's 1), as the base code does. This is the only existing expectation the round changed.
+
+### Gate (fix round 10)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over 62 files: round 9's, plus `test_reader_rw2b_fix10.py`; `test_reader_workbench_rw2a.py` and `test_workbench_assistance.py` (the G5 files) are included | **1191 passed** (75.5 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix10.py`, `test_reader_rw2b_fix9.py`, `test_reader_rw2b_fix5.py`, `test_workbench_assistance.py` | **43 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen.workbench.test.tsx src/screens/ReaderScreen.workbench.test.tsx` | **9 files, 100 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration and no config key. The check view and the hint views gain `symbolicEnabled`, which is
+additive.

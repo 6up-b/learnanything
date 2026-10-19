@@ -3,8 +3,8 @@ title: "Config - evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fa3c6bbfbc056bd76db715553e0b0e14c7281122"
-source_commit_timestamp: "2026-10-18T20:40:46-04:00"
+source_commit: "4ae737c4f829e3080b203fca75dc4f594765d558"
+source_commit_timestamp: "2026-10-18T21:02:29-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml evidence"
@@ -32,9 +32,9 @@ source_paths:
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/recurrence_fakes.py"
+  - "tests/rw2b_fix10_base_sequence.py"
   - "tests/source_service_fakes.py"
   - "tests/split_live_helpers.py"
-  - "tests/test_active_errors_overlay.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/evidence"
@@ -110,9 +110,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
 - `tests/recurrence_fakes.py`
+- `tests/rw2b_fix10_base_sequence.py`
 - `tests/source_service_fakes.py`
 - `tests/split_live_helpers.py`
-- `tests/test_active_errors_overlay.py`
 
 ## Extension and modification guidance
 
