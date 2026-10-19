@@ -147,10 +147,11 @@ Test files run: test_active_errors_overlay.py test_ai_compare.py test_approach_m
 4. **Owner note (fix round 9).** Symbolic checks are off by default until the renderer-equivalent checker lands. The
    owner can turn them on (`[workbench] symbolic_checks_enabled = true`) knowing the limits recorded in "Fix round 9
    (orchestrator decision)".
-5. **The two-attempt rule (fix round 10).** The transactional refold keeps every server assist id it observed,
-   before grading and in its transaction. An id that another problem's attempt also took while this one was
-   grading is then counted on both attempts. This is accepted: help shown during two submissions counts on both,
-   and an id is never lost.
+5. **The two-attempt rule (fix round 10), superseded in fix round 13.** RW2b's server assists now follow H2b's R1
+   rule. The counted set is the item's WINDOW: shown, unattached, server-counted workbench checks and level 1-3
+   hints requested since the item's last attempt, whatever their problem's status. The attempt that counts them
+   attaches them in its own transaction, so whichever attempt commits first takes them and no later attempt
+   counts them again. The RW2a book keeps its own rule unchanged.
 
 ## Re-review (Codex job `20261018-172852-5htI4v`, `ca196c450..reader/rw2b`)
 
@@ -1138,3 +1139,81 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 
 There is no migration and no config key. The two submits gain the optional `bookCounted`.
+
+## Fix round 13
+
+The verify (Codex job `20261018-233138-S4mHeC`, at `6f11b0fee`) confirmed round 12's targeted fixes:
+
+* 336 no-assist cases;
+* 13,824 base-versus-tip refold comparisons;
+* the empty-snapshot fix;
+* the architecture tests.
+
+It found three Highs. All are fixed in `d7cf8363b`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (all fail on `6f11b0fee`) |
+|---|---|---|---|---|
+| 1 | High | Abandoning steps loses shown assists | fixed (H2b's R1 rule) | `test_reader_rw2b_fix13.py::test_item1_a_check_on_an_abandoned_problem_counts_on_the_answer_box_attempt` (1, and the row attached), `::test_item1_reopened_the_answer_box_counts_it_and_the_problems_later_submit_does_not` (1, then 0) |
+| 2 | High | In-flight verification creates checked results after the switch turns off | fixed | `::test_item2_a_check_in_flight_when_the_switch_goes_off_is_never_checked` and `::test_item2_a_hint_in_flight_when_the_switch_goes_off_stores_no_checked_claim`, each ×2 (off during the model call, so the sandbox is never called, and off during verification) |
+| 3 | High | Marks already on screen survive a switch-off reload | fixed | `symbolicOff.test.tsx` "a displayed checked verdict loses its ✓ when the snapshot's switch goes off" (no remount) |
+
+**Item 1: the window** (`help_assists.workbench_window_ids`, `unattached_ids`, `attach_workbench_rows`;
+`attempts.hint_fold.attach_held`).
+
+* **What is counted.** Every shown, unattached, server-counted workbench check or level 1-3 hint row of the item,
+  requested at or after the item's last attempt, whether its problem is open, abandoned or reopened.
+  * The window starts at the row's practice session's last attempt when the row records a session. Workbench rows
+    record one only when their problem is submitted, by which point they are attached, so **the rule used is the
+    item's last attempt in any session**.
+  * The comparison is `>=`. Timestamps are whole seconds, and an unattached row in the last attempt's second is
+    never lost.
+* **How it is counted.** The window rides in the held parts as one more part, `(0, 0, window ids)`, beside the
+  open problems' RW2a `(book, carried)` parts. The rest of round 10-12's arithmetic is unchanged:
+  * the union of server ids is now exactly the window;
+  * the RW2a book keeps its rule;
+  * when the window is empty both times, the base path applies exactly as before.
+* **Attaching.** The attempt attaches exactly those rows (`attach_held`, after `attach_keyless` in
+  `apply_attempt`'s `BEGIN IMMEDIATE`), NULL to the attempt id as H0's attach writes. No migration was needed.
+* **The refold.** It reads the window again in the transaction and unions it with the ids seen before grading
+  that are still unattached, so rows another attempt attached in between are excluded.
+* **Primed.** Levels 4-5 set primed, as before.
+* **Tests updated for this ruling** (open question 5 changed):
+  * round 10's refold case now records 1 for the answer box and 2 for problem A's attempt, which committed first
+    and took the window (A1 and B1);
+  * round 12's end-to-end case records 0, because the workbench attempt committed first and took the check.
+
+**Item 2: in-flight verification** (`check._switch_now`).
+
+* `run_check(..., symbolic_now=)` and `hint_claim_verifier(..., symbolic_now=)` receive the sidecar's live switch
+  reader (`workbench_help._live_symbolic_switch`).
+* They read it right before invoking symbolic verification, and again right after it, before the claims, outcomes,
+  verdicts and ledger rows are serialized.
+* If it is off at either point, everything is the model's reading, and in the first case the sandbox is never
+  called.
+* The hint service also reads `request.workbench.symbolic_now` right before serializing the row
+  (`symbolic_view.claims_view`, `rounds_view`), so no claim is stored as checked once the switch is off.
+
+**Item 3: marks on screen.**
+
+* The app snapshot's `workbench.help` block now carries `symbolic` (`workbench.symbolic_checks_enabled`). The
+  config watcher's `setAlgoConfig` notifies subscribers (`subscribeAlgoConfig`).
+* `useSymbolicChecksLive()` (`useSyncExternalStore`) gates `VerdictCell`, `QuestionableNote` and the hint claims,
+  AND-ed with each view's `symbolicEnabled`, so retained results re-render when the switch changes.
+* `test_workbench_help_kill_switch.py` pins the new key.
+* Two vitest fixtures that show a checked mark set `symbolic: true`.
+
+### Gate (fix round 13)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 12's 102 files plus `test_reader_rw2b_fix13.py` | **2040 passed, 2 xfailed** (91.5 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix13.py`, `test_reader_rw2b_fix12.py`, `test_reader_rw2b_fix10.py`, `test_workbench_assistance.py` | **35 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen* src/screens/ReaderScreen.workbench.test.tsx` | **15 files, 184 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration and no config key. The app snapshot's `workbench.help` gains `symbolic`, which is additive.
