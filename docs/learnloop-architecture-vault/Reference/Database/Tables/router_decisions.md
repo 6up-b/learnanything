@@ -3,13 +3,13 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
   - "table router_decisions"
-schema_head: 213
+schema_head: 214
 table_name: "router_decisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -153,6 +153,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/router_mixture_helpers.py`
+- `tests/test_ad2_serving.py`
 - `tests/test_daily_plan_owner_decisions.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
@@ -171,7 +172,6 @@ None found by exact static reference scan.
 - `tests/test_router_offer_log.py`
 - `tests/test_router_outcomes.py`
 - `tests/test_router_presentations.py`
-- `tests/test_router_probe_ties.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

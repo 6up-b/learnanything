@@ -3,13 +3,13 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
   - "table practice_item_snapshots"
-schema_head: 213
+schema_head: 214
 table_name: "practice_item_snapshots"
 table_role: "receipt"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/backfill.py"
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
   - "src/learnloop/adaptive_difficulty/protection.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/ad_receipts.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -91,6 +91,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/backfill.py`
+- `src/learnloop/adaptive_difficulty/replay.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`

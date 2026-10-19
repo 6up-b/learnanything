@@ -3,13 +3,13 @@ title: "reader_authored_questions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_authored_questions"
   - "table reader_authored_questions"
-schema_head: 213
+schema_head: 214
 table_name: "reader_authored_questions"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/105_reader_authored_questions.sql"
+  - "src/learnloop/adaptive_difficulty/dose.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/text_gaps/provenance.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/reader/reader_guidance.py"
-  - "src/learnloop/reader/reader_observations.py"
-  - "src/learnloop/reader/reader_quick_check.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/active_reading.py"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/dose.py`
 - `src/learnloop/adaptive_difficulty/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
@@ -147,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_reader_active_reading.py`
 - `tests/test_reader_passage_check.py`
 - `tests/test_reader_reconnect.py`
+- `tests/test_salience_firewall.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_reader_quick_check.py`
 - `tests/test_reader_rw1b_review.py`

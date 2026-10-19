@@ -3,8 +3,8 @@ title: "Config - reader_intent"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_intent"
@@ -30,7 +30,7 @@ source_paths:
   - "tests/test_ad1_codex_review_fixes.py"
   - "tests/test_ad1_fix_round4.py"
   - "tests/test_ad1_send_guard.py"
-  - "tests/test_ai_compare.py"
+  - "tests/test_ad23_successor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-intent"
@@ -75,7 +75,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_send_guard.py`
-- `tests/test_ai_compare.py`
+- `tests/test_ad23_successor.py`
 
 ## Extension and modification guidance
 

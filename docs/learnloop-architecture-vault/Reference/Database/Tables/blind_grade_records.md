@@ -3,13 +3,13 @@ title: "blind_grade_records"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite blind_grade_records"
   - "table blind_grade_records"
-schema_head: 213
+schema_head: 214
 table_name: "blind_grade_records"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/db/stores/write_provenance.py"
-  - "src/learnloop/diagnosis/split/reports.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

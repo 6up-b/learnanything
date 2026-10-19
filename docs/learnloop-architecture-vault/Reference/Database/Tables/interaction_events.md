@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 213
+schema_head: 214
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
   - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
-  - "src/learnloop/field/signals.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/report.py`
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/source_service.py`

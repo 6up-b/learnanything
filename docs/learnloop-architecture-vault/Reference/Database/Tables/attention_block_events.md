@@ -3,13 +3,13 @@ title: "attention_block_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attention_block_events"
   - "table attention_block_events"
-schema_head: 213
+schema_head: 214
 table_name: "attention_block_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -46,7 +46,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/096_controller_snapshots.sql`.
-- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`.
+- **Schema touched by:** `096_controller_snapshots.sql`, `180_daily_plans.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +101,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
+- `tests/test_ad2_serving.py`
 - `tests/test_daily_plan_replay.py`
 - `tests/test_daily_plan_review_regressions.py`
 - `tests/test_mcp_tools.py`

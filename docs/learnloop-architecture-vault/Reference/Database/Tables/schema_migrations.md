@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 213
+schema_head: 214
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -90,6 +90,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_ad1_migration.py`
+- `tests/test_ad23_migration.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_input_provenance_landing.py`
 - `tests/test_doctor.py`

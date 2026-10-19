@@ -3,8 +3,8 @@ title: "Config - reader_active_reading"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml reader_active_reading"
@@ -24,13 +24,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/reader-active-reading"
@@ -65,13 +65,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
 
 ## Extension and modification guidance
 

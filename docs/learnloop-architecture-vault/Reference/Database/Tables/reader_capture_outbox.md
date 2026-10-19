@@ -3,13 +3,13 @@ title: "reader_capture_outbox"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_capture_outbox"
   - "table reader_capture_outbox"
-schema_head: 213
+schema_head: 214
 table_name: "reader_capture_outbox"
 table_role: "workflow"
 functionality_status: "active"

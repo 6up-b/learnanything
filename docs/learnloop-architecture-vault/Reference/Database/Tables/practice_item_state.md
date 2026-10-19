@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 213
+schema_head: 214
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -132,6 +132,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_subject_view.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attempts.py`
 - `tests/test_card_lineage.py`
@@ -149,9 +152,6 @@ Indexes and uniqueness:
 - `tests/test_exam_seeding.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_cli.py`
-- `tests/test_held_grade_evidence.py`
-- `tests/test_hot_path_eligibility_cutover.py`
-- `tests/test_item_authoring.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

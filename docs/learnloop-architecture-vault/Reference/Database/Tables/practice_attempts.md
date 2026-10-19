@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 213
+schema_head: 214
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,15 +21,17 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/adaptive_difficulty/backfill.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
+  - "src/learnloop/adaptive_difficulty/dose.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
+  - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
-  - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/attempts/attempts.py"
-  - "src/learnloop/attempts/coldness_receipt.py"
-  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/attempts/attempt_trace.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
+  - "src/learnloop/attempts/coldness_receipt.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -182,11 +184,16 @@ Indexes and uniqueness:
 
 - `src/learnloop/adaptive_difficulty/backfill.py`
 - `src/learnloop/adaptive_difficulty/data_check.py`
+- `src/learnloop/adaptive_difficulty/dose.py`
 - `src/learnloop/adaptive_difficulty/outside.py`
+- `src/learnloop/adaptive_difficulty/replay.py`
+- `src/learnloop/adaptive_difficulty/report.py`
 - `src/learnloop/adaptive_difficulty/serve_inputs.py`
+- `src/learnloop/adaptive_difficulty/serving.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/router.py`
 - `src/learnloop/content/proposals/method_phrasing.py`
+- `src/learnloop/daily_plan/ad_slot.py`
 - `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/daily_plan/estimates.py`
 - `src/learnloop/daily_plan/router_card.py`
@@ -292,6 +299,9 @@ Indexes and uniqueness:
 - `tests/test_ad1_codex_rereview_fixes.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
+- `tests/test_ad23_migration.py`
+- `tests/test_ad2_model.py`
+- `tests/test_ad3_relatedness.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_apply_write_ahead.py`
@@ -300,9 +310,6 @@ Indexes and uniqueness:
 - `tests/test_assumed_known.py`
 - `tests/test_blind_grading_contract.py`
 - `tests/test_characterization_probe_regrade.py`
-- `tests/test_coldness_receipt.py`
-- `tests/test_collection_dataset.py`
-- `tests/test_contamination_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

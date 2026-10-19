@@ -3,13 +3,13 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
   - "table learner_claims"
-schema_head: 213
+schema_head: 214
 table_name: "learner_claims"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/priors.py"
   - "src/learnloop/learner/learner_profile.py"
   - "src/learnloop/learner/mastery.py"
-  - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -92,6 +92,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/replay.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/priors.py`
@@ -118,6 +119,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad2_model.py`
 - `tests/test_assumed_known.py`
 - `tests/test_field_priors.py`
 - `tests/test_init.py`

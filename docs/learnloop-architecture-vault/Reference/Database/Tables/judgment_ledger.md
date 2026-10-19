@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 213
+schema_head: 214
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/feature_audit.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/relatedness.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/adaptive_difficulty/serve_inputs.py"
-  - "src/learnloop/ai/agreement.py"
-  - "src/learnloop/algorithm_versions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`, `176_recurrence_groups.sql`, `182_learner_text_gaps.sql`, `183_facet_identity_actions.sql`, `197_facet_registry_saves.sql`, `202_router_staged_frame.sql`, `209_library_asks.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -103,6 +103,8 @@ None found by exact static reference scan.
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/feature_audit.py`
 - `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/relatedness.py`
+- `src/learnloop/adaptive_difficulty/serving.py`
 - `src/learnloop/ai/agreement.py`
 - `src/learnloop/attempts/grading_support.py`
 - `src/learnloop/attempts/stuck.py`
@@ -178,13 +180,13 @@ None found by exact static reference scan.
 - `tests/test_ad1_outside_and_cli.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ad1_send_guard.py`
+- `tests/test_ad3_reading.py`
+- `tests/test_ad3_relatedness.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_ai_compare.py`
 - `tests/test_approach_maps.py`
 - `tests/test_assumed_known.py`
 - `tests/test_attach_to_family.py`
-- `tests/test_contamination_report.py`
-- `tests/test_coordinated_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

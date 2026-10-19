@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 213
+schema_head: 214
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/019_question_events.sql"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/followups.py"
-  - "src/learnloop/diagnosis/text_gaps/jobs.py"
   - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/instructional/interventions.py"
 tags:
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/reading.py`
+- `src/learnloop/adaptive_difficulty/replay.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/text_gaps/jobs.py`
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
@@ -173,6 +174,7 @@ Indexes and uniqueness:
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_fix_round4.py`
 - `tests/test_ad1_migration.py`
+- `tests/test_ad3_relatedness.py`
 - `tests/test_capture_desktop.py`
 - `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
@@ -189,7 +191,6 @@ Indexes and uniqueness:
 - `tests/test_question_signal.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
-- `tests/test_reader_inquiry_status.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

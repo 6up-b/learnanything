@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -20,6 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/vault/paths.py"
+  - "tests/ad23_fakes.py"
   - "tests/ad_fakes.py"
   - "tests/approach_map_fakes.py"
   - "tests/conftest.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/source_retrieval_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_activity_backfill.py"
-  - "tests/test_activity_families.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -61,6 +61,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/ad23_fakes.py`
 - `tests/ad_fakes.py`
 - `tests/approach_map_fakes.py`
 - `tests/conftest.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/source_retrieval_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_activity_backfill.py`
-- `tests/test_activity_families.py`
 
 ## Extension and modification guidance
 

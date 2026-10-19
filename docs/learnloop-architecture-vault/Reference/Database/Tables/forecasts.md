@@ -3,13 +3,13 @@ title: "forecasts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite forecasts"
   - "table forecasts"
-schema_head: 213
+schema_head: 214
 table_name: "forecasts"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/background.py"
   - "src/learnloop/adaptive_difficulty/claims.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/monitoring.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
-  - "src/learnloop/adaptive_difficulty/serve.py"
-  - "src/learnloop/adaptive_difficulty/switches.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/evsi_calibration/live_report.py"
@@ -58,7 +58,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/057_forecast_ledger.sql`.
-- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`.
+- **Schema touched by:** `057_forecast_ledger.sql`, `198_add_book_state.sql`, `201_followup_value_decisions.sql`, `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

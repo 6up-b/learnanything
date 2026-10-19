@@ -3,13 +3,13 @@ title: "source_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exposure_events"
   - "table source_exposure_events"
-schema_head: 213
+schema_head: 214
 table_name: "source_exposure_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,13 +21,14 @@ source_paths:
   - "migrations/049_source_exposure_events.sql"
   - "src/learnloop/adaptive_difficulty/reading.py"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/content/sources/source_outcome_analytics.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
-  - "src/learnloop/instructional/interventions.py"
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop/instructional/interventions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -124,6 +125,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad3_reading.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_exam_protection.py`
 - `tests/test_exam_protection_review.py`
@@ -137,13 +139,12 @@ Indexes and uniqueness:
 - `tests/test_retrieval_interventions_write_points.py`
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_rw4_kill_switches.py`
+- `tests/test_salience_firewall.py`
 - `tests/test_sidecar_span_view.py`
 - `tests/test_source_outcome_analytics.py`
 - `tests/test_span_view.py`
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_reading_opportunities.py`
-- `tests/test_discriminating_search.py`
-- `tests/test_intervention_outcomes_replayer.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

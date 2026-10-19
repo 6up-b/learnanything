@@ -3,8 +3,8 @@ title: "Config - workbench"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml workbench"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/practice_index_fakes.py"
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
+  - "tests/test_ad23_successor.py"
+  - "tests/test_ad2_model.py"
   - "tests/test_ai_config.py"
   - "tests/test_approach_maps.py"
   - "tests/test_capability_residual.py"
   - "tests/test_chatgpt_plan_provider.py"
   - "tests/test_cli_ingest.py"
-  - "tests/test_codex_isolation_mcp_check.py"
-  - "tests/test_concept_animation_service.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/workbench"
@@ -52,8 +52,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `workbench.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW2a (no successor): the step workbench beside the source in the Reader and the practice screen's "Work in steps", saved as typed, resumable, abandonable and reopened, submitted through the ordinary attempt path (a visible book is one hints_used). Off: no workbench entry anywhere, every workbench RPC refuses, the config DTO carries no workbench key, and the practice screen is byte-identical. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2113`; `src/learnloop/reader/workbench.py:119`; `src/learnloop_sidecar/context.py:639` |
-| `workbench.open_session_days` | `30` | integer | modeled default or validator seed | Days an open workbench problem may go untouched before the recap shows it as "unfinished", without alarm. A display limit only: nothing is closed automatically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2114`; `src/learnloop/reader/workbench.py:124`; `src/learnloop_sidecar/context.py:638` |
+| `workbench.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for reader workbench RW2a (no successor): the step workbench beside the source in the Reader and the practice screen's "Work in steps", saved as typed, resumable, abandonable and reopened, submitted through the ordinary attempt path (a visible book is one hints_used). Off: no workbench entry anywhere, every workbench RPC refuses, the config DTO carries no workbench key, and the practice screen is byte-identical. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2113`; `src/learnloop/reader/workbench.py:119`; `src/learnloop_sidecar/context.py:652` |
+| `workbench.open_session_days` | `30` | integer | modeled default or validator seed | Days an open workbench problem may go untouched before the recap shows it as "unfinished", without alarm. A display limit only: nothing is closed automatically. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2114`; `src/learnloop/reader/workbench.py:124`; `src/learnloop_sidecar/context.py:651` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -67,13 +67,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
+- `tests/test_ad23_successor.py`
+- `tests/test_ad2_model.py`
 - `tests/test_ai_config.py`
 - `tests/test_approach_maps.py`
 - `tests/test_capability_residual.py`
 - `tests/test_chatgpt_plan_provider.py`
 - `tests/test_cli_ingest.py`
-- `tests/test_codex_isolation_mcp_check.py`
-- `tests/test_concept_animation_service.py`
 
 ## Extension and modification guidance
 

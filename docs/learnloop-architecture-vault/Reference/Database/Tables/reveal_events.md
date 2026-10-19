@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 213
+schema_head: 214
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/154_reveal_ledger.sql"
+  - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
+  - "src/learnloop/adaptive_difficulty/serving.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/reveal_coverage.py"
@@ -98,6 +99,9 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/replay.py`
+- `src/learnloop/adaptive_difficulty/report.py`
+- `src/learnloop/adaptive_difficulty/serving.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/db/stores/source_service.py`
@@ -129,7 +133,9 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/ad23_fakes.py`
 - `tests/hint_fakes.py`
+- `tests/test_ad2_model.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
@@ -147,8 +153,6 @@ Database triggers:
 - `tests/test_router_coldness_covariates.py`
 - `tests/test_router_outcomes.py`
 - `tests/test_source_retrieval_guards.py`
-- `tests/test_source_retrieval_rereview.py`
-- `tests/test_stuck_prompt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

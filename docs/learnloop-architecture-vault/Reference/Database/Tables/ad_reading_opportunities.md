@@ -3,13 +3,13 @@ title: "ad_reading_opportunities"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ad_reading_opportunities"
   - "table ad_reading_opportunities"
-schema_head: 213
+schema_head: 214
 table_name: "ad_reading_opportunities"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,7 +20,11 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/213_adaptive_difficulty_receipts.sql"
   - "src/learnloop/adaptive_difficulty/data_check.py"
+  - "src/learnloop/adaptive_difficulty/dose.py"
   - "src/learnloop/adaptive_difficulty/reading.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/serving.py"
+  - "src/learnloop/attempts/salience_firewall.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/stores/ad_receipts.py"
 tags:
@@ -100,6 +104,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
+- `src/learnloop/adaptive_difficulty/dose.py`
+- `src/learnloop/adaptive_difficulty/serving.py`
 
 ### Direct SQL writers
 
@@ -118,8 +124,11 @@ None found by exact static reference scan.
 - `tests/test_ad1_codex_review_fixes.py`
 - `tests/test_ad1_migration.py`
 - `tests/test_ad1_reading_opportunities.py`
+- `tests/test_ad3_dose_arm.py`
+- `tests/test_ad3_reading.py`
 - `tests/test_adaptive_difficulty_ad1.py`
 - `tests/test_architecture.py`
+- `tests/test_salience_firewall.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

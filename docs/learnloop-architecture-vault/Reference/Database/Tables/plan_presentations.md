@@ -3,13 +3,13 @@ title: "plan_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
+source_commit_timestamp: "2026-10-19T00:57:40-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite plan_presentations"
   - "table plan_presentations"
-schema_head: 213
+schema_head: 214
 table_name: "plan_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,12 @@ source_paths:
   - "migrations/202_router_staged_frame.sql"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/adaptive_difficulty/outside.py"
+  - "src/learnloop/adaptive_difficulty/replay.py"
+  - "src/learnloop/adaptive_difficulty/report.py"
+  - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
+  - "src/learnloop/adaptive_difficulty/serving.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/db/repositories.py"
-  - "src/learnloop/db/stores/plan_presentations.py"
-  - "src/learnloop/evsi_calibration/forecast_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -52,7 +53,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/202_router_staged_frame.sql`.
-- **Schema touched by:** `202_router_staged_frame.sql`.
+- **Schema touched by:** `202_router_staged_frame.sql`, `214_adaptive_difficulty_serving.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -102,6 +103,10 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/outside.py`
+- `src/learnloop/adaptive_difficulty/replay.py`
+- `src/learnloop/adaptive_difficulty/report.py`
+- `src/learnloop/adaptive_difficulty/scoring.py`
+- `src/learnloop/adaptive_difficulty/serving.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 
