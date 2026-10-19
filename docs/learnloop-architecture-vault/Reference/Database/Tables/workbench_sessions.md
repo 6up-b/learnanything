@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "6ab56047b0686880421e9f2d601ed2f19594fc71"
-source_commit_timestamp: "2026-10-19T04:56:19-04:00"
+source_commit: "607bda02bc052e1b6521bd92b457ff3bae39c51b"
+source_commit_timestamp: "2026-10-19T10:02:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -129,6 +129,7 @@ None found by exact static reference scan.
 - `tests/test_library_ask_review.py`
 - `tests/test_reader_find_sources_callers.py`
 - `tests/test_reader_recap.py`
+- `tests/test_reader_rw1c_review.py`
 - `tests/test_reader_tutor_retrieval.py`
 - `tests/test_reader_workbench_rw2a.py`
 

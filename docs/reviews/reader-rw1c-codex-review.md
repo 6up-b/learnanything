@@ -208,3 +208,74 @@ Pytest files in the 114-file run: `test_ad1_fix_round4.py`, `test_ad1_reading_op
 `test_sqlite_file_copies.py`, `test_cli_help_snapshot.py` (all under `tests/`). The 107 listed first are every
 test file that names `caller_for_question_event`, `instructional.policy`, `reader_modes`, `reader_dialogue`,
 `reader.ask`, the reader handlers, `displayed_text`, `tutor_qa`, `reveal_ledger` or `hint_equivalents_for`.
+
+## Fix round 3 (orchestrator)
+
+Codex's final verify of fix round 2 (`6ab56047b`; job `20261019-050055-6iISEz`, read-only) confirmed F2, F3 and
+F11 fixed and **reopened F1**. The orchestrator ruled on the fix, and this round applies it. The fix is in
+`607bda02b`. The references regenerated on top of it are committed with this record.
+
+**Paid calls: none ($0.00).** Every model is a fake. No vault copy was opened, and no manual run was made.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 (reopened twice) | High | A cold attempt in another practice session takes a bound question's hint out of its own session | fixed | `607bda02b` | `test_reader_rw1c_review.py::test_a_hint_shown_in_the_bound_session_counts_there_once[other_session]` and `[null_session]`. Old code: `hint_equivalents_for_submission(I, B)` and `hint_equivalents_for_attempt` for the later B attempt were both **0**. Controls that pass on both trees: `[no_attempt]` (`coldAttemptId` null, so no replacement row is written) and `::test_a_same_session_cold_hint_still_counts_once` (1, not 2) |
+| F2 | High | A cold question rebuilds as `reading`; with retrieval off, server cold is not derived | confirmed fixed by Codex (round 2, `6ab56047b`) | — | no change |
+| F3 | High | Assisted-practice filtering stops before the complete tutor context | confirmed fixed by Codex (round 1, `015e02706`) | — | no change |
+| F11 | Medium | A displayed excerpt is debited twice | confirmed fixed by Codex (round 2, `6ab56047b`) | — | no change |
+
+**The defect.** Round 2's `handlers/reader_tutor._accounting_binding` set `hint_counted_elsewhere` because the cold
+attempt was on the same item. It did not check the session. The cold path's replacement row
+(`reader_dialogue._record_cold_hint_equivalent`) is written on the cold attempt's own (item, session). If that attempt
+belongs to another practice session A, or to no session, while the workbench is bound to session B, the bound
+question's `hint_equivalent` was false and the only hint row was outside B. B's submission therefore counted 0, while
+the same-session control counted 1.
+
+**The ruling and the fix.**
+
+* `_accounting_binding` now resolves the accounting session first. That is the workbench session's
+  `practice_session_id` while it is open, else the most recent open session, as before.
+* It then marks the hint counted elsewhere only when the replacement row counts in the same submission window as the
+  bound question. Three things must hold: the cold attempt resolves (the cold path writes its row only for an attempt
+  it can fetch), the attempt is on the bound item, and the attempt's `session_id` equals the resolved session.
+  `count_hint_equivalent_question_events` filters on the item and the session. Its window start is the item's latest
+  prior attempt, so two rows on the same item and session share the window.
+* In every other case the bound question keeps `hint_equivalent = true` in its own session B. That includes a cold
+  attempt in another session, one in no session, an unresolvable attempt and a null `coldAttemptId`. A hint shown
+  in B counts in B's next submission exactly once. The cold row still counts in A, which is the cold path's own L6
+  accounting and is unchanged.
+* The same-session case is unchanged. The bound question leaves the hint to the cold row, so B counts 1, not 2.
+* The comments on `ReaderTutorRequest.hint_counted_elsewhere` (`tutor/reader_modes.py`) and on the flag in
+  `tutor_qa.ask_question` now name the same-session condition.
+
+**Reading the verify's "or null".** The verify reproduced the bug with the cold attempt's session null. A null
+`coldAttemptId` writes no replacement row, and round 2 already kept the hint in that case. Both cases are tested:
+the null-session attempt fails before the fix, and the null `coldAttemptId` is a control.
+
+### Gate (fix round 3)
+
+All steps ran in the worktree with `TMPDIR=fixtures-local/tmp`. Only targeted tests were run (owner rule
+2026-10-17).
+
+| step | result |
+|---|---|
+| fail-before: the 4 new cases on `b3a1a4090` (`git archive` of `src` and `migrations` into `fixtures-local/rw1c-r3-base`, run with this branch's tests and `-o pythonpath=fixtures-local/rw1c-r3-base/src`) | **2 failed, 2 passed**. `[other_session]` and `[null_session]` failed with `hint_equivalents_for_submission(I, B)` 0 against 1. A probe without that assertion showed `hint_equivalents_for_attempt` 0 against 1 too. The `[no_attempt]` control and the same-session control passed |
+| `uv run lint-imports --no-cache` | 28 kept, 0 broken |
+| targeted pytest, `uv run pytest -n auto` over 17 files (list below) | **317 passed** |
+| `uv run pytest -n auto tests/test_workbench*.py` (14 files) | **124 passed** |
+| `db_generate_reference.py`, then `db_validate_reference.py` | 0 errors (head 213). Before the regeneration, 2 configuration line citations into the changed files were stale (`tutor_qa.py`, `reader_tutor.py`) |
+| `module_validate.py`; `validate_vault.py` | 508/508 notes; links resolved; vault validation passed (1130 notes) |
+| `git diff --check` | clean |
+
+Pytest files in the 17-file run: `test_architecture.py`, `test_hint_h2a_review_round2.py`,
+`test_hint_h2a_review_round3.py`, `test_reader_dialogue.py`, `test_reader_rw1c_review.py`,
+`test_reader_rw2b_fix10.py`, `test_reader_rw2b_fix11.py`, `test_reader_rw2b_fix12.py`, `test_reader_rw2b_fix4.py`,
+`test_reader_rw2b_review.py`, `test_reader_tutor_offers.py`, `test_reader_tutor_retrieval.py`,
+`test_reader_tutor_switch_off.py`, `test_reader_workbench_rw2a.py`, `test_reveal_ledger.py`, `test_tutor_qa.py`,
+`test_workbench_assistance.py` (all under `tests/`). This is every `test_reader_tutor_*`, `test_reader_rw1c*`,
+`test_tutor_qa*`, `test_reader_workbench*` and `test_workbench_assistance` file, `test_architecture.py`, and every
+test file that names `hint_equivalents_for`, `count_hint_equivalent_question_events` or `hint_fold`.
+
+Not run, by the owner rule: the full suite, the whole durability lane and the whole vitest run. Those belong to the
+landing gate. Nothing triggered the other steps: no migration, no DB or connection change, no frontend change, nothing
+under `src-tauri` and no configuration key change.
