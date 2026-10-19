@@ -1073,3 +1073,68 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 
 There is no migration and no config key. The hint job result gains `symbolicEnabled`, which is additive.
+
+## Fix round 12
+
+The verify (Codex job `20261018-212800-g3CbjU`, at `d5126d45b`) confirmed 4,200 no-assist arithmetic cases and
+15,552 base-versus-tip refold comparisons. Those comparisons covered count, priming, type and window under
+concurrent changes.
+
+It found four Highs and one Low. All are fixed in `5c00e00ab`. **Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (all fail on `d5126d45b`) |
+|---|---|---|---|---|
+| 1 | High | An empty refold snapshot is reread as legacy carried hints (a round-11 regression: 1 became 2) | fixed | `test_reader_rw2b_fix12.py::test_item1_the_refold_keeps_one_when_the_last_problem_closed_during_grading` (the verify's pure case), `..._end_to_end_a_problem_submitted_during_grading_is_not_counted_twice` |
+| 2 | High | A carried hint absorbs a client-held book | fixed | `test_item2_a_book_left_a_carried_hint_and_a_check_are_three`, `test_item2_the_refold_keeps_the_client_held_book` (3 each); `test_mobile_allowlist.py::test_rw2b_fix5_*` pins `bookCounted` |
+| 3 | High | In-flight hint jobs keep checked verdicts after the switch turns off | fixed | `test_item3_a_hint_in_flight_when_the_switch_goes_off_writes_and_stores_the_models_reading` |
+| 4 | High | The empty-stuck fallback drops `authoredHints` | fixed | `test_item4_a_stale_stuck_screens_empty_answer_keeps_its_authored_hint` (3) |
+| 5 | Low | The architecture allow-list does not enforce the boundary | fixed | `test_architecture.py::test_symbolic_field_detector_rejects_a_synthetic_reader` (including the verify's `row.get("step_verdicts_json")` injected into `hints/workbench.py`), `::test_stored_symbolic_results_are_read_only_through_the_one_accessor`, `::test_only_verdict_mark_and_claim_line_render_symbolic_marks`. Run against the `d5126d45b` tree, the AST rule reports `report_workbench.build_workbench_report`'s raw `step_verdicts_json` read. |
+
+* **Item 1.** `ServerHintFold.held_known` is set by every submit that reads the held parts. It marks "components
+  known, possibly none" apart from a legacy fold built before components existed. `base()` reads an aggregate
+  `held_hints` as carried hints only for a legacy fold with no union, and never when assist ids exist.
+* **Item 2.** The client already sent the book only inside `hintsUsed` (`answerHints = hintsUsed + bookCarried`),
+  so a new optional `bookCounted` is added beside `authoredHints`.
+  * It is accepted by `submit_attempt` and `submit_dont_know`, is desktop-only, and is pinned in
+    `test_mobile_allowlist.py`. The practice screen sends it.
+  * It is its own component (`ServerHintFold.held_client_book`, `combine_held(client_book=)`), ORed into `book`
+    before the formula, in the refold too.
+  * The verify's case: `max(1, max(0, 1) + 1) + 1 = 3`.
+  * Path (a) is unchanged, because there the client's `hintsUsed` already holds the book.
+* **Item 3.** `WorkbenchHintContext.symbolic_now` holds the sidecar's live switch reader
+  (`workbench_help._live_symbolic_switch`, through `ctx.require_vault()` after any reload).
+  * `current()` maps the verdicts through the one accessor (`learnloop.symbolic_view.symbolic_view`) with the
+    switch read NOW.
+  * `prompt_block()` calls it before every writer invocation, and `verdicts_record()` calls it on every row
+    serialization (`row_columns`).
+  * The ladder sets the reader on every hint context. A context without a reader, the check's own row, writes its
+    verdicts as decided.
+* **Item 4.** The empty-stuck fallback (`submit_attempt` to `submit_dont_know_on`) now forwards `authored_hints`
+  and `book_counted`. It is the only place that builds a `DontKnowInput` or `SubmitAttemptInput` from another
+  input; the workbench submit builds its own from the plan. AD1's fields are not on this base.
+* **Item 5.** The architecture test is now AST-based.
+  * Exemptions are by FUNCTION: the writer operations `check_view`/`_verdicts` decoding the accessor's records,
+    `verify_claims` deciding a status, and the module-level constants and store columns. Only the accessor and
+    the other-domain `claims` modules are exempt as whole modules.
+  * A dict key or an assignment target writes a stored field, so it is not counted as a read.
+  * Every reader must CALL a name imported from `learnloop.symbolic_view`. This is checked by AST, so a substring
+    no longer counts.
+  * The TypeScript test allows `✓`/`≠` on the workbench, and reads of `verdict.mark`, only inside helpModel's
+    `verdictMark`/`claimLine`, and keeps the unused `CheckMarker` unimported.
+  * The report's waypoint read now goes through `verdict_records` too.
+
+### Gate (fix round 12)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was free (`flock -n`).
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 11's 101 files plus `test_reader_rw2b_fix12.py` | **2034 passed, 2 xfailed** (94.2 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix12.py`, `test_reader_rw2b_fix11.py`, `test_workbench_assistance.py` | **30 passed** |
+| `npx vitest run src/screens/workbench src/screens/PracticeScreen*` and `src/screens/ReaderScreen.workbench.test.tsx` | **14 files, 170 passed**, and **1 file, 13 passed** |
+| `npm run typecheck`, `npm run frontend:build` | ok |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+
+There is no migration and no config key. The two submits gain the optional `bookCounted`.
