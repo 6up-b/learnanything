@@ -348,6 +348,8 @@ export function ReaderScreen({
   const activeReadingOn = inquiry && !offline && Boolean(contract?.activeReading);
   // RW1c: the tutor that looks things up (absent from the contract while both its switches are off).
   const readerTutor = contract?.readerTutor ?? null;
+  // RW1c: the bound workbench session an Ask comes from (set once the workbench hook runs below).
+  const askWorkbenchSessionRef = useRef<string | null>(null);
 
   const blocks: ReaderRenderBlockDto[] = useMemo(
     () => (render?.blocks ?? []).filter((b) => !FURNITURE_BLOCK_TYPES.has(b.blockType ?? "")),
@@ -453,6 +455,7 @@ export function ReaderScreen({
     guideSectionBySpan: progress.guideSectionBySpan, jumpToSpan, onReadingScroll: progress.onReadingScroll,
     jumpGuardRef: progress.jumpGuardRef, bodyRef, askComposerRef, openSourceRef,
     onRestored: progress.noteRestored,
+    workbenchSessionRef: askWorkbenchSessionRef,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -501,6 +504,8 @@ export function ReaderScreen({
     onError,
   });
   const working = wbCtl.active !== null;
+  askWorkbenchSessionRef.current = readerTutor?.retrieval && wbCtl.active?.session.practiceItemId
+    ? wbCtl.active.session.sessionId : null;
   const cueCtl = useReaderCues({
     working,
     render, offline, guidePlan, reloadGuidePlan, skimming: mode === "skim", restoredSpanId: progress.restoredSpan,

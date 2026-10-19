@@ -328,9 +328,10 @@ def _base_contract(vault) -> dict:
 
 
 @pytest.mark.parametrize("toml", [
-    # RW4a's library ask adds its own key; its switch is off here too (G20).
-    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n",
-    "\n[reader_inquiry]\nenabled = false\n",
+    # RW4a's library ask and RW1c's tutor add their own keys; their switches are off here too (G20).
+    "\n[reader_intent]\nenabled = false\n[reader_active_reading]\nenabled = false\n[library_ask]\nenabled = false\n"
+    "[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n",
+    "\n[reader_inquiry]\nenabled = false\n[reader_tutor]\nretrieval_enabled = false\noffers_enabled = false\n",
 ])
 def test_switched_off_the_prompt_contract_is_the_bases(tmp_path, toml):
     from learnloop_sidecar.dto import versioned

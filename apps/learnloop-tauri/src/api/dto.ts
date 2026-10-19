@@ -6674,6 +6674,8 @@ export interface ReaderAskInput {
   retrievalIntent?: ReaderRetrievalIntent;
   /** RW1c: the personalized toggle (omitted: the vault's default). */
   personalized?: boolean;
+  /** RW1c: the bound workbench session the Ask comes from (its item's practice policy). */
+  workbenchSessionId?: string | null;
 }
 export type ReaderRetrievalIntent = "explain" | "alternative" | "remediate";
 /** RW1c's "From your books": a verbatim excerpt, quote-verified against its passage. */

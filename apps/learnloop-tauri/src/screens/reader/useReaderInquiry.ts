@@ -142,6 +142,9 @@ export interface ReaderInquiryInput {
   /** A walk of the return stack landed the learner on this passage (RW3a:
    *  no margin mark greets them there). */
   onRestored?: (spanId: string | null) => void;
+  /** RW1c: the bound workbench session the learner is working in, if any, so
+   *  the tutor's retrieval reads as that item's practice (never wider). */
+  workbenchSessionRef?: MutableRefObject<string | null>;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
@@ -211,7 +214,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
-    askComposerRef, openSourceRef, onRestored,
+    askComposerRef, openSourceRef, onRestored, workbenchSessionRef,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -597,6 +600,8 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
         selectionSpanIds,
         selectionQuote,
         ...(inquiry && selectionSourceQuote ? { selectionSourceQuote } : {}),
+        // RW1c: inside a bound workbench session the retrieval reads as its item's practice.
+        ...(workbenchSessionRef?.current ? { workbenchSessionId: workbenchSessionRef.current } : {}),
         // RW1c: "another way" / "that didn't help" (only sent from their buttons).
         ...(override?.retrievalIntent && override.retrievalIntent !== "explain"
           ? { retrievalIntent: override.retrievalIntent } : {}),

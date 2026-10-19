@@ -47,13 +47,13 @@ def _without(value: Any, keys: set[str]) -> Any:
     return value
 
 
-def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+def _record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, offers: bool = False) -> dict[str, Any]:
     import learnloop_sidecar.handlers.reader as reader_handler
 
     paths, repository, _spans = build_library_vault(tmp_path / "vault")
     if not WRITE:
         # Recorded on the base tree, which has no [reader_tutor] section.
-        set_config(paths, "reader_tutor", retrieval_enabled=False, offers_enabled=False)
+        set_config(paths, "reader_tutor", retrieval_enabled=False, offers_enabled=offers)
     ctx = context(paths.root)
     tutor = tool_tutor(answer_md="The determinant vanishes there, so t is a root.")
 
@@ -99,3 +99,21 @@ def test_both_switches_off_is_the_base_tutor_byte_for_byte(tmp_path, monkeypatch
     for key in golden:
         assert recorded[key] == golden[key], key
     assert recorded == golden
+
+
+def test_retrieval_off_keeps_the_base_tutor_and_offers_only_add_their_buttons(tmp_path, monkeypatch):
+    """Retrieval off, offers on: the tutor's prompt, rows and history are the
+    base's; the answers only gain ``tutorOffers`` and the contract ``readerTutor``."""
+
+    if WRITE:
+        pytest.skip("the golden is written by the switch-off case")
+    recorded = _record(tmp_path, monkeypatch, offers=True)
+    golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
+    for key in ("prompts", "result_models", "history", "events", "questions"):
+        assert recorded[key] == golden[key], key
+    for key in ("root", "follow"):
+        assert recorded[key].pop("tutorOffers") == {"buttons": []}
+        assert recorded[key] == golden[key], key
+    tutor = recorded["contract"].pop("readerTutor")
+    assert tutor["offers"] is True and tutor["retrieval"] is False and tutor["anotherWay"] is False
+    assert recorded["contract"] == golden["contract"]
