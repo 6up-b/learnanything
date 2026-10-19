@@ -8,11 +8,14 @@ import { COLOR, FONT_MONO } from "../../components/term";
 import type { CheckStepVerdictDto, CheckViewDto } from "../../api/dto";
 import { MeaningLabel } from "../reader/voices";
 import { HELP_COPY, staleLine, verdictMark } from "./helpModel";
+import { useSymbolicChecksLive } from "../../app/algoConfig";
 
 export function VerdictCell({ verdict, symbolicEnabled }: { verdict: CheckStepVerdictDto | null;
   symbolicEnabled?: boolean }) {
+  // Fix round 13: the app's CURRENT switch, AND the view's own.
+  const live = useSymbolicChecksLive();
   if (!verdict) return <span style={{ width: 120, flexShrink: 0 }} />;
-  const shown = verdictMark(verdict, symbolicEnabled);
+  const shown = verdictMark(verdict, symbolicEnabled === true && live);
   const words = verdict.first ? `${shown.mark} first` : `${shown.mark} ${shown.label}`;
   return (
     <span
@@ -33,11 +36,12 @@ export function VerdictCell({ verdict, symbolicEnabled }: { verdict: CheckStepVe
 
 /** The first questionable step's reason and the model's guess, under it. */
 export function QuestionableNote({ check, chainId }: { check: CheckViewDto; chainId: string }) {
+  const live = useSymbolicChecksLive();
   const verdict = check.verdicts.find((entry) => entry.chainId === chainId);
   if (!verdict || !verdict.first) return null;
   return (
     <div data-testid="workbench-first-questionable" style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-      <MeaningLabel style={{ fontSize: 11 }}>{`${verdictMark(verdict, check.symbolicEnabled).mark} ${verdict.reason || "this is where it stops holding"}`}</MeaningLabel>
+      <MeaningLabel style={{ fontSize: 11 }}>{`${verdictMark(verdict, check.symbolicEnabled === true && live).mark} ${verdict.reason || "this is where it stops holding"}`}</MeaningLabel>
       {check.errorKind ? <MeaningLabel style={{ fontSize: 11 }}>{check.errorKind.label}</MeaningLabel> : null}
     </div>
   );

@@ -99,6 +99,30 @@ def stored_claims(row: Mapping[str, Any] | None, *, enabled: bool) -> list[dict[
     return claims_view(record.get("claims") if isinstance(record, Mapping) else None, enabled=enabled)
 
 
+def rounds_view(rounds: Iterable[Any] | None, *, enabled: bool) -> list[Any]:
+    """A hint's writer rounds with each round's claims as they may be stored
+    NOW (fix round 13: the switch read right before the row is serialized)."""
+
+    out = []
+    for entry in rounds or ():
+        if isinstance(entry, Mapping) and entry.get("claims"):
+            out.append({**entry, "claims": claims_view(entry.get("claims"), enabled=enabled)})
+        else:
+            out.append(entry)
+    return out
+
+
+def live_switch(reader: Any) -> bool | None:
+    """A live switch reader's value now (None: no reader; an error: off)."""
+
+    if reader is None:
+        return None
+    try:
+        return bool(reader())
+    except Exception:  # noqa: BLE001 - fail closed
+        return False
+
+
 def hint_result_view(result: Mapping[str, Any], *, enabled: bool) -> dict[str, Any]:
     """A hint job's payload as read now: its claims remapped and the CURRENT
     switch (the payload is cached with the job; the switch is read each time)."""
@@ -117,6 +141,8 @@ __all__ = [
     "claim_view",
     "claims_view",
     "hint_result_view",
+    "live_switch",
+    "rounds_view",
     "stored_claims",
     "switch",
     "symbolic_outcomes",

@@ -94,7 +94,7 @@ function done(result: unknown, jobId = "job") {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  setAlgoConfig({ workbench: { enabled: true, help: { enabled: true, bridge: true } }, hints: { adaptiveEnabled: true, helpStyle: "balanced" } });
+  setAlgoConfig({ workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: true } }, hints: { adaptiveEnabled: true, helpStyle: "balanced" } });
   api.workbenchHelpState.mockResolvedValue({ version: 1, check: null, hints: [], helpStyle: null, storedHelpStyle: "balanced", hintsEnabled: true });
   api.workbenchSaveStep.mockResolvedValue({ version: 1, savedAt: "x", record: RECORD, step: { stepId: "s9", chainId: "c9", ordinal: 9, kind: "step", bodyMd: "", deleted: false, createdAt: "x", editedAt: "x", versions: [] } });
 });

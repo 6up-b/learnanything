@@ -866,6 +866,16 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
     placement = output.placement.model_dump(mode="json") if output is not None else None
     discriminating = served.discriminating
     map_id = map_record.get("id") if map_record else None
+    served_claims, rounds = served.claims, served.rounds
+    if request.workbench is not None:
+        # RW2b fix round 13: the symbolic switch read right before the row is
+        # serialized (a job may outlive a switch change): off, no claim is
+        # stored as checked.
+        from learnloop.symbolic_view import claims_view, live_switch, rounds_view
+
+        if live_switch(request.workbench.symbolic_now) is False:
+            served_claims = claims_view(served.claims, enabled=False) if served.claims else served.claims
+            rounds = rounds_view(served.rounds, enabled=False)
     row: dict[str, Any] = {
         "id": assist_id, "surface": request.surface, "assist_kind": "hint", "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item), "practice_session_id": request.session_id,
@@ -899,7 +909,7 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
         "feedback_text": (request.feedback_text or None) if request.request == "feedback" else None,
         "feedback_shortcut": request.feedback_shortcut if request.request == "feedback" else None,
         "contract_failures_json": _json({
-            "outcome": served.outcome, "reason": served.reason, "rounds": served.rounds,
+            "outcome": served.outcome, "reason": served.reason, "rounds": rounds,
             "chooser_reason": choice.reason if choice is not None else None,
             "state_unread": state.unread,
             # H2b: the two state values the report's expertise-reversal split
@@ -909,7 +919,7 @@ def _row(vault: LoadedVault, item: PracticeItem, state: HintState, request: Hint
             "served_kind": served.kind,
             "drawn_kind": choice.kind if choice is not None else None,
             # H3 (F14): the served hint's claims as checked (workbench only).
-            **({"claims": served.claims} if served.claims else {}),
+            **({"claims": served_claims} if served_claims else {}),
         }),
         "leak_flags_json": _json(served.leaks) if served.leaks else None,
         "shown": 0,

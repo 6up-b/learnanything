@@ -484,7 +484,21 @@ def claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.W
     return claims
 
 
-def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None = None
+def _switch_now(vault: Any, symbolic_now: Callable[[], bool] | None) -> bool:
+    """Fix round 13: ``workbench.symbolic_checks_enabled`` NOW: the caller's
+    live reader (the sidecar's current vault, after any reload), else this
+    vault's; an unreadable switch is off."""
+
+    if symbolic_now is None:
+        return bool(vault.config.workbench.symbolic_checks_enabled)
+    try:
+        return bool(symbolic_now())
+    except Exception:  # noqa: BLE001 - fail closed
+        return False
+
+
+def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None = None,
+                        symbolic_now: Callable[[], bool] | None = None,
                         ) -> Callable[[Sequence[Any], Any], list[dict[str, Any]]]:
     """The check path for a hint's own claims (Reader §5.3 "hints are verified
     separately"; fix round 1, F14), handed to the hint service. Fix round 3:
@@ -501,7 +515,8 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
 
     def verify(claims: Sequence[Any], context: Any) -> list[dict[str, Any]]:
         model = [{"method": symbolic.MODEL, "holds": None, "reason": "not checked"} for _ in claims]
-        if not bool(vault.config.workbench.symbolic_checks_enabled):
+        # Fix round 13: the switch read NOW, right before verification.
+        if not _switch_now(vault, symbolic_now):
             return model
         by_number = {step.number: step for step in context.steps}
         runnable: list[symbolic.SymbolicClaim] = []
@@ -522,6 +537,9 @@ def hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any
                 model[outcome.index] = {"method": outcome.method if bound else symbolic.MODEL,
                                         "holds": outcome.holds if bound else None,
                                         "reason": problem or outcome.reason}
+            if not _switch_now(vault, symbolic_now):
+                # Fix round 13: off again before the claims are recorded.
+                return [{"method": symbolic.MODEL, "holds": None, "reason": "not checked"} for _ in claims]
         return model
 
     return verify
@@ -638,6 +656,7 @@ def run_check(
     sandbox_run: Callable[..., Any] | None = None,
     clock: Clock | None = None,
     cancelled: Callable[[], bool] | None = None,
+    symbolic_now: Callable[[], bool] | None = None,
 ) -> CheckResult:
     """Check the steps; the row is written prepared (``shown = 0``) and shown
     when the workbench receives it. Never raises for a model failure."""
@@ -684,10 +703,14 @@ def run_check(
     outcomes: dict[int, symbolic.SymbolicOutcome] = {}
     sym_problem = None
     claims: list[symbolic.SymbolicClaim] = []
-    if section.symbolic_checks_enabled:
+    # Fix round 13: the switch read NOW (the live reader), right before
+    # symbolic verification, and again before anything is serialized.
+    if _switch_now(vault, symbolic_now):
         claims = claims_from(output, live, problem_text=str(getattr(item, "prompt", "") or ""))
         results, sym_problem = symbolic.run_checks(claims, run=sandbox_run) if claims else ([], None)
         outcomes = {outcome.index: outcome for outcome in results}
+        if not _switch_now(vault, symbolic_now):
+            claims, outcomes, sym_problem = [], {}, None
     # Fix round 3 (F3): the steps the sandbox ran on but could not check as
     # written and declared (recorded; they keep the model's reading).
     unbound = {number for number, outcome in outcomes.items() if not outcome.bound} if sym_problem is None else set()

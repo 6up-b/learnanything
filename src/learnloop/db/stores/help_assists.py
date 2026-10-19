@@ -11,7 +11,7 @@ never evidence: replay and rebuild never read it.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import sqlite3
 from typing import Any
@@ -366,6 +366,67 @@ def workbench_assist_ids(connection: sqlite3.Connection, *, workbench_session_id
     return tuple(str(row[0]) for row in rows)
 
 
+#: RW2b fix round 13 (H2b's R1 rule for the workbench's server assists): the
+#: item's shown, server-counted, unattached workbench checks and level 1-3
+#: hints requested after the item's last attempt (in the row's practice
+#: session when it records one; workbench rows record it only once their
+#: problem is submitted, so in practice the item's last attempt in any
+#: session), whatever their problem's status (open, abandoned, reopened).
+_WINDOW = (
+    "surface = 'workbench' AND practice_item_id = ? AND attempt_id IS NULL AND shown = 1 "
+    "AND counted_by = 'server' AND (assist_kind = 'check' OR (assist_kind = 'hint' AND level BETWEEN 1 AND 3)) "
+    # ">=": timestamps are whole seconds, and an unattached row in the last
+    # attempt's second is never lost (an attempt that counted it took it).
+    "AND requested_at >= COALESCE((SELECT MAX(attempts.created_at) FROM practice_attempts AS attempts "
+    "WHERE attempts.practice_item_id = help_assists.practice_item_id "
+    "AND (help_assists.practice_session_id IS NULL OR attempts.session_id = help_assists.practice_session_id)), '')"
+)
+
+
+def workbench_window_ids(connection: sqlite3.Connection, *, practice_item_id: str) -> tuple[str, ...]:
+    """The ids of the item's workbench server assists in the window
+    (:data:`_WINDOW`): what an attempt of the item counts and attaches."""
+
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return ()
+    rows = connection.execute(f"SELECT id FROM help_assists WHERE {_WINDOW} ORDER BY id",
+                              (practice_item_id,)).fetchall()
+    return tuple(str(row[0]) for row in rows)
+
+
+def unattached_ids(connection: sqlite3.Connection, ids: Sequence[str]) -> set[str]:
+    """Which of ``ids`` no attempt has taken yet."""
+
+    wanted = [str(entry) for entry in ids]
+    if not wanted:
+        return set()
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+                          ).fetchone() is None:
+        return set(wanted)  # no table, no attempt could have taken them
+    marks = ", ".join("?" for _ in wanted)
+    rows = connection.execute(f"SELECT id FROM help_assists WHERE attempt_id IS NULL AND id IN ({marks})",
+                              wanted).fetchall()
+    return {str(row[0]) for row in rows}
+
+
+def attach_workbench_rows(connection: sqlite3.Connection, ids: Sequence[str], attempt_id: str,
+                          submitted_at: str | None = None) -> int:
+    """The attempt takes the workbench server assists it counted, in its own
+    write transaction (NULL to a value, as H0's attach writes), so no later
+    attempt counts them again (fix round 13)."""
+
+    wanted = [str(entry) for entry in ids]
+    if not wanted:
+        return 0
+    marks = ", ".join("?" for _ in wanted)
+    cursor = connection.execute(
+        f"UPDATE help_assists SET attempt_id = ?, submitted_at = COALESCE(submitted_at, ?) "
+        f"WHERE attempt_id IS NULL AND surface = 'workbench' AND id IN ({marks})",
+        (attempt_id, submitted_at, *wanted))
+    return int(cursor.rowcount or 0)
+
+
 def workbench_rows(connection: sqlite3.Connection, workbench_session_id: str) -> list[dict[str, Any]]:
     """Every row of a workbench problem, in the order requested."""
 
@@ -439,7 +500,10 @@ def _latency(value: float | None) -> float | None:
 
 
 __all__ = [
+    "attach_workbench_rows",
+    "unattached_ids",
     "workbench_assist_ids",
+    "workbench_window_ids",
     "COLUMNS", "TABLE", "assist", "attach_keyless_fold", "attach_submission", "count_closed", "fold_row_count",
     "insert_assist", "keyless_window_start", "mark_shown", "server_fold", "stamp_submitted",
     "stamp_window_submitted", "submission_assists", "submission_committed",

@@ -542,7 +542,10 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
             # exactly as before); ``bridge``: "compare with the book". The
             # ladder's hints need the hint service (the ``hints`` key below).
             **({"workbench": {"enabled": True, "open_session_days": config.workbench.open_session_days,
-                              **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled)}}
+                              **({"help": {"enabled": True, "bridge": bool(config.workbench.bridge_enabled),
+                                           # RW2b fix round 13: the symbolic switch, so a
+                                           # mounted workbench gates marks already shown.
+                                           "symbolic": bool(config.workbench.symbolic_checks_enabled)}}
                                  if config.workbench.help_enabled else {})}}
                if config.workbench.enabled else {}),
             # Reader workbench RW6a's two kill switches: present only while one

@@ -160,8 +160,12 @@ def test_item3_the_refold_never_drops_an_assist_it_already_counted(tmp_path, gra
     monkeypatch.setattr(practice_handler, "_server_hint_fold", during_grading)
     attempt = _box_submit(ctx, session, "refold-three")
     assert len(done) == 2 and done[1]["shown"] is True
-    # A1 and B1 seen before grading, B2 in the transaction: three distinct assists.
-    assert _attempt(paths, attempt["attemptId"])["hints_used"] == 3
+    # A1 and B1 seen before grading, B2 in the transaction. Fix round 13
+    # (H2b's R1 rule over the item's window, superseding open question 5's
+    # two-attempt rule): A's attempt committed first and took the window, A1
+    # and B1; this one takes B2. Every assist is counted exactly once.
+    assert _attempt(paths, attempt["attemptId"])["hints_used"] == 1
+    assert _attempt(paths, done[0]["attempt"]["attemptId"])["hints_used"] == 2
 
 
 def _run_sequence(code_root: Path, vault_dir: Path) -> dict:

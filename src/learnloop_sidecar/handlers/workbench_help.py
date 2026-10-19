@@ -184,7 +184,8 @@ def workbench_check(ctx: SidecarContext, params: WorkbenchCheckInput) -> dict[st
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
         result = check_module.run_check(vault, worker_repo, workbench_session_id=params.session_id,
                                         submission_id=submission, item=item, steps=steps, client=client,
-                                        sandbox_run=sandbox_run, cancelled=cancelled)
+                                        sandbox_run=sandbox_run, cancelled=cancelled,
+                                        symbolic_now=_live_symbolic_switch(ctx))
         return {"status": result.status, "assist_id": result.assist_id, "reason": result.reason,
                 "message": result.message}
 
@@ -315,7 +316,8 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
     writer, factory, seed = _hint_clients(ctx)
     labels = _context_labels(context)
 
-    verifier = check_module.hint_claim_verifier(vault, item, sandbox_run=getattr(ctx, "workbench_sandbox_run", None))
+    verifier = check_module.hint_claim_verifier(vault, item, sandbox_run=getattr(ctx, "workbench_sandbox_run", None),
+                                                symbolic_now=_live_symbolic_switch(ctx))
 
     def work(worker_repo: Any, cancelled: Callable[[], bool]) -> dict[str, Any]:
         result = hint_service.request_hint(vault, worker_repo, request, writer_client=writer,

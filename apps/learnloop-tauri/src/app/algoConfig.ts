@@ -2,6 +2,7 @@
 // so the frontend never duplicates algorithm opinions. The fallbacks mirror the
 // backend defaults in src/learnloop/config.py and only apply before the first
 // app snapshot arrives (or against a sidecar that predates these fields).
+import { useSyncExternalStore } from "react";
 
 export interface AlgoDisplayConfig {
   /** Mastery mean above which the UI renders "strong" (green). */
@@ -38,7 +39,7 @@ export interface AlgoDisplayConfig {
    *  sidecar sends `workbench.help` only while it is on, so null until it
    *  says so, and null leaves the workbench exactly as RW2a drew it. The
    *  ladder's hints need the hint service too (`adaptiveHints`). */
-  workbenchHelp: { bridge: boolean } | null;
+  workbenchHelp: { bridge: boolean; symbolic: boolean } | null;
 }
 
 export type HelpStyleValue = "let_me_struggle" | "balanced" | "guide_me";
@@ -72,7 +73,7 @@ export function setAlgoConfig(config: unknown): void {
     scheduler?: { followup?: { tauFollowupNats?: unknown; gateScoreThreshold?: unknown } };
     practice?: { stuckPrompt?: unknown };
     ui?: { practiceFeedback?: unknown };
-    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown } };
+    workbench?: { enabled?: unknown; help?: { enabled?: unknown; bridge?: unknown; symbolic?: unknown } };
     recap?: { enabled?: unknown; wrapUpEnabled?: unknown };
     hints?: { adaptiveEnabled?: unknown; authoredOfferAfterSeconds?: unknown; helpStyle?: unknown };
   };
@@ -94,8 +95,20 @@ export function setAlgoConfig(config: unknown): void {
         }
       : null,
     workbenchHelp: root.workbench?.enabled === true && root.workbench.help?.enabled === true
-      ? { bridge: root.workbench.help.bridge === true }
+      ? { bridge: root.workbench.help.bridge === true, symbolic: root.workbench.help.symbolic === true }
       : null
+  };
+  for (const listener of listeners) listener();
+}
+
+const listeners = new Set<() => void>();
+
+/** RW2b fix round 13: re-render when the app snapshot's config changes (the
+ *  config watcher calls setAlgoConfig), e.g. the symbolic switch. */
+export function subscribeAlgoConfig(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
   };
 }
 
@@ -132,4 +145,11 @@ export function masteryTone<T>(mastery: number, palette: { green: T; amber: T; r
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/** RW2b fix round 13: `workbench.symbolic_checks_enabled` as the app snapshot
+ *  says NOW; a mounted workbench re-renders when the watcher changes it, and
+ *  gates every symbolic mark with it (AND each view's own symbolicEnabled). */
+export function useSymbolicChecksLive(): boolean {
+  return useSyncExternalStore(subscribeAlgoConfig, () => current.workbenchHelp?.symbolic === true);
 }

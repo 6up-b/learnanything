@@ -28,7 +28,13 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from learnloop.attempts.stuck import stuck_attempt_type
-from learnloop.db.stores.help_assists import attach_keyless_fold, keyless_window_start, server_fold
+from learnloop.db.stores.help_assists import (
+    attach_keyless_fold,
+    attach_workbench_rows,
+    keyless_window_start,
+    server_fold,
+    unattached_ids,
+)
 
 
 #: One open workbench problem's help: ``(book, carried, assist_ids)``.
@@ -262,8 +268,12 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
             # at 7d4c5f4ce (only the H2b window fold below refolds).
             held = (fold.held_hints, bool(now_primed) or bool(fold.held_primed), tuple(fold.held_parts))
         else:
-            # (b) with every component; the union never drops an id (c).
-            components = (tuple(sorted(set(fold.held_union) | set(now_union))), bool(fold.held_book) or now_book,
+            # (b) with every component. Fix round 13 (H2b's R1 rule): the
+            # window read now, with the ids seen before grading that no other
+            # attempt attached in between (whichever commits first takes them).
+            before = set(fold.held_union)
+            kept = unattached_ids(connection, sorted(before)) if before else set()
+            components = (tuple(sorted(set(now_union) | (before & kept))), bool(fold.held_book) or now_book,
                           max(int(fold.held_carried), now_carried))
             largest = max((book + carried + len(ids) for book, carried, ids in now_parts), default=0)
             held = (max(largest, int(fold.held_hints)), bool(now_primed) or bool(fold.held_primed), now_parts)
@@ -288,6 +298,22 @@ def refolded_draft(connection: Any, draft: Any) -> tuple[Any, ServerHintFold | N
     ), now
 
 
+def attach_held(connection: Any, draft: Any, attempt_id: str) -> int:
+    """RW2b fix round 13: the attempt takes the workbench server assists it
+    counted (its fold's union, as the refold left it), in its own write
+    transaction, so no later attempt counts them again."""
+
+    fold: ServerHintFold | None = getattr(draft, "server_hint_fold", None)
+    if fold is None or fold.held_reader is None or not fold.held_union:
+        return 0
+    exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'help_assists'"
+    ).fetchone()
+    if exists is None:
+        return 0
+    return attach_workbench_rows(connection, list(fold.held_union), attempt_id, submitted_at=fold.submitted_at)
+
+
 def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
     """A keyless submit's attempt takes the rows its fold counted (round 3b),
     in its own write transaction after the attempt row exists: the window
@@ -306,5 +332,5 @@ def attach_keyless(connection: Any, draft: Any, attempt_id: str) -> int:
                                since=fold.since, attempt_id=attempt_id, submitted_at=fold.submitted_at)
 
 
-__all__ = ["HeldPart", "ServerHintFold", "attach_keyless", "combine_held", "held_components", "read_fold",
-           "refolded_draft"]
+__all__ = ["HeldPart", "ServerHintFold", "attach_held", "attach_keyless", "combine_held", "held_components",
+           "read_fold", "refolded_draft"]

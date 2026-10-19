@@ -14,6 +14,7 @@ import { quietLine, quietLink } from "../../components/PlainParts";
 import { MarkdownMath } from "../../render/MarkdownMath";
 import { MeaningLabel, ModelVoice } from "../reader/voices";
 import { HELP_COPY, WORKBENCH_SHORTCUTS, claimLine, hintLabel } from "./helpModel";
+import { useSymbolicChecksLive } from "../../app/algoConfig";
 import type { BridgeState } from "./useWorkbenchHelp";
 import { WhereThisGoes } from "./WhereThisGoes";
 
@@ -140,6 +141,8 @@ export function HintCard({
   onPeek?: (spanId: string) => void;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Fix round 13: the app's CURRENT symbolic switch, AND the hint's own.
+  const symbolicLive = useSymbolicChecksLive();
   const asking = hint.kind === "discriminating";
   const authored = hint.labels?.origin === "from the item";
   // The item's own hints are labelled "from the item" (G-H12), never the
@@ -155,7 +158,7 @@ export function HintCard({
           <div data-testid="workbench-hint-claims" style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {hint.claims.map((claim, index) => (
               <MeaningLabel key={index} style={{ fontSize: 11 }}>
-                <span data-claim-status={claim.status}>{claimLine(claim, hint.symbolicEnabled)}</span>
+                <span data-claim-status={claim.status}>{claimLine(claim, hint.symbolicEnabled === true && symbolicLive)}</span>
               </MeaningLabel>
             ))}
           </div>

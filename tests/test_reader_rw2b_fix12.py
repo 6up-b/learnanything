@@ -80,7 +80,9 @@ def test_item1_end_to_end_a_problem_submitted_during_grading_is_not_counted_twic
 
     monkeypatch.setattr(practice_handler, "_server_hint_fold", during_grading)
     attempt = _box(ctx, session, "closed-during", hintsUsed=0, authoredHints=0)
-    assert entered and _attempt(paths, attempt["attemptId"])["hints_used"] == 1
+    # Never 2. Fix round 13 (H2b's R1 rule): the workbench attempt committed
+    # first and took the check, so the answer box counts it no more.
+    assert entered and _attempt(paths, attempt["attemptId"])["hints_used"] == 0
 
 
 # -- Item 2: the client-held book is its own component ---------------------------------------------

@@ -77,7 +77,7 @@ function done(result: unknown, jobId = "job") {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  setAlgoConfig({ workbench: { enabled: true, help: { enabled: true, bridge: true } }, hints: { adaptiveEnabled: true, helpStyle: "balanced" } });
+  setAlgoConfig({ workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: true } }, hints: { adaptiveEnabled: true, helpStyle: "balanced" } });
   api.workbenchHelpState.mockResolvedValue({ version: 1, check: null, hints: [], helpStyle: null, storedHelpStyle: "balanced", hintsEnabled: true });
   let saved = 0;
   api.workbenchSaveStep.mockImplementation(async (input: { op: string; bodyMd?: string; kind?: string; stepId?: string }) => {

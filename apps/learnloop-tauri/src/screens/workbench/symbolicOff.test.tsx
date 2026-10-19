@@ -1,10 +1,11 @@
 // RW2b fix round 9 (docs/reviews/reader-rw2b-h3-codex-review.md): symbolic checks
 // are off by default, and the workbench never shows a "✓" / "≠" symbolic label
 // unless the server says the check decided the verdict.
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { VerdictCell } from "./CheckColumn";
 import { claimLine, verdictMark } from "./helpModel";
+import { setAlgoConfig } from "../../app/algoConfig";
 import type { CheckStepVerdictDto } from "../../api/dto";
 
 afterEach(cleanup);
@@ -50,4 +51,19 @@ it("with the switch off, a stored checked verdict or claim reads as the model's"
   render(<VerdictCell verdict={verdict("checked_numerically", "valid", "✓", "checked numerically")}
     symbolicEnabled={false} />);
   expect(screen.getByTestId("workbench-verdict").textContent).toBe("≈ model's reading, not checked");
+});
+
+// RW2b fix round 13: a mark already on screen follows the app snapshot's
+// switch (the config watcher's setAlgoConfig), with no remount.
+it("a displayed checked verdict loses its ✓ when the snapshot's switch goes off", () => {
+  const on = { workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: true } } };
+  const off = { workbench: { enabled: true, help: { enabled: true, bridge: true, symbolic: false } } };
+  act(() => setAlgoConfig(on));
+  render(<VerdictCell verdict={verdict("checked", "valid", "✓", "checked")} symbolicEnabled />);
+  const cell = screen.getByTestId("workbench-verdict");
+  expect(cell.textContent).toBe("✓ checked");
+  act(() => setAlgoConfig(off));
+  expect(screen.getByTestId("workbench-verdict")).toBe(cell);
+  expect(cell.textContent).toBe("≈ model's reading, not checked");
+  act(() => setAlgoConfig({}));
 });

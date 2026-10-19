@@ -957,15 +957,28 @@ def _held_read(repository, item) -> tuple[tuple[tuple[int, int], ...], bool]:
     from contextlib import closing
 
     from learnloop.db.connection import connect
-    from learnloop.reader.workbench import held_parts_on
-
     try:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            parts, primed = held_parts_on(connection, item.id)
+            parts, primed = _held_parts_with_window(connection, item.id)
     except Exception as exc:  # noqa: BLE001 -- a vault without the tables holds nothing
         log_event("workbench_held_read_failed", practice_item_id=item.id, error=type(exc).__name__)
         return (), False
     return tuple(parts), bool(primed)
+
+
+def _held_parts_with_window(connection, practice_item_id: str):
+    """The open problems' RW2a parts (book, carried) and, as one more part,
+    the item's WINDOW of workbench server assists (RW2b fix round 13: H2b's R1
+    rule, whatever their problem's status, ``help_assists.workbench_window_ids``),
+    which the attempt counts once and attaches in its own transaction."""
+
+    from learnloop.db.stores.help_assists import workbench_window_ids
+    from learnloop.reader.workbench import held_parts_on
+
+    parts, primed = held_parts_on(connection, practice_item_id)
+    window = workbench_window_ids(connection, practice_item_id=practice_item_id)
+    rw2a = tuple((int(book), int(carried), ()) for book, carried, _ids in parts)
+    return rw2a + (((0, 0, tuple(window)),) if window else ()), bool(primed)
 
 
 def _held_reader(practice_item_id: str):
@@ -975,11 +988,9 @@ def _held_reader(practice_item_id: str):
     while the submit was grading is then counted; none is shown after the
     attempt commits under its key (``help_assists.mark_shown``)."""
 
-    def read(connection) -> tuple[tuple[tuple[int, int], ...], bool]:
-        from learnloop.reader.workbench import held_parts_on
-
+    def read(connection) -> tuple[tuple[Any, ...], bool]:
         try:
-            return held_parts_on(connection, practice_item_id)
+            return _held_parts_with_window(connection, practice_item_id)
         except sqlite3.OperationalError:
             # A vault without the workbench tables holds nothing.
             return (), False

@@ -36,7 +36,9 @@ def test_switched_off_the_rw2a_workbench_is_byte_identical(tmp_path, grader):
     off = _shape(tmp_path / "off", "[workbench]\nhelp_enabled = false\n")
     on = _shape(tmp_path / "on", "")
     assert off["workbench_key"] == {"enabled": True, "openSessionDays": 30}
-    assert on["workbench_key"] == {**off["workbench_key"], "help": {"enabled": True, "bridge": True}}
+    # RW2b fix round 13: the help block carries the symbolic switch (off by default).
+    assert on["workbench_key"] == {**off["workbench_key"], "help": {"enabled": True, "bridge": True,
+                                                                     "symbolic": False}}
     for key in ("view", "left", "submitted", "attempt_keys", "help_rows"):
         assert on[key] == off[key], key
     assert "help" not in off["view"]["record"]
