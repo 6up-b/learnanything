@@ -3,8 +3,8 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
+source_commit_timestamp: "2026-10-19T00:38:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
@@ -145,6 +145,7 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_workbench_text_gaps.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_factor_deferral.py`

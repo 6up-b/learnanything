@@ -3,8 +3,8 @@ title: "help_assists"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
+source_commit_timestamp: "2026-10-19T00:38:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite help_assists"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/help_assists.py"
+  - "src/learnloop/diagnosis/split/workbench_trace.py"
   - "src/learnloop/diagnosis/text_gaps/contract.py"
-  - "src/learnloop/diagnosis/text_gaps/jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -150,9 +150,12 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/help_assists.py`
+- `src/learnloop/diagnosis/split/workbench_trace.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/hints/outcome.py`
 - `src/learnloop/hints/report.py`
+- `src/learnloop/hints/report_workbench.py`
+- `src/learnloop/workbench/check.py`
 
 ### Direct SQL writers
 
@@ -179,6 +182,12 @@ None found by exact static reference scan.
 - `tests/test_hint_report.py`
 - `tests/test_hint_telemetry.py`
 - `tests/test_library_asks_migration.py`
+- `tests/test_workbench_assistance.py`
+- `tests/test_workbench_hint_service.py`
+- `tests/test_workbench_report.py`
+- `tests/test_workbench_step_graph.py`
+- `tests/test_workbench_text_gaps.py`
+- `tests/workbench_help_fakes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

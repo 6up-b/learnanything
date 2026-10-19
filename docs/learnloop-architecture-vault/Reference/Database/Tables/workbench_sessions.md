@@ -3,8 +3,8 @@ title: "workbench_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e1bd8231b9fc476af862ae4c67d30b54cf98429d"
-source_commit_timestamp: "2026-10-18T19:32:15-04:00"
+source_commit: "892078de42f35c2762d5b1d74c606e26ed05c1a3"
+source_commit_timestamp: "2026-10-19T00:38:02-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite workbench_sessions"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/207_workbench.sql"
   - "src/learnloop/db/stores/workbench.py"
+  - "src/learnloop/diagnosis/text_gaps/sources.py"
   - "src/learnloop/hints/report.py"
   - "src/learnloop/reader/recap.py"
 tags:
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/hints/report.py`
 - `src/learnloop/reader/recap.py`
 
