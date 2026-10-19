@@ -11,12 +11,35 @@
 // glass box says why it appeared: "Offered at random, to learn how much of
 // this helps you". With `reading_dose_offers` off the sidecar offers nothing
 // and the Reader is unchanged.
+//
+// A taken extra question is the exact question the draw chose (Codex review
+// F6): the Reader tells the sidecar which check the section already shows
+// (`showingQuestionId`, never in the draw's support), and on "yes" this shows
+// the chosen question itself, answered like any quick check, so the answer is
+// the extra the offer delivered (its reading opportunity names the offer).
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
-import type { ReaderDoseOfferDto, ReaderGuideSectionDto } from "../../api/dto";
+import type { ReaderDoseOfferDto, ReaderGuideSectionDto, ReaderSectionQuestionDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
+import { AuthoredQuestionCard } from "./GuideRail";
 
 type Offer = NonNullable<ReaderDoseOfferDto["offer"]>;
+type OfferedQuestion = NonNullable<Offer["question"]>;
+
+/** The chosen extra question as the quick-check card reads a section's question. */
+function extraSection(question: OfferedQuestion, sectionId: string | null): ReaderGuideSectionDto {
+  const asked: ReaderSectionQuestionDto = {
+    practiceItemId: null, learningObjectId: null, learningObjectTitle: null, prompt: question.prompt,
+    reason: "One more question on this section, offered at random.", learnerSignal: "auto_authored", goalId: null,
+    goalTitle: null, goldenPathRunId: null, targetContractVersionId: null, readingPhase: "after_section",
+    pattern: null, placementEventId: null, blueprintVersionId: null, placement: "auto_authored",
+    authoredQuestionId: question.questionId, expectedAnswer: question.expectedAnswer, spanIds: question.spanIds,
+    escalationLearningObjectId: null,
+  };
+  const spans = question.spanIds;
+  return { id: question.sectionId ?? sectionId ?? "", label: "", startSpanId: spans[0] ?? "",
+    endSpanId: spans[spans.length - 1] ?? "", spanIds: spans, question: asked, suggestedPassages: [] };
+}
 
 export interface DoseOfferProps {
   extractionId: string;
@@ -29,16 +52,21 @@ export interface DoseOfferProps {
   /** The passage the learner was restored to (its section is never a decision point). */
   restoredSpanId: string | null;
   sections: ReaderGuideSectionDto[];
+  /** The section's ordinary quick check already on show (never offered again as the extra). */
   showingQuestionId?: string | null;
   onShowExample?: (spanId: string) => void;
+  /** Told the id of the extra question shown (after the learner said yes). */
   onShowQuestion?: (questionId: string) => void;
+  /** "show me the passage" on the extra question. */
+  onJump?: (spanId: string) => void;
 }
 
 export function DoseOffer(props: DoseOfferProps) {
   const { extractionId, sectionId, visitId, boundaryChecksAvailable, cueDensityOff, skim, restoredSpanId, sections,
-    showingQuestionId, onShowExample, onShowQuestion } = props;
+    showingQuestionId, onShowExample, onShowQuestion, onJump } = props;
   const [offer, setOffer] = useState<Offer | null>(null);
   const [why, setWhy] = useState(false);
+  const [extra, setExtra] = useState<OfferedQuestion | null>(null);
   const decided = useRef(new Set<string>());
 
   useEffect(() => {
@@ -68,6 +96,20 @@ export function DoseOffer(props: DoseOfferProps) {
   }, [sectionId, extractionId, visitId, boundaryChecksAvailable, cueDensityOff, skim, restoredSpanId, sections,
     showingQuestionId]);
 
+  if (extra) {
+    return (
+      <div data-testid="dose-extra-question">
+        <AuthoredQuestionCard
+          section={extraSection(extra, sectionId)}
+          autoStart
+          onJump={(spanId) => onJump?.(spanId)}
+          onDismiss={() => setExtra(null)}
+          onComplete={() => setExtra(null)}
+          onError={() => undefined}
+        />
+      </div>
+    );
+  }
   if (!offer) return null;
   const close = (event: "taken" | "dismissed") => {
     void api.readerDoseOfferEvent({ drawId: offer.drawId, event }).catch(() => undefined);
@@ -77,7 +119,10 @@ export function DoseOffer(props: DoseOfferProps) {
   const take = () => {
     close("taken");
     if (offer.variant === "extra_worked_example" && offer.content.spanId) onShowExample?.(offer.content.spanId);
-    if (offer.variant === "extra_question" && offer.content.questionId) onShowQuestion?.(offer.content.questionId);
+    if (offer.variant === "extra_question" && offer.question) {
+      setExtra(offer.question);
+      onShowQuestion?.(offer.question.questionId);
+    }
   };
   return (
     <div

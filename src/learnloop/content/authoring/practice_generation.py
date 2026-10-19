@@ -290,7 +290,10 @@ def build_practice_expansion_plan(
     require_completed_probe: bool = True,
     exclude_item_ids: set[str] | None = None,
     force_named_targets: bool = True,
+    ad_commission_id: str | None = None,
 ) -> PracticeExpansionPlan:
+    """``ad_commission_id``: a serve-time adaptive difficulty commission this plan generates for
+    (its LO's target is written at that commission's point, §6.1, §7.1)."""
     if target_items_per_lo <= 0:
         raise PracticeExpansionError("target_items_per_lo must be positive")
     if max_new_per_lo <= 0:
@@ -399,7 +402,9 @@ def build_practice_expansion_plan(
         # Adaptive difficulty AD2+AD3 (spec §6.1, §7.1; switch generation_contract,
         # dormant below mvp-0.28): AD's commission draw names the feature point at
         # the waypoint's capability; the target carries no difficulty band.
-        rung, ad_commission_id = _ad_commissioned_rung(vault, repository, learning_object.id, rung)
+        rung, target_commission_id = _ad_commissioned_rung(
+            vault, repository, learning_object.id, rung, commission_id=ad_commission_id
+        )
         ability = mastery_mean if mastery_mean is not None else claimed_level
         targets.append(
             PracticeExpansionTarget(
@@ -430,7 +435,7 @@ def build_practice_expansion_plan(
                 contrast_pair_requests=_contrast_pair_requests_for(
                     pair_requests_by_facet, learning_object
                 ),
-                ad_commission_id=ad_commission_id,
+                ad_commission_id=target_commission_id,
             )
         )
     # Target order follows the commissioning queue: an LO whose best unreachable
@@ -452,10 +457,12 @@ def build_practice_expansion_plan(
 
 
 def _ad_commissioned_rung(
-    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None
+    vault: LoadedVault, repository: Repository, learning_object_id: str, rung: RungTarget | None,
+    *, commission_id: str | None = None,
 ) -> tuple[RungTarget | None, str | None]:
     """The generation contract's waypoint (adaptive difficulty §7.1): with the contract off,
-    or nothing commissioned, the incumbent's rung exactly."""
+    or nothing commissioned, the incumbent's rung exactly. ``commission_id``: the serve-time
+    commission a background job generates for (its point, whatever the incumbent's capability)."""
 
     import learnloop.adaptive_difficulty.generation as ad_generation
 
@@ -464,7 +471,8 @@ def _ad_commissioned_rung(
     from learnloop.clock import utc_now_iso
 
     commissioned = ad_generation.commission_point(
-        vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso()
+        vault, repository, learning_object_id=learning_object_id, incumbent=rung, now=utc_now_iso(),
+        selection_id=commission_id,
     )
     if commissioned is None:
         return rung, None
@@ -812,6 +820,7 @@ def generate_post_probe_practice_proposal(
     mode_mix: dict[str, int] | None = None,
     require_completed_probe: bool = True,
     source_refs: list[dict[str, Any]] | None = None,
+    ad_commission_id: str | None = None,
 ) -> PracticeExpansionResult:
     vault = load_vault(root)
     repository = vault_repository(VaultPaths(vault.root, vault.config))
@@ -827,6 +836,7 @@ def generate_post_probe_practice_proposal(
         learning_object_ids=learning_object_ids,
         mode_mix=mode_mix,
         require_completed_probe=require_completed_probe,
+        ad_commission_id=ad_commission_id,
     )
     if not plan.targets:
         raise PracticeExpansionError("No completed probe Learning Objects need more Practice Items.")

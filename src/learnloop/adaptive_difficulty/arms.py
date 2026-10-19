@@ -13,7 +13,7 @@ a never-seen cell, first attempts after reading and after a self-check verdict.
 * ``@subject:noread``, ``@subject:noverdict``, ``@subject:hyper_fine``,
   ``+outside`` (adds ``z_v1``), ``+rating``, ``+timing`` (in both views), and
   ``:grid`` (a QUEST+-exact grid for the served cell's ability, every other
-  coordinate at the base subject view's posterior means);
+  coordinate at the base subject view's posterior means before that attempt);
 * ``:ts`` is a decision-level comparison only (the simulations, ``learnloop.sim``);
 * field's ``mastery_ekf`` and ``lo_general`` as external comparators, on field's
   own rows, prequentially (predict, then observe), joined by attempt id.
@@ -96,7 +96,7 @@ def _uniform_weights(view: View) -> np.ndarray:
 
 
 def _run(events: RP.Events, settings: RP.ReplaySettings, *, base: bool, sink: dict[str, Record],
-         names: Mapping[str, str]) -> None:
+         names: Mapping[str, str], grid: "_GridArm | None" = None) -> None:
     def observer(attempt: RP.AttemptEvent, subject: View, lo_view: View, context: RP.Context) -> None:
         spec = attempt.spec
         record = sink.get(attempt.attempt_id)
@@ -116,34 +116,39 @@ def _run(events: RP.Events, settings: RP.ReplaySettings, *, base: bool, sink: di
                     record.p[hyper_fixed_name(point)] = float(rows[index])
         if "lo" in names:
             record.p[names["lo"]], _rows = _p(lo_view, replace(spec, loadings={}), attempt.warmth)
+        if grid is not None:
+            # The subject view as it stands before this attempt: the prefix only (review F7).
+            grid.observe(attempt, subject, record)
 
     RP.run(events, settings, trace=False, observer=observer)
 
 
-def _grid_arm(events: RP.Events, base: RP.Snapshot | None, sink: dict[str, Record]) -> None:
+class _GridArm:
     """``:grid``: a QUEST+-exact grid for each cell's ability (cold-start prior), demand from the
-    base subject view's posterior feature effects and signal weights, learning at ``E[γ]``."""
+    subject view's posterior feature effects and signal weights, learning at ``E[γ]``.
 
-    if base is None:
-        return
-    bank = base.subject.bank
-    weights = bank.weights()[0]
-    means = {name: float(np.dot(weights, bank.mu[:, i])) for name, i in bank.index.items()}
-    prior = np.exp(-0.5 * GRID_POINTS ** 2 / P.COLD_START_VARIANCE)
-    grids: dict[tuple[str, str], np.ndarray] = {}
-    gamma = means.get("gamma", P.GAMMA_PRIOR[1])
-    for attempt in events.attempts:
-        if not (attempt.eligible and attempt.spec is not None and attempt.category is not None):
-            continue
+    Prequential (Codex review F7): the shared means are read from the subject view **as it
+    stands before each attempt** (the base run's observer), never from the replay of the whole
+    history, so a later answer never changes an earlier forecast."""
+
+    def __init__(self) -> None:
+        self.prior = np.exp(-0.5 * GRID_POINTS ** 2 / P.COLD_START_VARIANCE)
+        self.grids: dict[tuple[str, str], np.ndarray] = {}
+
+    def observe(self, attempt: RP.AttemptEvent, subject: View, record: Record | None) -> None:
+        bank = subject.bank
+        weights = bank.weights()[0]
+        means = {name: float(np.dot(weights, bank.mu[:, i])) for name, i in bank.index.items()}
+        gamma = means.get("gamma", P.GAMMA_PRIOR[1])
         spec = attempt.spec
         cell = spec.cell()
-        posterior = grids.get(cell, prior / prior.sum())
+        prior = self.prior / self.prior.sum()
+        posterior = self.grids.get(cell, prior)
         demand = sum(means.get(name, 0.0) * value for name, value in P.feature_coding(spec.features).items())
         demand += sum(means.get(f"alpha:{name}", 0.0) * value for name, value in spec.signals.items()
                       if f"alpha:{name}" in means)
         eta = GRID_POINTS - demand + means.get("zeta", 1.0) * attempt.warmth
         success = M.residual_success(eta, spec.guess)
-        record = sink.get(attempt.attempt_id)
         if record is not None:
             record.p[GRID] = float(np.dot(posterior, success))
         nodes = eta[:, None] - P.A * P.TAU0 * M.X32[None, :]
@@ -153,7 +158,7 @@ def _grid_arm(events: RP.Events, base: RP.Snapshot | None, sink: dict[str, Recor
         updated = updated / updated.sum()
         # Learning: the grid shifts by E[γ] (interpolated onto the grid).
         updated = np.interp(GRID_POINTS - gamma, GRID_POINTS, updated, left=0.0, right=0.0)
-        grids[cell] = updated / updated.sum() if updated.sum() > 0 else prior / prior.sum()
+        self.grids[cell] = updated / updated.sum() if updated.sum() > 0 else prior
 
 
 def _field_arms(connection: Any, vault: Any, sink: dict[str, Record]) -> dict[str, int]:
@@ -188,8 +193,8 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
     base_settings = RP.ReplaySettings(coupling=True, reading=True, verdicts=True)
     events = RP.load_events(connection, vault, repository, settings=base_settings)
     sink: dict[str, Record] = {}
-    _run(events, base_settings, base=True, sink=sink, names={"subject": SUBJECT, "lo": LO})
-    base = RP.run(events, base_settings, trace=False) if GRID in selected else None
+    _run(events, base_settings, base=True, sink=sink, names={"subject": SUBJECT, "lo": LO},
+         grid=_GridArm() if GRID in selected else None)
     runs: list[tuple[str, RP.ReplaySettings, dict[str, str]]] = []
     if NOREAD in selected:
         runs.append((NOREAD, replace(base_settings, reading=False, verdicts=False), {"subject": NOREAD}))
@@ -205,8 +210,6 @@ def prequential(vault: Any, repository: Any, connection: Any, *, arms: Sequence[
     for _name, settings, names in runs:
         sub_events = RP.load_events(connection, vault, repository, settings=settings)
         _run(sub_events, settings, base=False, sink=sink, names=names)
-    if GRID in selected:
-        _grid_arm(events, base, sink)
     coverage = _field_arms(connection, vault, sink) if set(FIELD_ARMS) & selected else {}
     records = sorted(sink.values(), key=lambda r: (r.created_at, r.attempt_id))
     return {"records": records, "field_coverage": coverage, "events": events}

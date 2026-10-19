@@ -2858,11 +2858,11 @@ export function ReaderScreen({
             skim={mode === "skim"}
             restoredSpanId={progress.restoredSpan ?? null}
             sections={guidePlan?.sections ?? NO_SECTIONS}
+            showingQuestionId={guidePlan?.sections.find(
+              (section) => section.id === completedSections[completedSections.length - 1],
+            )?.question?.authoredQuestionId ?? null}
             onShowExample={(spanId) => jumpToSpan(spanId)}
-            onShowQuestion={() => {
-              const section = completedSections[completedSections.length - 1];
-              if (section) openQuickCheck(section);
-            }}
+            onJump={(spanId) => jumpToSpan(spanId)}
           />
 
           <GuideRail

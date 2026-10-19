@@ -30,6 +30,7 @@ else the slot LO's own view, exactly.
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Mapping, Sequence
 from contextlib import closing
@@ -51,6 +52,8 @@ from learnloop.adaptive_difficulty.successor import (
     subject_view_live,
     successor_active,
 )
+
+LOG = logging.getLogger(__name__)
 
 SUBSTITUTED = "item_substituted"
 DISPLACED = "item_displaced"
@@ -183,9 +186,20 @@ def _versions(vault: Any, snapshot: RP.Snapshot, view_name: str) -> dict[str, An
 def decide_slot(vault: Any, repository: Any, request: SlotRequest) -> SlotDecision:
     """Score the slot's support and draw (§6.1), writing the ``ad_selections`` row first.
 
-    Runs in the caller's (the serve's) transaction."""
+    Runs in the caller's (the serve's) transaction. The reading-opportunity sweep runs first,
+    through the decision's instant (Codex review F4): a section read or a self-check since the
+    last serve enters the state the support is scored on, and the serve hook's own sweep (at the
+    same instant, in the same transaction) then finds nothing new, so the draw, the selection row
+    and the serve receipts read one state."""
+
+    from learnloop.adaptive_difficulty.reading import sweep
 
     connection = repository.connection()
+    if request.now:
+        try:
+            sweep(vault, repository, as_of=request.now, sweep_kind="serve", sweep_ref=request.decision_key)
+        except Exception:  # noqa: BLE001 - as at the serve hook: a failed sweep never blocks the draw
+            LOG.warning("AD reading sweep before draw %s failed", request.decision_key, exc_info=True)
     constants = S.constants_from_config(vault.config)
     support = [c for c in request.candidates if not c.failed]
     excluded = [{"ref": c.practice_item_id, "failed": list(c.failed)} for c in request.candidates if c.failed]

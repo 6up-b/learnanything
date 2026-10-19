@@ -252,6 +252,65 @@ def _unverified(record) -> bool:
     )
 
 
+def current_criterion_evidence(evidence) -> list:
+    """The latest surviving record for each criterion of an attempt's live rows.
+
+    Partial supersession is cumulative: never merely the largest revision number."""
+    return list({
+        r["criterion_id"]: r
+        for r in sorted(evidence, key=lambda r: r["grading_revision"] or -1)
+    }.values())
+
+
+def unverified_criterion_ids(evidence) -> set[str]:
+    """PF-c: the criteria of the current grade the valid-alternative gate recorded unverified."""
+    return {r["criterion_id"] for r in current_criterion_evidence(evidence) if _unverified(r)}
+
+
+def wholly_unassessed(evidence) -> bool:
+    """PF-c: every criterion of the current grade is unverified, so the attempt measures
+    nothing (owner decision 2026-10-12), whatever its scheduling grade."""
+    current = current_criterion_evidence(evidence)
+    return bool(current) and all(_unverified(r) for r in current)
+
+
+def measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, float]:
+    """Per attempt, its effective mass before the item-dependent (familiarity) and assistance
+    discounts: the attempt type's mass (an independent attempt's for a hinted one, as
+    ``mass_without_assistance``), quarantine, an unassessable type and the grade's reliability.
+
+    Zero means the grade measures nothing whatever the item, so a reader holding the item's
+    inputs elsewhere (adaptive difficulty's frozen serve inputs) reads the same rule as the
+    rows this module derives."""
+    repository = _ReadRepository(connection)
+    entries = list(ledger)
+    references = load_effective_observation_references(
+        repository, (r.get("active_interpretation") for r in entries),
+    )
+    p0 = vault.config.algorithms.algorithm_version in (P0_ALGORITHM_VERSION, *P0_SUCCESSOR_VERSIONS)
+    masses = {}
+    for entry in entries:
+        attempt_type = entry["attempt_type"]
+        kwargs = dict(
+            attempt_type_mass=attempt_evidence_mass(
+                "independent_attempt" if attempt_type == "hinted_attempt" else attempt_type, vault.config.evidence,
+            ),
+            assistance_discount=1.0, familiarity_discount=1.0, score_fraction={},
+            unassessable=attempt_type == "unassessable",
+        )
+        interpretation = entry.get("active_interpretation")
+        if interpretation is not None or p0:
+            effective = build_effective_observation(
+                repository, interpretation=interpretation, references=references, **kwargs,
+            )
+        else:
+            effective = effective_observation_from_posterior(
+                observation_id=None, posterior={"graded": 1.0}, certainty_lcb=1.0, **kwargs,
+            )
+        masses[str(entry["attempt_id"])] = effective.effective_mass
+    return masses
+
+
 def _hedging_readings(connection) -> dict[str, tuple[int, int]]:
     """Per attempt, (hedged, read): the grader's reading of the learner's tone.
 
@@ -429,10 +488,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             continue
         # Partial supersession is cumulative: select the latest surviving
         # record for each criterion, not merely the largest revision number.
-        evidence = list({
-            r["criterion_id"]: r
-            for r in sorted(evidence, key=lambda r: r["grading_revision"] or -1)
-        }.values())
+        evidence = current_criterion_evidence(evidence)
         # PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
         # unverified (the final answer verifies; the grader marked it down
         # without locating an error) is not a measurement. Owner decision
@@ -440,10 +496,10 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         # grade and in the projection - like a criterion the grader never
         # scored, so its shortfall is never a failure outcome and its kept
         # points are not credited either.
-        unverified = {r["criterion_id"] for r in evidence if _unverified(r)}
+        unverified = unverified_criterion_ids(evidence)
         if unverified:
             unverified_attempts.add(attempt["id"])
-            if all(r["criterion_id"] in unverified for r in evidence):
+            if wholly_unassessed(evidence):
                 ungraded[UNVERIFIED_CRITERION_BLOCK] += 1
                 continue
         origin, propensity, candidate_id = _serving(connection, attempt, plan_served=plan_served)

@@ -66,6 +66,8 @@ class AttemptFacts:
     primed: bool = False
     pre_exposed: bool = False
     bound_presentation: bool = False
+    #: An empty "I'm stuck" submission or an "I don't know" answer (a fail whatever its grade);
+    #: a stuck learner who wrote an answer is not this (replay.forced_failure).
     stuck: bool = False
 
 

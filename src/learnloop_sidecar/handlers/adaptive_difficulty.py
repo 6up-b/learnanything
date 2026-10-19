@@ -55,7 +55,29 @@ def reader_dose_offer(ctx: SidecarContext, params: ReaderDoseOfferInput) -> dict
         skim=params.skim, restored_section=params.restored_section,
         showing_question_id=params.showing_question_id,
     ))
-    return versioned(decision.as_dict())
+    result = decision.as_dict()
+    offer = result.get("offer")
+    if offer and offer.get("variant") == "extra_question":
+        # The exact question the draw chose, so the Reader shows it (Codex review F6), never the
+        # section's ordinary check; read at response time, nothing more persisted.
+        offer["question"] = _offered_question(repository, (offer.get("content") or {}).get("question_id"))
+    return versioned(result)
+
+
+def _offered_question(repository: Any, question_id: Any) -> dict[str, Any] | None:
+    import json
+
+    if not question_id:
+        return None
+    row = repository.get_reader_authored_question(str(question_id))
+    if row is None:
+        return None
+    try:
+        spans = [str(span) for span in json.loads(row.get("span_ids_json") or "[]")]
+    except (TypeError, ValueError):
+        spans = []
+    return {"question_id": str(row["id"]), "section_id": row.get("section_id"), "prompt": row.get("question_md") or "",
+            "expected_answer": row.get("expected_answer_md") or "", "span_ids": spans}
 
 
 class ReaderDoseOfferEventInput(ParamsModel):

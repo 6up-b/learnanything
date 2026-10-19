@@ -217,6 +217,11 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
         from learnloop.adaptive_difficulty.switches import any_background_work
 
         vault = env.vault
+        # AD2+AD3 (§6.1, Codex review F5): a serve-time commission's generation, queued once
+        # on the vault's durable job queue (read, too, on a plan read: the recovery path).
+        from learnloop.adaptive_difficulty.generation import schedule_commission_generation
+
+        schedule_commission_generation(vault, env.repository, _commission_enqueue(ctx))
         if not any_background_work(vault.config):
             return
         clients = getattr(ctx, "ad_clients", None)
@@ -239,6 +244,26 @@ def _schedule_ad(ctx: SidecarContext, env: PlanEnv, *, step: Mapping[str, Any] |
         import logging
 
         logging.getLogger(__name__).warning("AD1 background work not scheduled", exc_info=True)
+
+
+def _commission_enqueue(ctx: SidecarContext) -> Any:
+    """How a commission's generation is queued: a test's injected callable, else the vault's
+    durable ingest queue, and nothing with ``LEARNLOOP_AD_MODELS=off`` (the suite, a copy run)."""
+
+    injected = getattr(ctx, "ad_commission_enqueue", None)
+    if injected is not None:
+        return injected
+    from learnloop.adaptive_difficulty.spend import models_off
+
+    if models_off():
+        return None
+
+    def enqueue(commission_id: str, learning_object_id: str) -> str:
+        return ctx.ingest_jobs.enqueue_practice_expansion(
+            learning_object_ids=[learning_object_id], ad_commission_id=commission_id,
+        )
+
+    return enqueue
 
 
 @method("set_plan_minutes", PlanMinutesInput)

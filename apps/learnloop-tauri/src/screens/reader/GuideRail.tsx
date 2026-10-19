@@ -410,7 +410,7 @@ export function SectionBoundaryOffer({
   );
 }
 
-function AuthoredQuestionCard({
+export function AuthoredQuestionCard({
   section,
   autoStart = false,
   onJump,

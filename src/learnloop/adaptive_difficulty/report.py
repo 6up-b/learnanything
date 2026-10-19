@@ -427,10 +427,95 @@ def _answer_minutes(connection: Any) -> float | None:
     return float(np.median(values)) if values else None
 
 
+#: §10.4: "reported every 200 AD selections" (the report windows the readiness flag compares).
+REPORT_EVERY_SELECTIONS = 200
+#: The Reader's cue densities, lowest first (``reader.reader_cues.DENSITIES``; a lowering moves left).
+CUE_DENSITIES = ("off", "fewer", "normal", "more")
+
+
+def readiness_errors(records: Sequence[A.Record], selection_times: Sequence[str], *,
+                     every: int = REPORT_EVERY_SELECTIONS) -> list[float | None]:
+    """The band-region error of ``@subject`` at each report, oldest first (Codex review F8).
+
+    The report is a pure read with no history table, so its earlier runs are the deterministic
+    windows §10.4 reports on: one report at each multiple of ``every`` AD selections, scoring
+    the prequential records written up to that selection, then this run's report over every
+    record (when it has records beyond the last window). The records are prequential, so a
+    window's error is what the report would have said had it run then."""
+
+    times = sorted(str(t) for t in selection_times)
+    errors: list[float | None] = []
+    last_count = None
+    for index in range(every, len(times) + 1, every):
+        boundary = times[index - 1]
+        rows = [r for r in records if r.created_at <= boundary]
+        errors.append(arm_scores(rows, A.SUBJECT, None).get("band_region_error"))
+        last_count = len(rows)
+    if last_count is None or len(records) > last_count:
+        errors.append(arm_scores(records, A.SUBJECT, None).get("band_region_error"))
+    return errors
+
+
+def density_lowerings(connection: Any) -> list[str]:
+    """When the learner lowered the cue density within a visit after an extra offer (§10.4, F8).
+
+    A lowering is a ``cue_density_changed`` preference event to a lower density. It counts when
+    it falls after a delivered extra offer and no later than the end of that offer's visit (its
+    close, else its last event carrying the visit), on the same source when the event names one.
+    Each lowering counts once, however many offers preceded it."""
+
+    import json
+
+    if not store.has_table(connection, "interaction_events"):
+        return []
+    rows = store.dose_rows(connection)
+    draws = {row["id"]: row for row in rows if row["row_kind"] == "draw"}
+    closed: dict[str, str] = {}
+    last_seen: dict[str, str] = {}
+    lowerings: list[tuple[str, str | None]] = []
+    for kind, payload, created_at in connection.execute(
+            "SELECT kind, payload_json, created_at FROM interaction_events WHERE kind IN "
+            "('reader_view_opened', 'reader_view_closed', 'reader_selection', 'reader_action_invoked', "
+            "'reader_job_queued', 'reader_job_completed') ORDER BY created_at, id"):
+        try:
+            data = json.loads(payload or "{}")
+        except ValueError:
+            data = {}
+        if not isinstance(data, dict):
+            continue
+        visit = data.get("visit_id")
+        if visit:
+            if kind == "reader_view_closed":
+                closed[str(visit)] = max(str(created_at), closed.get(str(visit), ""))
+            last_seen[str(visit)] = max(str(created_at), last_seen.get(str(visit), ""))
+        if kind == "reader_action_invoked" and data.get("event") == "cue_density_changed":
+            before, after = data.get("from"), data.get("to")
+            if before in CUE_DENSITIES and after in CUE_DENSITIES and \
+                    CUE_DENSITIES.index(after) < CUE_DENSITIES.index(before):
+                lowerings.append((str(created_at), data.get("extraction_id")))
+    offers = []
+    for row in rows:
+        draw = draws.get(row.get("draw_id")) if row["row_kind"] == "delivered" else None
+        if draw is None or draw.get("chosen_variant") in (None, "none") or not draw.get("visit_id"):
+            continue
+        end = closed.get(str(draw["visit_id"])) or last_seen.get(str(draw["visit_id"]))
+        if end is not None:
+            offers.append((str(row["created_at"]), end, draw.get("extraction_id")))
+    counted = []
+    for stamp, extraction in lowerings:
+        if any(start < stamp <= end and (extraction is None or source is None or extraction == source)
+               for start, end, source in offers):
+            counted.append(stamp)
+    return counted
+
+
 def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] = A.DEFAULT_ARMS,
-          previous_errors: Sequence[float | None] = (), sensitivity: bool = True,
-          now: str | None = None) -> dict[str, Any]:
-    """The whole report (a pure read; zero model calls)."""
+          previous_errors: Sequence[float | None] | None = None, sensitivity: bool = True,
+          now: str | None = None, report_every: int = REPORT_EVERY_SELECTIONS) -> dict[str, Any]:
+    """The whole report (a pure read; zero model calls).
+
+    ``previous_errors`` (a test's explicit history) replaces the report windows' errors
+    (:func:`readiness_errors`), which the CLI reads by default."""
 
     now = now or utc_now_iso()
     log = A.prequential(vault, repository, connection, arms=arms)
@@ -444,8 +529,13 @@ def build(vault: Any, repository: Any, connection: Any, *, arms: Sequence[str] =
             for comparator in ("mastery_ekf", A.LO, A.UNIFORM) if comparator in names}
     stats = _selection_stats(connection, snapshot)
     dose_arm = _dose_arm(connection)
+    if previous_errors is None:
+        errors = readiness_errors(records, [row["created_at"] for row in store.selections(connection)
+                                            if row["kind"] == "serve"], every=report_every)
+        previous_errors = errors[:-1]
     flags, lines = _flags_and_lines(records, previous_errors, selected_outcomes=stats["realized_outcomes"],
-                                    delivered=dose_arm["delivered"], lowerings=(), now=now)
+                                    delivered=dose_arm["delivered"], lowerings=density_lowerings(connection),
+                                    now=now)
     selections = store.selections(connection)
     dose = DR.analyse(snapshot.subject, visits=_visits(connection, snapshot), answer_minutes=_answer_minutes(connection),
                       median_doses=_median_doses(records), offers=_offer_outcomes(connection, snapshot),
@@ -498,5 +588,6 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["HONEST_STATEMENT", "REPORT_VERSION", "SPLITS", "aliased_coordinates", "arm_scores", "build",
-           "feature_time_correlation", "render_markdown"]
+__all__ = ["HONEST_STATEMENT", "REPORT_EVERY_SELECTIONS", "REPORT_VERSION", "SPLITS", "aliased_coordinates",
+           "arm_scores", "build", "density_lowerings", "feature_time_correlation", "readiness_errors",
+           "render_markdown"]

@@ -72,15 +72,25 @@ def lo_readiness(vault: Any, repository: Any, learning_object_id: str, *,
         rows.append({"facet": facet, "capability": capability, "untested": untested,
                      "p_bar_at_top": None if untested else round(prediction.p_bar, 4),
                      "label": label, "kind": "prediction", "ladder": S.ladder_id(capability, target)})
+    return {"version": READINESS_VERSION, "predicted": True, "line": aggregate_line(rows), "cells": rows}
+
+
+def aggregate_line(rows: list[Mapping[str, Any]]) -> str:
+    """The LO's one visible line (Codex review F9): "likely ready" only when **every** cell is
+    tested and likely ready; a partly untested LO says so in the line itself, since the desktop
+    shows this line alone, and is never "likely ready" on its tested cells."""
+
     if not rows:
-        line = UNTESTED
-    elif all(row["untested"] for row in rows):
-        line = f"Top level for this goal: {UNTESTED}"
-    elif all(row["label"] == LIKELY for row in rows if not row["untested"]):
-        line = f"Top level for this goal: not yet shown · {LIKELY} (a prediction)"
-    else:
-        line = f"Top level for this goal: not yet shown · {NOT_YET} (a prediction)"
-    return {"version": READINESS_VERSION, "predicted": True, "line": line, "cells": rows}
+        return UNTESTED
+    untested = sum(1 for row in rows if row["untested"])
+    if untested == len(rows):
+        return f"Top level for this goal: {UNTESTED}"
+    if untested:
+        return (f"Top level for this goal: not yet shown · {NOT_YET} (a prediction; "
+                f"{untested} of {len(rows)} parts {UNTESTED})")
+    if all(row["label"] == LIKELY for row in rows):
+        return f"Top level for this goal: not yet shown · {LIKELY} (a prediction)"
+    return f"Top level for this goal: not yet shown · {NOT_YET} (a prediction)"
 
 
 def card_fields(vault: Any, repository: Any, learning_object_id: str, *,
@@ -128,5 +138,5 @@ def card_line(fields: Mapping[str, Any]) -> str:
             f"{fields.get('p_bar_at_top') or 0:.2f} predicted at the top level")
 
 
-__all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "card_fields", "card_line",
+__all__ = ["LIKELY", "NOT_PREDICTED", "NOT_YET", "READINESS_VERSION", "UNTESTED", "aggregate_line", "card_fields", "card_line",
            "lo_readiness"]

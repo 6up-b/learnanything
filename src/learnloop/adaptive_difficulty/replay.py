@@ -21,11 +21,15 @@ reading.
 **Eligibility** (§5.6 step 1): a graded attempt of an eligible type (deviation
 D1: the four the spec lists plus ``hinted_attempt`` and ``dont_know``, which
 the practice screen records for a hinted answer and an old "I don't know"),
-the first graded attempt on its surface group, not held for review, with
-positive effective mass (not quarantined, unassessable or of another grading
-epoch), not on held-out material (A8), with usable inputs: its frozen serve
-inputs, or a historical resolution that is not ``excluded``. ``self_report``
-rows never enter (D8). Every graded attempt other than ``self_report`` closes
+the first graded attempt on its surface group, not held for review, with a
+current grade that assesses something (not wholly PF-c unverified) and
+positive effective mass before the item-dependent and assistance discounts
+(not quarantined, unassessable, of a zero-mass type or of a grade that
+measures nothing: ``field.outcomes.measurement_masses``, on the current grade's
+surviving criterion rows), not on held-out material (A8), with usable inputs:
+its frozen serve inputs, or a historical resolution that is not ``excluded``.
+Assessment is resolved from the ledger whatever the inputs (Codex review F1).
+``self_report`` rows never enter (D8). Every graded attempt other than ``self_report`` closes
 its facets' reading windows.
 
 **Order**: rows by ``(created_at, attempt id)``; a claim or a reading
@@ -272,6 +276,16 @@ def surface_group(item: Any) -> str:
     return f"item:{item.id}"
 
 
+def forced_failure(attempt: Mapping[str, Any]) -> bool:
+    """§5.3's "an empty 'I'm stuck'" row (Codex review F2): only an empty stuck submission, or a
+    historical "I don't know" answer, is a fail whatever its grade. A stuck learner who still
+    wrote an answer is classified by its assessed correctness and help timing like any other."""
+
+    if attempt.get("attempt_type") == "dont_know" or bool(attempt.get("declared_dont_know")):
+        return True
+    return bool(attempt.get("declared_stuck")) and not str(attempt.get("learner_answer_md") or "").strip()
+
+
 def _type_mass(vault: Any, attempt_type: str) -> float:
     entry = getattr(getattr(vault.config, "evidence", None), "attempt_types", {}).get(attempt_type)
     return 1.0 if entry is None else float(getattr(entry, "evidence_mass", 1.0))
@@ -310,7 +324,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 settings: ReplaySettings = ReplaySettings()) -> Events:
     """Read every replay input (no model call; current content only for ``reconstructed_current``)."""
 
-    from learnloop.field.outcomes import load_attempt_rows
+    from learnloop.field.outcomes import load_attempt_rows, measurement_masses, wholly_unassessed
     from learnloop.held_grades import held_for_review_attempts
 
     structure = R.load_structure(connection, vault, coupled=settings.coupling)
@@ -332,6 +346,9 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
     # Graded, quarantine and the current epoch from the authoritative ledger itself (never from
     # field's revision resolution: an attempt with frozen serve inputs needs none).
     ledger = {str(entry["attempt_id"]): entry for entry in load_authoritative_observation_ledger(connection)}
+    # Whether the grade measures anything, resolved from the ledger alone (Codex review F1): a
+    # frozen-input attempt skips field's revision resolution, never its assessment rule.
+    masses = measurement_masses(connection, vault, ledger.values())
     held = held_for_review_attempts(connection)
     serve_inputs: dict[str, dict[str, Any]] = {}
     if receipt_store.has_table(connection, receipt_store.SERVE_INPUTS):
@@ -452,8 +469,12 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             reason = "repeat_surface"
         elif attempt_id in held:
             reason = "held_for_review"
+        elif wholly_unassessed(source["evidence"]):
+            # PF-c: every criterion of the current grade unverified. It may schedule as correct;
+            # it measures nothing (owner decision 2026-10-12), so it trains nothing and tests no cell.
+            reason = "unassessed"
         elif (source.get("quarantine_state") == "quarantined" or attempt_type == "unassessable"
-              or _type_mass(vault, attempt_type) <= 0):
+              or _type_mass(vault, attempt_type) <= 0 or masses.get(attempt_id, 0.0) <= 0):
             reason = "zero_mass"
         elif not held_out_ok or str(attempt["practice_item_id"]) in held_out:
             reason = "held_out"
@@ -470,8 +491,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
                 primed=bool(attempt.get("primed")),
                 pre_exposed=bool(frozen.get("pre_exposed")) if frozen is not None else False,
                 bound_presentation=bool(presentation_id),
-                stuck=bool(attempt.get("declared_stuck")) or bool(attempt.get("declared_dont_know"))
-                or attempt_type == "dont_know",
+                stuck=forced_failure(attempt),
             )
             category = O.category(facts)
             if category is None:
@@ -768,29 +788,61 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
 
 
 # -- the live cache -------------------------------------------------------------------------------
+#
+# The cache is keyed by a **semantic** fingerprint (Codex review F3): the digest of the events the
+# replay reads, never a table's row count or largest rowid, which a delete-and-insert (SQLite reuses
+# the freed rowid), an in-place update or a table the list forgot (the interpretations behind
+# quarantine) leave unchanged. Every input reaches the replay only through ``load_events``, so equal
+# events give an equal replay: the live state is the fresh rebuild's, whatever wrote the change and
+# from whichever connection. What the cache saves is the filter over the events (on the stage's test
+# vaults, reading them took longer than the filter did, so the saving was always the smaller part).
 
-_CACHE: dict[tuple[str, int, str], tuple[str, Snapshot]] = {}
+_CACHE: dict[tuple[str, int, str, str | None], tuple[str, Snapshot]] = {}
 _CACHE_LOCK = threading.Lock()
-_FINGERPRINT_TABLES = ("practice_attempts", "grading_evidence", "item_serve_inputs", "ad_reading_opportunities",
-                       "learner_claims", "judgment_ledger", "ad_coupling_versions", "ad_relatedness_runs",
-                       "blind_grade_records", "practice_item_snapshots", "reveal_events", "plan_presentations",
-                       "question_events")
 
 
-def fingerprint(connection: Any) -> str:
-    digest = hashlib.sha256()
-    for table in _FINGERPRINT_TABLES:
-        if not serving_store.has_table(connection, table):
-            digest.update(f"{table}:-".encode())
-            continue
-        count, top = connection.execute(f"SELECT COUNT(*), MAX(rowid) FROM {table}").fetchone()
-        digest.update(f"{table}:{count}:{top}".encode())
-    return digest.hexdigest()
+def _plain(value: Any) -> Any:
+    from dataclasses import asdict, is_dataclass
+
+    if is_dataclass(value) and not isinstance(value, type):
+        return asdict(value)
+    if isinstance(value, Mapping):
+        return {str(k): v for k, v in value.items()}
+    if isinstance(value, (set, frozenset)):
+        return sorted(value, key=repr)
+    return repr(value)
+
+
+def events_fingerprint(events: Events) -> str:
+    """The digest of everything the replay reads (attempts with their frozen inputs, claims,
+    reading opportunities, the relatedness structure and the vault maps)."""
+
+    from dataclasses import asdict
+
+    structure = events.structure
+    payload = {
+        "attempts": [asdict(e) for e in events.attempts],
+        "claims": [asdict(e) for e in events.claims],
+        "opportunities": [asdict(e) for e in events.opportunities],
+        "structure": {
+            "facet_los": getattr(structure, "facet_los", None),
+            "lo_facets": getattr(structure, "lo_facets", None),
+            "couplings": {lo: [[p.at, p.values] for p in props]
+                          for lo, props in sorted(getattr(structure, "_couplings", {}).items())},
+            "loadings": {rev: [[p.at, p.values] for p in props]
+                         for rev, props in sorted(getattr(structure, "_loadings", {}).items())},
+            "versions": getattr(structure, "versions", None),
+        },
+        "lo_subject": events.lo_subject,
+        "lo_facets": events.lo_facets,
+    }
+    text = json.dumps(payload, sort_keys=True, default=_plain, allow_nan=True)
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = None, connection: Any = None,
              as_of: str | None = None) -> Snapshot:
-    """The current state (cached per database, vault and settings while no input changed)."""
+    """The current state (cached per database, vault and settings while the replay's events are unchanged)."""
 
     settings = settings or ReplaySettings.from_config(vault.config)
     own = connection is None
@@ -799,13 +851,14 @@ def snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None = N
 
         connection = connect(repository.sqlite_path, read_only=True)
     try:
-        key = (str(repository.sqlite_path), id(vault), settings.key())
-        stamp = fingerprint(connection) + (f":{as_of}" if as_of else "")
+        key = (str(repository.sqlite_path), id(vault), settings.key(), as_of)
+        events = load_events(connection, vault, repository, as_of=as_of, settings=settings)
+        stamp = events_fingerprint(events)
         with _CACHE_LOCK:
             cached = _CACHE.get(key)
         if cached is not None and cached[0] == stamp:
             return cached[1]
-        result = run(load_events(connection, vault, repository, as_of=as_of, settings=settings), settings)
+        result = run(events, settings)
         with _CACHE_LOCK:
             _CACHE[key] = (stamp, result)
         return result
@@ -886,7 +939,8 @@ __all__ = [
     "VIEW_SUBJECT",
     "clear_cache",
     "days",
-    "fingerprint",
+    "events_fingerprint",
+    "forced_failure",
     "load_events",
     "lo_view_name",
     "rebuild",

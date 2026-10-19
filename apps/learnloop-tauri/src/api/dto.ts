@@ -8528,6 +8528,15 @@ export interface ReaderDoseOfferDto {
     /** The glass box's line: "Offered at random, to learn how much of this helps you". */
     why: string;
     content: { extractionId?: string; spanId?: string; questionId?: string; style?: string };
+    /** extra_question only: the exact question the draw chose (never the section's ordinary
+     *  check), so the Reader shows that one. Absent from an older sidecar. */
+    question?: {
+      questionId: string;
+      sectionId: string | null;
+      prompt: string;
+      expectedAnswer: string;
+      spanIds: string[];
+    } | null;
   } | null;
 }
 
