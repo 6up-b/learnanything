@@ -719,7 +719,7 @@ def run_check(
     checked.symbolic_problem = sym_problem
     latency = int((time.monotonic() - started) * 1000)
     context = hint_workbench.WorkbenchHintContext(workbench_session_id=workbench_session_id, steps=tuple(live),
-                                                  verdicts=tuple(checked.verdicts))
+                                                  _raw_verdicts=tuple(checked.verdicts))
     row = {
         "id": assist_id, "surface": hint_workbench.SURFACE, "assist_kind": "check", "practice_item_id": item.id,
         "practice_item_hash": practice_item_hash(item), "practice_session_id": None,

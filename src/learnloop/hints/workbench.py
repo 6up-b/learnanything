@@ -146,7 +146,10 @@ class WorkbenchHintContext:
 
     workbench_session_id: str
     steps: tuple[WorkbenchStep, ...]
-    verdicts: tuple[StepVerdict, ...] = ()
+    #: The check's verdicts AS STORED (fix round 15: private; only
+    #: :meth:`current` reads them, so every consumer gets them masked by the
+    #: live switch through :attr:`verdicts`).
+    _raw_verdicts: tuple[StepVerdict, ...] = ()
     check_assist_id: str | None = None
     first_questionable: str | None = None
     error_kind_guess: str | None = None
@@ -186,8 +189,17 @@ class WorkbenchHintContext:
             enabled = bool(self.symbolic_now())
         except Exception:  # noqa: BLE001 - an unreadable switch is off
             enabled = False
-        verdicts = tuple(replace(row, method=symbolic_view(row.method, enabled=enabled)) for row in self.verdicts)
-        return self if verdicts == self.verdicts else replace(self, verdicts=verdicts)
+        verdicts = tuple(replace(row, method=symbolic_view(row.method, enabled=enabled))
+                         for row in self._raw_verdicts)
+        return self if verdicts == self._raw_verdicts else replace(self, _raw_verdicts=verdicts, symbolic_now=None)
+
+    @property
+    def verdicts(self) -> tuple[StepVerdict, ...]:
+        """The verdicts as they may be read NOW (fix round 15): every reader
+        (the chooser's state, the writer's prompt, row serialization) goes
+        through :meth:`current`."""
+
+        return self.current()._raw_verdicts
 
     def step(self, chain_id: str | None) -> WorkbenchStep | None:
         return next((step for step in self.steps if step.chain_id == chain_id), None) if chain_id else None
@@ -623,6 +635,9 @@ def decider_extra(context: WorkbenchHintContext) -> dict[str, Any]:
     "the state it gets"): the last check's summary and its map placement.
     Never a step's text, the reference or the map's states (§7.4)."""
 
+    # Fix round 15: the live-masked context, for the suggestion and the
+    # taken-rung draw alike (the switch may have changed since it was built).
+    context = context.current()
     verdicts = list(context.verdicts)
     return {
         "surface": "workbench",

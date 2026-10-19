@@ -727,3 +727,32 @@ def test_only_verdict_mark_and_claim_line_render_symbolic_marks() -> None:
     assert _ts_symbolic_mark_violations(files) == []
     assert _ts_symbolic_mark_violations({"screens/workbench/Rogue.tsx": "const x = `${verdict.mark} ok`;"}) == [
         "screens/workbench/Rogue.tsx:1: verdict.mark read outside verdictMark"]
+
+
+def _raw_verdict_reads(source: str) -> list[str]:
+    """Scopes that read ``._raw_verdicts`` outside ``WorkbenchHintContext``
+    (RW2b fix round 15: only the context's own ``current()`` reads them)."""
+
+    out: list[str] = []
+
+    def visit(node: ast.AST, scope: str) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scope = node.name if scope == "<module>" else f"{scope}.{node.name}"
+        if isinstance(node, ast.Attribute) and node.attr == "_raw_verdicts" \
+                and not scope.startswith("WorkbenchHintContext"):
+            out.append(scope)
+        for child in ast.iter_child_nodes(node):
+            visit(child, scope)
+
+    visit(ast.parse(source), "<module>")
+    return out
+
+
+def test_only_the_hint_context_reads_its_raw_verdicts() -> None:
+    assert _raw_verdict_reads("def f(context):\n    return context._raw_verdicts\n") == ["f"]
+    found = {}
+    for path in sorted((REPOSITORY_ROOT / "src").rglob("*.py")):
+        reads = _raw_verdict_reads(path.read_text(encoding="utf-8"))
+        if reads:
+            found[path.relative_to(REPOSITORY_ROOT).as_posix()] = reads
+    assert found == {}

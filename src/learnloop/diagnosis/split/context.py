@@ -742,6 +742,16 @@ def assemble_diagnosis_context(
 
     hypothesis_rows = list(hypotheses)
     registry_rows = list(registry)
+    if current.workbench_trace:
+        # RW2b fix round 15: the FINAL prompt-construction boundary, after
+        # every blocking step (the registry's embeddings above): the trace
+        # masked with the symbolic switch read NOW, so the rendered context,
+        # its hash and its receipt never carry a checked verdict while off.
+        from dataclasses import replace as _replace
+
+        from learnloop.symbolic_view import switch_now, trace_view
+
+        current = _replace(current, workbench_trace=trace_view(current.workbench_trace, enabled=switch_now(vault)))
 
     def build() -> tuple[dict[str, Any], str]:
         built = dict(blocks)

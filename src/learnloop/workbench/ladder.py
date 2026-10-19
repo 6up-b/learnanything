@@ -131,7 +131,7 @@ def hint_context(
     standing = hint_workbench.standing_steps(live, verdicts)
     continue_from = hint_workbench.checkpoint_for(live, standing, about)
     return hint_workbench.WorkbenchHintContext(
-        workbench_session_id=str(session["id"]), steps=tuple(live), verdicts=tuple(verdicts),
+        workbench_session_id=str(session["id"]), steps=tuple(live), _raw_verdicts=tuple(verdicts),
         check_assist_id=str(check["id"]) if check is not None else None, first_questionable=first,
         error_kind_guess=str(guess) if guess and section.error_kind_enabled else None,
         error_kind_alternatives=alternatives if section.error_kind_enabled else (),
