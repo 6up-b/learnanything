@@ -203,7 +203,7 @@ def build_workbench_report(sqlite_path: Path | str, *, item_facets: Mapping[str,
             goals["no_later_check"] += 1
             continue
         reached = any(verdict.get("map_node_id") == row["target_node_id"] and verdict.get("verdict") == "valid"
-                      for other in later_checks for verdict in _loads(other["step_verdicts_json"], []))
+                      for other in later_checks for verdict in verdict_records(other, enabled=symbolic_enabled))
         goals["reached" if reached else "not_reached"] += 1
     smaller = sum(1 for row in shown_hints if row["request"] == "smaller_step")
 

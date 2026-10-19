@@ -101,6 +101,7 @@ def hint_context(
     offered_level: int | None = None,
     suggestion_id: str | None = None,
     steps: Sequence[hint_workbench.WorkbenchStep] | None = None,
+    symbolic_now: Any = None,
 ) -> hint_workbench.WorkbenchHintContext:
     """What the hint service is given for one workbench request (module docstring)."""
 
@@ -136,7 +137,10 @@ def hint_context(
         error_kind_alternatives=alternatives if section.error_kind_enabled else (),
         about=about, continue_from=continue_from, standing=tuple(standing), offered_level=offered_level,
         suggestion_id=suggestion_id, help_style=session.get("help_style"), feedback_step=feedback_step,
-        discriminate_enabled=bool(section.discriminate_enabled), error_kind_enabled=bool(section.error_kind_enabled))
+        discriminate_enabled=bool(section.discriminate_enabled), error_kind_enabled=bool(section.error_kind_enabled),
+        # Fix round 12: the switch read again at every writer call and row
+        # serialization (the caller's live reader; else this vault's).
+        symbolic_now=symbolic_now if symbolic_now is not None else (lambda: hint_workbench.symbolic_enabled(vault)))
 
 
 def fallback_level(repository: Repository, session_id: str, about_step: str | None) -> int:

@@ -587,6 +587,8 @@ export const api = {
     hintsUsed: number;
     /** RW2b fix round 5: the authored reveals alone (see SubmitAttemptInput). */
     authoredHints?: number | null;
+    /** RW2b fix round 12: the count holds a book (see SubmitAttemptInput). */
+    bookCounted?: boolean | null;
     latencySeconds?: number | null;
     probePresentationId?: string | null;
     answerConfidence?: number | null;

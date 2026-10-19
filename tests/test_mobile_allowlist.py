@@ -327,8 +327,10 @@ def test_rw2b_fix5_authored_hints_is_an_optional_param_of_the_two_submits():
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
     for name in READER_RW2B_FIX5_EXTENDED_RPCS:
-        field = METHOD_REGISTRY[name].params_model.model_fields["authored_hints"]
-        assert field.default is None and not field.is_required(), name
+        # Fix round 12 adds book_counted beside authored_hints, optional too.
+        for key in ("authored_hints", "book_counted"):
+            field = METHOD_REGISTRY[name].params_model.model_fields[key]
+            assert field.default is None and not field.is_required(), (name, key)
 
 
 def test_the_pinned_rw2b_rpcs_are_all_of_them():

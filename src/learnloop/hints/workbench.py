@@ -168,6 +168,26 @@ class WorkbenchHintContext:
     feedback_step: str | None = None
     discriminate_enabled: bool = True
     error_kind_enabled: bool = True
+    #: Fix round 12: the CURRENT ``workbench.symbolic_checks_enabled``, read
+    #: again before every writer invocation and every row serialization (a
+    #: hint job may outlive a switch change). None: the verdicts are written
+    #: as decided (the check's own row, whose methods the sandbox just set).
+    symbolic_now: Callable[[], bool] | None = field(default=None, compare=False, repr=False)
+
+    def current(self) -> "WorkbenchHintContext":
+        """This context with its verdicts as they may be read NOW (the one
+        accessor, :mod:`learnloop.symbolic_view`, with the current switch)."""
+
+        from learnloop.symbolic_view import symbolic_view
+
+        if self.symbolic_now is None:
+            return self
+        try:
+            enabled = bool(self.symbolic_now())
+        except Exception:  # noqa: BLE001 - an unreadable switch is off
+            enabled = False
+        verdicts = tuple(replace(row, method=symbolic_view(row.method, enabled=enabled)) for row in self.verdicts)
+        return self if verdicts == self.verdicts else replace(self, verdicts=verdicts)
 
     def step(self, chain_id: str | None) -> WorkbenchStep | None:
         return next((step for step in self.steps if step.chain_id == chain_id), None) if chain_id else None
@@ -211,11 +231,18 @@ class WorkbenchHintContext:
                  "fingerprint": text_fingerprint(step.body_md)} for step in self.steps]
 
     def verdicts_record(self) -> list[dict[str, Any]]:
-        return [verdict_record(row) for row in self.verdicts]
+        """The verdicts as a new row stores them, read NOW (fix round 12)."""
+
+        return [verdict_record(row) for row in self.current().verdicts]
 
     def prompt_block(self) -> dict[str, Any]:
-        """What the writer is told about the steps (spec §5.8 "context per call")."""
+        """What the writer is told about the steps (spec §5.8 "context per
+        call"), with the verdicts read NOW before every writer invocation
+        (fix round 12)."""
 
+        current = self.current()
+        if current is not self:
+            return current.prompt_block()
         by_chain = {step.chain_id: step.number for step in self.steps}
         rows = []
         for step in self.steps:

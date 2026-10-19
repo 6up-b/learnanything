@@ -60,7 +60,8 @@ def held_components(parts: Any) -> tuple[tuple[str, ...], bool, int]:
 
 
 def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = None,
-                 union: Any = None, book: bool | None = None, carried: int | None = None) -> int:
+                 union: Any = None, book: bool | None = None, carried: int | None = None,
+                 client_book: bool = False) -> int:
     """The submit's count from the client's and the open problems' help
     (RW2b fix round 10, one rule). ``union``, ``book`` and ``carried`` are the
     components observed so far (:func:`held_components`; the refold passes
@@ -87,7 +88,9 @@ def combine_held(client_hints: int, parts: Any, *, authored_hints: int | None = 
     ids = set(found_union) | set(union or ())
     if not ids:
         return max([client] + [part_book + part_carried for part_book, part_carried, _ids in parts])
-    has_book = bool(found_book if book is None else (book or found_book))
+    # Fix round 12, item 2: a book the client holds (bookCounted) is its own
+    # component, ORed into the book before the formula.
+    has_book = bool(found_book if book is None else (book or found_book)) or bool(client_book)
     most_carried = max(found_carried, int(carried or 0))
     if authored_hints is None:
         non_server = max(client, most_carried + int(has_book))
@@ -164,6 +167,12 @@ class ServerHintFold:
     held_union: tuple[str, ...] = ()
     held_book: bool = False
     held_carried: int = 0
+    #: Fix round 12, item 1: the components above are KNOWN (set by the
+    #: submit), even when empty: an empty snapshot is never read as legacy
+    #: carried hints. False only for a fold built before the components existed.
+    held_known: bool = False
+    #: Fix round 12, item 2: the client says the book counted (``bookCounted``).
+    held_client_book: bool = False
     #: The client's authored reveals, sent on their own (fix round 5); None
     #: for an older client (round 4's rule).
     held_authored_hints: int | None = None
@@ -175,10 +184,13 @@ class ServerHintFold:
     def base(self) -> int:
         if self.held_reader is None:
             return int(self.base_hints)
-        parts = self.held_parts or (((0, int(self.held_hints), ()),) if self.held_hints else ())
+        parts = self.held_parts
+        if not parts and not self.held_known and not self.held_union and self.held_hints:
+            # A legacy fold with no components: its aggregate is carried hints.
+            parts = ((0, int(self.held_hints), ()),)
         return combine_held(self.held_client_hints, parts, authored_hints=self.held_authored_hints,
-                            union=self.held_union, book=self.held_book,
-                            carried=self.held_carried) + int(self.held_extra_hints)
+                            union=self.held_union, book=self.held_book, carried=self.held_carried,
+                            client_book=self.held_client_book) + int(self.held_extra_hints)
 
     def hints_used(self, folded: int | None = None) -> int:
         count = self.folded_hints if folded is None else int(folded)

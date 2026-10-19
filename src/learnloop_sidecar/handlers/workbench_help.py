@@ -97,6 +97,19 @@ def _guard(ctx: SidecarContext):
     return vault, repository
 
 
+def _live_symbolic_switch(ctx: SidecarContext) -> Callable[[], bool]:
+    """Fix round 12: the sidecar's CURRENT ``workbench.symbolic_checks_enabled``
+    (after a reload too), for a job that outlives a switch change."""
+
+    def read() -> bool:
+        from learnloop.symbolic_view import switch
+
+        vault, _repository = ctx.require_vault()
+        return switch(vault)
+
+    return read
+
+
 def _require(ctx: SidecarContext, session_id: str, *, bound: bool = True, open_: bool = True):
     vault, repository = _guard(ctx)
     try:
@@ -213,7 +226,8 @@ def suggest_help(ctx: SidecarContext, params: SuggestHelpInput) -> dict[str, Any
         return _immediate({"status": "refused", "reason": "diagnostic_block",
                            "message": "Hints are off during a diagnostic check."})
     _queue_stuck(ctx, vault, repository, params.session_id)
-    context = help_module.hint_context(vault, repository, session, focused_step=params.focused_step_id)
+    context = help_module.hint_context(vault, repository, session, focused_step=params.focused_step_id,
+                                       symbolic_now=_live_symbolic_switch(ctx))
     level = help_module.fallback_level(repository, params.session_id, context.about)
     _writer, factory, seed = _hint_clients(ctx)
 
@@ -285,7 +299,8 @@ def request_help(ctx: SidecarContext, params: RequestHelpInput) -> dict[str, Any
     feedback_step = params.feedback_step_id if params.feedback_shortcut == "not_where_stuck" else None
     context = help_module.hint_context(
         vault, repository, session, focused_step=params.focused_step_id, feedback_step=feedback_step,
-        answered=answered_row, offered_level=params.offered_level, suggestion_id=params.suggestion_id)
+        answered=answered_row, offered_level=params.offered_level, suggestion_id=params.suggestion_id,
+        symbolic_now=_live_symbolic_switch(ctx))
     if params.request == "feedback" and params.feedback_step_id and feedback_step is None:
         # The picked step is recorded on every reply (§5.7), and moves the
         # hint only for "that's not where I'm stuck".

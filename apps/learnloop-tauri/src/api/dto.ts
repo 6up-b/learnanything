@@ -1167,6 +1167,8 @@ export interface SubmitAttemptInput {
   /** RW2b fix round 5: the answer box's authored reveals alone (the server
    *  adds a counted book and the workbench's help itself, each once). */
   authoredHints?: number | null;
+  /** RW2b fix round 12: the count holds a book the answer box carried (its own component). */
+  bookCounted?: boolean | null;
   latencySeconds?: number | null;
   selfGrade?: SelfGradeInputDto | null;
   /** Retry launched from the feedback screen's source-review panel. */
