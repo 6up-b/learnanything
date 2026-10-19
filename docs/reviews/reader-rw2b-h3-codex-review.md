@@ -339,7 +339,7 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 
   The default is the honest label. A learner who writes `(\sin x)^2`, `x \cdot (x+1)` or brackets a limit's body
   gets a check. *Updated in fix round 6:* the list of notations that stay the model's reading is now longer, and
-  the full list is in "Fix round 6 (orchestrator)" below.
+  the full list is in "Fix round 6 (orchestrator)" below, as widened by "Fix round 7 (orchestrator)".
 
 ## Fix round 4 (orchestrator)
 
@@ -601,5 +601,92 @@ All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was f
 | `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix6.py`, `test_reader_rw2b_fix5.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **59 passed** |
 | `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
 | vitest | not run: no rendering changed (only the harness and Python tests) |
+
+There is no migration, no config key and no RPC or serializer change.
+
+## Fix round 7 (orchestrator)
+
+The verify (Codex job `20261018-193340-5s348l`, at `8535477c2`) found two Highs:
+
+1. **Defined names written with subscripts or formatting were missed** (a regression from round 6). After
+   `f(x_1)=x_1`, `f_1(x)=x`, `\mathrm{f}(x)=x` or `\operatorname{f}(x)=x`, the step `\frac{d}{dx}(f)=0` came
+   back `✓`.
+2. **A solve skipped a restricted previous equation because it evaluated the same.** The sequence `2x=0`,
+   `\frac{x^2}{x}=0`, `x=0` came back `✓`, and so did the `\dfrac` and `\tfrac` versions.
+
+**Ruling: make both rules blunt and syntactic, and prefer refusing over cleverness.** Fixed in `8218788b7`.
+**Paid calls: none ($0.00).**
+
+| item | severity | title | verdict | test (`tests/test_reader_rw2b_fix7.py`) |
+|---|---|---|---|---|
+| 1 | High | Subscripted or formatted defined names are missed | fixed | `test_a_subscripted_or_formatted_definition_still_makes_its_name_a_name` (×4), `test_a_primed_or_applied_identifier_anywhere_is_a_name`, `test_a_hints_claim_about_a_formatted_or_subscripted_name_is_never_checked` (×2): all fail on `8535477c2`. `test_a_text_that_formats_or_subscripts_is_never_checked` is a guard and passes before and after. |
+| 2 | High | A solve skips a restricted preceding equation | fixed | `test_a_solve_never_skips_a_restricted_preceding_equation` (`\frac`, `\dfrac`, `\tfrac`) and `test_a_hints_solve_claim_uses_the_step_just_before_its_step`: all fail on `8535477c2`. The guards `test_a_solve_checks_only_against_the_immediately_preceding_step` and `test_name_free_steps_of_each_kind_still_check` pass before and after. |
+
+**Rule 1, names** (`name_rule`, `scan_names`, `identifiers` in the harness). A step or hint claim is the model's
+reading if any of these holds:
+
+* **Its own text writes a command outside the allow-list** (`formatting_or_command`). The allow-list holds:
+  * the parser's own functions (`\sin` ... `\exp`, `\log`, `\ln`, `\sqrt`, `\frac`, `\dfrac`, `\tfrac`,
+    `\int`, `\sum`, `\prod`, `\lim`, `\left`, `\right`, `\cdot`, `\times`, `\div`, `\to`, `\min`,
+    `\max`);
+  * relations and constants (`\le`, `\ge`, `\ne`, `\infty`, `\pm`, `\approx`, ...);
+  * Greek letters.
+
+  So `\mathrm`, `\operatorname`, `\text`, `\mathit`, `\mathbf`, `\prime` and every other formatting command
+  refuse.
+* **Its own text puts a subscript on an identifier** (`subscript`): `x_1`, `\alpha_1`. The `_` of `\int`,
+  `\sum`, `\lim` and `\log` is not on an identifier.
+* **It writes an identifier that is a NAME** (`names_a_name`). A name is any identifier written directly before
+  `(` (whitespace, `\left`, a subscript or primes may come between), or with a prime (`'`, `\prime`,
+  `^{\prime}`), anywhere in:
+  * the problem text, its prose included;
+  * any earlier step;
+  * a hint claim's own step;
+  * the text itself.
+
+  Identifiers are canonical: formatting wrappers are taken off (`\mathrm{f}` is `f`), `\alpha` is `alpha`, and a
+  subscript is dropped to its base letter (`f_1(x)` makes `f` a name). The parser's built-in functions are
+  excepted.
+
+The scan works on tokens. It deliberately over-matches: `x(x+1)` makes `x` a name, and so does a one-letter word
+before a bracket in the problem's prose. A wrong extra name only costs a `✓`. Round 6's tree checks (function
+applications, prime tokens) stay as well.
+
+**Rule 2, solve** (`solved_equation`):
+
+* A solve step is checked **only** against the **immediately preceding** step's relation, never an older one, and
+  only when that step:
+  * is exactly one relation;
+  * passes rule 1;
+  * has no restriction token in its written text (a denominator, log, root, or a power that is not a whole
+    number).
+* The solve step itself also passes rule 1 and has no restriction token.
+* A first step may be checked against the problem's single equation, under the same conditions.
+* The "skip earlier relations that evaluate the same" logic is removed.
+* On the hint-claim path, a solve claim about step n is checked against step n-1. Step n is read for its names
+  only (`SymbolicClaim.names_context`), so a claim restating step n is never checked against itself.
+
+**Notations that stay the model's reading** (adding to round 6's list):
+
+* any formatting or other unlisted command, such as `\mathrm{d}x` in an integral;
+* any subscripted identifier;
+* every identifier written before `(` or with a prime anywhere in the problem, the earlier steps or the text.
+  This includes a variable such as `x` once `x(x+1)` or `x (` appears;
+* a solve whose immediately preceding step is not one unrestricted equation in its variable.
+
+### Gate (fix round 7)
+
+All runs used `TMPDIR=fixtures-local/tmp`. `/tmp/learnloop-fullsuite.lock` was held at first by another worktree's
+landing gate. These runs waited until it was free (`flock -n`). The fix commit was made before the gate ran, and
+the gate then passed on it unchanged.
+
+| Command | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **27 kept, 0 broken** |
+| `uv run pytest -n auto` over round 6's files plus `test_reader_rw2b_fix7.py` | **1127 passed** (52.7 s) |
+| `uv run pytest -n 8 --durable-sqlite` over `test_reader_rw2b_fix7.py`, `test_reader_rw2b_fix6.py`, `test_reader_rw2b_fix3.py`, `test_workbench_check.py` | **59 passed** |
+| `db_generate_reference.py` then `db_validate_reference.py` | **0 errors**. Only commit labels and line citations moved. |
+| vitest | not run: no rendering changed |
 
 There is no migration, no config key and no RPC or serializer change.
