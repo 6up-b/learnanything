@@ -3,8 +3,8 @@ title: "Config - plan"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
-source_commit_timestamp: "2026-10-19T00:57:40-04:00"
+source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
+source_commit_timestamp: "2026-10-19T03:01:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml plan"
@@ -77,7 +77,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `plan.reentry_minutes` | `15` | integer | modeled default or validator seed | Most minutes a re-entry plan takes after a break, whatever the remembered budget (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2842` |
 | `plan.reentry_max_items` | `8` | integer | modeled default or validator seed | Most items a re-entry plan serves after a break, whatever its minutes allow (D11). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2843` |
 | `plan.project_probes_max_per_day` | `4` | integer | modeled default or validator seed | Most due project probes a day in the maintain lane (project M2); the rest stay in the full list. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2848` |
-| `plan.headline` | `true` | boolean | modeled default or validator seed | Shows the optional one-line Today headline (display only, D7). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2850`; `src/learnloop/remote/views.py:179`; `src/learnloop_sidecar/handlers/daily_plan.py:432` |
+| `plan.headline` | `true` | boolean | modeled default or validator seed | Shows the optional one-line Today headline (display only, D7). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:2850`; `src/learnloop/remote/views.py:179`; `src/learnloop_sidecar/handlers/daily_plan.py:457` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

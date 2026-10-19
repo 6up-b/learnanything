@@ -3,8 +3,8 @@ title: "ingest_batches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
-source_commit_timestamp: "2026-10-19T00:57:40-04:00"
+source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
+source_commit_timestamp: "2026-10-19T03:01:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_batches"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/033_durable_ingest_jobs.sql"
   - "src/learnloop/cli/__init__.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/substrate/dataset.py"
 tags:

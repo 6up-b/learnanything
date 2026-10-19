@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
-source_commit_timestamp: "2026-10-19T00:57:40-04:00"
+source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
+source_commit_timestamp: "2026-10-19T03:01:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -19,7 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
-  - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/attempts/regrade.py"
@@ -27,6 +26,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
+  - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -170,6 +170,7 @@ Indexes and uniqueness:
 
 - `tests/mcp_world.py`
 - `tests/source_service_fakes.py`
+- `tests/test_ad23_fix_review.py`
 - `tests/test_ad2_model.py`
 - `tests/test_ad3_reading.py`
 - `tests/test_ad3_subject_view.py`
@@ -187,7 +188,6 @@ Indexes and uniqueness:
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_field_split_outcomes.py`
-- `tests/test_forecast_receipts.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

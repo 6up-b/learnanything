@@ -3,8 +3,8 @@ title: "Config - learner_text_gaps"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
-source_commit_timestamp: "2026-10-19T00:57:40-04:00"
+source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
+source_commit_timestamp: "2026-10-19T03:01:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml learner_text_gaps"
@@ -33,10 +33,10 @@ source_paths:
   - "tests/router_model_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ad1_codex_review_fixes.py"
+  - "tests/test_ad23_fix_review.py"
   - "tests/test_ad23_successor.py"
   - "tests/test_ad2_model.py"
   - "tests/test_adaptive_difficulty_ad1.py"
-  - "tests/test_ai_config.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/learner-text-gaps"
@@ -90,10 +90,10 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/router_model_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ad1_codex_review_fixes.py`
+- `tests/test_ad23_fix_review.py`
 - `tests/test_ad23_successor.py`
 - `tests/test_ad2_model.py`
 - `tests/test_adaptive_difficulty_ad1.py`
-- `tests/test_ai_config.py`
 
 ## Extension and modification guidance
 

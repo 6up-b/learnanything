@@ -3,8 +3,8 @@ title: "proposed_patch_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1660b0b1e8b64cecb10c97b68cace57e816f127f"
-source_commit_timestamp: "2026-10-19T00:57:40-04:00"
+source_commit: "3c1a83c5877744086145ee768a0454ff38c237f9"
+source_commit_timestamp: "2026-10-19T03:01:56-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite proposed_patch_items"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -125,6 +125,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/curriculum/concepts.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/ad_serving.py`
 - `src/learnloop_sidecar/handlers/app.py`
 
 ### Direct SQL writers
@@ -160,6 +161,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_ad23_owner_decisions.py`
 - `tests/test_patch_applier.py`
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
@@ -179,7 +181,6 @@ Indexes and uniqueness:
 - `tests/test_ingest_instrument_gates.py`
 - `tests/test_method_phrasing_report.py`
 - `tests/test_missing_vocabulary_notes.py`
-- `tests/test_persona_gate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
