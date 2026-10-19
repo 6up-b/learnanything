@@ -205,17 +205,20 @@ def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> 
     questions in (the workbench's own resolution,
     ``handlers.workbench._question_hints``). The Reader question is help on
     that item whatever the policy (Codex review F1), so its reveals always
-    land. When the client's cold path already records this question as a hint
-    on that same item (``reader_dialogue._record_cold_hint_equivalent``), the
-    binding is kept and only the hint count is left to that row (Codex
-    re-review F1). ``(None, None, False)`` when no session binds an item."""
+    land. ``(None, None, False)`` when no session binds an item.
+
+    The hint is left to the client's cold path
+    (``reader_dialogue._record_cold_hint_equivalent``) only when that path's
+    row counts in the same submission window the bound question would: the
+    same item and the same practice session (``count_hint_equivalent_question_events``
+    filters on both; the window start is the item's, so it is shared). The
+    session is resolved first, so a cold attempt in another session, or in
+    none, never takes the hint out of this one: the bound question then keeps
+    it, and a hint shown in session B counts in B's next submission once
+    (Codex re-review F1, final verify)."""
 
     if item is None or not params.workbench_session_id:
         return None, None, False
-    hint_elsewhere = False
-    if params.cold_active and params.cold_attempt_id:
-        attempt = repository.fetch_practice_attempt(params.cold_attempt_id) or {}
-        hint_elsewhere = attempt.get("practice_item_id") == item.id
     from learnloop.reader import workbench as WB
 
     session = WB.session_row(repository, params.workbench_session_id)
@@ -227,6 +230,13 @@ def _accounting_binding(vault: Any, repository: Any, params: Any, item: Any) -> 
     if not practice_session:
         recent = repository.most_recent_open_session()
         practice_session = recent["id"] if recent else None
+    hint_elsewhere = False
+    if params.cold_active and params.cold_attempt_id:
+        # The cold path writes its row only for an attempt it can fetch, on that
+        # attempt's (item, session); it replaces this question's count only there.
+        attempt = repository.fetch_practice_attempt(params.cold_attempt_id)
+        hint_elsewhere = (attempt is not None and attempt.get("practice_item_id") == item.id
+                          and attempt.get("session_id") == practice_session)
     return item, practice_session, hint_elsewhere
 
 

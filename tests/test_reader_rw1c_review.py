@@ -258,7 +258,7 @@ def test_another_way_shown_set_reaches_the_request(tmp_path, monkeypatch, intent
 # --- Re-review (Codex re-review of 015e02706) ---------------------------------------------------------
 
 
-def _cold_attempt(repository, vault, attempt_id: str, session_id: str) -> None:
+def _cold_attempt(repository, vault, attempt_id: str, session_id: str | None) -> None:
     item = vault.practice_items[ITEM]
     repository.insert_practice_attempt({
         "id": attempt_id, "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
@@ -388,3 +388,82 @@ def test_a_displayed_excerpt_is_debited_once(tmp_path, monkeypatch):
     reveals = _reveals(repository, answer["eventId"])
     assert sum(row["amount"] for row in reveals) == pytest.approx(exposure)
     assert reveal_total_for_submission(repository, ITEM) < AUTO_PRIME_REVEAL_THRESHOLD
+
+
+# --- Fix round 3 (orchestrator): the replacement row must count where the bound question would --------
+
+
+def _bound_to(repository, item_id: str, practice_session_id: str) -> str:
+    """A workbench session bound to the item and to one practice session (its submit counts there)."""
+
+    session = _bound_session(repository, item_id)
+    with repository.connection() as connection:
+        connection.execute("UPDATE workbench_sessions SET practice_session_id = ? WHERE id = ?",
+                           (practice_session_id, session))
+        connection.commit()
+    return session
+
+
+def _later_attempt(repository, vault, attempt_id: str, session_id: str) -> dict:
+    """The learner's next attempt on the item in the bound session, after the question."""
+
+    item = vault.practice_items[ITEM]
+    repository.insert_practice_attempt({
+        "id": attempt_id, "practice_item_id": item.id, "learning_object_id": item.learning_object_id,
+        "practice_mode": "short_answer", "attempt_type": "independent_attempt", "session_id": session_id,
+        "created_at": "2999-01-01T00:00:00Z",
+    })
+    return repository.fetch_practice_attempt(attempt_id)
+
+
+@pytest.mark.parametrize("cold_attempt", ["other_session", "null_session", "no_attempt"])
+def test_a_hint_shown_in_the_bound_session_counts_there_once(tmp_path, monkeypatch, cold_attempt):
+    """F1 (reopened twice): a cold attempt on the item in another practice session
+    A, or in no session, or no cold attempt at all, replaces nothing in the bound
+    session B. The bound question keeps its hint, so B's next submission and the
+    B attempt both count it once. (``no_attempt`` is a control: no replacement
+    row is written, so nothing was ever suppressed.)"""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
+
+    key = "Swapping two rows multiplies the determinant by minus one, so it flips."
+    tutor = LookupTutor(answer_md=key)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, key)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    session_a = repository.create_session()
+    session_b = repository.create_session()
+    cold_id = None
+    if cold_attempt != "no_attempt":
+        cold_id = "att_cold_rw1c_a"
+        _cold_attempt(repository, vault, cold_id, session_a if cold_attempt == "other_session" else None)
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session_b),
+                 coldActive=True, coldAttemptId=cold_id)
+    event = repository.question_event(answer["eventId"])
+    assert event["practice_item_id"] == ITEM and event["session_id"] == session_b
+    assert hint_equivalents_for_submission(repository, ITEM, session_b) == 1
+    assert hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_b_rw1c", session_b)) == 1
+    assert event["hint_equivalent"] is True
+
+
+def test_a_same_session_cold_hint_still_counts_once(tmp_path, monkeypatch):
+    """The control: the cold row is in the bound session's own window, so the bound
+    question leaves the hint to it (1, never 2), at submission and post hoc."""
+
+    from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt, hint_equivalents_for_submission
+
+    key = "Swapping two rows multiplies the determinant by minus one, so it flips."
+    tutor = LookupTutor(answer_md=key)
+    paths, ctx, repository, _spans = reader_ctx(tmp_path, monkeypatch, tutor)
+    set_item_answer(paths, ITEM, key)
+    ctx = _rebind(paths, ctx)
+    vault, _repository = ctx.require_vault()
+    repository.create_session()
+    session_b = repository.create_session()
+    _cold_attempt(repository, vault, "att_cold_rw1c_b", session_b)
+    answer = ask(ctx, workbenchSessionId=_bound_to(repository, ITEM, session_b),
+                 coldActive=True, coldAttemptId="att_cold_rw1c_b")
+    assert repository.question_event(answer["eventId"])["hint_equivalent"] is False
+    assert hint_equivalents_for_submission(repository, ITEM, session_b) == 1
+    assert hint_equivalents_for_attempt(repository, _later_attempt(repository, vault, "att_b_rw1c", session_b)) == 1

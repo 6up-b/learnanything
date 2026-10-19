@@ -748,7 +748,8 @@ def ask_question(
         item, practice_item_id = bound_item, bound_item.id
     hint_equivalent = item is not None and answer.question_type in HINT_EQUIVALENT_TYPES and not (
         # RW1c (Codex re-review F1): the client's cold path already counts
-        # this question as a hint on the bound item; its reveals still land.
+        # this question as a hint on the bound item, in the same practice
+        # session; its reveals still land.
         bound_item is not None and bool(getattr(reader_tutor, "hint_counted_elsewhere", False)))
     leak_overlap = (
         # A bound Reader answer shows its bridge too, scored with the

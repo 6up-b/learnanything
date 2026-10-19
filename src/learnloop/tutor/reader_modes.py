@@ -79,9 +79,10 @@ class ReaderTutorRequest:
     bound_item: Any = None
     practice_session_id: str | None = None
     #: The client's cold path already records this question as a hint on the
-    #: bound item (``reader_dialogue._record_cold_hint_equivalent``): the bound
-    #: question keeps the item for its reveals and is not counted as a hint a
-    #: second time (Codex re-review F1).
+    #: bound item in the bound practice session, the same submission window
+    #: (``reader_dialogue._record_cold_hint_equivalent``): the bound question
+    #: keeps the item for its reveals and is not counted as a hint a second
+    #: time (Codex re-review F1). Never set for a cold row in another session.
     hint_counted_elsewhere: bool = False
     #: Item-bound, the guard every delivered span passes (the selection, its
     #: neighbours, the blocks they cite and the retrieved passages):
